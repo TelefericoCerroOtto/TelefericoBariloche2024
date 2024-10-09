@@ -1,0 +1,10 @@
+.gcloudignore
+.git
+.gitignore
+node_modules/
+#!include:.gitignore
+!.env
+.env.example
+../design/*
+../frontend/*
+../README.md

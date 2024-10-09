@@ -1,0 +1,32 @@
+{
+  "name": "teleferico-cms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Strapi application",
+  "scripts": {
+    "build": "strapi build",
+    "deploy": "strapi deploy",
+    "develop": "strapi develop",
+    "start": "strapi start",
+    "strapi": "strapi"
+  },
+  "dependencies": {
+    "@strapi-community/strapi-provider-upload-google-cloud-storage": "^4.10.5",
+    "@strapi/plugin-cloud": "5.0.4",
+    "@strapi/plugin-users-permissions": "5.0.4",
+    "@strapi/strapi": "5.0.4",
+    "mysql2": "^3.11.3",
+    "pg": "^8.13.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^6.0.0",
+    "styled-components": "^6.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0 <=22.x.x",
+    "npm": ">=6.0.0"
+  },
+  "strapi": {
+    "uuid": "227f52fc-49fd-42d2-a830-733152d3c39b"
+  }
+}
