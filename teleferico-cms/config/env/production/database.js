@@ -1,5 +1,8 @@
 module.exports = ({ env }) => ({
   connection: {
-    host: `/cloudsql/${env("INSTANCE_CONNECTION_NAME")}`,
+    client: env("DATABASE_CLIENT"),
+    connection: {
+      host: `/cloudsql/${env("INSTANCE_CONNECTION_NAME")}`,
+    },
   },
 });
