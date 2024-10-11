@@ -1,6 +1,6 @@
-# Telferico Demo
+# Telferico Bariloche 2024
 
-Este proyecto es una prueba para desplegar la aplicación web utilizando Strapi como CMS y Next.js para el frontend. El proyecto será desplegado en Google Cloud.
+Este repositorio alberga la nueva versión del sitio web de Teleférico Cerro Otto, diseñado para ofrecer una experiencia mejorada y moderna. Desarrollado con [Next.js](https://nextjs.org/) y [Strapi](https://strapi.io/), el proyecto está desplegado en Google [Cloud Platform](https://cloud.google.com/?hl=en), garantizando rendimiento y escalabilidad. Esta nueva implementación sustituirá la versión anterior una vez que esté completamente finalizada.
 
 # Configurar entorno local 🔧
 
@@ -14,20 +14,35 @@ En este caso el entorno local contaba con [nvm](https://github.com/nvm-sh/nvm) p
 
 Para la base de datos se utilizo MySQL v8.0.37 gestionado a traves de MySQL Workbench. Es necesario tener el servidor de la base de datos corriendo en algun puerto y dentro generar la base de datos que utilizara Strapi. Todos estos parametros se configuran a traves de la consola cuando se selecciona la configuracion manual al ejecutar el comando `npx create-strapi-app`. Si se usa la opcion `quickstart` seran colocados valores por defecto. Tambien se pueden modificar a traves de las variables de entorno en el archivo **.env** una vez creado el proyecto. Las variables son
 
+- DATABASE_CLIENT: Base de datos que se utilizara
 - DATABASE_HOST: Direccion IP del servidor
 - DATABASE_PORT: Puerto donde corre el servidor
 - DATABASE_NAME: Nombre de la base de datos
 - DATABASE_USERNAME: Usuario con permisos necesarios para operar con la DB.
 - DATABASE_PASSWORD: Contraseña del usuario.
 
-### Instalacion 📦
+### Inicializar proyecto 📦
 
-Ubicarse en el directorio donde se desee crear el proyecto, y ejecutar el comando `npx create-strapi-app@latest nombre_del_proyecto` reemplazando _"nombre_del_proyecto"_ por el nombre real de tu proyecto. Este comando creara una carpeta nombrada como se le indico anteriormente con toda la aplicacion dentro. Una vez finalizada la instalacion del proyecto, ubicarse dentro de la carpeta y ejecutar el comando `npm run develop`. Deberia desplegarse una salida por consola donde se encuentre la direccion ip y el puerto donde se esta corriendo Strapi.
+Para la creacion del proyecto se siguieron los siguientes pasos.
+
+Ubicarse en el directorio donde se desee crear el proyecto, y ejecutar el comando `npx create-strapi-app@latest nombre_del_proyecto` reemplazando _"nombre_del_proyecto"_ por el nombre real de tu proyecto. Este comando creara una carpeta nombrada como se le indico anteriormente con toda la aplicacion dentro.
 
 > **Nota:** Puede lanzar un error al ejecutar el comando `npm run develop` que diga `throw new Error('Failed to load native binding', { cause: loadErrors })`. No se porque sucede esto, pero para solucionarlo simplemente ejecutar el comando `npm update` dentro del directorio del proyecto.
 
-> **Nota:** Cuando se utiliza una version de MySQL mayor a la 8._ y la version de strapi 4._ es necesario instalar el paquete **mysql2** a traves del comando `npm i mysql2`. Luego cambiar el valor de la variable de entorno _DATABASE_CLIENT_ por _mysql2_ definida dentro del archivo **.env**. De lo contrario se obtendra un error al momento de lanzar el servidor de desarrollo que dira:
+> **Nota:** Cuando se utiliza una version de MySQL mayor a la 8._ es necesario instalar el paquete **mysql2** a traves del comando `npm i mysql2`. Si la version de strapi es 4._, hay que configurar el cliente como _mysql2_. Esto se logra cambiando el valor de la variable de entorno _DATABASE_CLIENT_ por _mysql2_ definida dentro del archivo **.env**. De lo contrario se obtendra un error al momento de lanzar el servidor de desarrollo que dira:
 > `ER_NOT_SUPPORTED_AUTH_MODE: Client does not support authentication protocol requested by server;`
+
+### Instalacion
+
+Clonar el repositorio con
+
+```git
+git clone
+```
+
+### Iniciar app
+
+Ubicarse con la terminal dentro del directorio "./teleferico-cms" y ejecutar el comando `npm run develop`. Deberia desplegarse una salida por consola donde se encuentre la direccion ip y el puerto donde se esta corriendo Strapi.
 
 ## NextJS
 
@@ -111,32 +126,11 @@ module.exports = ({ env }) => ({
 
 **Definir entornos**
 
-Strapi permite definir configuraciones estaticas dependiendo del entorno en el que se este ejecutando. El entorno se define a traves de la variable de entorno _NODE_ENV_ (su valor por defecto es "development"). Para definir estas configuraciones es necesario declarar una carpeta llamada "env" dentro del directo "/config", y dentro de la cual crearemos tantas carpetas como entornos se precisen. Las configuraciones definidas dentro de estas carpetas sobreescribiran a las que se encuentren dentro de "/config". Por ejemplo, todas las opciones declaradas en el archivo _"/config/env/production/database.ts"_ sobreescribiran a las del archivo _"/config/database"_ cuando la variable de entorno _NODE_ENV=production_. Para mas info ver [environment configurations](https://docs-v4.strapi.io/dev-docs/configurations/environment#environment-configurations).
+Strapi permite definir configuraciones estaticas dependiendo del entorno en el que se este ejecutando. El entorno se define a traves de la variable de entorno _NODE_ENV_ (su valor por defecto es "development"). Para definir estas configuraciones es necesario declarar una carpeta llamada "env" dentro del directo "/config", y dentro de la cual crearemos tantas carpetas como entornos se precisen. Las configuraciones definidas dentro de estas carpetas sobreescribiran a las que se encuentren dentro de "/config". Por ejemplo, todas las opciones declaradas en el archivo _"/config/env/production/database.ts"_ sobreescribiran a las del archivo _"/config/database.ts"_ cuando la variable de entorno _NODE_ENV=production_. Para mas info ver [environment configurations](https://docs-v4.strapi.io/dev-docs/configurations/environment#environment-configurations).
 
-> **Nota:** Para que esta sobreescritura funciones es neceario que la carpeta tenga el mismo nombre que el valor de la variable _NODE_ENV_.
+> **Nota:** Para que la sobreescritura de configuracion funcione, es necesario que la carpeta tenga exactamente el mismo nombre que el valor de la variable _NODE_ENV_.
 
-Para poder aplicar las diferentes configuraciones dependiendo el entorno es necesario realizar el build y start con un el prefijo `NODE_ENV=entorno`. E.g.:
-
-```bash
-NODE_ENV=production npm run build
-NODE_ENV=production npm run start
-```
-
-Es necesario que este antes de la ejecucion del comando y no despues. Para ello se modificaran los scripts `gcp-build` y `start` definidos en el archivo _"package.json"_ para que busquen el valor de la variable de entorno. Esto se hace con el prefijo $.
-
-```json
-"scripts": {
-  "gcp-build": "NODE_ENV=$NODE_ENV strapi build",
-  "start": "NODE_ENV=$NODE_ENV strapi start",
-}
-```
-
-Al realizar el despliegue desde Cloud Build, la configuración de cada trigger (especificada en "buildconfig.yaml") definirá todas las variables de entorno, incluida NODE\*ENV. Es crucial que cada trigger tenga correctamente asignado el valor de la variable NODE*ENV según la rama a la que esté asociado. Por ejemplo, el trigger que se dispara cuando se pushea a `staging` tiene que tener en su archivo *"buildconfig.yaml"\_
-
-```yaml
-env:
-  - NODE_ENV=staging
-```
+> **Nota:** Strapi captura automáticamente el valor de la variable de entorno _NODE_ENV_ al ejecutar los comandos "build" y "start". Este valor se define en el archivo app.yaml, lo que permite que Strapi utilice el entorno deseado por el desarrollador tanto durante la construcción(Cloud Build) como al iniciar la aplicación(App Engine).
 
 ---
 
@@ -349,7 +343,7 @@ steps:
         sed -i "s/%JWT_SECRET%/$$JWT_SECRET_STAGING/g" ./path/to/app.yaml &&
 
         gcloud app deploy ./path/to/app.yaml --project
-        telefericodemo
+        teleferico-bariloche-2024
     entrypoint: bash
     secretEnv:
       - DATABASE_NAME_STAGING
@@ -366,7 +360,7 @@ options:
   logging: CLOUD_LOGGING_ONLY
 substitutions:
   _HOST: 0.0.0.0
-  _GCS_BUCKET_NAME: strapi-bucket-telefericodemo
+  _GCS_BUCKET_NAME: strapi-bucket-teleferico-2024-staging
   _DATABASE_CLIENT: postgres
   _GCS_BASE_PATH: cms
   _NODE_ENV: staging
@@ -408,7 +402,9 @@ Dentro de la opcion **args** se puede observar la llamada al comando `sed -i` pa
 
 ## NextJS
 
-Completar...
+Para el despliegue del sitio se utiliza Cloud Run. Se crea un nuevo serivicio desde la interfaz de la consola de gcp. Se puede seleccionar la opcion de despliegue continuo desde el repositorio. Al seleccionar esta opcion se creara automaticamente un trigger global en Cloud Build que constriuira la imagen de Docker y la desplegara en Cloud Run. Todos los builds ejecutados subiran una copia de la imagen a Artifact Registry, esto sirve para el mantener un versionamiento de todos los builds. Para la construccion de la imagen se puede utilizar un Dockerfile personalizado o buildpacks. Se utilizaran buildpacks los cuales detectan automaticamente el lenguaje del proyecto y generan una imagen optimizada.
+
+Completada la configuracion de Cloud Run se modifica el trigger creado. Se cambia el nombre, la region, la fuente y los archivos incluidos y omitidos.
 
 # Flujo de Trabajo con Git 🔀
 
@@ -426,28 +422,45 @@ Este flujo de trabajo utiliza tres ramas principales: `main`, `staging` y `devel
   - Asociada con el entorno de **staging**.
   - Se despliega en el entorno de staging para pruebas previas a la producción.
 
-- **develop**:
+- **development**:
+
   - Ramas de desarrollo donde se crean y mergean las distintas **features**.
-  - Cuando una feature está lista, se hace un **merge** a `develop`.
+  - Cuando una feature está lista, se hace un **merge** a `development`.
+
+- **docs**:
+
+  - Exclusiva para modificaciones a archivos de documentacion.
+  - Mergea a `main` y `development`
+  - No implica que las modificaciones a archivos de documentacion se realicen unicamente en esta rama. Es decir que la documentacion puede ser actualizada en otras ramas.
+
+- **feat/FEATURE_NAME**:
+
+  - Los cambios realizados tienen que estar relacionados con la feature.
+  - Mergean unicamente a `development` a traves de Pull Request.
+
+- **fix/FIX_NAME**:
+  - Contienen hotfix.
+  - Mergean a `development` y/o `staging` a traves de Pull Request
 
 ## Flujo de Trabajo
 
 1.  **Desarrollo de Features**:
 
-    Crear una rama nueva desde `develop` para cada nueva feature y pushearla al repo remoto:
+    Crear una rama nueva desde `development` para cada nueva feature y pushearla al repo remoto:
 
     ```
-    git switch -c feat/nueva-feature develop
+    git switch -c feat/nueva-feature development
     git push --set-upstream origin feat/nueva-feature
     ```
 
-2.  **Merge de Features**:
+2.  **Merge de Features/Fixes**:
 
-    Una vez completada la feature, crear una Pull Request a `develop`:
+    Una vez completada la feature, crear una Pull Request a `development`. En caso de que sea un fix, crear PR tambien a `staging`.
+    Aprobada la PR, se debe eliminar la rama asociada a la feature o fix del repositorio remoto.
 
 3.  **Despliegue en Staging**::
 
-    Cuando `develop` está listo para ser probado, crear una Pull Request a `staging`:
+    Cuando `development` está listo para ser probado, crear una Pull Request a `staging`:
 
     Despliegue automático de `staging` en el entorno de staging gracias a los **triggers configurados en Cloud Build**.
 
