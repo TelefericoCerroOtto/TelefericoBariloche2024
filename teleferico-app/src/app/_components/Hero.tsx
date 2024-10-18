@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Button, Image as NuiImage } from "@nextui-org/react";
+import { Button } from "@nextui-org/react";
 import confiteria from "@/public/confiteria2.jpg";
 
 export default function Hero() {
