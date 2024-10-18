@@ -1,9 +1,7 @@
 import { Providers } from "@/app/providers";
 import type { Metadata } from "next";
-import { Navbar, Footer } from "./_components";
+import { Footer, Navbar } from "./_components";
 import "./globals.css";
-import Image from "next/image";
-import confiteria from "@/public/confiteria2.jpg";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -22,12 +20,6 @@ export default function RootLayout({
           <div className="">
             <Navbar />
             <main className="flex min-h-screen flex-col justify-between">
-              {/* <Image
-                fill
-                className="left-0 top-0 object-cover sm:object-cover"
-                alt="NextUI hero Image"
-                src={confiteria.src}
-              /> */}
               {children}
             </main>
             <Footer />
