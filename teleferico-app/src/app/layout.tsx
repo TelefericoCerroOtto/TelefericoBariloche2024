@@ -1,17 +1,9 @@
+import { Providers } from "@/app/providers";
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Navbar, Footer } from "./_components";
 import "./globals.css";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+import Image from "next/image";
+import confiteria from "@/public/confiteria2.jpg";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -25,10 +17,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`antialiased`}>
+        <Providers>
+          <div className="">
+            <Navbar />
+            <main className="flex min-h-screen flex-col justify-between">
+              {/* <Image
+                fill
+                className="left-0 top-0 object-cover sm:object-cover"
+                alt="NextUI hero Image"
+                src={confiteria.src}
+              /> */}
+              {children}
+            </main>
+            <Footer />
+          </div>
+        </Providers>
       </body>
     </html>
   );
