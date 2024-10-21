@@ -3,3 +3,4 @@ export { default as Footer } from "./Footer";
 export { default as Hero } from "./Hero";
 export { default as Cards } from "./Cards";
 export { default as Poster } from "./Poster";
+export { default as State } from "./State";

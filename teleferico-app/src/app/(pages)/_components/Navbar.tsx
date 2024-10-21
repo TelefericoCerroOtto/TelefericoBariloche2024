@@ -29,7 +29,7 @@ export default function Navbar() {
     <NuiNavbar
       position="sticky"
       className="text-black"
-      // isBlurred={false}
+      isBlurred={true}
       isBordered
       disableAnimation
       onMenuOpenChange={setIsMenuOpen}
@@ -52,7 +52,12 @@ export default function Navbar() {
       <NavbarMenu>
         {items.map((item, index) => (
           <NavbarMenuItem key={index}>
-            <Link className="w-full text-white" href={item.route} size="lg">
+            <Link
+              color="foreground"
+              className="w-full"
+              href={item.route}
+              size="lg"
+            >
               {item.title}
             </Link>
           </NavbarMenuItem>

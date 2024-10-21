@@ -1,6 +1,5 @@
 import { Providers } from "@/app/providers";
 import type { Metadata } from "next";
-import { Footer, Navbar } from "./_components";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,15 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`antialiased`}>
-        <Providers>
-          <div className="">
-            <Navbar />
-            <main className="flex min-h-screen flex-col justify-between">
-              {children}
-            </main>
-            <Footer />
-          </div>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
