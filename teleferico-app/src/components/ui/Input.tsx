@@ -1,16 +1,10 @@
 "use client";
 
-import { cva } from "class-variance-authority";
+import { cva, type VariantProps } from "class-variance-authority";
 import clsx from "clsx";
 import type { InputHTMLAttributes } from "react";
 
-interface Props extends InputHTMLAttributes<HTMLInputElement> {
-  label: string;
-  error?: string;
-  touched?: boolean;
-}
-
-const inputStyles = cva("rounded-md border p-2", {
+const inputStyles = cva("rounded-md border p-2 outline-none", {
   variants: {
     intent: {
       primary: "border-black",
@@ -21,6 +15,14 @@ const inputStyles = cva("rounded-md border p-2", {
     intent: "primary",
   },
 });
+
+interface Props
+  extends InputHTMLAttributes<HTMLInputElement>,
+    VariantProps<typeof inputStyles> {
+  label: string;
+  error?: string;
+  touched?: boolean;
+}
 
 export default function Input(props: Props) {
   const {

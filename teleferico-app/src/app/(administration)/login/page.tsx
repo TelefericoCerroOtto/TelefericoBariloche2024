@@ -1,9 +1,11 @@
-import { Form } from "./_components/Form";
+import { FormDos } from "./_components/FormDos";
+import Portrait from "./_components/Portrait";
 
 export default function Page() {
   return (
-    <div className="flex h-screen w-full items-center justify-center px-4">
-      <Form />
+    <div className="flex h-screen w-full items-center justify-between">
+      <Portrait />
+      <FormDos />
     </div>
   );
 }
