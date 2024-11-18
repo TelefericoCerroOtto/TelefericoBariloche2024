@@ -36,6 +36,11 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --custom-green: #045009;
+    --custom-blue: #0b4795;
+    --custom-orange: #ce6700;
+    --custom-red: #9f1212;
   }
   .dark {
     --background: 0 0% 3.9%;
