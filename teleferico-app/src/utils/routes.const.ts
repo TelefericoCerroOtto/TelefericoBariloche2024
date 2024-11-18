@@ -12,11 +12,11 @@ export const ROUTES = {
 
 export const ADMIN_ROUTES = {
   DASHBOARD: "/dashboard",
-  ADMIN_GALLERY: "/admin-gallery",
-  BUSES: "/buses",
-  NEWS: "/news",
-  PRICES: "/prices",
-  RECRUITMENT: "/recruitment",
-  ZONES: "/zones",
-  ADMIN_USERS: "/admin-users",
+  ADMIN_GALLERY: "/dashboard/admin-gallery",
+  BUSES: "/dashboard/buses",
+  NEWS: "/dashboard/news",
+  PRICES: "/dashboard/prices",
+  RECRUITMENT: "/dashboard/recruitment",
+  ZONES: "/dashboard/zones",
+  ADMIN_USERS: "/dashboard/admin-users",
 };

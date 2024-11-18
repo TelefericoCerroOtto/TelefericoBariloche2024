@@ -12,6 +12,7 @@ import {
   SidebarMenuItem,
 } from "@/components/Sidebar";
 import LogoRecortado from "@/public/logo-recortado.svg";
+import { ADMIN_ROUTES } from "@/utils/routes.const";
 import {
   Building2,
   BusFront,
@@ -26,7 +27,6 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
 
 const items = [
   {
@@ -72,7 +72,7 @@ export default function Sidebar() {
   return (
     <SidebarContainer>
       <SidebarHeader>
-        <Link href="/dashboard" className="m-auto">
+        <Link href={ADMIN_ROUTES.DASHBOARD} className="m-auto">
           <Image src={LogoRecortado} alt="logo recortado" />
         </Link>
       </SidebarHeader>
