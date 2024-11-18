@@ -1,5 +1,6 @@
 import { SidebarProvider } from "@/components/Sidebar";
 import Sidebar from "./_components/Sidebar";
+import { Header } from "./_components/Header";
 
 export default function DashboardLayout({
   children,
@@ -10,7 +11,10 @@ export default function DashboardLayout({
     <div>
       <SidebarProvider>
         <Sidebar />
-        <main>{children}</main>
+        <main className="w-full">
+          <Header />
+          {children}
+        </main>
       </SidebarProvider>
     </div>
   );
