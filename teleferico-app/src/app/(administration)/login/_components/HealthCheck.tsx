@@ -1,6 +1,6 @@
 "use client";
 
-import ButtonDos from "@/components/ui/ButtonDos";
+import { ButtonDos } from "@/components";
 import { Spinner } from "@nextui-org/react";
 import { useState } from "react";
 

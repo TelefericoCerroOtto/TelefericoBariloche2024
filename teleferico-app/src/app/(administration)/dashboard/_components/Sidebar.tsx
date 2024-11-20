@@ -10,7 +10,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/Sidebar";
+} from "@/components/ui/Sidebar";
 import LogoRecortado from "@/public/logo-recortado.svg";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import {

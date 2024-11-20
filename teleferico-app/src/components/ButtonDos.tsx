@@ -15,16 +15,17 @@ export const buttonStyles = cva(
   "active:scale-95 inline-flex items-center font-bold outline-none min-w-[70px] justify-center rounded-full transition-colors disabled:pointer-events-none",
   {
     variants: {
+      // TODO: cambiar los "primary" por "custom-"
       intent: {
         solid: "bg-primary hover:bg-primary/90 text-white",
         ghost: "hover:bg-primary/20 text-primary",
         outlineRed:
-          "bg-transparent hover:bg-primary/20 border-2 border-primary text-primary",
+          "bg-transparent hover:bg-primary/20 border-1 border-primary text-primary",
         outlineWhite: "bg-transparent hover:bg-white/20 border-white ",
         disable: "bg-primary-foreground text-white cursor-default",
       },
       size: {
-        default: "h-10 py-2 px-4 text-sm",
+        default: "h-9 px-2 text-xs sm:h-10 sm:py-2 sm:px-4 sm:text-sm",
         sm: "h-9 px-2 text-xs",
         lg: "h-11 px-8 text-base",
       },

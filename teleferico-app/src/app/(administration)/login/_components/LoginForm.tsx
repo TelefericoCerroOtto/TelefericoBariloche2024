@@ -1,6 +1,6 @@
 "use client";
 
-import ButtonDos from "@/components/ui/ButtonDos";
+import { ButtonDos } from "@/components";
 import { Input } from "@nextui-org/react";
 import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
