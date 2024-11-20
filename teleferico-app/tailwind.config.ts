@@ -17,6 +17,7 @@ const config: Config = {
           blue: "var(--custom-blue)",
           orange: "var(--custom-orange)",
           red: "var(--custom-red)",
+          border: "var(--custom-border)",
         },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

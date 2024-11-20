@@ -41,6 +41,7 @@
     --custom-blue: #0b4795;
     --custom-orange: #ce6700;
     --custom-red: #9f1212;
+    --custom-border: #dedfe2;
   }
   .dark {
     --background: 0 0% 3.9%;
