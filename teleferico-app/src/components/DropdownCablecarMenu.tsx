@@ -95,7 +95,6 @@ export default function DropdownCablecarMenu({
           {(item) => (
             <DropdownItem
               key={item.key}
-              className={`text${item.color}`}
               isReadOnly={isLoading}
               endContent={
                 selectedValue === item.key ? (

@@ -1,6 +1,6 @@
 import { SidebarProvider } from "@/components/Sidebar";
-import Sidebar from "./_components/Sidebar";
 import { Header } from "./_components/Header";
+import Sidebar from "./_components/Sidebar";
 
 export default function DashboardLayout({
   children,
@@ -13,7 +13,13 @@ export default function DashboardLayout({
         <Sidebar />
         <main className="w-full">
           <Header />
-          {children}
+          {/* TODO: resolver diferencia con el height del header.
+          tailwind no acepta clases de manera dinamica 
+          https://stackoverflow.com/questions/71791472/fontawesome-icons-not-accepting-color-props-through-react-functional-components/
+          */}
+          <div className={`h-[calc(100%-75px)] w-full bg-accent`}>
+            {children}
+          </div>
         </main>
       </SidebarProvider>
     </div>

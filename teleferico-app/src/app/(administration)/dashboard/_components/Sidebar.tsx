@@ -16,7 +16,6 @@ import { ADMIN_ROUTES } from "@/utils/routes.const";
 import {
   Building2,
   BusFront,
-  CableCar,
   CircleDollarSign,
   Image as LucideImage,
   PersonStanding,
@@ -80,22 +79,12 @@ export default function Sidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild size="adaptative">
-                  <button className="flex flex-col">
-                    <CableCar />
-                    <p className="text-center text-[11px] leading-3">
-                      Estado Del Servicio
-                    </p>
-                  </button>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
               {items.map((project) => (
                 <SidebarMenuItem key={project.name}>
                   <SidebarMenuButton
                     asChild
                     size="adaptative"
-                    isActive={pathname === project.url}
+                    isActive={pathname.includes(project.url)}
                   >
                     <Link href={project.url} className="flex flex-col">
                       <project.icon />
