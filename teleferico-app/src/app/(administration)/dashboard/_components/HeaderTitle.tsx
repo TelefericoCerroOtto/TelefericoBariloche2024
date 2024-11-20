@@ -15,6 +15,14 @@ const titles: Record<
   PRICES: { path: ADMIN_ROUTES.PRICES, title: "Tarifas" },
   RECRUITMENT: { path: ADMIN_ROUTES.RECRUITMENT, title: "Trabajo" },
   ZONES: { path: ADMIN_ROUTES.ZONES, title: "Horarios Zonas" },
+  NEW_ACTIVITY_TICKET: {
+    path: ADMIN_ROUTES.NEW_ACTIVITY_TICKET,
+    title: "Tarifa De Actividad",
+  },
+  NEW_CABLECAR_TICKET: {
+    path: ADMIN_ROUTES.NEW_CABLECAR_TICKET,
+    title: "Tarifa De Acceso",
+  },
 };
 
 export default function HeaderTitle() {
