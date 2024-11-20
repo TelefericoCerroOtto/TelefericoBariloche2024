@@ -1,8 +1,9 @@
-import { Table, TableBody, TableColumn, TableHeader } from "@nextui-org/react";
+import { TableContainer } from "@/components";
+import { TableBody, TableColumn, TableHeader } from "@nextui-org/react";
 
 export default function ActivitiesTable() {
   return (
-    <Table removeWrapper aria-label="Example empty table">
+    <TableContainer>
       <TableHeader>
         <TableColumn>Actividad</TableColumn>
         <TableColumn>Precio Por Persona</TableColumn>
@@ -12,6 +13,6 @@ export default function ActivitiesTable() {
         <TableColumn>Acciones</TableColumn>
       </TableHeader>
       <TableBody emptyContent={"No hay tarifas para mostrar"}>{[]}</TableBody>
-    </Table>
+    </TableContainer>
   );
 }

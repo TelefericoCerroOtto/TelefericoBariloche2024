@@ -16,7 +16,7 @@ export const ADMIN_ROUTES = {
   BUSES: "/dashboard/buses",
   NEWS: "/dashboard/news",
   PRICES: "/dashboard/prices",
-  NEW_CABLECAR_TICKET: "/dashboard/prices/new-cablecar-ticket",
+  NEW_ACCESS_TICKET: "/dashboard/prices/new-access-ticket",
   NEW_ACTIVITY_TICKET: "/dashboard/prices/new-act-ticket",
   RECRUITMENT: "/dashboard/recruitment",
   ZONES: "/dashboard/zones",

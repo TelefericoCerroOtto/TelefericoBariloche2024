@@ -19,8 +19,8 @@ const titles: Record<
     path: ADMIN_ROUTES.NEW_ACTIVITY_TICKET,
     title: "Tarifa De Actividad",
   },
-  NEW_CABLECAR_TICKET: {
-    path: ADMIN_ROUTES.NEW_CABLECAR_TICKET,
+  NEW_ACCESS_TICKET: {
+    path: ADMIN_ROUTES.NEW_ACCESS_TICKET,
     title: "Tarifa De Acceso",
   },
 };

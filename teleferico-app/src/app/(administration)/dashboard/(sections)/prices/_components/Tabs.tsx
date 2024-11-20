@@ -1,11 +1,11 @@
 "use client";
 
-import { buttonStyles } from "@/components/ui/ButtonDos";
+import { buttonStyles } from "@/components/ButtonDos";
+import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { Tabs as NextUITabs, Tab } from "@nextui-org/react";
 import { useState } from "react";
+import AccessTable from "./AccessTable";
 import ActivitiesTable from "./ActivitiesTable";
-import CablecarTable from "./CablecarTable";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
 
 export default function Tabs() {
   const [selected, setSelected] = useState<string | number>("photos");
@@ -23,10 +23,11 @@ export default function Tabs() {
           cursor: "w-full bg-custom-red",
           tab: "max-w-fit px-0 h-12",
           tabContent: "group-data-[selected=true]:text-custom-red",
+          panel: "p-0",
         }}
       >
         <Tab key="access" title={<span>Acceso</span>}>
-          <CablecarTable />
+          <AccessTable />
         </Tab>
         <Tab key="actividades" title={<span>Actividades</span>}>
           <ActivitiesTable />
@@ -35,7 +36,7 @@ export default function Tabs() {
           key="create"
           href={
             selected === "access"
-              ? ADMIN_ROUTES.NEW_CABLECAR_TICKET
+              ? ADMIN_ROUTES.NEW_ACCESS_TICKET
               : ADMIN_ROUTES.NEW_ACTIVITY_TICKET
           }
           title={<span className="text-white">Nueva tarifa</span>}

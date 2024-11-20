@@ -1,8 +1,9 @@
-import { Table, TableBody, TableColumn, TableHeader } from "@nextui-org/react";
+import { TableContainer } from "@/components";
+import { TableBody, TableColumn, TableHeader } from "@nextui-org/react";
 
-export default function CablecarTable() {
+export default function AccessTable() {
   return (
-    <Table removeWrapper aria-label="Example empty table">
+    <TableContainer>
       <TableHeader>
         <TableColumn>Tipo de Ticket</TableColumn>
         <TableColumn>Medio De Elevación</TableColumn>
@@ -10,6 +11,6 @@ export default function CablecarTable() {
         <TableColumn>Acciones</TableColumn>
       </TableHeader>
       <TableBody emptyContent={"No hay tarifas para mostrar"}>{[]}</TableBody>
-    </Table>
+    </TableContainer>
   );
 }

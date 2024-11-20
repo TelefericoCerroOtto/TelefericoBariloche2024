@@ -1,15 +1,11 @@
 "use client";
 
-import {
-  Table as NextUITable,
-  TableBody,
-  TableColumn,
-  TableHeader,
-} from "@nextui-org/react";
+import { TableContainer } from "@/components";
+import { TableBody, TableColumn, TableHeader } from "@nextui-org/react";
 
 export default function Table() {
   return (
-    <NextUITable removeWrapper aria-label="Example empty table">
+    <TableContainer>
       <TableHeader>
         <TableColumn>Zona</TableColumn>
         <TableColumn>Horario De Apertura</TableColumn>
@@ -17,6 +13,6 @@ export default function Table() {
         <TableColumn>Acciones</TableColumn>
       </TableHeader>
       <TableBody emptyContent={"No hay zonas para mostrar"}>{[]}</TableBody>
-    </NextUITable>
+    </TableContainer>
   );
 }
