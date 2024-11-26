@@ -1,10 +1,12 @@
-import { loginSchema } from "@/lib/schemas/forms/auth";
 import {
+  loginSchema,
   accessTicketSchema,
   activityTicketSchema,
-} from "@/lib/schemas/forms/tickets";
+  zoneScheduleSchema,
+} from "@/lib/schemas/forms";
 import type { InferType } from "yup";
 
 export type LoginFormData = InferType<typeof loginSchema>;
 export type NewActivityTicketFormData = InferType<typeof activityTicketSchema>;
 export type NewAccessTicketFormData = InferType<typeof accessTicketSchema>;
+export type ZoneScheduleFormData = InferType<typeof zoneScheduleSchema>;
