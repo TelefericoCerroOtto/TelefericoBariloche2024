@@ -2,7 +2,7 @@
 
 import FormButtons from "@/components/FormButtons";
 import Input from "@/components/ui/Input";
-import { accessTicketSchema } from "@/lib/schemas/forms/tickets";
+import { activityTicketSchema } from "@/lib/schemas/forms";
 import type { NewActivityTicketFormData } from "@/types/forms";
 import { lang } from "@/utils/lang.const";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
@@ -33,7 +33,7 @@ export default function Form() {
         requirementsEN: "",
         requirementsPT: "",
       },
-      validationSchema: accessTicketSchema,
+      validationSchema: activityTicketSchema,
       onSubmit,
     });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { authenticate, signInAction } from "@/lib/actions/actions";
-import { loginSchema } from "@/lib/schemas/forms/auth";
+import { loginSchema } from "@/lib/schemas/forms";
 import type { LoginFormData } from "@/types/forms";
 import { Spinner } from "@nextui-org/react";
 import { useFormik } from "formik";
