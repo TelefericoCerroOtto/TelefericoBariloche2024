@@ -32,5 +32,5 @@ export default function HeaderTitle() {
     (item) => item.path === pathname,
   )?.title;
 
-  return <div>{headerTitle}</div>;
+  return <div className="hidden md:block">{headerTitle}</div>;
 }
