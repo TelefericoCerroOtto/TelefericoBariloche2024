@@ -43,25 +43,27 @@ export const accessTicketSchema = object({
   elevationMethod: string().oneOf(["teleferico", "camino"]),
 });
 
+export const timeSchema = object({
+  hour: number()
+    .integer("La hora debe ser un numero entero")
+    .min(0, "La hora minima es las 0hs")
+    .max(23, "La hora maxima es las 23hs")
+    .required("Campo requerido"),
+  mins: number()
+    .integer("Los minutos deben ser un numero entero")
+    .min(0, "Los minutos minimos son 0")
+    .max(23, "Los minutos maximos son 59")
+    .required("Campo requerido"),
+});
+
 export const zoneScheduleSchema = object({
-  openHour: number()
-    .integer("La hora debe ser un numero entero")
-    .min(0, "La hora minima es las 0hs")
-    .max(23, "La hora maxima es las 23hs")
-    .required("Campo requerido"),
-  closeHour: number()
-    .integer("La hora debe ser un numero entero")
-    .min(0, "La hora minima es las 0hs")
-    .max(23, "La hora maxima es las 23hs")
-    .required("Campo requerido"),
-  openMins: number()
-    .integer("Los minutos deben ser un numero entero")
-    .min(0, "Los minutos minimos son 0")
-    .max(23, "Los minutos maximos son 59")
-    .required("Campo requerido"),
-  closeMins: number()
-    .integer("Los minutos deben ser un numero entero")
-    .min(0, "Los minutos minimos son 0")
-    .max(23, "Los minutos maximos son 59")
-    .required("Campo requerido"),
+  openTime: timeSchema,
+  closeTime: timeSchema,
+});
+
+export const BusTravelSchema = object({
+  depPoint: string().required("Campo requerido"),
+  arrPoint: string().required("Campo requerido"),
+  depTime: timeSchema,
+  arrTime: timeSchema,
 });
