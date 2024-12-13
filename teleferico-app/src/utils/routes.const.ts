@@ -19,6 +19,7 @@ export const ADMIN_ROUTES = {
   NEW_ACCESS_TICKET: "/dashboard/prices/new-access-ticket",
   NEW_ACTIVITY_TICKET: "/dashboard/prices/new-act-ticket",
   NEW_BUS_TRAVEL: "/dashboard/buses/new-bus-travel",
+  NEW_USER: "/dashboard/admin-users/new-user",
   RECRUITMENT: "/dashboard/recruitment",
   ZONES: "/dashboard/zones",
   ADMIN_USERS: "/dashboard/admin-users",

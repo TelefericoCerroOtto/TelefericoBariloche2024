@@ -67,3 +67,17 @@ export const BusTravelSchema = object({
   depTime: timeSchema,
   arrTime: timeSchema,
 });
+
+export const newUserSchema = object({
+  name: string()
+    .required("Campo requerido")
+    .min(2, "El nombre debe contener al menos 2 caracteres"),
+  surname: string()
+    .required("Campo requerido")
+    .min(2, "El apellido debe contener al menos 2 caracteres"),
+  email: string().email("Debe ser un email valido").required("Campo requerido"),
+  password: string().required("Campo requerido"),
+  role: string()
+    .oneOf(["administrative", "photographer", "recluter", "admin"])
+    .required("Campo requerido"),
+});
