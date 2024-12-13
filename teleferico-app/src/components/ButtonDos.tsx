@@ -19,6 +19,7 @@ export const buttonStyles = cva(
       intent: {
         solid: "bg-primary hover:bg-primary/90 text-white",
         ghost: "hover:bg-primary/20 text-primary",
+        ghostBlack: "hover:bg-foreground/20 text-foreground",
         outlineRed:
           "bg-transparent hover:bg-primary/20 border-1 border-primary text-primary",
         outlineWhite: "bg-transparent hover:bg-white/20 border-white ",

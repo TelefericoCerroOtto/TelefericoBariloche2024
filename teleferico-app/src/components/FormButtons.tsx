@@ -12,7 +12,7 @@ export default function FormButtons(props: Props) {
   const router = useRouter();
 
   return (
-    <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+    <div className="mx-auto flex flex-col-reverse justify-end gap-2 sm:flex-row">
       <ButtonDos
         intent="ghost"
         type="button"
