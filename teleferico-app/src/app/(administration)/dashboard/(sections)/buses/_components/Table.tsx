@@ -139,7 +139,7 @@ export default function Table() {
   }, [departureFilter, arrivalFilter]);
 
   return (
-    <div>
+    <>
       <Filters
         options={options}
         departureFilter={departureFilter}
@@ -166,6 +166,6 @@ export default function Table() {
           )}
         </TableBody>
       </TableContainer>
-    </div>
+    </>
   );
 }
