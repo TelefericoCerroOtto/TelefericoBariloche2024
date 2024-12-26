@@ -23,7 +23,7 @@ export const buttonStyles = cva(
         outlineRed:
           "bg-transparent hover:bg-primary/20 border-1 border-primary text-primary",
         outlineWhite: "bg-transparent hover:bg-white/20 border-white ",
-        disable: "bg-primary-foreground text-white cursor-default",
+        disable: "bg-custom-gray text-white cursor-default active:scale-100",
       },
       size: {
         default: "h-9 px-2 text-xs sm:h-10 sm:py-2 sm:px-4 sm:text-sm",
@@ -56,7 +56,6 @@ export default function ButtonDos(props: Props) {
     <button
       className={cn(buttonStyles({ intent, size, fullWidth, className }))}
       {...buttonProps}
-      disabled={isLoading}
     >
       {isLoading ? <Spinner size="sm" color="white" /> : children}
     </button>

@@ -8,3 +8,13 @@ export const selectInputStyles = {
   labelPlacement: "outside" as const,
   placeholder: "Seleccionar",
 };
+
+export const tableStyles = {
+  removeWrapper: true,
+  "aria-label": "Example empty table",
+  classNames: {
+    thead: "border-b border-b-custom-border ",
+    table: "bg-white",
+    th: "bg-white font-bold text-black",
+  },
+};
