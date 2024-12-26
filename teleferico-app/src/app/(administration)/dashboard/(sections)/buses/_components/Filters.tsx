@@ -33,7 +33,7 @@ export default function Filters(props: Props) {
   return (
     <TableToolbarContainer
       linkHref={ADMIN_ROUTES.NEW_BUS_TRAVEL}
-      linkTitle="Nueva Ruta"
+      title="Nueva Ruta"
     >
       <Dropdown>
         <DropdownTrigger className="sm:flex">

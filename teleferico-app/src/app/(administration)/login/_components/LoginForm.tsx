@@ -41,7 +41,7 @@ export default function LoginForm() {
         type={isVisible ? "text" : "password"}
         className="w-full"
       />
-      <ButtonDos type="button" fullWidth isLoading={isVisible}>
+      <ButtonDos type="button" fullWidth>
         Acceder
       </ButtonDos>
     </form>

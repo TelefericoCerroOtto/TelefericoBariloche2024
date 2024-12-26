@@ -1,7 +1,7 @@
 "use client";
 
-import Table from "./_components/Table";
+import ZonesTable from "./_components/ZonesTable";
 
 export default function ZonesPage() {
-  return <Table />;
+  return <ZonesTable />;
 }

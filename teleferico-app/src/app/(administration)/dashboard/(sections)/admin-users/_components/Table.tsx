@@ -1,10 +1,11 @@
 "use client";
 
-import { type Key, useCallback, useMemo, useState } from "react";
-import Filters from "./Filters";
 import { ButtonDos, TableContainer } from "@/components";
+import { buttonStyles } from "@/components/ButtonDos";
+import { tableStyles } from "@/utils/styles";
 import {
   Link,
+  Table as NextUITable,
   TableBody,
   TableCell,
   TableColumn,
@@ -13,7 +14,16 @@ import {
   User,
 } from "@nextui-org/react";
 import { Pencil, Trash2 } from "lucide-react";
-import { buttonStyles } from "@/components/ButtonDos";
+import { type Key } from "react";
+import Filters from "./Filters";
+import { useFilters } from "./use-filters";
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
 
 const renderCell = (user: User, columnKey: Key) => {
   const cellValue = user[columnKey as keyof User];
@@ -60,13 +70,6 @@ const columns = [
   { key: "actions", label: "Acciones" },
 ];
 
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-}
-
 const users: Array<User> = [
   {
     id: 1,
@@ -101,58 +104,36 @@ const users: Array<User> = [
 ];
 
 export default function Table() {
-  const [filterValue, setFilterValue] = useState("");
-  const hasSearchFilter = Boolean(filterValue);
-
-  const filteredItems = useMemo(() => {
-    let filteredUsers = [...users];
-
-    if (hasSearchFilter) {
-      filteredUsers = filteredUsers.filter((user) =>
-        user.name.toLowerCase().includes(filterValue.toLowerCase()),
-      );
-    }
-
-    return filteredUsers;
-  }, [filterValue, hasSearchFilter]);
-
-  const onSearchChange = useCallback((value?: string) => {
-    if (value) {
-      setFilterValue(value);
-    } else {
-      setFilterValue("");
-    }
-  }, []);
-
-  const onClear = useCallback(() => {
-    setFilterValue("");
-  }, []);
+  const { filterValue, filteredItems, onSearchChange, onSearchClear } =
+    useFilters<User>(users);
 
   return (
     <>
       <Filters
         onSearchChange={onSearchChange}
-        onClear={onClear}
+        onClear={onSearchClear}
         filterValue={filterValue}
       />
       <TableContainer>
-        <TableHeader columns={columns}>
-          {(column) => (
-            <TableColumn key={column.key}>{column.label}</TableColumn>
-          )}
-        </TableHeader>
-        <TableBody
-          emptyContent={"No hay zonas para mostrar"}
-          items={filteredItems}
-        >
-          {(entry) => (
-            <TableRow key={entry.id}>
-              {(columnKey) => (
-                <TableCell>{renderCell(entry, columnKey)}</TableCell>
-              )}
-            </TableRow>
-          )}
-        </TableBody>
+        <NextUITable {...tableStyles}>
+          <TableHeader columns={columns}>
+            {(column) => (
+              <TableColumn key={column.key}>{column.label}</TableColumn>
+            )}
+          </TableHeader>
+          <TableBody
+            emptyContent={"No hay zonas para mostrar"}
+            items={filteredItems}
+          >
+            {(entry) => (
+              <TableRow key={entry.id}>
+                {(columnKey) => (
+                  <TableCell>{renderCell(entry, columnKey)}</TableCell>
+                )}
+              </TableRow>
+            )}
+          </TableBody>
+        </NextUITable>
       </TableContainer>
     </>
   );

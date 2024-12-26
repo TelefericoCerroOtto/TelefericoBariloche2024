@@ -4,6 +4,7 @@ import { ButtonDos, TableContainer } from "@/components";
 import { buttonStyles } from "@/components/ButtonDos";
 import {
   Selection,
+  Table as NextUITable,
   TableBody,
   TableCell,
   TableColumn,
@@ -14,6 +15,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, type Key } from "react";
 import Filters from "./Filters";
+import { tableStyles } from "@/utils/styles";
 
 const renderCell = (item: Item, columnKey: Key) => {
   const cellValue = item[columnKey as keyof Item];
@@ -148,23 +150,25 @@ export default function Table() {
         setArrivalFilter={setArrivalFilter}
       />
       <TableContainer>
-        <TableHeader columns={columns}>
-          {(column) => (
-            <TableColumn key={column.key}>{column.label}</TableColumn>
-          )}
-        </TableHeader>
-        <TableBody
-          emptyContent={"No hay zonas para mostrar"}
-          items={filteredItems}
-        >
-          {(entry) => (
-            <TableRow key={entry.id}>
-              {(columnKey) => (
-                <TableCell>{renderCell(entry, columnKey)}</TableCell>
-              )}
-            </TableRow>
-          )}
-        </TableBody>
+        <NextUITable {...tableStyles}>
+          <TableHeader columns={columns}>
+            {(column) => (
+              <TableColumn key={column.key}>{column.label}</TableColumn>
+            )}
+          </TableHeader>
+          <TableBody
+            emptyContent={"No hay zonas para mostrar"}
+            items={filteredItems}
+          >
+            {(entry) => (
+              <TableRow key={entry.id}>
+                {(columnKey) => (
+                  <TableCell>{renderCell(entry, columnKey)}</TableCell>
+                )}
+              </TableRow>
+            )}
+          </TableBody>
+        </NextUITable>
       </TableContainer>
     </>
   );
