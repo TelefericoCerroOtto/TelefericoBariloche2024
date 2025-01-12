@@ -1,8 +1,7 @@
 "use client";
 
 import { ButtonDos, TableContainer } from "@/components";
-import { buttonStyles } from "@/components/ButtonDos";
-import { tableStyles } from "@/utils/styles";
+import { tableStyles, buttonStyles } from "@/utils/styles";
 import {
   Link,
   Table as NextUITable,

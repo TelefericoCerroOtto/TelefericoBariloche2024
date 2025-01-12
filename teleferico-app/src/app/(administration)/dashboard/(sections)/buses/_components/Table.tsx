@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonDos, TableContainer } from "@/components";
-import { buttonStyles } from "@/components/ButtonDos";
+import { tableStyles, buttonStyles } from "@/utils/styles";
 import {
   Selection,
   Table as NextUITable,
@@ -15,7 +15,6 @@ import { Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, type Key } from "react";
 import Filters from "./Filters";
-import { tableStyles } from "@/utils/styles";
 
 const renderCell = (item: Item, columnKey: Key) => {
   const cellValue = item[columnKey as keyof Item];
