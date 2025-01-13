@@ -43,18 +43,26 @@ export default function Navbar() {
   const pathname = usePathname();
   const navbarStyle = useMemo(
     () => ({
-      base: isDownScrolled
-        ? ["bg-white text-black"]
-        : ["bg-transparent text-white"],
+      base:
+        isDownScrolled || isMenuOpen
+          ? ["bg-white text-black"]
+          : ["bg-transparent text-white"],
     }),
-    [isDownScrolled],
+    [isDownScrolled, isMenuOpen],
   );
 
   return (
     <NuiNavbar
       position="sticky"
       className="h-20 max-w-full transition duration-150 ease-in"
-      onMenuOpenChange={setIsMenuOpen}
+      onMenuOpenChange={(isOpen) => {
+        setIsMenuOpen(isOpen);
+        if (isOpen) {
+          setLogo(logoPositivo);
+        } else if (!isDownScrolled) {
+          setLogo(logoNegativo);
+        }
+      }}
       isBlurred={false}
       onScrollPositionChange={(position) => {
         if (position !== 0 && !isDownScrolled) {
@@ -91,7 +99,7 @@ export default function Navbar() {
       <NavbarContent justify="end">
         <Select
           variant="bordered"
-          className="w-[125px]"
+          className="w-[115px]"
           classNames={{
             trigger: ["border-none", "shadow-none"],
             value: ["text-red-600", "group-data-[has-value=true]:text-inherit"],
