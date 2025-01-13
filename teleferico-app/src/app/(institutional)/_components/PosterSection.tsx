@@ -1,4 +1,4 @@
-import { InfoBlock } from "@/components";
+import { TitleDescBlock } from "@/components";
 import Link from "next/link";
 import { ROUTES } from "@/utils/routes.const";
 import { buttonStyles } from "@/utils/styles";
@@ -11,11 +11,11 @@ export default function PosterSection() {
   return (
     <section className="mb-14 flex w-full flex-col">
       <div className="flex w-full flex-col items-stretch px-10 pb-14 lg:flex-row lg:px-32">
-        <InfoBlock
+        <TitleDescBlock
           align="start"
           title="Actividades para Conectar con la Naturaleza"
           epigraph="Descubrí todo lo que el Cerro Otto tiene para ofrecerte"
-          description="En el Complejo Turístico Teleférico Cerro Otto, cada temporada ofrece propuestas únicas para disfrutar y redescubrir la belleza natural de Bariloche. Desde aventuras al aire libre hasta momentos de relajación, encontrá la actividad perfecta para vivir una experiencia inolvidable."
+          desc="En el Complejo Turístico Teleférico Cerro Otto, cada temporada ofrece propuestas únicas para disfrutar y redescubrir la belleza natural de Bariloche. Desde aventuras al aire libre hasta momentos de relajación, encontrá la actividad perfecta para vivir una experiencia inolvidable."
         />
         <div className="flex h-full w-full items-end justify-start lg:justify-end">
           <Link href={INFO} className={`${buttonStyles()} capitalize`}>
