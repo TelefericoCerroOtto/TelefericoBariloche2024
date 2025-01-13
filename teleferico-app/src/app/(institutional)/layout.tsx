@@ -6,11 +6,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div>
+    <div className="leading-8">
       <Navbar />
-      <main className="flex min-h-screen flex-col justify-between">
-        {children}
-      </main>
+      <main className="relative -top-[5rem] min-h-screen">{children}</main>
       <Footer />
     </div>
   );
