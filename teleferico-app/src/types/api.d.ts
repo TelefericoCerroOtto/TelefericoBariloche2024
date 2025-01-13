@@ -33,3 +33,8 @@ export interface SuccessfulLoginResponse {
   jwt: string;
   user: User;
 }
+
+export interface ImageType {
+  src: string;
+  alt: string;
+}
