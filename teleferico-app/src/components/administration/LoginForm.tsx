@@ -1,11 +1,11 @@
 "use client";
 
+import Input from "@/components/ui/Input";
 import { authenticate, signInAction } from "@/lib/actions/actions";
 import { loginSchema } from "@/lib/schemas/forms";
 import type { LoginFormData } from "@/types/forms";
 import { Spinner } from "@nextui-org/react";
 import { useFormik } from "formik";
-import Input from "./ui/Input";
 import { useRouter } from "next/navigation";
 // import { signIn } from "next-auth/react";
 

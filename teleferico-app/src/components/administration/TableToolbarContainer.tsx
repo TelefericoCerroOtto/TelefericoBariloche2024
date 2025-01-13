@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { type ReactNode } from "react";
-import { buttonStyles } from "./ButtonDos";
+import { buttonStyles } from "@/utils/styles";
 
 interface Props {
   children: ReactNode;
