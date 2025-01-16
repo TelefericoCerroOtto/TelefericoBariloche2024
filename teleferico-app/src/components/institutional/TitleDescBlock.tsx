@@ -3,8 +3,11 @@ import { type ReactNode } from "react";
 interface Props {
   title: string;
   align?: "center" | "start";
+  size?: "sm" | "md" | "lg";
+  caseStyle?: "capitalize" | "uppercase" | "lowercase" | "normal";
   epigraph?: string;
   desc?: ReactNode;
+  children?: ReactNode;
 }
 
 export function HighlightLastWord(text: string) {
@@ -26,22 +29,46 @@ export function HighlightLastWord(text: string) {
 }
 
 export default function TitleDescBlock(props: Props) {
-  const { title, desc, epigraph, align = "center" } = props;
+  const {
+    title,
+    desc,
+    epigraph,
+    children,
+    align = "center",
+    size = "md",
+    caseStyle = "normal",
+  } = props;
 
   const alignVariants = {
-    center: "items-center text-center",
+    center: "items-center text-center mx-auto",
     start: "items-start text-start",
+  };
+
+  const sizeVariants = {
+    sm: "max-w-[600px]",
+    md: "max-w-[800px]",
+    lg: "max-w-[900px]",
+  };
+
+  const titleStyle = {
+    capitalize: "capitalize",
+    uppercase: "uppercase",
+    lowercase: "lowercase",
+    normal: "normal-case",
   };
 
   return (
     <div
-      className={`flex max-w-[800px] flex-col ${alignVariants[align]} mx-auto mb-12 gap-5 px-8 md:px-12`}
+      className={`flex flex-col ${sizeVariants[size]} ${alignVariants[align]} mb-12 gap-5`}
     >
       {epigraph ? <p className="text-small text-primary">{epigraph}</p> : null}
-      <h4 className="text-3xl font-bold capitalize text-inherit md:text-5xl">
+      <h4
+        className={`${titleStyle[caseStyle]} text-3xl font-bold text-inherit md:text-4xl`}
+      >
         {title}
       </h4>
       {desc ? <p className="text-inherit">{desc}</p> : null}
+      {children ? <div className="flex gap-4">{children}</div> : null}
     </div>
   );
 }
