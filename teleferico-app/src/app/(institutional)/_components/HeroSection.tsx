@@ -1,8 +1,6 @@
-import { Hero } from "@/components";
+import { CustomLink, Hero } from "@/components";
 import decknevado from "@/public/decknevado.jpg";
 import { ROUTES } from "@/utils/routes.const";
-import { buttonStyles } from "@/utils/styles";
-import Link from "next/link";
 
 export default function HeroSection() {
   const { INFO } = ROUTES;
@@ -16,12 +14,12 @@ export default function HeroSection() {
               Turístico Teleférico Cerro Otto es el lugar ideal para conectar con
               la naturaleza en todas las estaciones del año."
     >
-      <Link href={INFO} className={buttonStyles({ intent: "outlineWhite" })}>
+      <CustomLink href={INFO} intent="outlineWhite">
         La Cumbre
-      </Link>
-      <Link href={INFO} className={buttonStyles({ intent: "ghostWhite" })}>
+      </CustomLink>
+      <CustomLink href={INFO} intent="ghostWhite">
         Como Llegar
-      </Link>
+      </CustomLink>
     </Hero>
   );
 }
