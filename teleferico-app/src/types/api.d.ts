@@ -1,3 +1,5 @@
+import { type ReactNode } from "react";
+
 export interface LoginUserRequest {
   identifier: string;
   password: string;
@@ -37,4 +39,21 @@ export interface SuccessfulLoginResponse {
 export interface ImageType {
   src: string;
   alt: string;
+}
+
+export interface ImageTextBlock {
+  id: number;
+  variant:
+    | "default"
+    | "defaultFW"
+    | "panoramic"
+    | "horizontal"
+    | "ladder"
+    | "miniatures";
+  images: Array<ImageType & { order: number }>;
+  title: string;
+  description: ReactNode;
+  link?: { label: string; href: string };
+  isInverted?: boolean;
+  isTitleHighlighted?: boolean;
 }
