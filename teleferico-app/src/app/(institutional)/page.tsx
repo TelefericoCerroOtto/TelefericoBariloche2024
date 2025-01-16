@@ -1,4 +1,4 @@
-import { ImageTextSection, PageWrapper } from "@/components";
+import { ImageTextSection } from "@/components";
 import {
   FaqSection,
   HeroSection,
@@ -10,13 +10,13 @@ import { items } from "./data";
 
 export default function Home() {
   return (
-    <PageWrapper>
+    <>
       <HeroSection />
       <InfoSection />
       <ImageTextSection items={items} />
       <PosterSection />
       <FaqSection />
       <ServiceButton />
-    </PageWrapper>
+    </>
   );
 }

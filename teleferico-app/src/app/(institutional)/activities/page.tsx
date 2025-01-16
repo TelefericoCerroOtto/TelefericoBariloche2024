@@ -1,10 +1,10 @@
-import { Hero, ImageTextSection, PageWrapper } from "@/components";
+import { Hero, ImageTextSection } from "@/components";
 import lagodesdecumbre from "@/public/lagodesdecumbre.jpg";
 import { items } from "./data";
 
 export default function ActivitiesPage() {
   return (
-    <PageWrapper>
+    <>
       <Hero
         image={{
           src: lagodesdecumbre.src,
@@ -14,7 +14,7 @@ export default function ActivitiesPage() {
         description="Cada rincón ofrece una experiencia única para disfrutar del entorno natural y la belleza de Bariloche. Ya sea buscando relajación o aventura, el lugar invita a explorar y vivir momentos inolvidables en un paisaje de montaña incomparable."
       />
       <ImageTextSection items={items} />
-    </PageWrapper>
+    </>
   );
 }
 

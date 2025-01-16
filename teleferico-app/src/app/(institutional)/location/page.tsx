@@ -1,15 +1,10 @@
-import {
-  Hero,
-  HoursOverview,
-  ImageTextSection,
-  PageWrapper,
-} from "@/components";
+import { Hero, HoursOverview, ImageTextSection } from "@/components";
 import gondolasestacionamiento from "@/public/gondolasestacionamiento.jpg";
 import { items } from "./data";
 
 export default function LocationPage() {
   return (
-    <PageWrapper>
+    <>
       <Hero
         image={{ src: gondolasestacionamiento.src, alt: "Foto Portada" }}
         title="Opciones para llegar a la base y a la cumbre"
@@ -17,6 +12,6 @@ export default function LocationPage() {
       />
       <ImageTextSection items={items} />
       <HoursOverview />
-    </PageWrapper>
+    </>
   );
 }
