@@ -57,3 +57,17 @@ export interface ImageTextBlock {
   isInverted?: boolean;
   isTitleHighlighted?: boolean;
 }
+
+export interface New {
+  id: string;
+  images: {
+    cover: ImageType;
+    thumbnail: ImageType;
+  };
+  title: string;
+  legend: string;
+  body: string;
+  summary: string;
+  pubDate: Date;
+  featured: boolean;
+}
