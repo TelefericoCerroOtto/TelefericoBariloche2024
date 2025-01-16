@@ -1,21 +1,22 @@
+import { ImageTextSection, PageWrapper } from "@/components";
 import {
   FaqSection,
   HeroSection,
-  ImageTextSection,
   InfoSection,
   PosterSection,
   ServiceButton,
 } from "./_components";
+import { items } from "./data";
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center">
+    <PageWrapper>
       <HeroSection />
       <InfoSection />
-      <ImageTextSection />
+      <ImageTextSection items={items} />
       <PosterSection />
       <FaqSection />
       <ServiceButton />
-    </div>
+    </PageWrapper>
   );
 }

@@ -1,10 +1,9 @@
-import { ImageTextRenderer } from "@/components";
 import confiteria from "@/public/confiteria.jpg";
 import gondolas from "@/public/gondolas.jpg";
 import gondolasnevadas from "@/public/gondolasnevadas.jpg";
 import type { ImageTextBlock } from "@/types/api";
 
-const items: ImageTextBlock[] = [
+export const items: ImageTextBlock[] = [
   {
     id: 1,
     images: [{ src: confiteria.src, alt: "confiteria nevada", order: 0 }],
@@ -36,13 +35,3 @@ const items: ImageTextBlock[] = [
     variant: "defaultFW" as const,
   },
 ];
-
-export default function ImageTextSection() {
-  return (
-    <section className="mb-14 w-full">
-      {items.map((item) => (
-        <ImageTextRenderer key={item.id} variant={item.variant} block={item} />
-      ))}
-    </section>
-  );
-}

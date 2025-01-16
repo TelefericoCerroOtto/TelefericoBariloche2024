@@ -1,7 +1,7 @@
 import { CustomLink } from "@/components";
 import type { ImageTextBlock } from "@/types/api";
 import Image from "next/image";
-import { HighlightLastWord } from "./TitleDescBlock";
+import { HighlightLastWord } from "../TitleDescBlock";
 
 export function Default(props: ImageTextBlock) {
   const {
@@ -52,7 +52,7 @@ export function DefaultFW(props: ImageTextBlock) {
 
   return (
     <div
-      className={`flex flex-col ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} my-9 w-full items-center justify-center`}
+      className={`flex flex-col ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} w-full items-center justify-center`}
     >
       <div className="relative h-[500px] w-full lg:h-[700px] lg:w-1/2">
         <Image
