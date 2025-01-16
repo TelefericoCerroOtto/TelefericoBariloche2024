@@ -41,7 +41,7 @@ export default function Navbar() {
   const [isDownScrolled, setIsDownScrolled] = useState(false);
   const pathname = usePathname();
   const isPathInList = useMemo(
-    () => [NEWS, POLICIES].includes(pathname),
+    () => [NEWS, POLICIES].some((route) => pathname.includes(route)),
     [pathname],
   );
   const logo = useMemo(
@@ -87,7 +87,14 @@ export default function Navbar() {
       </NavbarContent>
       <NavbarContent className="hidden gap-3 md:flex" justify="end">
         {items.map((item, index) => (
-          <NavbarItem key={index} isActive={item.href === pathname}>
+          <NavbarItem
+            key={index}
+            isActive={
+              item.href === "/"
+                ? pathname === "/"
+                : pathname.includes(item.href)
+            }
+          >
             <Link href={item.href} className="text-sm text-inherit">
               {item.label}
             </Link>
