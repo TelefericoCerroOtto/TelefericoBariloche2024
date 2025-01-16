@@ -4,9 +4,8 @@ export const ROUTES = {
   ACTIVITIES: "/activities",
   NEWS: "/news",
   JOBS: "/jobs",
-  RULES: "/rules",
   CONTACT: "/contact",
-  LEGALS: "/legals",
+  POLICIES: "/policies",
   LOCATION: "/location",
   EXPLORE: "/explore",
 };

@@ -1,7 +1,7 @@
 "use client";
 
-import logoNegativo from "@/public/logo-negativo.svg";
-import logoPositivo from "@/public/logo.svg";
+import logoBlanco from "@/public/logo-negativo.svg";
+import logoNegro from "@/public/logo.svg";
 import { ROUTES } from "@/utils/routes.const";
 import {
   Link,
@@ -24,7 +24,7 @@ const langs = [
   { locale: "en", label: "English" },
   { locale: "pt", label: "Português" },
 ];
-const { HOME, INFO, LOCATION, ACTIVITIES, EXPLORE } = ROUTES;
+const { HOME, INFO, LOCATION, ACTIVITIES, EXPLORE, NEWS, POLICIES } = ROUTES;
 
 const items: Array<{ label: string; href: string }> = [
   { label: "Inicio", href: HOME },
@@ -32,45 +32,44 @@ const items: Array<{ label: string; href: string }> = [
   { label: "¿Qué hacer?", href: ACTIVITIES },
   { label: "La cumbre", href: EXPLORE },
   { label: "Tarifas Y Horarios", href: INFO },
-  { label: "Noticias", href: INFO },
+  { label: "Noticias", href: NEWS },
   { label: "Fundación", href: INFO },
 ];
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDownScrolled, setIsDownScrolled] = useState(false);
-  const [logo, setLogo] = useState(logoNegativo);
   const pathname = usePathname();
+  const isPathInList = useMemo(
+    () => [NEWS, POLICIES].includes(pathname),
+    [pathname],
+  );
+  const logo = useMemo(
+    () =>
+      isPathInList || isMenuOpen || isDownScrolled ? logoNegro : logoBlanco,
+    [isMenuOpen, isDownScrolled, isPathInList],
+  );
   const navbarStyle = useMemo(
     () => ({
       base:
-        isDownScrolled || isMenuOpen
+        isDownScrolled || isMenuOpen || isPathInList
           ? ["bg-white text-black"]
           : ["bg-transparent text-white"],
     }),
-    [isDownScrolled, isMenuOpen],
+    [isDownScrolled, isMenuOpen, isPathInList],
   );
 
   return (
     <NuiNavbar
       position="sticky"
       className="h-20 max-w-full transition duration-150 ease-in"
-      onMenuOpenChange={(isOpen) => {
-        setIsMenuOpen(isOpen);
-        if (isOpen) {
-          setLogo(logoPositivo);
-        } else if (!isDownScrolled) {
-          setLogo(logoNegativo);
-        }
-      }}
+      onMenuOpenChange={setIsMenuOpen}
       isBlurred={false}
       onScrollPositionChange={(position) => {
         if (position !== 0 && !isDownScrolled) {
           setIsDownScrolled(true);
-          setLogo(logoPositivo);
         } else if (position === 0) {
           setIsDownScrolled(false);
-          setLogo(logoNegativo);
         }
       }}
       classNames={{ ...navbarStyle, wrapper: ["max-w-[1600px]"] }}
