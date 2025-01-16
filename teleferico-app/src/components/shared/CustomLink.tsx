@@ -1,9 +1,9 @@
 "use client";
 
+import { buttonStyles } from "@/components/shared/ButtonDos";
 import { VariantProps } from "class-variance-authority";
 import Link, { LinkProps } from "next/link";
 import { type ReactNode } from "react";
-import { buttonStyles } from "./ButtonDos";
 
 interface Props extends VariantProps<typeof buttonStyles>, LinkProps {
   children: ReactNode;
