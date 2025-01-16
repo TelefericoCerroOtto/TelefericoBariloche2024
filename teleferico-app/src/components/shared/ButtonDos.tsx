@@ -17,7 +17,7 @@ export const buttonStyles = cva(
         ghostWhite: "hover:bg-white/20 text-white",
         outlineRed:
           "bg-transparent hover:bg-primary/20 border-1 border-primary text-primary",
-        outlineWhite: "bg-transparent hover:bg-white border border-white ",
+        outlineWhite: "bg-transparent hover:bg-white/20 border border-white ",
         disable: "bg-custom-gray text-white cursor-default active:scale-100",
       },
       size: {
