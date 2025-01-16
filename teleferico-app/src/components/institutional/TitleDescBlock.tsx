@@ -7,6 +7,24 @@ interface Props {
   desc?: ReactNode;
 }
 
+export function HighlightLastWord(text: string) {
+  if (!text) return null;
+
+  // Split the text's words
+  const words = text.trim().split(" ");
+  // Catches the last word
+  const lastWord = words.pop();
+  // Put the rest of the text together
+  const remainingText = words.join(" ");
+
+  return (
+    <>
+      {remainingText} {remainingText && " "}
+      <span className="text-red-500">{lastWord}</span>
+    </>
+  );
+}
+
 export default function TitleDescBlock(props: Props) {
   const { title, desc, epigraph, align = "center" } = props;
 
