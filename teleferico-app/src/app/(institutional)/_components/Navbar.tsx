@@ -24,16 +24,16 @@ const langs = [
   { locale: "en", label: "English" },
   { locale: "pt", label: "Português" },
 ];
-const { HOME, INFO } = ROUTES;
+const { HOME, INFO, LOCATION, ACTIVITIES } = ROUTES;
 
-const items = [
-  { title: "Inicio", route: HOME },
-  { title: "Como Llegar", route: INFO },
-  { title: "¿Qué hacer?", route: INFO },
-  { title: "La cumbre", route: INFO },
-  { title: "Tarifas Y Horarios", route: INFO },
-  { title: "Noticias", route: INFO },
-  { title: "Fundación", route: INFO },
+const items: Array<{ label: string; href: string }> = [
+  { label: "Inicio", href: HOME },
+  { label: "Como Llegar", href: LOCATION },
+  { label: "¿Qué hacer?", href: ACTIVITIES },
+  { label: "La cumbre", href: INFO },
+  { label: "Tarifas Y Horarios", href: INFO },
+  { label: "Noticias", href: INFO },
+  { label: "Fundación", href: INFO },
 ];
 
 export default function Navbar() {
@@ -66,7 +66,6 @@ export default function Navbar() {
       isBlurred={false}
       onScrollPositionChange={(position) => {
         if (position !== 0 && !isDownScrolled) {
-          console.log("enter");
           setIsDownScrolled(true);
           setLogo(logoPositivo);
         } else if (position === 0) {
@@ -89,9 +88,9 @@ export default function Navbar() {
       </NavbarContent>
       <NavbarContent className="hidden gap-3 md:flex" justify="end">
         {items.map((item, index) => (
-          <NavbarItem key={index} isActive={item.route === pathname}>
-            <Link href={item.route} className="text-sm text-inherit">
-              {item.title}
+          <NavbarItem key={index} isActive={item.href === pathname}>
+            <Link href={item.href} className="text-sm text-inherit">
+              {item.label}
             </Link>
           </NavbarItem>
         ))}
@@ -114,8 +113,8 @@ export default function Navbar() {
       <NavbarMenu>
         {items.map((item, index) => (
           <NavbarMenuItem key={index}>
-            <Link className="w-full text-inherit" href={item.route} size="lg">
-              {item.title}
+            <Link className="w-full text-inherit" href={item.href} size="lg">
+              {item.label}
             </Link>
           </NavbarMenuItem>
         ))}

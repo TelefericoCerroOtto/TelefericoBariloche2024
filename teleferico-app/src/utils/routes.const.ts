@@ -2,12 +2,13 @@ export const ROUTES = {
   HOME: "/",
   INFO: "/info",
   ACTIVITIES: "/activities",
-  GALLERY: "/gallery",
   NEWS: "/news",
   JOBS: "/jobs",
   RULES: "/rules",
   CONTACT: "/contact",
   LEGALS: "/legals",
+  LOCATION: "/location",
+  EXPLORE: "/explore",
 };
 
 export const ADMIN_ROUTES = {
