@@ -24,14 +24,23 @@ const langs = [
   { locale: "en", label: "English" },
   { locale: "pt", label: "Português" },
 ];
-const { HOME, INFO, LOCATION, ACTIVITIES, EXPLORE, NEWS, POLICIES } = ROUTES;
+const {
+  HOME,
+  INFO,
+  LOCATION,
+  ACTIVITIES,
+  EXPLORE,
+  NEWS,
+  POLICIES,
+  PRICINGSCHEDULES,
+} = ROUTES;
 
 const items: Array<{ label: string; href: string }> = [
   { label: "Inicio", href: HOME },
   { label: "Como Llegar", href: LOCATION },
   { label: "¿Qué hacer?", href: ACTIVITIES },
   { label: "La cumbre", href: EXPLORE },
-  { label: "Tarifas Y Horarios", href: INFO },
+  { label: "Tarifas Y Horarios", href: PRICINGSCHEDULES },
   { label: "Noticias", href: NEWS },
   { label: "Fundación", href: INFO },
 ];

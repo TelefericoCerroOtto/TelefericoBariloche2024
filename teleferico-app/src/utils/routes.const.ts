@@ -8,6 +8,7 @@ export const ROUTES = {
   POLICIES: "/policies",
   LOCATION: "/location",
   EXPLORE: "/explore",
+  PRICINGSCHEDULES: "/pricing-schedules",
 };
 
 export const ADMIN_ROUTES = {
