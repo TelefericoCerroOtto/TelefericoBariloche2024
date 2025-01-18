@@ -62,11 +62,11 @@ export default function TitleDescBlock(props: Props) {
       className={`flex flex-col ${sizeVariants[size]} ${alignVariants[align]} mb-12 gap-5`}
     >
       {epigraph ? <p className="text-small text-primary">{epigraph}</p> : null}
-      <h4
+      <h3
         className={`${titleStyle[caseStyle]} text-3xl font-bold text-inherit md:text-4xl`}
       >
         {title}
-      </h4>
+      </h3>
       {desc ? <p className="text-inherit">{desc}</p> : null}
       {children ? <div className="flex gap-4">{children}</div> : null}
     </div>
