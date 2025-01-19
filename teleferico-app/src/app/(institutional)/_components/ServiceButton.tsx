@@ -76,14 +76,14 @@ export default function ServiceButton() {
                   inconvenientes. Para mas informacion podes revisar la seccion
                   de{" "}
                   <Link
-                    href={ROUTES.INFO}
+                    href={ROUTES.FAQS}
                     className="text-custom-red hover:underline"
                   >
                     FAQS
                   </Link>{" "}
                   o nuestro{" "}
                   <Link
-                    href={ROUTES.INFO}
+                    href={ROUTES.POLICIES}
                     className="text-custom-red hover:underline"
                   >
                     Reglamento

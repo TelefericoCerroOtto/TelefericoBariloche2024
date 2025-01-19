@@ -1,12 +1,11 @@
 import cabañaespejosnevada from "@/public/cabañaespejosnevada.jpg";
-import raquetas from "@/public/raquetas.jpg";
 import decknevado from "@/public/decknevado.jpg";
-import trineo from "@/public/trineo.jpg";
-import tirolesa from "@/public/tirolesa.jpg";
-import palestra from "@/public/palestra.jpg";
 import funicularnevado from "@/public/funicularnevado.jpg";
+import palestra from "@/public/palestra.jpg";
+import raquetas from "@/public/raquetas.jpg";
+import tirolesa from "@/public/tirolesa.jpg";
+import trineo from "@/public/trineo.jpg";
 import type { ImageTextBlock } from "@/types/api";
-import { ROUTES } from "@/utils/routes.const";
 
 export const items: ImageTextBlock[] = [
   {
@@ -18,7 +17,7 @@ export const items: ImageTextBlock[] = [
         alt: "Gente con raquetas para nieve sobre la montaña",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/activities/1", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Caminata con raquetas de nieve",
     description:
@@ -35,7 +34,7 @@ export const items: ImageTextBlock[] = [
         alt: "Cabaña rodeada de árboles cubiertos de nieve",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/activities/2", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Circuito Otto",
     description:
@@ -52,7 +51,7 @@ export const items: ImageTextBlock[] = [
         alt: "Deck panoramico con nieve y personas admirando el paisaje",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/activities/3", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Impresionate con el deck panoramico",
     description:
@@ -69,7 +68,7 @@ export const items: ImageTextBlock[] = [
         alt: "Deck panoramico con nieve y personas admirando el paisaje",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/activities/4", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Descendé por la Pista De Trineos",
     description:
@@ -86,7 +85,7 @@ export const items: ImageTextBlock[] = [
         alt: "Persona lanzandose desde una tirolesa nevada",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/activities/5", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Viví la adrenalina de la tirolesa",
     description:
@@ -103,7 +102,7 @@ export const items: ImageTextBlock[] = [
         alt: "Niña escalando una palestra en verano",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/activities/6", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Descendé por la Pista De Trineos",
     description:
@@ -120,7 +119,7 @@ export const items: ImageTextBlock[] = [
         alt: "Funicular de la cumbre nevado",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/activities/7", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Viajá por el Funicular de la cumbre",
     description:

@@ -4,7 +4,7 @@ import { ROUTES } from "@/utils/routes.const";
 import Image from "next/image";
 
 export default function PosterSection() {
-  const { INFO } = ROUTES;
+  const { ACTIVITIES } = ROUTES;
 
   return (
     <section className="mb-14 flex w-full flex-col">
@@ -16,7 +16,7 @@ export default function PosterSection() {
           desc="En el Complejo Turístico Teleférico Cerro Otto, cada temporada ofrece propuestas únicas para disfrutar y redescubrir la belleza natural de Bariloche. Desde aventuras al aire libre hasta momentos de relajación, encontrá la actividad perfecta para vivir una experiencia inolvidable."
         />
         <div className="flex h-full w-full items-end justify-start lg:justify-end">
-          <CustomLink href={INFO}>Ver todas las Actividades</CustomLink>
+          <CustomLink href={ACTIVITIES}>Ver todas las Actividades</CustomLink>
         </div>
       </div>
       <div className="relative h-[550px] w-full">

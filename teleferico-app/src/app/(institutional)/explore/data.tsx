@@ -7,7 +7,6 @@ import funicularyconfiterianevados from "@/public/funicularyconfiterianevados.jp
 import lapiedad from "@/public/lapiedad.jpg";
 import merchandising from "@/public/merchandising.jpg";
 import type { ImageTextBlock } from "@/types/api";
-import { ROUTES } from "@/utils/routes.const";
 
 export const items: ImageTextBlock[] = [
   {
@@ -29,7 +28,7 @@ export const items: ImageTextBlock[] = [
         alt: "Confiteria nevada desde la terraza panoramica",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/explore/1", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Confiteria giratoria",
     description:
@@ -56,7 +55,7 @@ export const items: ImageTextBlock[] = [
         alt: "Estatua de El Moises",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/explore/2", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Galeria de arte",
     description:
@@ -83,7 +82,7 @@ export const items: ImageTextBlock[] = [
         alt: "Local de recuerdos del Teleferico Cerro Otto",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/explore/3", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Merchandising",
     description:
@@ -100,7 +99,7 @@ export const items: ImageTextBlock[] = [
         alt: "Montaje de personas cayendose de la gondola",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Mas informacion" },
+    link: { href: "/explore/4", label: "Mas informacion" },
     isTitleHighlighted: false,
     title: "Foto Shop",
     description:

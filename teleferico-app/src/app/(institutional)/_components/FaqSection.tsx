@@ -14,7 +14,7 @@ export default function FaqSection() {
             nuestro reglamento, actividades y servicios.
           </span>{" "}
           Si tenés alguna pregunta adicional, visitá nuestras{" "}
-          <Link href={ROUTES.INFO} className="text-custom-red hover:underline">
+          <Link href={ROUTES.FAQS} className="text-custom-red hover:underline">
             Preguntas Frecuentes.
           </Link>
         </p>

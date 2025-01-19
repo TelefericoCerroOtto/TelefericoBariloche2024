@@ -3,7 +3,6 @@ import estacionamiento from "@/public/estacionamiento.jpg";
 import funicularyconfiterianevados from "@/public/funicularyconfiterianevados.jpg";
 import gondoladespegando from "@/public/gondoladespegando.jpg";
 import type { ImageTextBlock } from "@/types/api";
-import { ROUTES } from "@/utils/routes.const";
 
 export const items: ImageTextBlock[] = [
   {
@@ -20,7 +19,10 @@ export const items: ImageTextBlock[] = [
         alt: "Gente comiendo dentro de la confiteria giratoria",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Ver en google maps" },
+    link: {
+      href: "https://maps.app.goo.gl/286Jdb8tcfHbu3mx9",
+      label: "Ver en google maps",
+    },
     isTitleHighlighted: false,
     title: "Traslado Gratuito a la base",
     description: (
@@ -49,7 +51,10 @@ export const items: ImageTextBlock[] = [
         alt: "Calle con bus del Teleferico y estacionamiento",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Ver en google maps" },
+    link: {
+      href: "https://maps.app.goo.gl/6krj3KnEXEwkSZ5K8",
+      label: "Ver en google maps",
+    },
     isTitleHighlighted: false,
     title: "Estacionamiento para vehiculos particulares",
     description: (
@@ -73,7 +78,10 @@ export const items: ImageTextBlock[] = [
         alt: "gondola despegando desde la base del Teleferico",
       },
     ],
-    link: { href: ROUTES.INFO, label: "Ver en google maps" },
+    link: {
+      href: "https://maps.app.goo.gl/6krj3KnEXEwkSZ5K8",
+      label: "Ver en google maps",
+    },
     isTitleHighlighted: false,
     title: "Subida En Teleferico a la cumbre",
     description:
