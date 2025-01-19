@@ -1,17 +1,18 @@
 import { BlockRendererClient, TitleDescBlock } from "@/components";
 import { Spacer } from "@nextui-org/react";
 import { BlocksContent } from "@strapi/blocks-react-renderer";
+import data from "./data.json";
 
-async function getStrapiData() {
-  const res = await fetch("http://localhost:1337/api/rules?locale=es-AR");
-  const data = await res.json();
-  return data;
-}
+// async function getStrapiData() {
+//   const res = await fetch("http://localhost:1337/api/rules?locale=es-AR");
+//   const data = await res.json();
+//   return data;
+// }
 
 export default async function PoliciesPage() {
-  const { data } = await getStrapiData();
-  const content: BlocksContent = data[0].rule;
-
+  // const { data } = await getStrapiData();
+  // const content: BlocksContent = data[0].rule;
+  const content = data as BlocksContent;
   return (
     <>
       <Spacer y={28} />
