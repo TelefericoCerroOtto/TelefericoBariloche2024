@@ -4,14 +4,15 @@ import Image from "next/image";
 import { type ReactNode } from "react";
 
 interface Props {
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   image: ImageType;
   children?: ReactNode;
+  align?: "bottom" | "center";
 }
 
 export default function Hero(props: Props) {
-  const { children, title, description, image } = props;
+  const { children, title, description, image, align = "bottom" } = props;
 
   return (
     <section className="relative mb-14 h-screen max-h-[800px] w-screen">
@@ -23,10 +24,16 @@ export default function Hero(props: Props) {
           className="z-0 object-cover"
         />
         <div className="absolute inset-0 bg-black bg-opacity-65" />
-        <div className="absolute left-1/2 right-auto z-10 flex h-full w-3/4 max-w-[1536px] -translate-x-1/2 transform flex-col justify-end gap-6 pb-16 text-white">
-          <h1 {...titleStyles}>{title}</h1>
-          <p className="text-inherit">{description}</p>
-          <div className="flex gap-4">{children ?? null}</div>
+        <div
+          className={`absolute z-10 flex h-full w-5/6 max-w-[1536px] gap-6 pb-16 text-white sm:w-3/4 ${align === "bottom" ? "justify-end" : "justify-center"} left-1/2 right-auto -translate-x-1/2 transform flex-col`}
+        >
+          {title ? <h1 {...titleStyles}>{title}</h1> : null}
+          {description ? <p className="text-inherit">{description}</p> : null}
+          <div
+            className={`flex gap-4 ${align === "center" ? "justify-center" : "justify-start"}`}
+          >
+            {children ?? null}
+          </div>
         </div>
       </div>
     </section>
