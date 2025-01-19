@@ -34,6 +34,7 @@ const {
   NEWS,
   POLICIES,
   PRICINGSCHEDULES,
+  CONTACT,
 } = ROUTES;
 
 const items: Array<{ label: string; href: string }> = [
@@ -51,7 +52,8 @@ export default function Navbar() {
   const [isDownScrolled, setIsDownScrolled] = useState(false);
   const pathname = usePathname();
   const isPathInList = useMemo(
-    () => [NEWS, POLICIES, JOBS].some((route) => pathname.includes(route)),
+    () =>
+      [NEWS, POLICIES, JOBS, CONTACT].some((route) => pathname.includes(route)),
     [pathname],
   );
   const logo = useMemo(
