@@ -1,6 +1,6 @@
 "use client";
 
-import Input from "@/components/ui/Input";
+import { Input } from "@/components";
 import { authenticate, signInAction } from "@/lib/actions/actions";
 import { loginSchema } from "@/lib/schemas/forms";
 import type { LoginFormData } from "@/types/forms";

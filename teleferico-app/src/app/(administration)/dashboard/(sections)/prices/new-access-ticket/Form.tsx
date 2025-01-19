@@ -1,7 +1,6 @@
 "use client";
 
-import { FormButtons } from "@/components";
-import Input from "@/components/ui/Input";
+import { FormButtons, Input } from "@/components";
 import { accessTicketSchema } from "@/lib/schemas/forms";
 import type { NewAccessTicketFormData } from "@/types/forms";
 import { lang } from "@/utils/lang.const";
