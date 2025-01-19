@@ -27,6 +27,7 @@ const langs = [
 const {
   HOME,
   INFO,
+  JOBS,
   LOCATION,
   ACTIVITIES,
   EXPLORE,
@@ -50,7 +51,7 @@ export default function Navbar() {
   const [isDownScrolled, setIsDownScrolled] = useState(false);
   const pathname = usePathname();
   const isPathInList = useMemo(
-    () => [NEWS, POLICIES].some((route) => pathname.includes(route)),
+    () => [NEWS, POLICIES, JOBS].some((route) => pathname.includes(route)),
     [pathname],
   );
   const logo = useMemo(

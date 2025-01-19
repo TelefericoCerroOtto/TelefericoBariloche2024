@@ -7,7 +7,7 @@ import fblogo from "@/public/fblogo.svg";
 import iglogo from "@/public/iglogo.svg";
 
 const menuItems = [
-  { label: "Trabajo", href: ROUTES.INFO },
+  { label: "Trabajo", href: ROUTES.JOBS },
   { label: "Contacto", href: ROUTES.INFO },
   { label: "Reglamento", href: ROUTES.POLICIES },
   { label: "Preguntas frecuentes", href: ROUTES.INFO },
