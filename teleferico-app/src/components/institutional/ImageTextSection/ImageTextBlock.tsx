@@ -32,7 +32,11 @@ export function Default(props: ImageTextBlock) {
           <h4 className="mb-4 text-center text-3xl font-bold capitalize text-inherit md:text-start md:text-4xl">
             {isTitleHighlighted ? HighlightLastWord(title) : title}
           </h4>
-          <p className="text-start">{description}</p>
+          {typeof description === "string" ? (
+            <p className="text-start">{description}</p>
+          ) : (
+            description
+          )}
           {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
         </div>
       </div>

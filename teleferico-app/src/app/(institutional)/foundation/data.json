@@ -1,0 +1,79 @@
+{
+  "about": [
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "text": "La Fundación Sara María Furman es una organización sin fines de lucro que nació con el propósito de brindar ayuda a quienes más lo necesitan. Fundada en 1980, nuestra misión es trabajar incansablemente por el bienestar de las personas vulnerables, creando un impacto positivo en sus vidas. Nos mueve la pasión por la solidaridad y la firme creencia en que un mundo mejor es posible.",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "text": "A través de una variedad de proyectos y actividades, buscamos mejorar la calidad de vida de las personas, proporcionando apoyo en áreas críticas como la alimentación, la salud y la educación. Nuestro equipo está compuesto por voluntarios y profesionales comprometidos que dedican su tiempo y esfuerzo a llevar a cabo iniciativas que marcan la diferencia. Creemos que cada acción cuenta, y que juntos podemos construir un futuro más justo y equitativo. La Fundación no solo se centra en la ayuda inmediata, sino que también trabaja para empoderar a las personas, fomentando la participación activa y la autosuficiencia a largo plazo.",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "text": "Con cada paso que damos, nos esforzamos por dejar una huella significativa y duradera, convencidos de que la solidaridad y la cooperación son las claves para enfrentar los desafíos que nos presenta la sociedad actual.",
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "history": [
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "text": "El 24 de junio de 2016 se conmemoraron 100 años del nacimiento de Boris Furman, un destacado filántropo con un inmenso compromiso social. Nacido en Santa Fe, en el seno de una familia de inmigrantes judíos, conoció de cerca la pobreza, lo que lo impulsó a ayudar a los más necesitados. Su madre, Sara, le enseñó que \"siempre hay alguien más necesitado que uno\", un principio que guió su vida y su obra.",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "text": "Boris comenzó a trabajar a los 14 años y llegó a ser propietario de \"Rocha Casimires\", una de las sastrerías más reconocidas de Buenos Aires. En 1970, visitó San Carlos de Bariloche y quedó cautivado por su belleza. A partir de entonces, construyó un legado: un complejo con un teleférico y una confitería giratoria en la cima del Cerro Otto, un sueño que se hizo realidad en 1974. La Fundación Sara María Furman, creada en honor a su visión, ha donado",
+          "type": "text"
+        },
+        {
+          "bold": true,
+          "text": " más de $43,000,000 ",
+          "type": "text"
+        },
+        {
+          "text": "para el bienestar de la comunidad entre 2013 y 2017. Esta labor fue reconocida oficialmente por la Legislatura de Río Negro en junio de 2016, al considerar \"de interés social, cultural y turístico\" las actividades de la fundación.",
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "bakery": [
+    {
+      "type": "paragraph",
+      "children": [
+        {
+          "text": "La Panificadora Solidaria, ubicada en el Barrio Obrero Santa Rosa de Lima, en Santa Fe, es una de las iniciativas más significativas de la Fundación Sara María Furman. Inaugurada en 1988, tenía como objetivo proveer 1,200 kg de pan diario a 1,200 familias en una de las zonas más carenciadas de la provincia. Sin embargo, la panificadora cerró en 2000 debido a la grave crisis social y a las inundaciones que afectaron su local.",
+          "type": "text"
+        },
+        {
+          "text": "Tras la muerte de Don Boris Furman en 2007, la Fundación se comprometió a reabrir el establecimiento. El 15 de abril de 2009, en homenaje a su creador, la Panificadora reanudó sus operaciones con un nuevo enfoque: no solo proveer pan a instituciones benéficas, sino también promover la reinserción social de personas privadas de su libertad.",
+          "type": "text"
+        },
+        {
+          "text": "Hoy en día, el equipo produce diariamente diversas variedades de pan, bizcochos y facturas, con el propósito de abastecer comedores comunitarios y ofrecer productos a precios accesibles para los vecinos de la zona.",
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}

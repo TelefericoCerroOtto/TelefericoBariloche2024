@@ -26,7 +26,7 @@ const langs = [
 ];
 const {
   HOME,
-  INFO,
+  FOUNDATION,
   JOBS,
   LOCATION,
   ACTIVITIES,
@@ -45,7 +45,7 @@ const items: Array<{ label: string; href: string }> = [
   { label: "La cumbre", href: EXPLORE },
   { label: "Tarifas Y Horarios", href: PRICINGSCHEDULES },
   { label: "Noticias", href: NEWS },
-  { label: "Fundación", href: INFO },
+  { label: "Fundación", href: FOUNDATION },
 ];
 
 export default function Navbar() {

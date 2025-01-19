@@ -1,6 +1,5 @@
 export const ROUTES = {
   HOME: "/",
-  INFO: "/info",
   ACTIVITIES: "/activities",
   NEWS: "/news",
   JOBS: "/jobs",
@@ -10,6 +9,7 @@ export const ROUTES = {
   EXPLORE: "/explore",
   PRICINGSCHEDULES: "/pricing-schedules",
   FAQS: "/faqs",
+  FOUNDATION: "/foundation",
 };
 
 export const ADMIN_ROUTES = {
