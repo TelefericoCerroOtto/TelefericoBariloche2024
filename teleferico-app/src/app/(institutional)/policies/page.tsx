@@ -16,7 +16,7 @@ export default async function PoliciesPage() {
   return (
     <>
       <Spacer y={28} />
-      <div className="flex w-full flex-col px-28">
+      <div className="flex w-full flex-col px-10 lg:px-28">
         <TitleDescBlock
           title="Reglamento del complejo turístico"
           desc="Conocé las normas que garantizan la seguridad y el disfrute de todos nuestros visitantes. Tu colaboración es esencial para mantener la experiencia en el Cerro Otto segura y memorable para cada persona."

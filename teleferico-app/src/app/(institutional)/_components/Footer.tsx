@@ -10,7 +10,7 @@ const menuItems = [
   { label: "Trabajo", href: ROUTES.JOBS },
   { label: "Contacto", href: ROUTES.CONTACT },
   { label: "Reglamento", href: ROUTES.POLICIES },
-  { label: "Preguntas frecuentes", href: ROUTES.INFO },
+  { label: "Preguntas frecuentes", href: ROUTES.FAQS },
 ];
 
 const socialItems = [

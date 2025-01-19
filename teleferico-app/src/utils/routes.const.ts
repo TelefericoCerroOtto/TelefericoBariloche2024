@@ -9,6 +9,7 @@ export const ROUTES = {
   LOCATION: "/location",
   EXPLORE: "/explore",
   PRICINGSCHEDULES: "/pricing-schedules",
+  FAQS: "/faqs",
 };
 
 export const ADMIN_ROUTES = {

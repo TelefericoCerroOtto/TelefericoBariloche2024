@@ -6,7 +6,7 @@ export default function JobsPage() {
   return (
     <>
       <Spacer y={28} />
-      <div className="flex w-full flex-col px-28">
+      <div className="flex w-full flex-col px-10 lg:px-28">
         <TitleDescBlock
           title="¡Sumate a Nuestro Equipo!"
           desc="Explorá oportunidades de crecimiento y formá parte de un ambiente de trabajo único, rodeado de la belleza de la Patagonia."

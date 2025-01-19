@@ -6,7 +6,7 @@ export default function ContactPage() {
   return (
     <>
       <Spacer y={28} />
-      <div className="flex w-full flex-col px-28">
+      <div className="flex w-full flex-col px-10 lg:px-28">
         <TitleDescBlock
           title="Medios De Contacto"
           desc="Queremos escucharte y responder a todas tus dudas"
