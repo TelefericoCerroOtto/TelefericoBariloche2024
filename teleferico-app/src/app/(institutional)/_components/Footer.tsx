@@ -9,7 +9,7 @@ import iglogo from "@/public/iglogo.svg";
 const menuItems = [
   { label: "Trabajo", href: ROUTES.INFO },
   { label: "Contacto", href: ROUTES.INFO },
-  { label: "Reglamento", href: ROUTES.INFO },
+  { label: "Reglamento", href: ROUTES.POLICIES },
   { label: "Preguntas frecuentes", href: ROUTES.INFO },
 ];
 
@@ -32,8 +32,6 @@ const socialItems = [
 ];
 
 export default function Footer() {
-  const { INFO } = ROUTES;
-
   return (
     <footer className="flex items-center justify-center bg-custom-red px-16 py-10 text-white lg:h-[350px]">
       <div className="flex w-full max-w-[1536px] flex-col items-stretch lg:flex-row">
@@ -73,7 +71,7 @@ export default function Footer() {
             <ul>
               {menuItems.map((item, idx) => (
                 <li key={idx} className="hover:underline">
-                  <Link href={INFO}>{item.label}</Link>
+                  <Link href={item.href}>{item.label}</Link>
                 </li>
               ))}
             </ul>
