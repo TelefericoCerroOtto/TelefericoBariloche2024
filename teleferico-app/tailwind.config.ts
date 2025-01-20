@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 import { nextui } from "@nextui-org/react";
 import plugin from "tailwindcss-animate";
+import tailwindtypo from "@tailwindcss/typography";
 
 const config: Config = {
   content: [
@@ -10,6 +11,11 @@ const config: Config = {
     "./node_modules/@nextui-org/theme/dist/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
+    screens: {
+      sm: "640px",
+      md: "820px",
+      lg: "1366px",
+    },
     extend: {
       colors: {
         custom: {
@@ -79,6 +85,6 @@ const config: Config = {
     },
   },
   darkMode: ["class", "class"],
-  plugins: [nextui(), plugin],
+  plugins: [nextui(), plugin, tailwindtypo],
 };
 export default config;

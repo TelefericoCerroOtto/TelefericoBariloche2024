@@ -1,7 +1,6 @@
 "use client";
 
-import { FormButtons } from "@/components";
-import Input from "@/components/ui/Input";
+import { FormButtons, Input } from "@/components";
 import { newUserSchema } from "@/lib/schemas/forms";
 import type { NewUserFormData } from "@/types/forms";
 import { ADMIN_ROUTES } from "@/utils/routes.const";

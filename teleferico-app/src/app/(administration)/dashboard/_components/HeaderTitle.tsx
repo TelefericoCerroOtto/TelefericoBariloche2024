@@ -23,6 +23,14 @@ const titles: Record<
     path: ADMIN_ROUTES.NEW_ACCESS_TICKET,
     title: "Tarifa De Acceso",
   },
+  NEW_BUS_TRAVEL: {
+    path: ADMIN_ROUTES.NEW_BUS_TRAVEL,
+    title: "AAAA",
+  },
+  NEW_USER: {
+    path: ADMIN_ROUTES.NEW_USER,
+    title: "BBBB",
+  },
 };
 
 export default function HeaderTitle() {

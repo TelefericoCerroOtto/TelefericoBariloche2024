@@ -1,6 +1,6 @@
 "use client";
 
-import DropdownCablecarMenu from "@/components/DropdownCablecarMenu";
+import { DropdownCablecarMenu } from "@/components";
 import { Button } from "@nextui-org/react";
 import { CableCar } from "lucide-react";
 

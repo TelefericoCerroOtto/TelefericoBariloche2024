@@ -18,3 +18,7 @@ export const tableStyles = {
     th: "bg-white font-bold text-black",
   },
 };
+
+export const titleStyles = {
+  className: "text-3xl font-bold capitalize text-inherit md:text-5xl",
+};

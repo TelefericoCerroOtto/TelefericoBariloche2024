@@ -1,13 +1,15 @@
 export const ROUTES = {
   HOME: "/",
-  INFO: "/info",
   ACTIVITIES: "/activities",
-  GALLERY: "/gallery",
   NEWS: "/news",
   JOBS: "/jobs",
-  RULES: "/rules",
   CONTACT: "/contact",
-  LEGALS: "/legals",
+  POLICIES: "/policies",
+  LOCATION: "/location",
+  EXPLORE: "/explore",
+  PRICINGSCHEDULES: "/pricing-schedules",
+  FAQS: "/faqs",
+  FOUNDATION: "/foundation",
 };
 
 export const ADMIN_ROUTES = {
