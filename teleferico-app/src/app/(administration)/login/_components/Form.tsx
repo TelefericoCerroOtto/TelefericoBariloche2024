@@ -1,26 +1,13 @@
-import { LoginForm } from "@/components";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import HealthCheck from "./HealthCheck";
+import { Divider } from "@nextui-org/divider";
+import LoginForm from "./LoginForm";
+import FormHeader from "./FormHeader";
 
 export function Form() {
   return (
-    <Card className="mx-auto max-w-sm">
-      <CardHeader>
-        <CardTitle className="text-2xl">Inciar sesión</CardTitle>
-        <CardDescription>
-          Ingrese su email y contraseña para acceder
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <LoginForm />
-        <HealthCheck />
-      </CardContent>
-    </Card>
+    <div className="m-4 flex w-1/4 flex-col gap-8">
+      <FormHeader />
+      <Divider />
+      <LoginForm />
+    </div>
   );
 }

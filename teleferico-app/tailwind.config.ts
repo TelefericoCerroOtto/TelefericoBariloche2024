@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 import { nextui } from "@nextui-org/react";
 import plugin from "tailwindcss-animate";
+import tailwindtypo from "@tailwindcss/typography";
 
 const config: Config = {
   content: [
@@ -10,8 +11,21 @@ const config: Config = {
     "./node_modules/@nextui-org/theme/dist/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
+    screens: {
+      sm: "640px",
+      md: "820px",
+      lg: "1366px",
+    },
     extend: {
       colors: {
+        custom: {
+          green: "var(--custom-green)",
+          blue: "var(--custom-blue)",
+          orange: "var(--custom-orange)",
+          red: "var(--custom-red)",
+          border: "var(--custom-border)",
+          gray: "var(--custom-gray)",
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -52,6 +66,16 @@ const config: Config = {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar-background))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          primary: "hsl(var(--sidebar-primary))",
+          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
+          border: "hsl(var(--sidebar-border))",
+          ring: "hsl(var(--sidebar-ring))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -60,7 +84,7 @@ const config: Config = {
       },
     },
   },
-  darkMode: "class",
-  plugins: [nextui(), plugin],
+  darkMode: ["class", "class"],
+  plugins: [nextui(), plugin, tailwindtypo],
 };
 export default config;
