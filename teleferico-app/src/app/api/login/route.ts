@@ -1,6 +1,4 @@
-import { login } from "@/lib/services/login";
-import { SuccessfulLoginResponse } from "@/types/api";
-// import { cookies } from "next/headers";
+import { login } from "@/lib/services/auth/login";
 
 export async function POST(request: Request) {
   try {

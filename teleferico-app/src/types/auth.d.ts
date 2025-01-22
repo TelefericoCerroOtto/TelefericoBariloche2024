@@ -1,19 +1,36 @@
-import type { User as UserAPI } from "@/types/api";
+import type { UserResponse } from "@/types/api";
+import { UserRole } from "@/types/common";
 
 declare module "next-auth" {
-  /**
-   * Returned by `useSession`, `auth`, contains information about the active session.
-   */
-  interface User extends UserAPI {}
+  interface User extends UserResponse {
+    role: UserRole;
+    jwt: string;
+  }
+
+  interface Session {
+    user: {
+      name: string;
+      surname: string;
+      email: string;
+      blocked: boolean;
+      id: string;
+      role: UserRole;
+    };
+    jwt: string;
+  }
 }
 
-// The `JWT` interface can be found in the `next-auth/jwt` submodule
+// eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
 import { JWT } from "next-auth/jwt";
 
 declare module "next-auth/jwt" {
   /** Returned by the `jwt` callback and `auth`, when using JWT sessions */
   interface JWT {
-    /** OpenID ID Token */
-    idToken?: string;
+    name: string;
+    surname: string;
+    jwt: string;
+    role: UserRole;
+    id: string;
+    blocked: boolean;
   }
 }

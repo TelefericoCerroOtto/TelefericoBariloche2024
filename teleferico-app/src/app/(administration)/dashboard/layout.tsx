@@ -1,4 +1,5 @@
 import { SidebarProvider } from "@/components/ui/Sidebar";
+import { SessionProvider } from "next-auth/react";
 import { Header } from "./_components/Header";
 import Sidebar from "./_components/Sidebar";
 
@@ -8,7 +9,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div>
+    <SessionProvider>
       <SidebarProvider>
         <Sidebar />
         <main className="w-full max-w-full">
@@ -24,6 +25,6 @@ export default function DashboardLayout({
           </div>
         </main>
       </SidebarProvider>
-    </div>
+    </SessionProvider>
   );
 }

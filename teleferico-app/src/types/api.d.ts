@@ -12,14 +12,28 @@ interface Error {
 }
 
 interface ErrorResponse {
-  data?: any;
+  data?: null;
   error: Error;
 }
 
-export interface User {
+export interface UserRole {
   id: number;
   documentId: string;
+  name: string;
+  description: string;
+  type: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  locale: string | null;
+}
+
+export interface UserResponse {
+  id: string;
+  documentId: string;
   username: string;
+  name: string;
+  surname: string;
   email: string;
   provider: string;
   confirmed: boolean;
@@ -28,7 +42,6 @@ export interface User {
   updatedAt: string;
   publishedAt: string;
   locale?: string | string[];
-  nickname: string;
 }
 
 export interface SuccessfulLoginResponse {
