@@ -26,6 +26,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 
 const items = [
   {
@@ -102,7 +103,10 @@ export default function Sidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton className="text-primary hover:bg-primary/20 hover:text-primary">
+            <SidebarMenuButton
+              className="text-primary hover:bg-primary/20 hover:text-primary"
+              onClick={() => signOut({ redirectTo: "/login" })}
+            >
               <Power size={16} />
               <p>Salir</p>
             </SidebarMenuButton>

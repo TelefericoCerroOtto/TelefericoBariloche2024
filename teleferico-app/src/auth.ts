@@ -1,18 +1,22 @@
-import { login } from "@/lib/services/login";
-import NextAuth, { AuthError } from "next-auth";
+import { login } from "@/lib/services/auth/login";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { getUserRole } from "./lib/services/auth/user";
 
-type InvalidLoginErrorCodes = "invalid_credentials" | "unhandled_error";
-
-export class InvalidLoginError extends AuthError {
-  code = "invalid_credentials";
-  constructor(message?: InvalidLoginErrorCodes) {
+class InvalidCredentials extends CredentialsSignin {
+  constructor(message: string) {
     super(message);
-    this.code = message ?? this.code;
+    this.message = message;
   }
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  logger: {
+    error(code, ...message) {
+      if (code.name === "InvalidCredentials") return;
+      console.error(code, message);
+    },
+  },
   providers: [
     Credentials({
       credentials: {
@@ -28,15 +32,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (loginRes.ok) {
-          user = { ...loginRes.data.user };
-          return user;
+          const role = await getUserRole(loginRes.data.jwt);
+          if (role.ok) {
+            const { name, type, description } = role.data;
+            const { user: userData, jwt } = loginRes.data;
+            user = {
+              ...userData,
+              role: { name, type, description },
+              jwt,
+            };
+            return user;
+          } else if (role.data !== null) {
+            throw new InvalidCredentials("Invalid Credentials");
+          }
+        } else if (loginRes.data !== null) {
+          throw new InvalidCredentials("Invalid Credentials");
         }
-
-        if (loginRes.data !== null) {
-          throw new InvalidLoginError();
-        }
-
-        throw new InvalidLoginError("unhandled_error");
+        throw new Error("login service error, check the console.");
       },
     }),
   ],
@@ -51,11 +63,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Logged in users are authenticated, otherwise redirect to login page
       return !!auth;
     },
-    signIn(values) {
-      return true;
-      return (values.credentials?.identifier as string).includes(
-        "@telefericobariloche.com.ar",
-      );
+    jwt: async ({ user, trigger, token }) => {
+      if (trigger === "signIn") {
+        token.id = user.id as string;
+        token.name = user.name as string;
+        token.surname = user.surname;
+        token.jwt = user.jwt;
+        token.role = user.role;
+        token.blocked = user.blocked;
+      }
+      return token;
     },
+    session: async ({ token, session }) => {
+      session.user.name = token.name;
+      session.user.surname = token.surname;
+      session.user.jwt = token.jwt;
+      session.user.role = token.role;
+      session.user.id = token.id;
+      session.user.blocked = token.blocked;
+
+      return session;
+    },
+    // signIn(values) {
+    //   console.log("signIn values", values);
+    //   return false;
+    //   return (values.credentials?.identifier as string).includes(
+    //     "@telefericobariloche.com.ar",
+    //   );
+    // },
   },
 });
