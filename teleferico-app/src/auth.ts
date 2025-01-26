@@ -1,7 +1,6 @@
-import { login } from "@/lib/services/auth/login";
+import { getUserRole, login } from "@/lib/services";
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { getUserRole } from "./lib/services/auth/user";
 
 class InvalidCredentials extends CredentialsSignin {
   constructor(message: string) {

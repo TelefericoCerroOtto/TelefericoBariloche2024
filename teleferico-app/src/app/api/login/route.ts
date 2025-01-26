@@ -1,4 +1,4 @@
-import { login } from "@/lib/services/auth/login";
+import { login } from "@/lib/services";
 
 export async function POST(request: Request) {
   try {
