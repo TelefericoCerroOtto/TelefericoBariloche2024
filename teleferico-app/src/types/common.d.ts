@@ -1,5 +1,3 @@
-export interface UserRole {
-  name: string;
-  type: string;
-  description: string;
-}
+export type FetchResponse<T> =
+  | { ok: false; data: null | ErrorResponse }
+  | { ok: true; data: T };

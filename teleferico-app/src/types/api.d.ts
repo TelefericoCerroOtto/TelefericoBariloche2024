@@ -1,25 +1,21 @@
 import { type ReactNode } from "react";
 
-export interface LoginUserRequest {
-  identifier: string;
-  password: string;
-}
-
-interface Error {
+interface StrapiError {
   status: number;
   name: string;
   message: string;
+  details?: unknown;
 }
 
 interface ErrorResponse {
   data?: null;
-  error: Error;
+  error: StrapiError;
 }
 
 export interface UserRole {
   id: number;
   documentId: string;
-  name: string;
+  name: "AdminMaster" | "Note Manager";
   description: string;
   type: string;
   createdAt: string;
@@ -28,8 +24,18 @@ export interface UserRole {
   locale: string | null;
 }
 
-export interface UserResponse {
-  id: string;
+export interface LoginUserRequest {
+  identifier: string;
+  password: string;
+}
+
+export interface SuccessfulLoginResponse {
+  jwt: string;
+  user: User;
+}
+
+export interface UnpopulatedUserResponse {
+  id: number;
   documentId: string;
   username: string;
   name: string;
@@ -44,10 +50,44 @@ export interface UserResponse {
   locale?: string | string[];
 }
 
-export interface SuccessfulLoginResponse {
-  jwt: string;
-  user: User;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export type UserResponse<T extends object = {}> = UnpopulatedUserResponse & T;
+
+export type GetPersonalDataResponse = UserResponse<{
+  role: UserRole;
+  localizations: string[];
+}>;
+
+export interface NewUserRequest {
+  email: string;
+  password: string;
+  username: string;
+  name: string;
+  surname: string;
+  role: {
+    connect: { id: number }[];
+  };
 }
+
+export type NewUserResponse = UserResponse<{ role: UserRole }>;
+
+export type GetUserResponse = UserResponse<{ role: UserRole }>;
+
+export type UpdateUserRequest = Partial<NewUserRequest>;
+
+export type UpdateUserResponse = UserResponse<{ role: UserRole }>;
+
+// Check if this is true
+export type DeleteUserResponse = UserResponse<{
+  role: UserRole;
+  localizations: string[];
+}>;
+
+export interface GetRolesResponse {
+  roles: UserRole[];
+}
+
+export type GetUsersResponse = UserResponse<{ role: UserRole }>[];
 
 export interface ImageType {
   src: string;

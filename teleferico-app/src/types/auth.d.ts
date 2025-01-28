@@ -1,8 +1,8 @@
-import type { UserResponse } from "@/types/api";
+import type { UnpopulatedUserResponse } from "@/types/api";
 import { UserRole } from "@/types/common";
 
 declare module "next-auth" {
-  interface User extends UserResponse {
+  interface User extends UnpopulatedUserResponse {
     role: UserRole;
     jwt: string;
   }
