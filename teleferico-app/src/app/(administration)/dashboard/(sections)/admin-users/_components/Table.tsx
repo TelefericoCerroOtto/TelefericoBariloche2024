@@ -1,10 +1,9 @@
 "use client";
 
-import { ButtonDos, TableContainer } from "@/components";
-import { buttonStyles } from "@/components/shared/ButtonDos";
+import { TableContainer } from "@/components";
+import type { UserResponse, UserRole } from "@/types/api";
 import { tableStyles } from "@/utils/styles";
 import {
-  Link,
   Table as NextUITable,
   TableBody,
   TableCell,
@@ -13,99 +12,48 @@ import {
   TableRow,
   User,
 } from "@nextui-org/react";
-import { Pencil, Trash2 } from "lucide-react";
 import { type Key } from "react";
+import { columns } from "../data";
+import ActionButtons from "./ActionButtons";
 import Filters from "./Filters";
 import { useFilters } from "./use-filters";
 
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-}
-
-const renderCell = (user: User, columnKey: Key) => {
-  const cellValue = user[columnKey as keyof User];
-
+const renderCell = (user: UserResponse<{ role: UserRole }>, columnKey: Key) => {
   switch (columnKey) {
     case "name":
       return (
         <User
-          avatarProps={{ radius: "lg", src: "MF" }}
+          avatarProps={{
+            radius: "lg",
+            src: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
+          }}
           description={user.email}
-          name={cellValue}
+          name={`${user.name} ${user.surname}`}
         >
           {user.email}
         </User>
       );
 
     case "role":
-      return <span>{cellValue as string}</span>;
+      return <span>{user.role.name}</span>;
 
     case "email":
-      return <span>{cellValue as string}</span>;
+      return <span>{user.email}</span>;
     case "actions":
-      return (
-        <div className="relative flex items-center gap-2">
-          <Link href="#" className={buttonStyles({ intent: "ghostBlack" })}>
-            <Pencil size={20} />
-            <p>Editar</p>
-          </Link>
-          <ButtonDos intent="ghost" size="sm">
-            <Trash2 size={20} />
-            <p>Borrar</p>
-          </ButtonDos>
-        </div>
-      );
+      return <ActionButtons user={user} />;
     default:
-      return <span>{cellValue as string}</span>;
+      return <span>{}</span>;
   }
 };
 
-const columns = [
-  { key: "name", label: "Nombre Completo" },
-  { key: "email", label: "Email" },
-  { key: "role", label: "Rol" },
-  { key: "actions", label: "Acciones" },
-];
+interface Props {
+  users: UserResponse<{ role: UserRole }>[];
+}
 
-const users: Array<User> = [
-  {
-    id: 1,
-    name: "Juan Ignacio Gonzalez",
-    email: "juani@gmail.com",
-    role: "Administrativo",
-  },
-  {
-    id: 2,
-    name: "Mateo Pedro Quiroga",
-    email: "mateo@gmail.com",
-    role: "Administrativo",
-  },
-  {
-    id: 3,
-    name: "Sofia Mariana Lopez",
-    email: "sofia.lopez@gmail.com",
-    role: "Fotografo",
-  },
-  {
-    id: 4,
-    name: "Lucia Paula Sacha",
-    email: "lucia.sacha@gmail.com",
-    role: "Reclutador",
-  },
-  {
-    id: 5,
-    name: "Manuel Facundo Bosco",
-    email: "manuel@gmail.com",
-    role: "Administrador",
-  },
-];
-
-export default function Table() {
+export default function Table(props: Props) {
+  const { users } = props;
   const { filterValue, filteredItems, onSearchChange, onSearchClear } =
-    useFilters<User>(users);
+    useFilters<UserResponse<{ role: UserRole }>>(users);
 
   return (
     <>
@@ -122,7 +70,7 @@ export default function Table() {
             )}
           </TableHeader>
           <TableBody
-            emptyContent={"No hay zonas para mostrar"}
+            emptyContent={"No hay usuarios para mostrar"}
             items={filteredItems}
           >
             {(entry) => (

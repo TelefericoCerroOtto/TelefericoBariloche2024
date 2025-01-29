@@ -16,7 +16,10 @@ export default function Filters(props: Props) {
   const { onSearchChange, onClear, filterValue } = props;
 
   return (
-    <TableToolbarContainer linkHref={ADMIN_ROUTES.NEW_USER} title="Nueva Ruta">
+    <TableToolbarContainer
+      linkHref={ADMIN_ROUTES.NEW_USER}
+      title="Nuevo usuario"
+    >
       <Input
         isClearable
         className="w-full max-w-[300px]"

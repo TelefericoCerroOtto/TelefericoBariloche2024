@@ -1,28 +1,37 @@
 export const ROUTES = {
-  HOME: "/",
   ACTIVITIES: "/activities",
-  NEWS: "/news",
-  JOBS: "/jobs",
   CONTACT: "/contact",
-  POLICIES: "/policies",
-  LOCATION: "/location",
+  HOME: "/",
   EXPLORE: "/explore",
-  PRICINGSCHEDULES: "/pricing-schedules",
   FAQS: "/faqs",
   FOUNDATION: "/foundation",
+  JOBS: "/jobs",
+  LOCATION: "/location",
+  NEWS: "/news",
+  POLICIES: "/policies",
+  PRICINGSCHEDULES: "/pricing-schedules",
 };
 
 export const ADMIN_ROUTES = {
-  DASHBOARD: "/dashboard",
   ADMIN_GALLERY: "/dashboard/admin-gallery",
+  ADMIN_USERS: "/dashboard/admin-users",
   BUSES: "/dashboard/buses",
+  DASHBOARD: "/dashboard",
+  LOGIN: "/login",
+  LOGOUT: "/logout",
   NEWS: "/dashboard/news",
-  PRICES: "/dashboard/prices",
   NEW_ACCESS_TICKET: "/dashboard/prices/new-access-ticket",
   NEW_ACTIVITY_TICKET: "/dashboard/prices/new-act-ticket",
   NEW_BUS_TRAVEL: "/dashboard/buses/new-bus-travel",
   NEW_USER: "/dashboard/admin-users/new-user",
+  PRICES: "/dashboard/prices",
   RECRUITMENT: "/dashboard/recruitment",
   ZONES: "/dashboard/zones",
-  ADMIN_USERS: "/dashboard/admin-users",
+};
+
+export const STRAPI_ENDPOINTS = {
+  AUTH: "/api/auth/local",
+  ROLES: "/api/users-permissions/roles",
+  USERS: "/api/users",
+  USERS_ME: "/api/users/me",
 };

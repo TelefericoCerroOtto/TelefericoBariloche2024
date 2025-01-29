@@ -1,3 +1,7 @@
+import {
+  validateEmailAvailability,
+  validateUsernameAvailability,
+} from "@/lib/actions";
 import type { LoginUserRequest } from "@/types/api";
 import { number, object, string, type ObjectSchema } from "yup";
 
@@ -69,6 +73,37 @@ export const BusTravelSchema = object({
 });
 
 export const newUserSchema = object({
+  // id value is deleted within the adapter
+  id: number(),
+  username: string()
+    .required("Campo requerido")
+    .min(2, "El nombre de usuario debe contener al menos 2 caracteres")
+    .test(
+      "unique-username",
+      "Usuario ya registrado",
+      validateUsernameAvailability,
+    ),
+  name: string()
+    .required("Campo requerido")
+    .min(2, "El nombre debe contener al menos 2 caracteres"),
+  surname: string()
+    .required("Campo requerido")
+    .min(2, "El apellido debe contener al menos 2 caracteres"),
+  email: string()
+    .email("Debe ser un email valido")
+    .required("Campo requerido")
+    .test("unique-email", "Email ya registrado", validateEmailAvailability),
+  password: string().required("Campo requerido"),
+  role: string()
+    .matches(/^\d+$/, "Debe ser un id con caracteres numericos")
+    .required("Campo requerido"),
+});
+
+export const updateUserSchema = object({
+  id: number().integer().required(),
+  username: string()
+    .required("Campo requerido")
+    .min(2, "El nombre de usuario debe contener al menos 2 caracteres"),
   name: string()
     .required("Campo requerido")
     .min(2, "El nombre debe contener al menos 2 caracteres"),
@@ -76,8 +111,8 @@ export const newUserSchema = object({
     .required("Campo requerido")
     .min(2, "El apellido debe contener al menos 2 caracteres"),
   email: string().email("Debe ser un email valido").required("Campo requerido"),
-  password: string().required("Campo requerido"),
+  password: string(),
   role: string()
-    .oneOf(["administrative", "photographer", "recluter", "admin"])
+    .matches(/^\d+$/, "Debe ser un id con caracteres numericos")
     .required("Campo requerido"),
 });

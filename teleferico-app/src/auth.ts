@@ -1,7 +1,6 @@
-import { login } from "@/lib/services/auth/login";
+import { getUserRole, login } from "@/lib/services";
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { getUserRole } from "./lib/services/auth/user";
 
 class InvalidCredentials extends CredentialsSignin {
   constructor(message: string) {
@@ -10,6 +9,21 @@ class InvalidCredentials extends CredentialsSignin {
   }
 }
 
+/**
+ * There are 2 types of session:
+ * Strapi: A 1-hour duration JWT obtained when credentials are sent to the server.
+ * Auth.js: An Encrypted JWT saved in a httpOnly cookie which contains the data returned by the session callback.
+ *
+ * Identified issues:
+ *  - Auth.js renews the session expiration time through Next.js middleware, but the updateAge option to configure this behavior doesn’t seem to work.
+ *  - No way was found to automatically renew the expiration time of the JWT issued by Strapi.
+ * Solution:
+ *  - The Auth.js session duration was shortened to 45 minutes to allow a 15-minute buffer.
+ *  - The middleware validates the Strapi token. If it’s invalid, it automatically redirects to the logout page.
+ * Purpose:
+ *  - This ensures the Auth.js session stays synchronized with the Strapi JWT expiration.
+ * */
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   logger: {
     error(code, ...message) {
@@ -17,6 +31,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       console.error(code, message);
     },
   },
+  // The session's lifespan is set shorter than the JWT's lifespan returned by the
+  // backend to ensure that the session does not remain active if the JWT has already expired.
+  session: { maxAge: 60 * 45 },
   providers: [
     Credentials({
       credentials: {
@@ -32,10 +49,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (loginRes.ok) {
-          const role = await getUserRole(loginRes.data.jwt);
+          const { user: userData, jwt } = loginRes.data;
+          const role = await getUserRole(userData.id, jwt);
+
           if (role.ok) {
             const { name, type, description } = role.data;
-            const { user: userData, jwt } = loginRes.data;
             user = {
               ...userData,
               role: { name, type, description },
@@ -56,9 +74,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
-    // Cuando pasa una request por el middleware de auth, invoca a la siguiente
-    // funcion que tiene como parametro al objeto auth. Si devuelve false, hara un redirect
-    // a la pagina de login. Con true, sigue la request normalmente
+    // When a request goes through the auth middleware, it invokes the authorized function,
+    // passing the auth object as a parameter.
     authorized: async ({ auth }) => {
       // Logged in users are authenticated, otherwise redirect to login page
       return !!auth;
@@ -75,21 +92,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     session: async ({ token, session }) => {
+      session.jwt = token.jwt;
       session.user.name = token.name;
       session.user.surname = token.surname;
-      session.user.jwt = token.jwt;
       session.user.role = token.role;
       session.user.id = token.id;
       session.user.blocked = token.blocked;
 
       return session;
     },
-    // signIn(values) {
-    //   console.log("signIn values", values);
-    //   return false;
-    //   return (values.credentials?.identifier as string).includes(
-    //     "@telefericobariloche.com.ar",
-    //   );
-    // },
   },
 });
