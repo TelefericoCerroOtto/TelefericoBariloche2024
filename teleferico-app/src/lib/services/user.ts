@@ -14,6 +14,7 @@ import { CACHE_TAGS } from "@/utils/cache-tags.const";
 import { fetchWrapper } from "@/utils/fetch";
 import { getStrapiURL } from "@/utils/get-strapi-url";
 import { stringifyQuery } from "@/utils/query";
+import { roles } from "@/utils/roles";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 
 export const getPersonalData = async (jwt: string) => {
@@ -39,7 +40,7 @@ export const getUsers = async (jwt: string, qs?: unknown) => {
     filters: {
       role: {
         name: {
-          $ne: "AdminMaster",
+          $ne: roles[2],
         },
       },
     },
@@ -179,7 +180,7 @@ export const getRoles = async (jwt: string) => {
   );
   // It is not possible to filter the returned roles through query parameters.
   // The roles controller is configured to return all roles.
-  const excludedRoles = ["Authenticated", "Public", "AdminMaster"];
+  const excludedRoles = [roles[0], roles[1], roles[2]] as string[];
 
   let sanitizedRes: FetchResponse<UserRole[]>;
 

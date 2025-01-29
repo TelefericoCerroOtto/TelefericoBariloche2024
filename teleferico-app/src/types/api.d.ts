@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { roles } from "@/utils/roles";
 
 export interface StrapiError {
   status: number;
@@ -15,7 +16,7 @@ export interface ErrorResponse {
 export interface UserRole {
   id: number;
   documentId: string;
-  name: "AdminMaster" | "Note Manager";
+  name: (typeof roles)[number];
   description: string;
   type: string;
   createdAt: string;
