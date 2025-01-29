@@ -1,7 +1,9 @@
-import { getUserRole, login } from "@/lib/services";
+import { getPersonalData, login } from "@/lib/services";
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
+// This custom class was created to avoid the general catch logger error of Auth.js.
+// This is done via logger configuration
 class InvalidCredentials extends CredentialsSignin {
   constructor(message: string) {
     super(message);
@@ -49,22 +51,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (loginRes.ok) {
-          const { user: userData, jwt } = loginRes.data;
-          const role = await getUserRole(userData.id, jwt);
-
-          if (role.ok) {
-            const { name, type, description } = role.data;
+          const { jwt } = loginRes.data;
+          const res = await getPersonalData(jwt);
+          if (res.ok) {
+            // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
+            const { localizations: _, role, id, ...userData } = res.data;
             user = {
+              id: id.toString(),
               ...userData,
-              role: { name, type, description },
+              role,
               jwt,
             };
             return user;
-          } else if (role.data !== null) {
-            throw new InvalidCredentials("Invalid Credentials");
+          } else if (res.data !== null) {
+            throw new InvalidCredentials(
+              "No se pudieron obtener los datos personales",
+            );
           }
         } else if (loginRes.data !== null) {
-          throw new InvalidCredentials("Invalid Credentials");
+          throw new InvalidCredentials("Credenciales invalidas");
         }
         throw new Error("login service error, check the console.");
       },
@@ -88,6 +93,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.jwt = user.jwt;
         token.role = user.role;
         token.blocked = user.blocked;
+        token.username = user.username;
       }
       return token;
     },
@@ -98,6 +104,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.user.role = token.role;
       session.user.id = token.id;
       session.user.blocked = token.blocked;
+      session.user.username = token.username;
 
       return session;
     },
