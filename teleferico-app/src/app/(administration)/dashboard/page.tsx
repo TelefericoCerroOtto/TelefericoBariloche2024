@@ -1,5 +1,5 @@
-import Image from "next/image";
 import clockIilustration from "@/public/oc-time-flies.svg";
+import Image from "next/image";
 
 export default async function DashboardPage() {
   return (

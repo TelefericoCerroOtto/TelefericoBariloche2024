@@ -1,13 +1,12 @@
-import { FormContainer } from "@/components";
-import Form from "./Form";
+import { FormError } from "@/components";
+import { getRoles } from "@/lib/services";
+import { getSession } from "@/utils/auth";
+import Form from "./_components/Form";
 
-const FORM_DESC =
-  "Desde esta sección, podés crear y editar los usuarios que tendrán acceso a la plataforma de administración y asignar sus roles.";
+export default async function NewUserPage() {
+  const session = await getSession();
+  const resRoles = await getRoles(session.jwt);
 
-export default function NewUserPage() {
-  return (
-    <FormContainer desc={FORM_DESC}>
-      <Form />
-    </FormContainer>
-  );
+  if (resRoles.ok) return <Form roles={resRoles.data} />;
+  return <FormError message="Ocurrio un error al solicitar los roles" />;
 }
