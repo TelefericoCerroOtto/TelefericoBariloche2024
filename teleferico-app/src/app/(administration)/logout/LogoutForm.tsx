@@ -1,7 +1,7 @@
 "use client";
 
+import { logoutAction } from "./actions";
 import { useEffect, useRef } from "react";
-import { formsubmit } from "./action";
 
 // Logout page will autosubmit a signout form, which deletes Authjs session.
 
@@ -14,5 +14,5 @@ export default function LogoutForm() {
     }
   }, []);
 
-  return <form ref={formRef} action={formsubmit} />;
+  return <form ref={formRef} action={logoutAction} />;
 }

@@ -1,22 +1,16 @@
 "use client";
 
-import { ButtonDos } from "@/components";
+import { ButtonDos, FormError } from "@/components";
+import { loginAction } from "@/lib/actions";
 import { loginSchema } from "@/lib/schemas/forms";
 import type { LoginUserRequest } from "@/types/api";
+import { LoginFormData } from "@/types/forms";
+import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { Input, Spinner } from "@nextui-org/react";
 import { useFormik } from "formik";
 import { Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
-import { object, string } from "yup";
-import { loginAction } from "./action";
-import FormError from "./FormError";
 import { useRouter } from "next/navigation";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
-
-export const Schema = object({
-  identifier: string().email().required("Campo requerido"),
-  password: string().required("Campo requerido"),
-});
+import { useState } from "react";
 
 export default function LoginForm() {
   const [isVisible, setIsVisible] = useState(false);
@@ -43,7 +37,7 @@ export default function LoginForm() {
   };
 
   const { values, handleChange, handleSubmit, handleBlur, errors, touched } =
-    useFormik({
+    useFormik<LoginFormData>({
       initialValues: {
         identifier: "",
         password: "",
