@@ -50,12 +50,20 @@ export default function ButtonDos(props: Props) {
     fullWidth,
     className,
     isLoading = false,
+    disabled,
     ...buttonProps
   } = props;
 
   return (
     <button
-      className={cn(buttonStyles({ intent, size, fullWidth, className }))}
+      className={cn(
+        buttonStyles({
+          intent: disabled ? "disable" : intent,
+          size,
+          fullWidth,
+          className,
+        }),
+      )}
       {...buttonProps}
     >
       {isLoading ? <Spinner size="sm" color="white" /> : children}

@@ -1,14 +1,21 @@
 "use client";
 
 import { ButtonDos } from "@/components";
+import { Spinner } from "@nextui-org/spinner";
 import { useRouter } from "next/navigation";
 
 interface Props {
   cancelRedirectRoute: string;
+  isSubmitting: boolean;
+  disableSubmitButton?: boolean;
 }
 
 export default function FormButtons(props: Props) {
-  const { cancelRedirectRoute } = props;
+  const {
+    cancelRedirectRoute,
+    isSubmitting = false,
+    disableSubmitButton = false,
+  } = props;
   const router = useRouter();
 
   return (
@@ -21,8 +28,13 @@ export default function FormButtons(props: Props) {
       >
         Cancelar
       </ButtonDos>
-      <ButtonDos intent="solid" type="submit" className="w-[159px]">
-        Guardar
+      <ButtonDos
+        intent="solid"
+        type={disableSubmitButton ? "button" : "submit"}
+        className="w-[159px]"
+        disabled={disableSubmitButton || isSubmitting}
+      >
+        {isSubmitting ? <Spinner size="sm" color="white" /> : "Guardar"}
       </ButtonDos>
     </div>
   );

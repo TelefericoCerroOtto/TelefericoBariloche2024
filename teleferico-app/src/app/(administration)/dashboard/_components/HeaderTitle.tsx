@@ -29,7 +29,7 @@ const titles: Record<
   },
   NEW_USER: {
     path: ADMIN_ROUTES.NEW_USER,
-    title: "BBBB",
+    title: "Formulario de Usuario",
   },
 };
 
