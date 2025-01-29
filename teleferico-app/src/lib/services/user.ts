@@ -1,11 +1,17 @@
 import type {
-  ErrorResponse,
+  DeleteUserResponse,
+  FetchResponse,
   GetPersonalDataResponse,
+  GetRolesResponse,
+  GetUserResponse,
   GetUsersResponse,
-  QueriedUser,
-  UnpopulatedUserResponse,
+  NewUserRequest,
+  NewUserResponse,
+  UpdateUserResponse,
   UserRole,
-} from "@/types/api";
+} from "@/types";
+import { CACHE_TAGS } from "@/utils/cache-tags.const";
+import { fetchWrapper } from "@/utils/fetch";
 import { getStrapiURL } from "@/utils/get-strapi-url";
 import { stringifyQuery } from "@/utils/query";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
@@ -13,38 +19,23 @@ import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 export const getPersonalData = async (jwt: string) => {
   const query = { populate: "*" };
 
-  try {
-    const res = await fetch(
-      getStrapiURL(STRAPI_ENDPOINTS.USERS_ME, stringifyQuery(query)),
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-        },
-        cache: "no-cache",
+  const res = await fetchWrapper<GetPersonalDataResponse>(
+    getStrapiURL(STRAPI_ENDPOINTS.USERS_ME, stringifyQuery(query)),
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
       },
-    );
-
-    if (res.status === 200) {
-      const data = (await res.json()) as GetPersonalDataResponse;
-      return { ok: true, data };
-    }
-
-    const data = await res.json();
-    return { ok: false, data } as { ok: false; data: ErrorResponse };
-  } catch (error) {
-    console.log("get personal data error", error);
-    return { ok: false, data: null } as { ok: false; data: null };
-  }
+      cache: "no-cache",
+    },
+    "getPersonalData error",
+  );
+  return res;
 };
 
-export const getUsers = async (jwt: string) => {
+export const getUsers = async (jwt: string, qs?: unknown) => {
   const query = {
-    populate: {
-      role: {
-        fields: ["name", "description"],
-      },
-    },
+    populate: "role",
     filters: {
       role: {
         name: {
@@ -52,135 +43,152 @@ export const getUsers = async (jwt: string) => {
         },
       },
     },
-    fields: ["name", "surname", "email", "blocked"],
   };
 
-  try {
-    const res = await fetch(
-      getStrapiURL(STRAPI_ENDPOINTS.USERS, stringifyQuery(query)),
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-        },
-        cache: "no-cache",
+  const res = await fetchWrapper<GetUsersResponse>(
+    getStrapiURL(STRAPI_ENDPOINTS.USERS, stringifyQuery(qs ?? query)),
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
       },
-    );
+      cache: "no-cache",
+      next: { tags: [CACHE_TAGS.USERS] },
+    },
+    "get users error",
+  );
 
-    if (res.status === 200) {
-      const data = (await res.json()) as GetUsersResponse;
-      return { ok: true, data };
-    }
-
-    const data = await res.json();
-    return { ok: false, data } as { ok: false; data: ErrorResponse };
-  } catch (error) {
-    console.log("get users error", error);
-    return { ok: false, data: null } as { ok: false; data: null };
-  }
+  return res;
 };
 
 export const getUserRole = async (userId: string, jwt: string) => {
   const query = { populate: "role" };
 
-  try {
-    const res = await fetch(
-      getStrapiURL(
-        `${STRAPI_ENDPOINTS.USERS}/${userId}`,
-        stringifyQuery(query),
-      ),
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-        },
-        cache: "no-cache",
+  const res = await fetchWrapper<GetUserResponse>(
+    getStrapiURL(`${STRAPI_ENDPOINTS.USERS}/${userId}`, stringifyQuery(query)),
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
       },
-    );
+      cache: "no-cache",
+    },
+    "get user role error",
+  );
 
-    if (res.status === 200) {
-      const data = (await res.json()) as QueriedUser;
-      return { ok: true, data: data.role } as { ok: true; data: UserRole };
-    }
+  let sanitizedRes: FetchResponse<UserRole>;
 
-    const data = await res.json();
-    return { ok: false, data } as { ok: false; data: ErrorResponse };
-  } catch (error) {
-    console.log("get user role error", error);
-    return { ok: false, data: null } as { ok: false; data: null };
-  }
+  if (res.ok) sanitizedRes = { ok: res.ok, data: res.data.role };
+  else sanitizedRes = { ok: res.ok, data: res.data };
+
+  return sanitizedRes;
 };
 
 export const getUserData = async (userId: string, jwt: string) => {
   const query = { populate: "role" };
 
-  try {
-    const res = await fetch(
-      getStrapiURL(
-        `${STRAPI_ENDPOINTS.USERS}/${userId}`,
-        stringifyQuery(query),
-      ),
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-        },
-        cache: "no-cache",
+  const res = await fetchWrapper<GetUserResponse>(
+    getStrapiURL(`${STRAPI_ENDPOINTS.USERS}/${userId}`, stringifyQuery(query)),
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
       },
-    );
+      cache: "no-cache",
+    },
+    "get user role error",
+  );
 
-    if (res.status === 200) {
-      const data = (await res.json()) as UnpopulatedUserResponse & {
-        role: UserRole;
-      };
-      return { ok: true, data };
-    }
+  return res;
+};
 
-    const data = await res.json();
-    return { ok: false, data } as { ok: false; data: ErrorResponse };
-  } catch (error) {
-    console.log("get user role error", error);
-    return { ok: false, data: null } as { ok: false; data: null };
-  }
+export const createUser = async (user: NewUserRequest, jwt: string) => {
+  const res = await fetchWrapper<NewUserResponse>(
+    getStrapiURL(STRAPI_ENDPOINTS.USERS),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(user),
+    },
+  );
+
+  return res;
 };
 
 export const updateUser = async (
-  userId: string,
+  userId: number,
   jwt: string,
   bodyContent: BodyInit,
 ) => {
-  try {
-    const res = await fetch(
-      getStrapiURL(`${STRAPI_ENDPOINTS.USERS}/${userId}`),
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          "Content-Type": "application/json",
-        },
-        body: bodyContent,
-        cache: "no-cache",
+  const res = await fetchWrapper<UpdateUserResponse>(
+    getStrapiURL(`${STRAPI_ENDPOINTS.USERS}/${userId}`),
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: bodyContent,
+      cache: "no-cache",
+    },
+    "update user error",
+  );
 
-    if (res.status === 200) {
-      const data = (await res.json()) as GetUsersResponse;
-      return { ok: true, data };
-    }
-
-    const data = await res.json();
-    return { ok: false, data } as { ok: false; data: ErrorResponse };
-  } catch (error) {
-    console.log("get users error", error);
-    return { ok: false, data: null } as { ok: false; data: null };
-  }
+  return res;
 };
 
-export const blockUser = async (
-  userId: string,
+export const blockUnblockUser = async (
+  userId: number,
   jwt: string,
   blocked: boolean,
 ) => {
   const bodyContent = JSON.stringify({ blocked });
+  console.log("bodyContent", bodyContent);
   return await updateUser(userId, jwt, bodyContent);
+};
+
+export const deleteUser = async (userId: number, jwt: string) => {
+  const res = await fetchWrapper<DeleteUserResponse>(
+    getStrapiURL(`${STRAPI_ENDPOINTS.USERS}/${userId}`),
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+    },
+    "delete user error",
+  );
+
+  return res;
+};
+
+export const getRoles = async (jwt: string) => {
+  const res = await fetchWrapper<GetRolesResponse>(
+    getStrapiURL(STRAPI_ENDPOINTS.ROLES),
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+      cache: "no-cache",
+    },
+    "get roles error",
+  );
+  // It is not possible to filter the returned roles through query parameters.
+  // The roles controller is configured to return all roles.
+  const excludedRoles = ["Authenticated", "Public", "AdminMaster"];
+
+  let sanitizedRes: FetchResponse<UserRole[]>;
+
+  if (res.ok) {
+    sanitizedRes = {
+      ok: res.ok,
+      data: res.data.roles.filter((role) => !excludedRoles.includes(role.name)),
+    };
+  } else sanitizedRes = { ok: res.ok, data: res.data };
+
+  return sanitizedRes;
 };

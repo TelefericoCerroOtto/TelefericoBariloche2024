@@ -1,13 +1,13 @@
 import { type ReactNode } from "react";
 
-interface StrapiError {
+export interface StrapiError {
   status: number;
   name: string;
   message: string;
   details?: unknown;
 }
 
-interface ErrorResponse {
+export interface ErrorResponse {
   data?: null;
   error: StrapiError;
 }
