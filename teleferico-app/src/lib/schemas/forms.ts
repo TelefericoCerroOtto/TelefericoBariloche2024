@@ -2,7 +2,7 @@ import {
   validateEmailAvailability,
   validateUsernameAvailability,
 } from "@/lib/actions";
-import type { LoginUserRequest } from "@/types/api";
+import type { LoginUserRequest } from "@/types";
 import { number, object, string, type ObjectSchema } from "yup";
 
 // TODO: Crear el tipo de las requests

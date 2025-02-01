@@ -1,4 +1,4 @@
-import type { New } from "@/types/api";
+import type { New } from "@/types";
 import Image from "next/image";
 import Link from "next/link";
 

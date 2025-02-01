@@ -6,7 +6,7 @@ import fotoshop from "@/public/fotoshop.jpeg";
 import funicularyconfiterianevados from "@/public/funicularyconfiterianevados.jpg";
 import lapiedad from "@/public/lapiedad.jpg";
 import merchandising from "@/public/merchandising.jpg";
-import type { ImageTextBlock } from "@/types/api";
+import type { ImageTextBlock } from "@/types";
 
 export const items: ImageTextBlock[] = [
   {

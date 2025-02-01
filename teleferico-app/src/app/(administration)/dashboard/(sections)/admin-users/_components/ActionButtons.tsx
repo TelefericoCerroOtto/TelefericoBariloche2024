@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonDos, CustomLink } from "@/components";
-import { UserResponse } from "@/types/api";
+import { UserResponse } from "@/types";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import {
   Button,

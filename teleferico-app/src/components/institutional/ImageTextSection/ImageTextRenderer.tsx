@@ -1,7 +1,7 @@
-import type { ImageTextBlock } from "@/types/api";
+import type { ImageTextBlock } from "@/types";
 import { Default, DefaultFW, Panoramic } from "./ImageTextBlock";
-import { TwoImageTextBlock } from "./TwoImageTextBlock";
 import { Horizontal, Ladder, Miniatures } from "./ThreeImageTextBlock";
+import { TwoImageTextBlock } from "./TwoImageTextBlock";
 
 export interface Props {
   variant: ImageTextBlock["variant"];

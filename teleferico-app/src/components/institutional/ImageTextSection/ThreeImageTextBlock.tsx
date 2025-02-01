@@ -1,6 +1,5 @@
-import { CustomLink } from "@/components";
-import { HighlightLastWord } from "@/components/institutional/TitleDescBlock";
-import type { ImageTextBlock } from "@/types/api";
+import { CustomLink, HighlightLastWord } from "@/components";
+import type { ImageTextBlock } from "@/types";
 import Image from "next/image";
 
 export function Horizontal(props: ImageTextBlock) {
