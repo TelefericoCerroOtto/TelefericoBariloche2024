@@ -1,34 +1,93 @@
 "use client";
 
+import { FormError } from "@/components";
+import { useServiceState } from "@/hooks";
+import type { ServiceStateModal, ServiceStateValues } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
 import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
   Button,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  Skeleton,
   useDisclosure,
 } from "@nextui-org/react";
 import { CableCar } from "lucide-react";
 import Link from "next/link";
+import { useMemo } from "react";
 
-export default function ServiceButton() {
+interface Props {
+  content: ServiceStateModal;
+}
+
+export default function ServiceButton(props: Props) {
+  const { content } = props;
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const { state, isError, isLoading } = useServiceState();
+
+  const colorStyles = useMemo<Record<ServiceStateValues, string>>(
+    () => ({
+      normal: "text-custom-green",
+      conditional: "text-custom-blue",
+      restricted: "text-custom-orange",
+      suspended: "text-custom-red",
+      closed: "text-black",
+    }),
+    [],
+  );
+
+  if (isError)
+    return (
+      <div className="sticky bottom-10 z-50 mt-10 flex w-full justify-end px-10">
+        <div className="rounded-md bg-red-100 p-2">
+          <FormError
+            message={
+              <p>
+                Ocurrió un error al recuperar la informacion del estado del
+                servicio.{" "}
+                <Link href={ROUTES.CONTACT} className="text-red-500 underline">
+                  Ir a contacto
+                </Link>
+              </p>
+            }
+          />
+        </div>
+      </div>
+    );
+
+  let stateTitle;
+  if (content && !isLoading) {
+    stateTitle = content.stateList.filter(
+      (item) => item.state.name === state?.data.state,
+    )[0].title;
+  }
 
   return (
-    <div className="sticky bottom-10 mt-10 flex w-full justify-end px-10">
+    <div className="sticky bottom-10 z-50 mt-10 flex w-full justify-end px-10">
       <button
         onClick={onOpen}
         className="flex h-auto gap-2 rounded-2xl bg-white px-4 py-2 hover:bg-foreground-200"
       >
-        <CableCar size={50} color="green" />
-        <div className="flex flex-col justify-between">
-          <p className="text-start text-lg font-bold">
-            El medio de elevacion opera normalmente
-          </p>
-          <p className="text-start text-xs text-green-700">Ver mas detalles</p>
-        </div>
+        {isLoading ? (
+          <Skeleton className="h-8 w-[400px]" />
+        ) : (
+          <>
+            <CableCar
+              size={50}
+              className={colorStyles[state?.data.state as ServiceStateValues]}
+            />
+            <div className="flex flex-col justify-between">
+              <p className="text-start text-lg font-bold">{stateTitle}</p>
+              <p
+                className={`text-start text-xs ${colorStyles[state?.data.state as ServiceStateValues]}`}
+              >
+                Ver mas detalles
+              </p>
+            </div>
+          </>
+        )}
       </button>
       <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
         <ModalContent>
