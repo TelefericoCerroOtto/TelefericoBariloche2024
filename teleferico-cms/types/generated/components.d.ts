@@ -40,6 +40,32 @@ export interface UtilsComponentsLink extends Struct.ComponentSchema {
   };
 }
 
+export interface PagePropertiesSeo extends Struct.ComponentSchema {
+  collectionName: 'components_page_properties_seos';
+  info: {
+    displayName: 'SEO';
+    icon: 'search';
+    description: '';
+  };
+  attributes: {
+    MetaTitle: Schema.Attribute.String;
+    MetaDescription: Schema.Attribute.Text;
+    MetaTag: Schema.Attribute.Component<'page-properties.metat-tag', true>;
+  };
+}
+
+export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
+  collectionName: 'components_page_properties_metat_tags';
+  info: {
+    displayName: 'MetatTag';
+    icon: 'priceTag';
+  };
+  attributes: {
+    name: Schema.Attribute.String;
+    content: Schema.Attribute.Text;
+  };
+}
+
 export interface PageComponentsServiceStateModal
   extends Struct.ComponentSchema {
   collectionName: 'components_page_components_service_state_modals';
@@ -99,43 +125,17 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
   };
 }
 
-export interface PagePropertiesSeo extends Struct.ComponentSchema {
-  collectionName: 'components_page_properties_seos';
-  info: {
-    displayName: 'SEO';
-    icon: 'search';
-    description: '';
-  };
-  attributes: {
-    MetaTitle: Schema.Attribute.String;
-    MetaDescription: Schema.Attribute.Text;
-    MetaTag: Schema.Attribute.Component<'page-properties.metat-tag', true>;
-  };
-}
-
-export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
-  collectionName: 'components_page_properties_metat_tags';
-  info: {
-    displayName: 'MetatTag';
-    icon: 'priceTag';
-  };
-  attributes: {
-    name: Schema.Attribute.String;
-    content: Schema.Attribute.Text;
-  };
-}
-
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
       'utils-components.title': UtilsComponentsTitle;
       'utils-components.service-states': UtilsComponentsServiceStates;
       'utils-components.link': UtilsComponentsLink;
+      'page-properties.seo': PagePropertiesSeo;
+      'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-components.service-state-modal': PageComponentsServiceStateModal;
       'page-components.new-preview': PageComponentsNewPreview;
       'page-components.image-text-block': PageComponentsImageTextBlock;
-      'page-properties.seo': PagePropertiesSeo;
-      'page-properties.metat-tag': PagePropertiesMetatTag;
     }
   }
 }
