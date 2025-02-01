@@ -1,7 +1,6 @@
-import { CustomLink } from "@/components";
-import type { ImageTextBlock } from "@/types/api";
+import { CustomLink, HighlightLastWord } from "@/components";
+import type { ImageTextBlock } from "@/types";
 import Image from "next/image";
-import { HighlightLastWord } from "@/components/institutional/TitleDescBlock";
 
 export function TwoImageTextBlock(props: ImageTextBlock) {
   const {

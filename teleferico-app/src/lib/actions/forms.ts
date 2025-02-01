@@ -20,7 +20,7 @@ export const loginAction = async (data: LoginUserRequest) => {
     if (error instanceof AuthError) {
       switch (error.type) {
         case "CredentialsSignin":
-          return { error: "Credenciales invalidas" };
+          return { error: error.message };
 
         default:
           return { error: "Error inesperado" };

@@ -1,5 +1,5 @@
+import type { ImageTextBlock } from "@/types";
 import ImageTextRenderer from "./ImageTextRenderer";
-import type { ImageTextBlock } from "@/types/api";
 
 interface Props {
   items: ImageTextBlock[];

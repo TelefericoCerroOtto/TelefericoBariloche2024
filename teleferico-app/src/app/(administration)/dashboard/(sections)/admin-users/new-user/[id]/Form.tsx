@@ -6,8 +6,7 @@ import {
   validateUsernameAvailability,
 } from "@/lib/actions";
 import { updateUserSchema } from "@/lib/schemas/forms";
-import type { UserResponse, UserRole } from "@/types/api";
-import type { UpdateUserFormData } from "@/types/forms";
+import type { UpdateUserFormData, UserResponse, UserRole } from "@/types";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { selectInputStyles } from "@/utils/styles";
 import { Input, Select, SelectItem } from "@nextui-org/react";

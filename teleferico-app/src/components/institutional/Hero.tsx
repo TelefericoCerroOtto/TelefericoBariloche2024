@@ -1,4 +1,4 @@
-import { ImageType } from "@/types/api";
+import { ImageType } from "@/types";
 import { titleStyles } from "@/utils/styles";
 import Image from "next/image";
 import { type ReactNode } from "react";

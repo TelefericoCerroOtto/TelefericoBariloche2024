@@ -1,0 +1,22 @@
+{
+  "collectionName": "components_utils_components_service_states",
+  "info": {
+    "displayName": "ServiceStates",
+    "icon": "bulletList",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "name": {
+      "type": "enumeration",
+      "enum": [
+        "normal",
+        "conditional",
+        "restricted",
+        "suspended",
+        "closed"
+      ],
+      "required": true
+    }
+  }
+}

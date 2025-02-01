@@ -1,7 +1,7 @@
 "use client";
 
 import { TableContainer } from "@/components";
-import type { UserResponse, UserRole } from "@/types/api";
+import type { UserResponse, UserRole } from "@/types";
 import { tableStyles } from "@/utils/styles";
 import {
   Table as NextUITable,

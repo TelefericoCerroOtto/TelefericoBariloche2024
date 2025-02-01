@@ -1,5 +1,9 @@
-import type { NewUserRequest, UpdateUserRequest } from "@/types/api";
-import type { NewUserFormData, UpdateUserFormData } from "@/types/forms";
+import type {
+  NewUserFormData,
+  NewUserRequest,
+  UpdateUserFormData,
+  UpdateUserRequest,
+} from "@/types";
 import { cleanObject } from "@/utils/clean-object";
 
 export const newUserAdapter = (user: NewUserFormData): NewUserRequest => {

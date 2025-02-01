@@ -1,4 +1,4 @@
-import { New } from "@/types/api";
+import { New } from "@/types";
 import Card from "./Card";
 
 interface Props {

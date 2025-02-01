@@ -1,7 +1,8 @@
 import { TriangleAlert } from "lucide-react";
+import { type ReactNode } from "react";
 
 interface Props {
-  message?: string;
+  message?: ReactNode;
 }
 
 export default function FormError(props: Props) {
@@ -10,7 +11,7 @@ export default function FormError(props: Props) {
     return (
       <div className="flex items-center gap-x-2 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
         <TriangleAlert className="h-4 w-4" />
-        <p>{message}</p>
+        {typeof message === "string" ? <p>{message}</p> : message}
       </div>
     );
   return null;

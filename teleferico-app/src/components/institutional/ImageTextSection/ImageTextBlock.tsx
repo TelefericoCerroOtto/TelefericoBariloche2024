@@ -1,5 +1,5 @@
 import { CustomLink } from "@/components";
-import type { ImageTextBlock } from "@/types/api";
+import type { ImageTextBlock } from "@/types";
 import Image from "next/image";
 import { HighlightLastWord } from "../TitleDescBlock";
 

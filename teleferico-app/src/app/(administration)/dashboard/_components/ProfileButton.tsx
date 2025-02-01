@@ -9,8 +9,15 @@ import {
   User,
 } from "@nextui-org/react";
 import { LogOut } from "lucide-react";
+import { Session } from "next-auth";
+import { signOut } from "next-auth/react";
 
-export default function ProfileButton() {
+interface Props {
+  user: Session["user"];
+}
+
+export default function ProfileButton(props: Props) {
+  const { user } = props;
   return (
     <Dropdown placement="bottom-end">
       <DropdownTrigger>
@@ -28,8 +35,8 @@ export default function ProfileButton() {
           showDivider
         >
           <User
-            name="Junior Garcia"
-            description="@jrgarciadev"
+            name={`${user.name} ${user.surname}`}
+            description={`@${user.username}`}
             classNames={{
               name: "text-default-600",
               description: "text-default-500",
@@ -41,7 +48,12 @@ export default function ProfileButton() {
           />
         </DropdownItem>
 
-        <DropdownItem key="logout" color="danger" startContent={<LogOut />}>
+        <DropdownItem
+          key="logout"
+          color="danger"
+          startContent={<LogOut />}
+          onPress={() => signOut({ redirectTo: "/login" })}
+        >
           Cerrar sesión
         </DropdownItem>
       </DropdownMenu>

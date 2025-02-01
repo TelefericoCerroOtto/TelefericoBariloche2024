@@ -1,5 +1,7 @@
 "use client";
 
+import { getStateAction, updateStateAction } from "@/lib/actions/service-state";
+import { ServiceStateValues } from "@/types";
 import type { Selection } from "@nextui-org/react";
 import {
   Dropdown,
@@ -11,7 +13,7 @@ import {
   User,
 } from "@nextui-org/react";
 import { Check } from "lucide-react";
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 
 export default function DropdownCablecarMenu({
   children,
@@ -26,16 +28,15 @@ export default function DropdownCablecarMenu({
    * of the items array reference.
    */
 
-  const items = [
-    { key: "normal", color: "-custom-green", title: "Normal" },
-    { key: "conditional", color: "-custom-blue", title: "Condicional" },
+  const items: { key: ServiceStateValues; title: string }[] = [
+    { key: "normal", title: "Normal" },
+    { key: "conditional", title: "Condicional" },
     {
       key: "restricted",
-      color: "-custom-orange",
       title: "Condicional con restricciones",
     },
-    { key: "suspended", color: "-custom-red", title: "Suspendido" },
-    { key: "closed", color: "-black", title: "Cerrado" },
+    { key: "suspended", title: "Suspendido" },
+    { key: "closed", title: "Cerrado" },
   ];
 
   const [isLoading, setIsLoading] = useState(false);
@@ -48,6 +49,24 @@ export default function DropdownCablecarMenu({
     [selectedKeys],
   );
 
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const res = await getStateAction();
+        setIsLoading(false);
+        console.log("getStateAction res", res);
+        if (res.ok) return setSelectedKeys(new Set([res.data.data.state]));
+        setSelectedKeys(new Set());
+      } catch (error) {
+        setIsLoading(false);
+        console.log("useEffect on dropdown menu error", error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   return (
     <Dropdown
       closeOnSelect={false}
@@ -58,14 +77,28 @@ export default function DropdownCablecarMenu({
         disallowEmptySelection
         selectionMode="single"
         selectedKeys={selectedKeys}
-        onSelectionChange={setSelectedKeys}
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-unused-vars
-        onAction={async (keys) => {
-          // Here goes the API call.
-          setIsLoading(true);
-          await setTimeout(() => {
+        onSelectionChange={async (keys) => {
+          const prevValue = selectedKeys;
+
+          try {
+            setSelectedKeys(keys);
+            setIsLoading(true);
+            const res = await updateStateAction(
+              keys.currentKey as ServiceStateValues,
+            );
             setIsLoading(false);
-          }, 2000);
+
+            if (res.ok) return;
+
+            alert("Ocurrio un error al actualizar el estado del servicio");
+            console.log("update state action failed", res.data);
+            setSelectedKeys(prevValue);
+            return;
+          } catch (error) {
+            setIsLoading(false);
+            alert("Ocurrio un error al actualizar el estado del servicio");
+            console.log("update state on dropdown menu error", error);
+          }
         }}
         hideSelectedIcon
       >

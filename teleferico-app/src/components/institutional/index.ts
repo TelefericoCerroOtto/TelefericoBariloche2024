@@ -7,3 +7,4 @@ export { default as ImageTextSection } from "./ImageTextSection/ImageTextSection
 export { default as PageWrapper } from "./PageWrapper";
 export { default as TitleDescBlock } from "./TitleDescBlock";
 export { default as Faq } from "./Faq";
+export { HighlightLastWord } from "./TitleDescBlock";

@@ -3,8 +3,7 @@
 import { ButtonDos, FormError } from "@/components";
 import { loginAction } from "@/lib/actions";
 import { loginSchema } from "@/lib/schemas/forms";
-import type { LoginUserRequest } from "@/types/api";
-import { LoginFormData } from "@/types/forms";
+import type { LoginFormData, LoginUserRequest } from "@/types";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { Input, Spinner } from "@nextui-org/react";
 import { useFormik } from "formik";

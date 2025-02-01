@@ -1,17 +1,6 @@
-import { type ReactNode } from "react";
 import { roles } from "@/utils/roles";
-
-export interface StrapiError {
-  status: number;
-  name: string;
-  message: string;
-  details?: unknown;
-}
-
-export interface ErrorResponse {
-  data?: null;
-  error: StrapiError;
-}
+import { type ReactNode } from "react";
+import type { Link, Locale, Meta, ServiceStateValues } from "./index";
 
 export interface UserRole {
   id: number;
@@ -22,7 +11,7 @@ export interface UserRole {
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
-  locale: string | null;
+  locale: Locales | null;
 }
 
 export interface LoginUserRequest {
@@ -48,7 +37,7 @@ export interface UnpopulatedUserResponse {
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
-  locale?: string | string[];
+  locale?: Locales | Locales[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -95,6 +84,21 @@ export interface ImageType {
   alt: string;
 }
 
+export interface GetServiceStateResponse {
+  data: {
+    id: number;
+    documentId: string;
+    state: ServiceStateValues;
+    createdAt: string;
+    updatedAt: string;
+    publishedAt: string;
+    locale?: Locale | Locale[];
+  };
+  meta: Meta;
+}
+
+export type UpdateServiceStateResponse = GetServiceStateResponse;
+
 export interface ImageTextBlock {
   id: number;
   variant:
@@ -107,7 +111,7 @@ export interface ImageTextBlock {
   images: Array<ImageType & { order: number }>;
   title: string;
   description: ReactNode;
-  link?: { label: string; href: string };
+  link?: Link;
   isInverted?: boolean;
   isTitleHighlighted?: boolean;
 }

@@ -1,4 +1,4 @@
-import type { UnpopulatedUserResponse } from "@/types/api";
+import type { UnpopulatedUserResponse } from "@/types/api/api";
 import { UserRole } from "@/types/common";
 
 declare module "next-auth" {
@@ -11,6 +11,7 @@ declare module "next-auth" {
     user: {
       name: string;
       surname: string;
+      username: string;
       email: string;
       blocked: boolean;
       id: string;
@@ -28,6 +29,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     name: string;
     surname: string;
+    username: string;
     jwt: string;
     role: UserRole;
     id: string;

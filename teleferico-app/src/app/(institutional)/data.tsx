@@ -1,7 +1,7 @@
 import confiteria from "@/public/confiteria.jpg";
 import gondolas from "@/public/gondolas.jpg";
 import gondolasnevadas from "@/public/gondolasnevadas.jpg";
-import type { ImageTextBlock } from "@/types/api";
+import type { ImageTextBlock } from "@/types";
 
 export const items: ImageTextBlock[] = [
   {
