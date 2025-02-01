@@ -1,0 +1,33 @@
+{
+  "kind": "collectionType",
+  "collectionName": "page_images",
+  "info": {
+    "singularName": "page-image",
+    "pluralName": "page-images",
+    "displayName": "PageImage",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "image": {
+      "type": "media",
+      "multiple": true,
+      "required": true,
+      "allowedTypes": [
+        "images"
+      ],
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      }
+    }
+  }
+}

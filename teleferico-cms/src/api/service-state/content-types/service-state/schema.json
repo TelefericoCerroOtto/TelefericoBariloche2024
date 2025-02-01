@@ -1,0 +1,25 @@
+{
+  "kind": "singleType",
+  "collectionName": "service_states",
+  "info": {
+    "singularName": "service-state",
+    "pluralName": "service-states",
+    "displayName": "ServiceState"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "state": {
+      "type": "enumeration",
+      "enum": [
+        "normal",
+        "conditional",
+        "restricted",
+        "suspended",
+        "closed"
+      ]
+    }
+  }
+}
