@@ -1,4 +1,4 @@
-import type { UnpopulatedUserResponse } from "@/types/api";
+import type { UnpopulatedUserResponse } from "@/types/api/api";
 import { UserRole } from "@/types/common";
 
 declare module "next-auth" {
