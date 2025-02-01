@@ -1,0 +1,54 @@
+{
+  "collectionName": "components_page_components_image_text_blocks",
+  "info": {
+    "displayName": "ImageTextBlock",
+    "icon": "layout",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text",
+      "required": true
+    },
+    "images": {
+      "type": "media",
+      "multiple": true,
+      "required": true,
+      "allowedTypes": [
+        "images",
+        "files"
+      ]
+    },
+    "isInverted": {
+      "type": "boolean",
+      "default": false
+    },
+    "isHighlighted": {
+      "type": "boolean",
+      "default": false
+    },
+    "variant": {
+      "type": "enumeration",
+      "enum": [
+        "default",
+        "defaultFW",
+        "panoramic",
+        "horizontal",
+        "ladder",
+        "miniatures"
+      ],
+      "required": true,
+      "default": "default"
+    },
+    "link": {
+      "type": "component",
+      "repeatable": false,
+      "component": "utils-components.link"
+    }
+  }
+}

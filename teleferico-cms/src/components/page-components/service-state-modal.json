@@ -1,0 +1,25 @@
+{
+  "collectionName": "components_page_components_service_state_modals",
+  "info": {
+    "displayName": "ServiceStateModal",
+    "icon": "chartBubble",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "help": {
+      "type": "text",
+      "required": true
+    },
+    "stateList": {
+      "type": "component",
+      "repeatable": true,
+      "component": "utils-components.title",
+      "required": true
+    },
+    "description": {
+      "type": "blocks",
+      "required": true
+    }
+  }
+}
