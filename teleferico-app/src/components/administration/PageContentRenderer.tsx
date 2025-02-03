@@ -1,4 +1,4 @@
-import { ServiceButton } from "@/app/(institutional)/_components";
+import { ServiceButton } from "@/components";
 import type { RendereableBlocks } from "@/types";
 
 interface Props {
