@@ -565,6 +565,55 @@ export interface ApiActivityDescriptionActivityDescription
   };
 }
 
+export interface ApiFaqFaq extends Struct.CollectionTypeSchema {
+  collectionName: 'faqs';
+  info: {
+    singularName: 'faq';
+    pluralName: 'faqs';
+    displayName: 'Faq';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    question: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    answer: Schema.Attribute.Text &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    featured: Schema.Attribute.Boolean &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: false;
+        };
+      }> &
+      Schema.Attribute.DefaultTo<false>;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::faq.faq'>;
+  };
+}
+
 export interface ApiNewNew extends Struct.CollectionTypeSchema {
   collectionName: 'news';
   info: {
@@ -628,13 +677,13 @@ export interface ApiNoteNote extends Struct.CollectionTypeSchema {
     singularName: 'note';
     pluralName: 'notes';
     displayName: 'Note';
+    description: '';
   };
   options: {
     draftAndPublish: true;
   };
   attributes: {
-    title: Schema.Attribute.String;
-    content: Schema.Attribute.Text;
+    desc: Schema.Attribute.Blocks;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -680,6 +729,9 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
       [
         'page-components.service-state-modal',
         'page-components.image-text-block',
+        'page-components.hero',
+        'page-components.hours-overview',
+        'page-components.title-desc-block',
       ]
     > &
       Schema.Attribute.SetPluginOptions<{
@@ -696,45 +748,6 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     locale: Schema.Attribute.String;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::page.page'>;
-  };
-}
-
-export interface ApiPageImagePageImage extends Struct.CollectionTypeSchema {
-  collectionName: 'page_images';
-  info: {
-    singularName: 'page-image';
-    pluralName: 'page-images';
-    displayName: 'PageImage';
-    description: '';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  pluginOptions: {
-    i18n: {
-      localized: true;
-    };
-  };
-  attributes: {
-    image: Schema.Attribute.Media<'images', true> &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetPluginOptions<{
-        i18n: {
-          localized: false;
-        };
-      }>;
-    createdAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    publishedAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    locale: Schema.Attribute.String;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::page-image.page-image'
-    >;
   };
 }
 
@@ -1173,10 +1186,10 @@ declare module '@strapi/strapi' {
       'plugin::users-permissions.user': PluginUsersPermissionsUser;
       'api::activity.activity': ApiActivityActivity;
       'api::activity-description.activity-description': ApiActivityDescriptionActivityDescription;
+      'api::faq.faq': ApiFaqFaq;
       'api::new.new': ApiNewNew;
       'api::note.note': ApiNoteNote;
       'api::page.page': ApiPagePage;
-      'api::page-image.page-image': ApiPageImagePageImage;
       'api::second-service-state.second-service-state': ApiSecondServiceStateSecondServiceState;
       'api::service-state.service-state': ApiServiceStateServiceState;
       'admin::permission': AdminPermission;
