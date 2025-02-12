@@ -11,19 +11,6 @@
       "type": "string",
       "required": true
     },
-    "description": {
-      "type": "text",
-      "required": true
-    },
-    "images": {
-      "type": "media",
-      "multiple": true,
-      "required": true,
-      "allowedTypes": [
-        "images",
-        "files"
-      ]
-    },
     "isInverted": {
       "type": "boolean",
       "default": false
@@ -49,6 +36,16 @@
       "type": "component",
       "repeatable": false,
       "component": "utils-components.link"
+    },
+    "images": {
+      "type": "component",
+      "repeatable": true,
+      "component": "utils-components.image",
+      "required": true
+    },
+    "description": {
+      "type": "blocks",
+      "required": true
     }
   }
 }
