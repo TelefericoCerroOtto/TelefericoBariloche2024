@@ -1,6 +1,5 @@
 import { roles } from "@/utils/roles";
-import { type ReactNode } from "react";
-import type { Link, Locale, Meta, ServiceStateValues } from "./index";
+import type { Meta, ServiceStateValues, StrapiLocales } from "./index";
 
 export interface UserRole {
   id: number;
@@ -11,7 +10,7 @@ export interface UserRole {
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
-  locale: Locales | null;
+  locale: StrapiLocales | null;
 }
 
 export interface LoginUserRequest {
@@ -37,7 +36,7 @@ export interface UnpopulatedUserResponse {
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
-  locale?: Locales | Locales[];
+  locale?: StrapiLocales | StrapiLocales[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -99,21 +98,21 @@ export interface GetServiceStateResponse {
 
 export type UpdateServiceStateResponse = GetServiceStateResponse;
 
-export interface ImageTextBlock {
+export interface GetFaqResponse {
   id: number;
-  variant:
-    | "default"
-    | "defaultFW"
-    | "panoramic"
-    | "horizontal"
-    | "ladder"
-    | "miniatures";
-  images: Array<ImageType & { order: number }>;
-  title: string;
-  description: ReactNode;
-  link?: Link;
-  isInverted?: boolean;
-  isTitleHighlighted?: boolean;
+  documentId: string;
+  question: string;
+  answer: string;
+  featured: boolean;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  locale: StrapiLocales;
+}
+
+export interface GetFaqsResponse {
+  data: GetFaqResponse[];
+  meta: Meta;
 }
 
 export interface New {

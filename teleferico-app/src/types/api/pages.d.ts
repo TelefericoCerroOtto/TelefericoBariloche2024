@@ -1,13 +1,13 @@
-import { DynamicZone, Locales, Meta, ServiceStateModal } from "./index";
+import { DynamicZone, StrapiLocales, Meta, RendereableBlocks } from "./index";
 
-type HomeBlocks = DynamicZone<ServiceStateModal>;
+type PagesBlocks = DynamicZone<RendereableBlocks>;
 
 interface HomeContent {
-  blocks: HomeBlocks;
+  blocks: PagesBlocks;
   createdAt: string;
   documentId: string;
   id: number;
-  locale: Locales;
+  locale: StrapiLocales;
   publishedAt: string;
   route: string;
   updatedAt: string;
