@@ -1,10 +1,10 @@
 export const ROUTES = {
   ACTIVITIES: "/activities",
   CONTACT: "/contact",
-  HOME: "/",
   EXPLORE: "/explore",
   FAQS: "/faqs",
   FOUNDATION: "/foundation",
+  HOME: "/",
   JOBS: "/jobs",
   LOCATION: "/location",
   NEWS: "/news",
@@ -31,6 +31,7 @@ export const ADMIN_ROUTES = {
 
 export const STRAPI_ENDPOINTS = {
   AUTH: "/api/auth/local",
+  FAQS: "/api/faqs",
   PAGES: "/api/pages",
   ROLES: "/api/users-permissions/roles",
   SERVICE_STATE: "/api/service-state",
