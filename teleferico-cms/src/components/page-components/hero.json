@@ -1,0 +1,41 @@
+{
+  "collectionName": "components_page_components_heroes",
+  "info": {
+    "displayName": "Hero",
+    "icon": "picture",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "string"
+    },
+    "firstLink": {
+      "type": "component",
+      "repeatable": false,
+      "component": "utils-components.link"
+    },
+    "secondLink": {
+      "type": "component",
+      "repeatable": false,
+      "component": "utils-components.link"
+    },
+    "cover": {
+      "type": "component",
+      "repeatable": false,
+      "component": "utils-components.image"
+    },
+    "align": {
+      "type": "enumeration",
+      "enum": [
+        "bottom",
+        "center"
+      ],
+      "default": "bottom"
+    }
+  }
+}

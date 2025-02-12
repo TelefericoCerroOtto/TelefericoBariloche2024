@@ -40,6 +40,33 @@ export interface UtilsComponentsLink extends Struct.ComponentSchema {
   };
 }
 
+export interface UtilsComponentsImage extends Struct.ComponentSchema {
+  collectionName: 'components_utils_components_images';
+  info: {
+    displayName: 'Image';
+    icon: 'picture';
+  };
+  attributes: {
+    image: Schema.Attribute.Media<'images'> & Schema.Attribute.Required;
+    alt: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface UtilsComponentsHoursOverviewItem
+  extends Struct.ComponentSchema {
+  collectionName: 'components_utils_components_hours_overview_items';
+  info: {
+    displayName: 'HoursOverviewItem';
+    icon: 'bulletList';
+  };
+  attributes: {
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    desc: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    icon: Schema.Attribute.Component<'utils-components.image', false> &
+      Schema.Attribute.Required;
+  };
+}
+
 export interface PagePropertiesSeo extends Struct.ComponentSchema {
   collectionName: 'components_page_properties_seos';
   info: {
@@ -63,6 +90,27 @@ export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
   attributes: {
     name: Schema.Attribute.String;
     content: Schema.Attribute.Text;
+  };
+}
+
+export interface PageComponentsTitleDescBlock extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_title_desc_blocks';
+  info: {
+    displayName: 'TitleDescBlock';
+    icon: 'underline';
+  };
+  attributes: {
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    desc: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    epigraph: Schema.Attribute.String;
+    size: Schema.Attribute.Enumeration<['sm', 'md', 'lg']> &
+      Schema.Attribute.DefaultTo<'md'>;
+    align: Schema.Attribute.Enumeration<['center', 'start']> &
+      Schema.Attribute.DefaultTo<'center'>;
+    caseStyle: Schema.Attribute.Enumeration<
+      ['normal', 'capitalize', 'uppercase', 'lowercase']
+    > &
+      Schema.Attribute.DefaultTo<'normal'>;
   };
 }
 
@@ -104,9 +152,6 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
   };
   attributes: {
     title: Schema.Attribute.String & Schema.Attribute.Required;
-    description: Schema.Attribute.Text & Schema.Attribute.Required;
-    images: Schema.Attribute.Media<'images' | 'files', true> &
-      Schema.Attribute.Required;
     isInverted: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isHighlighted: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     variant: Schema.Attribute.Enumeration<
@@ -122,6 +167,39 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'default'>;
     link: Schema.Attribute.Component<'utils-components.link', false>;
+    images: Schema.Attribute.Component<'utils-components.image', true> &
+      Schema.Attribute.Required;
+    description: Schema.Attribute.Blocks & Schema.Attribute.Required;
+  };
+}
+
+export interface PageComponentsHoursOverview extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_hours_overviews';
+  info: {
+    displayName: 'HoursOverview';
+    icon: 'clock';
+    description: '';
+  };
+  attributes: {
+    withTextBlock: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+  };
+}
+
+export interface PageComponentsHero extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_heroes';
+  info: {
+    displayName: 'Hero';
+    icon: 'picture';
+    description: '';
+  };
+  attributes: {
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    description: Schema.Attribute.String;
+    firstLink: Schema.Attribute.Component<'utils-components.link', false>;
+    secondLink: Schema.Attribute.Component<'utils-components.link', false>;
+    cover: Schema.Attribute.Component<'utils-components.image', false>;
+    align: Schema.Attribute.Enumeration<['bottom', 'center']> &
+      Schema.Attribute.DefaultTo<'bottom'>;
   };
 }
 
@@ -131,11 +209,16 @@ declare module '@strapi/strapi' {
       'utils-components.title': UtilsComponentsTitle;
       'utils-components.service-states': UtilsComponentsServiceStates;
       'utils-components.link': UtilsComponentsLink;
+      'utils-components.image': UtilsComponentsImage;
+      'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
       'page-properties.seo': PagePropertiesSeo;
       'page-properties.metat-tag': PagePropertiesMetatTag;
+      'page-components.title-desc-block': PageComponentsTitleDescBlock;
       'page-components.service-state-modal': PageComponentsServiceStateModal;
       'page-components.new-preview': PageComponentsNewPreview;
       'page-components.image-text-block': PageComponentsImageTextBlock;
+      'page-components.hours-overview': PageComponentsHoursOverview;
+      'page-components.hero': PageComponentsHero;
     }
   }
 }

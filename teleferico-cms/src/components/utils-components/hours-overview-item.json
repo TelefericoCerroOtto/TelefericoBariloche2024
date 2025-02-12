@@ -1,0 +1,24 @@
+{
+  "collectionName": "components_utils_components_hours_overview_items",
+  "info": {
+    "displayName": "HoursOverviewItem",
+    "icon": "bulletList"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "desc": {
+      "type": "blocks",
+      "required": true
+    },
+    "icon": {
+      "type": "component",
+      "repeatable": false,
+      "component": "utils-components.image",
+      "required": true
+    }
+  }
+}
