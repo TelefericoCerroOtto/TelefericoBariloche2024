@@ -43,7 +43,10 @@
       "type": "dynamiczone",
       "components": [
         "page-components.service-state-modal",
-        "page-components.image-text-block"
+        "page-components.image-text-block",
+        "page-components.hero",
+        "page-components.hours-overview",
+        "page-components.title-desc-block"
       ]
     }
   }
