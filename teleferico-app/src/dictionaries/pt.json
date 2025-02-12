@@ -1,0 +1,182 @@
+{
+  "components": {
+    "Navbar": {
+      "home": "Início",
+      "location": "Como chegar",
+      "activities": "Atividades",
+      "explore": "Explorar",
+      "pricingschedules": "Preços e horários",
+      "news": "Notícias",
+      "foundation": "Fundação"
+    },
+    "HoursOverview": {
+      "title": "Horários de Funcionamento",
+      "desc": [
+        {
+          "type": "paragraph",
+          "children": [
+            {
+              "text": "Lembre-se de que todos os horários estão sujeitos a alterações devido às condições climáticas ou imprevistos. Encontre-nos na",
+              "type": "text"
+            },
+            {
+              "bold": true,
+              "text": " Av. De los Pioneros KM 5.000, San Carlos De Bariloche.",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "items": [
+        {
+          "id": 0,
+          "title": "Horários da Base",
+          "desc": "<p className=\"text-center\">O complexo na Base (km 5) funciona das 10:00 às 16:30 e é o ponto de partida da sua aventura. Compre seu bilhete de entrada na Base e aproveite uma viagem espetacular até o cume.</p>",
+          "alt": "ícone de gôndola"
+        },
+        {
+          "id": 1,
+          "title": "Horários do Cume",
+          "desc": "<p className=\"text-center\">A magia continua no Cume, onde você pode desfrutar do <strong>famoso café giratório</strong> e das melhores vistas até as 17:45. Tire seu tempo para relaxar e admirar a paisagem.</p>",
+          "alt": "ícone de montanha"
+        },
+        {
+          "id": 2,
+          "title": "Horários dos Ônibus",
+          "desc": "<p className=\"text-center\">Os ônibus partem do centro para a Base a cada hora, <strong>das 10:00 às 16:00.</strong> Os retornos da Base para o centro começam às <strong>11:15 e continuam a cada hora até as 18:15.</strong></p>",
+          "alt": "ícone de ônibus"
+        }
+      ]
+    },
+    "Footer": {
+      "socialitems": {
+        "ig": "ícone do Instagram",
+        "fb": "ícone do Facebook",
+        "tt": "ícone do TikTok"
+      },
+      "menuitems": {
+        "jobs": "Empregos",
+        "contact": "Contato",
+        "policies": "Políticas",
+        "faqs": "Perguntas Frequentes"
+      },
+      "contact": {
+        "title": "Meios de Contato",
+        "direction": "Av. De los Pioneros KM 5.000, San Carlos De Bariloche, Rio Negro, Argentina"
+      }
+    },
+    "ServiceButton": {
+      "error": [
+        {
+          "type": "paragraph",
+          "children": [
+            {
+              "text": "Ocorreu um erro ao recuperar as informações do status do serviço.",
+              "type": "text"
+            },
+            {
+              "url": "/contact",
+              "type": "link",
+              "children": [
+                {
+                  "bold": true,
+                  "text": " Ir para contato",
+                  "type": "text"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "button": {
+        "trigger": "Ver mais detalhes",
+        "close": "Entendido"
+      },
+      "modal": {
+        "states": [
+          {
+            "order": 0,
+            "state": "normal",
+            "stateLegend": "O meio de elevação opera normalmente",
+            "title": "Serviço Normal:",
+            "stateDesc": "Subida permitida para todos os passageiros sem restrições."
+          },
+          {
+            "order": 1,
+            "state": "conditional",
+            "stateLegend": "O meio de elevação opera de maneira condicional",
+            "title": "Serviço Condicional:",
+            "stateDesc": "Podem ocorrer atrasos devido a condições climáticas."
+          },
+          {
+            "order": 2,
+            "state": "restricted",
+            "stateLegend": "O meio de elevação está condicional com restrições",
+            "title": "Serviço Condicional com Restrições:",
+            "stateDesc": "Há uma alta probabilidade de atrasos ou possível suspensão do serviço. Por essa razão, a subida está restrita para grupos como mulheres grávidas, pessoas com mobilidade reduzida, idosos, etc. Se você planeja subir, é preferível que não tenha outros compromissos."
+          },
+          {
+            "order": 3,
+            "state": "suspended",
+            "stateLegend": "O meio de elevação está suspenso",
+            "title": "Serviço Suspenso:",
+            "stateDesc": "A subida de gôndola está interrompida, ou seja, não é possível subir."
+          },
+          {
+            "order": 4,
+            "state": "closed",
+            "stateLegend": "Atualmente estamos fechados. ¡Esperamos sua próxima visita!",
+            "title": "",
+            "stateDesc": ""
+          }
+        ],
+        "disclaimer": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "text": "As condições do serviço de subida podem variar devido a fatores climáticos. Fornecemos as informações necessárias para que você possa planejar sua visita com segurança e sem inconvenientes. Para mais informações, você pode consultar a seção de",
+                "type": "text"
+              },
+              {
+                "url": "/faqs",
+                "type": "link",
+                "children": [
+                  {
+                    "text": " FAQS",
+                    "type": "text"
+                  }
+                ]
+              },
+              {
+                "text": " ou nosso",
+                "type": "text"
+              },
+              {
+                "url": "/policies",
+                "type": "link",
+                "children": [
+                  {
+                    "text": " Regulamento",
+                    "type": "text"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "pages": {
+    "home": {
+      "postersection": {
+        "title": "Atividades para Conectar-se com a Natureza",
+        "desc": "No Complexo Turístico Teleférico Cerro Otto, cada estação oferece propostas únicas para aproveitar e redescobrir a beleza natural de Bariloche. De aventuras ao ar livre a momentos de relaxamento, encontre a atividade perfeita para viver uma experiência inesquecível.",
+        "epigraph": "Descubra tudo o que o Cerro Otto tem para lhe oferecer",
+        "imagealt": "lago com pessoa apontando",
+        "link": { "label": "Ver todas as Atividades", "href": "/activities" }
+      }
+    }
+  }
+}

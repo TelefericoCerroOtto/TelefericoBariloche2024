@@ -1,0 +1,182 @@
+{
+  "components": {
+    "Navbar": {
+      "home": "Home",
+      "location": "Location",
+      "activities": "Activities",
+      "explore": "The summit",
+      "pricingschedules": "Pricing and schedules",
+      "news": "News",
+      "foundation": "Foundation"
+    },
+    "HoursOverview": {
+      "title": "Operating Hours",
+      "desc": [
+        {
+          "type": "paragraph",
+          "children": [
+            {
+              "text": "Please note that all schedules are subject to change due to weather conditions or unforeseen circumstances. Find us at",
+              "type": "text"
+            },
+            {
+              "bold": true,
+              "text": " Av. De los Pioneros KM 5.000, San Carlos De Bariloche.",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "items": [
+        {
+          "id": 0,
+          "title": "Base Hours",
+          "desc": "<p className=\"text-center\">The Base complex (km 5) is open from 10:00 AM to 4:30 PM and is the starting point of your adventure. Purchase your entrance ticket at the Base and enjoy a spectacular ride to the summit.</p>",
+          "alt": "gondola icon"
+        },
+        {
+          "id": 1,
+          "title": "Summit Hours",
+          "desc": "<p className=\"text-center\">The magic continues at the Summit, where you can enjoy the <strong>famous revolving café</strong> and the best views until 5:45 PM. Take your time to relax and admire the scenery.</p>",
+          "alt": "mountain icon"
+        },
+        {
+          "id": 2,
+          "title": "Bus Schedule",
+          "desc": "<p className=\"text-center\">Buses depart from downtown to the Base every hour, <strong>from 10:00 AM to 4:00 PM.</strong> Return trips from the Base to downtown start at <strong>11:15 AM and continue every hour until 6:15 PM.</strong></p>",
+          "alt": "bus icon"
+        }
+      ]
+    },
+    "Footer": {
+      "socialitems": {
+        "ig": "instagram icon",
+        "fb": "facebook icon",
+        "tt": "tiktok icon"
+      },
+      "menuitems": {
+        "jobs": "Jobs",
+        "contact": "Contact",
+        "policies": "Policies",
+        "faqs": "FAQS"
+      },
+      "contact": {
+        "title": "Contact Methods",
+        "direction": "Av. De los Pioneros KM 5.000, San Carlos De Bariloche, Rio Negro, Argentina"
+      }
+    },
+    "ServiceButton": {
+      "error": [
+        {
+          "type": "paragraph",
+          "children": [
+            {
+              "text": "An error occurred while retrieving the service status information.",
+              "type": "text"
+            },
+            {
+              "url": "/contact",
+              "type": "link",
+              "children": [
+                {
+                  "bold": true,
+                  "text": " Go to contact",
+                  "type": "text"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "button": {
+        "trigger": "See more details",
+        "close": "Ok"
+      },
+      "modal": {
+        "states": [
+          {
+            "order": 0,
+            "state": "normal",
+            "stateLegend": "The lift system is operating normally",
+            "title": "Normal Service:",
+            "stateDesc": "Ascent allowed for all passengers without restrictions."
+          },
+          {
+            "order": 1,
+            "state": "conditional",
+            "stateLegend": "The lift system is operating conditionally",
+            "title": "Conditional Service:",
+            "stateDesc": "Delays may occur due to weather conditions."
+          },
+          {
+            "order": 2,
+            "state": "restricted",
+            "stateLegend": "The lift system is operating conditionally with restrictions",
+            "title": "Conditional Service with Restrictions:",
+            "stateDesc": "There is a high probability of delays or possible suspension of the service. For this reason, ascent is restricted for groups such as pregnant women, people with reduced mobility, elderly adults, etc. If you plan to ascend, it's preferable that you have no other commitments."
+          },
+          {
+            "order": 3,
+            "state": "suspended",
+            "stateLegend": "The lift system is currently suspended",
+            "title": "Suspended Service:",
+            "stateDesc": "Ascent by gondola is stopped, meaning it is not possible to go up."
+          },
+          {
+            "order": 4,
+            "state": "closed",
+            "stateLegend": "We are currently closed. We look forward to your next visit!",
+            "title": "",
+            "stateDesc": ""
+          }
+        ],
+        "disclaimer": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "text": "The conditions of the ascent service may vary due to weather factors. We provide the necessary information so you can plan your visit safely and without inconvenience. For more information, you can check the section on",
+                "type": "text"
+              },
+              {
+                "url": "/faqs",
+                "type": "link",
+                "children": [
+                  {
+                    "text": " FAQS",
+                    "type": "text"
+                  }
+                ]
+              },
+              {
+                "text": " or our",
+                "type": "text"
+              },
+              {
+                "url": "/policies",
+                "type": "link",
+                "children": [
+                  {
+                    "text": " Regulations",
+                    "type": "text"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "pages": {
+    "home": {
+      "postersection": {
+        "title": "Activities to Connect with Nature",
+        "desc": "At the Teleférico Cerro Otto Tourist Complex, each season offers unique opportunities to enjoy and rediscover the natural beauty of Bariloche. From outdoor adventures to moments of relaxation, find the perfect activity for an unforgettable experience.",
+        "epigraph": "Discover everything Cerro Otto has to offer you",
+        "imagealt": "lake with person pointing",
+        "link": { "label": "See all Activities", "href": "/activities" }
+      }
+    }
+  }
+}
