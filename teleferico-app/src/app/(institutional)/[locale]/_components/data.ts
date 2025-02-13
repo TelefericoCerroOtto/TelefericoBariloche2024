@@ -3,7 +3,7 @@ export const faqs = [
     id: 1,
     question: "¿El pasaje es reembolsable?",
     answer:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam blandit, urna auctor fermentum condimentum, eros leo consectetur odio, nec commodo est mauris vel nunc. Curabitur non sapien ornare, sagittis augue eu, faucibus elit. ",
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam blandit, urna auctor fermentum condimentum, eros leo consectetur odio, nec commodo est mauris vel nunc. Curabitur non sapien ornare, sagittis augue eu, faucibus elit.",
   },
   {
     id: 2,
@@ -13,7 +13,7 @@ export const faqs = [
   },
   {
     id: 3,
-    question: "¿Qué sucede si las el clima afecta el servicio?",
+    question: "¿Qué sucede si el clima afecta el servicio?",
     answer:
       "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam blandit, urna auctor fermentum condimentum, eros leo consectetur odio, nec commodo est mauris vel nunc. Curabitur non sapien ornare, sagittis augue eu, faucibus elit. ",
   },

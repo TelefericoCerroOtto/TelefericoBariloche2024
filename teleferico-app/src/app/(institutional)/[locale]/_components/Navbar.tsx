@@ -1,7 +1,11 @@
 "use client";
 
+import { useLocale } from "@/hooks";
+import { i18n } from "@/i18n";
+import { getTranslationValue } from "@/lib/actions";
 import logoBlanco from "@/public/logo-negativo.svg";
 import logoNegro from "@/public/logo.svg";
+import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
 import {
   Link,
@@ -16,14 +20,15 @@ import {
   SelectItem,
 } from "@nextui-org/react";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
-const langs = [
-  { locale: "es-AR", label: "Español" },
-  { locale: "en", label: "English" },
-  { locale: "pt", label: "Português" },
+const langs: { locale: Locales; label: string }[] = [
+  { locale: i18n.locales[0], label: "Español" },
+  { locale: i18n.locales[1], label: "English" },
+  { locale: i18n.locales[2], label: "Português" },
 ];
+
 const {
   HOME,
   FOUNDATION,
@@ -38,20 +43,12 @@ const {
   FAQS,
 } = ROUTES;
 
-const items: Array<{ label: string; href: string }> = [
-  { label: "Inicio", href: HOME },
-  { label: "Como Llegar", href: LOCATION },
-  { label: "¿Qué hacer?", href: ACTIVITIES },
-  { label: "La cumbre", href: EXPLORE },
-  { label: "Tarifas Y Horarios", href: PRICINGSCHEDULES },
-  { label: "Noticias", href: NEWS },
-  { label: "Fundación", href: FOUNDATION },
-];
-
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDownScrolled, setIsDownScrolled] = useState(false);
-  const pathname = usePathname();
+  const [items, setItems] = useState<{ label: string; href: string }[]>([]);
+  const { language, pathname } = useLocale();
+  const { push } = useRouter();
   const isPathInList = useMemo(
     () =>
       [NEWS, POLICIES, JOBS, CONTACT, FAQS].some((route) =>
@@ -73,6 +70,29 @@ export default function Navbar() {
     }),
     [isDownScrolled, isMenuOpen, isPathInList],
   );
+
+  useEffect(() => {
+    const getItems = async () => {
+      const navbarIntl = await getTranslationValue(
+        language,
+        "components.Navbar",
+      );
+      setItems([
+        { label: navbarIntl.home, href: HOME },
+        { label: navbarIntl.location, href: LOCATION },
+        { label: navbarIntl.activities, href: ACTIVITIES },
+        { label: navbarIntl.explore, href: EXPLORE },
+        {
+          label: navbarIntl.pricingschedules,
+          href: PRICINGSCHEDULES,
+        },
+        { label: navbarIntl.news, href: NEWS },
+        { label: navbarIntl.foundation, href: FOUNDATION },
+      ]);
+    };
+
+    getItems();
+  }, [language]);
 
   return (
     <NuiNavbar
@@ -126,7 +146,10 @@ export default function Navbar() {
           }}
           items={langs}
           disallowEmptySelection={true}
-          defaultSelectedKeys={new Set([langs[0].locale])}
+          defaultSelectedKeys={new Set([language])}
+          onSelectionChange={(key) => {
+            push(key.currentKey + pathname);
+          }}
         >
           {(item) => <SelectItem key={item.locale}>{item.label}</SelectItem>}
         </Select>

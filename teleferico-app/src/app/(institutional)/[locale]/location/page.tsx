@@ -11,7 +11,7 @@ export default function LocationPage() {
         description="Llegar a la base del teleférico es súper fácil y tenés varias opciones para elegir. Podés usar el servicio gratuito de colectivos que salen desde las dos cabañas del centro o manejar tu auto y estacionar cómodamente en el lugar"
       />
       <ImageTextSection items={items} />
-      <HoursOverview />
+      <HoursOverview withTextBlock locale="es-AR" />
     </>
   );
 }
