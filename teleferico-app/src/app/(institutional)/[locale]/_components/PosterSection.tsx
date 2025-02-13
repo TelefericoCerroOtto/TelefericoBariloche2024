@@ -18,7 +18,7 @@ export default async function PosterSection(props: Props) {
 
   return (
     <section className="mb-14 flex w-full flex-col">
-      <div className="flex w-full flex-col items-stretch px-10 pb-14 lg:flex-row lg:px-32">
+      <div className="my-14 flex w-full flex-col items-stretch px-10 lg:flex-row lg:px-32">
         <TitleDescBlock
           title={title}
           desc={desc}

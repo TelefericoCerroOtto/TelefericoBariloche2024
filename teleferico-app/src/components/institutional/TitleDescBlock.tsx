@@ -61,7 +61,7 @@ export default function TitleDescBlock(props: Props) {
 
   return (
     <div
-      className={`flex flex-col ${sizeVariants[size]} ${alignVariants[align]} mb-12 gap-5`}
+      className={`flex flex-col ${sizeVariants[size]} ${alignVariants[align]} gap-5`}
     >
       {epigraph ? <p className="text-small text-primary">{epigraph}</p> : null}
       <h3
