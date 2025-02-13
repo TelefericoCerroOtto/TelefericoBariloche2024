@@ -1,7 +1,7 @@
 "use client";
 
-import { getStateAction, updateStateAction } from "@/lib/actions/service-state";
-import { ServiceStateValues } from "@/types";
+import { getStateAction, updateStateAction } from "@/lib/actions";
+import type { ServiceStateValues } from "@/types";
 import type { Selection } from "@nextui-org/react";
 import {
   Dropdown,
