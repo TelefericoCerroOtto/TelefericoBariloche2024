@@ -1,25 +1,23 @@
-import { ImageType } from "@/types";
+import { CustomLink } from "@/components";
+import type { Hero } from "@/types";
 import { titleStyles } from "@/utils/styles";
 import Image from "next/image";
-import { type ReactNode } from "react";
 
 interface Props {
-  title?: string;
-  description?: string;
-  image: ImageType;
-  children?: ReactNode;
-  align?: "bottom" | "center";
+  content: Hero;
 }
 
 export default function Hero(props: Props) {
-  const { children, title, description, image, align = "bottom" } = props;
+  const { content } = props;
+  const { cover, title, description, align, firstLink, secondLink } = content;
 
   return (
+    // TODO: Este relative es el que causa el bug del hover de los botones CustomLink
     <section className="relative mb-14 h-screen max-h-[800px] w-screen">
       <div className="h-full w-full md:h-3/4 lg:h-1/2">
         <Image
-          src={image.src}
-          alt={image.alt}
+          src={cover.image.url}
+          alt={cover.alt}
           fill
           className="z-0 object-cover"
         />
@@ -32,7 +30,16 @@ export default function Hero(props: Props) {
           <div
             className={`flex gap-4 ${align === "center" ? "justify-center" : "justify-start"}`}
           >
-            {children ?? null}
+            {firstLink ? (
+              <CustomLink href={firstLink.href} intent="outlineWhite">
+                {firstLink.label}
+              </CustomLink>
+            ) : null}
+            {secondLink ? (
+              <CustomLink href={secondLink.href} intent="ghostWhite">
+                {secondLink.label}
+              </CustomLink>
+            ) : null}
           </div>
         </div>
       </div>

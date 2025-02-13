@@ -30,20 +30,76 @@
       "items": [
         {
           "id": 0,
+          "tag": "cablecar",
           "title": "Horários da Base",
-          "desc": "<p className=\"text-center\">O complexo na Base (km 5) funciona das 10:00 às 16:30 e é o ponto de partida da sua aventura. Compre seu bilhete de entrada na Base e aproveite uma viagem espetacular até o cume.</p>",
+          "desc": [
+            {
+              "type": "paragraph",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "O complexo na Base (km 5) funciona das 10:00 às 16:30 e é o ponto de partida da sua aventura. Compre seu bilhete de entrada na Base e aproveite uma viagem espetacular até o cume."
+                }
+              ]
+            }
+          ],
           "alt": "ícone de gôndola"
         },
         {
           "id": 1,
+          "tag": "mountain",
           "title": "Horários do Cume",
-          "desc": "<p className=\"text-center\">A magia continua no Cume, onde você pode desfrutar do <strong>famoso café giratório</strong> e das melhores vistas até as 17:45. Tire seu tempo para relaxar e admirar a paisagem.</p>",
+          "desc": [
+            {
+              "type": "paragraph",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "A magia continua no Cume, onde você pode desfrutar do"
+                },
+                {
+                  "bold": true,
+                  "type": "text",
+                  "text": " famoso restaurante giratório "
+                },
+                {
+                  "type": "text",
+                  "text": "e das melhores vistas até as 17:45. Tire seu tempo para relaxar e admirar a paisagem."
+                }
+              ]
+            }
+          ],
           "alt": "ícone de montanha"
         },
         {
           "id": 2,
+          "tag": "bus",
           "title": "Horários dos Ônibus",
-          "desc": "<p className=\"text-center\">Os ônibus partem do centro para a Base a cada hora, <strong>das 10:00 às 16:00.</strong> Os retornos da Base para o centro começam às <strong>11:15 e continuam a cada hora até as 18:15.</strong></p>",
+          "desc": [
+            {
+              "type": "paragraph",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "Os ônibus partem do centro para a Base a cada hora,"
+                },
+                {
+                  "bold": true,
+                  "type": "text",
+                  "text": " das 10:00 às 16:00. "
+                },
+                {
+                  "type": "text",
+                  "text": "Os retornos da Base para o centro começam às"
+                },
+                {
+                  "bold": true,
+                  "type": "text",
+                  "text": " 11:15 e continuam a cada hora até as 18:15."
+                }
+              ]
+            }
+          ],
           "alt": "ícone de ônibus"
         }
       ]

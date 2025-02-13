@@ -1,7 +1,11 @@
-import { CustomLink } from "@/components";
+import {
+  BlockRendererClient,
+  CustomLink,
+  HighlightLastWord,
+} from "@/components";
 import type { ImageTextBlock } from "@/types";
+import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
-import { HighlightLastWord } from "../TitleDescBlock";
 
 export function Default(props: ImageTextBlock) {
   const {
@@ -9,7 +13,7 @@ export function Default(props: ImageTextBlock) {
     title,
     description,
     isInverted = false,
-    isTitleHighlighted = false,
+    isHighlighted = false,
     link,
   } = props;
 
@@ -19,7 +23,7 @@ export function Default(props: ImageTextBlock) {
     >
       <div className="relative h-[320px] w-full md:h-[500px] lg:h-[700px] lg:w-1/2">
         <Image
-          src={images[0].src}
+          src={images[0].image.url}
           alt={images[0].alt}
           fill
           className="object-cover"
@@ -29,14 +33,10 @@ export function Default(props: ImageTextBlock) {
         className={`flex w-full flex-col items-center px-0 md:items-start lg:w-1/2 lg:px-12 ${isInverted ? "lg:items-center" : "lg:items-start lg:px-12"}`}
       >
         <div className="flex flex-col items-start gap-4 py-20">
-          <h4 className="mb-4 text-center text-3xl font-bold capitalize text-inherit md:text-start md:text-4xl">
-            {isTitleHighlighted ? HighlightLastWord(title) : title}
+          <h4 className="mb-4 text-center text-3xl font-bold uppercase text-inherit md:text-start md:text-4xl">
+            {isHighlighted ? HighlightLastWord(title) : title}
           </h4>
-          {typeof description === "string" ? (
-            <p className="text-start">{description}</p>
-          ) : (
-            description
-          )}
+          <BlockRendererClient content={description as BlocksContent} />
           {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
         </div>
       </div>
@@ -50,7 +50,7 @@ export function DefaultFW(props: ImageTextBlock) {
     title,
     description,
     isInverted = false,
-    isTitleHighlighted = false,
+    isHighlighted = false,
     link,
   } = props;
 
@@ -60,7 +60,7 @@ export function DefaultFW(props: ImageTextBlock) {
     >
       <div className="relative h-[500px] w-full lg:h-[700px] lg:w-1/2">
         <Image
-          src={images[0].src}
+          src={images[0].image.url}
           alt={images[0].alt}
           fill
           className="object-cover"
@@ -71,9 +71,11 @@ export function DefaultFW(props: ImageTextBlock) {
       >
         <div className={`w-3/4 ${isInverted ? "lg:w-1/2" : ""} py-20`}>
           <h4 className="mb-4 text-center text-3xl font-bold uppercase text-inherit md:text-start md:text-4xl">
-            {isTitleHighlighted ? HighlightLastWord(title) : title}
+            {isHighlighted ? HighlightLastWord(title) : title}
           </h4>
-          <p className="text-center md:text-start">{description}</p>
+          <div className="text-center md:text-start">
+            <BlockRendererClient content={description as BlocksContent} />
+          </div>
           {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
         </div>
       </div>
@@ -87,7 +89,7 @@ export function Panoramic(props: ImageTextBlock) {
     title,
     description,
     isInverted = false,
-    isTitleHighlighted = false,
+    isHighlighted = false,
     link,
   } = props;
 
@@ -97,7 +99,7 @@ export function Panoramic(props: ImageTextBlock) {
     >
       <div className="relative h-[320px] w-full md:h-[500px]">
         <Image
-          src={images[0].src}
+          src={images[0].image.url}
           alt={images[0].alt}
           fill
           className="object-cover"
@@ -105,9 +107,11 @@ export function Panoramic(props: ImageTextBlock) {
       </div>
       <div className="flex w-full flex-col items-center gap-4 md:w-3/5">
         <h4 className="mb-4 text-center text-3xl font-bold capitalize text-inherit md:text-4xl">
-          {isTitleHighlighted ? HighlightLastWord(title) : title}
+          {isHighlighted ? HighlightLastWord(title) : title}
         </h4>
-        <p className="text-center">{description}</p>
+        <div className="text-center">
+          <BlockRendererClient content={description as BlocksContent} />
+        </div>
         {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
       </div>
     </div>

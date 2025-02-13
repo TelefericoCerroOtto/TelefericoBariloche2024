@@ -30,20 +30,76 @@
       "items": [
         {
           "id": 0,
+          "tag": "cablecar",
           "title": "Base Hours",
-          "desc": "<p className=\"text-center\">The Base complex (km 5) is open from 10:00 AM to 4:30 PM and is the starting point of your adventure. Purchase your entrance ticket at the Base and enjoy a spectacular ride to the summit.</p>",
+          "desc": [
+            {
+              "type": "paragraph",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "The Base complex (km 5) is open from 10:00 AM to 4:30 PM and is the starting point of your adventure. Purchase your entrance ticket at the Base and enjoy a spectacular ride to the summit."
+                }
+              ]
+            }
+          ],
           "alt": "gondola icon"
         },
         {
           "id": 1,
+          "tag": "mountain",
           "title": "Summit Hours",
-          "desc": "<p className=\"text-center\">The magic continues at the Summit, where you can enjoy the <strong>famous revolving café</strong> and the best views until 5:45 PM. Take your time to relax and admire the scenery.</p>",
+          "desc": [
+            {
+              "type": "paragraph",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "The magic continues at the Summit, where you can enjoy the"
+                },
+                {
+                  "bold": true,
+                  "type": "text",
+                  "text": " famous revolving restaurant "
+                },
+                {
+                  "type": "text",
+                  "text": "and the best views until 5:45 PM. Take your time to relax and admire the scenery."
+                }
+              ]
+            }
+          ],
           "alt": "mountain icon"
         },
         {
           "id": 2,
+          "tag": "bus",
           "title": "Bus Schedule",
-          "desc": "<p className=\"text-center\">Buses depart from downtown to the Base every hour, <strong>from 10:00 AM to 4:00 PM.</strong> Return trips from the Base to downtown start at <strong>11:15 AM and continue every hour until 6:15 PM.</strong></p>",
+          "desc": [
+            {
+              "type": "paragraph",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "Buses depart from downtown to the Base every hour,"
+                },
+                {
+                  "bold": true,
+                  "type": "text",
+                  "text": " from 10:00 AM to 4:00 PM. "
+                },
+                {
+                  "type": "text",
+                  "text": "Return trips from the Base to downtown start at"
+                },
+                {
+                  "bold": true,
+                  "type": "text",
+                  "text": " 11:15 AM and continue every hour until 6:15 PM. "
+                }
+              ]
+            }
+          ],
           "alt": "bus icon"
         }
       ]

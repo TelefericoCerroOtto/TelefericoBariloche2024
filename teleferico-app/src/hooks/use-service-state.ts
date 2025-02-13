@@ -12,7 +12,7 @@ export function useServiceState() {
   );
 
   return {
-    state: data,
+    serviceState: data,
     isLoading,
     isError: error,
   };

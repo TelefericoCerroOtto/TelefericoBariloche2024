@@ -21,8 +21,9 @@ export interface TranslationKeys {
       desc: unknown;
       items: Array<{
         id: number;
+        tag: string;
         title: string;
-        desc: string;
+        desc: unknown;
         alt: string;
       }>;
     };

@@ -1,3 +1,5 @@
+import { BlockRendererClient } from "@/components";
+import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { type ReactNode } from "react";
 
 interface Props {
@@ -6,7 +8,7 @@ interface Props {
   size?: "sm" | "md" | "lg";
   caseStyle?: "capitalize" | "uppercase" | "lowercase" | "normal";
   epigraph?: string;
-  desc?: ReactNode;
+  desc?: ReactNode | BlocksContent;
   children?: ReactNode;
 }
 
@@ -67,7 +69,11 @@ export default function TitleDescBlock(props: Props) {
       >
         {title}
       </h3>
-      {desc ? <p className="text-inherit">{desc}</p> : null}
+      {desc && typeof desc === "string" ? (
+        <p className="text-inherit">{desc}</p>
+      ) : (
+        <BlockRendererClient content={desc as BlocksContent} />
+      )}
       {children ? <div className="flex gap-4">{children}</div> : null}
     </div>
   );

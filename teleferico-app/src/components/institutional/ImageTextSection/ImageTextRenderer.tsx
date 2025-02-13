@@ -4,18 +4,12 @@ import { Horizontal, Ladder, Miniatures } from "./ThreeImageTextBlock";
 import { TwoImageTextBlock } from "./TwoImageTextBlock";
 
 export interface Props {
-  variant: ImageTextBlock["variant"];
   block: ImageTextBlock;
 }
 
-export default function ImageTextRenderer({
-  variant = "default",
-  block,
-}: Props) {
-  const { images } = block;
+export default function ImageTextRenderer({ block }: Props) {
+  const { images, variant } = block;
   const imagesCount = images.length;
-  const sortedImages = images.sort((a, b) => a.order - b.order);
-  block.images = sortedImages;
 
   if (imagesCount === 1) {
     switch (variant) {
