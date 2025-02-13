@@ -1,8 +1,7 @@
+import { BlocksRenderer, ServiceButton } from "@/components";
 import { getHomePageContent } from "@/lib/services/pages";
 import type { Locales } from "@/types";
 import { FaqSection, PosterSection } from "./_components";
-import BlocksRenderer from "./BlocksRenderer";
-import { ServiceButton } from "@/components";
 
 export default async function Home({
   params,
@@ -11,6 +10,7 @@ export default async function Home({
 }>) {
   const { locale } = await params;
   const res = await getHomePageContent(locale);
+  // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok) return <div>Fallback data</div>;
 
   const blocks = res.data.data[0].blocks;

@@ -1,3 +1,4 @@
+export { default as BlocksRenderer } from "./BlocksRenderer";
 export { default as ContactInfo } from "./ContactInfo";
 export { default as Faq } from "./Faq";
 export { default as Hero } from "./Hero";
