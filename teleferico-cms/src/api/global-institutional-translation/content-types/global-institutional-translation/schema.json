@@ -1,0 +1,30 @@
+{
+  "kind": "singleType",
+  "collectionName": "global_institutional_translations",
+  "info": {
+    "singularName": "global-institutional-translation",
+    "pluralName": "global-institutional-translations",
+    "displayName": "GlobalInstitutionalTranslation"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "components": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "dynamiczone",
+      "components": [
+        "page-components.hours-overview"
+      ]
+    }
+  }
+}
