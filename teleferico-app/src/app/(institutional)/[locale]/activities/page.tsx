@@ -1,69 +1,22 @@
-import { Hero, ImageTextSection } from "@/components";
-import lagodesdecumbre from "@/public/lagodesdecumbre.jpg";
-import { items } from "./data";
+import { BlocksRenderer } from "@/components";
+import { getActivitiesPageContent } from "@/lib/services/pages";
+import type { Locales } from "@/types";
 
-export default function ActivitiesPage() {
-  return (
-    <>
-      <Hero
-        image={{
-          src: lagodesdecumbre.src,
-          alt: "Lago Nahuel Huapi desde la cumbre del Cerro Otto con una cabaña",
-        }}
-        title="Descubrí Todo Lo Que Podés Hacer"
-        description="Cada rincón ofrece una experiencia única para disfrutar del entorno natural y la belleza de Bariloche. Ya sea buscando relajación o aventura, el lugar invita a explorar y vivir momentos inolvidables en un paisaje de montaña incomparable."
-      />
-      <ImageTextSection items={items} />
-    </>
-  );
+export default async function ActivitiesPage({
+  params,
+}: Readonly<{
+  params: Promise<{ locale: Locales }>;
+}>) {
+  const { locale } = await params;
+
+  // TODO: El componente 'Link' devuelto en el block ImageTextBlock de Strapi tiene que poblarse con el id de la actividad.
+  // Esto es, incorporar el doucmentId dentro de la respuesta para luego colocarlo el atributo href del mismo.
+  const res = await getActivitiesPageContent(locale);
+  // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
+  if (!res.ok) return <div>Fallback data</div>;
+
+  const blocks = res.data.data[0].blocks;
+
+  console.log("blocks", blocks);
+  return <BlocksRenderer blocks={blocks} locale={locale} />;
 }
-
-// interface Respon {
-//   data: [
-//     {
-//       id: number;
-//       documentId: string;
-//       route: string;
-//       createdAt: string;
-//       updatedAt: string;
-//       publishedAt: string;
-//       locale: string;
-//       page_contents: Array<{
-//         id: number;
-//         documentId: string;
-//         content: string;
-//         tag: string;
-//         createdAt: string;
-//         updatedAt: string;
-//         publishedAt: string;
-//         locale: string;
-//         key: string;
-//       }>;
-//       localizations: [];
-//     },
-//   ];
-//   meta: {
-//     pagination: {
-//       page: number;
-//       pageSize: number;
-//       pageCount: number;
-//       total: number;
-//     };
-//   };
-// }
-
-// export default async function ActivitiesPage() {
-//   const res = await (
-//     await fetch("http://localhost:1337/api/pages?locale=es-AR&populate=*")
-//   ).json();
-//   // console.log(res);
-//   const { data } = res as Respon;
-//   console.log(data[0].page_contents);
-
-//   return (
-//     <div>
-//       <h1>{data[0].page_contents[0].content}</h1>
-//       <p>{data[0].page_contents[1].content}</p>
-//     </div>
-//   );
-// }
