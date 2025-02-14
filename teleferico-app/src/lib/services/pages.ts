@@ -17,7 +17,7 @@ export const getPageContent = async (locale: Locales, route: string) => {
       blocks: {
         on: {
           "page-components.hero": {
-            populate: ["firstLink", "secondLink", "cover.image"],
+            populate: ["firstLink", "secondLink", "cover.image", "logo.image"],
           },
           "page-components.hours-overview": "*",
           "page-components.title-desc-block": "*",
