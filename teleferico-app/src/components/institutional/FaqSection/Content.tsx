@@ -16,11 +16,12 @@ interface Props {
 export default async function Content(props: Props) {
   const { locale, allFaqs } = props;
   let query;
-  if (allFaqs)
+
+  if (allFaqs) {
     query = {
       locale: locale ?? i18n.defaultLocale,
     };
-  else
+  } else {
     query = {
       locale: locale ?? i18n.defaultLocale,
       filters: {
@@ -29,6 +30,7 @@ export default async function Content(props: Props) {
         },
       },
     };
+  }
 
   const { ok, data } = await fetchWrapper<GetFaqsResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.FAQS, stringifyQuery(query)),

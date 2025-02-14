@@ -9,7 +9,8 @@ interface Props {
 
 export default function Hero(props: Props) {
   const { content } = props;
-  const { cover, title, description, align, firstLink, secondLink } = content;
+  const { cover, title, description, align, firstLink, secondLink, logo } =
+    content;
 
   return (
     <div className="relative mb-14 min-h-[600px] w-full md:h-3/4 lg:h-1/2">
@@ -28,6 +29,14 @@ export default function Hero(props: Props) {
         <div
           className={`flex gap-4 ${align === "center" ? "justify-center" : "justify-start"}`}
         >
+          {logo ? (
+            <Image
+              src={logo.image.url}
+              width={550}
+              height={125}
+              alt={logo.alt}
+            />
+          ) : null}
           {firstLink ? (
             <CustomLink href={firstLink.href} intent="outlineWhite">
               {firstLink.label}

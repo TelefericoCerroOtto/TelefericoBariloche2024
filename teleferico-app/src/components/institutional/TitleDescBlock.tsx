@@ -5,11 +5,13 @@ import { type ReactNode } from "react";
 interface Props {
   title: string;
   align?: "center" | "start";
-  size?: "sm" | "md" | "lg";
+  flexdir?: "col" | "row";
+  size?: "sm" | "md" | "lg" | "full";
   caseStyle?: "capitalize" | "uppercase" | "lowercase" | "normal";
   epigraph?: string;
   desc?: ReactNode | BlocksContent;
   children?: ReactNode;
+  className?: string;
 }
 
 export function HighlightLastWord(text: string) {
@@ -37,8 +39,10 @@ export default function TitleDescBlock(props: Props) {
     epigraph,
     children,
     align = "center",
+    flexdir = "col",
     size = "md",
     caseStyle = "normal",
+    className,
   } = props;
 
   const alignVariants = {
@@ -46,10 +50,16 @@ export default function TitleDescBlock(props: Props) {
     start: "items-start text-start",
   };
 
+  const flexdirVariants = {
+    col: "flex-col",
+    row: "flex-row",
+  };
+
   const sizeVariants = {
     sm: "max-w-[600px]",
     md: "max-w-[800px]",
     lg: "max-w-[900px]",
+    full: "w-full",
   };
 
   const titleStyle = {
@@ -61,7 +71,7 @@ export default function TitleDescBlock(props: Props) {
 
   return (
     <div
-      className={`flex flex-col ${sizeVariants[size]} ${alignVariants[align]} gap-5`}
+      className={`flex gap-8 ${flexdirVariants[flexdir]} ${sizeVariants[size]} ${alignVariants[align]} ${className}`}
     >
       {epigraph ? <p className="text-small text-primary">{epigraph}</p> : null}
       <h3
