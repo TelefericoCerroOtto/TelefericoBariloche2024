@@ -1,21 +1,31 @@
-import { ContactInfo, TitleDescBlock } from "@/components";
+import { BlocksRenderer } from "@/components";
+import { getPageContent } from "@/lib/services/pages";
+import type { Locales } from "@/types";
+import { ROUTES } from "@/utils/routes.const";
 import { Spacer } from "@nextui-org/react";
 import { Form } from "./_components";
 
-export default function ContactPage() {
+export default async function ContactPage({
+  params,
+}: Readonly<{
+  params: Promise<{ locale: Locales }>;
+}>) {
+  const { locale } = await params;
+
+  const res = await getPageContent(locale, ROUTES.CONTACT);
+  // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
+  if (!res.ok) return <div>Fallback data</div>;
+
+  const blocks = res.data.data[0].blocks;
+
   return (
     <>
       <Spacer y={28} />
       <div className="flex w-full flex-col px-10 lg:px-28">
-        <TitleDescBlock
-          title="Medios De Contacto"
-          desc="Queremos escucharte y responder a todas tus dudas"
-          epigraph="Contactanos fácil"
-          align="start"
-        />
+        <BlocksRenderer blocks={blocks[0]} locale={locale} />
         <div className="flex flex-col gap-8 lg:flex-row">
           <Form />
-          <ContactInfo />
+          <BlocksRenderer blocks={blocks[1]} locale={locale} />
         </div>
       </div>
     </>
