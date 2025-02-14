@@ -2,7 +2,8 @@
   "collectionName": "components_page_components_title_desc_blocks",
   "info": {
     "displayName": "TitleDescBlock",
-    "icon": "underline"
+    "icon": "underline",
+    "description": ""
   },
   "options": {},
   "attributes": {
@@ -22,7 +23,8 @@
       "enum": [
         "sm",
         "md",
-        "lg"
+        "lg",
+        "full"
       ],
       "default": "md"
     },
@@ -43,6 +45,18 @@
         "lowercase"
       ],
       "default": "normal"
+    },
+    "flexdir": {
+      "type": "enumeration",
+      "enum": [
+        "col",
+        "row"
+      ],
+      "default": "col",
+      "required": true
+    },
+    "className": {
+      "type": "text"
     }
   }
 }

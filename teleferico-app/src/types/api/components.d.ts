@@ -34,11 +34,12 @@ export interface ServiceStateModal {
 export interface Hero {
   __component: "page-components.hero";
   id: number;
-  title: string;
-  description: string;
-  firstLink: Link;
-  secondLink: Link;
+  title?: string;
+  description?: string;
+  firstLink?: Link;
+  secondLink?: Link;
   cover: { id: number } & Image;
+  logo?: { id: number } & Image;
   align: "bottom" | "center";
 }
 
@@ -53,10 +54,11 @@ export interface TitleDescBlock {
   title: string;
   id: number;
   align?: "center" | "start";
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "full";
   caseStyle?: "capitalize" | "uppercase" | "lowercase" | "normal";
   epigraph?: string;
   desc?: BlocksContent;
+  className: string;
 }
 
 export interface ImageTextBlock {

@@ -99,12 +99,13 @@ export interface PageComponentsTitleDescBlock extends Struct.ComponentSchema {
   info: {
     displayName: 'TitleDescBlock';
     icon: 'underline';
+    description: '';
   };
   attributes: {
     title: Schema.Attribute.String & Schema.Attribute.Required;
     desc: Schema.Attribute.Blocks & Schema.Attribute.Required;
     epigraph: Schema.Attribute.String;
-    size: Schema.Attribute.Enumeration<['sm', 'md', 'lg']> &
+    size: Schema.Attribute.Enumeration<['sm', 'md', 'lg', 'full']> &
       Schema.Attribute.DefaultTo<'md'>;
     align: Schema.Attribute.Enumeration<['center', 'start']> &
       Schema.Attribute.DefaultTo<'center'>;
@@ -112,6 +113,10 @@ export interface PageComponentsTitleDescBlock extends Struct.ComponentSchema {
       ['normal', 'capitalize', 'uppercase', 'lowercase']
     > &
       Schema.Attribute.DefaultTo<'normal'>;
+    flexdir: Schema.Attribute.Enumeration<['col', 'row']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'col'>;
+    className: Schema.Attribute.Text;
   };
 }
 
@@ -194,13 +199,14 @@ export interface PageComponentsHero extends Struct.ComponentSchema {
     description: '';
   };
   attributes: {
-    title: Schema.Attribute.String & Schema.Attribute.Required;
+    title: Schema.Attribute.String;
     description: Schema.Attribute.Text;
     firstLink: Schema.Attribute.Component<'utils-components.link', false>;
     secondLink: Schema.Attribute.Component<'utils-components.link', false>;
     cover: Schema.Attribute.Component<'utils-components.image', false>;
     align: Schema.Attribute.Enumeration<['bottom', 'center']> &
       Schema.Attribute.DefaultTo<'bottom'>;
+    logo: Schema.Attribute.Component<'utils-components.image', false>;
   };
 }
 
