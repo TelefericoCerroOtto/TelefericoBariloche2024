@@ -66,7 +66,7 @@ export type UpdateUserRequest = Partial<NewUserRequest>;
 
 export type UpdateUserResponse = UserResponse<{ role: UserRole }>;
 
-// Check if this is true
+// TODO: Check if this is true
 export type DeleteUserResponse = UserResponse<{
   role: UserRole;
   localizations: string[];

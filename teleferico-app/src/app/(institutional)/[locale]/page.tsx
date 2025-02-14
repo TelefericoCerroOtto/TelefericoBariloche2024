@@ -1,6 +1,7 @@
 import { BlocksRenderer, ServiceButton } from "@/components";
-import { getHomePageContent } from "@/lib/services/pages";
+import { getPageContent } from "@/lib/services/pages";
 import type { Locales } from "@/types";
+import { ROUTES } from "@/utils/routes.const";
 import { FaqSection, PosterSection } from "./_components";
 
 export default async function Home({
@@ -9,7 +10,7 @@ export default async function Home({
   params: Promise<{ locale: Locales }>;
 }>) {
   const { locale } = await params;
-  const res = await getHomePageContent(locale);
+  const res = await getPageContent(locale, ROUTES.HOME);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok) return <div>Fallback data</div>;
 

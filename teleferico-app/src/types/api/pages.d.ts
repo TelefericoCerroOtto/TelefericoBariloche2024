@@ -2,7 +2,7 @@ import { DynamicZone, StrapiLocales, Meta, RendereableBlocks } from "./index";
 
 type PagesBlocks = DynamicZone<RendereableBlocks>;
 
-interface HomeContent {
+interface PageContent {
   blocks: PagesBlocks;
   createdAt: string;
   documentId: string;
@@ -13,7 +13,7 @@ interface HomeContent {
   updatedAt: string;
 }
 
-export interface GetHomePage {
-  data: HomeContent[];
+export interface GetPageResponse {
+  data: PageContent[];
   meta: Meta;
 }
