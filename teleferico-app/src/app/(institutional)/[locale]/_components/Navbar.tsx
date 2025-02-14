@@ -148,7 +148,10 @@ export default function Navbar() {
           disallowEmptySelection={true}
           defaultSelectedKeys={new Set([language])}
           onSelectionChange={(key) => {
-            push(key.currentKey + pathname);
+            // TODO: Using the "es-AR" prefix crashes the navigation
+            // Maybe the middleware's rewrite function has something to do with it
+            if (key.currentKey === "es-AR") push(pathname);
+            else push(`/${key.currentKey}${pathname}`);
           }}
         >
           {(item) => <SelectItem key={item.locale}>{item.label}</SelectItem>}
