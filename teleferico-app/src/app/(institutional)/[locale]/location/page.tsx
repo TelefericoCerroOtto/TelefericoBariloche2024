@@ -1,17 +1,24 @@
-import { Hero, HoursOverview, ImageTextSection } from "@/components";
-import gondolasestacionamiento from "@/public/gondolasestacionamiento.jpg";
-import { items } from "./data";
+import { BlocksRenderer } from "@/components";
+import { getPageContent } from "@/lib/services/pages";
+import type { Locales } from "@/types";
+import { ROUTES } from "@/utils/routes.const";
 
-export default function LocationPage() {
-  return (
-    <>
-      <Hero
-        image={{ src: gondolasestacionamiento.src, alt: "Foto Portada" }}
-        title="Opciones para llegar a la base y a la cumbre"
-        description="Llegar a la base del teleférico es súper fácil y tenés varias opciones para elegir. Podés usar el servicio gratuito de colectivos que salen desde las dos cabañas del centro o manejar tu auto y estacionar cómodamente en el lugar"
-      />
-      <ImageTextSection items={items} />
-      <HoursOverview withTextBlock locale="es-AR" />
-    </>
-  );
+export default async function LocationPage({
+  params,
+}: Readonly<{
+  params: Promise<{ locale: Locales }>;
+}>) {
+  const { locale } = await params;
+  const res = await getPageContent(locale, ROUTES.CONTACT);
+  // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
+  if (!res.ok)
+    throw new Error(
+      "Internal server error while trying to get content for jobs page",
+    );
+  if (res.data.data.length === 0)
+    throw new Error("No content was found for jobs Page");
+
+  const blocks = res.data.data[0].blocks;
+
+  return <BlocksRenderer blocks={blocks} locale={locale} />;
 }
