@@ -1,4 +1,5 @@
 import {
+  FormError,
   Hero,
   HoursOverview,
   ImageTextRenderer,
@@ -14,6 +15,11 @@ interface Props {
 
 export default function StrapiComponentRenderer(props: Props) {
   const { block, locale } = props;
+
+  if (!block) {
+    console.error("StrapiComponentRenderer block", block);
+    return <FormError message="No content was found" />;
+  }
 
   switch (block.__component) {
     // TODO: remove ServiceStateModal from strapi components and its types(deprecated)

@@ -1,9 +1,9 @@
-import { StrapiComponentRenderer } from "@/components";
-import type { Locales, PagesBlocks } from "@/types";
+import { FormError, StrapiComponentRenderer } from "@/components";
+import type { Locales, RendereableBlocks } from "@/types";
 import { Fragment, type ComponentType } from "react";
 
-interface Props<T extends PagesBlocks> {
-  blocks: T;
+interface Props {
+  blocks: RendereableBlocks | RendereableBlocks[];
   customBlocks?: {
     position: number;
     component: ComponentType<{ locale: Locales }>;
@@ -11,8 +11,24 @@ interface Props<T extends PagesBlocks> {
   locale: Locales;
 }
 
-export default function BlocksRenderer<T extends PagesBlocks>(props: Props<T>) {
+export default function BlocksRenderer(props: Props) {
   const { blocks, customBlocks = [], locale } = props;
+
+  if (!Array.isArray(blocks)) {
+    return (
+      <>
+        <StrapiComponentRenderer block={blocks} locale={locale} />
+        {customBlocks.map((cb, index) => (
+          <cb.component key={index} locale={locale} />
+        ))}
+      </>
+    );
+  }
+
+  if (!blocks || blocks.length === 0) {
+    console.error("BlocksRenderer blocks", blocks);
+    return <FormError message="No content was found" />;
+  }
 
   const validCustomBlocks = customBlocks.filter(
     (cb) => cb.position < blocks.length,
