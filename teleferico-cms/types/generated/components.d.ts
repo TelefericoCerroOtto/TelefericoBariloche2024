@@ -195,7 +195,7 @@ export interface PageComponentsHero extends Struct.ComponentSchema {
   };
   attributes: {
     title: Schema.Attribute.String & Schema.Attribute.Required;
-    description: Schema.Attribute.String;
+    description: Schema.Attribute.Text;
     firstLink: Schema.Attribute.Component<'utils-components.link', false>;
     secondLink: Schema.Attribute.Component<'utils-components.link', false>;
     cover: Schema.Attribute.Component<'utils-components.image', false>;
