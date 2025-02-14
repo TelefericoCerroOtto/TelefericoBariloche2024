@@ -13,6 +13,8 @@ export default async function Home({
   const res = await getPageContent(locale, ROUTES.HOME);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok) return <div>Fallback data</div>;
+  if (res.data.data.length === 0)
+    throw new Error("No content was found for Home Page");
 
   const blocks = res.data.data[0].blocks;
 

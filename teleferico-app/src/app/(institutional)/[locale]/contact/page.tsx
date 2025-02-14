@@ -15,6 +15,8 @@ export default async function ContactPage({
   const res = await getPageContent(locale, ROUTES.CONTACT);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok) return <div>Fallback data</div>;
+  if (res.data.data.length === 0)
+    throw new Error("No content was found for Contact Page");
 
   const blocks = res.data.data[0].blocks;
 
