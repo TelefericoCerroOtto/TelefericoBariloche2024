@@ -12,7 +12,10 @@ export default async function ExplorePage({
 
   const res = await getPageContent(locale, ROUTES.EXPLORE);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
-  if (!res.ok) return <div>Fallback data</div>;
+  if (!res.ok)
+    throw new Error(
+      "Internal server error while trying to get content for Explore page",
+    );
 
   if (res.data.data.length === 0)
     throw new Error("No content was found for Explore Page");

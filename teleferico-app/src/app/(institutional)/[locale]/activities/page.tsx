@@ -14,7 +14,10 @@ export default async function ActivitiesPage({
   // Esto es, incorporar el doucmentId dentro de la respuesta para luego colocarlo el atributo href del mismo.
   const res = await getPageContent(locale, ROUTES.ACTIVITIES);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
-  if (!res.ok) return <div>Fallback data</div>;
+  if (!res.ok)
+    throw new Error(
+      "Internal server error while trying to get content for Activities page",
+    );
   if (res.data.data.length === 0)
     throw new Error("No content was found for Activities Page");
 
