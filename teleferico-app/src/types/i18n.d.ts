@@ -63,6 +63,18 @@ export interface TranslationKeys {
     };
     Forms: {
       fields: {
+        firstName: { label: string; placeholder: string };
+        lastName: { label: string; placeholder: string };
+        genre: {
+          label: string;
+          placeholder: string;
+          items: { male: string; female: string; other: string };
+        };
+        sector: {
+          label: string;
+          placeholder: string;
+          items: Record<string, string>;
+        };
         email: { label: string; placeholder: string };
         name: { label: string; placeholder: string };
         age: { label: string; placeholder: string };
@@ -70,6 +82,8 @@ export interface TranslationKeys {
           label: string;
           placeholder: string;
         };
+        campNo: { label: string; placeholder: string };
+        cv: { label: string; placeholder: string };
       };
       sendbtn: string;
     };

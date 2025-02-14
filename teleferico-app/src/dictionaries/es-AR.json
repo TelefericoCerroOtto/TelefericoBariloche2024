@@ -225,13 +225,40 @@
     },
     "Forms": {
       "fields": {
+        "firstName": { "label": "Nombre", "placeholder": "Nombre" },
+        "lastName": { "label": "Apellido", "placeholder": "Apellido" },
+        "genre": {
+          "label": "Genero",
+          "placeholder": "Seleccionar",
+          "items": {
+            "male": "Masculino",
+            "female": "Femenino",
+            "other": "Otro"
+          }
+        },
+        "sector": {
+          "label": "Sector de postulacion",
+          "placeholder": "Seleccionar",
+          "items": {
+            "tech": "Tecnología",
+            "marketing": "Marketing",
+            "finances": "Finanzas",
+            "engineer": "Ingeniería",
+            "tourism": "Turismo"
+          }
+        },
         "email": { "label": "Email", "placeholder": "Email" },
         "name": { "label": "Nombre", "placeholder": "Nombre" },
         "age": { "label": "Edad", "placeholder": "25" },
         "consultation": {
           "label": "Consulta",
           "placeholder": "Escribe tu consulta"
-        }
+        },
+        "campNo": {
+          "label": "Código de Campaña (Opcional)",
+          "placeholder": "Código de Campaña (Opcional)"
+        },
+        "cv": { "label": "Agrega tu CV", "placeholder": "Seleccionar archivo" }
       },
       "sendbtn": "Enviar"
     }

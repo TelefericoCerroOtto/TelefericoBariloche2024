@@ -225,12 +225,42 @@
     },
     "Forms": {
       "fields": {
+        "firstName": { "label": "First Name", "placeholder": "First Name" },
+        "lastName": { "label": "Last Name", "placeholder": "Last Name" },
+        "genre": {
+          "label": "Gender",
+          "placeholder": "Select",
+          "items": {
+            "male": "Male",
+            "female": "Female",
+            "other": "Other"
+          }
+        },
+        "sector": {
+          "label": "Application Sector",
+          "placeholder": "Select",
+          "items": {
+            "tech": "Technology",
+            "marketing": "Marketing",
+            "finances": "Finance",
+            "engineer": "Engineering",
+            "tourism": "Tourism"
+          }
+        },
         "email": { "label": "Email", "placeholder": "Email" },
         "name": { "label": "Name", "placeholder": "Name" },
         "age": { "label": "Age", "placeholder": "25" },
         "consultation": {
           "label": "Consultation",
           "placeholder": "Write your query"
+        },
+        "campNo": {
+          "label": "Campaign Code (Optional)",
+          "placeholder": "Campaign Code (Optional)"
+        },
+        "cv": {
+          "label": "Add your CV",
+          "placeholder": "Select file"
         }
       },
       "sendbtn": "Send"
