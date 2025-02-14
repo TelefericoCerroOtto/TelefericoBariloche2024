@@ -222,6 +222,18 @@
           }
         ]
       }
+    },
+    "Forms": {
+      "fields": {
+        "email": { "label": "E-mail", "placeholder": "E-mail" },
+        "name": { "label": "Nome", "placeholder": "Nome" },
+        "age": { "label": "Idade", "placeholder": "25" },
+        "consultation": {
+          "label": "Consulta",
+          "placeholder": "Escreva sua dúvida"
+        }
+      },
+      "sendbtn": "Enviar"
     }
   },
   "pages": {

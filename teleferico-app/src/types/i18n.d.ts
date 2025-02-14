@@ -61,6 +61,18 @@ export interface TranslationKeys {
         disclaimer: unknown;
       };
     };
+    Forms: {
+      fields: {
+        email: { label: string; placeholder: string };
+        name: { label: string; placeholder: string };
+        age: { label: string; placeholder: string };
+        consultation: {
+          label: string;
+          placeholder: string;
+        };
+      };
+      sendbtn: string;
+    };
   };
   pages: {
     home: {

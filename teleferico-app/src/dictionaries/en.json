@@ -222,6 +222,18 @@
           }
         ]
       }
+    },
+    "Forms": {
+      "fields": {
+        "email": { "label": "Email", "placeholder": "Email" },
+        "name": { "label": "Name", "placeholder": "Name" },
+        "age": { "label": "Age", "placeholder": "25" },
+        "consultation": {
+          "label": "Consultation",
+          "placeholder": "Write your query"
+        }
+      },
+      "sendbtn": "Send"
     }
   },
   "pages": {
