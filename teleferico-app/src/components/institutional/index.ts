@@ -1,6 +1,5 @@
 export { default as BlocksRenderer } from "./BlocksRenderer";
 export { default as ContactInfo } from "./ContactInfo";
-export { default as Faq } from "./Faq";
 export { default as Hero } from "./Hero";
 export { default as HoursOverview } from "./HoursOverview";
 export { default as ImageTextRenderer } from "./ImageTextSection/ImageTextRenderer";
@@ -8,3 +7,4 @@ export { default as ImageTextSection } from "./ImageTextSection/ImageTextSection
 export { default as PageWrapper } from "./PageWrapper";
 export { default as ServiceButton } from "./ServiceButton";
 export { HighlightLastWord, default as TitleDescBlock } from "./TitleDescBlock";
+export { FaqSection } from "./FaqSection";

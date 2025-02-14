@@ -1,4 +1,3 @@
-import { Faq } from "@/components";
 import { i18n } from "@/i18n";
 import type { GetFaqsResponse, Locales } from "@/types";
 import { fetchWrapper } from "@/utils/fetch";
@@ -6,23 +5,31 @@ import { getStrapiURL } from "@/utils/get-strapi-url";
 import { stringifyQuery } from "@/utils/query";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 import Error from "./Error";
+import Faq from "./Faq";
 
 // TODO: Encontrar alguna manera de no tener que pasar por props el locale en todos los RSC
 interface Props {
   locale: Locales;
+  allFaqs: boolean;
 }
 
 export default async function Content(props: Props) {
-  const { locale } = props;
-
-  const query = {
-    locale: locale ?? i18n.defaultLocale,
-    filters: {
-      featured: {
-        $eq: true,
+  const { locale, allFaqs } = props;
+  let query;
+  if (allFaqs)
+    query = {
+      locale: locale ?? i18n.defaultLocale,
+    };
+  else
+    query = {
+      locale: locale ?? i18n.defaultLocale,
+      filters: {
+        featured: {
+          $eq: true,
+        },
       },
-    },
-  };
+    };
+
   const { ok, data } = await fetchWrapper<GetFaqsResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.FAQS, stringifyQuery(query)),
   );

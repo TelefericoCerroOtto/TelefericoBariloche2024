@@ -5,14 +5,15 @@ import { Locales } from "@/types";
 
 interface Props {
   locale: Locales;
+  allFaqs?: boolean;
 }
 
 export default function FaqSection(props: Props) {
-  const { locale } = props;
-  console.log("FaqSection locale", locale);
+  const { locale, allFaqs = false } = props;
+
   return (
     <Suspense fallback={<Loader />}>
-      <Content locale={locale} />
+      <Content locale={locale} allFaqs={allFaqs} />
     </Suspense>
   );
 }

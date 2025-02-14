@@ -1,8 +1,8 @@
-import { BlocksRenderer, ServiceButton } from "@/components";
+import { BlocksRenderer, FaqSection, ServiceButton } from "@/components";
 import { getPageContent } from "@/lib/services/pages";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
-import { FaqSection, PosterSection } from "./_components";
+import { PosterSection } from "./_components";
 
 export default async function Home({
   params,
@@ -12,7 +12,10 @@ export default async function Home({
   const { locale } = await params;
   const res = await getPageContent(locale, ROUTES.HOME);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
-  if (!res.ok) return <div>Fallback data</div>;
+  if (!res.ok)
+    throw new Error(
+      "Internal server error while trying to get content for home page",
+    );
   if (res.data.data.length === 0)
     throw new Error("No content was found for Home Page");
 
