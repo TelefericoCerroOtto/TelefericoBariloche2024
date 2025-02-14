@@ -1,19 +1,23 @@
-import { Hero, ImageTextSection } from "@/components";
-import pasarelasdesdeconfi from "@/public/pasarelasdesdeconfi.jpg";
-import { items } from "./data";
+import { BlocksRenderer } from "@/components";
+import { getPageContent } from "@/lib/services/pages";
+import { Locales } from "@/types";
+import { ROUTES } from "@/utils/routes.const";
 
-export default function ThePlacePage() {
-  return (
-    <>
-      <Hero
-        image={{
-          src: pasarelasdesdeconfi.src,
-          alt: "Pasarelas con gente caminando y un fondo de montañas.",
-        }}
-        title="Disfrutá la cumbre de la montaña"
-        description="La cumbre de la montaña te invita a desconectar y sumergirte en un ambiente único, donde la belleza natural se encuentra con momentos de calma y relajación. Un lugar perfecto para disfrutar de la calma y de vistas espectaculares en cualquier estación del año."
-      />
-      <ImageTextSection items={items} />
-    </>
-  );
+export default async function ExplorePage({
+  params,
+}: Readonly<{
+  params: Promise<{ locale: Locales }>;
+}>) {
+  const { locale } = await params;
+
+  const res = await getPageContent(locale, ROUTES.EXPLORE);
+  // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
+  if (!res.ok) return <div>Fallback data</div>;
+
+  if (res.data.data.length === 0)
+    throw new Error("No content was found for Explore Page");
+
+  const blocks = res.data.data[0].blocks;
+
+  return <BlocksRenderer blocks={blocks} locale={locale} />;
 }
