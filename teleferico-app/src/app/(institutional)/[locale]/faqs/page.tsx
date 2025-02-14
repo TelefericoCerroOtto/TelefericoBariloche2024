@@ -1,23 +1,35 @@
-import { Faq, TitleDescBlock } from "@/components";
+import { BlocksRenderer, FaqSection } from "@/components";
+import { getPageContent } from "@/lib/services/pages";
+import type { Locales } from "@/types";
+import { ROUTES } from "@/utils/routes.const";
 import { Spacer } from "@nextui-org/react";
-import { faqs } from "../_components/data";
 
-export default function FAQSPage() {
+export default async function FAQSPage({
+  params,
+}: Readonly<{
+  params: Promise<{ locale: Locales }>;
+}>) {
+  const { locale } = await params;
+
+  const res = await getPageContent(locale, ROUTES.FAQS);
+  // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
+  if (!res.ok)
+    throw new Error(
+      "Internal server error while trying to get content for faqs page",
+    );
+
+  if (res.data.data.length === 0)
+    throw new Error("No content was found for faqs Page");
+
+  const blocks = res.data.data[0].blocks;
+
   return (
     <>
       <Spacer y={28} />
       <div className="flex w-full flex-col px-10 lg:px-28">
-        <TitleDescBlock
-          title="Preguntas Frecuentes"
-          desc="¿Tenés dudas? Acá respondemos las consultas más comunes para que puedas disfrutar tu experiencia al máximo en el Teleférico Cerro Otto."
-          epigraph="¿Cómo podemos ayudarte?"
-          align="start"
-        />
-        <div className="grid max-w-[1536px] grid-cols-1 gap-y-6 md:grid-cols-2 md:gap-x-14">
-          {faqs.map((item) => (
-            <Faq q={item.question} a={item.answer} key={item.id} />
-          ))}
-        </div>
+        <BlocksRenderer blocks={blocks} locale={locale} />
+        <Spacer y={14} />
+        <FaqSection locale={locale} allFaqs />
       </div>
     </>
   );
