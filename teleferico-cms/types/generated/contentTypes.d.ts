@@ -806,6 +806,42 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiPolicyPolicy extends Struct.SingleTypeSchema {
+  collectionName: 'policies';
+  info: {
+    singularName: 'policy';
+    pluralName: 'policies';
+    displayName: 'Policy';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    rules: Schema.Attribute.Blocks &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::policy.policy'>;
+  };
+}
+
 export interface ApiSecondServiceStateSecondServiceState
   extends Struct.SingleTypeSchema {
   collectionName: 'second_service_states';
@@ -1246,6 +1282,7 @@ declare module '@strapi/strapi' {
       'api::new.new': ApiNewNew;
       'api::note.note': ApiNoteNote;
       'api::page.page': ApiPagePage;
+      'api::policy.policy': ApiPolicyPolicy;
       'api::second-service-state.second-service-state': ApiSecondServiceStateSecondServiceState;
       'api::service-state.service-state': ApiServiceStateServiceState;
       'admin::permission': AdminPermission;
