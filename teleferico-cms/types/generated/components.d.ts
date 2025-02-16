@@ -136,19 +136,6 @@ export interface PageComponentsServiceStateModal
   };
 }
 
-export interface PageComponentsNewPreview extends Struct.ComponentSchema {
-  collectionName: 'components_page_components_new_previews';
-  info: {
-    displayName: 'NewPreview';
-    icon: 'eye';
-  };
-  attributes: {
-    description: Schema.Attribute.String & Schema.Attribute.Required;
-    previewTitle: Schema.Attribute.Text & Schema.Attribute.Required;
-    cover: Schema.Attribute.Media<'images'> & Schema.Attribute.Required;
-  };
-}
-
 export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
   collectionName: 'components_page_components_image_text_blocks';
   info: {
@@ -222,7 +209,6 @@ declare module '@strapi/strapi' {
       'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-components.title-desc-block': PageComponentsTitleDescBlock;
       'page-components.service-state-modal': PageComponentsServiceStateModal;
-      'page-components.new-preview': PageComponentsNewPreview;
       'page-components.image-text-block': PageComponentsImageTextBlock;
       'page-components.hours-overview': PageComponentsHoursOverview;
       'page-components.hero': PageComponentsHero;
