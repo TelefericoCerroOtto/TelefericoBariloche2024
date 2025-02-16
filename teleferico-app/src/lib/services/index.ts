@@ -3,4 +3,4 @@ export * from "./news";
 export * from "./service-state";
 export * from "./user";
 export * from "./pages";
-export * from "./policies";
+export * from "./translations";
