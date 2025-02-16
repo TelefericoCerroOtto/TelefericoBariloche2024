@@ -137,3 +137,16 @@ export interface GetNewsResponse {
   >[];
   meta: Meta;
 }
+
+export interface GetPoliciesResponse {
+  data: {
+    id: number;
+    documentId: string;
+    rules: BlocksContent;
+    createdAt: string;
+    updatedAt: string;
+    publishedAt: string;
+    locale: string;
+  };
+  meta: object;
+}

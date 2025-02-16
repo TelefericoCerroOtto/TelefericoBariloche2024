@@ -34,6 +34,7 @@ export const STRAPI_ENDPOINTS = {
   FAQS: "/api/faqs",
   NEWS: "/api/news",
   PAGES: "/api/pages",
+  POLICIES: "/api/policy",
   ROLES: "/api/users-permissions/roles",
   SERVICE_STATE: "/api/service-state",
   USERS: "/api/users",
