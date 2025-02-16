@@ -1,11 +1,23 @@
-import { FeaturedNew, Grid } from "./_components";
-import { news } from "./data";
+import type { Locales } from "@/types";
+import { Suspense } from "react";
+import { FeaturedNew, News } from "./_components";
+import { CardLoader, FeaturedNewLoader } from "./_components/Loaders";
 
-export default function NewsPage() {
+export default async function NewsPage({
+  params,
+}: Readonly<{
+  params: Promise<{ locale: Locales }>;
+}>) {
+  const { locale } = await params;
+
   return (
     <>
-      <FeaturedNew news={news.filter((item) => item.featured)[0]} />
-      <Grid news={news} title="Todas las noticias" />
+      <Suspense fallback={<FeaturedNewLoader />}>
+        <FeaturedNew locale={locale} />
+      </Suspense>
+      <Suspense fallback={<CardLoader />}>
+        <News locale={locale} />
+      </Suspense>
     </>
   );
 }

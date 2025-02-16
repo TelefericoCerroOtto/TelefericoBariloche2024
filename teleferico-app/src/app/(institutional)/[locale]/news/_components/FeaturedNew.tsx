@@ -1,25 +1,39 @@
 import { CustomLink, TitleDescBlock } from "@/components";
-import type { New } from "@/types";
+import { getNews } from "@/lib/services";
+import { Locales } from "@/types";
+import { Alert } from "@nextui-org/react";
 import Image from "next/image";
 
 interface Props {
-  news: New;
+  locale: Locales;
 }
 
-export default function FeaturedNew(props: Props) {
-  const { news } = props;
-  const { title, images, summary, id } = news;
+export default async function FeaturedNew(props: Props) {
+  const { locale } = props;
+  const { ok, data } = await getNews({ locale, highlighted: true });
+  if (!ok)
+    return (
+      <Alert
+        color="danger"
+        description="Internal Server Error while trying to get the latest featured new"
+      />
+    );
+  if (data.data.length === 0)
+    return <Alert color="warning" description="No featured new was found" />;
+
+  const { cover, documentId, title, brief } = data.data[0];
+
   return (
     <>
-      <div className="flex w-full px-10 sm:px-20 lg:px-40">
-        <TitleDescBlock title={title} desc={summary} size="lg" align="start">
-          <CustomLink href={`/news/${id}`}>Ver noticia</CustomLink>
+      <div className="mb-14 flex w-full px-10 sm:px-20 lg:px-40">
+        <TitleDescBlock title={title} desc={brief} size="lg" align="start">
+          <CustomLink href={`/news/${documentId}`}>Ver noticia</CustomLink>
         </TitleDescBlock>
       </div>
       <div className="relative mb-14 h-[550px] w-full">
         <Image
-          src={images.cover.src}
-          alt={images.cover.alt}
+          src={cover.image.url}
+          alt={cover.alt}
           fill
           className="object-cover"
         />
