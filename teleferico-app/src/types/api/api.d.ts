@@ -1,6 +1,12 @@
 import { roles } from "@/utils/roles";
-import type { Image, Meta, ServiceStateValues, StrapiLocales } from "./index";
 import { BlocksContent } from "@strapi/blocks-react-renderer";
+import type {
+  Image,
+  Meta,
+  Policies,
+  ServiceStateValues,
+  StrapiLocales,
+} from "./index";
 
 export interface UserRole {
   id: number;
@@ -142,11 +148,11 @@ export interface GetPoliciesResponse {
   data: {
     id: number;
     documentId: string;
-    rules: BlocksContent;
     createdAt: string;
     updatedAt: string;
     publishedAt: string;
-    locale: string;
+    locale: StrapiLocales;
+    components: [Policies];
   };
   meta: object;
 }

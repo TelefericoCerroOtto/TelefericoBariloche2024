@@ -85,3 +85,12 @@ export type RendereableBlocks =
   | HoursOverview
   | ImageTextBlock
   | TitleDescBlock;
+
+// INTERNATIONALIZATION
+// export interface HoursOverview {}
+
+export interface Policies {
+  __component: "global-intl-components.policies";
+  id: number;
+  policies: BlocksContent;
+}

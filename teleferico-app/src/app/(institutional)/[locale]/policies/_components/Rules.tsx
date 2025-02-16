@@ -14,7 +14,7 @@ export default async function Rules(props: Props) {
       <FormError message="No se pudo recuperar la informacion del relgamento" />
     );
 
-  const { rules } = data.data;
+  const [policiesComponent] = data.data.components;
 
-  return <BlockRendererClient content={rules} />;
+  return <BlockRendererClient content={policiesComponent.policies} />;
 }
