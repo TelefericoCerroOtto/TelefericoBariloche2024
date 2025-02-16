@@ -4,7 +4,8 @@
   "info": {
     "singularName": "global-institutional-translation",
     "pluralName": "global-institutional-translations",
-    "displayName": "GlobalInstitutionalTranslation"
+    "displayName": "GlobalInstitutionalTranslation",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
@@ -23,7 +24,8 @@
       },
       "type": "dynamiczone",
       "components": [
-        "page-components.hours-overview"
+        "page-components.hours-overview",
+        "global-intl-components.policies"
       ]
     }
   }

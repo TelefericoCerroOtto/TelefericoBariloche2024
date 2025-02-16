@@ -197,6 +197,17 @@ export interface PageComponentsHero extends Struct.ComponentSchema {
   };
 }
 
+export interface GlobalIntlComponentsPolicies extends Struct.ComponentSchema {
+  collectionName: 'components_global_intl_components_policies';
+  info: {
+    displayName: 'Policies';
+    icon: 'book';
+  };
+  attributes: {
+    policies: Schema.Attribute.Blocks & Schema.Attribute.Required;
+  };
+}
+
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
@@ -212,6 +223,7 @@ declare module '@strapi/strapi' {
       'page-components.image-text-block': PageComponentsImageTextBlock;
       'page-components.hours-overview': PageComponentsHoursOverview;
       'page-components.hero': PageComponentsHero;
+      'global-intl-components.policies': GlobalIntlComponentsPolicies;
     }
   }
 }

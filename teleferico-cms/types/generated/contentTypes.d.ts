@@ -621,6 +621,7 @@ export interface ApiGlobalInstitutionalTranslationGlobalInstitutionalTranslation
     singularName: 'global-institutional-translation';
     pluralName: 'global-institutional-translations';
     displayName: 'GlobalInstitutionalTranslation';
+    description: '';
   };
   options: {
     draftAndPublish: true;
@@ -632,7 +633,7 @@ export interface ApiGlobalInstitutionalTranslationGlobalInstitutionalTranslation
   };
   attributes: {
     components: Schema.Attribute.DynamicZone<
-      ['page-components.hours-overview']
+      ['page-components.hours-overview', 'global-intl-components.policies']
     > &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
@@ -803,42 +804,6 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     locale: Schema.Attribute.String;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::page.page'>;
-  };
-}
-
-export interface ApiPolicyPolicy extends Struct.SingleTypeSchema {
-  collectionName: 'policies';
-  info: {
-    singularName: 'policy';
-    pluralName: 'policies';
-    displayName: 'Policy';
-    description: '';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  pluginOptions: {
-    i18n: {
-      localized: true;
-    };
-  };
-  attributes: {
-    rules: Schema.Attribute.Blocks &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetPluginOptions<{
-        i18n: {
-          localized: true;
-        };
-      }>;
-    createdAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    publishedAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    locale: Schema.Attribute.String;
-    localizations: Schema.Attribute.Relation<'oneToMany', 'api::policy.policy'>;
   };
 }
 
@@ -1282,7 +1247,6 @@ declare module '@strapi/strapi' {
       'api::new.new': ApiNewNew;
       'api::note.note': ApiNoteNote;
       'api::page.page': ApiPagePage;
-      'api::policy.policy': ApiPolicyPolicy;
       'api::second-service-state.second-service-state': ApiSecondServiceStateSecondServiceState;
       'api::service-state.service-state': ApiServiceStateServiceState;
       'admin::permission': AdminPermission;
