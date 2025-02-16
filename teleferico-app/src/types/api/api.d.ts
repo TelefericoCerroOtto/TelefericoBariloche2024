@@ -1,5 +1,6 @@
 import { roles } from "@/utils/roles";
-import type { Meta, ServiceStateValues, StrapiLocales } from "./index";
+import type { Image, Meta, ServiceStateValues, StrapiLocales } from "./index";
+import { BlocksContent } from "@strapi/blocks-react-renderer";
 
 export interface UserRole {
   id: number;
@@ -78,11 +79,6 @@ export interface GetRolesResponse {
 
 export type GetUsersResponse = UserResponse<{ role: UserRole }>[];
 
-export interface ImageType {
-  src: string;
-  alt: string;
-}
-
 export interface GetServiceStateResponse {
   data: {
     id: number;
@@ -116,15 +112,28 @@ export interface GetFaqsResponse {
 }
 
 export interface New {
-  id: string;
-  images: {
-    cover: ImageType;
-    thumbnail: ImageType;
-  };
+  id: number;
+  documentId: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  locale: StrapiLocales;
   title: string;
-  legend: string;
-  body: string;
-  summary: string;
-  pubDate: Date;
-  featured: boolean;
+  body: BlocksContent;
+  highlighted: boolean;
+  brief: BlocksContent;
+  date: string; // format: yyyy-mm-dd
+  cover: Image;
+}
+
+export interface GetNewResponse {
+  data: New;
+}
+
+export interface GetNewsResponse {
+  data: Omit<
+    New,
+    "createdAt" | "updatedAt" | "publishedAt" | "body" | "locale"
+  >[];
+  meta: Meta;
 }

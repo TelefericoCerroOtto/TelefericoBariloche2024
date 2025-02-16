@@ -8,7 +8,7 @@ export interface StrapiError {
 }
 
 export interface ErrorResponse {
-  data?: null;
+  data: null;
   error: StrapiError;
 }
 
@@ -46,10 +46,10 @@ export interface ImageFormat {
 }
 
 export interface ImageFormats {
-  large: Format;
-  small: Format;
-  medium: Format;
-  thumbnail: Format;
+  small: ImageFormat;
+  medium?: ImageFormat;
+  large?: ImageFormat;
+  thumbnail: ImageFormat;
 }
 
 export interface StrapiImage {
@@ -60,7 +60,7 @@ export interface StrapiImage {
   caption: unkown;
   width: number;
   height: number;
-  formats: Formats;
+  formats: ImageFormats;
   hash: string;
   ext: string;
   mime: string;
