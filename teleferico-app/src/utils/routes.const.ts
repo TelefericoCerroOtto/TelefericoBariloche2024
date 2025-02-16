@@ -32,6 +32,7 @@ export const ADMIN_ROUTES = {
 export const STRAPI_ENDPOINTS = {
   AUTH: "/api/auth/local",
   FAQS: "/api/faqs",
+  NEWS: "/api/news",
   PAGES: "/api/pages",
   ROLES: "/api/users-permissions/roles",
   SERVICE_STATE: "/api/service-state",
