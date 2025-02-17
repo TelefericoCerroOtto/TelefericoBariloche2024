@@ -29,7 +29,17 @@ export default function StrapiComponentRenderer(props: Props) {
     }
 
     case "page-components.hero": {
-      return <Hero content={block} />;
+      // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
+      const { __component: _, id: __, cover, logo, ...props } = block;
+      return (
+        <Hero
+          content={{
+            cover: { src: cover.image.url, alt: cover.alt },
+            ...(logo && { logo: { src: logo?.image.url, alt: logo?.alt } }),
+            ...props,
+          }}
+        />
+      );
     }
 
     case "page-components.hours-overview": {
@@ -49,6 +59,6 @@ export default function StrapiComponentRenderer(props: Props) {
     }
 
     default:
-      break;
+      return <FormError message="The retrieved component is not rendereable" />;
   }
 }

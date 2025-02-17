@@ -12,12 +12,15 @@ export default function PricingSchedulesPage() {
   return (
     <>
       <Hero
-        image={{
-          src: gondolasnevadas.src,
-          alt: "Dos gondolas con paisaje nevado de fondo",
+        content={{
+          cover: {
+            src: gondolasnevadas.src,
+            alt: "Dos gondolas con paisaje nevado de fondo",
+          },
+          title: "Tarifas y horarios",
+          description:
+            "Explorá nuestras opciones de tarifas y servicios para disfrutar al máximo de tu aventura en el Cerro Otto.",
         }}
-        title="Tarifas y horarios"
-        description="Explorá nuestras opciones de tarifas y servicios para disfrutar al máximo de tu aventura en el Cerro Otto."
       />
       <div className="flex w-full flex-col px-10 sm:px-20 lg:px-40">
         <TitleDescBlock

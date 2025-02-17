@@ -1,21 +1,36 @@
 import { CustomLink } from "@/components";
-import type { Hero } from "@/types";
+import { Link } from "@/types";
 import { titleStyles } from "@/utils/styles";
 import Image from "next/image";
 
 interface Props {
-  content: Hero;
+  content: {
+    cover: { src: string; alt: string };
+    title?: string;
+    description?: string;
+    align?: "bottom" | "center";
+    firstLink?: Link;
+    secondLink?: Link;
+    logo?: { src: string; alt: string };
+  };
 }
 
 export default function Hero(props: Props) {
   const { content } = props;
-  const { cover, title, description, align, firstLink, secondLink, logo } =
-    content;
+  const {
+    cover,
+    title,
+    description,
+    align = "bottom",
+    firstLink,
+    secondLink,
+    logo,
+  } = content;
 
   return (
     <div className="relative mb-14 min-h-[600px] w-full md:h-3/4 lg:h-1/2">
       <Image
-        src={cover.image.url}
+        src={cover.src}
         alt={cover.alt}
         fill
         className="z-0 object-cover"
@@ -30,12 +45,7 @@ export default function Hero(props: Props) {
           className={`flex gap-4 ${align === "center" ? "justify-center" : "justify-start"}`}
         >
           {logo ? (
-            <Image
-              src={logo.image.url}
-              width={550}
-              height={125}
-              alt={logo.alt}
-            />
+            <Image src={logo.src} width={550} height={125} alt={logo.alt} />
           ) : null}
           {firstLink ? (
             <CustomLink href={firstLink.href} intent="outlineWhite">
