@@ -22,7 +22,8 @@
         "i18n": {
           "localized": false
         }
-      }
+      },
+      "required": true
     },
     "SEO": {
       "type": "component",
