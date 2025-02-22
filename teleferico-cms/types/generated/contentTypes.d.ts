@@ -500,16 +500,36 @@ export interface ApiActivityActivity extends Struct.CollectionTypeSchema {
     singularName: 'activity';
     pluralName: 'activities';
     displayName: 'Activity';
+    description: '';
   };
   options: {
     draftAndPublish: true;
   };
   attributes: {
-    name: Schema.Attribute.String;
-    activity_description: Schema.Attribute.Relation<
-      'oneToOne',
+    price: Schema.Attribute.Integer & Schema.Attribute.Required;
+    minAge: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+          max: 99;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    season: Schema.Attribute.Enumeration<
+      ['summer', 'autumn', 'winter', 'spring', 'all']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'all'>;
+    zone: Schema.Attribute.Relation<'oneToOne', 'api::zone.zone'>;
+    activity_descriptions: Schema.Attribute.Relation<
+      'oneToMany',
       'api::activity-description.activity-description'
     >;
+    label: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -532,7 +552,6 @@ export interface ApiActivityDescriptionActivityDescription
     singularName: 'activity-description';
     pluralName: 'activity-descriptions';
     displayName: 'ActivityDescription';
-    description: '';
   };
   options: {
     draftAndPublish: true;
@@ -543,13 +562,26 @@ export interface ApiActivityDescriptionActivityDescription
     };
   };
   attributes: {
+    name: Schema.Attribute.Text &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
     description: Schema.Attribute.Text &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
           localized: true;
         };
       }>;
-    activity: Schema.Attribute.Relation<'oneToOne', 'api::activity.activity'>;
+    requirements: Schema.Attribute.Text &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    activity: Schema.Attribute.Relation<'manyToOne', 'api::activity.activity'>;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -561,6 +593,83 @@ export interface ApiActivityDescriptionActivityDescription
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'api::activity-description.activity-description'
+    >;
+  };
+}
+
+export interface ApiBusTripBusTrip extends Struct.CollectionTypeSchema {
+  collectionName: 'bus_trips';
+  info: {
+    singularName: 'bus-trip';
+    pluralName: 'bus-trips';
+    displayName: 'BusTrip';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    depTime: Schema.Attribute.Time & Schema.Attribute.Required;
+    arrTime: Schema.Attribute.Time & Schema.Attribute.Required;
+    origin: Schema.Attribute.Relation<'oneToOne', 'api::station.station'>;
+    destination: Schema.Attribute.Relation<'oneToOne', 'api::station.station'>;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::bus-trip.bus-trip'
+    >;
+  };
+}
+
+export interface ApiElevationMeanElevationMean
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'elevation_means';
+  info: {
+    singularName: 'elevation-mean';
+    pluralName: 'elevation-means';
+    displayName: 'LiftingMean';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    description: Schema.Attribute.Text &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::elevation-mean.elevation-mean'
     >;
   };
 }
@@ -727,31 +836,6 @@ export interface ApiNewNew extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiNoteNote extends Struct.CollectionTypeSchema {
-  collectionName: 'notes';
-  info: {
-    singularName: 'note';
-    pluralName: 'notes';
-    displayName: 'Note';
-    description: '';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    desc: Schema.Attribute.Blocks;
-    createdAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    publishedAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    locale: Schema.Attribute.String;
-    localizations: Schema.Attribute.Relation<'oneToMany', 'api::note.note'>;
-  };
-}
-
 export interface ApiPagePage extends Struct.CollectionTypeSchema {
   collectionName: 'pages';
   info: {
@@ -770,6 +854,7 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
   };
   attributes: {
     route: Schema.Attribute.String &
+      Schema.Attribute.Required &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
           localized: false;
@@ -861,6 +946,171 @@ export interface ApiServiceStateServiceState extends Struct.SingleTypeSchema {
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'api::service-state.service-state'
+    >;
+  };
+}
+
+export interface ApiStationStation extends Struct.CollectionTypeSchema {
+  collectionName: 'stations';
+  info: {
+    singularName: 'station';
+    pluralName: 'stations';
+    displayName: 'Station';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    zone: Schema.Attribute.Relation<'oneToOne', 'api::zone.zone'>;
+    label: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::station.station'
+    >;
+  };
+}
+
+export interface ApiTicketTicket extends Struct.CollectionTypeSchema {
+  collectionName: 'tickets';
+  info: {
+    singularName: 'ticket';
+    pluralName: 'tickets';
+    displayName: 'Ticket';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    description: Schema.Attribute.Text &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    price: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: false;
+        };
+      }>;
+    lifting_mean: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::elevation-mean.elevation-mean'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::ticket.ticket'>;
+  };
+}
+
+export interface ApiZoneZone extends Struct.CollectionTypeSchema {
+  collectionName: 'zones';
+  info: {
+    singularName: 'zone';
+    pluralName: 'zones';
+    displayName: 'Zone';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    openTime: Schema.Attribute.Time & Schema.Attribute.Required;
+    closeTime: Schema.Attribute.Time & Schema.Attribute.Required;
+    label: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    zone_descriptions: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::zone-description.zone-description'
+    >;
+    station: Schema.Attribute.Relation<'oneToOne', 'api::station.station'>;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::zone.zone'>;
+  };
+}
+
+export interface ApiZoneDescriptionZoneDescription
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'zone_descriptions';
+  info: {
+    singularName: 'zone-description';
+    pluralName: 'zone-descriptions';
+    displayName: 'ZoneDescription';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    description: Schema.Attribute.Text &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    zone: Schema.Attribute.Relation<'manyToOne', 'api::zone.zone'>;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::zone-description.zone-description'
     >;
   };
 }
@@ -1242,13 +1492,18 @@ declare module '@strapi/strapi' {
       'plugin::users-permissions.user': PluginUsersPermissionsUser;
       'api::activity.activity': ApiActivityActivity;
       'api::activity-description.activity-description': ApiActivityDescriptionActivityDescription;
+      'api::bus-trip.bus-trip': ApiBusTripBusTrip;
+      'api::elevation-mean.elevation-mean': ApiElevationMeanElevationMean;
       'api::faq.faq': ApiFaqFaq;
       'api::global-institutional-translation.global-institutional-translation': ApiGlobalInstitutionalTranslationGlobalInstitutionalTranslation;
       'api::new.new': ApiNewNew;
-      'api::note.note': ApiNoteNote;
       'api::page.page': ApiPagePage;
       'api::second-service-state.second-service-state': ApiSecondServiceStateSecondServiceState;
       'api::service-state.service-state': ApiServiceStateServiceState;
+      'api::station.station': ApiStationStation;
+      'api::ticket.ticket': ApiTicketTicket;
+      'api::zone.zone': ApiZoneZone;
+      'api::zone-description.zone-description': ApiZoneDescriptionZoneDescription;
       'admin::permission': AdminPermission;
       'admin::user': AdminUser;
       'admin::role': AdminRole;
