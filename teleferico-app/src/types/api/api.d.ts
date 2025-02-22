@@ -6,6 +6,7 @@ import type {
   Policies,
   ServiceStateValues,
   StrapiLocales,
+  StrapiRecord,
 } from "./index";
 
 export interface UserRole {
@@ -145,14 +146,94 @@ export interface GetNewsResponse {
 }
 
 export interface GetPoliciesResponse {
-  data: {
-    id: number;
-    documentId: string;
-    createdAt: string;
-    updatedAt: string;
-    publishedAt: string;
-    locale: StrapiLocales;
+  data: StrapiRecord<{
     components: [Policies];
-  };
+  }>;
   meta: object;
+}
+
+export type LiftingMean = StrapiRecord<{
+  name: string;
+  description: string | null;
+}>;
+
+export type Ticket = StrapiRecord<{
+  name: string;
+  description: string | null;
+  price: number;
+  lifting_mean: LiftingMean;
+}>;
+
+export type GetTicketsResponse = {
+  data: Ticket[];
+  meta: Meta;
+};
+
+export type ZoneDescription = StrapiRecord<{
+  name: string;
+  description: string;
+}>;
+
+export type Zone = StrapiRecord<{
+  openTime: string;
+  closeTime: string;
+  label: string;
+  locale: null;
+  zone_descriptions: ZoneDescription[];
+}>;
+
+export type Station = StrapiRecord<{
+  label: string;
+  zone: Zone;
+  locale: null;
+}>;
+
+export type BusTrip = StrapiRecord<{
+  depTime: string;
+  arrTime: string;
+  locale: null;
+  origin: Station;
+  destination: Station;
+}>;
+
+export interface GetBusTripsResponse {
+  data: BusTrip[];
+  meta: Meta;
+}
+
+// TODO: Crear los tipos de las respuestas sanitizadas a partir de los query
+// export interface GetFilteredBusTripsResponse {
+//   data: FilteredStrapiRecord<
+//     Bus & {
+//       origin: FilteredStrapiRecord<StationFields>;
+//       destination: FilteredStrapiRecord<StationFields>;
+//     }
+//   >;
+//   meta: Meta;
+// }
+
+export interface GetZonesResponse {
+  data: Zone[];
+  meta: Meta;
+}
+
+export type ActivityDescription = StrapiRecord<{
+  name: string;
+  description: string | null;
+  requirements: string | null;
+}>;
+
+export type Activity = StrapiRecord<{
+  label: string;
+  price: number;
+  minAge: number;
+  season: "summer" | "autumn" | "winter" | "spring" | "all";
+  zone: Zone;
+  activity_descriptions: ActivityDescription[];
+  locale: null;
+}>;
+
+export interface GetActivitiesResponse {
+  data: Activity[];
+  meta: Meta;
 }

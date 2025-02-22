@@ -1,82 +1,111 @@
 "use client";
 
-import { type Key } from "react";
-import DataTable from "./DataTable";
+import { DataTable } from "@/components";
+import { useLocale, useTableItems } from "@/hooks";
+import { i18n } from "@/i18n";
+import type { GetZonesResponse, Locales, Zone } from "@/types";
+import { formatStrapiTime } from "@/utils/format-strapi-time";
+import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import { ReactNode, useCallback } from "react";
 
-interface Zone {
-  id: number;
-  zoneName: string;
-  openTime: Date;
-  closeTime: Date;
-}
+type ColumnKeys = "name" | "openTime" | "closeTime";
 
-const columns: Array<{ key: keyof Zone; label: string }> = [
-  { key: "zoneName", label: "Sector" },
-  { key: "openTime", label: "Apertura" },
-  { key: "closeTime", label: "Cierre" },
-];
-
-const items: Zone[] = [
+const dicitionaries: Record<
+  Locales,
   {
-    id: 1,
-    zoneName: "Base",
-    openTime: new Date(1995, 11, 17, 10, 0, 0),
-    closeTime: new Date(1995, 11, 17, 16, 30, 0),
-  },
-  {
-    id: 2,
-    zoneName: "Parque Exterior",
-    openTime: new Date(1995, 11, 17, 9, 30, 0),
-    closeTime: new Date(1995, 11, 17, 17, 0, 0),
-  },
-  {
-    id: 3,
-    zoneName: "Cumbre",
-    openTime: new Date(1995, 11, 17, 9, 30, 0),
-    closeTime: new Date(1995, 11, 17, 17, 45, 0),
-  },
-  {
-    id: 4,
-    zoneName: "Cabaña Informativa (Mitre Y Villegas)",
-    openTime: new Date(1995, 11, 17, 9, 30, 0),
-    closeTime: new Date(1995, 11, 17, 16, 0, 0),
-  },
-  {
-    id: 5,
-    zoneName: "Cabaña Informativa (Independencia Y Av. San Martin)",
-    openTime: new Date(1995, 11, 17, 9, 30, 0),
-    closeTime: new Date(1995, 11, 17, 16, 0, 0),
-  },
-];
-
-export const renderCell = (zone: Zone, columnKey: Key) => {
-  const cellValue = zone[columnKey as keyof Zone];
-
-  switch (columnKey) {
-    case "zoneName":
-      return <span>{cellValue as string}</span>;
-    case "openTime":
-      return <span>{(cellValue as Date).toTimeString().slice(0, 5)}hs</span>;
-    case "closeTime":
-      return <span>{(cellValue as Date).toTimeString().slice(0, 5)}hs</span>;
-
-    default:
-      return <span>{cellValue as string}</span>;
+    title: string;
+    description: string;
+    columns: {
+      key: ColumnKeys;
+      label: string;
+      zeroLabel?: string;
+    }[];
   }
+> = {
+  "es-AR": {
+    title: "Ascenso y Descenso - Teleférico Cerro Otto + Acceso al Complejo",
+    description:
+      "El ascenso y descenso en el teleférico es solo el comienzo de una experiencia inolvidable. Disfrutá de un recorrido panorámico que te lleva directo al complejo turístico en la cima, donde te esperan actividades para todas las edades.",
+    columns: [
+      { key: "name", label: "Sector" },
+      { key: "openTime", label: "Apertura" },
+      { key: "closeTime", label: "Cierre" },
+    ],
+  },
+  en: {
+    title: "Ascent and Descent - Cerro Otto Cable Car + Access to the Complex",
+    description:
+      "The ascent and descent on the cable car are just the beginning of an unforgettable experience. Enjoy a panoramic ride that takes you straight to the tourist complex at the summit, where activities for all ages await you.",
+    columns: [
+      { key: "name", label: "Sector" },
+      { key: "openTime", label: "Opening" },
+      { key: "closeTime", label: "Closing" },
+    ],
+  },
+  pt: {
+    title: "Subida e Descida - Teleférico Cerro Otto + Acesso ao Complexo",
+    description:
+      "A subida e descida no teleférico são apenas o começo de uma experiência inesquecível. Desfrute de um passeio panorâmico que o leva diretamente ao complexo turístico no topo, onde atividades para todas as idades o aguardam.",
+    columns: [
+      { key: "name", label: "Setor" },
+      { key: "openTime", label: "Abertura" },
+      { key: "closeTime", label: "Fechamento" },
+    ],
+  },
 };
 
-const TITLE = "Ascenso y Descenso - Teleférico Cerro Otto + Acceso al Complejo";
-const DESC =
-  "El ascenso y descenso en el teleférico es solo el comienzo de una experiencia inolvidable. Disfrutá de un recorrido panorámico que te lleva directo al complejo turístico en la cima, donde te esperan actividades para todas las edades.";
-
 export default function ZonesTable() {
+  const { language } = useLocale();
+
+  const renderCell = useCallback(
+    (zone: Zone, columnKey: ColumnKeys) => {
+      let cellValue: string;
+      if (columnKey === "name") cellValue = zone.zone_descriptions[0].name;
+      else cellValue = zone[columnKey];
+
+      switch (columnKey) {
+        case "name":
+          return <span>{cellValue}</span>;
+        case "openTime":
+          return <span>{formatStrapiTime(cellValue, language)}</span>;
+        case "closeTime":
+          return <span>{formatStrapiTime(cellValue, language)}</span>;
+
+        default:
+          return <span>{cellValue as string}</span>;
+      }
+    },
+    [language],
+  );
+
+  const query = {
+    populate: {
+      zone_descriptions: {
+        filters: {
+          locale: {
+            $eq: language ?? i18n.defaultLocale,
+          },
+        },
+      },
+    },
+  };
+
+  const { items, isLoading, isError } = useTableItems<GetZonesResponse>(
+    STRAPI_ENDPOINTS.ZONES,
+    query,
+  );
+
+  // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
+  if (isError) return <div>Hubo un error al cargar los datos de la tabla</div>;
+
   return (
     <DataTable
-      title={TITLE}
-      desc={DESC}
-      renderCell={renderCell}
-      items={items}
-      columns={columns}
+      title={dicitionaries[language].title}
+      desc={dicitionaries[language].description}
+      renderCell={renderCell as () => ReactNode}
+      items={items?.data ?? []}
+      isLoading={isLoading}
+      columns={dicitionaries[language].columns}
     />
   );
 }

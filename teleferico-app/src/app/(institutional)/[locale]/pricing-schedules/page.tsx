@@ -1,42 +1,39 @@
-import { Hero, TitleDescBlock } from "@/components";
-import gondolasnevadas from "@/public/gondolasnevadas.jpg";
+import { StrapiComponentRenderer } from "@/components";
+import { getPageContent } from "@/lib/services";
+import type { Locales } from "@/types";
+import { ROUTES } from "@/utils/routes.const";
+import { Spacer } from "@nextui-org/react";
 import {
   ActivitiesTable,
   BusesTable,
   PricingTable,
   ZonesTable,
 } from "./_components";
-import { Spacer } from "@nextui-org/react";
 
-export default function PricingSchedulesPage() {
+export default async function PricingSchedulesPage({
+  params,
+}: Readonly<{
+  params: Promise<{ locale: Locales }>;
+}>) {
+  const { locale } = await params;
+  const { ok, data } = await getPageContent(locale, ROUTES.PRICINGSCHEDULES);
+  if (!ok)
+    throw new Error(
+      "Internal server error while trying to get content for pricing schedules page",
+    );
+
+  const { blocks } = data.data[0];
+
   return (
     <>
-      <Hero
-        content={{
-          cover: {
-            src: gondolasnevadas.src,
-            alt: "Dos gondolas con paisaje nevado de fondo",
-          },
-          title: "Tarifas y horarios",
-          description:
-            "Explorá nuestras opciones de tarifas y servicios para disfrutar al máximo de tu aventura en el Cerro Otto.",
-        }}
-      />
+      <StrapiComponentRenderer block={blocks[0]} locale={locale} />
       <div className="flex w-full flex-col px-10 sm:px-20 lg:px-40">
-        <TitleDescBlock
-          title="Tarifas de ascenso, descenso y actividades"
-          desc="Subí a Nuevas Alturas y Disfrutá de Increíbles Experiencias con la mejor vista de la Patagonia, rodeado de actividades emocionantes y paisajes increíbles."
-          align="start"
-        />
+        <StrapiComponentRenderer block={blocks[1]} locale={locale} />
         <PricingTable />
         <Spacer y={10} />
         <ActivitiesTable />
         <Spacer y={16} />
-        <TitleDescBlock
-          title="Horarios del complejo y sus servicios"
-          desc="Subí a Nuevas Alturas y Disfrutá de Increíbles Experiencias con la mejor vista de la Patagonia, rodeado de actividades emocionantes y paisajes increíbles."
-          align="start"
-        />
+        <StrapiComponentRenderer block={blocks[2]} locale={locale} />
         <ZonesTable />
         <Spacer y={10} />
         <BusesTable />

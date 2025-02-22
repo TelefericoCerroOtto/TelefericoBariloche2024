@@ -1,5 +1,9 @@
+"use client";
+
 import { TableContainer } from "@/components";
+import { useLocale } from "@/hooks";
 import {
+  Spinner,
   Table,
   TableBody,
   TableCell,
@@ -8,22 +12,38 @@ import {
   TableRow,
 } from "@nextui-org/react";
 import Link from "next/link";
-import { type Key } from "react";
+import { ReactNode, type Key } from "react";
 
 interface Props<T> {
   title: string;
   desc: string;
   link?: { href: string; label: string };
+  isLoading?: boolean;
   // eslint-disable-next-line no-unused-vars
-  renderCell: (entry: T, columnKey: Key) => JSX.Element;
+  renderCell: (entry: T, columnKey: Key) => ReactNode;
   items: Array<T>;
-  columns: Array<{ key: Extract<keyof T, string | number>; label: string }>;
+  columns: Array<{ key: string; label: string }>;
 }
+
+const dictionaries = {
+  loaderIntl: {
+    "es-AR": "Cargando...",
+    en: "Loading...",
+    pt: "Carregando...",
+  },
+  emptyContent: {
+    "es-AR": "Cargando...",
+    en: "Loading...",
+    pt: "Carregando...",
+  },
+};
 
 export default function DataTable<T extends { id: number | string }>(
   props: Props<T>,
 ) {
-  const { title, desc, link, items, columns, renderCell } = props;
+  const { title, desc, link, items, columns, renderCell, isLoading } = props;
+
+  const { language } = useLocale();
 
   return (
     <div className="flex flex-col gap-8">
@@ -31,12 +51,14 @@ export default function DataTable<T extends { id: number | string }>(
         <h4 className="text-2xl font-bold">{title}</h4>
         <p>{desc}</p>
         {link ? (
-          <Link
-            href={link.href}
-            className="font-bold capitalize text-custom-red"
-          >
-            {link.label}
-          </Link>
+          <div>
+            <Link
+              href={link.href}
+              className="font-bold capitalize text-custom-red hover:underline"
+            >
+              {link.label}
+            </Link>
+          </div>
         ) : null}
       </div>
       <TableContainer>
@@ -71,7 +93,14 @@ export default function DataTable<T extends { id: number | string }>(
               </TableColumn>
             )}
           </TableHeader>
-          <TableBody items={items}>
+          <TableBody
+            items={items}
+            isLoading={isLoading}
+            loadingContent={
+              <Spinner label={dictionaries.loaderIntl[language]} />
+            }
+            emptyContent={dictionaries.emptyContent[language]}
+          >
             {(entry) => (
               <TableRow key={entry.id}>
                 {(columnKey) => (

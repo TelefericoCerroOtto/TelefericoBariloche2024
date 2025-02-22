@@ -30,13 +30,17 @@ export const ADMIN_ROUTES = {
 };
 
 export const STRAPI_ENDPOINTS = {
+  ACTIVITIES: "/api/activities",
   AUTH: "/api/auth/local",
+  BUSTRIPS: "/api/bus-trips",
   FAQS: "/api/faqs",
   NEWS: "/api/news",
   PAGES: "/api/pages",
   ROLES: "/api/users-permissions/roles",
   SERVICE_STATE: "/api/service-state",
+  TICKETS: "/api/tickets",
   TRANSLATIONS: "/api/global-institutional-translation",
   USERS: "/api/users",
   USERS_ME: "/api/users/me",
+  ZONES: "/api/zones",
 };

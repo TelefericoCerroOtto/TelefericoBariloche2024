@@ -1,5 +1,20 @@
 export type StrapiLocales = "es-AR" | "en" | "pt";
 
+export type StrapiRecord<T> = T & {
+  id: number;
+  documentId: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  locale: T extends { locale: null } ? null : StrapiLocales;
+};
+
+export type FilteredStrapiRecord<T> = Pick<
+  StrapiRecord<T>,
+  "id" | "documentId"
+> &
+  T;
+
 export interface StrapiError {
   status: number;
   name: string;
@@ -52,9 +67,7 @@ export interface ImageFormats {
   thumbnail: ImageFormat;
 }
 
-export interface StrapiImage {
-  id: number;
-  documentId: string;
+export type StrapiImage = StrapiRecord<{
   name: string;
   alternativeText: string;
   caption: unkown;
@@ -69,8 +82,4 @@ export interface StrapiImage {
   previewUrl: unkown;
   provider: string;
   provider_metadata: unkown;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string;
-  locale: unkown;
-}
+}>;

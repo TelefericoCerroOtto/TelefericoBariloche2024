@@ -8,3 +8,4 @@ export { default as PageWrapper } from "./PageWrapper";
 export { default as ServiceButton } from "./ServiceButton";
 export { HighlightLastWord, default as TitleDescBlock } from "./TitleDescBlock";
 export { FaqSection } from "./FaqSection";
+export { default as DataTable } from "./DataTable";

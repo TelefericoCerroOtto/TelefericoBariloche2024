@@ -1,70 +1,149 @@
 "use client";
 
-import { type Key } from "react";
-import DataTable from "./DataTable";
+import { DataTable } from "@/components";
+import { useLocale, useTableItems } from "@/hooks";
+import { i18n } from "@/i18n";
+import type { BusTrip, GetBusTripsResponse, Locales, Station } from "@/types";
+import { formatStrapiTime } from "@/utils/format-strapi-time";
+import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import { type ReactNode, useCallback } from "react";
 
-interface Bus {
-  id: number;
-  depPoint: string;
-  arrPoint: string;
-  depTime: Date;
-  arrTime: Date;
-}
+type ColumnKeys = "depTime" | "arrTime" | "origin" | "destination";
 
-const columns: Array<{ key: keyof Bus; label: string }> = [
-  { key: "depPoint", label: "Sector" },
-  { key: "arrPoint", label: "Apertura" },
-  { key: "depTime", label: "Cierre" },
-  { key: "arrTime", label: "Cierre" },
-];
-
-const items: Bus[] = [
+const dictionaries: Record<
+  Locales,
   {
-    id: 1,
-    depPoint: "Centro",
-    arrPoint: "Base",
-    depTime: new Date(1995, 11, 17, 10, 0, 0),
-    arrTime: new Date(1995, 11, 17, 10, 15, 0),
-  },
-  {
-    id: 2,
-    depPoint: "Base",
-    arrPoint: "Centro",
-    depTime: new Date(1995, 11, 17, 11, 15, 0),
-    arrTime: new Date(1995, 11, 17, 11, 30, 0),
-  },
-];
-
-export const renderCell = (bus: Bus, columnKey: Key) => {
-  const cellValue = bus[columnKey as keyof Bus];
-
-  switch (columnKey) {
-    case "depPoint":
-      return <span>{cellValue as string}</span>;
-    case "arrPoint":
-      return <span>{cellValue as string}</span>;
-    case "depTime":
-      return <span>{(cellValue as Date).toTimeString().slice(0, 5)}hs</span>;
-    case "arrTime":
-      return <span>{(cellValue as Date).toTimeString().slice(0, 5)}hs</span>;
-
-    default:
-      return <span>{cellValue as string}</span>;
+    title: string;
+    description: string;
+    stations: Record<string, string>;
+    columns: { key: ColumnKeys; label: string; zeroLabel?: string }[];
   }
+> = {
+  "es-AR": {
+    columns: [
+      { key: "depTime", label: "Horario de salida" },
+      { key: "arrTime", label: "Horario de llegada" },
+      { key: "origin", label: "Origen" },
+      { key: "destination", label: "Destino" },
+    ],
+    title: "Buses (Traslado gratuito)",
+    description:
+      "Nuestros buses están disponibles durante todo el año para llevarte a tu destino de manera cómoda y segura. Consultá los horarios y planificá tu viaje con nosotros, sea cual sea la temporada.",
+    stations: {
+      base: "Base",
+      center: "Centro",
+    },
+  },
+  en: {
+    columns: [
+      { key: "depTime", label: "Departure time" },
+      { key: "arrTime", label: "Arrival time" },
+      { key: "origin", label: "Origin" },
+      { key: "destination", label: "Destination" },
+    ],
+    title: "Buses (Free transfer)",
+    description:
+      "Our buses are available year-round to take you to your destination comfortably and safely. Check the schedules and plan your trip with us, no matter the season.",
+    stations: {
+      base: "Base",
+      center: "Center",
+    },
+  },
+  pt: {
+    columns: [
+      { key: "depTime", label: "Horário de partida" },
+      { key: "arrTime", label: "Horário de chegada" },
+      { key: "origin", label: "Origem" },
+      { key: "destination", label: "Destino" },
+    ],
+    title: "Ônibus (Transporte gratuito)",
+    description:
+      "Nossos ônibus estão disponíveis o ano todo para levá-lo ao seu destino com conforto e segurança. Consulte os horários e planeje sua viagem conosco, independentemente da estação.",
+    stations: {
+      base: "Base",
+      center: "Centro",
+    },
+  },
 };
 
-const TITLE = "Buses (Traslado gratuito)";
-const DESC =
-  "Nuestros buses están disponibles durante todo el año para llevarte a tu destino de manera cómoda y segura. Consultá los horarios y planificá tu viaje con nosotros, sea cual sea la temporada.";
+export default function BusTable() {
+  const { language } = useLocale();
+  const renderCell = useCallback(
+    (bus: BusTrip, columnKey: ColumnKeys) => {
+      const cellValue = bus[columnKey];
 
-export default function BussTable() {
+      switch (columnKey) {
+        case "origin":
+          return (
+            <span>{(cellValue as Station).zone.zone_descriptions[0].name}</span>
+          );
+        case "destination":
+          return (
+            <span>{(cellValue as Station).zone.zone_descriptions[0].name}</span>
+          );
+        case "depTime":
+          return <span>{formatStrapiTime(cellValue as string, language)}</span>;
+        case "arrTime":
+          return <span>{formatStrapiTime(cellValue as string, language)}</span>;
+
+        default:
+          return <span>{cellValue as string}</span>;
+      }
+    },
+    [language],
+  );
+
+  const query = {
+    populate: {
+      origin: {
+        populate: {
+          zone: {
+            populate: {
+              zone_descriptions: {
+                filters: {
+                  locale: {
+                    $eq: language ?? i18n.defaultLocale,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      destination: {
+        populate: {
+          zone: {
+            populate: {
+              zone_descriptions: {
+                filters: {
+                  locale: {
+                    $eq: language ?? i18n.defaultLocale,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  const { items, isLoading, isError } = useTableItems<GetBusTripsResponse>(
+    STRAPI_ENDPOINTS.BUSTRIPS,
+    query,
+  );
+
+  // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
+  if (isError) return <div>Hubo un error al cargar los datos de la tabla</div>;
+
   return (
     <DataTable
-      title={TITLE}
-      desc={DESC}
-      renderCell={renderCell}
-      items={items}
-      columns={columns}
+      title={dictionaries[language].title}
+      desc={dictionaries[language].description}
+      renderCell={renderCell as () => ReactNode}
+      items={items?.data ?? []}
+      columns={dictionaries[language].columns}
+      isLoading={isLoading}
     />
   );
 }
