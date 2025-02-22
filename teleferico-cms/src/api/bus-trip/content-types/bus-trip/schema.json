@@ -1,0 +1,34 @@
+{
+  "kind": "collectionType",
+  "collectionName": "bus_trips",
+  "info": {
+    "singularName": "bus-trip",
+    "pluralName": "bus-trips",
+    "displayName": "BusTrip",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "depTime": {
+      "type": "time",
+      "required": true
+    },
+    "arrTime": {
+      "type": "time",
+      "required": true
+    },
+    "origin": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::station.station"
+    },
+    "destination": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::station.station"
+    }
+  }
+}
