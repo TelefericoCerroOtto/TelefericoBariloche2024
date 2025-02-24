@@ -1,6 +1,7 @@
 export * from "./activities";
 export * from "./auth";
 export * from "./bus-trips";
+export * from "./i18n";
 export * from "./news";
 export * from "./pages";
 export * from "./service-state";

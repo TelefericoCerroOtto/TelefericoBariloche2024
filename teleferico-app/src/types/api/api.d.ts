@@ -3,6 +3,7 @@ import { BlocksContent } from "@strapi/blocks-react-renderer";
 import type {
   Image,
   Meta,
+  Navbar,
   Policies,
   ServiceStateValues,
   StrapiLocales,
@@ -101,6 +102,11 @@ export interface GetServiceStateResponse {
 
 export type UpdateServiceStateResponse = GetServiceStateResponse;
 
+export interface GetNavbarItems {
+  data: StrapiRecord<{ components: [Navbar] }>;
+  meta: Meta;
+}
+
 export interface GetFaqResponse {
   id: number;
   documentId: string;
@@ -175,8 +181,8 @@ export type ZoneDescription = StrapiRecord<{
 }>;
 
 export type Zone = StrapiRecord<{
-  openTime: string;
-  closeTime: string;
+  openTime: string; // format: hh:mm:ss:mmmm
+  closeTime: string; // format: hh:mm:ss:mmmm
   label: string;
   locale: null;
   zone_descriptions: ZoneDescription[];

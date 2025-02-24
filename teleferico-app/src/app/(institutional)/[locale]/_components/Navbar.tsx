@@ -2,7 +2,6 @@
 
 import { useLocale } from "@/hooks";
 import { i18n } from "@/i18n";
-import { getTranslationValue } from "@/lib/actions";
 import logoBlanco from "@/public/logo-negativo.svg";
 import logoNegro from "@/public/logo.svg";
 import type { Locales } from "@/types";
@@ -21,7 +20,7 @@ import {
 } from "@nextui-org/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 const langs: { locale: Locales; label: string }[] = [
   { locale: i18n.locales[0], label: "Español" },
@@ -29,24 +28,27 @@ const langs: { locale: Locales; label: string }[] = [
   { locale: i18n.locales[2], label: "Português" },
 ];
 
-const {
-  HOME,
-  FOUNDATION,
-  JOBS,
-  LOCATION,
-  ACTIVITIES,
-  EXPLORE,
-  NEWS,
-  POLICIES,
-  PRICINGSCHEDULES,
-  CONTACT,
-  FAQS,
-} = ROUTES;
+interface Props {
+  items: { label: string; href: string }[];
+}
 
-export default function Navbar() {
+// { label: navbarIntl.home, href: HOME },
+// { label: navbarIntl.location, href: LOCATION },
+// { label: navbarIntl.activities, href: ACTIVITIES },
+// { label: navbarIntl.explore, href: EXPLORE },
+// {
+//   label: navbarIntl.pricingschedules,
+//   href: PRICINGSCHEDULES,
+// },
+// { label: navbarIntl.news, href: NEWS },
+// { label: navbarIntl.foundation, href: FOUNDATION },
+
+const { HOME, JOBS, NEWS, POLICIES, CONTACT, FAQS } = ROUTES;
+
+export default function Navbar(props: Props) {
+  const { items } = props;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDownScrolled, setIsDownScrolled] = useState(false);
-  const [items, setItems] = useState<{ label: string; href: string }[]>([]);
   const { language, pathname } = useLocale();
   const { push } = useRouter();
   const isPathInList = useMemo(
@@ -70,29 +72,6 @@ export default function Navbar() {
     }),
     [isDownScrolled, isMenuOpen, isPathInList],
   );
-
-  useEffect(() => {
-    const getItems = async () => {
-      const navbarIntl = await getTranslationValue(
-        language,
-        "components.Navbar",
-      );
-      setItems([
-        { label: navbarIntl.home, href: HOME },
-        { label: navbarIntl.location, href: LOCATION },
-        { label: navbarIntl.activities, href: ACTIVITIES },
-        { label: navbarIntl.explore, href: EXPLORE },
-        {
-          label: navbarIntl.pricingschedules,
-          href: PRICINGSCHEDULES,
-        },
-        { label: navbarIntl.news, href: NEWS },
-        { label: navbarIntl.foundation, href: FOUNDATION },
-      ]);
-    };
-
-    getItems();
-  }, [language]);
 
   return (
     <NuiNavbar

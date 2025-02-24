@@ -7,6 +7,7 @@ import { Outfit } from "next/font/google";
 import { SWRConfig } from "swr";
 import "../../globals.css";
 import { Footer, Navbar } from "./_components";
+import { getNavbarItems } from "@/lib/services";
 
 export async function generateStaticParams() {
   return i18n.locales.map((locale) => ({ locale: locale }));
@@ -30,6 +31,9 @@ export default async function InstitutionalLayout({
   params: Promise<{ locale: Locales }>;
 }>) {
   const { locale } = await params;
+  const { ok, data } = await getNavbarItems(locale);
+  // TODO: Mejorar respuesta de interfaz en caso de que falle la llamada
+  if (!ok) throw new Error("No se pudo recuperar el contenido del Navbar");
 
   return (
     <html lang={locale}>
@@ -43,7 +47,7 @@ export default async function InstitutionalLayout({
             }}
           >
             <div className="leading-8">
-              <Navbar />
+              <Navbar items={data.data.components[0].items} />
               <main className="relative -top-[5rem] min-h-screen">
                 <PageWrapper>{children}</PageWrapper>
               </main>

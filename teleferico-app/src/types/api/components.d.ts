@@ -94,3 +94,13 @@ export interface Policies {
   id: number;
   policies: BlocksContent;
 }
+
+export interface Navbar {
+  __component: "global-intl-components.navbar";
+  id: number;
+  items: {
+    id: number;
+    href: string;
+    label: string;
+  }[];
+}
