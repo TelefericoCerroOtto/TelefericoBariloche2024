@@ -26,6 +26,7 @@ export const ADMIN_ROUTES = {
   NEW_USER: "/dashboard/admin-users/new-user",
   PRICES: "/dashboard/prices",
   RECRUITMENT: "/dashboard/recruitment",
+  REVALIDATE: "/dashboard/revalidate",
   ZONES: "/dashboard/zones",
 };
 
@@ -34,6 +35,7 @@ export const STRAPI_ENDPOINTS = {
   AUTH: "/api/auth/local",
   BUSTRIPS: "/api/bus-trips",
   FAQS: "/api/faqs",
+  GLOBAL_INTL: "/api/global-institutional-translation",
   NEWS: "/api/news",
   PAGES: "/api/pages",
   ROLES: "/api/users-permissions/roles",
