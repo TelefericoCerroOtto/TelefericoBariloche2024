@@ -1,0 +1,17 @@
+{
+  "collectionName": "components_global_intl_components_navbars",
+  "info": {
+    "displayName": "Navbar",
+    "icon": "filter",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "items": {
+      "type": "component",
+      "repeatable": true,
+      "component": "utils-components.link",
+      "required": true
+    }
+  }
+}

@@ -25,7 +25,8 @@
       "type": "dynamiczone",
       "components": [
         "page-components.hours-overview",
-        "global-intl-components.policies"
+        "global-intl-components.policies",
+        "global-intl-components.navbar"
       ]
     }
   }

@@ -742,7 +742,11 @@ export interface ApiGlobalInstitutionalTranslationGlobalInstitutionalTranslation
   };
   attributes: {
     components: Schema.Attribute.DynamicZone<
-      ['page-components.hours-overview', 'global-intl-components.policies']
+      [
+        'page-components.hours-overview',
+        'global-intl-components.policies',
+        'global-intl-components.navbar',
+      ]
     > &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
