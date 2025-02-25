@@ -877,6 +877,7 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
         'page-components.hero',
         'page-components.hours-overview',
         'page-components.title-desc-block',
+        'page-components.faq-section',
       ]
     > &
       Schema.Attribute.SetPluginOptions<{
