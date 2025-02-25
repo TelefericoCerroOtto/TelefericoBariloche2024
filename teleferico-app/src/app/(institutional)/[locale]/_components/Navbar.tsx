@@ -32,17 +32,6 @@ interface Props {
   items: { label: string; href: string }[];
 }
 
-// { label: navbarIntl.home, href: HOME },
-// { label: navbarIntl.location, href: LOCATION },
-// { label: navbarIntl.activities, href: ACTIVITIES },
-// { label: navbarIntl.explore, href: EXPLORE },
-// {
-//   label: navbarIntl.pricingschedules,
-//   href: PRICINGSCHEDULES,
-// },
-// { label: navbarIntl.news, href: NEWS },
-// { label: navbarIntl.foundation, href: FOUNDATION },
-
 const { HOME, JOBS, NEWS, POLICIES, CONTACT, FAQS } = ROUTES;
 
 export default function Navbar(props: Props) {
