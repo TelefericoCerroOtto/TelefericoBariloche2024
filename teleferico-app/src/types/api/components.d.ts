@@ -65,11 +65,13 @@ export interface ImageTextBlock {
   __component: "page-components.image-text-block";
   id: number;
   title: string;
-  description: unknown;
+  description: BlocksContent;
+  epigraph: string | null;
   variant:
     | "default"
     | "defaultFW"
     | "panoramic"
+    | "panoramicFW"
     | "horizontal"
     | "ladder"
     | "miniatures";
@@ -79,12 +81,19 @@ export interface ImageTextBlock {
   isHighlighted?: boolean;
 }
 
+export interface FaqSection {
+  __component: "page-components.faq-section";
+  id: number;
+  favs: boolean;
+}
+
 export type RendereableBlocks =
   | ServiceStateModal
   | Hero
   | HoursOverview
   | ImageTextBlock
-  | TitleDescBlock;
+  | TitleDescBlock
+  | FaqSection;
 
 // INTERNATIONALIZATION
 // export interface HoursOverview {}

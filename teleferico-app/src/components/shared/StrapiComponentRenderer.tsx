@@ -1,9 +1,9 @@
 import {
+  FaqSection,
   FormError,
   Hero,
   HoursOverview,
   ImageTextRenderer,
-  ServiceButton,
   TitleDescBlock,
 } from "@/components";
 import type { Locales, RendereableBlocks } from "@/types";
@@ -22,12 +22,6 @@ export default function StrapiComponentRenderer(props: Props) {
   }
 
   switch (block.__component) {
-    // TODO: remove ServiceStateModal from strapi components and its types(deprecated)
-    case "page-components.service-state-modal": {
-      return null;
-      return <ServiceButton />;
-    }
-
     case "page-components.hero": {
       // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
       const { __component: _, id: __, cover, logo, ...props } = block;
@@ -56,6 +50,11 @@ export default function StrapiComponentRenderer(props: Props) {
 
     case "page-components.image-text-block": {
       return <ImageTextRenderer block={block} />;
+    }
+
+    case "page-components.faq-section": {
+      const { favs } = block;
+      return <FaqSection favs={favs} locale={locale} />;
     }
 
     default:
