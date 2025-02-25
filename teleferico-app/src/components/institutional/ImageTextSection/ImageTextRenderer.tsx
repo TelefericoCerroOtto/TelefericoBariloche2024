@@ -1,5 +1,5 @@
 import type { ImageTextBlock } from "@/types";
-import { Default, DefaultFW, Panoramic } from "./ImageTextBlock";
+import { Default, DefaultFW, Panoramic, PanoramicFW } from "./ImageTextBlock";
 import { Horizontal, Ladder, Miniatures } from "./ThreeImageTextBlock";
 import { TwoImageTextBlock } from "./TwoImageTextBlock";
 
@@ -19,6 +19,8 @@ export default function ImageTextRenderer({ block }: Props) {
         return <DefaultFW {...block} />;
       case "panoramic":
         return <Panoramic {...block} />;
+      case "panoramicFW":
+        return <PanoramicFW {...block} />;
 
       default:
         return <Default {...block} />;
