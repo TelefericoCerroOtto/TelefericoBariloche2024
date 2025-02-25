@@ -2,6 +2,7 @@ import { CustomLink } from "@/components";
 import { Link } from "@/types";
 import { titleStyles } from "@/utils/styles";
 import Image from "next/image";
+import notFoundImg from "@/public/image-not-found.jpg";
 
 interface Props {
   content: {
@@ -30,8 +31,8 @@ export default function Hero(props: Props) {
   return (
     <div className="relative mb-14 min-h-[600px] w-full md:h-3/4 lg:h-1/2">
       <Image
-        src={cover.src}
-        alt={cover.alt}
+        src={cover?.src ?? notFoundImg.src}
+        alt={cover?.alt ?? "imagen de fondo gris"}
         fill
         className="z-0 object-cover"
       />
