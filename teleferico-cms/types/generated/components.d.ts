@@ -152,6 +152,7 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
         'default',
         'defaultFW',
         'panoramic',
+        'panoramicFW',
         'horizontal',
         'ladder',
         'miniatures',
@@ -163,6 +164,7 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
     images: Schema.Attribute.Component<'utils-components.image', true> &
       Schema.Attribute.Required;
     description: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    epigraph: Schema.Attribute.Text;
   };
 }
 
@@ -197,6 +199,19 @@ export interface PageComponentsHero extends Struct.ComponentSchema {
   };
 }
 
+export interface PageComponentsFaqSection extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_faq_sections';
+  info: {
+    displayName: 'FaqSection';
+    icon: 'bulletList';
+  };
+  attributes: {
+    favs: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+  };
+}
+
 export interface GlobalIntlComponentsPolicies extends Struct.ComponentSchema {
   collectionName: 'components_global_intl_components_policies';
   info: {
@@ -205,6 +220,19 @@ export interface GlobalIntlComponentsPolicies extends Struct.ComponentSchema {
   };
   attributes: {
     policies: Schema.Attribute.Blocks & Schema.Attribute.Required;
+  };
+}
+
+export interface GlobalIntlComponentsNavbar extends Struct.ComponentSchema {
+  collectionName: 'components_global_intl_components_navbars';
+  info: {
+    displayName: 'Navbar';
+    icon: 'filter';
+    description: '';
+  };
+  attributes: {
+    items: Schema.Attribute.Component<'utils-components.link', true> &
+      Schema.Attribute.Required;
   };
 }
 
@@ -223,7 +251,9 @@ declare module '@strapi/strapi' {
       'page-components.image-text-block': PageComponentsImageTextBlock;
       'page-components.hours-overview': PageComponentsHoursOverview;
       'page-components.hero': PageComponentsHero;
+      'page-components.faq-section': PageComponentsFaqSection;
       'global-intl-components.policies': GlobalIntlComponentsPolicies;
+      'global-intl-components.navbar': GlobalIntlComponentsNavbar;
     }
   }
 }

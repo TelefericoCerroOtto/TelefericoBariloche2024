@@ -25,6 +25,7 @@
         "default",
         "defaultFW",
         "panoramic",
+        "panoramicFW",
         "horizontal",
         "ladder",
         "miniatures"
@@ -46,6 +47,9 @@
     "description": {
       "type": "blocks",
       "required": true
+    },
+    "epigraph": {
+      "type": "text"
     }
   }
 }
