@@ -1,8 +1,7 @@
-import { BlocksRenderer, FaqSection, ServiceButton } from "@/components";
+import { BlocksRenderer, ServiceButton } from "@/components";
 import { getPageContent } from "@/lib/services/pages";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
-import { PosterSection } from "./_components";
 
 export default async function Home({
   params,
@@ -23,14 +22,7 @@ export default async function Home({
 
   return (
     <>
-      <BlocksRenderer
-        blocks={blocks}
-        locale={locale}
-        customBlocks={[
-          { position: 5, component: PosterSection },
-          { position: 6, component: FaqSection },
-        ]}
-      />
+      <BlocksRenderer blocks={blocks} locale={locale} />
       <ServiceButton />
     </>
   );

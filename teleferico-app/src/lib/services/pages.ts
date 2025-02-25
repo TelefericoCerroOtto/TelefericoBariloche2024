@@ -24,6 +24,7 @@ export const getPageContent = async (locale: Locales, route: string) => {
           "page-components.image-text-block": {
             populate: ["images.image", "link"],
           },
+          "page-components.faq-section": "*",
         },
       },
     },
