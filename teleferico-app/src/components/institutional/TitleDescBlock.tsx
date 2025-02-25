@@ -8,7 +8,7 @@ interface Props {
   flexdir?: "col" | "row";
   size?: "sm" | "md" | "lg" | "full";
   caseStyle?: "capitalize" | "uppercase" | "lowercase" | "normal";
-  epigraph?: string;
+  epigraph?: string | null;
   desc?: ReactNode | BlocksContent;
   children?: ReactNode;
   className?: string;
