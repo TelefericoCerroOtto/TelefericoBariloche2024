@@ -9,14 +9,14 @@ export default async function LocationPage({
   params: Promise<{ locale: Locales }>;
 }>) {
   const { locale } = await params;
-  const res = await getPageContent(locale, ROUTES.CONTACT);
+  const res = await getPageContent(locale, ROUTES.LOCATION);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok)
     throw new Error(
-      "Internal server error while trying to get content for jobs page",
+      "Internal server error while trying to get content for location page",
     );
   if (res.data.data.length === 0)
-    throw new Error("No content was found for jobs Page");
+    throw new Error("No content was found for location Page");
 
   const blocks = res.data.data[0].blocks;
 

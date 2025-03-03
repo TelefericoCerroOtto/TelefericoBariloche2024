@@ -5,9 +5,8 @@ import palestra from "@/public/palestra.jpg";
 import raquetas from "@/public/raquetas.jpg";
 import tirolesa from "@/public/tirolesa.jpg";
 import trineo from "@/public/trineo.jpg";
-import type { ImageTextBlock } from "@/types";
 
-export const items: ImageTextBlock[] = [
+export const items = [
   {
     id: 1,
     images: [

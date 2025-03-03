@@ -2,9 +2,8 @@ import confiteriadesdeadentro from "@/public/confiteriadesdeadentro.jpg";
 import estacionamiento from "@/public/estacionamiento.jpg";
 import funicularyconfiterianevados from "@/public/funicularyconfiterianevados.jpg";
 import gondoladespegando from "@/public/gondoladespegando.jpg";
-import type { ImageTextBlock } from "@/types";
 
-export const items: ImageTextBlock[] = [
+export const items = [
   {
     id: 1,
     images: [

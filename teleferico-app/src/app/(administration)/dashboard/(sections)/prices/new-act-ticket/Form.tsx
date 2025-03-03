@@ -19,7 +19,7 @@ export default function Form() {
     console.log("form values", values);
   };
 
-  const { values, handleChange, handleSubmit } =
+  const { values, handleChange, handleSubmit, isSubmitting } =
     useFormik<NewActivityTicketFormData>({
       initialValues: {
         activityNameEN: "hello world",
@@ -180,7 +180,10 @@ export default function Form() {
             );
         }
       })()}
-      <FormButtons cancelRedirectRoute={ADMIN_ROUTES.PRICES} />
+      <FormButtons
+        isSubmitting={isSubmitting}
+        cancelRedirectRoute={ADMIN_ROUTES.PRICES}
+      />
     </form>
   );
 }

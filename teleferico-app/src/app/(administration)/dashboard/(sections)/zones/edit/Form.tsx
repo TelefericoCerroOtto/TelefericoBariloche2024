@@ -11,7 +11,7 @@ export default function Form() {
     console.log("form values", values);
   };
 
-  const { values, handleSubmit, setValues, errors } =
+  const { values, handleSubmit, setValues, isSubmitting } =
     useFormik<ZoneScheduleFormData>({
       initialValues: {
         openTime: { hour: 0, mins: 0 },
@@ -20,9 +20,6 @@ export default function Form() {
       validationSchema: zoneScheduleSchema,
       onSubmit,
     });
-
-  console.log("errors", errors);
-  // console.log("values", values);
 
   return (
     <form
@@ -79,7 +76,10 @@ export default function Form() {
           });
         }}
       />
-      <FormButtons cancelRedirectRoute={ADMIN_ROUTES.ZONES} />
+      <FormButtons
+        isSubmitting={isSubmitting}
+        cancelRedirectRoute={ADMIN_ROUTES.ZONES}
+      />
     </form>
   );
 }

@@ -9,6 +9,8 @@ import "../../globals.css";
 import { Footer, Navbar } from "./_components";
 import { getNavbarItems } from "@/lib/services";
 
+export const dynamicParams = false;
+
 export async function generateStaticParams() {
   return i18n.locales.map((locale) => ({ locale: locale }));
 }

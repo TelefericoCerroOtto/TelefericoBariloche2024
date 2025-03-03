@@ -3,9 +3,8 @@ import entrada from "@/public/entrada.jpg";
 import gomonpistanieve from "@/public/gomonpistanieve.jpg";
 import sillaanfibia from "@/public/sillaanfibia.jpg";
 import torre from "@/public/torre.jpg";
-import type { New } from "@/types";
 
-export const news: New[] = [
+export const news = [
   {
     id: "0",
     title:

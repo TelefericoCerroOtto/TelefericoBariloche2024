@@ -138,7 +138,6 @@ export default function PostulationsTable(props: Props) {
 
   // Favs filter
   useEffect(() => {
-    console.log("fetch postulations");
     if (favs) {
       setPostulations(favsPostulations);
     } else {
