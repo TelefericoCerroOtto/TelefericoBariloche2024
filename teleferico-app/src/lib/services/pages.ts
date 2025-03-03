@@ -32,6 +32,12 @@ export const getPageContent = async (locale: Locales, route: string) => {
 
   const res = await fetchWrapper<GetPageResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.PAGES, stringifyQuery(query)),
+    {
+      cache: "force-cache",
+      next: {
+        tags: [`content${route}`],
+      },
+    },
   );
 
   return res;
