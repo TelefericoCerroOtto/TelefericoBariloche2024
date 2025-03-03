@@ -9,6 +9,11 @@ export type StrapiRecord<T> = T & {
   locale: T extends { locale: null } ? null : StrapiLocales;
 };
 
+export type ComponentTranslate<T> = T & {
+  key: string;
+  value: T;
+};
+
 export type FilteredStrapiRecord<T> = Pick<
   StrapiRecord<T>,
   "id" | "documentId"

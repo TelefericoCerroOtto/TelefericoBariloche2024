@@ -3,7 +3,7 @@ import { BlocksContent } from "@strapi/blocks-react-renderer";
 import type {
   Image,
   Meta,
-  Navbar,
+  ComponentTranslate,
   Policies,
   ServiceStateValues,
   StrapiLocales,
@@ -102,10 +102,14 @@ export interface GetServiceStateResponse {
 
 export type UpdateServiceStateResponse = GetServiceStateResponse;
 
-export interface GetNavbarItems {
-  data: StrapiRecord<{ components: [Navbar] }>;
-  meta: Meta;
-}
+// export interface GetNavbarItems {
+//   data: StrapiRecord<{ components: [Navbar] }>;
+//   meta: Meta;
+// }
+
+export type GetNavbarItems = StrapiRecord<
+  ComponentTranslate<{ items: { label: string; href: string }[] }>
+>;
 
 export interface GetFaqResponse {
   id: number;
