@@ -207,17 +207,6 @@ export interface GetBusTripsResponse {
   meta: Meta;
 }
 
-// TODO: Crear los tipos de las respuestas sanitizadas a partir de los query
-// export interface GetFilteredBusTripsResponse {
-//   data: FilteredStrapiRecord<
-//     Bus & {
-//       origin: FilteredStrapiRecord<StationFields>;
-//       destination: FilteredStrapiRecord<StationFields>;
-//     }
-//   >;
-//   meta: Meta;
-// }
-
 export interface GetZonesResponse {
   data: Zone[];
   meta: Meta;
@@ -243,3 +232,67 @@ export interface GetActivitiesResponse {
   data: Activity[];
   meta: Meta;
 }
+
+export type Sector = StrapiRecord<{ name: string; locale: null }>;
+
+export type Postulation = StrapiRecord<{
+  name: string;
+  surname: string;
+  genre: string;
+  age: number;
+  email: string;
+  resume: unknown;
+  sector: Sector;
+  faved_by: UnpopulatedUserResponse[];
+  locale: null;
+}>;
+
+export interface PostPostulationRequest {
+  data: {
+    name: string;
+    surname: string;
+    genre: string;
+    age: number;
+    email: string;
+    note?: string;
+    campNo?: number;
+    sector: {
+      connect: [{ documentId: string }];
+    };
+  };
+}
+
+export interface PostPostulationResponse {
+  data: StrapiRecord<{
+    name: string;
+    surname: string;
+    genre: string;
+    age: number;
+    email: string;
+    resume: unknown;
+    locale: null;
+    campNo: string | null;
+    note: string | null;
+  }>;
+  meta: Meta;
+}
+
+export type UploadResumeResponse = [
+  StrapiRecord<{
+    name: string;
+    alternativeText: null;
+    caption: null;
+    width: null;
+    height: null;
+    formats: null;
+    hash: string;
+    ext: string;
+    mime: "application/pdf";
+    size: number;
+    url: string;
+    previewUrl: null;
+    provider: string;
+    provider_metadata: null;
+    locale: null;
+  }>,
+];

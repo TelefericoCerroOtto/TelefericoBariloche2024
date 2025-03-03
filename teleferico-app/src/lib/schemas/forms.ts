@@ -3,7 +3,8 @@ import {
   validateUsernameAvailability,
 } from "@/lib/actions";
 import type { LoginUserRequest } from "@/types";
-import { number, object, string, type ObjectSchema } from "yup";
+import { mixed, number, object, string, type ObjectSchema } from "yup";
+import { sectorOptions } from "@/app/(administration)/dashboard/(sections)/recruitment/_components/data";
 
 // TODO: Crear el tipo de las requests
 // export const mySchema: Yup.ObjectSchema<myRequestType> = object({ ... })
@@ -115,4 +116,54 @@ export const updateUserSchema = object({
   role: string()
     .matches(/^\d+$/, "Debe ser un id con caracteres numericos")
     .required("Campo requerido"),
+});
+
+// MIME types de los formatos de archivo
+// Si solo validáramos por extensión, alguien podría subir un archivo malicioso renombrado como
+// cv.docx.exe. Por eso, validar por MIME type es más seguro.
+
+const FILE_TYPES = [
+  "application/pdf", // PDF
+  "application/msword", // DOC (Word 97-2003)
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX (Word moderno)
+  "text/plain", // TXT
+];
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+export const postulationSchema = object({
+  name: string()
+    .required("Campo requerido")
+    .min(2, "El nombre debe contener al menos 2 caracteres")
+    .max(30, "El nombre no puede contener mas de 30 caracteres"),
+  surname: string()
+    .required("Campo requerido")
+    .min(2, "El nombre debe contener al menos 2 caracteres")
+    .max(30, "El nombre no puede contener mas de 30 caracteres"),
+  genre: string()
+    .required("Campo requerido")
+    .oneOf(["male", "female", "other"]),
+  age: number()
+    .integer()
+    .required("Campo requerido")
+    .min(18, "El postulante debe ser mayor de 18 años")
+    .max(80, "Supera los 80 años"),
+  email: string().email("Debe ser un email valido").required("Campo requerido"),
+  sector: string()
+    .required("Campo requerido")
+    .oneOf(sectorOptions.map((sector) => sector.key)),
+  note: string().max(400, "La nota no puede tener mas de 400 caracteres"),
+  campNo: number().integer(),
+  resume: mixed<File>()
+    .required("El currículum es obligatorio")
+    .test(
+      "fileType",
+      "Solo se permiten archivos PDF, DOC, DOCX o TXT",
+      (file) => {
+        return file && FILE_TYPES.includes(file.type);
+      },
+    )
+    .test("fileSize", "El archivo no debe superar los 5MB", (file) => {
+      return file && file.size <= MAX_FILE_SIZE;
+    }),
 });
