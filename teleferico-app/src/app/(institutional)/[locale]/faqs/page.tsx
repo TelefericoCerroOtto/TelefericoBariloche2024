@@ -1,4 +1,4 @@
-import { BlocksRenderer, FaqSection } from "@/components";
+import { BlocksRenderer } from "@/components";
 import { getPageContent } from "@/lib/services/pages";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
@@ -28,8 +28,6 @@ export default async function FAQSPage({
       <Spacer y={28} />
       <div className="flex w-full flex-col px-10 lg:px-28">
         <BlocksRenderer blocks={blocks} locale={locale} />
-        <Spacer y={14} />
-        <FaqSection locale={locale} allFaqs />
       </div>
     </>
   );
