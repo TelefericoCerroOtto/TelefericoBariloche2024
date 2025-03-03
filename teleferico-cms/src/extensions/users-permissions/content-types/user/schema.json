@@ -74,6 +74,12 @@
       "type": "string",
       "minLength": 2,
       "required": true
+    },
+    "faved_postulations": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::postulation.postulation",
+      "mappedBy": "faved_by"
     }
   }
 }

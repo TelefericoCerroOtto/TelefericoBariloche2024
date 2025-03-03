@@ -479,6 +479,10 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 2;
       }>;
+    faved_postulations: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::postulation.postulation'
+    >;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -897,6 +901,68 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiPostulationPostulation extends Struct.CollectionTypeSchema {
+  collectionName: 'postulations';
+  info: {
+    singularName: 'postulation';
+    pluralName: 'postulations';
+    displayName: 'Postulation';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 2;
+        maxLength: 30;
+      }>;
+    surname: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 2;
+        maxLength: 30;
+      }>;
+    genre: Schema.Attribute.Enumeration<['male', 'female', 'other']> &
+      Schema.Attribute.Required;
+    age: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 18;
+          max: 80;
+        },
+        number
+      >;
+    email: Schema.Attribute.Email & Schema.Attribute.Required;
+    resume: Schema.Attribute.Media<'files'>;
+    campNo: Schema.Attribute.Integer;
+    note: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 400;
+      }>;
+    faved_by: Schema.Attribute.Relation<
+      'manyToMany',
+      'plugin::users-permissions.user'
+    >;
+    sector: Schema.Attribute.Relation<'oneToOne', 'api::sector.sector'>;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::postulation.postulation'
+    >;
+  };
+}
+
 export interface ApiSecondServiceStateSecondServiceState
   extends Struct.SingleTypeSchema {
   collectionName: 'second_service_states';
@@ -923,6 +989,33 @@ export interface ApiSecondServiceStateSecondServiceState
       'oneToMany',
       'api::second-service-state.second-service-state'
     >;
+  };
+}
+
+export interface ApiSectorSector extends Struct.CollectionTypeSchema {
+  collectionName: 'sectors';
+  info: {
+    singularName: 'sector';
+    pluralName: 'sectors';
+    displayName: 'Sector';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::sector.sector'>;
   };
 }
 
@@ -1503,7 +1596,9 @@ declare module '@strapi/strapi' {
       'api::global-institutional-translation.global-institutional-translation': ApiGlobalInstitutionalTranslationGlobalInstitutionalTranslation;
       'api::new.new': ApiNewNew;
       'api::page.page': ApiPagePage;
+      'api::postulation.postulation': ApiPostulationPostulation;
       'api::second-service-state.second-service-state': ApiSecondServiceStateSecondServiceState;
+      'api::sector.sector': ApiSectorSector;
       'api::service-state.service-state': ApiServiceStateServiceState;
       'api::station.station': ApiStationStation;
       'api::ticket.ticket': ApiTicketTicket;
