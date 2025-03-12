@@ -34,6 +34,7 @@ export const STRAPI_ENDPOINTS = {
   ACTIVITIES: "/api/activities",
   AUTH: "/api/auth/local",
   BUSTRIPS: "/api/bus-trips",
+  COMPONENT_TRANSLATIONS: "/api/component-translations",
   FAQS: "/api/faqs",
   GLOBAL_INTL: "/api/global-institutional-translation",
   NEWS: "/api/news",
