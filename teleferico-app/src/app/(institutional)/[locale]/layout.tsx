@@ -1,13 +1,13 @@
 import { Providers } from "@/app/providers";
 import { PageWrapper } from "@/components";
 import { i18n } from "@/i18n";
+import { getComponentTranslation } from "@/lib/services";
 import type { Locales } from "@/types";
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import { SWRConfig } from "swr";
 import "../../globals.css";
 import { Footer, Navbar } from "./_components";
-import { getNavbarItems } from "@/lib/services";
 
 export const dynamicParams = false;
 
@@ -33,7 +33,7 @@ export default async function InstitutionalLayout({
   params: Promise<{ locale: Locales }>;
 }>) {
   const { locale } = await params;
-  const { ok, data } = await getNavbarItems(locale);
+  const { ok, data } = await getComponentTranslation(locale, "navbar");
   // TODO: Mejorar respuesta de interfaz en caso de que falle la llamada
   if (!ok) throw new Error("No se pudo recuperar el contenido del Navbar");
 
@@ -49,7 +49,7 @@ export default async function InstitutionalLayout({
             }}
           >
             <div className="leading-8">
-              <Navbar items={data.data.components[0].items} />
+              <Navbar items={data.data[0].jsonValue.items} />
               <main className="relative -top-[5rem] min-h-screen">
                 <PageWrapper>{children}</PageWrapper>
               </main>

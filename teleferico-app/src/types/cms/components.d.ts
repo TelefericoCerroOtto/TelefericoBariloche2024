@@ -98,12 +98,6 @@ export type RendereableBlocks =
 // INTERNATIONALIZATION
 // export interface HoursOverview {}
 
-export interface Policies {
-  __component: "global-intl-components.policies";
-  id: number;
-  policies: BlocksContent;
-}
-
 export interface Navbar {
   __component: "global-intl-components.navbar";
   id: number;

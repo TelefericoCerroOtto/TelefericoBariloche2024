@@ -9,11 +9,6 @@ export type StrapiRecord<T> = T & {
   locale: T extends { locale: null } ? null : StrapiLocales;
 };
 
-export type ComponentTranslate<T> = T & {
-  key: string;
-  value: T;
-};
-
 export type FilteredStrapiRecord<T> = Pick<
   StrapiRecord<T>,
   "id" | "documentId"
@@ -71,20 +66,3 @@ export interface ImageFormats {
   large?: ImageFormat;
   thumbnail: ImageFormat;
 }
-
-export type StrapiImage = StrapiRecord<{
-  name: string;
-  alternativeText: string;
-  caption: unkown;
-  width: number;
-  height: number;
-  formats: ImageFormats;
-  hash: string;
-  ext: string;
-  mime: string;
-  size: number;
-  url: string;
-  previewUrl: unkown;
-  provider: string;
-  provider_metadata: unkown;
-}>;

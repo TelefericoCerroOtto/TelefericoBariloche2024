@@ -1,5 +1,5 @@
 import { BlockRendererClient, FormError } from "@/components";
-import { getPolicies } from "@/lib/services";
+import { getComponentTranslation } from "@/lib/services";
 import type { Locales } from "@/types";
 
 interface Props {
@@ -8,13 +8,12 @@ interface Props {
 
 export default async function Rules(props: Props) {
   const { locale } = props;
-  const { ok, data } = await getPolicies(locale);
+  const { ok, data } = await getComponentTranslation(locale, "policies");
+
   if (!ok)
     return (
       <FormError message="No se pudo recuperar la informacion del relgamento" />
     );
 
-  const [policiesComponent] = data.data.components;
-
-  return <BlockRendererClient content={policiesComponent.policies} />;
+  return <BlockRendererClient content={data.data[0].rtValue} />;
 }

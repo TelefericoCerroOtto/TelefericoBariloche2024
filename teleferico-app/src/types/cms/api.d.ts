@@ -1,26 +1,19 @@
-import { roles } from "@/utils/roles";
-import { BlocksContent } from "@strapi/blocks-react-renderer";
 import type {
-  Image,
-  Meta,
+  Activity,
+  BusTrip,
   ComponentTranslate,
-  Policies,
-  ServiceStateValues,
+  Faq,
+  Meta,
+  New,
+  ServiceStatus,
   StrapiLocales,
   StrapiRecord,
-} from "./index";
-
-export interface UserRole {
-  id: number;
-  documentId: string;
-  name: (typeof roles)[number];
-  description: string;
-  type: string;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string;
-  locale: StrapiLocales | null;
-}
+  Ticket,
+  UserRole,
+  Zone,
+} from "@/types";
+import { BlocksContent } from "@strapi/blocks-react-renderer";
+// import { BlocksContent } from "@strapi/blocks-react-renderer";
 
 export interface LoginUserRequest {
   identifier: string;
@@ -88,59 +81,19 @@ export interface GetRolesResponse {
 export type GetUsersResponse = UserResponse<{ role: UserRole }>[];
 
 export interface GetServiceStateResponse {
-  data: {
-    id: number;
-    documentId: string;
-    state: ServiceStateValues;
-    createdAt: string;
-    updatedAt: string;
-    publishedAt: string;
-    locale?: Locale | Locale[];
-  };
+  data: ServiceStatus;
   meta: Meta;
 }
 
 export type UpdateServiceStateResponse = GetServiceStateResponse;
 
-// export interface GetNavbarItems {
-//   data: StrapiRecord<{ components: [Navbar] }>;
-//   meta: Meta;
-// }
-
-export type GetNavbarItems = StrapiRecord<
-  ComponentTranslate<{ items: { label: string; href: string }[] }>
->;
-
-export interface GetFaqResponse {
-  id: number;
-  documentId: string;
-  question: string;
-  answer: string;
-  featured: boolean;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string;
-  locale: StrapiLocales;
-}
+export type GetFaqResponse = {
+  data: Faq;
+};
 
 export interface GetFaqsResponse {
   data: GetFaqResponse[];
   meta: Meta;
-}
-
-export interface New {
-  id: number;
-  documentId: string;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string;
-  locale: StrapiLocales;
-  title: string;
-  body: BlocksContent;
-  highlighted: boolean;
-  brief: BlocksContent;
-  date: string; // format: yyyy-mm-dd
-  cover: Image;
 }
 
 export interface GetNewResponse {
@@ -155,56 +108,10 @@ export interface GetNewsResponse {
   meta: Meta;
 }
 
-export interface GetPoliciesResponse {
-  data: StrapiRecord<{
-    components: [Policies];
-  }>;
-  meta: object;
-}
-
-export type LiftingMean = StrapiRecord<{
-  name: string;
-  description: string | null;
-}>;
-
-export type Ticket = StrapiRecord<{
-  name: string;
-  description: string | null;
-  price: number;
-  lifting_mean: LiftingMean;
-}>;
-
 export type GetTicketsResponse = {
   data: Ticket[];
   meta: Meta;
 };
-
-export type ZoneDescription = StrapiRecord<{
-  name: string;
-  description: string;
-}>;
-
-export type Zone = StrapiRecord<{
-  openTime: string; // format: hh:mm:ss:mmmm
-  closeTime: string; // format: hh:mm:ss:mmmm
-  label: string;
-  locale: null;
-  zone_descriptions: ZoneDescription[];
-}>;
-
-export type Station = StrapiRecord<{
-  label: string;
-  zone: Zone;
-  locale: null;
-}>;
-
-export type BusTrip = StrapiRecord<{
-  depTime: string;
-  arrTime: string;
-  locale: null;
-  origin: Station;
-  destination: Station;
-}>;
 
 export interface GetBusTripsResponse {
   data: BusTrip[];
@@ -216,40 +123,10 @@ export interface GetZonesResponse {
   meta: Meta;
 }
 
-export type ActivityDescription = StrapiRecord<{
-  name: string;
-  description: string | null;
-  requirements: string | null;
-}>;
-
-export type Activity = StrapiRecord<{
-  label: string;
-  price: number;
-  minAge: number;
-  season: "summer" | "autumn" | "winter" | "spring" | "all";
-  zone: Zone;
-  activity_descriptions: ActivityDescription[];
-  locale: null;
-}>;
-
 export interface GetActivitiesResponse {
   data: Activity[];
   meta: Meta;
 }
-
-export type Sector = StrapiRecord<{ name: string; locale: null }>;
-
-export type Postulation = StrapiRecord<{
-  name: string;
-  surname: string;
-  genre: string;
-  age: number;
-  email: string;
-  resume: unknown;
-  sector: Sector;
-  faved_by: UnpopulatedUserResponse[];
-  locale: null;
-}>;
 
 export interface PostPostulationRequest {
   data: {
@@ -300,3 +177,69 @@ export type UploadResumeResponse = [
     locale: null;
   }>,
 ];
+
+export interface GetNavbarItemsResponse {
+  data: [
+    ComponentTranslate<{
+      jsonValue: { items: { label: string; href: string }[] };
+      rtValue: null;
+    }>,
+  ];
+  meta: Meta;
+}
+
+export interface GetPoliciesResponse {
+  data: [
+    ComponentTranslate<{
+      jsonValue: null;
+      rtValue: BlocksContent;
+    }>,
+  ];
+  meta: Meta;
+}
+
+export interface GetFooterResponse {
+  data: [
+    ComponentTranslate<{
+      jsonValue: {
+        socialitems: {
+          ig: string;
+          fb: string;
+          tt: string;
+        };
+        menuitems: {
+          jobs: string;
+          contact: string;
+          policies: string;
+          faqs: string;
+        };
+        contact: {
+          title: string;
+          direction: string;
+        };
+      };
+      rtValue: BlocksContent;
+    }>,
+  ];
+  meta: Meta;
+}
+
+export interface GetHoursoverviewResponse {
+  data: [
+    ComponentTranslate<{
+      jsonValue: {
+        title: string;
+        desc: BlocksContent;
+        items: Array<{
+          id: number;
+          tag: string;
+          title: string;
+          desc: BlocksContent;
+          alt: string;
+        }>;
+      };
+      rtValue: null;
+    }>,
+  ];
+  meta: Meta;
+}

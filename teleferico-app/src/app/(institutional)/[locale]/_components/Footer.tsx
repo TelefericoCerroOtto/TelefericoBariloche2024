@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n";
-import { getTranslationValue } from "@/lib/actions";
+import { getComponentTranslation } from "@/lib/services";
 import fblogo from "@/public/fblogo.svg";
 import iglogo from "@/public/iglogo.svg";
 import whitelogo from "@/public/logo-blanco.svg";
@@ -40,7 +40,14 @@ interface Props {
 
 export default async function Footer(props: Props) {
   const { locale = i18n.defaultLocale } = props;
-  const footerIntl = await getTranslationValue(locale, "components.Footer");
+  const { ok, data } = await getComponentTranslation(locale, "footer");
+
+  if (!ok) {
+    // TODO: Mejorar respuesta de la interfaz en caso de que no se pueda recuperar la informacion
+    throw new Error("No se pudo recuperar la informacion del footer");
+  }
+
+  const footerIntl = data.data[0].jsonValue;
 
   return (
     <footer className="flex items-center justify-center bg-custom-red px-16 py-10 text-white lg:h-[350px]">

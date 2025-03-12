@@ -5,6 +5,5 @@ export * from "./i18n";
 export * from "./news";
 export * from "./pages";
 export * from "./service-state";
-export * from "./translations";
 export * from "./user";
 export * from "./zones";
