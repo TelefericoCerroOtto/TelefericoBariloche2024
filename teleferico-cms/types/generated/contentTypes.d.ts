@@ -632,6 +632,58 @@ export interface ApiBusTripBusTrip extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiComponentTranslationComponentTranslation
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'component_translations';
+  info: {
+    singularName: 'component-translation';
+    pluralName: 'component-translations';
+    displayName: 'ComponentTranslation';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    key: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: false;
+        };
+      }>;
+    jsonValue: Schema.Attribute.JSON &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    rtValue: Schema.Attribute.Blocks &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::component-translation.component-translation'
+    >;
+  };
+}
+
 export interface ApiElevationMeanElevationMean
   extends Struct.CollectionTypeSchema {
   collectionName: 'elevation_means';
@@ -1591,6 +1643,7 @@ declare module '@strapi/strapi' {
       'api::activity.activity': ApiActivityActivity;
       'api::activity-description.activity-description': ApiActivityDescriptionActivityDescription;
       'api::bus-trip.bus-trip': ApiBusTripBusTrip;
+      'api::component-translation.component-translation': ApiComponentTranslationComponentTranslation;
       'api::elevation-mean.elevation-mean': ApiElevationMeanElevationMean;
       'api::faq.faq': ApiFaqFaq;
       'api::global-institutional-translation.global-institutional-translation': ApiGlobalInstitutionalTranslationGlobalInstitutionalTranslation;
