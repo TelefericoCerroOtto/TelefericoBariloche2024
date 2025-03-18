@@ -68,32 +68,6 @@ export interface UtilsComponentsHoursOverviewItem
   };
 }
 
-export interface PagePropertiesSeo extends Struct.ComponentSchema {
-  collectionName: 'components_page_properties_seos';
-  info: {
-    displayName: 'SEO';
-    icon: 'search';
-    description: '';
-  };
-  attributes: {
-    MetaTitle: Schema.Attribute.String;
-    MetaDescription: Schema.Attribute.Text;
-    MetaTag: Schema.Attribute.Component<'page-properties.metat-tag', true>;
-  };
-}
-
-export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
-  collectionName: 'components_page_properties_metat_tags';
-  info: {
-    displayName: 'MetatTag';
-    icon: 'priceTag';
-  };
-  attributes: {
-    name: Schema.Attribute.String;
-    content: Schema.Attribute.Text;
-  };
-}
-
 export interface PageComponentsTitleDescBlock extends Struct.ComponentSchema {
   collectionName: 'components_page_components_title_desc_blocks';
   info: {
@@ -212,6 +186,32 @@ export interface PageComponentsFaqSection extends Struct.ComponentSchema {
   };
 }
 
+export interface PagePropertiesSeo extends Struct.ComponentSchema {
+  collectionName: 'components_page_properties_seos';
+  info: {
+    displayName: 'SEO';
+    icon: 'search';
+    description: '';
+  };
+  attributes: {
+    MetaTitle: Schema.Attribute.String;
+    MetaDescription: Schema.Attribute.Text;
+    MetaTag: Schema.Attribute.Component<'page-properties.metat-tag', true>;
+  };
+}
+
+export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
+  collectionName: 'components_page_properties_metat_tags';
+  info: {
+    displayName: 'MetatTag';
+    icon: 'priceTag';
+  };
+  attributes: {
+    name: Schema.Attribute.String;
+    content: Schema.Attribute.Text;
+  };
+}
+
 export interface GlobalIntlComponentsPolicies extends Struct.ComponentSchema {
   collectionName: 'components_global_intl_components_policies';
   info: {
@@ -244,14 +244,14 @@ declare module '@strapi/strapi' {
       'utils-components.link': UtilsComponentsLink;
       'utils-components.image': UtilsComponentsImage;
       'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
-      'page-properties.seo': PagePropertiesSeo;
-      'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-components.title-desc-block': PageComponentsTitleDescBlock;
       'page-components.service-state-modal': PageComponentsServiceStateModal;
       'page-components.image-text-block': PageComponentsImageTextBlock;
       'page-components.hours-overview': PageComponentsHoursOverview;
       'page-components.hero': PageComponentsHero;
       'page-components.faq-section': PageComponentsFaqSection;
+      'page-properties.seo': PagePropertiesSeo;
+      'page-properties.metat-tag': PagePropertiesMetatTag;
       'global-intl-components.policies': GlobalIntlComponentsPolicies;
       'global-intl-components.navbar': GlobalIntlComponentsNavbar;
     }

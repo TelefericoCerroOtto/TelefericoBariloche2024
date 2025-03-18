@@ -779,51 +779,6 @@ export interface ApiFaqFaq extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiGlobalInstitutionalTranslationGlobalInstitutionalTranslation
-  extends Struct.SingleTypeSchema {
-  collectionName: 'global_institutional_translations';
-  info: {
-    singularName: 'global-institutional-translation';
-    pluralName: 'global-institutional-translations';
-    displayName: 'GlobalInstitutionalTranslation';
-    description: '';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  pluginOptions: {
-    i18n: {
-      localized: true;
-    };
-  };
-  attributes: {
-    components: Schema.Attribute.DynamicZone<
-      [
-        'page-components.hours-overview',
-        'global-intl-components.policies',
-        'global-intl-components.navbar',
-      ]
-    > &
-      Schema.Attribute.SetPluginOptions<{
-        i18n: {
-          localized: true;
-        };
-      }>;
-    createdAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    publishedAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    locale: Schema.Attribute.String;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::global-institutional-translation.global-institutional-translation'
-    >;
-  };
-}
-
 export interface ApiNewNew extends Struct.CollectionTypeSchema {
   collectionName: 'news';
   info: {
@@ -1646,7 +1601,6 @@ declare module '@strapi/strapi' {
       'api::component-translation.component-translation': ApiComponentTranslationComponentTranslation;
       'api::elevation-mean.elevation-mean': ApiElevationMeanElevationMean;
       'api::faq.faq': ApiFaqFaq;
-      'api::global-institutional-translation.global-institutional-translation': ApiGlobalInstitutionalTranslationGlobalInstitutionalTranslation;
       'api::new.new': ApiNewNew;
       'api::page.page': ApiPagePage;
       'api::postulation.postulation': ApiPostulationPostulation;
