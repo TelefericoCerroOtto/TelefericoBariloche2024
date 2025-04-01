@@ -1,8 +1,8 @@
 "use client";
 
 import { BlockRendererClient, FormError } from "@/components";
-import { useServiceState, useTranslation } from "@/hooks";
-import type { ServiceStateValues } from "@/types";
+import { useServiceState } from "@/hooks";
+import type { GetServiceButtonResponse, ServiceStateValues } from "@/types";
 import {
   Button,
   Modal,
@@ -17,11 +17,14 @@ import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { CableCar } from "lucide-react";
 import { useMemo } from "react";
 
-export default function ServiceButton() {
+interface Props {
+  content: GetServiceButtonResponse["data"][0]["jsonValue"];
+}
+
+export default function ServiceButtonClient(props: Props) {
+  const { content } = props;
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const { serviceState, isError, isLoading } = useServiceState();
-  const { t } = useTranslation();
-  const serviceButtonIntl = t("components.ServiceButton");
 
   const colorStyles = useMemo<Record<ServiceStateValues, string>>(
     () => ({
@@ -40,9 +43,7 @@ export default function ServiceButton() {
         <div className="rounded-md bg-red-100 p-2">
           <FormError
             message={
-              <BlockRendererClient
-                content={serviceButtonIntl.error as BlocksContent}
-              />
+              <BlockRendererClient content={content.error as BlocksContent} />
             }
           />
         </div>
@@ -68,7 +69,7 @@ export default function ServiceButton() {
             <div className="flex flex-col justify-between">
               <p className="text-start text-lg font-bold">
                 {
-                  serviceButtonIntl.modal.states.find(
+                  content.modal.states.find(
                     (state) => state.state === serviceState?.data.state,
                   )?.stateLegend
                 }
@@ -76,7 +77,7 @@ export default function ServiceButton() {
               <p
                 className={`text-start text-xs ${colorStyles[serviceState?.data.state as ServiceStateValues]}`}
               >
-                {serviceButtonIntl.button.trigger}
+                {content.button.trigger}
               </p>
             </div>
           </>
@@ -88,14 +89,14 @@ export default function ServiceButton() {
             <>
               <ModalHeader className="flex flex-col gap-1">
                 {
-                  serviceButtonIntl.modal.states.find(
+                  content.modal.states.find(
                     (state) => state.state === serviceState?.data.state,
                   )?.stateLegend
                 }
               </ModalHeader>
               <ModalBody>
                 <ul className="flex flex-col gap-3">
-                  {serviceButtonIntl.modal.states
+                  {content.modal.states
                     .sort((a, b) => a.order - b.order)
                     .map((state, idx) => (
                       <li key={idx}>
@@ -111,13 +112,13 @@ export default function ServiceButton() {
                     ))}
                 </ul>
                 <BlockRendererClient
-                  content={serviceButtonIntl.modal.disclaimer as BlocksContent}
+                  content={content.modal.disclaimer as BlocksContent}
                   className="font-ligh text-sm"
                 />
               </ModalBody>
               <ModalFooter>
                 <Button className="bg-custom-red text-white" onPress={onClose}>
-                  {serviceButtonIntl.button.close}
+                  {content.button.close}
                 </Button>
               </ModalFooter>
             </>

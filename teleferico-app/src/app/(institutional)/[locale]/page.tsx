@@ -2,6 +2,8 @@ import { BlocksRenderer, ServiceButton } from "@/components";
 import { getPageContent } from "@/lib/services/pages";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
+import { Skeleton } from "@nextui-org/react";
+import { Suspense } from "react";
 
 export default async function Home({
   params,
@@ -23,7 +25,9 @@ export default async function Home({
   return (
     <>
       <BlocksRenderer blocks={blocks} locale={locale} />
-      <ServiceButton />
+      <Suspense fallback={<Skeleton className="h-8 w-[400px]" />}>
+        <ServiceButton locale={locale} />
+      </Suspense>
     </>
   );
 }
