@@ -1,5 +1,31 @@
 import type { Struct, Schema } from '@strapi/strapi';
 
+export interface PagePropertiesSeo extends Struct.ComponentSchema {
+  collectionName: 'components_page_properties_seos';
+  info: {
+    displayName: 'SEO';
+    icon: 'search';
+    description: '';
+  };
+  attributes: {
+    MetaTitle: Schema.Attribute.String;
+    MetaDescription: Schema.Attribute.Text;
+    MetaTag: Schema.Attribute.Component<'page-properties.metat-tag', true>;
+  };
+}
+
+export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
+  collectionName: 'components_page_properties_metat_tags';
+  info: {
+    displayName: 'MetatTag';
+    icon: 'priceTag';
+  };
+  attributes: {
+    name: Schema.Attribute.String;
+    content: Schema.Attribute.Text;
+  };
+}
+
 export interface UtilsComponentsTitle extends Struct.ComponentSchema {
   collectionName: 'components_utils_components_titles';
   info: {
@@ -186,59 +212,11 @@ export interface PageComponentsFaqSection extends Struct.ComponentSchema {
   };
 }
 
-export interface PagePropertiesSeo extends Struct.ComponentSchema {
-  collectionName: 'components_page_properties_seos';
-  info: {
-    displayName: 'SEO';
-    icon: 'search';
-    description: '';
-  };
-  attributes: {
-    MetaTitle: Schema.Attribute.String;
-    MetaDescription: Schema.Attribute.Text;
-    MetaTag: Schema.Attribute.Component<'page-properties.metat-tag', true>;
-  };
-}
-
-export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
-  collectionName: 'components_page_properties_metat_tags';
-  info: {
-    displayName: 'MetatTag';
-    icon: 'priceTag';
-  };
-  attributes: {
-    name: Schema.Attribute.String;
-    content: Schema.Attribute.Text;
-  };
-}
-
-export interface GlobalIntlComponentsPolicies extends Struct.ComponentSchema {
-  collectionName: 'components_global_intl_components_policies';
-  info: {
-    displayName: 'Policies';
-    icon: 'book';
-  };
-  attributes: {
-    policies: Schema.Attribute.Blocks & Schema.Attribute.Required;
-  };
-}
-
-export interface GlobalIntlComponentsNavbar extends Struct.ComponentSchema {
-  collectionName: 'components_global_intl_components_navbars';
-  info: {
-    displayName: 'Navbar';
-    icon: 'filter';
-    description: '';
-  };
-  attributes: {
-    items: Schema.Attribute.Component<'utils-components.link', true> &
-      Schema.Attribute.Required;
-  };
-}
-
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'page-properties.seo': PagePropertiesSeo;
+      'page-properties.metat-tag': PagePropertiesMetatTag;
       'utils-components.title': UtilsComponentsTitle;
       'utils-components.service-states': UtilsComponentsServiceStates;
       'utils-components.link': UtilsComponentsLink;
@@ -250,10 +228,6 @@ declare module '@strapi/strapi' {
       'page-components.hours-overview': PageComponentsHoursOverview;
       'page-components.hero': PageComponentsHero;
       'page-components.faq-section': PageComponentsFaqSection;
-      'page-properties.seo': PagePropertiesSeo;
-      'page-properties.metat-tag': PagePropertiesMetatTag;
-      'global-intl-components.policies': GlobalIntlComponentsPolicies;
-      'global-intl-components.navbar': GlobalIntlComponentsNavbar;
     }
   }
 }

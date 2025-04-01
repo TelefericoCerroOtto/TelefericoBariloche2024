@@ -970,35 +970,6 @@ export interface ApiPostulationPostulation extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiSecondServiceStateSecondServiceState
-  extends Struct.SingleTypeSchema {
-  collectionName: 'second_service_states';
-  info: {
-    singularName: 'second-service-state';
-    pluralName: 'second-service-states';
-    displayName: 'SecondServiceState';
-    description: '';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    state: Schema.Attribute.Component<'utils-components.service-states', false>;
-    createdAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    publishedAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    locale: Schema.Attribute.String;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::second-service-state.second-service-state'
-    >;
-  };
-}
-
 export interface ApiSectorSector extends Struct.CollectionTypeSchema {
   collectionName: 'sectors';
   info: {
@@ -1011,9 +982,13 @@ export interface ApiSectorSector extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
-    name: Schema.Attribute.String &
+    key: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
+    sector_names: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::sector-name.sector-name'
+    >;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -1023,6 +998,45 @@ export interface ApiSectorSector extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     locale: Schema.Attribute.String;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::sector.sector'>;
+  };
+}
+
+export interface ApiSectorNameSectorName extends Struct.CollectionTypeSchema {
+  collectionName: 'sector_names';
+  info: {
+    singularName: 'sector-name';
+    pluralName: 'sector-names';
+    displayName: 'SectorName';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    name: Schema.Attribute.Text &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    sector: Schema.Attribute.Relation<'manyToOne', 'api::sector.sector'>;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::sector-name.sector-name'
+    >;
   };
 }
 
@@ -1604,8 +1618,8 @@ declare module '@strapi/strapi' {
       'api::new.new': ApiNewNew;
       'api::page.page': ApiPagePage;
       'api::postulation.postulation': ApiPostulationPostulation;
-      'api::second-service-state.second-service-state': ApiSecondServiceStateSecondServiceState;
       'api::sector.sector': ApiSectorSector;
+      'api::sector-name.sector-name': ApiSectorNameSectorName;
       'api::service-state.service-state': ApiServiceStateServiceState;
       'api::station.station': ApiStationStation;
       'api::ticket.ticket': ApiTicketTicket;
