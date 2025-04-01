@@ -1,26 +1,38 @@
 "use client";
 
-import { TRANSLATIONS } from "@/dictionaries";
 import { useLocale } from "@/hooks";
-import type { Locales, Subset, TranslationPaths } from "@/types";
-import { useMemo } from "react";
+import { TranslateComponentsResponseTypes } from "@/lib/services";
+import type { TranslateComponentKeys } from "@/types";
+import { fetcher } from "@/utils/fetcher";
+import { getStrapiURL } from "@/utils/get-strapi-url";
+import { stringifyQuery } from "@/utils/query";
+import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import useSWR from "swr";
 
-export function useTranslation() {
+export function useTranslation<T extends TranslateComponentKeys>(key: T) {
   const { language } = useLocale();
 
-  const t = useMemo(
-    () =>
-      function <P extends TranslationPaths>(
-        path: P,
-      ): Subset<(typeof TRANSLATIONS)[Locales], P> {
-        return path.split(".").reduce(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (acc: any, key: any) => acc?.[key],
-          TRANSLATIONS[language],
-        ) as Subset<(typeof TRANSLATIONS)[Locales], P>;
-      },
-    [language],
+  const query = {
+    locale: language,
+    filters: {
+      key,
+    },
+  };
+
+  const { data, error, isLoading } = useSWR<
+    TranslateComponentsResponseTypes[T]
+  >(
+    getStrapiURL(
+      STRAPI_ENDPOINTS.COMPONENT_TRANSLATIONS,
+      stringifyQuery(query),
+    ),
+    fetcher,
+    { errorRetryCount: 2, errorRetryInterval: 5000 },
   );
 
-  return { t, locale: language };
+  return {
+    data,
+    loading: isLoading,
+    error,
+  };
 }

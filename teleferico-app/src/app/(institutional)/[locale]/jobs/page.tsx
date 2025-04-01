@@ -4,6 +4,7 @@ import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
 import { Spacer } from "@nextui-org/react";
 import { Form } from "./_components";
+import { getSectors } from "@/lib/services/sectors";
 
 export default async function JobsPage({
   params,
@@ -12,9 +13,10 @@ export default async function JobsPage({
 }>) {
   const { locale } = await params;
 
-  const res = await getPageContent(locale, ROUTES.CONTACT);
+  const res = await getPageContent(locale, ROUTES.JOBS);
+  const { ok, data } = await getSectors(locale);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
-  if (!res.ok)
+  if (!res.ok || !ok)
     throw new Error(
       "Internal server error while trying to get content for jobs page",
     );
@@ -29,7 +31,7 @@ export default async function JobsPage({
       <div className="flex w-full flex-col px-10 lg:px-28">
         <BlocksRenderer blocks={blocks[0]} locale={locale} />
         <div className="flex flex-col gap-8 lg:flex-row">
-          <Form />
+          <Form sectors={data.data} />
           <BlocksRenderer blocks={blocks[1]} locale={locale} />
         </div>
       </div>

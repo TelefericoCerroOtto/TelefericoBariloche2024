@@ -1,19 +1,23 @@
 "use client";
 
-import { sectorOptions } from "@/app/(administration)/dashboard/(sections)/recruitment/_components/data";
-import { ButtonDos } from "@/components";
+import { ButtonDos, FormError, InputSkeleton } from "@/components";
 import { useTranslation } from "@/hooks";
 import { postulationSchema } from "@/lib/schemas/forms";
-import type { PostulationFormData } from "@/types";
+import type { PostulationFormData, Sector } from "@/types";
 import { selectInputStyles } from "@/utils/styles";
 import { Input, Select, SelectItem } from "@nextui-org/react";
 import { useFormik } from "formik";
 import { useCallback, useState } from "react";
 import { sendPostulationAction } from "./actions";
 
-export default function Form() {
-  const { t } = useTranslation();
-  const formIntl = t("components.Forms");
+interface Props {
+  sectors: Sector[];
+}
+
+export default function Form(props: Props) {
+  const { sectors } = props;
+  const { data, error, loading } = useTranslation("forms");
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onSubmit = useCallback(async (values: PostulationFormData) => {
@@ -58,6 +62,28 @@ export default function Form() {
     onSubmit,
     validationSchema: postulationSchema,
   });
+
+  console.log("errors", errors);
+
+  if (error)
+    return (
+      <FormError message="No se pudo recuperar el contenido del formulario" />
+    );
+  if (loading)
+    return (
+      <div className="grid flex-grow grid-cols-1 gap-4 lg:grid-cols-2">
+        <InputSkeleton />
+        <InputSkeleton />
+        <InputSkeleton />
+        <InputSkeleton />
+        <InputSkeleton />
+        <InputSkeleton />
+        <InputSkeleton />
+        <InputSkeleton />
+      </div>
+    );
+
+  const formIntl = data!.data[0].jsonValue;
 
   return (
     <form
@@ -149,7 +175,7 @@ export default function Form() {
         id="sector"
         label={formIntl.fields.sector.label}
         placeholder={formIntl.fields.sector.placeholder}
-        items={sectorOptions}
+        items={sectors}
         defaultSelectedKeys={[values.sector]}
         onChange={handleChange}
         onBlur={handleBlur}
@@ -157,9 +183,7 @@ export default function Form() {
         isInvalid={errors.sector !== undefined && touched.sector}
       >
         {(item) => (
-          <SelectItem key={item.key}>
-            {formIntl.fields.sector.items[item.key]}
-          </SelectItem>
+          <SelectItem key={item.key}>{item.sector_names[0].name}</SelectItem>
         )}
       </Select>
       <Input
@@ -187,7 +211,7 @@ export default function Form() {
         disabled={isSubmitting}
         isLoading={isSubmitting}
       >
-        {formIntl.sendbtn}
+        {formIntl.buttons.send}
       </ButtonDos>
     </form>
   );
