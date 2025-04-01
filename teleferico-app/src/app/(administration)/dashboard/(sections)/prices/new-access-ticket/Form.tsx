@@ -19,7 +19,7 @@ export default function Form() {
     console.log("form values", values);
   };
 
-  const { values, handleChange, handleSubmit, errors } =
+  const { values, handleChange, handleSubmit, isSubmitting } =
     useFormik<NewAccessTicketFormData>({
       initialValues: {
         accessNameEN: "hello world",
@@ -31,8 +31,6 @@ export default function Form() {
       validationSchema: accessTicketSchema,
       onSubmit,
     });
-
-  console.log("errors", errors);
 
   return (
     <form
@@ -125,7 +123,10 @@ export default function Form() {
         value={values.price}
         onChange={handleChange}
       />
-      <FormButtons cancelRedirectRoute={ADMIN_ROUTES.PRICES} />
+      <FormButtons
+        isSubmitting={isSubmitting}
+        cancelRedirectRoute={ADMIN_ROUTES.PRICES}
+      />
     </form>
   );
 }

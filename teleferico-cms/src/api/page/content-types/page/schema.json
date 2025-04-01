@@ -22,7 +22,8 @@
         "i18n": {
           "localized": false
         }
-      }
+      },
+      "required": true
     },
     "SEO": {
       "type": "component",
@@ -43,7 +44,11 @@
       "type": "dynamiczone",
       "components": [
         "page-components.service-state-modal",
-        "page-components.image-text-block"
+        "page-components.image-text-block",
+        "page-components.hero",
+        "page-components.hours-overview",
+        "page-components.title-desc-block",
+        "page-components.faq-section"
       ]
     }
   }

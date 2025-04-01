@@ -1,13 +1,17 @@
+import { BlockRendererClient } from "@/components";
+import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { type ReactNode } from "react";
 
 interface Props {
   title: string;
   align?: "center" | "start";
-  size?: "sm" | "md" | "lg";
+  flexdir?: "col" | "row";
+  size?: "sm" | "md" | "lg" | "full";
   caseStyle?: "capitalize" | "uppercase" | "lowercase" | "normal";
-  epigraph?: string;
-  desc?: ReactNode;
+  epigraph?: string | null;
+  desc?: ReactNode | BlocksContent;
   children?: ReactNode;
+  className?: string;
 }
 
 export function HighlightLastWord(text: string) {
@@ -35,8 +39,10 @@ export default function TitleDescBlock(props: Props) {
     epigraph,
     children,
     align = "center",
+    flexdir = "col",
     size = "md",
     caseStyle = "normal",
+    className,
   } = props;
 
   const alignVariants = {
@@ -44,10 +50,16 @@ export default function TitleDescBlock(props: Props) {
     start: "items-start text-start",
   };
 
+  const flexdirVariants = {
+    col: "flex-col",
+    row: "flex-row",
+  };
+
   const sizeVariants = {
     sm: "max-w-[600px]",
     md: "max-w-[800px]",
     lg: "max-w-[900px]",
+    full: "w-full",
   };
 
   const titleStyle = {
@@ -59,7 +71,7 @@ export default function TitleDescBlock(props: Props) {
 
   return (
     <div
-      className={`flex flex-col ${sizeVariants[size]} ${alignVariants[align]} mb-12 gap-5`}
+      className={`flex gap-8 ${flexdirVariants[flexdir]} ${sizeVariants[size]} ${alignVariants[align]} ${className}`}
     >
       {epigraph ? <p className="text-small text-primary">{epigraph}</p> : null}
       <h3
@@ -67,7 +79,11 @@ export default function TitleDescBlock(props: Props) {
       >
         {title}
       </h3>
-      {desc ? <p className="text-inherit">{desc}</p> : null}
+      {desc && typeof desc === "string" ? (
+        <p className="text-inherit">{desc}</p>
+      ) : (
+        <BlockRendererClient content={desc as BlocksContent} />
+      )}
       {children ? <div className="flex gap-4">{children}</div> : null}
     </div>
   );

@@ -8,11 +8,11 @@ export function useServiceState() {
   const { data, error, isLoading } = useSWR<GetServiceStateResponse>(
     getStrapiURL(`${STRAPI_ENDPOINTS.SERVICE_STATE}`),
     fetcher,
-    { errorRetryCount: 1, errorRetryInterval: 5000 },
+    { errorRetryCount: 2, errorRetryInterval: 5000 },
   );
 
   return {
-    state: data,
+    serviceState: data,
     isLoading,
     isError: error,
   };

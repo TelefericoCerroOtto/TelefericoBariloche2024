@@ -20,6 +20,7 @@ import {
   Image as LucideImage,
   PersonStanding,
   Power,
+  Repeat2,
   Rss,
   User,
 } from "lucide-react";
@@ -63,6 +64,11 @@ const items = [
     name: "Usuarios",
     url: ADMIN_ROUTES.ADMIN_USERS,
     icon: User,
+  },
+  {
+    name: "Revalidar",
+    url: ADMIN_ROUTES.REVALIDATE,
+    icon: Repeat2,
   },
 ];
 

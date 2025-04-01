@@ -1,0 +1,15 @@
+{
+  "collectionName": "components_page_components_hours_overviews",
+  "info": {
+    "displayName": "HoursOverview",
+    "icon": "clock",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "withTextBlock": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

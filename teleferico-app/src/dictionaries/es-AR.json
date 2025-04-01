@@ -1,0 +1,277 @@
+{
+  "components": {
+    "Navbar": {
+      "home": "Inicio",
+      "location": "Como Llegar",
+      "activities": "¿Qué hacer?",
+      "explore": "La cumbre",
+      "pricingschedules": "Tarifas Y Horarios",
+      "news": "Noticias",
+      "foundation": "Fundación"
+    },
+    "HoursOverview": {
+      "title": "Horarios de Operación",
+      "desc": [
+        {
+          "type": "paragraph",
+          "children": [
+            {
+              "text": "Tené en cuenta que todos los horarios están sujetos a cambios debido a condiciones climáticas o imprevistos. Encontranos en",
+              "type": "text"
+            },
+            {
+              "bold": true,
+              "text": " Av. De los Pioneros KM 5.000, San Carlos De Bariloche.",
+              "type": "text"
+            }
+          ]
+        }
+      ],
+      "items": [
+        {
+          "id": 0,
+          "tag": "cablecar",
+          "title": "Horarios de la base",
+          "desc": [
+            {
+              "type": "paragraph",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "El complejo en la Base (km 5) abre de 10:00 a 16:30, y es el punto de partida de tu aventura. Comprá tu boleto de ingreso en la Base y disfrutá de un viaje espectacular hasta la cumbre."
+                }
+              ]
+            }
+          ],
+          "alt": "icono de gondola"
+        },
+        {
+          "id": 1,
+          "tag": "mountain",
+          "title": "Horarios de la cumbre",
+          "desc": [
+            {
+              "type": "paragraph",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "La magia continúa en la Cumbre, donde podés disfrutar de la"
+                },
+                {
+                  "bold": true,
+                  "type": "text",
+                  "text": " famosa confitería giratoria "
+                },
+                {
+                  "type": "text",
+                  "text": "y las mejores vistas hasta las 17:45. Tomate tu tiempo para relajarte y admirar el paisaje."
+                }
+              ]
+            }
+          ],
+          "alt": "icono de cerro"
+        },
+        {
+          "id": 2,
+          "tag": "bus",
+          "title": "Horarios de los buses",
+          "desc": [
+            {
+              "type": "paragraph",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "Los buses parten desde el centro hacia la Base cada hora,"
+                },
+                {
+                  "bold": true,
+                  "type": "text",
+                  "text": " desde las 10:00hs hasta las 16:00hs. "
+                },
+                {
+                  "type": "text",
+                  "text": "Los regresos desde la Base al centro comienzan a las"
+                },
+                {
+                  "bold": true,
+                  "type": "text",
+                  "text": " 11:15hs y continúan cada hora hasta las 18:15hs. "
+                }
+              ]
+            }
+          ],
+          "alt": "bus icon"
+        }
+      ]
+    },
+    "Footer": {
+      "socialitems": {
+        "ig": "icono de Instagram",
+        "fb": "icono de Facebook",
+        "tt": "icono de TikTok"
+      },
+      "menuitems": {
+        "jobs": "Trabajo",
+        "contact": "Contacto",
+        "policies": "Reglamento",
+        "faqs": "Preguntas Frecuentes"
+      },
+      "contact": {
+        "title": "Medios de contacto",
+        "direction": "Av. De los Pioneros KM 5.000, San Carlos De Bariloche, Rio Negro, Argentina"
+      }
+    },
+    "ServiceButton": {
+      "error": [
+        {
+          "type": "paragraph",
+          "children": [
+            {
+              "text": "Ocurrió un error al recuperar la informacion del estado del servicio.",
+              "type": "text"
+            },
+            {
+              "url": "/contact",
+              "type": "link",
+              "children": [
+                {
+                  "bold": true,
+                  "text": " Ir a contacto",
+                  "type": "text"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "button": {
+        "trigger": "Ver mas detalles",
+        "close": "Entendido"
+      },
+      "modal": {
+        "states": [
+          {
+            "order": 0,
+            "state": "normal",
+            "stateLegend": "El medio de elevacion opera normalmente",
+            "title": "Servicio Normal:",
+            "stateDesc": "Ascenso permitido a todos los pasajeros sin restricciones."
+          },
+          {
+            "order": 1,
+            "state": "conditional",
+            "stateLegend": "El medio de elevacion opera de manera condicional",
+            "title": "Servicio Condicional:",
+            "stateDesc": "Podrían presentarse demoras por factores climáticos."
+          },
+          {
+            "order": 2,
+            "state": "restricted",
+            "stateLegend": "El medio de elevacion se encuentra Condicional con restricciones",
+            "title": "Servicio Condicional con Restricciones:",
+            "stateDesc": "Es muy probable que haya demoras o la eventual suspension del medio. Por esta razon el ascenso esta limitado para grupos como mujeres embarazadas, personas con movilidad reducida, adultos mayores, etc. Si vas a subir es preferible que no tengas ningun otro compromiso."
+          },
+          {
+            "order": 3,
+            "state": "suspended",
+            "stateLegend": "El medio de elevacion se encuentra suspendido",
+            "title": "Servicio Suspendido:",
+            "stateDesc": "El ascenso esta por gondola esta detenido, es decir que no se puede subir."
+          },
+          {
+            "order": 4,
+            "state": "closed",
+            "stateLegend": "Actualmente estamos cerrados. ¡Esperamos tu próxima visita!",
+            "title": "",
+            "stateDesc": ""
+          }
+        ],
+        "disclaimer": [
+          {
+            "type": "paragraph",
+            "children": [
+              {
+                "text": "Las condiciones del servicio de ascenso pueden variar debido a factores climáticos. Te dejamos la información necesaria para que puedas planificar tu visita de forma segura y sin inconvenientes. Para mas informacion podes revisar la seccion de",
+                "type": "text"
+              },
+              {
+                "url": "/faqs",
+                "type": "link",
+                "children": [
+                  {
+                    "text": " FAQS",
+                    "type": "text"
+                  }
+                ]
+              },
+              {
+                "text": " o nuestro",
+                "type": "text"
+              },
+              {
+                "url": "/policies",
+                "type": "link",
+                "children": [
+                  {
+                    "text": " Reglamento",
+                    "type": "text"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "Forms": {
+      "fields": {
+        "firstName": { "label": "Nombre", "placeholder": "Nombre" },
+        "lastName": { "label": "Apellido", "placeholder": "Apellido" },
+        "genre": {
+          "label": "Genero",
+          "placeholder": "Seleccionar",
+          "items": {
+            "male": "Masculino",
+            "female": "Femenino",
+            "other": "Otro"
+          }
+        },
+        "sector": {
+          "label": "Sector de postulacion",
+          "placeholder": "Seleccionar",
+          "items": {
+            "tech": "Tecnología",
+            "marketing": "Marketing",
+            "finances": "Finanzas",
+            "engineer": "Ingeniería",
+            "tourism": "Turismo"
+          }
+        },
+        "email": { "label": "Email", "placeholder": "Email" },
+        "name": { "label": "Nombre", "placeholder": "Nombre" },
+        "age": { "label": "Edad", "placeholder": "25" },
+        "consultation": {
+          "label": "Consulta",
+          "placeholder": "Escribe tu consulta"
+        },
+        "campNo": {
+          "label": "Código de Campaña (Opcional)",
+          "placeholder": "Código de Campaña (Opcional)"
+        },
+        "cv": { "label": "Agrega tu CV", "placeholder": "Seleccionar archivo" }
+      },
+      "sendbtn": "Enviar"
+    }
+  },
+  "pages": {
+    "home": {
+      "postersection": {
+        "title": "Actividades para Conectar con la Naturaleza",
+        "desc": "En el Complejo Turístico Teleférico Cerro Otto, cada temporada ofrece propuestas únicas para disfrutar y redescubrir la belleza natural de Bariloche. Desde aventuras al aire libre hasta momentos de relajación, encontrá la actividad perfecta para vivir una experiencia inolvidable.",
+        "epigraph": "Descubrí todo lo que el Cerro Otto tiene para ofrecerte",
+        "imagealt": "lago con persona apuntando",
+        "link": { "label": "Ver todas las Actividades", "href": "/activities" }
+      }
+    }
+  }
+}

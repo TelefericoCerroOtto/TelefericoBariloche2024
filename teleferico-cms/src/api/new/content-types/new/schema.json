@@ -22,18 +22,19 @@
           "localized": true
         }
       },
-      "type": "string"
+      "type": "text",
+      "required": true
     },
-    "slug": {
+    "body": {
       "pluginOptions": {
         "i18n": {
-          "localized": false
+          "localized": true
         }
       },
-      "type": "string"
+      "type": "blocks",
+      "required": true
     },
-    "NewPreview": {
-      "displayName": "NewPreview",
+    "cover": {
       "type": "component",
       "repeatable": false,
       "pluginOptions": {
@@ -41,16 +42,36 @@
           "localized": true
         }
       },
-      "component": "page-components.new-preview",
+      "component": "utils-components.image",
       "required": true
     },
-    "epigraph": {
+    "highlighted": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      },
+      "type": "boolean",
+      "default": false,
+      "required": true
+    },
+    "brief": {
       "pluginOptions": {
         "i18n": {
           "localized": true
         }
       },
-      "type": "string"
+      "type": "blocks",
+      "required": true
+    },
+    "date": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      },
+      "type": "date",
+      "required": true
     }
   }
 }

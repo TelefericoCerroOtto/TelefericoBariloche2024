@@ -1,3 +1,4 @@
 export type FetchResponse<T> =
-  | { ok: false; data: null | ErrorResponse }
-  | { ok: true; data: T };
+  | { ok: false; data: ErrorResponse }
+  | { ok: true; data: T }
+  | { ok: false; data: null };

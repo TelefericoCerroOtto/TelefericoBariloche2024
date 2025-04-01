@@ -13,17 +13,23 @@ export default function Form() {
     console.log("form values", values);
   };
 
-  const { values, handleChange, handleSubmit, setValues, errors } =
-    useFormik<BusTravelFormData>({
-      initialValues: {
-        arrPoint: "",
-        arrTime: { hour: 0, mins: 0 },
-        depPoint: "",
-        depTime: { hour: 0, mins: 0 },
-      },
-      validationSchema: BusTravelSchema,
-      onSubmit,
-    });
+  const {
+    values,
+    handleChange,
+    handleSubmit,
+    setValues,
+    errors,
+    isSubmitting,
+  } = useFormik<BusTravelFormData>({
+    initialValues: {
+      arrPoint: "",
+      arrTime: { hour: 0, mins: 0 },
+      depPoint: "",
+      depTime: { hour: 0, mins: 0 },
+    },
+    validationSchema: BusTravelSchema,
+    onSubmit,
+  });
 
   console.log("errors", errors);
 
@@ -105,7 +111,10 @@ export default function Form() {
           });
         }}
       />
-      <FormButtons cancelRedirectRoute={ADMIN_ROUTES.PRICES} />
+      <FormButtons
+        isSubmitting={isSubmitting}
+        cancelRedirectRoute={ADMIN_ROUTES.PRICES}
+      />
     </form>
   );
 }

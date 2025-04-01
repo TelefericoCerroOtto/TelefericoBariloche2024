@@ -4,7 +4,7 @@ import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { usePathname } from "next/navigation";
 
 const titles: Record<
-  keyof typeof ADMIN_ROUTES,
+  Exclude<keyof typeof ADMIN_ROUTES, "LOGIN" | "LOGOUT">,
   { path: string; title: string }
 > = {
   ADMIN_GALLERY: { path: ADMIN_ROUTES.ADMIN_GALLERY, title: "Multimedia" },
@@ -30,6 +30,10 @@ const titles: Record<
   NEW_USER: {
     path: ADMIN_ROUTES.NEW_USER,
     title: "Formulario de Usuario",
+  },
+  REVALIDATE: {
+    path: ADMIN_ROUTES.REVALIDATE,
+    title: "Revalidación de caché",
   },
 };
 
