@@ -3,6 +3,8 @@ import type { Link } from "@/types";
 
 export type Locales = (typeof i18n.locales)[number];
 
+export type TranslateComponentKeys = "policies" | "navbar" | "footer" | "hoursoverview" | "servicebutton" | "forms";
+
 // Some types were declared as `unknown` when they are actually `BlocksContent`. This was done
 // to avoid TypeScript errors, specifically with `Paths` and `Subset`.
 export interface TranslationKeys {

@@ -117,7 +117,9 @@ export type Activity = StrapiRecord<{
   locale: null;
 }>;
 
-export type Sector = StrapiRecord<{ name: string; locale: null }>;
+export type SectorName = StrapiRecord<{name: string}>
+
+export type Sector = StrapiRecord<{ key: string; sector_names: SectorName[]; locale: null }>;
 
 export type Postulation = StrapiRecord<{
   name: string;
