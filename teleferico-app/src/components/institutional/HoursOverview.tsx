@@ -1,5 +1,5 @@
 import { BlockRendererClient, TitleDescBlock } from "@/components";
-import { getTranslationValue } from "@/lib/actions";
+import { getComponentTranslation } from "@/lib/services";
 import bus from "@/public/busInfo.png";
 import cerro from "@/public/cerroInfo.png";
 import gondola from "@/public/gondolaInfo.png";
@@ -48,7 +48,14 @@ function HoursOverviewItems({
 
 export default async function HoursOverview(props: Props) {
   const { locale, withTextBlock } = props;
-  const content = await getTranslationValue(locale, "components.HoursOverview");
+  const { ok, data } = await getComponentTranslation(locale, "hoursoverview");
+
+  if (!ok) {
+    // TODO: Mejorar respuesta de la interfaz en caso de que no se pueda recuperar la informacion
+    throw new Error("No se pudo recuperar la informacion del footer");
+  }
+
+  const content = data.data[0].jsonValue
   const itemsIntl = content.items.map((item) => {
     const { src } = items.find((itm) => item.tag === itm.tag)!;
     const { desc, ...props } = item;
