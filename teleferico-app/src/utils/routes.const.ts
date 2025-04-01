@@ -41,6 +41,7 @@ export const STRAPI_ENDPOINTS = {
   PAGES: "/api/pages",
   POSTULATIONS: "/api/postulations",
   ROLES: "/api/users-permissions/roles",
+  SECTORS: "/api/sectors",
   SERVICE_STATE: "/api/service-state",
   TICKETS: "/api/tickets",
   TRANSLATIONS: "/api/global-institutional-translation",

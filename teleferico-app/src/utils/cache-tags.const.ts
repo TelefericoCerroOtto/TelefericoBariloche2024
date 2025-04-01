@@ -4,6 +4,7 @@ export const CACHE_TAGS = {
   EXPLORE_CONTENT: "content/explore",
   FAQS_CONTENT: "content/faqs",
   FOOTER: "footer",
+  FORMS: "forms",
   FOUNDATION_CONTENT: "content/foundation",
   HOME_CONTENT: "content/",
   HOURS_OVERVIEW: "hours-overview",
@@ -12,6 +13,7 @@ export const CACHE_TAGS = {
   NAVITEMS: "navitems",
   POLICIES_CONTENT: "content/policies",
   PRICINGSCHEDULES_CONTENT: "content/pricing-schedules",
+  SERVICE_BUTTON: "service-button",
   SERVICE_STATE: "service-state",
   USERS: "users",
 };
