@@ -12,10 +12,16 @@
   },
   "pluginOptions": {},
   "attributes": {
-    "name": {
+    "key": {
       "type": "string",
       "required": true,
       "unique": true
+    },
+    "sector_names": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::sector-name.sector-name",
+      "mappedBy": "sector"
     }
   }
 }
