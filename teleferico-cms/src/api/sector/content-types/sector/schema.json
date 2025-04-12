@@ -1,0 +1,27 @@
+{
+  "kind": "collectionType",
+  "collectionName": "sectors",
+  "info": {
+    "singularName": "sector",
+    "pluralName": "sectors",
+    "displayName": "Sector",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "key": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "sector_names": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::sector-name.sector-name",
+      "mappedBy": "sector"
+    }
+  }
+}

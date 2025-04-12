@@ -1,0 +1,50 @@
+{
+  "kind": "collectionType",
+  "collectionName": "activity_descriptions",
+  "info": {
+    "singularName": "activity-description",
+    "pluralName": "activity-descriptions",
+    "displayName": "ActivityDescription"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "name": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "text",
+      "required": true
+    },
+    "description": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "text"
+    },
+    "requirements": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "text"
+    },
+    "activity": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::activity.activity",
+      "inversedBy": "activity_descriptions"
+    }
+  }
+}

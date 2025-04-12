@@ -1,0 +1,62 @@
+{
+  "collectionName": "components_page_components_title_desc_blocks",
+  "info": {
+    "displayName": "TitleDescBlock",
+    "icon": "underline",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "desc": {
+      "type": "blocks",
+      "required": true
+    },
+    "epigraph": {
+      "type": "string"
+    },
+    "size": {
+      "type": "enumeration",
+      "enum": [
+        "sm",
+        "md",
+        "lg",
+        "full"
+      ],
+      "default": "md"
+    },
+    "align": {
+      "type": "enumeration",
+      "enum": [
+        "center",
+        "start"
+      ],
+      "default": "center"
+    },
+    "caseStyle": {
+      "type": "enumeration",
+      "enum": [
+        "normal",
+        "capitalize",
+        "uppercase",
+        "lowercase"
+      ],
+      "default": "normal"
+    },
+    "flexdir": {
+      "type": "enumeration",
+      "enum": [
+        "col",
+        "row"
+      ],
+      "default": "col",
+      "required": true
+    },
+    "className": {
+      "type": "text"
+    }
+  }
+}

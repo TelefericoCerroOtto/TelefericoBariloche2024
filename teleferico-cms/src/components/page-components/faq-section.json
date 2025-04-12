@@ -1,0 +1,15 @@
+{
+  "collectionName": "components_page_components_faq_sections",
+  "info": {
+    "displayName": "FaqSection",
+    "icon": "bulletList"
+  },
+  "options": {},
+  "attributes": {
+    "favs": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    }
+  }
+}
