@@ -29,7 +29,6 @@ export const getNews = async ({
 
   const res = await fetchWrapper<GetNewsResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.NEWS, stringifyQuery(query)),
-    { cache: "no-store" },
   );
 
   return res;

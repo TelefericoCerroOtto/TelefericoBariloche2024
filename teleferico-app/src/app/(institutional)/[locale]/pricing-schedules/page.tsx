@@ -1,4 +1,4 @@
-import { StrapiComponentRenderer } from "@/components";
+import { NoContent, StrapiComponentRenderer } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
@@ -21,6 +21,8 @@ export default async function PricingSchedulesPage({
     throw new Error(
       "Internal server error while trying to get content for pricing schedules page",
     );
+
+  if (data.data.length === 0) return <NoContent />;
 
   const { blocks } = data.data[0];
 
