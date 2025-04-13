@@ -1,4 +1,4 @@
-import { BlocksRenderer } from "@/components";
+import { BlocksRenderer, NoContent } from "@/components";
 import { getPageContent } from "@/lib/services/pages";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
@@ -20,8 +20,8 @@ export default async function JobsPage({
     throw new Error(
       "Internal server error while trying to get content for jobs page",
     );
-  if (res.data.data.length === 0)
-    throw new Error("No content was found for jobs Page");
+
+  if (res.data.data.length === 0) return <NoContent />;
 
   const blocks = res.data.data[0].blocks;
 

@@ -2,6 +2,7 @@ import { BlockRendererClient, TitleDescBlock } from "@/components";
 import { getNew } from "@/lib/services";
 import type { Locales } from "@/types";
 import Image from "next/image";
+import { notFound } from "next/navigation";
 
 export default async function NewDetailPage({
   params,
@@ -11,10 +12,7 @@ export default async function NewDetailPage({
   const { id: documentId, locale } = await params;
   const { ok, data } = await getNew({ locale, documentId });
 
-  if (!ok)
-    throw new Error(
-      "Ocurrio un error y no se pudo recuperar la informacion de la noticia",
-    );
+  if (!ok) notFound();
 
   const { body, title, brief, cover } = data.data;
 

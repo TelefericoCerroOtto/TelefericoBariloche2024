@@ -1,4 +1,4 @@
-import { BlocksRenderer } from "@/components";
+import { BlocksRenderer, NoContent } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
@@ -20,6 +20,8 @@ export default async function PoliciesPage({
     throw new Error(
       "Ocurrio un error y no se pudo recuperar la informacion sobre el relgamento",
     );
+
+  if (data.data.length === 0) return <NoContent />;
 
   const { blocks } = data.data[0];
 
