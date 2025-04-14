@@ -93,7 +93,7 @@ export type GetFaqResponse = {
 };
 
 export interface GetFaqsResponse {
-  data: GetFaqResponse[];
+  data: Faq[];
   meta: Meta;
 }
 
@@ -120,8 +120,8 @@ export interface GetBusTripsResponse {
 }
 
 export interface GetSectorsResponse {
-  data: Sector[]
-  meta: Meta
+  data: Sector[];
+  meta: Meta;
 }
 
 export interface GetZonesResponse {
@@ -254,91 +254,92 @@ export interface GetServiceButtonResponse {
   data: [
     ComponentTranslate<{
       jsonValue: {
-        error: BlocksContent,
+        error: BlocksContent;
         button: {
-          trigger: string,
-          close: string
-        },
+          trigger: string;
+          close: string;
+        };
         modal: {
           states: {
-            order: number,
-            state: string
-            stateLegend: string
-            title: string
-            stateDesc: string
-          }[],
-          disclaimer: BlocksContent
-        }
-      },
-      rtValue: null
-    }>
-  ],
-  meta: Meta
+            order: number;
+            state: string;
+            stateLegend: string;
+            title: string;
+            stateDesc: string;
+          }[];
+          disclaimer: BlocksContent;
+        };
+      };
+      rtValue: null;
+    }>,
+  ];
+  meta: Meta;
 }
 
 export interface GetFormsTranslationResponse {
   data: [
     ComponentTranslate<{
-    jsonValue: {
-      fields: {
-        firstName: {
-          label: string
-          placeholder: string
-        }
-        lastName: {
-          label: string
-          placeholder: string
-        }
-        genre: {
-          label: string
-          placeholder: string
-          items: {
-            male: string
-            female: string
-            other: string
-          }
-        }
-        sector: {
-          label: string
-          placeholder: string
-          items: {
-            tech: string
-            marketing: string
-            finances: string
-            engineer: string
-            tourism: string
-          }
-        }
-        email: {
-          label: string
-          placeholder: string
-        }
-        name: {
-          label: string
-          placeholder: string
-        }
-        age: {
-          label: string
-          placeholder: string
-        }
-        consultation: {
-          label: string
-          placeholder: string
-        }
-        campNo: {
-          label: string
-          placeholder: string
-        }
-        cv: {
-          label: string
-          placeholder: string
-        }
-      }
-      buttons: {
-        send: string
-      }
-    },
-    rtValue: null
-  }>],
-  meta: Meta
+      jsonValue: {
+        fields: {
+          firstName: {
+            label: string;
+            placeholder: string;
+          };
+          lastName: {
+            label: string;
+            placeholder: string;
+          };
+          genre: {
+            label: string;
+            placeholder: string;
+            items: {
+              male: string;
+              female: string;
+              other: string;
+            };
+          };
+          sector: {
+            label: string;
+            placeholder: string;
+            items: {
+              tech: string;
+              marketing: string;
+              finances: string;
+              engineer: string;
+              tourism: string;
+            };
+          };
+          email: {
+            label: string;
+            placeholder: string;
+          };
+          name: {
+            label: string;
+            placeholder: string;
+          };
+          age: {
+            label: string;
+            placeholder: string;
+          };
+          consultation: {
+            label: string;
+            placeholder: string;
+          };
+          campNo: {
+            label: string;
+            placeholder: string;
+          };
+          cv: {
+            label: string;
+            placeholder: string;
+          };
+        };
+        buttons: {
+          send: string;
+        };
+      };
+      rtValue: null;
+    }>,
+  ];
+  meta: Meta;
 }
