@@ -12,6 +12,10 @@ export const ROUTES = {
   PRICINGSCHEDULES: "/pricing-schedules",
 };
 
+export const ROUTE_HANDLERS = {
+  SERVICE_STATE: "/api/service-state",
+};
+
 export const ADMIN_ROUTES = {
   ADMIN_GALLERY: "/dashboard/admin-gallery",
   ADMIN_USERS: "/dashboard/admin-users",
