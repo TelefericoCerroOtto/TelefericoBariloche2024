@@ -4,8 +4,8 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: process.env.STRAPI_BUCKET_HOSTNAME,
-        pathname: process.env.STRAPI_BUCKET_PATHNAME,
+        hostname: process.env.BUILD_STRAPI_BUCKET_HOSTNAME,
+        pathname: process.env.BUILD_STRAPI_BUCKET_PATHNAME,
       },
     ],
   },
@@ -15,7 +15,7 @@ const nextConfig = {
     return [
       {
         source: "/uploads/:path*",
-        destination: `${process.env.STRAPI_BASE_URL}/uploads/:path*`,
+        destination: `${process.env.BUILD_STRAPI_BASE_URL}/uploads/:path*`,
       },
     ];
   },
