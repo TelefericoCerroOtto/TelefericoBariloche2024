@@ -1,13 +1,14 @@
 import { BlockRendererClient } from "@/components";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { type ReactNode } from "react";
+import { caseStyles } from "@/utils/styles";
 
 interface Props {
   title: string;
   align?: "center" | "start";
   flexdir?: "col" | "row";
   size?: "sm" | "md" | "lg" | "full";
-  caseStyle?: "capitalize" | "uppercase" | "lowercase" | "normal";
+  titleCase?: "capitalize" | "uppercase" | "lowercase" | "normal";
   epigraph?: string | null;
   desc?: ReactNode | BlocksContent;
   children?: ReactNode;
@@ -35,13 +36,13 @@ export function HighlightLastWord(text: string) {
 export default function TitleDescBlock(props: Props) {
   const {
     title,
+    titleCase = "normal",
     desc,
     epigraph,
     children,
     align = "center",
     flexdir = "col",
     size = "md",
-    caseStyle = "normal",
     className,
   } = props;
 
@@ -62,20 +63,13 @@ export default function TitleDescBlock(props: Props) {
     full: "w-full",
   };
 
-  const titleStyle = {
-    capitalize: "capitalize",
-    uppercase: "uppercase",
-    lowercase: "lowercase",
-    normal: "normal-case",
-  };
-
   return (
     <div
       className={`flex gap-8 ${flexdirVariants[flexdir]} ${sizeVariants[size]} ${alignVariants[align]} ${className}`}
     >
       {epigraph ? <p className="text-small text-primary">{epigraph}</p> : null}
       <h3
-        className={`${titleStyle[caseStyle]} text-3xl font-bold text-inherit md:text-4xl`}
+        className={`${caseStyles[titleCase]} text-3xl font-bold text-inherit md:text-4xl`}
       >
         {title}
       </h3>

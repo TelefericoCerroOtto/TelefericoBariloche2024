@@ -55,7 +55,7 @@ export interface TitleDescBlock {
   id: number;
   align?: "center" | "start";
   size?: "sm" | "md" | "lg" | "full";
-  caseStyle?: "capitalize" | "uppercase" | "lowercase" | "normal";
+  titleCase?: "normal" | "capitalize" | "uppercase" | "lowercase";
   epigraph?: string;
   desc?: BlocksContent;
   className: string;
@@ -65,6 +65,7 @@ export interface ImageTextBlock {
   __component: "page-components.image-text-block";
   id: number;
   title: string;
+  titleCase: "normal" | "capitalize" | "uppercase" | "lowercase";
   description: BlocksContent;
   epigraph: string | null;
   variant:
