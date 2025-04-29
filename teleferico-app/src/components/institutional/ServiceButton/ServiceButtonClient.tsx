@@ -37,7 +37,8 @@ export default function ServiceButtonClient(props: Props) {
     [],
   );
 
-  if (isError)
+  if (isError) {
+    console.log("get service state error", isError);
     return (
       <div className="sticky bottom-10 z-50 mt-10 flex w-full justify-end px-10">
         <div className="rounded-md bg-red-100 p-2">
@@ -49,6 +50,7 @@ export default function ServiceButtonClient(props: Props) {
         </div>
       </div>
     );
+  }
 
   return (
     <div className="sticky bottom-10 z-50 mt-10 flex w-full justify-end px-10">
