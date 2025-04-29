@@ -1,19 +1,16 @@
 import type { GetServiceStateResponse } from "@/types";
-import { fetcher } from "@/utils/fetcher";
-import { getStrapiURL } from "@/utils/get-strapi-url";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
-import useSWR from "swr";
+import { useProxy } from "./use-proxy";
 
 export function useServiceState() {
-  const { data, error, isLoading } = useSWR<GetServiceStateResponse>(
-    getStrapiURL(`${STRAPI_ENDPOINTS.SERVICE_STATE}`),
-    fetcher,
-    { errorRetryCount: 2, errorRetryInterval: 5000 },
+  const { data, isError, isLoading } = useProxy<GetServiceStateResponse>(
+    STRAPI_ENDPOINTS.SERVICE_STATE,
+    {},
   );
 
   return {
     serviceState: data,
     isLoading,
-    isError: error,
+    isError,
   };
 }

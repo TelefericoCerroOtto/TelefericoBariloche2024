@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable } from "@/components";
-import { useLocale, useTableItems } from "@/hooks";
+import { useLocale, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
 import type { GetZonesResponse, Locales, Zone } from "@/types";
 import { formatStrapiTime } from "@/utils/format-strapi-time";
@@ -90,10 +90,11 @@ export default function ZonesTable() {
     },
   };
 
-  const { items, isLoading, isError } = useTableItems<GetZonesResponse>(
-    STRAPI_ENDPOINTS.ZONES,
-    query,
-  );
+  const {
+    data: items,
+    isLoading,
+    isError,
+  } = useProxy<GetZonesResponse>(STRAPI_ENDPOINTS.ZONES, query);
 
   // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
   if (isError) return <div>Hubo un error al cargar los datos de la tabla</div>;

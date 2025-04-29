@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable } from "@/components";
-import { useLocale, useTableItems } from "@/hooks";
+import { useLocale, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
 import type { BusTrip, GetBusTripsResponse, Locales, Station } from "@/types";
 import { formatStrapiTime } from "@/utils/format-strapi-time";
@@ -128,10 +128,11 @@ export default function BusTable() {
     },
   };
 
-  const { items, isLoading, isError } = useTableItems<GetBusTripsResponse>(
-    STRAPI_ENDPOINTS.BUSTRIPS,
-    query,
-  );
+  const {
+    data: items,
+    isLoading,
+    isError,
+  } = useProxy<GetBusTripsResponse>(STRAPI_ENDPOINTS.BUSTRIPS, query);
 
   // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
   if (isError) return <div>Hubo un error al cargar los datos de la tabla</div>;

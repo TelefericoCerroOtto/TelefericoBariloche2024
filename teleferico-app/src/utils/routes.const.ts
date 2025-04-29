@@ -13,7 +13,7 @@ export const ROUTES = {
 };
 
 export const ROUTE_HANDLERS = {
-  SERVICE_STATE: "/api/service-state",
+  PROXY: "/api/proxy",
 };
 
 export const ADMIN_ROUTES = {
