@@ -4,12 +4,14 @@ import {
   HighlightLastWord,
 } from "@/components";
 import type { ImageTextBlock } from "@/types";
+import { caseStyles } from "@/utils/styles";
 import CustomImage from "./CustomImage";
 
 export function Horizontal(props: ImageTextBlock) {
   const {
     images,
     title,
+    titleCase = "normal",
     description,
     isInverted = false,
     isHighlighted = false,
@@ -34,7 +36,9 @@ export function Horizontal(props: ImageTextBlock) {
         </div>
       </div>
       <div className="flex w-full flex-col items-center gap-4 md:w-3/5">
-        <h4 className="mb-4 text-center text-3xl font-bold capitalize text-inherit md:text-4xl">
+        <h4
+          className={`mb-4 text-center text-3xl font-bold ${caseStyles[titleCase]} text-inherit md:text-4xl`}
+        >
           {isHighlighted ? HighlightLastWord(title) : title}
         </h4>
         {description ? (
@@ -54,6 +58,7 @@ export function Ladder(props: ImageTextBlock) {
   const {
     images,
     title,
+    titleCase = "normal",
     description,
     isInverted = false,
     isHighlighted = false,
@@ -81,7 +86,9 @@ export function Ladder(props: ImageTextBlock) {
         className={`flex w-full flex-col items-center px-0 md:items-start lg:w-1/2 lg:px-12 ${isInverted ? "lg:items-center" : "lg:items-start lg:px-12"}`}
       >
         <div className="flex flex-col items-start gap-4 py-20">
-          <h4 className="mb-4 text-center text-3xl font-bold capitalize text-inherit md:text-start md:text-4xl">
+          <h4
+            className={`mb-4 text-center text-3xl font-bold ${caseStyles[titleCase]} text-inherit md:text-start md:text-4xl`}
+          >
             {isHighlighted ? HighlightLastWord(title) : title}
           </h4>
           {description ? (
@@ -102,6 +109,7 @@ export function Miniatures(props: ImageTextBlock) {
   const {
     images,
     title,
+    titleCase = "normal",
     description,
     isInverted = false,
     isHighlighted = false,
@@ -129,7 +137,9 @@ export function Miniatures(props: ImageTextBlock) {
         className={`flex w-full flex-col items-center px-0 md:items-start lg:w-1/2 lg:px-12 ${isInverted ? "lg:items-center" : "lg:items-start lg:px-12"}`}
       >
         <div className="flex flex-col items-start gap-4 py-20">
-          <h4 className="mb-4 text-center text-3xl font-bold capitalize text-inherit md:text-start md:text-4xl">
+          <h4
+            className={`mb-4 text-center text-3xl font-bold ${caseStyles[titleCase]} text-inherit md:text-start md:text-4xl`}
+          >
             {isHighlighted ? HighlightLastWord(title) : title}
           </h4>
           {description ? (

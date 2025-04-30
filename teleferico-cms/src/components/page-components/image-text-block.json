@@ -50,6 +50,17 @@
     },
     "epigraph": {
       "type": "text"
+    },
+    "titleCase": {
+      "type": "enumeration",
+      "enum": [
+        "normal",
+        "uppercase",
+        "lowercase",
+        "capitalize"
+      ],
+      "required": true,
+      "default": "normal"
     }
   }
 }

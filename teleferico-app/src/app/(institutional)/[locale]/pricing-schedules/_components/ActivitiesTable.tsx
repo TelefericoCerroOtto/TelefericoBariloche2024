@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable } from "@/components";
-import { useLocale, useTableItems } from "@/hooks";
+import { useLocale, useProxy } from "@/hooks";
 import type { Activity, GetActivitiesResponse, Locales } from "@/types";
 import { ROUTES, STRAPI_ENDPOINTS } from "@/utils/routes.const";
 import { type ReactNode, useCallback } from "react";
@@ -207,10 +207,11 @@ export default function ActivitiesTable() {
     },
   };
 
-  const { items, isLoading, isError } = useTableItems<GetActivitiesResponse>(
-    STRAPI_ENDPOINTS.ACTIVITIES,
-    query,
-  );
+  const {
+    data: items,
+    isLoading,
+    isError,
+  } = useProxy<GetActivitiesResponse>(STRAPI_ENDPOINTS.ACTIVITIES, query);
 
   // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
   if (isError) return <div>Hubo un error al cargar los datos de la tabla</div>;

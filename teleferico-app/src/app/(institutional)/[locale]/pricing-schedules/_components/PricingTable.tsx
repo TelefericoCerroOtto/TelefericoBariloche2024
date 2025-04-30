@@ -1,7 +1,7 @@
 "use client";
 
 import { DataTable } from "@/components";
-import { useLocale, useTableItems } from "@/hooks";
+import { useLocale, useProxy } from "@/hooks";
 import type { GetTicketsResponse, LiftingMean, Locales, Ticket } from "@/types";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 import { useCallback, type ReactNode } from "react";
@@ -81,10 +81,11 @@ export default function PricingTable() {
   );
 
   const query = { locale: language, populate: "lifting_mean" };
-  const { items, isError, isLoading } = useTableItems<GetTicketsResponse>(
-    STRAPI_ENDPOINTS.TICKETS,
-    query,
-  );
+  const {
+    data: items,
+    isError,
+    isLoading,
+  } = useProxy<GetTicketsResponse>(STRAPI_ENDPOINTS.TICKETS, query);
 
   // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
   if (isError) return <div>Hubo un error al cargar los datos de la tabla</div>;

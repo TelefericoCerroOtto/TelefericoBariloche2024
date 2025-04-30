@@ -4,6 +4,7 @@ import {
   HighlightLastWord,
 } from "@/components";
 import type { ImageTextBlock } from "@/types";
+import { caseStyles } from "@/utils/styles";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "./CustomImage";
 
@@ -11,6 +12,7 @@ export function TwoImageTextBlock(props: ImageTextBlock) {
   const {
     images,
     title,
+    titleCase = "normal",
     description,
     isInverted = false,
     isHighlighted = false,
@@ -33,7 +35,9 @@ export function TwoImageTextBlock(props: ImageTextBlock) {
         className={`flex w-full flex-col items-center px-0 md:items-start lg:w-1/2 lg:px-12 ${isInverted ? "lg:items-center" : "lg:items-start lg:px-12"}`}
       >
         <div className="flex flex-col items-start gap-4 py-20">
-          <h4 className="mb-4 text-center text-3xl font-bold capitalize text-inherit md:text-start md:text-4xl">
+          <h4
+            className={`mb-4 text-center text-3xl font-bold ${caseStyles[titleCase]} text-inherit md:text-start md:text-4xl`}
+          >
             {isHighlighted ? HighlightLastWord(title) : title}
           </h4>
           <div className="text-center md:text-start">

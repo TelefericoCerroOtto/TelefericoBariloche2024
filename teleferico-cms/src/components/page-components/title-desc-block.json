@@ -36,7 +36,7 @@
       ],
       "default": "center"
     },
-    "caseStyle": {
+    "titleCase": {
       "type": "enumeration",
       "enum": [
         "normal",
@@ -44,7 +44,8 @@
         "uppercase",
         "lowercase"
       ],
-      "default": "normal"
+      "default": "normal",
+      "required": true
     },
     "flexdir": {
       "type": "enumeration",

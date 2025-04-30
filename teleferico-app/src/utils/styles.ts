@@ -22,3 +22,10 @@ export const tableStyles = {
 export const titleStyles = {
   className: "text-3xl font-bold capitalize text-inherit md:text-5xl",
 };
+
+export const caseStyles = {
+  normal: "normal-case",
+  uppercase: "uppercase",
+  lowercase: "lowercase",
+  capitalize: "capitalize",
+};
