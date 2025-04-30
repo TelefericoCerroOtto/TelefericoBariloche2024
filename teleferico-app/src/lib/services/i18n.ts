@@ -20,7 +20,7 @@ export type TranslateComponentsResponseTypes = {
   footer: GetFooterResponse;
   hoursoverview: GetHoursoverviewResponse;
   servicebutton: GetServiceButtonResponse;
-  forms: GetFormsTranslationResponse
+  forms: GetFormsTranslationResponse;
 };
 
 export const getComponentTranslation = async <T extends TranslateComponentKeys>(
@@ -36,7 +36,7 @@ export const getComponentTranslation = async <T extends TranslateComponentKeys>(
     footer: "FOOTER",
     hoursoverview: "HOURS_OVERVIEW",
     servicebutton: "SERVICE_BUTTON",
-    forms: "FORMS"
+    forms: "FORMS",
   };
 
   const query = {

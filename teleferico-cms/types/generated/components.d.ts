@@ -1,31 +1,5 @@
 import type { Struct, Schema } from '@strapi/strapi';
 
-export interface PagePropertiesSeo extends Struct.ComponentSchema {
-  collectionName: 'components_page_properties_seos';
-  info: {
-    displayName: 'SEO';
-    icon: 'search';
-    description: '';
-  };
-  attributes: {
-    MetaTitle: Schema.Attribute.String;
-    MetaDescription: Schema.Attribute.Text;
-    MetaTag: Schema.Attribute.Component<'page-properties.metat-tag', true>;
-  };
-}
-
-export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
-  collectionName: 'components_page_properties_metat_tags';
-  info: {
-    displayName: 'MetatTag';
-    icon: 'priceTag';
-  };
-  attributes: {
-    name: Schema.Attribute.String;
-    content: Schema.Attribute.Text;
-  };
-}
-
 export interface UtilsComponentsTitle extends Struct.ComponentSchema {
   collectionName: 'components_utils_components_titles';
   info: {
@@ -94,6 +68,32 @@ export interface UtilsComponentsHoursOverviewItem
   };
 }
 
+export interface PagePropertiesSeo extends Struct.ComponentSchema {
+  collectionName: 'components_page_properties_seos';
+  info: {
+    displayName: 'SEO';
+    icon: 'search';
+    description: '';
+  };
+  attributes: {
+    MetaTitle: Schema.Attribute.String;
+    MetaDescription: Schema.Attribute.Text;
+    MetaTag: Schema.Attribute.Component<'page-properties.metat-tag', true>;
+  };
+}
+
+export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
+  collectionName: 'components_page_properties_metat_tags';
+  info: {
+    displayName: 'MetatTag';
+    icon: 'priceTag';
+  };
+  attributes: {
+    name: Schema.Attribute.String;
+    content: Schema.Attribute.Text;
+  };
+}
+
 export interface PageComponentsTitleDescBlock extends Struct.ComponentSchema {
   collectionName: 'components_page_components_title_desc_blocks';
   info: {
@@ -109,9 +109,10 @@ export interface PageComponentsTitleDescBlock extends Struct.ComponentSchema {
       Schema.Attribute.DefaultTo<'md'>;
     align: Schema.Attribute.Enumeration<['center', 'start']> &
       Schema.Attribute.DefaultTo<'center'>;
-    caseStyle: Schema.Attribute.Enumeration<
+    titleCase: Schema.Attribute.Enumeration<
       ['normal', 'capitalize', 'uppercase', 'lowercase']
     > &
+      Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'normal'>;
     flexdir: Schema.Attribute.Enumeration<['col', 'row']> &
       Schema.Attribute.Required &
@@ -165,6 +166,11 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
       Schema.Attribute.Required;
     description: Schema.Attribute.Blocks & Schema.Attribute.Required;
     epigraph: Schema.Attribute.Text;
+    titleCase: Schema.Attribute.Enumeration<
+      ['normal', 'uppercase', 'lowercase', 'capitalize']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'normal'>;
   };
 }
 
@@ -215,13 +221,13 @@ export interface PageComponentsFaqSection extends Struct.ComponentSchema {
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
-      'page-properties.seo': PagePropertiesSeo;
-      'page-properties.metat-tag': PagePropertiesMetatTag;
       'utils-components.title': UtilsComponentsTitle;
       'utils-components.service-states': UtilsComponentsServiceStates;
       'utils-components.link': UtilsComponentsLink;
       'utils-components.image': UtilsComponentsImage;
       'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
+      'page-properties.seo': PagePropertiesSeo;
+      'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-components.title-desc-block': PageComponentsTitleDescBlock;
       'page-components.service-state-modal': PageComponentsServiceStateModal;
       'page-components.image-text-block': PageComponentsImageTextBlock;
