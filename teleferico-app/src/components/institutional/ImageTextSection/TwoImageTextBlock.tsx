@@ -4,7 +4,7 @@ import {
   HighlightLastWord,
 } from "@/components";
 import type { ImageTextBlock } from "@/types";
-import { caseStyles } from "@/utils/styles";
+import { bgStyles, caseStyles } from "@/utils/styles";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "./CustomImage";
 
@@ -17,11 +17,12 @@ export function TwoImageTextBlock(props: ImageTextBlock) {
     isInverted = false,
     isHighlighted = false,
     link,
+    bgColor,
   } = props;
 
   return (
     <div
-      className={`flex flex-col px-8 md:px-14 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} my-9 w-full max-w-[1536px] items-center justify-center`}
+      className={`flex flex-col px-8 md:px-14 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center`}
     >
       <div className="relative h-[300px] w-full overflow-x-scroll sm:h-[600px] lg:h-[700px] lg:w-1/2">
         <div className="absolute right-0 top-0 z-10 aspect-square w-3/5 min-w-[160px] max-w-[270px] sm:max-w-[500px] lg:max-w-full">

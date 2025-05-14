@@ -19,8 +19,9 @@ export const tableStyles = {
   },
 };
 
-export const titleStyles = {
-  className: "text-3xl font-bold capitalize text-inherit md:text-5xl",
+export const bgStyles = {
+  none: "",
+  gray: "bg-gray-200",
 };
 
 export const caseStyles = {

@@ -7,7 +7,7 @@ import {
 import type { ImageTextBlock } from "@/types";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "./CustomImage";
-import { caseStyles } from "@/utils/styles";
+import { bgStyles, caseStyles } from "@/utils/styles";
 
 export function Default(props: ImageTextBlock) {
   const {
@@ -18,11 +18,12 @@ export function Default(props: ImageTextBlock) {
     isInverted = false,
     isHighlighted = false,
     link,
+    bgColor,
   } = props;
 
   return (
     <div
-      className={`flex flex-col px-8 md:px-14 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} my-9 w-full max-w-[1536px] items-center justify-center`}
+      className={`flex flex-col px-8 md:px-14 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center`}
     >
       <div className="relative h-[320px] w-full md:h-[500px] lg:h-[700px] lg:w-1/2">
         <CustomImage image={images[0]} />
@@ -53,11 +54,12 @@ export function DefaultFW(props: ImageTextBlock) {
     isInverted = false,
     isHighlighted = false,
     link,
+    bgColor,
   } = props;
 
   return (
     <div
-      className={`flex flex-col ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} w-full items-center justify-center`}
+      className={`flex flex-col ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} ${bgStyles[bgColor]} w-full items-center justify-center`}
     >
       <div className="relative h-[500px] w-full lg:h-[700px] lg:w-1/2">
         <CustomImage image={images[0]} />
@@ -90,11 +92,12 @@ export function Panoramic(props: ImageTextBlock) {
     isInverted = false,
     isHighlighted = false,
     link,
+    bgColor,
   } = props;
 
   return (
     <div
-      className={`flex ${isInverted ? "flex-col" : "flex-col-reverse"} my-9 w-full max-w-[1536px] items-center justify-center gap-10 px-8 md:px-14`}
+      className={`flex ${isInverted ? "flex-col" : "flex-col-reverse"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center gap-10 px-8 md:px-14`}
     >
       <div className="relative h-[320px] w-full md:h-[500px]">
         <CustomImage image={images[0]} />
@@ -123,11 +126,12 @@ export function PanoramicFW(props: ImageTextBlock) {
     link,
     isInverted,
     epigraph,
+    bgColor,
   } = props;
 
   return (
     <section
-      className={`mb-14 flex w-full ${isInverted ? "flex-col-reverse" : "flex-col"}`}
+      className={`mb-14 flex w-full ${isInverted ? "flex-col-reverse" : "flex-col"} ${bgStyles[bgColor]}`}
     >
       <div className="my-14 flex w-full flex-col items-stretch px-10 lg:flex-row lg:px-32">
         <TitleDescBlock

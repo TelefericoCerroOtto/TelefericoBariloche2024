@@ -28,9 +28,9 @@ export default async function JobsPage({
   return (
     <>
       <Spacer y={28} />
-      <div className="flex w-full flex-col px-10 lg:px-28">
+      <div className="flex w-full flex-col gap-12 px-10 lg:px-28">
         <BlocksRenderer blocks={blocks[0]} locale={locale} />
-        <div className="flex flex-col gap-8 lg:flex-row">
+        <div className="flex flex-col-reverse gap-8 lg:flex-row">
           <Form sectors={data.data} />
           <BlocksRenderer blocks={blocks[1]} locale={locale} />
         </div>

@@ -1,7 +1,7 @@
 import { BlockRendererClient } from "@/components";
+import { bgStyles, caseStyles } from "@/utils/styles";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { type ReactNode } from "react";
-import { caseStyles } from "@/utils/styles";
 
 interface Props {
   title: string;
@@ -9,10 +9,10 @@ interface Props {
   flexdir?: "col" | "row";
   size?: "sm" | "md" | "lg" | "full";
   titleCase?: "capitalize" | "uppercase" | "lowercase" | "normal";
+  bgColor?: "none" | "gray";
   epigraph?: string | null;
   desc?: ReactNode | BlocksContent;
   children?: ReactNode;
-  className?: string;
 }
 
 export function HighlightLastWord(text: string) {
@@ -43,7 +43,7 @@ export default function TitleDescBlock(props: Props) {
     align = "center",
     flexdir = "col",
     size = "md",
-    className,
+    bgColor = "none",
   } = props;
 
   const alignVariants = {
@@ -53,19 +53,19 @@ export default function TitleDescBlock(props: Props) {
 
   const flexdirVariants = {
     col: "flex-col",
-    row: "flex-row",
+    row: "flex-col md:flex-row",
   };
 
   const sizeVariants = {
     sm: "max-w-[600px]",
     md: "max-w-[800px]",
-    lg: "max-w-[900px]",
-    full: "w-full",
+    lg: "max-w-[900px] px-6 py-4",
+    full: "w-full px-6 py-4 sm:px-16 sm:py-8 lg:px-36 lg:py-16",
   };
 
   return (
     <div
-      className={`flex gap-8 ${flexdirVariants[flexdir]} ${sizeVariants[size]} ${alignVariants[align]} ${className}`}
+      className={`flex gap-4 ${flexdirVariants[flexdir]} ${sizeVariants[size]} ${alignVariants[align]} ${bgStyles[bgColor]}`}
     >
       {epigraph ? <p className="text-small text-primary">{epigraph}</p> : null}
       <h3
