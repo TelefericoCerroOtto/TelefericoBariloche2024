@@ -27,7 +27,8 @@
     "cover": {
       "type": "component",
       "repeatable": false,
-      "component": "utils-components.image"
+      "component": "utils-components.image",
+      "required": true
     },
     "align": {
       "type": "enumeration",
