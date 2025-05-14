@@ -21,7 +21,7 @@ export default async function JobsPage({
       "Internal server error while trying to get content for jobs page",
     );
 
-  if (res.data.data.length === 0) return <NoContent />;
+  if (res.data.data.length === 0) return <NoContent locale={locale} />;
 
   const blocks = res.data.data[0].blocks;
 
