@@ -28,7 +28,7 @@ export default function StrapiComponentRenderer(props: Props) {
       return (
         <Hero
           content={{
-            cover: { src: cover.image.url, alt: cover.alt },
+            cover: { src: cover?.image.url, alt: cover?.alt },
             ...(logo && { logo: { src: logo?.image.url, alt: logo?.alt } }),
             ...props,
           }}
