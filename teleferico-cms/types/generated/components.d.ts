@@ -125,6 +125,36 @@ export interface PageComponentsTitleDescBlock extends Struct.ComponentSchema {
   };
 }
 
+export interface PageComponentsSpacer extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_spacers';
+  info: {
+    displayName: 'Spacer';
+    icon: 'collapse';
+  };
+  attributes: {
+    xSpace: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+          max: 96;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    ySpace: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+          max: 96;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+  };
+}
+
 export interface PageComponentsServiceStateModal
   extends Struct.ComponentSchema {
   collectionName: 'components_page_components_service_state_modals';
@@ -237,6 +267,7 @@ declare module '@strapi/strapi' {
       'page-properties.seo': PagePropertiesSeo;
       'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-components.title-desc-block': PageComponentsTitleDescBlock;
+      'page-components.spacer': PageComponentsSpacer;
       'page-components.service-state-modal': PageComponentsServiceStateModal;
       'page-components.image-text-block': PageComponentsImageTextBlock;
       'page-components.hours-overview': PageComponentsHoursOverview;

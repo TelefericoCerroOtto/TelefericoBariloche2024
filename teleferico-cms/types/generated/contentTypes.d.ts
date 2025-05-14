@@ -889,6 +889,7 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
         'page-components.hours-overview',
         'page-components.title-desc-block',
         'page-components.faq-section',
+        'page-components.spacer',
       ]
     > &
       Schema.Attribute.SetPluginOptions<{
