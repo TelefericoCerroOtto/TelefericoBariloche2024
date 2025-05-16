@@ -18,13 +18,7 @@ export default async function NewDetailPage({
 
   return (
     <>
-      <TitleDescBlock
-        title={title}
-        desc={brief}
-        size="lg"
-        align="center"
-        className="mb-14 lg:px-8"
-      />
+      <TitleDescBlock title={title} desc={brief} size="lg" align="center" />
       <div className="relative mb-14 h-[550px] w-full">
         <Image
           src={cover.image.url}
