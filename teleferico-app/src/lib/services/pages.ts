@@ -25,6 +25,7 @@ export const getPageContent = async (locale: Locales, route: string) => {
             populate: ["images.image", "link"],
           },
           "page-components.faq-section": "*",
+          "page-components.spacer": "*",
         },
       },
     },

@@ -21,7 +21,7 @@ export default async function PoliciesPage({
       "Ocurrio un error y no se pudo recuperar la informacion sobre el relgamento",
     );
 
-  if (data.data.length === 0) return <NoContent />;
+  if (data.data.length === 0) return <NoContent locale={locale} />;
 
   const { blocks } = data.data[0];
 
