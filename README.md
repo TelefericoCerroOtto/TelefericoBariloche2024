@@ -1,4 +1,4 @@
-# Telferico Bariloche 2024
+# Teleférico Bariloche 2024
 
 Este repositorio alberga la nueva versión del sitio web de Teleférico Cerro Otto, diseñado para ofrecer una experiencia mejorada y moderna. Desarrollado con [Next.js](https://nextjs.org/) y [Strapi](https://strapi.io/), el proyecto está desplegado en Google [Cloud Platform](https://cloud.google.com/?hl=en), garantizando rendimiento y escalabilidad. Esta nueva implementación sustituirá la versión anterior una vez que esté completamente finalizada.
 
@@ -405,6 +405,69 @@ Dentro de la opcion **args** se puede observar la llamada al comando `sed -i` pa
 Para el despliegue del sitio se utiliza Cloud Run. Se crea un nuevo serivicio desde la interfaz de la consola de gcp. Se puede seleccionar la opcion de despliegue continuo desde el repositorio. Al seleccionar esta opcion se creara automaticamente un trigger global en Cloud Build que constriuira la imagen de Docker y la desplegara en Cloud Run. Todos los builds ejecutados subiran una copia de la imagen a Artifact Registry, esto sirve para el mantener un versionamiento de todos los builds. Para la construccion de la imagen se puede utilizar un Dockerfile personalizado o buildpacks. Se utilizaran buildpacks los cuales detectan automaticamente el lenguaje del proyecto y generan una imagen optimizada.
 
 Completada la configuracion de Cloud Run se modifica el trigger creado. Se cambia el nombre, la region, la fuente y los archivos incluidos y omitidos.
+
+### Variables de entorno y `cloudbuild.yaml`
+
+Dado que se utiliza la construcción predeterminada de Cloud Build para obtener el código desde el repositorio, el archivo cloudbuild.yaml también se incluye por defecto. A continuación, se detallan los pasos definidos en dicho archivo.
+
+**1- Build de la imagen con Buildpacks**
+
+```yaml
+- name: gcr.io/k8s-skaffold/pack
+    args:
+      - build
+      - >-
+        $_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+      - '--builder=gcr.io/buildpacks/builder:v1'
+      - '--network=cloudbuild'
+      - '--path=teleferico-app'
+      - '--env=BUILD_STRAPI_BASE_URL=$_BUILD_STRAPI_BASE_URL'
+      - '--env=BUILD_STRAPI_BUCKET_HOSTNAME=$_BUILD_STRAPI_BUCKET_HOSTNAME'
+      - '--env=BUILD_STRAPI_BUCKET_PATHNAME=$_BUILD_STRAPI_BUCKET_PATHNAME'
+    id: Buildpack
+    entrypoint: pack
+```
+
+Usa Buildpacks para construir una imagen Docker sin Dockerfile. El código fuente está en el directorio teleferico-app. Crea una imagen con un tag que incluye el nombre del servicio y el commit SHA. Usa el buildpack oficial de Google (gcr.io/buildpacks/builder:v1).
+
+**2- Pushea la imagen al Artifact Registry**
+
+```yaml
+- name: gcr.io/cloud-builders/docker
+  args:
+    - push
+    - $_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
+  id: Push
+```
+
+Pushea la imagen construida al Artifact Registry de tu proyecto GCP.
+
+**3- Despliegue a Cloud Run**
+
+```yaml
+- name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+  entrypoint: gcloud
+  args:
+    - run
+    - services
+    - update
+    - $_SERVICE_NAME
+    - "--platform=managed"
+    - --image=...
+    - --labels=...
+    - "--region=$_DEPLOY_REGION"
+    - "--quiet"
+    - --set-env-vars=...
+  id: Deploy
+```
+
+Usa gcloud para actualizar el servicio de Cloud Run. Le pasa la imagen recién subida. Le agrega algunas etiquetas para trazabilidad (commit-sha, build-id, etc). Le asigna variables de entorno.
+
+**Variables de entorno**
+
+Como se puede observar, se definen variables de entorno en los pasos 1 y 3 del builder. Esto se debe a que las variables utilizadas en el archivo de configuración de Next.js `next.config.mjs` deben estar disponibles en tiempo de compilación (build-time), ya que dicho archivo se evalúa fuera del contexto de ejecución de Node.js. Por otro lado, las variables definidas en el paso 3 mediante `--set-env-vars` están destinadas al entorno de ejecución (runtime) de Cloud Run.
+
+Para saber que variables de entorno deben declararse en build time, se utilizará la convención de prefijo `BUILD_` para sus nombres dentro del archivo `.env.example`.
 
 # Flujo de Trabajo con Git 🔀
 
