@@ -32,9 +32,9 @@ const dictionaries = {
     pt: "Carregando...",
   },
   emptyContent: {
-    "es-AR": "Cargando...",
-    en: "Loading...",
-    pt: "Carregando...",
+    "es-AR": "No hay datos disponibles en esta tabla.",
+    en: "No data available in this table.",
+    pt: "Não há dados disponíveis nesta tabela.",
   },
 };
 

@@ -7,6 +7,7 @@ import {
   TitleDescBlock,
 } from "@/components";
 import type { Locales, RendereableBlocks } from "@/types";
+import { Spacer, SpacerProps } from "@nextui-org/react";
 
 interface Props {
   block: RendereableBlocks;
@@ -28,7 +29,7 @@ export default function StrapiComponentRenderer(props: Props) {
       return (
         <Hero
           content={{
-            cover: { src: cover.image.url, alt: cover.alt },
+            cover: { src: cover?.image.url, alt: cover?.alt },
             ...(logo && { logo: { src: logo?.image.url, alt: logo?.alt } }),
             ...props,
           }}
@@ -55,6 +56,13 @@ export default function StrapiComponentRenderer(props: Props) {
     case "page-components.faq-section": {
       const { favs } = block;
       return <FaqSection favs={favs} locale={locale} />;
+    }
+
+    case "page-components.spacer": {
+      const { xSpace, ySpace } = block;
+      return (
+        <Spacer x={xSpace as SpacerProps["x"]} y={ySpace as SpacerProps["y"]} />
+      );
     }
 
     default:

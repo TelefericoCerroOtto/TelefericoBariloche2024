@@ -1,8 +1,7 @@
 import { CustomLink } from "@/components";
-import { Link } from "@/types";
-import { titleStyles } from "@/utils/styles";
-import Image from "next/image";
 import notFoundImg from "@/public/image-not-found.jpg";
+import { Link } from "@/types";
+import Image from "next/image";
 
 interface Props {
   content: {
@@ -40,7 +39,11 @@ export default function Hero(props: Props) {
       <div
         className={`absolute z-10 flex h-full w-5/6 max-w-[1536px] gap-6 pb-16 text-white sm:w-3/4 ${align === "bottom" ? "justify-end" : "justify-center"} left-1/2 right-auto -translate-x-1/2 transform flex-col`}
       >
-        {title ? <h1 {...titleStyles}>{title}</h1> : null}
+        {title ? (
+          <h1 className="text-3xl font-bold capitalize text-inherit md:text-5xl">
+            {title}
+          </h1>
+        ) : null}
         {description ? <p className="text-inherit">{description}</p> : null}
         <div
           className={`flex gap-4 ${align === "center" ? "justify-center" : "justify-start"}`}

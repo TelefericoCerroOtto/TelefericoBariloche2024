@@ -26,7 +26,8 @@
         "lg",
         "full"
       ],
-      "default": "md"
+      "default": "md",
+      "required": true
     },
     "align": {
       "type": "enumeration",
@@ -34,7 +35,8 @@
         "center",
         "start"
       ],
-      "default": "center"
+      "default": "center",
+      "required": true
     },
     "titleCase": {
       "type": "enumeration",
@@ -56,8 +58,14 @@
       "default": "col",
       "required": true
     },
-    "className": {
-      "type": "text"
+    "bgColor": {
+      "type": "enumeration",
+      "enum": [
+        "none",
+        "gray"
+      ],
+      "default": "none",
+      "required": true
     }
   }
 }

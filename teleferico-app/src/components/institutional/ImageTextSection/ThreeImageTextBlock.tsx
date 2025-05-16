@@ -4,7 +4,7 @@ import {
   HighlightLastWord,
 } from "@/components";
 import type { ImageTextBlock } from "@/types";
-import { caseStyles } from "@/utils/styles";
+import { bgStyles, caseStyles } from "@/utils/styles";
 import CustomImage from "./CustomImage";
 
 export function Horizontal(props: ImageTextBlock) {
@@ -16,11 +16,12 @@ export function Horizontal(props: ImageTextBlock) {
     isInverted = false,
     isHighlighted = false,
     link,
+    bgColor,
   } = props;
 
   return (
     <div
-      className={`flex ${isInverted ? "flex-col" : "flex-col-reverse"} my-9 w-full max-w-[1536px] items-center justify-center gap-10 px-8 md:px-14`}
+      className={`flex ${isInverted ? "flex-col" : "flex-col-reverse"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center gap-10 px-8 md:px-14`}
     >
       <div className="h-[300px] w-full overflow-x-scroll md:h-[430px]">
         <div className="flex h-full w-full min-w-[355px] gap-4">
@@ -63,11 +64,12 @@ export function Ladder(props: ImageTextBlock) {
     isInverted = false,
     isHighlighted = false,
     link,
+    bgColor,
   } = props;
 
   return (
     <div
-      className={`flex flex-col px-8 md:px-14 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} my-9 w-full max-w-[1536px] items-center justify-center`}
+      className={`flex flex-col px-8 md:px-14 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center`}
     >
       <div className="h-[360px] w-full overflow-x-scroll sm:h-[700px] lg:w-1/2">
         <div className="relative h-full w-full min-w-[420px]">
@@ -114,11 +116,12 @@ export function Miniatures(props: ImageTextBlock) {
     isInverted = false,
     isHighlighted = false,
     link,
+    bgColor,
   } = props;
 
   return (
     <div
-      className={`flex flex-col px-8 md:px-14 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} my-9 w-full max-w-[1536px] items-center justify-center`}
+      className={`flex flex-col px-8 md:px-14 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center`}
     >
       <div className="h-[360px] w-full overflow-x-scroll sm:h-[750px] lg:w-1/2">
         <div className="relative h-full w-full min-w-[380px]">

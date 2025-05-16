@@ -1,0 +1,24 @@
+{
+  "collectionName": "components_page_components_spacers",
+  "info": {
+    "displayName": "Spacer",
+    "icon": "collapse"
+  },
+  "options": {},
+  "attributes": {
+    "xSpace": {
+      "type": "integer",
+      "required": true,
+      "max": 96,
+      "min": 0,
+      "default": 0
+    },
+    "ySpace": {
+      "type": "integer",
+      "required": true,
+      "max": 96,
+      "min": 0,
+      "default": 0
+    }
+  }
+}

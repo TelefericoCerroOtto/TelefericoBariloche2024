@@ -53,9 +53,10 @@ export interface TitleDescBlock {
   __component: "page-components.title-desc-block";
   title: string;
   id: number;
-  align?: "center" | "start";
-  size?: "sm" | "md" | "lg" | "full";
-  titleCase?: "normal" | "capitalize" | "uppercase" | "lowercase";
+  align: "center" | "start";
+  size: "sm" | "md" | "lg" | "full";
+  titleCase: "normal" | "capitalize" | "uppercase" | "lowercase";
+  bgColor: "none" | "gray";
   epigraph?: string;
   desc?: BlocksContent;
   className: string;
@@ -66,6 +67,7 @@ export interface ImageTextBlock {
   id: number;
   title: string;
   titleCase: "normal" | "capitalize" | "uppercase" | "lowercase";
+  bgColor: "none" | "gray";
   description: BlocksContent;
   epigraph: string | null;
   variant:
@@ -88,23 +90,18 @@ export interface FaqSection {
   favs: boolean;
 }
 
+export interface Spacer {
+  __component: "page-components.spacer";
+  id: number;
+  xSpace: number;
+  ySpace: number;
+}
+
 export type RendereableBlocks =
   | ServiceStateModal
   | Hero
   | HoursOverview
   | ImageTextBlock
   | TitleDescBlock
-  | FaqSection;
-
-// INTERNATIONALIZATION
-// export interface HoursOverview {}
-
-export interface Navbar {
-  __component: "global-intl-components.navbar";
-  id: number;
-  items: {
-    id: number;
-    href: string;
-    label: string;
-  }[];
-}
+  | FaqSection
+  | Spacer;

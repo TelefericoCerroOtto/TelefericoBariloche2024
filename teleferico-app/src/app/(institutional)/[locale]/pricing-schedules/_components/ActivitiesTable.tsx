@@ -214,7 +214,10 @@ export default function ActivitiesTable() {
   } = useProxy<GetActivitiesResponse>(STRAPI_ENDPOINTS.ACTIVITIES, query);
 
   // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
-  if (isError) return <div>Hubo un error al cargar los datos de la tabla</div>;
+  if (isError) {
+    console.log("activities table error", isError);
+    return <div>Hubo un error al cargar los datos de la tabla</div>;
+  }
 
   return (
     <DataTable

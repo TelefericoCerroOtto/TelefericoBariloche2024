@@ -61,6 +61,15 @@
       ],
       "required": true,
       "default": "normal"
+    },
+    "bgColor": {
+      "type": "enumeration",
+      "enum": [
+        "none",
+        "gray"
+      ],
+      "default": "none",
+      "required": true
     }
   }
 }

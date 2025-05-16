@@ -22,7 +22,7 @@ export default async function PricingSchedulesPage({
       "Internal server error while trying to get content for pricing schedules page",
     );
 
-  if (data.data.length === 0) return <NoContent />;
+  if (data.data.length === 0) return <NoContent locale={locale} />;
 
   const { blocks } = data.data[0];
 
