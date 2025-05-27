@@ -43,7 +43,7 @@ export default function DataTable<T extends { id: number | string }>(
 ) {
   const { title, desc, link, items, columns, renderCell, isLoading } = props;
 
-  const { language } = useLocale();
+  const { locale } = useLocale();
 
   return (
     <div className="flex flex-col gap-8">
@@ -96,10 +96,8 @@ export default function DataTable<T extends { id: number | string }>(
           <TableBody
             items={items}
             isLoading={isLoading}
-            loadingContent={
-              <Spinner label={dictionaries.loaderIntl[language]} />
-            }
-            emptyContent={dictionaries.emptyContent[language]}
+            loadingContent={<Spinner label={dictionaries.loaderIntl[locale]} />}
+            emptyContent={dictionaries.emptyContent[locale]}
           >
             {(entry) => (
               <TableRow key={entry.id}>

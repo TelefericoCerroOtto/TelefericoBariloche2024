@@ -6,10 +6,10 @@ import type { TranslateComponentKeys } from "@/types";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 
 export function useTranslation<T extends TranslateComponentKeys>(key: T) {
-  const { language } = useLocale();
+  const { locale } = useLocale();
 
   const query = {
-    locale: language,
+    locale,
     filters: {
       key,
     },

@@ -105,7 +105,7 @@ const dictionaries: Record<
 };
 
 export default function ActivitiesTable() {
-  const { language } = useLocale();
+  const { locale } = useLocale();
 
   const renderCell = useCallback(
     (activity: Activity, columnKey: ColumnKeys) => {
@@ -128,7 +128,7 @@ export default function ActivitiesTable() {
             return (
               <span>
                 {
-                  dictionaries[language].columns.find(
+                  dictionaries[locale].columns.find(
                     (column) => column.key === "price",
                   )?.zeroLabel
                 }
@@ -140,7 +140,7 @@ export default function ActivitiesTable() {
             return (
               <span>
                 {
-                  dictionaries[language].columns.find(
+                  dictionaries[locale].columns.find(
                     (column) => column.key === "minAge",
                   )?.zeroLabel
                 }
@@ -150,7 +150,7 @@ export default function ActivitiesTable() {
             <span>
               {cellValue as string}{" "}
               {
-                dictionaries[language].columns.find(
+                dictionaries[locale].columns.find(
                   (column) => column.key === "minAge",
                 )?.unit
               }
@@ -158,14 +158,14 @@ export default function ActivitiesTable() {
           );
         case "season":
           return (
-            <span>{dictionaries[language].seasons[cellValue as string]}</span>
+            <span>{dictionaries[locale].seasons[cellValue as string]}</span>
           );
         case "requirements":
           if (!cellValue)
             return (
               <span>
                 {
-                  dictionaries[language].columns.find(
+                  dictionaries[locale].columns.find(
                     (column) => column.key === "requirements",
                   )?.zeroLabel
                 }
@@ -177,7 +177,7 @@ export default function ActivitiesTable() {
           return <span>{cellValue as string}</span>;
       }
     },
-    [language],
+    [locale],
   );
 
   const query = {
@@ -186,7 +186,7 @@ export default function ActivitiesTable() {
       activity_descriptions: {
         filters: {
           locale: {
-            $eq: language,
+            $eq: locale,
           },
         },
         fields: ["name", "description", "requirements", "locale"],
@@ -196,7 +196,7 @@ export default function ActivitiesTable() {
           zone_descriptions: {
             filters: {
               locale: {
-                $eq: language,
+                $eq: locale,
               },
             },
             fields: ["name", "description", "locale"],
@@ -221,15 +221,15 @@ export default function ActivitiesTable() {
 
   return (
     <DataTable
-      title={dictionaries[language].title}
-      desc={dictionaries[language].description}
+      title={dictionaries[locale].title}
+      desc={dictionaries[locale].description}
       renderCell={renderCell as () => ReactNode}
       items={items?.data ?? []}
-      columns={dictionaries[language].columns}
+      columns={dictionaries[locale].columns}
       isLoading={isLoading}
       link={{
         href: ROUTES.ACTIVITIES,
-        label: dictionaries[language].linkLabel,
+        label: dictionaries[locale].linkLabel,
       }}
     />
   );
