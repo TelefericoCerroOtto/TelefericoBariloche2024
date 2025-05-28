@@ -38,7 +38,11 @@ export function Default(props: ImageTextBlock) {
             {isHighlighted ? HighlightLastWord(title) : title}
           </h4>
           <BlockRendererClient content={description as BlocksContent} />
-          {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
+          {link ? (
+            <CustomLink href={link.href} withButtonStyles>
+              {link.label}
+            </CustomLink>
+          ) : null}
         </div>
       </div>
     </div>
@@ -76,7 +80,11 @@ export function DefaultFW(props: ImageTextBlock) {
           <div className="text-center md:text-start">
             <BlockRendererClient content={description as BlocksContent} />
           </div>
-          {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
+          {link ? (
+            <CustomLink href={link.href} withButtonStyles>
+              {link.label}
+            </CustomLink>
+          ) : null}
         </div>
       </div>
     </div>
@@ -111,7 +119,11 @@ export function Panoramic(props: ImageTextBlock) {
         <div className="text-center">
           <BlockRendererClient content={description as BlocksContent} />
         </div>
-        {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
+        {link ? (
+          <CustomLink href={link.href} withButtonStyles>
+            {link.label}
+          </CustomLink>
+        ) : null}
       </div>
     </div>
   );
@@ -143,7 +155,9 @@ export function PanoramicFW(props: ImageTextBlock) {
         />
         {link ? (
           <div className="flex h-full w-full items-end justify-start lg:justify-end">
-            <CustomLink href={link?.href}>{link.label}</CustomLink>
+            <CustomLink href={link?.href} withButtonStyles>
+              {link.label}
+            </CustomLink>
           </div>
         ) : null}
       </div>

@@ -44,7 +44,11 @@ export function TwoImageTextBlock(props: ImageTextBlock) {
           <div className="text-center md:text-start">
             <BlockRendererClient content={description as BlocksContent} />
           </div>
-          {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
+          {link ? (
+            <CustomLink href={link.href} withButtonStyles>
+              {link.label}
+            </CustomLink>
+          ) : null}
         </div>
       </div>
     </div>

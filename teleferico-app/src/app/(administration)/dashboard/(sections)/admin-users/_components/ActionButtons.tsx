@@ -100,7 +100,11 @@ export default function ActionButtons({ user }: Props) {
 
   return (
     <div className="relative flex items-center gap-2">
-      <CustomLink href={`${ADMIN_ROUTES.NEW_USER}/${id}`} intent="ghostBlack">
+      <CustomLink
+        href={`${ADMIN_ROUTES.NEW_USER}/${id}`}
+        withButtonStyles
+        intent="ghostBlack"
+      >
         <Pencil size={20} />
         <p>Editar</p>
       </CustomLink>

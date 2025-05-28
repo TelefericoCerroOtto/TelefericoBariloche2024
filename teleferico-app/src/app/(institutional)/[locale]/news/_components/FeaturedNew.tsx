@@ -27,7 +27,9 @@ export default async function FeaturedNew(props: Props) {
     <>
       <div className="mb-14 flex w-full px-10 sm:px-20 lg:px-40">
         <TitleDescBlock title={title} desc={brief} size="lg" align="start">
-          <CustomLink href={`/news/${documentId}`}>Ver noticia</CustomLink>
+          <CustomLink href={`/news/${documentId}`} withButtonStyles>
+            Ver noticia
+          </CustomLink>
         </TitleDescBlock>
       </div>
       <div className="relative mb-14 h-[550px] w-full">
