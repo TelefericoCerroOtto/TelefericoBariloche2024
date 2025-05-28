@@ -52,9 +52,12 @@ export default auth(async (req) => {
     if (pathname.startsWith(`/${defaultLocale}`)) {
       // e.g. incoming request is /es-AR/about
       // The new URL is now /about
-      return NextResponse.redirect(
-        new URL(pathname.replace(`/${defaultLocale}`, "/"), req.url),
+      const url = new URL(
+        pathname.replace(`/${defaultLocale}`, ""),
+        process.env.NEXT_PUBLIC_BASE_URL,
       );
+
+      return NextResponse.redirect(url);
     }
 
     const pathnameIsMissingLocale = i18n.locales.every(
