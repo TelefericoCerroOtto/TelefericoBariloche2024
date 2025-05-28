@@ -38,7 +38,7 @@ export default function Navbar(props: Props) {
   const { items } = props;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDownScrolled, setIsDownScrolled] = useState(false);
-  const { language, pathname } = useLocale();
+  const { locale, pathname } = useLocale();
   const { push } = useRouter();
   const isPathInList = useMemo(
     () =>
@@ -98,7 +98,10 @@ export default function Navbar(props: Props) {
                 : pathname.includes(item.href)
             }
           >
-            <Link href={item.href} className="text-sm text-inherit">
+            <Link
+              href={`${locale === i18n.defaultLocale ? "" : `/${locale}`}${item.href}`}
+              className="text-sm text-inherit"
+            >
               {item.label}
             </Link>
           </NavbarItem>
@@ -114,7 +117,7 @@ export default function Navbar(props: Props) {
           }}
           items={langs}
           disallowEmptySelection={true}
-          defaultSelectedKeys={new Set([language])}
+          defaultSelectedKeys={new Set([locale])}
           onSelectionChange={(key) => {
             // TODO: Using the "es-AR" prefix crashes the navigation
             // Maybe the middleware's rewrite function has something to do with it
@@ -128,7 +131,11 @@ export default function Navbar(props: Props) {
       <NavbarMenu>
         {items.map((item, index) => (
           <NavbarMenuItem key={index}>
-            <Link className="w-full text-inherit" href={item.href} size="lg">
+            <Link
+              className="w-full text-inherit"
+              href={`/${locale}${item.href}`}
+              size="lg"
+            >
               {item.label}
             </Link>
           </NavbarMenuItem>

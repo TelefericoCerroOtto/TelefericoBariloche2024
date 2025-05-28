@@ -67,7 +67,7 @@ const dictionaries: Record<
 };
 
 export default function BusTable() {
-  const { language } = useLocale();
+  const { locale } = useLocale();
   const renderCell = useCallback(
     (bus: BusTrip, columnKey: ColumnKeys) => {
       const cellValue = bus[columnKey];
@@ -82,15 +82,15 @@ export default function BusTable() {
             <span>{(cellValue as Station).zone.zone_descriptions[0].name}</span>
           );
         case "depTime":
-          return <span>{formatStrapiTime(cellValue as string, language)}</span>;
+          return <span>{formatStrapiTime(cellValue as string, locale)}</span>;
         case "arrTime":
-          return <span>{formatStrapiTime(cellValue as string, language)}</span>;
+          return <span>{formatStrapiTime(cellValue as string, locale)}</span>;
 
         default:
           return <span>{cellValue as string}</span>;
       }
     },
-    [language],
+    [locale],
   );
 
   const query = {
@@ -102,7 +102,7 @@ export default function BusTable() {
               zone_descriptions: {
                 filters: {
                   locale: {
-                    $eq: language ?? i18n.defaultLocale,
+                    $eq: locale ?? i18n.defaultLocale,
                   },
                 },
               },
@@ -117,7 +117,7 @@ export default function BusTable() {
               zone_descriptions: {
                 filters: {
                   locale: {
-                    $eq: language ?? i18n.defaultLocale,
+                    $eq: locale ?? i18n.defaultLocale,
                   },
                 },
               },
@@ -139,11 +139,11 @@ export default function BusTable() {
 
   return (
     <DataTable
-      title={dictionaries[language].title}
-      desc={dictionaries[language].description}
+      title={dictionaries[locale].title}
+      desc={dictionaries[locale].description}
       renderCell={renderCell as () => ReactNode}
       items={items?.data ?? []}
-      columns={dictionaries[language].columns}
+      columns={dictionaries[locale].columns}
       isLoading={isLoading}
     />
   );

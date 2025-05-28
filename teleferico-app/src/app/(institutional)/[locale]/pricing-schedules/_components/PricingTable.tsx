@@ -49,7 +49,7 @@ const dictionaries: Record<
 };
 
 export default function PricingTable() {
-  const { language } = useLocale();
+  const { locale } = useLocale();
   const renderCell = useCallback(
     (price: Ticket, columnKey: ColumnKeys) => {
       const cellValue = price[columnKey as keyof Ticket];
@@ -65,7 +65,7 @@ export default function PricingTable() {
             return (
               <span>
                 {
-                  dictionaries[language].columns.find(
+                  dictionaries[locale].columns.find(
                     (column) => column.key === "price",
                   )?.zeroLabel
                 }
@@ -77,10 +77,10 @@ export default function PricingTable() {
           return <span>{cellValue as string}</span>;
       }
     },
-    [language],
+    [locale],
   );
 
-  const query = { locale: language, populate: "lifting_mean" };
+  const query = { locale: locale, populate: "lifting_mean" };
   const {
     data: items,
     isError,
@@ -92,11 +92,11 @@ export default function PricingTable() {
 
   return (
     <DataTable
-      title={dictionaries[language].title}
-      desc={dictionaries[language].description}
+      title={dictionaries[locale].title}
+      desc={dictionaries[locale].description}
       renderCell={renderCell as () => ReactNode}
       items={items?.data ?? []}
-      columns={dictionaries[language].columns}
+      columns={dictionaries[locale].columns}
       isLoading={isLoading}
     />
   );

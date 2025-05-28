@@ -55,7 +55,7 @@ const dicitionaries: Record<
 };
 
 export default function ZonesTable() {
-  const { language } = useLocale();
+  const { locale } = useLocale();
 
   const renderCell = useCallback(
     (zone: Zone, columnKey: ColumnKeys) => {
@@ -67,15 +67,15 @@ export default function ZonesTable() {
         case "name":
           return <span>{cellValue}</span>;
         case "openTime":
-          return <span>{formatStrapiTime(cellValue, language)}</span>;
+          return <span>{formatStrapiTime(cellValue, locale)}</span>;
         case "closeTime":
-          return <span>{formatStrapiTime(cellValue, language)}</span>;
+          return <span>{formatStrapiTime(cellValue, locale)}</span>;
 
         default:
           return <span>{cellValue as string}</span>;
       }
     },
-    [language],
+    [locale],
   );
 
   const query = {
@@ -83,7 +83,7 @@ export default function ZonesTable() {
       zone_descriptions: {
         filters: {
           locale: {
-            $eq: language ?? i18n.defaultLocale,
+            $eq: locale ?? i18n.defaultLocale,
           },
         },
       },
@@ -101,12 +101,12 @@ export default function ZonesTable() {
 
   return (
     <DataTable
-      title={dicitionaries[language].title}
-      desc={dicitionaries[language].description}
+      title={dicitionaries[locale].title}
+      desc={dicitionaries[locale].description}
       renderCell={renderCell as () => ReactNode}
       items={items?.data ?? []}
       isLoading={isLoading}
-      columns={dicitionaries[language].columns}
+      columns={dicitionaries[locale].columns}
     />
   );
 }
