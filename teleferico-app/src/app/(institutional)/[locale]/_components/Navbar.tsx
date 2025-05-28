@@ -1,5 +1,6 @@
 "use client";
 
+import { CustomLink } from "@/components";
 import { useLocale } from "@/hooks";
 import { i18n } from "@/i18n";
 import logoBlanco from "@/public/logo-negativo.svg";
@@ -98,12 +99,9 @@ export default function Navbar(props: Props) {
                 : pathname.includes(item.href)
             }
           >
-            <Link
-              href={`${locale === i18n.defaultLocale ? "" : `/${locale}`}${item.href}`}
-              className="text-sm text-inherit"
-            >
+            <CustomLink href={item.href} className="text-sm text-inherit">
               {item.label}
-            </Link>
+            </CustomLink>
           </NavbarItem>
         ))}
       </NavbarContent>

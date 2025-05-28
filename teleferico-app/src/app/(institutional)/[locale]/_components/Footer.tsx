@@ -1,3 +1,4 @@
+import { CustomLink } from "@/components";
 import { i18n } from "@/i18n";
 import { getComponentTranslation } from "@/lib/services";
 import fblogo from "@/public/fblogo.svg";
@@ -85,7 +86,9 @@ export default async function Footer(props: Props) {
             <ul>
               {menuItems.map((item, idx) => (
                 <li key={idx} className="hover:underline">
-                  <Link href={item.href}>{footerIntl.menuitems[item.tag]}</Link>
+                  <CustomLink href={item.href}>
+                    {footerIntl.menuitems[item.tag]}
+                  </CustomLink>
                 </li>
               ))}
             </ul>

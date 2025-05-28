@@ -52,12 +52,20 @@ export default function Hero(props: Props) {
             <Image src={logo.src} width={550} height={125} alt={logo.alt} />
           ) : null}
           {firstLink ? (
-            <CustomLink href={firstLink.href} intent="outlineWhite">
+            <CustomLink
+              href={firstLink.href}
+              withButtonStyles
+              intent="outlineWhite"
+            >
               {firstLink.label}
             </CustomLink>
           ) : null}
           {secondLink ? (
-            <CustomLink href={secondLink.href} intent="ghostWhite">
+            <CustomLink
+              href={secondLink.href}
+              withButtonStyles
+              intent="ghostWhite"
+            >
               {secondLink.label}
             </CustomLink>
           ) : null}

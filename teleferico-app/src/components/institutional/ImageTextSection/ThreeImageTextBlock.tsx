@@ -49,7 +49,11 @@ export function Horizontal(props: ImageTextBlock) {
             <BlockRendererClient content={description} />
           )
         ) : null}
-        {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
+        {link ? (
+          <CustomLink href={link.href} withButtonStyles>
+            {link.label}
+          </CustomLink>
+        ) : null}
       </div>
     </div>
   );
@@ -100,7 +104,11 @@ export function Ladder(props: ImageTextBlock) {
               <BlockRendererClient content={description} />
             )
           ) : null}
-          {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
+          {link ? (
+            <CustomLink href={link.href} withButtonStyles>
+              {link.label}
+            </CustomLink>
+          ) : null}
         </div>
       </div>
     </div>
@@ -152,7 +160,11 @@ export function Miniatures(props: ImageTextBlock) {
               <BlockRendererClient content={description} />
             )
           ) : null}
-          {link ? <CustomLink href={link.href}>{link.label}</CustomLink> : null}
+          {link ? (
+            <CustomLink href={link.href} withButtonStyles>
+              {link.label}
+            </CustomLink>
+          ) : null}
         </div>
       </div>
     </div>
