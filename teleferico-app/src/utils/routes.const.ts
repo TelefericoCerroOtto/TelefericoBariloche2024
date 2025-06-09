@@ -14,6 +14,7 @@ export const ROUTES = {
 
 export const ROUTE_HANDLERS = {
   PROXY: "/api/proxy",
+  CONTACT: "/api/contact",
 };
 
 export const ADMIN_ROUTES = {

@@ -6,28 +6,55 @@ import { ContactFormData } from "@/types";
 import { getLocaleSchema } from "@/utils/get-locale.schema";
 import { Input, Textarea } from "@nextui-org/react";
 import { useFormik } from "formik";
+import { useRef, useState } from "react";
+import ReCAPTCHA from "react-google-recaptcha";
+import { contactUsAction } from "./actions";
 
 export default function Form() {
-  const { data, error, loading } = useTranslation("forms");
-  const { language } = useLocale();
+  const { data, error, loading: loadingLocale } = useTranslation("forms");
+  const { locale } = useLocale();
+  const [isLoading, setIsLoading] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA | null>(null);
+
   const onSubmit = async (values: ContactFormData) => {
-    console.log(values);
+    setIsLoading(true);
+
+    const res = await contactUsAction(token, values);
+
+    setIsLoading(false);
+
+    if (res.success) {
+      alert("Formulario enviado correctamente");
+      setToken(null);
+      recaptchaRef.current?.reset();
+      resetForm();
+    } else {
+      alert("Ocurrio un error inesperado");
+      console.log("submit contact form error", res.message);
+    }
   };
-  const { values, handleChange, errors, handleSubmit } =
-    useFormik<ContactFormData>({
-      initialValues: { name: "", email: "", consultation: "" },
-      onSubmit,
-      validateOnChange: false,
-      validateOnBlur: false,
-      validationSchema: getLocaleSchema(language, "contactSchema"),
-    });
+
+  const {
+    values,
+    handleChange,
+    errors,
+    handleSubmit,
+    resetForm,
+    touched,
+    handleBlur,
+  } = useFormik<ContactFormData>({
+    initialValues: { name: "", email: "", consultation: "" },
+    onSubmit,
+    validationSchema: getLocaleSchema(locale, "contactSchema"),
+  });
 
   if (error)
     return (
       <FormError message="No se pudo recuperar el contenido de la formulario" />
     );
 
-  if (loading)
+  if (loadingLocale)
     return (
       <div className="grid flex-grow grid-cols-1 gap-4">
         <InputSkeleton />
@@ -44,37 +71,55 @@ export default function Form() {
         id="name"
         name="name"
         onChange={handleChange}
+        onBlur={handleBlur}
         value={values.name}
         label={formIntl.fields["name"].label}
         labelPlacement="outside"
         placeholder={formIntl.fields["name"].placeholder}
         errorMessage={errors.name}
-        isInvalid={!!errors.name}
+        isInvalid={!!errors.name && touched.name}
       />
       <Input
         id="email"
         name="email"
         onChange={handleChange}
+        onBlur={handleBlur}
         value={values.email}
         label={formIntl.fields["email"].label}
         labelPlacement="outside"
         placeholder={formIntl.fields["email"].placeholder}
         errorMessage={errors.email}
-        isInvalid={!!errors.email}
+        isInvalid={!!errors.email && touched.email}
         type="email"
       />
       <Textarea
         id="consultation"
         name="consultation"
         onChange={handleChange}
+        onBlur={handleBlur}
         value={values.consultation}
         label={formIntl.fields["consultation"].label}
         labelPlacement="outside"
         placeholder={formIntl.fields["consultation"].placeholder}
         errorMessage={errors.consultation}
-        isInvalid={!!errors.consultation}
+        isInvalid={!!errors.consultation && touched.consultation}
       />
-      <ButtonDos type="submit" className="w-[90px]">
+      <ReCAPTCHA
+        ref={recaptchaRef}
+        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? ""}
+        onChange={setToken}
+      />
+      <ButtonDos
+        type="submit"
+        className="w-[90px]"
+        isLoading={isLoading}
+        disabled={
+          isLoading ||
+          !token ||
+          Object.keys(errors).length > 0 ||
+          values.name === ""
+        }
+      >
         {formIntl.buttons.send}
       </ButtonDos>
     </form>
