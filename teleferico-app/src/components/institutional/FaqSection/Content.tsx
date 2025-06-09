@@ -49,7 +49,7 @@ export default async function Content(props: Props) {
 
   return (
     <section className="w-full">
-      <div className="grid max-w-[1536px] grid-cols-1 gap-y-6 md:grid-cols-2 md:gap-x-14">
+      <div className="grid max-w-[1536px] grid-cols-1 gap-y-6 px-10 md:grid-cols-2 md:gap-x-14 lg:px-28">
         {faqs.map((faq) => (
           <Faq q={faq.question} a={faq.answer} key={faq.id} />
         ))}

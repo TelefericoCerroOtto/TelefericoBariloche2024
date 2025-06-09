@@ -25,7 +25,7 @@ export default async function FAQSPage({
   return (
     <>
       <Spacer y={28} />
-      <div className="flex w-full flex-col px-10 lg:px-28">
+      <div className="flex w-full flex-col">
         <BlocksRenderer blocks={blocks} locale={locale} />
       </div>
     </>
