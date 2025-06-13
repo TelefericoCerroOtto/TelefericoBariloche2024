@@ -5,7 +5,7 @@ import { useTranslation } from "@/hooks";
 import { postulationSchema } from "@/lib/schemas/forms";
 import type { PostulationFormData, Sector } from "@/types";
 import { selectInputStyles } from "@/utils/styles";
-import { Input, Select, SelectItem } from "@nextui-org/react";
+import { Input, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import { useCallback, useState } from "react";
 import { sendPostulationAction } from "./actions";
@@ -137,7 +137,7 @@ export default function Form(props: Props) {
       <Input
         id="age"
         name="age"
-        label="Edad"
+        label={formIntl.fields.age.label}
         placeholder="Edad"
         type="number"
         labelPlacement="outside"

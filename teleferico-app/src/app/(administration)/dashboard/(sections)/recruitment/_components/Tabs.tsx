@@ -1,6 +1,6 @@
 "use client";
 
-import { Tabs as NextUITabs, Tab } from "@nextui-org/react";
+import { Tabs as NextUITabs, Tab } from "@heroui/react";
 import { useState } from "react";
 import PostulationsTable from "./PostulationsTable";
 

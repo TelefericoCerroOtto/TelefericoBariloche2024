@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonDos } from "@/components";
-import { Spinner } from "@nextui-org/react";
+import { Spinner } from "@heroui/react";
 import { Download, Heart } from "lucide-react";
 import { useState } from "react";
 

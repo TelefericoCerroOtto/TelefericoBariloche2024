@@ -1,7 +1,7 @@
 "use client";
 
 import { DropdownCablecarMenu } from "@/components";
-import { Button } from "@nextui-org/react";
+import { Button } from "@heroui/react";
 import { CableCar } from "lucide-react";
 
 export default function ServiceButton() {

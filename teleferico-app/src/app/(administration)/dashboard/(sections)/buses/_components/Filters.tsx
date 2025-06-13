@@ -9,7 +9,7 @@ import {
   DropdownMenu,
   DropdownTrigger,
   Selection,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { ChevronDownIcon } from "lucide-react";
 import { Dispatch, SetStateAction } from "react";
 

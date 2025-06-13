@@ -2,10 +2,13 @@
 
 import { ButtonDos, FormContainer } from "@/components";
 import { CACHE_TAGS } from "@/utils/cache-tags.const";
-import { Select, SelectItem } from "@nextui-org/react";
+import { Select, SelectItem, type Selection } from "@heroui/react";
 import { revalidate } from "./actions";
+import { useState } from "react";
 
 export default function Revalidate() {
+  const [value, setValue] = useState<Selection>(new Set([]));
+
   return (
     <FormContainer desc="Este formulario sirve para revalidar de manera manual el contenido obtenido por las funciones asincronas asociadas a la etiequeta seleccionada">
       <form className="flex flex-col gap-6" action={revalidate}>
@@ -14,13 +17,11 @@ export default function Revalidate() {
           variant="bordered"
           name="tag"
           id="tag"
+          selectedKeys={value}
+          onSelectionChange={setValue}
           disallowEmptySelection
         >
-          {(item) => (
-            <SelectItem key={item.tag} value={item.tag}>
-              {item.tag}
-            </SelectItem>
-          )}
+          {(item) => <SelectItem key={item.tag}>{item.tag}</SelectItem>}
         </Select>
         <ButtonDos type="submit">Revalidar</ButtonDos>
       </form>

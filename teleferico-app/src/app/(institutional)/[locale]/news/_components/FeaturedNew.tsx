@@ -1,7 +1,7 @@
 import { CustomLink, TitleDescBlock } from "@/components";
 import { getNews } from "@/lib/services";
 import { Locales } from "@/types";
-import { Alert } from "@nextui-org/react";
+import { Alert } from "@heroui/react";
 import Image from "next/image";
 
 interface Props {

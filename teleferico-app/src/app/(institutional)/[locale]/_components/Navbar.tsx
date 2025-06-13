@@ -18,7 +18,7 @@ import {
   Navbar as NuiNavbar,
   Select,
   SelectItem,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";

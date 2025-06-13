@@ -10,7 +10,7 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import Link from "next/link";
 import { ReactNode, type Key } from "react";
 

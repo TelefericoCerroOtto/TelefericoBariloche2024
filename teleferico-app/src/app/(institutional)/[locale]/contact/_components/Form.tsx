@@ -4,7 +4,7 @@ import { ButtonDos, FormError, InputSkeleton } from "@/components";
 import { useLocale, useTranslation } from "@/hooks";
 import { ContactFormData } from "@/types";
 import { getLocaleSchema } from "@/utils/get-locale.schema";
-import { Input, Textarea } from "@nextui-org/react";
+import { Input, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRef, useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";

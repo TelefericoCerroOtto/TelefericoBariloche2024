@@ -7,7 +7,7 @@ import {
   DropdownMenu,
   DropdownTrigger,
   User,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { LogOut } from "lucide-react";
 import { Session } from "next-auth";
 import { signOut } from "next-auth/react";

@@ -5,7 +5,7 @@ import { BusTravelSchema } from "@/lib/schemas/forms";
 import type { BusTravelFormData } from "@/types/forms";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { selectInputStyles } from "@/utils/styles";
-import { Select, SelectItem } from "@nextui-org/react";
+import { Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 
 export default function Form() {

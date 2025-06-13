@@ -1,6 +1,6 @@
 import { TableContainer } from "@/components";
 import { tableStyles } from "@/utils/styles";
-import { Table, TableBody, TableColumn, TableHeader } from "@nextui-org/react";
+import { Table, TableBody, TableColumn, TableHeader } from "@heroui/react";
 
 export default function AccessTable() {
   return (

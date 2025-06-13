@@ -1,7 +1,7 @@
 import { getNews } from "@/lib/services";
 import Card from "./Card";
 import { Locales } from "@/types";
-import { Alert } from "@nextui-org/react";
+import { Alert } from "@heroui/react";
 
 interface Props {
   locale: Locales;

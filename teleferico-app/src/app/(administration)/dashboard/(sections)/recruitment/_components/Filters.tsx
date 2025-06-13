@@ -3,13 +3,7 @@
 
 import { ButtonDos } from "@/components";
 import { selectInputStyles } from "@/utils/styles";
-import {
-  Input,
-  Select,
-  Selection,
-  SelectItem,
-  Slider,
-} from "@nextui-org/react";
+import { Input, Select, Selection, SelectItem, Slider } from "@heroui/react";
 import { FormikErrors } from "formik";
 import { Hash, SearchIcon } from "lucide-react";
 import { type FormData } from "./PostulationsTable";

@@ -9,7 +9,7 @@ import { newUserSchema } from "@/lib/schemas/forms";
 import type { NewUserFormData, UserRole } from "@/types";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { selectInputStyles } from "@/utils/styles";
-import { Input, Select, SelectItem } from "@nextui-org/react";
+import { Input, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import debounce from "just-debounce-it";
 import { useRouter } from "next/navigation";

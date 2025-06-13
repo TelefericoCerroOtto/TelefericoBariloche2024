@@ -2,7 +2,6 @@
 
 import { getStateAction, updateStateAction } from "@/lib/actions";
 import type { ServiceStateValues } from "@/types";
-import type { Selection } from "@nextui-org/react";
 import {
   Dropdown,
   DropdownItem,
@@ -11,7 +10,8 @@ import {
   DropdownTrigger,
   Spinner,
   User,
-} from "@nextui-org/react";
+  type Selection,
+} from "@heroui/react";
 import { Check } from "lucide-react";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 

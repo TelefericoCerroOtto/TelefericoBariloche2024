@@ -11,7 +11,7 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState, type Key } from "react";

@@ -5,7 +5,7 @@ import { activityTicketSchema } from "@/lib/schemas/forms";
 import type { NewActivityTicketFormData } from "@/types/forms";
 import { lang } from "@/utils/lang.const";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
-import { Select, SelectItem, type SharedSelection } from "@nextui-org/react";
+import { Select, SelectItem, type SharedSelection } from "@heroui/react";
 import { useFormik } from "formik";
 import { Languages } from "lucide-react";
 import { useState } from "react";

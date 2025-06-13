@@ -3,7 +3,7 @@ import { NoContent } from "@/components";
 import { getPageContent } from "@/lib/services/pages";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
-import { Skeleton } from "@nextui-org/react";
+import { Skeleton } from "@heroui/react";
 import { Suspense } from "react";
 
 export default async function Home({

@@ -12,7 +12,7 @@ import {
   ModalHeader,
   Skeleton,
   useDisclosure,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { CableCar } from "lucide-react";
 import { useMemo } from "react";

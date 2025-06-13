@@ -5,7 +5,7 @@ import { loginAction } from "@/lib/actions";
 import { loginSchema } from "@/lib/schemas/forms";
 import type { LoginFormData, LoginUserRequest } from "@/types";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
-import { Input, Spinner } from "@nextui-org/react";
+import { Input, Spinner } from "@heroui/react";
 import { useFormik } from "formik";
 import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";

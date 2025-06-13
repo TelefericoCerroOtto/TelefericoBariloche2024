@@ -12,7 +12,7 @@ import {
   TableRow,
   User,
   Pagination,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { useFormik } from "formik";
 import { useEffect, useMemo, useState, type Key } from "react";
 import ActionsButton from "./ActionsButton";

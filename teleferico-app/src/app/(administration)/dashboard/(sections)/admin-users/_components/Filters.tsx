@@ -2,7 +2,7 @@
 
 import { TableToolbarContainer } from "@/components";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
-import { Input } from "@nextui-org/react";
+import { Input } from "@heroui/react";
 import { SearchIcon } from "lucide-react";
 
 interface Props {

@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
   User,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { type Key } from "react";
 import { columns } from "../data";
 import ActionButtons from "./ActionButtons";

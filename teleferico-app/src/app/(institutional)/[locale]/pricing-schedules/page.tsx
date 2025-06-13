@@ -2,7 +2,7 @@ import { NoContent, StrapiComponentRenderer } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils/routes.const";
-import { Spacer } from "@nextui-org/react";
+import { Spacer } from "@heroui/react";
 import {
   ActivitiesTable,
   BusesTable,

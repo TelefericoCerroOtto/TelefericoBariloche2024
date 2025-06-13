@@ -1,7 +1,7 @@
 "use client"; // Error boundaries must be Client Components
 
 import { ButtonDos } from "@/components";
-import { Alert, Spacer } from "@nextui-org/react";
+import { Alert, Spacer } from "@heroui/react";
 import { useEffect } from "react";
 
 export default function Error({

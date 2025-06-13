@@ -2,7 +2,7 @@
 
 import { buttonStyles } from "@/components/shared/ButtonDos";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
-import { Tabs as NextUITabs, Tab } from "@nextui-org/react";
+import { Tabs as NextUITabs, Tab } from "@heroui/react";
 import { useState } from "react";
 import AccessTable from "./AccessTable";
 import ActivitiesTable from "./ActivitiesTable";

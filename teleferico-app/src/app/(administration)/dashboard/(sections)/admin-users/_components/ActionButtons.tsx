@@ -12,7 +12,7 @@ import {
   ModalHeader,
   Spinner,
   useDisclosure,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { CirclePause, CirclePlay, Pencil, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { blockAction, deleteAction } from "./actions";

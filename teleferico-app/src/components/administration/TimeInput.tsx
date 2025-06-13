@@ -1,7 +1,7 @@
 "use client";
 
 import { TimeFormData } from "@/types/forms";
-import { Select, SelectItem, SharedSelection } from "@nextui-org/react";
+import { Select, SelectItem, SharedSelection } from "@heroui/react";
 
 interface Props {
   title: string;

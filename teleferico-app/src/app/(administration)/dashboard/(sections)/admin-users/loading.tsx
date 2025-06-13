@@ -8,7 +8,7 @@ import {
   TableBody,
   TableColumn,
   TableHeader,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { columns } from "./data";
 
 export default function Loading() {

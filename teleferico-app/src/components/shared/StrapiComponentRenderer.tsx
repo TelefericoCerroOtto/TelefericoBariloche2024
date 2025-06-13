@@ -7,7 +7,7 @@ import {
   TitleDescBlock,
 } from "@/components";
 import type { Locales, RendereableBlocks } from "@/types";
-import { Spacer, SpacerProps } from "@nextui-org/react";
+import { Spacer, SpacerProps } from "@heroui/react";
 
 interface Props {
   block: RendereableBlocks;
