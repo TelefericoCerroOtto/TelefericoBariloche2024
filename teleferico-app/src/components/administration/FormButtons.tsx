@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonDos } from "@/components";
-import { Spinner } from "@nextui-org/spinner";
+import { Spinner } from "@heroui/react";
 import { useRouter } from "next/navigation";
 
 interface Props {

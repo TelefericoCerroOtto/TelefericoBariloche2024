@@ -1,4 +1,4 @@
-import { Divider } from "@nextui-org/divider";
+import { Divider } from "@heroui/react";
 import LoginForm from "./LoginForm";
 import FormHeader from "./FormHeader";
 
