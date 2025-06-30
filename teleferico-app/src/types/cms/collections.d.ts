@@ -62,16 +62,11 @@ export type New = StrapiRecord<{
   cover: Image;
 }>;
 
-export type LiftingMean = StrapiRecord<{
-  name: string;
-  description: string | null;
-}>;
-
 export type Ticket = StrapiRecord<{
   name: string;
   description: string | null;
   price: number;
-  lifting_mean: LiftingMean;
+  lifting_mean: "cablecar" | "road&funicular";
 }>;
 
 export type ZoneDescription = StrapiRecord<{
@@ -117,9 +112,13 @@ export type Activity = StrapiRecord<{
   locale: null;
 }>;
 
-export type SectorName = StrapiRecord<{name: string}>
+export type SectorName = StrapiRecord<{ name: string }>;
 
-export type Sector = StrapiRecord<{ key: string; sector_names: SectorName[]; locale: null }>;
+export type Sector = StrapiRecord<{
+  key: string;
+  sector_names: SectorName[];
+  locale: null;
+}>;
 
 export type Postulation = StrapiRecord<{
   name: string;
