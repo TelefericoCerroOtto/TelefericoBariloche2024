@@ -22,3 +22,9 @@ export type NewUserFormData = InferType<typeof newUserSchema>;
 export type UpdateUserFormData = InferType<typeof updateUserSchema>;
 export type PostulationFormData = InferType<typeof postulationSchema>;
 export type ContactFormData = InferType<typeof contactSchema>;
+
+export type FormSubmitServerActionResponse = Promise<{
+  success: boolean;
+  message: string;
+  data?: unknown;
+}>;

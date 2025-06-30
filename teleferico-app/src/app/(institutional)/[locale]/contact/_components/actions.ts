@@ -2,12 +2,12 @@
 
 // import { verifyCaptchaToken } from "@/lib/services/captcha";
 import { sendEmail } from "@/lib/services/contact";
-import { ContactFormData } from "@/types";
+import { ContactFormData, FormSubmitServerActionResponse } from "@/types";
 
 export async function contactUsAction(
   token: string | null,
   values: ContactFormData,
-) {
+): FormSubmitServerActionResponse {
   if (!token) {
     return {
       success: false,
