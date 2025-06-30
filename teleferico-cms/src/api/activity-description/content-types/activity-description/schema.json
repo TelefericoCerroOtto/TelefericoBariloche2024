@@ -4,7 +4,8 @@
   "info": {
     "singularName": "activity-description",
     "pluralName": "activity-descriptions",
-    "displayName": "ActivityDescription"
+    "displayName": "ActivityDescription",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
@@ -22,7 +23,9 @@
         }
       },
       "type": "text",
-      "required": true
+      "required": true,
+      "minLength": 2,
+      "unique": true
     },
     "description": {
       "pluginOptions": {

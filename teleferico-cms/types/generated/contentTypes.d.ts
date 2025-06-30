@@ -556,6 +556,7 @@ export interface ApiActivityDescriptionActivityDescription
     singularName: 'activity-description';
     pluralName: 'activity-descriptions';
     displayName: 'ActivityDescription';
+    description: '';
   };
   options: {
     draftAndPublish: true;
@@ -568,10 +569,14 @@ export interface ApiActivityDescriptionActivityDescription
   attributes: {
     name: Schema.Attribute.Text &
       Schema.Attribute.Required &
+      Schema.Attribute.Unique &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
           localized: true;
         };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 2;
       }>;
     description: Schema.Attribute.Text &
       Schema.Attribute.SetPluginOptions<{
@@ -680,52 +685,6 @@ export interface ApiComponentTranslationComponentTranslation
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'api::component-translation.component-translation'
-    >;
-  };
-}
-
-export interface ApiElevationMeanElevationMean
-  extends Struct.CollectionTypeSchema {
-  collectionName: 'elevation_means';
-  info: {
-    singularName: 'elevation-mean';
-    pluralName: 'elevation-means';
-    displayName: 'LiftingMean';
-    description: '';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  pluginOptions: {
-    i18n: {
-      localized: true;
-    };
-  };
-  attributes: {
-    name: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetPluginOptions<{
-        i18n: {
-          localized: true;
-        };
-      }>;
-    description: Schema.Attribute.Text &
-      Schema.Attribute.SetPluginOptions<{
-        i18n: {
-          localized: true;
-        };
-      }>;
-    createdAt: Schema.Attribute.DateTime;
-    updatedAt: Schema.Attribute.DateTime;
-    publishedAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    locale: Schema.Attribute.String;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::elevation-mean.elevation-mean'
     >;
   };
 }
@@ -1118,19 +1077,15 @@ export interface ApiTicketTicket extends Struct.CollectionTypeSchema {
     };
   };
   attributes: {
-    name: Schema.Attribute.String &
+    name: Schema.Attribute.Text &
       Schema.Attribute.Required &
-      Schema.Attribute.Unique &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
           localized: true;
         };
-      }>;
-    description: Schema.Attribute.Text &
-      Schema.Attribute.SetPluginOptions<{
-        i18n: {
-          localized: true;
-        };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 2;
       }>;
     price: Schema.Attribute.Integer &
       Schema.Attribute.Required &
@@ -1138,11 +1093,20 @@ export interface ApiTicketTicket extends Struct.CollectionTypeSchema {
         i18n: {
           localized: false;
         };
+      }> &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    lifting_mean: Schema.Attribute.Enumeration<['cablecar', 'road&funicular']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: false;
+        };
       }>;
-    lifting_mean: Schema.Attribute.Relation<
-      'oneToOne',
-      'api::elevation-mean.elevation-mean'
-    >;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -1614,7 +1578,6 @@ declare module '@strapi/strapi' {
       'api::activity-description.activity-description': ApiActivityDescriptionActivityDescription;
       'api::bus-trip.bus-trip': ApiBusTripBusTrip;
       'api::component-translation.component-translation': ApiComponentTranslationComponentTranslation;
-      'api::elevation-mean.elevation-mean': ApiElevationMeanElevationMean;
       'api::faq.faq': ApiFaqFaq;
       'api::new.new': ApiNewNew;
       'api::page.page': ApiPagePage;
