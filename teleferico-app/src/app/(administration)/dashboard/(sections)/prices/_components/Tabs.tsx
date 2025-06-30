@@ -8,7 +8,7 @@ import AccessTable from "./AccessTable";
 import ActivitiesTable from "./ActivitiesTable";
 
 export default function Tabs() {
-  const [selected, setSelected] = useState<string | number>("photos");
+  const [selected, setSelected] = useState<string | number>("access");
 
   return (
     <div className="flex w-full flex-col">
