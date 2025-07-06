@@ -88,11 +88,18 @@ export const activityTicketSchema = object({
 });
 
 export const accessTicketSchema = object({
-  accessNameEN: string().required(es.string.required),
-  accessNameES: string().required(es.string.required),
-  accessNamePT: string().required(es.string.required),
-  price: number().integer(es.number.integer).required(es.number.required),
-  elevationMethod: string().oneOf(["teleferico", "camino"]),
+  accessName_en: string().required(es.string.required).min(2, es.string.min(2)),
+  "accessName_es-AR": string()
+    .required(es.string.required)
+    .min(2, es.string.min(2)),
+  accessName_pt: string().required(es.string.required).min(2, es.string.min(2)),
+  price: number()
+    .integer(es.number.integer)
+    .required(es.number.required)
+    .min(0, es.number.min(0)),
+  liftingMean: string()
+    .oneOf(["cablecar", "road&funicular"])
+    .required(es.string.required),
 });
 
 export const timeSchema = object({
