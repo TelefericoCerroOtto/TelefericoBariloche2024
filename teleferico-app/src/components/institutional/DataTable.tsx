@@ -19,6 +19,8 @@ interface Props<T> {
   desc: string;
   link?: { href: string; label: string };
   isLoading?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  isError?: any;
   // eslint-disable-next-line no-unused-vars
   renderCell: (entry: T, columnKey: Key) => ReactNode;
   items: Array<T>;
@@ -41,7 +43,17 @@ const dictionaries = {
 export default function DataTable<T extends { id: number | string }>(
   props: Props<T>,
 ) {
-  const { title, desc, link, items, columns, renderCell, isLoading } = props;
+  const { title, desc, link, items, columns, renderCell, isLoading, isError } =
+    props;
+
+  // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
+  if (isError)
+    console.log(
+      "Hubo un error al cargar los datos de la tabla: ",
+      title,
+      "\n",
+      isError,
+    );
 
   const { locale } = useLocale();
 
