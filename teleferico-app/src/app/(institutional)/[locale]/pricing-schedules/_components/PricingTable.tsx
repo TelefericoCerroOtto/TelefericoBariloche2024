@@ -2,7 +2,7 @@
 
 import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
-import type { GetTicketsResponse, LiftingMean, Locales, Ticket } from "@/types";
+import type { GetTicketsResponse, Locales, Ticket } from "@/types";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 import { useCallback, type ReactNode } from "react";
 
@@ -14,6 +14,7 @@ const dictionaries: Record<
     title: string;
     description: string;
     columns: { key: ColumnKeys; label: string; zeroLabel?: string }[];
+    lifts: Record<Ticket["lifting_mean"], string>;
   }
 > = {
   "es-AR": {
@@ -25,6 +26,10 @@ const dictionaries: Record<
     title: "Ascenso y Descenso - Teleférico Cerro Otto + Acceso al Complejo",
     description:
       "El ascenso y descenso en el teleférico es solo el comienzo de una experiencia inolvidable. Disfrutá de un recorrido panorámico que te lleva directo al complejo turístico en la cima, donde te esperan actividades para todas las edades.",
+    lifts: {
+      cablecar: "Teleférico",
+      "road&funicular": "Camino y funicular de la cumbre",
+    },
   },
   en: {
     columns: [
@@ -35,6 +40,10 @@ const dictionaries: Record<
     title: "Ascent and Descent - Cerro Otto Cable Car + Complex Access",
     description:
       "The ascent and descent on the cable car are just the beginning of an unforgettable experience. Enjoy a panoramic ride that takes you straight to the tourist complex at the summit, where activities for all ages await you.",
+    lifts: {
+      cablecar: "Cablecar",
+      "road&funicular": "Road and summit funicular",
+    },
   },
   pt: {
     columns: [
@@ -45,6 +54,10 @@ const dictionaries: Record<
     title: "Subida e Descida - Teleférico Cerro Otto + Acesso ao Complexo",
     description:
       "A subida e descida no teleférico são apenas o começo de uma experiência inesquecível. Desfrute de um passeio panorâmico que o leva diretamente ao complexo turístico no topo, onde atividades para todas as idades o aguardam.",
+    lifts: {
+      cablecar: "Teleférico",
+      "road&funicular": "Estrada e funicular",
+    },
   },
 };
 
@@ -52,14 +65,17 @@ export default function PricingTable() {
   const { locale } = useLocale();
   const renderCell = useCallback(
     (price: Ticket, columnKey: ColumnKeys) => {
-      const cellValue = price[columnKey as keyof Ticket];
+      const cellValue = price[columnKey];
 
       switch (columnKey) {
         case "name":
-          return <span>{cellValue as string}</span>;
+          return <span className="font-bold">{cellValue}</span>;
         case "lifting_mean":
-          if (!cellValue) return <span></span>;
-          return <span>{(cellValue as LiftingMean).name}</span>;
+          return (
+            <span>
+              {dictionaries[locale].lifts[cellValue as Ticket["lifting_mean"]]}
+            </span>
+          );
         case "price":
           if (cellValue === 0)
             return (
@@ -71,7 +87,7 @@ export default function PricingTable() {
                 }
               </span>
             );
-          return <span>${cellValue as string}</span>;
+          return <span>$ {cellValue as string}</span>;
 
         default:
           return <span>{cellValue as string}</span>;
@@ -80,15 +96,14 @@ export default function PricingTable() {
     [locale],
   );
 
-  const query = { locale: locale, populate: "lifting_mean" };
+  const query = { locale };
   const {
     data: items,
     isError,
     isLoading,
-  } = useProxy<GetTicketsResponse>(STRAPI_ENDPOINTS.TICKETS, query);
-
-  // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
-  if (isError) return <div>Hubo un error al cargar los datos de la tabla</div>;
+  } = useProxy<GetTicketsResponse>(STRAPI_ENDPOINTS.TICKETS, query, {
+    revalidateOnFocus: false,
+  });
 
   return (
     <DataTable
@@ -98,6 +113,7 @@ export default function PricingTable() {
       items={items?.data ?? []}
       columns={dictionaries[locale].columns}
       isLoading={isLoading}
+      isError={isError}
     />
   );
 }
