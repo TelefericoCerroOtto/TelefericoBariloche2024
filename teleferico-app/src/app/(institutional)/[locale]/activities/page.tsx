@@ -22,5 +22,11 @@ export default async function ActivitiesPage({
 
   const blocks = res.data.data[0].blocks;
 
-  return <BlocksRenderer blocks={blocks} locale={locale} />;
+  return (
+    <BlocksRenderer
+      config={{ "image-text-block": { baseUrl: ROUTES.ACTIVITIES } }}
+      blocks={blocks}
+      locale={locale}
+    />
+  );
 }
