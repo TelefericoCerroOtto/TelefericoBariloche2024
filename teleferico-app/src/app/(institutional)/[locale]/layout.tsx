@@ -5,7 +5,6 @@ import { getComponentTranslation } from "@/lib/services";
 import type { Locales } from "@/types";
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
-import { SWRConfig } from "swr";
 import "../../globals.css";
 import { Footer, Navbar } from "./_components";
 
@@ -41,21 +40,13 @@ export default async function InstitutionalLayout({
     <html lang={locale}>
       <body className={`antialiased ${outfit.className}`}>
         <Providers>
-          <SWRConfig
-            value={{
-              revalidateOnFocus: true,
-              refreshWhenOffline: false,
-              focusThrottleInterval: 6000,
-            }}
-          >
-            <div className="leading-8">
-              <Navbar items={data.data[0].jsonValue.items} />
-              <main className="relative -top-[5rem] min-h-screen">
-                <PageWrapper>{children}</PageWrapper>
-              </main>
-              <Footer locale={locale} />
-            </div>
-          </SWRConfig>
+          <div className="leading-8">
+            <Navbar items={data.data[0].jsonValue.items} />
+            <main className="relative -top-[5rem] min-h-screen">
+              <PageWrapper>{children}</PageWrapper>
+            </main>
+            <Footer locale={locale} />
+          </div>
         </Providers>
       </body>
     </html>
