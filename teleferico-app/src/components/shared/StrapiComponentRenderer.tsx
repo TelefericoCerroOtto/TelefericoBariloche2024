@@ -7,15 +7,41 @@ import {
   TitleDescBlock,
 } from "@/components";
 import type { Locales, RendereableBlocks } from "@/types";
+import { deepMerge } from "@/utils/object-merge";
 import { Spacer, SpacerProps } from "@heroui/react";
+
+export type StrapiComponentRendererConfig = Partial<{
+  "faq-section": object;
+  hero: object;
+  "hours-overview": object;
+  "image-text-block": {
+    baseUrl: string;
+  };
+  spacer: object;
+  "title-desc-block": object;
+}>;
+
+const defaultConfig: Required<StrapiComponentRendererConfig> = {
+  "faq-section": {},
+  hero: {},
+  "hours-overview": {},
+  "image-text-block": {
+    baseUrl: "",
+  },
+  spacer: {},
+  "title-desc-block": {},
+};
 
 interface Props {
   block: RendereableBlocks;
   locale: Locales;
+  customConfig?: StrapiComponentRendererConfig;
 }
 
 export default function StrapiComponentRenderer(props: Props) {
-  const { block, locale } = props;
+  const { block, locale, customConfig } = props;
+
+  const config = deepMerge(defaultConfig, customConfig);
 
   if (!block) {
     console.error("StrapiComponentRenderer block", block);
@@ -50,6 +76,12 @@ export default function StrapiComponentRenderer(props: Props) {
     }
 
     case "page-components.image-text-block": {
+      const { baseUrl } = config["image-text-block"];
+
+      if (!!block.link) {
+        block.link.href = baseUrl + block.link.href;
+      }
+
       return <ImageTextRenderer block={block} />;
     }
 
