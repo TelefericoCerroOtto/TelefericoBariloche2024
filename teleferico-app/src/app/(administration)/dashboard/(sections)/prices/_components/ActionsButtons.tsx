@@ -59,7 +59,7 @@ export default function ActionsButtons(props: Props) {
     <div className="relative flex flex-row justify-center gap-2">
       <CustomLink
         size="sm"
-        href={`${editPath}/${ticket.id}`}
+        href={`${editPath}/${ticket.documentId}`}
         withButtonStyles
         intent="ghostBlack"
       >
