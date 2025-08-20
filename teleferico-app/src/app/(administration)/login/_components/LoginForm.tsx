@@ -23,7 +23,13 @@ export default function LoginForm() {
     setIsSubmitting(true);
     try {
       const res = await loginAction(values);
-      if (res.error) {
+
+      console.log("loginAction response: ", res);
+      if (res === undefined) {
+        setIsSubmitting(false);
+        return setError("Login action reponse undefined");
+      }
+      if (res?.error) {
         setIsSubmitting(false);
         return setError(res.error);
       }
