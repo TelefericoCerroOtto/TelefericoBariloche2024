@@ -4,11 +4,11 @@ import { buttonStyles } from "@/components/shared/ButtonDos";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { Tabs as NextUITabs, Tab } from "@heroui/react";
 import { useState } from "react";
-import AccessTable from "./AccessTable";
 import ActivitiesTable from "./ActivitiesTable";
+import TicketsTable from "./TicketsTable";
 
 export default function Tabs() {
-  const [selected, setSelected] = useState<string | number>("access");
+  const [selected, setSelected] = useState<string | number>("tickets");
 
   return (
     <div className="flex w-full flex-col">
@@ -26,20 +26,24 @@ export default function Tabs() {
           panel: "p-0",
         }}
       >
-        <Tab key="access" title={<span>Acceso</span>}>
-          <AccessTable />
+        <Tab key="tickets" title={<span>Acceso</span>}>
+          <TicketsTable />
         </Tab>
-        <Tab key="actividades" title={<span>Actividades</span>}>
+        <Tab key="activities" title={<span>Actividades</span>}>
           <ActivitiesTable />
         </Tab>
         <Tab
           key="create"
           href={
-            selected === "access"
+            selected === "tickets"
               ? ADMIN_ROUTES.NEW_ACCESS_TICKET
               : ADMIN_ROUTES.NEW_ACTIVITY_TICKET
           }
-          title={<span className="text-white">Nueva tarifa</span>}
+          title={
+            <span className="text-white">
+              {selected === "tickets" ? "Nuevo ticket" : "Nueva actividad"}
+            </span>
+          }
           className={`${buttonStyles({ intent: "solid", className: "ml-auto" })}`}
         />
       </NextUITabs>

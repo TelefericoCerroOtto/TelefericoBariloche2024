@@ -1,11 +1,17 @@
 "use client";
 
-import { FormButtons, Input } from "@/components";
+import { FormButtons } from "@/components";
 import { activityTicketSchema } from "@/lib/schemas/forms";
 import type { NewActivityTicketFormData } from "@/types/forms";
 import { lang } from "@/utils/lang.const";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
-import { Select, SelectItem, type SharedSelection } from "@heroui/react";
+import {
+  Input,
+  NumberInput,
+  Select,
+  SelectItem,
+  type SharedSelection,
+} from "@heroui/react";
 import { useFormik } from "formik";
 import { Languages } from "lucide-react";
 import { useState } from "react";
@@ -14,12 +20,21 @@ export default function Form() {
   const [selectValue, setSelectValue] = useState<SharedSelection>(
     new Set([lang.es]),
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onSubmit = async (values: NewActivityTicketFormData) => {
-    console.log("form values", values);
+    setIsSubmitting(true);
+    console.log("values: ", values);
+
+    try {
+      // const res = await newActivityAction(values);
+      // console.log(res);
+    } catch (error) {
+      console.log("new activity ticket submit error: ", error);
+    }
   };
 
-  const { values, handleChange, handleSubmit, isSubmitting } =
+  const { values, handleChange, handleSubmit } =
     useFormik<NewActivityTicketFormData>({
       initialValues: {
         activityNameEN: "hello world",
@@ -99,7 +114,7 @@ export default function Form() {
             );
         }
       })()}
-      <Input
+      <NumberInput
         label="Precio Por Persona"
         name="price"
         id="price"
@@ -107,7 +122,7 @@ export default function Form() {
         value={values.price}
         onChange={handleChange}
       />
-      <Input
+      <NumberInput
         label="Edad mínima"
         name="minAge"
         id="minAge"

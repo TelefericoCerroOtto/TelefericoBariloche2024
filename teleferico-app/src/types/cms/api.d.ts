@@ -109,6 +109,11 @@ export interface GetNewsResponse {
   meta: Meta;
 }
 
+export type GetTicketResponse = {
+  data: Ticket;
+  meta: Meta;
+};
+
 export type GetTicketsResponse = {
   data: Ticket[];
   meta: Meta;

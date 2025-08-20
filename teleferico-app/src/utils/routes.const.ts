@@ -1,3 +1,5 @@
+// TODO: Add 'as const' declaration to all constanst
+
 export const ROUTES = {
   ACTIVITIES: "/activities",
   CONTACT: "/contact",
@@ -22,10 +24,11 @@ export const ADMIN_ROUTES = {
   ADMIN_USERS: "/dashboard/admin-users",
   BUSES: "/dashboard/buses",
   DASHBOARD: "/dashboard",
+  EDIT_ACCESS_TICKET: "/dashboard/prices/access-ticket",
   LOGIN: "/login",
   LOGOUT: "/logout",
   NEWS: "/dashboard/news",
-  NEW_ACCESS_TICKET: "/dashboard/prices/new-access-ticket",
+  NEW_ACCESS_TICKET: "/dashboard/prices/access-ticket/new",
   NEW_ACTIVITY_TICKET: "/dashboard/prices/new-act-ticket",
   NEW_BUS_TRAVEL: "/dashboard/buses/new-bus-travel",
   NEW_USER: "/dashboard/admin-users/new-user",

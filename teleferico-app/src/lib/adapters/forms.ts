@@ -1,8 +1,11 @@
 import type {
+  ExtendLocalizations,
+  GetTicketResponse,
   NewUserFormData,
   NewUserRequest,
   PostPostulationRequest,
   PostulationFormData,
+  UpdateAccessTicketFormData,
   UpdateUserFormData,
   UpdateUserRequest,
 } from "@/types";
@@ -42,4 +45,41 @@ export const postPostulationAdapter = (
   };
 
   return adaptedPostulation;
+};
+
+export const getAccessTicketAdapter = (
+  ticket: ExtendLocalizations<GetTicketResponse>,
+): UpdateAccessTicketFormData => {
+  const {
+    name: defaultName,
+    price,
+    lifting_mean,
+    localizations,
+    locale: defaultLocale,
+    documentId,
+  } = ticket.data;
+
+  const formData: UpdateAccessTicketFormData = {
+    accessName_en: "",
+    "accessName_es-AR": "",
+    accessName_pt: "",
+    price,
+    documentId,
+    liftingMean: lifting_mean,
+  };
+
+  const mapLocales = {
+    "es-AR": "accessName_es-AR",
+    en: "accessName_en",
+    pt: "accessName_pt",
+  } as const;
+
+  formData[mapLocales[defaultLocale]] = defaultName;
+
+  localizations.map((localization) => {
+    const { locale, name } = localization;
+    formData[mapLocales[locale]] = name;
+  });
+
+  return formData;
 };

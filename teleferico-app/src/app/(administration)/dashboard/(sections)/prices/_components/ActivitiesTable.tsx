@@ -1,6 +1,12 @@
 import { TableContainer } from "@/components";
 import { tableStyles } from "@/utils/styles";
-import { Table, TableBody, TableColumn, TableHeader } from "@heroui/react";
+import {
+  Spinner,
+  Table,
+  TableBody,
+  TableColumn,
+  TableHeader,
+} from "@heroui/react";
 
 export default function ActivitiesTable() {
   return (
@@ -14,7 +20,12 @@ export default function ActivitiesTable() {
           <TableColumn>Requisitos</TableColumn>
           <TableColumn>Acciones</TableColumn>
         </TableHeader>
-        <TableBody emptyContent={"No hay tarifas para mostrar"}>{[]}</TableBody>
+        <TableBody
+          emptyContent={"No hay tarifas para mostrar"}
+          loadingContent={<Spinner label="Cargando tarifas" />}
+        >
+          {[]}
+        </TableBody>
       </Table>
     </TableContainer>
   );

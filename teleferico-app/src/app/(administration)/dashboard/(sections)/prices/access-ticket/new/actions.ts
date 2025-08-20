@@ -1,7 +1,7 @@
 "use server";
 
 import { i18n } from "@/i18n";
-import { accessTicketSchema } from "@/lib/schemas/forms";
+import { newAccessTicketSchema } from "@/lib/schemas/forms";
 import { newAccessTicket, updateAccessTicket } from "@/lib/services";
 import type {
   FormSubmitServerActionResponse,
@@ -17,7 +17,7 @@ export const newTicketAction = async (
   const { locales } = i18n;
 
   try {
-    accessTicketSchema.validateSync(values);
+    newAccessTicketSchema.validateSync(values);
 
     let documentId: string = "";
 

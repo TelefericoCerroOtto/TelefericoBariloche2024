@@ -1,11 +1,12 @@
 "use client";
 
 import { FormButtons } from "@/components";
-import { accessTicketSchema } from "@/lib/schemas/forms";
-import type { NewAccessTicketFormData } from "@/types/forms";
+import { updateAccessTicketSchema } from "@/lib/schemas/forms";
+import type { UpdateAccessTicketFormData } from "@/types/forms";
 import { lang } from "@/utils/lang.const";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import {
+  addToast,
   Input,
   NumberInput,
   Select,
@@ -14,23 +15,33 @@ import {
 } from "@heroui/react";
 import { useFormik } from "formik";
 import { Languages } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { newTicketAction } from "./actions";
+import { updateTicketAction } from "./actions";
 
-export default function Form() {
+interface Props {
+  initialValues: UpdateAccessTicketFormData;
+}
+
+export default function Form(props: Props) {
+  const { initialValues } = props;
   const [selectValue, setSelectValue] = useState<SharedSelection>(
     new Set([lang.es]),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter();
 
-  const onSubmit = async (values: NewAccessTicketFormData) => {
+  const onSubmit = async (values: UpdateAccessTicketFormData) => {
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      const res = await newTicketAction(values);
+      const res = await updateTicketAction(values);
+      if (res.success) {
+        alert("Tarifa actualizada exitosamente");
+        return router.push(ADMIN_ROUTES.PRICES);
+      }
       setIsSubmitting(false);
-      if (res.success) return alert("Nueva tarifa creada exitosamente");
       console.log(res.message);
-      return alert("Ocurrió un error intesperado al crear la tarifa");
+      return alert("Ocurrió un error intesperado al actualizar la tarifa");
     } catch (error) {
       setIsSubmitting(false);
       console.log("new access ticket submit error: ", error);
@@ -42,21 +53,18 @@ export default function Form() {
     values,
     errors,
     touched,
+    dirty,
     handleChange,
     handleBlur,
     setFieldValue,
     handleSubmit,
-  } = useFormik<NewAccessTicketFormData>({
-    initialValues: {
-      accessName_en: "",
-      "accessName_es-AR": "",
-      accessName_pt: "",
-      price: 0,
-      liftingMean: "cablecar",
-    },
-    validationSchema: accessTicketSchema,
+  } = useFormik<UpdateAccessTicketFormData>({
+    initialValues,
+    validationSchema: updateAccessTicketSchema,
     onSubmit,
   });
+
+  console.log("values: ", values);
 
   return (
     <form
@@ -150,8 +158,8 @@ export default function Form() {
       })()}
 
       <Select
-        name="elevationMethod"
-        id="elevationMethod"
+        name="liftingMean"
+        id="liftingMean"
         variant="flat"
         radius="full"
         className="rounded-full"
@@ -161,7 +169,7 @@ export default function Form() {
         label="Medio De Elevación"
         labelPlacement="outside"
         placeholder="Seleccionar"
-        defaultSelectedKeys={new Set(["cablecar"])}
+        defaultSelectedKeys={new Set([values.liftingMean])}
         value={values.liftingMean}
         onChange={handleChange}
         onBlur={handleBlur}
@@ -197,10 +205,19 @@ export default function Form() {
         isSubmitting={isSubmitting}
         cancelRedirectRoute={ADMIN_ROUTES.PRICES}
         disableSubmitButton={
+          !dirty ||
           isSubmitting ||
           Object.keys(errors).length > 0 ||
           values.accessName_en === ""
         }
+        disableAction={() => {
+          addToast({
+            title:
+              "Faltan campos por completar y/o no son válidos. Por favor revíselos.",
+            color: "danger",
+            timeout: 2000,
+          });
+        }}
       />
     </form>
   );

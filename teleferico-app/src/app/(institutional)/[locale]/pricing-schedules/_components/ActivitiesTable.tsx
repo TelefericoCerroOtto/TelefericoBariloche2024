@@ -110,45 +110,38 @@ export default function ActivitiesTable() {
   const renderCell = useCallback(
     (activity: Activity, columnKey: ColumnKeys) => {
       let cellValue: number | string | null;
-      if (columnKey === "name")
-        cellValue = activity.activity_descriptions[0].name;
-      else if (columnKey === "requirements")
-        cellValue = activity.activity_descriptions[0].requirements;
-      else if (columnKey === "zone")
-        cellValue = activity.zone.zone_descriptions[0].name;
-      else cellValue = activity[columnKey];
+      let zeroLabel: string = "-";
 
       switch (columnKey) {
         case "name":
-          return <span>{cellValue}</span>;
+          cellValue = activity.activity_descriptions?.[0].name ?? "";
+          return <span>{cellValue || zeroLabel}</span>;
+
         case "zone":
-          return <span>{cellValue}</span>;
+          cellValue = activity.activity_descriptions?.[0].name ?? ""; // TODO: Change to zone name
+          return <span>{cellValue || zeroLabel}</span>;
+
         case "price":
-          if (cellValue === 0)
-            return (
-              <span>
-                {
-                  dictionaries[locale].columns.find(
-                    (column) => column.key === "price",
-                  )?.zeroLabel
-                }
-              </span>
-            );
+          cellValue = activity[columnKey];
+          zeroLabel =
+            dictionaries[locale].columns.find(
+              (column) => column.key === "price",
+            )?.zeroLabel || zeroLabel;
+
+          if (cellValue === 0) return <span>{zeroLabel}</span>;
           return <span>${cellValue}</span>;
+
         case "minAge":
-          if (cellValue === 0)
-            return (
-              <span>
-                {
-                  dictionaries[locale].columns.find(
-                    (column) => column.key === "minAge",
-                  )?.zeroLabel
-                }
-              </span>
-            );
+          cellValue = activity[columnKey];
+          zeroLabel =
+            dictionaries[locale].columns.find(
+              (column) => column.key === "minAge",
+            )?.zeroLabel || "";
+
+          if (cellValue === 0) return <span>{zeroLabel}</span>;
           return (
             <span>
-              {cellValue as string}{" "}
+              {cellValue}{" "}
               {
                 dictionaries[locale].columns.find(
                   (column) => column.key === "minAge",
@@ -156,25 +149,24 @@ export default function ActivitiesTable() {
               }
             </span>
           );
+
         case "season":
-          return (
-            <span>{dictionaries[locale].seasons[cellValue as string]}</span>
-          );
+          cellValue = activity[columnKey];
+          return <span>{dictionaries[locale].seasons[cellValue]}</span>;
+
         case "requirements":
-          if (!cellValue)
-            return (
-              <span>
-                {
-                  dictionaries[locale].columns.find(
-                    (column) => column.key === "requirements",
-                  )?.zeroLabel
-                }
-              </span>
-            );
+          cellValue = activity.activity_descriptions?.[0].requirements ?? "";
+          zeroLabel =
+            dictionaries[locale].columns.find(
+              (column) => column.key === "requirements",
+            )?.zeroLabel || zeroLabel;
+
+          if (!cellValue) return <span>{zeroLabel}</span>;
           return <span>{cellValue as string}</span>;
 
         default:
-          return <span>{cellValue as string}</span>;
+          cellValue = activity[columnKey];
+          return <span>{cellValue}</span>;
       }
     },
     [locale],
@@ -211,13 +203,9 @@ export default function ActivitiesTable() {
     data: items,
     isLoading,
     isError,
-  } = useProxy<GetActivitiesResponse>(STRAPI_ENDPOINTS.ACTIVITIES, query);
-
-  // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
-  if (isError) {
-    console.log("activities table error", isError);
-    return <div>Hubo un error al cargar los datos de la tabla</div>;
-  }
+  } = useProxy<GetActivitiesResponse>(STRAPI_ENDPOINTS.ACTIVITIES, query, {
+    revalidateOnFocus: false,
+  });
 
   return (
     <DataTable
@@ -227,6 +215,7 @@ export default function ActivitiesTable() {
       items={items?.data ?? []}
       columns={dictionaries[locale].columns}
       isLoading={isLoading}
+      isError={isError}
       link={{
         href: ROUTES.ACTIVITIES,
         label: dictionaries[locale].linkLabel,

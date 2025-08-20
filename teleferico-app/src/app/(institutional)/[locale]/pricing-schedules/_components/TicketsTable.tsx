@@ -61,21 +61,23 @@ const dictionaries: Record<
   },
 };
 
-export default function PricingTable() {
+export default function TicketsTable() {
   const { locale } = useLocale();
   const renderCell = useCallback(
-    (price: Ticket, columnKey: ColumnKeys) => {
-      const cellValue = price[columnKey];
+    (ticket: Ticket, columnKey: ColumnKeys) => {
+      const cellValue = ticket[columnKey];
 
       switch (columnKey) {
         case "name":
           return <span className="font-bold">{cellValue}</span>;
+
         case "lifting_mean":
           return (
             <span>
               {dictionaries[locale].lifts[cellValue as Ticket["lifting_mean"]]}
             </span>
           );
+
         case "price":
           if (cellValue === 0)
             return (
@@ -110,7 +112,7 @@ export default function PricingTable() {
       title={dictionaries[locale].title}
       desc={dictionaries[locale].description}
       renderCell={renderCell as () => ReactNode}
-      items={items?.data ?? []}
+      items={items?.data || []}
       columns={dictionaries[locale].columns}
       isLoading={isLoading}
       isError={isError}

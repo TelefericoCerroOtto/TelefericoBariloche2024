@@ -15,7 +15,6 @@ const dictionaries: Record<
   {
     title: string;
     description: string;
-    stations: Record<string, string>;
     columns: { key: ColumnKeys; label: string; zeroLabel?: string }[];
   }
 > = {
@@ -29,10 +28,6 @@ const dictionaries: Record<
     title: "Buses (Traslado gratuito)",
     description:
       "Nuestros buses están disponibles durante todo el año para llevarte a tu destino de manera cómoda y segura. Consultá los horarios y planificá tu viaje con nosotros, sea cual sea la temporada.",
-    stations: {
-      base: "Base",
-      center: "Centro",
-    },
   },
   en: {
     columns: [
@@ -44,10 +39,6 @@ const dictionaries: Record<
     title: "Buses (Free transfer)",
     description:
       "Our buses are available year-round to take you to your destination comfortably and safely. Check the schedules and plan your trip with us, no matter the season.",
-    stations: {
-      base: "Base",
-      center: "Center",
-    },
   },
   pt: {
     columns: [
@@ -59,10 +50,6 @@ const dictionaries: Record<
     title: "Ônibus (Transporte gratuito)",
     description:
       "Nossos ônibus estão disponíveis o ano todo para levá-lo ao seu destino com conforto e segurança. Consulte os horários e planeje sua viagem conosco, independentemente da estação.",
-    stations: {
-      base: "Base",
-      center: "Centro",
-    },
   },
 };
 
@@ -132,10 +119,9 @@ export default function BusTable() {
     data: items,
     isLoading,
     isError,
-  } = useProxy<GetBusTripsResponse>(STRAPI_ENDPOINTS.BUSTRIPS, query);
-
-  // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
-  if (isError) return <div>Hubo un error al cargar los datos de la tabla</div>;
+  } = useProxy<GetBusTripsResponse>(STRAPI_ENDPOINTS.BUSTRIPS, query, {
+    revalidateOnFocus: false,
+  });
 
   return (
     <DataTable
@@ -145,6 +131,7 @@ export default function BusTable() {
       items={items?.data ?? []}
       columns={dictionaries[locale].columns}
       isLoading={isLoading}
+      isError={isError}
     />
   );
 }

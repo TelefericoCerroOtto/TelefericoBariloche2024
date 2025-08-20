@@ -23,9 +23,9 @@ const dicitionaries: Record<
   }
 > = {
   "es-AR": {
-    title: "Ascenso y Descenso - Teleférico Cerro Otto + Acceso al Complejo",
+    title: "Sectores del complejo",
     description:
-      "El ascenso y descenso en el teleférico es solo el comienzo de una experiencia inolvidable. Disfrutá de un recorrido panorámico que te lleva directo al complejo turístico en la cima, donde te esperan actividades para todas las edades.",
+      "En cualquier época del año, nuestros sectores están abiertos para ofrecerte la mejor atención e información. Consultá los horarios específicos y descubrí todo lo que tenemos preparado para vos en cada estación.",
     columns: [
       { key: "name", label: "Sector" },
       { key: "openTime", label: "Apertura" },
@@ -33,9 +33,9 @@ const dicitionaries: Record<
     ],
   },
   en: {
-    title: "Ascent and Descent - Cerro Otto Cable Car + Access to the Complex",
+    title: "Complex Sectors",
     description:
-      "The ascent and descent on the cable car are just the beginning of an unforgettable experience. Enjoy a panoramic ride that takes you straight to the tourist complex at the summit, where activities for all ages await you.",
+      "At any time of the year, our sectors are open to offer you the best service and information. Check the specific opening hours and discover everything we have prepared for you in every season.",
     columns: [
       { key: "name", label: "Sector" },
       { key: "openTime", label: "Opening" },
@@ -43,9 +43,9 @@ const dicitionaries: Record<
     ],
   },
   pt: {
-    title: "Subida e Descida - Teleférico Cerro Otto + Acesso ao Complexo",
+    title: "Setores do Complexo",
     description:
-      "A subida e descida no teleférico são apenas o começo de uma experiência inesquecível. Desfrute de um passeio panorâmico que o leva diretamente ao complexo turístico no topo, onde atividades para todas as idades o aguardam.",
+      "Em qualquer época do ano, nossos setores estão abertos para oferecer a você o melhor atendimento e informações. Consulte os horários específicos e descubra tudo o que preparamos para você em cada estação.",
     columns: [
       { key: "name", label: "Setor" },
       { key: "openTime", label: "Abertura" },
@@ -94,10 +94,9 @@ export default function ZonesTable() {
     data: items,
     isLoading,
     isError,
-  } = useProxy<GetZonesResponse>(STRAPI_ENDPOINTS.ZONES, query);
-
-  // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
-  if (isError) return <div>Hubo un error al cargar los datos de la tabla</div>;
+  } = useProxy<GetZonesResponse>(STRAPI_ENDPOINTS.ZONES, query, {
+    revalidateOnFocus: false,
+  });
 
   return (
     <DataTable
@@ -106,6 +105,7 @@ export default function ZonesTable() {
       renderCell={renderCell as () => ReactNode}
       items={items?.data ?? []}
       isLoading={isLoading}
+      isError={isError}
       columns={dicitionaries[locale].columns}
     />
   );

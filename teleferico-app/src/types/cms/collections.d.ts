@@ -108,7 +108,7 @@ export type Activity = StrapiRecord<{
   minAge: number;
   season: "summer" | "autumn" | "winter" | "spring" | "all";
   zone: Zone;
-  activity_descriptions: ActivityDescription[];
+  activity_descriptions?: ActivityDescription[];
   locale: null;
 }>;
 

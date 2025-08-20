@@ -6,7 +6,7 @@ import { Spacer } from "@heroui/react";
 import {
   ActivitiesTable,
   BusesTable,
-  PricingTable,
+  TicketsTable,
   ZonesTable,
 } from "./_components";
 
@@ -31,7 +31,7 @@ export default async function PricingSchedulesPage({
       <StrapiComponentRenderer block={blocks[0]} locale={locale} />
       <div className="flex w-full flex-col px-10 sm:px-20 lg:px-40">
         <StrapiComponentRenderer block={blocks[1]} locale={locale} />
-        <PricingTable />
+        <TicketsTable />
         <Spacer y={10} />
         <ActivitiesTable />
         <Spacer y={16} />

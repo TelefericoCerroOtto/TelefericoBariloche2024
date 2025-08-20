@@ -87,7 +87,7 @@ export const activityTicketSchema = object({
   requirementsPT: string().required(es.string.required),
 });
 
-export const accessTicketSchema = object({
+export const newAccessTicketSchema = object({
   accessName_en: string().required(es.string.required).min(2, es.string.min(2)),
   "accessName_es-AR": string()
     .required(es.string.required)
@@ -100,6 +100,10 @@ export const accessTicketSchema = object({
   liftingMean: string()
     .oneOf(["cablecar", "road&funicular"])
     .required(es.string.required),
+});
+
+export const updateAccessTicketSchema = newAccessTicketSchema.shape({
+  documentId: string().required(es.string.required),
 });
 
 export const timeSchema = object({

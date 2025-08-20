@@ -1,4 +1,6 @@
 import type {
+  ExtendLocalizations,
+  GetTicketResponse,
   Locales,
   PostAccessTicketRequest,
   PostAccessTicketResponse,
@@ -9,6 +11,30 @@ import { fetchWrapper } from "@/utils/fetch";
 import { getStrapiURL } from "@/utils/get-strapi-url";
 import { stringifyQuery } from "@/utils/query";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+
+export const getAccessTicket = async <T extends Locales | "all">({
+  documentId,
+  locale,
+}: {
+  documentId: string;
+  locale?: T;
+}) => {
+  const query: Record<string, Locales | "localizations"> = {};
+
+  if (locale === "all") {
+    query.populate = "localizations";
+  } else if (!!locale) {
+    query.locale = locale;
+  }
+
+  const qs = stringifyQuery(query);
+
+  const res = await fetchWrapper<
+    T extends "all" ? ExtendLocalizations<GetTicketResponse> : GetTicketResponse
+  >(getStrapiURL(`${STRAPI_ENDPOINTS.TICKETS}/${documentId}`, qs));
+
+  return res;
+};
 
 export const newAccessTicket = async (
   reqBody: PostAccessTicketRequest,

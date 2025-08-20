@@ -8,6 +8,7 @@ interface Props {
   cancelRedirectRoute: string;
   isSubmitting: boolean;
   disableSubmitButton?: boolean;
+  disableAction?: () => void;
 }
 
 export default function FormButtons(props: Props) {
@@ -15,8 +16,10 @@ export default function FormButtons(props: Props) {
     cancelRedirectRoute,
     isSubmitting = false,
     disableSubmitButton = false,
+    disableAction = () => {},
   } = props;
   const router = useRouter();
+  const isDisable = isSubmitting || disableSubmitButton;
 
   return (
     <div className="mx-auto flex flex-col-reverse justify-end gap-2 sm:flex-row">
@@ -32,7 +35,10 @@ export default function FormButtons(props: Props) {
         intent="solid"
         type={disableSubmitButton ? "button" : "submit"}
         className="w-[159px]"
-        disabled={disableSubmitButton || isSubmitting}
+        disabled={isDisable}
+        onClick={() => {
+          if (isDisable) disableAction();
+        }}
       >
         {isSubmitting ? <Spinner size="sm" color="white" /> : "Guardar"}
       </ButtonDos>

@@ -66,3 +66,9 @@ export interface ImageFormats {
   large?: ImageFormat;
   thumbnail: ImageFormat;
 }
+
+export type ExtendLocalizations<T extends { data: unknown; meta: Meta }> = {
+  data: T["data"] extends unknown[]
+    ? Array<T["data"][number] & { localizations: T["data"] }>
+    : T["data"] & { localizations: T["data"][] };
+};
