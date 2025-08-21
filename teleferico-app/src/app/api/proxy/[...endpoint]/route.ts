@@ -1,4 +1,5 @@
-import { NextRequest } from "next/server";
+import { auth } from "@/auth";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   req: NextRequest,
@@ -25,7 +26,7 @@ export async function GET(
     const res = await fetch(targetURL.href);
     const data = await res.json();
 
-    return new Response(JSON.stringify(data), {
+    return NextResponse.json(data, {
       status: res.status,
       headers: {
         "Content-Type": "application/json",
@@ -33,9 +34,61 @@ export async function GET(
     });
   } catch (error) {
     console.log("proxy route handler error: ", error);
+    return NextResponse.json(
+      { message: "GET proxy failed: Internal Server Error" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ endpoint: string[] }> },
+) {
+  if (req.headers.get("sec-fetch-site") !== "same-origin") {
+    return NextResponse.json("Forbidden", { status: 403 });
+  }
+
+  try {
+    const { endpoint } = await params;
+    const strapiBase = process.env.BUILD_STRAPI_BASE_URL ?? "";
+    const endpointPath = endpoint.join("/");
+    const session = await auth();
+
+    if (!strapiBase) {
+      return new Response("Strapi URL not configured", { status: 500 });
+    }
+    if (!session) {
+      return new Response("Session", { status: 401 });
+    }
+
+    const targetURL = new URL(endpointPath, strapiBase);
+    req.nextUrl.searchParams.forEach((value, key) => {
+      targetURL.searchParams.set(key, value);
+    });
+
+    const res = await fetch(targetURL, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${session.jwt}`,
+      },
+    });
+
+    if (res.status === 204) {
+      return new NextResponse(null, { status: res.status });
+    }
+
+    try {
+      const data = await res.json();
+      return NextResponse.json(data, { status: res.status });
+    } catch {
+      return new NextResponse(null, { status: res.status });
+    }
+  } catch (error) {
+    console.log("proxy route handler error: ", error);
     return new Response(
       JSON.stringify({
-        message: "GET proxy failed: Internal Server Error",
+        message: "DELETE proxy failed: Internal Server Error",
       }),
       { status: 500 },
     );
