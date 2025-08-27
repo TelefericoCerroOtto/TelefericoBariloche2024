@@ -12,7 +12,7 @@ export const getBusTrips = async (locale: Locales) => {
         populate: {
           zone: {
             populate: {
-              zone_descriptions: {
+              zone_translations: {
                 filters: {
                   locale: {
                     $eq: locale ?? i18n.defaultLocale,
@@ -27,7 +27,7 @@ export const getBusTrips = async (locale: Locales) => {
         populate: {
           zone: {
             populate: {
-              zone_descriptions: {
+              zone_translations: {
                 filters: {
                   locale: {
                     $eq: locale ?? i18n.defaultLocale,

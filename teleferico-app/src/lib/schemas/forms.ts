@@ -119,9 +119,16 @@ export const timeSchema = object({
     .required(es.number.required),
 });
 
-export const zoneScheduleSchema = object({
+export const updateZoneSchema = object({
+  "zoneName_es-AR": string()
+    .required(es.string.required)
+    .min(2, es.string.min(2)),
+  zoneName_en: string().required(es.string.required).min(2, en.string.min(2)),
+  zoneName_pt: string().required(es.string.required).min(2, pt.string.min(2)),
   openTime: timeSchema,
   closeTime: timeSchema,
+  documentId: string().required(es.string.required),
+  zoneTrasnlationDocumentId: string().required(es.string.required),
 });
 
 export const BusTravelSchema = object({

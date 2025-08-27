@@ -185,7 +185,7 @@ export default function ActivitiesTable() {
       },
       zone: {
         populate: {
-          zone_descriptions: {
+          zone_translations: {
             filters: {
               locale: {
                 $eq: locale,

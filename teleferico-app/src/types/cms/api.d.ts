@@ -12,6 +12,7 @@ import type {
   Ticket,
   UserRole,
   Zone,
+  ZoneTranslation,
 } from "@/types";
 import { BlocksContent } from "@strapi/blocks-react-renderer";
 // import { BlocksContent } from "@strapi/blocks-react-renderer";
@@ -155,9 +156,31 @@ export interface GetSectorsResponse {
   meta: Meta;
 }
 
+export interface GetZoneResponse {
+  data: Zone;
+  meta: Meta;
+}
+
 export interface GetZonesResponse {
   data: Zone[];
   meta: Meta;
+}
+
+export interface UpdateZoneRequest {
+  data: Partial<Pick<Zone, "openTime" | "closeTime">>;
+}
+
+export interface UpdateZoneResponse {
+  data: Omit<Zone, "zone_translations">;
+  meta: Meta;
+}
+
+export interface UpdateZoneTranslationRequest {
+  data: Partial<Pick<ZoneTranslation, "name" | "description">>;
+}
+
+export interface UpdateZoneTranslationResponse {
+  data: Omit<ZoneTranslation, "zone">;
 }
 
 export interface GetActivitiesResponse {

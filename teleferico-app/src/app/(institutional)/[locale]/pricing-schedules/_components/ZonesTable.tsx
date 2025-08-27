@@ -60,7 +60,7 @@ export default function ZonesTable() {
   const renderCell = useCallback(
     (zone: Zone, columnKey: ColumnKeys) => {
       let cellValue: string;
-      if (columnKey === "name") cellValue = zone.zone_descriptions[0].name;
+      if (columnKey === "name") cellValue = zone.zone_translations[0].name;
       else cellValue = zone[columnKey];
 
       switch (columnKey) {
@@ -80,7 +80,7 @@ export default function ZonesTable() {
 
   const query = {
     populate: {
-      zone_descriptions: {
+      zone_translations: {
         filters: {
           locale: {
             $eq: locale ?? i18n.defaultLocale,

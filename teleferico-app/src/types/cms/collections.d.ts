@@ -69,17 +69,18 @@ export type Ticket = StrapiRecord<{
   lifting_mean: "cablecar" | "road&funicular";
 }>;
 
-export type ZoneDescription = StrapiRecord<{
+export type ZoneTranslation = StrapiRecord<{
   name: string;
-  description: string;
+  description: string | null;
+  zone: Zone;
 }>;
 
 export type Zone = StrapiRecord<{
-  openTime: string; // format: hh:mm:ss:mmmm
-  closeTime: string; // format: hh:mm:ss:mmmm
+  openTime: string; // format: hh:mm:ss
+  closeTime: string; // format: hh:mm:ss
   label: string;
   locale: null;
-  zone_descriptions: ZoneDescription[];
+  zone_translations: ZoneTranslation[];
 }>;
 
 export type Station = StrapiRecord<{

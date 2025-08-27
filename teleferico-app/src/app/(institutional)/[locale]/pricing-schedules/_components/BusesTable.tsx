@@ -62,11 +62,11 @@ export default function BusTable() {
       switch (columnKey) {
         case "origin":
           return (
-            <span>{(cellValue as Station).zone.zone_descriptions[0].name}</span>
+            <span>{(cellValue as Station).zone.zone_translations[0].name}</span>
           );
         case "destination":
           return (
-            <span>{(cellValue as Station).zone.zone_descriptions[0].name}</span>
+            <span>{(cellValue as Station).zone.zone_translations[0].name}</span>
           );
         case "depTime":
           return <span>{formatStrapiTime(cellValue as string, locale)}</span>;
@@ -86,7 +86,7 @@ export default function BusTable() {
         populate: {
           zone: {
             populate: {
-              zone_descriptions: {
+              zone_translations: {
                 filters: {
                   locale: {
                     $eq: locale ?? i18n.defaultLocale,
@@ -101,7 +101,7 @@ export default function BusTable() {
         populate: {
           zone: {
             populate: {
-              zone_descriptions: {
+              zone_translations: {
                 filters: {
                   locale: {
                     $eq: locale ?? i18n.defaultLocale,

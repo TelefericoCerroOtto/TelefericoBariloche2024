@@ -18,7 +18,7 @@ export const getActivities = async (locale: Locales) => {
       },
       zone: {
         populate: {
-          zone_descriptions: {
+          zone_translations: {
             filters: {
               locale: {
                 $eq: locale,

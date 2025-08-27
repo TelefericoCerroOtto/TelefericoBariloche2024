@@ -1,5 +1,3 @@
-// TODO: Add 'as const' declaration to all constanst
-
 export const ROUTES = {
   ACTIVITIES: "/activities",
   CONTACT: "/contact",
@@ -12,12 +10,12 @@ export const ROUTES = {
   NEWS: "/news",
   POLICIES: "/policies",
   PRICINGSCHEDULES: "/pricing-schedules",
-};
+} as const;
 
 export const ROUTE_HANDLERS = {
   PROXY: "/api/proxy",
   CONTACT: "/api/contact",
-};
+} as const;
 
 export const ADMIN_ROUTES = {
   ADMIN_GALLERY: "/dashboard/admin-gallery",
@@ -36,7 +34,7 @@ export const ADMIN_ROUTES = {
   RECRUITMENT: "/dashboard/recruitment",
   REVALIDATE: "/dashboard/revalidate",
   ZONES: "/dashboard/zones",
-};
+} as const;
 
 export const STRAPI_ENDPOINTS = {
   ACTIVITIES: "/api/activities",
@@ -52,9 +50,9 @@ export const STRAPI_ENDPOINTS = {
   SECTORS: "/api/sectors",
   SERVICE_STATE: "/api/service-state",
   TICKETS: "/api/tickets",
-  TRANSLATIONS: "/api/global-institutional-translation",
   UPLOADS: "/api/upload",
   USERS: "/api/users",
   USERS_ME: "/api/users/me",
   ZONES: "/api/zones",
-};
+  ZONE_TRANSLATIONS: "/api/zone-translations",
+} as const;
