@@ -53,6 +53,11 @@
       "type": "string",
       "required": true,
       "unique": true
+    },
+    "pages": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::page.page"
     }
   }
 }

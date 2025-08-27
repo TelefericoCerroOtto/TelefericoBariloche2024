@@ -27,16 +27,16 @@
       "required": true,
       "unique": true
     },
-    "zone_descriptions": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::zone-description.zone-description",
-      "mappedBy": "zone"
-    },
     "station": {
       "type": "relation",
       "relation": "oneToOne",
       "target": "api::station.station",
+      "mappedBy": "zone"
+    },
+    "zone_translations": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::zone-translation.zone-translation",
       "mappedBy": "zone"
     }
   }

@@ -1,10 +1,10 @@
 {
   "kind": "collectionType",
-  "collectionName": "zone_descriptions",
+  "collectionName": "zone_translations",
   "info": {
-    "singularName": "zone-description",
-    "pluralName": "zone-descriptions",
-    "displayName": "ZoneDescription"
+    "singularName": "zone-translation",
+    "pluralName": "zone-translations",
+    "displayName": "ZoneTranslation"
   },
   "options": {
     "draftAndPublish": true
@@ -21,8 +21,9 @@
           "localized": true
         }
       },
-      "type": "string",
-      "required": true
+      "type": "text",
+      "required": true,
+      "minLength": 2
     },
     "description": {
       "pluginOptions": {
@@ -36,7 +37,7 @@
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::zone.zone",
-      "inversedBy": "zone_descriptions"
+      "inversedBy": "zone_translations"
     }
   }
 }

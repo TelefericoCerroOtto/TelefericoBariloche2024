@@ -534,6 +534,7 @@ export interface ApiActivityActivity extends Struct.CollectionTypeSchema {
     label: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
+    pages: Schema.Attribute.Relation<'oneToMany', 'api::page.page'>;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -1136,11 +1137,11 @@ export interface ApiZoneZone extends Struct.CollectionTypeSchema {
     label: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
-    zone_descriptions: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::zone-description.zone-description'
-    >;
     station: Schema.Attribute.Relation<'oneToOne', 'api::station.station'>;
+    zone_translations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::zone-translation.zone-translation'
+    >;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -1153,13 +1154,13 @@ export interface ApiZoneZone extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiZoneDescriptionZoneDescription
+export interface ApiZoneTranslationZoneTranslation
   extends Struct.CollectionTypeSchema {
-  collectionName: 'zone_descriptions';
+  collectionName: 'zone_translations';
   info: {
-    singularName: 'zone-description';
-    pluralName: 'zone-descriptions';
-    displayName: 'ZoneDescription';
+    singularName: 'zone-translation';
+    pluralName: 'zone-translations';
+    displayName: 'ZoneTranslation';
   };
   options: {
     draftAndPublish: true;
@@ -1170,12 +1171,15 @@ export interface ApiZoneDescriptionZoneDescription
     };
   };
   attributes: {
-    name: Schema.Attribute.String &
+    name: Schema.Attribute.Text &
       Schema.Attribute.Required &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
           localized: true;
         };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 2;
       }>;
     description: Schema.Attribute.Text &
       Schema.Attribute.SetPluginOptions<{
@@ -1194,7 +1198,7 @@ export interface ApiZoneDescriptionZoneDescription
     locale: Schema.Attribute.String;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
-      'api::zone-description.zone-description'
+      'api::zone-translation.zone-translation'
     >;
   };
 }
@@ -1588,7 +1592,7 @@ declare module '@strapi/strapi' {
       'api::station.station': ApiStationStation;
       'api::ticket.ticket': ApiTicketTicket;
       'api::zone.zone': ApiZoneZone;
-      'api::zone-description.zone-description': ApiZoneDescriptionZoneDescription;
+      'api::zone-translation.zone-translation': ApiZoneTranslationZoneTranslation;
       'admin::permission': AdminPermission;
       'admin::user': AdminUser;
       'admin::role': AdminRole;
