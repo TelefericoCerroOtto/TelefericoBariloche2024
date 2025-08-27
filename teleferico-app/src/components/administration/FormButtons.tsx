@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonDos } from "@/components";
-import { Spinner } from "@heroui/react";
+import { addToast, Spinner } from "@heroui/react";
 import { useRouter } from "next/navigation";
 
 interface Props {
@@ -16,7 +16,14 @@ export default function FormButtons(props: Props) {
     cancelRedirectRoute,
     isSubmitting = false,
     disableSubmitButton = false,
-    disableAction = () => {},
+    disableAction = () => {
+      addToast({
+        title:
+          "Faltan campos por completar y/o no son válidos. Por favor revíselos.",
+        color: "danger",
+        timeout: 2000,
+      });
+    },
   } = props;
   const router = useRouter();
   const isDisable = isSubmitting || disableSubmitButton;

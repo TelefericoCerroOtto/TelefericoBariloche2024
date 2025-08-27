@@ -1,78 +1,23 @@
 "use client";
 
-import { TimeFormData } from "@/types/forms";
-import { Select, SelectItem, SharedSelection } from "@heroui/react";
+import { TimeInputProps } from "@heroui/react";
+import { Skeleton } from "@heroui/react";
+import dynamic from "next/dynamic";
 
-interface Props {
-  title: string;
-  defaultHour: TimeFormData;
-  defaultMin: TimeFormData;
-  // eslint-disable-next-line no-unused-vars
-  onHourChange: (e: SharedSelection) => void;
-  // eslint-disable-next-line no-unused-vars
-  onMinChange: (e: SharedSelection) => void;
-}
+// ⚠️ IMPORTANTE: Este TimeInput se importa dinámicamente con `ssr: false`
+// porque HeroUI/React Aria no es SSR-safe. Si se renderiza en el servidor,
+// produce un "Hydration failed" error debido a diferencias de espacios y
+// renderizado de segmentos entre server y client.
+//
+// Para mejorar la UX mientras carga en el cliente, usamos un fallback
+// Skeleton en `loading`. No eliminar esto sin verificar la compatibilidad
+// SSR del componente.
+const TimeInput = dynamic<TimeInputProps>(
+  () => import("@heroui/react").then((m) => m.TimeInput),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-10 w-full rounded-md" />,
+  },
+);
 
-const hours = Array.from({ length: 24 }, (_, index) => {
-  const idxStr = index.toString();
-  return {
-    key: idxStr,
-    label: index < 10 ? "0" + idxStr : idxStr,
-  };
-});
-
-const mins = Array.from({ length: 60 }, (_, index) => {
-  const idxStr = index.toString();
-  return {
-    key: idxStr,
-    label: index < 10 ? "0" + idxStr : idxStr,
-  };
-});
-
-export default function TimeInput(props: Props) {
-  const { title, defaultHour, defaultMin, onHourChange, onMinChange } = props;
-
-  return (
-    <div className="w-full">
-      <p className="text-center sm:text-start">{title}</p>
-      <fieldset className="flex flex-col gap-5 sm:flex-row">
-        <div className="flex items-center justify-center gap-3">
-          <p className="text-sm font-light">Hora:</p>
-          <Select
-            name="openHour"
-            id="openHour"
-            variant="bordered"
-            className="w-[120px]"
-            size="sm"
-            scrollShadowProps={{
-              isEnabled: false,
-            }}
-            items={hours}
-            defaultSelectedKeys={[defaultHour.hour.toString()]}
-            onSelectionChange={onHourChange}
-          >
-            {(item) => <SelectItem key={item.key}>{item.label}</SelectItem>}
-          </Select>
-        </div>
-        <div className="flex items-center justify-center gap-3">
-          <p className="text-sm font-light">Minutos:</p>
-          <Select
-            name="openMins"
-            id="openMins"
-            variant="bordered"
-            className="w-[120px]"
-            size="sm"
-            scrollShadowProps={{
-              isEnabled: false,
-            }}
-            items={mins}
-            defaultSelectedKeys={defaultMin.mins.toString()}
-            onSelectionChange={onMinChange}
-          >
-            {(item) => <SelectItem key={item.key}>{item.label}</SelectItem>}
-          </Select>
-        </div>
-      </fieldset>
-    </div>
-  );
-}
+export default TimeInput;

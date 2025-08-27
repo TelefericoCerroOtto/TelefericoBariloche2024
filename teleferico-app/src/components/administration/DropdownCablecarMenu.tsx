@@ -55,7 +55,7 @@ export default function DropdownCablecarMenu({
         setIsLoading(true);
         const res = await getStateAction();
         setIsLoading(false);
-        console.log("getStateAction res", res);
+
         if (res.ok) return setSelectedKeys(new Set([res.data.data.state]));
         setSelectedKeys(new Set());
       } catch (error) {

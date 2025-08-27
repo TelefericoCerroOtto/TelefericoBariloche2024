@@ -6,7 +6,6 @@ import type { UpdateAccessTicketFormData } from "@/types/forms";
 import { lang } from "@/utils/lang.const";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import {
-  addToast,
   Input,
   NumberInput,
   Select,
@@ -41,7 +40,7 @@ export default function Form(props: Props) {
       }
       setIsSubmitting(false);
       console.log(res.message);
-      return alert("Ocurrió un error intesperado al actualizar la tarifa");
+      return alert("Ocurrió un error inesperado al actualizar la tarifa");
     } catch (error) {
       setIsSubmitting(false);
       console.log("new access ticket submit error: ", error);
@@ -206,18 +205,9 @@ export default function Form(props: Props) {
         cancelRedirectRoute={ADMIN_ROUTES.PRICES}
         disableSubmitButton={
           !dirty ||
-          isSubmitting ||
           Object.keys(errors).length > 0 ||
           values.accessName_en === ""
         }
-        disableAction={() => {
-          addToast({
-            title:
-              "Faltan campos por completar y/o no son válidos. Por favor revíselos.",
-            color: "danger",
-            timeout: 2000,
-          });
-        }}
       />
     </form>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormButtons, TimeInput } from "@/components";
+import { FormButtons, TimeInputDeprecated } from "@/components";
 import { BusTravelSchema } from "@/lib/schemas/forms";
 import type { BusTravelFormData } from "@/types/forms";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
@@ -61,7 +61,7 @@ export default function Form() {
         <SelectItem key="teleferico">Teleferico</SelectItem>
         <SelectItem key="camino">Camino y funicular</SelectItem>
       </Select>
-      <TimeInput
+      <TimeInputDeprecated
         title="Horario De Salida"
         defaultHour={values.depTime}
         onHourChange={(e) => {
@@ -86,7 +86,7 @@ export default function Form() {
           });
         }}
       />
-      <TimeInput
+      <TimeInputDeprecated
         title="Horario De Llegada"
         defaultHour={values.arrTime}
         onHourChange={(e) => {
