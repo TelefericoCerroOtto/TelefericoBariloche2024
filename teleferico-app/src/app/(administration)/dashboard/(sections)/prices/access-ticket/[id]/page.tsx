@@ -1,4 +1,4 @@
-import { FormContainer } from "@/components";
+import { FormContainer, FormError } from "@/components";
 import Form from "./Form";
 import { getAccessTicket } from "@/lib/services";
 import { getAccessTicketAdapter } from "@/lib/adapters/forms";
@@ -15,7 +15,7 @@ export default async function EditAccessTicketPage({
   const res = await getAccessTicket({ documentId: id, locale: "all" });
 
   if (!res.ok) {
-    return <div>Algo salio mal</div>;
+    return <FormError message="Algo salio mal" />;
   }
 
   const initialValues = getAccessTicketAdapter(res.data);

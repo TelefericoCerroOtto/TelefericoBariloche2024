@@ -16,7 +16,10 @@ export const fetchWrapper = async <T>(
     const data = (await res.json()) as ErrorResponse;
     return { ok: false, data } as { ok: false; data: ErrorResponse };
   } catch (error) {
-    console.log(errMsg, error);
+    console.log(
+      errMsg ? errMsg : `error in fetchWrapper while fetching to ${input}: `,
+      error,
+    );
     return { ok: false, data: null } as { ok: false; data: null };
   }
 };
