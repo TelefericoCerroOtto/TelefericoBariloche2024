@@ -16,7 +16,7 @@ interface Props {
   handleSelectionChange: (keys: SharedSelection) => void;
 }
 
-export default function LocaleSelection(props: Props) {
+export default function FormLocaleSelector(props: Props) {
   const { selectedKeys, handleSelectionChange } = props;
 
   return (
@@ -38,4 +38,4 @@ export default function LocaleSelection(props: Props) {
   );
 }
 
-// TODO: Reemplazar las selecciones de locales en los formularios por este componente en conjunto con useLocaleSelection
+// TODO: Reemplazar las selecciones de locales en los formularios por este componente en conjunto con useFormLocaleSelector

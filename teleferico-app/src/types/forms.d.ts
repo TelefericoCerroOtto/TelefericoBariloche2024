@@ -1,5 +1,6 @@
 import {
-  activityTicketSchema,
+  newActivitySchema,
+  updateActivitySchema,
   BusTravelSchema,
   contactSchema,
   loginSchema,
@@ -14,7 +15,8 @@ import {
 import type { InferType } from "yup";
 
 export type LoginFormData = InferType<typeof loginSchema>;
-export type NewActivityTicketFormData = InferType<typeof activityTicketSchema>;
+export type NewActivityFormData = InferType<typeof newActivitySchema>;
+export type UpdateActivityFormData = InferType<typeof updateActivitySchema>;
 export type NewAccessTicketFormData = InferType<typeof newAccessTicketSchema>;
 export type UpdateAccessTicketFormData = InferType<
   typeof updateAccessTicketSchema

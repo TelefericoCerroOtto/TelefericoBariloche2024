@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonDos, CustomLink } from "@/components";
-import type { Ticket } from "@/types";
+import type { Activity, Ticket } from "@/types";
 import { ROUTE_HANDLERS } from "@/utils/routes.const";
 import {
   Button,
@@ -17,7 +17,7 @@ import { useState } from "react";
 import { useSWRConfig } from "swr";
 
 interface Props {
-  ticket: Ticket;
+  ticket: Ticket | Activity;
   title: string;
   editPath: string;
   erasePath: string;
@@ -55,6 +55,10 @@ export default function ActionsButtons(props: Props) {
     }
   };
 
+  const name =
+    (ticket as Activity).activity_translations?.[0]?.name ||
+    (ticket as Ticket).name;
+
   return (
     <div className="relative flex flex-row justify-center gap-2">
       <CustomLink
@@ -77,8 +81,7 @@ export default function ActionsButtons(props: Props) {
               <ModalHeader className="flex flex-col gap-1">{title}</ModalHeader>
               <ModalBody>
                 <p>
-                  ¿Está seguro que desea eliminar <strong>{ticket.name}</strong>
-                  ?
+                  ¿Está seguro que desea eliminar <strong>{name}</strong>?
                 </p>
               </ModalBody>
               <ModalFooter>

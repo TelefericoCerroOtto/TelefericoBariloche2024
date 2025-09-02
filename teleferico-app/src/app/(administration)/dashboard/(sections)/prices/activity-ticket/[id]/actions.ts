@@ -1,0 +1,116 @@
+"use server";
+
+import { i18n } from "@/i18n";
+import {
+  createActivityTranslationAdapter,
+  updateActivityAdapter,
+  updateActivityTranslationAdapter,
+} from "@/lib/adapters/forms";
+import { updateActivitySchema } from "@/lib/schemas/forms";
+import { updateActivity } from "@/lib/services";
+import {
+  createActivityTranslation,
+  updateActivityTranslation,
+} from "@/lib/services/activity-translations";
+import type {
+  FormSubmitServerActionResponse,
+  UpdateActivityFormData,
+} from "@/types";
+import { getSession } from "@/utils/auth";
+import { ValidationError } from "yup";
+
+export const updateActivityAction = async (
+  values: UpdateActivityFormData,
+): FormSubmitServerActionResponse => {
+  const { jwt } = await getSession();
+  const { locales } = i18n;
+
+  try {
+    updateActivitySchema.validateSync(values);
+
+    const { activityDocumentId } = values;
+    let { activityTranslationDocumentId } = values;
+    const reqBody = updateActivityAdapter(values);
+    const res = await updateActivity(
+      { reqBody, documentId: activityDocumentId },
+      jwt,
+    );
+
+    if (!res.ok) {
+      console.log(res.data);
+      return {
+        success: false,
+        message: `Server action 'updateZoneAction' failed: An error occurred while updating zone.`,
+        data: res.data,
+      };
+    }
+
+    for (let i = 0; i < locales.length; i++) {
+      const locale = locales[i];
+      if (i == 0 && !activityTranslationDocumentId) {
+        const localeReqBody = createActivityTranslationAdapter({
+          values,
+          locale,
+          relatedActivityDocumentId: activityDocumentId,
+        });
+
+        const res = await createActivityTranslation(
+          {
+            reqBody: localeReqBody,
+            locale,
+          },
+          jwt,
+        );
+
+        if (!res.ok) {
+          console.log(res.data);
+          return {
+            success: false,
+            message: `Server action 'updateActivityAction' failed: An error occurred while updating locale ${locale} activity translation.`,
+            data: res.data,
+          };
+        }
+
+        activityTranslationDocumentId = res.data.data.documentId;
+      } else {
+        const localeReqBody = updateActivityTranslationAdapter({
+          values,
+          locale,
+        });
+
+        const res = await updateActivityTranslation(
+          {
+            reqBody: localeReqBody,
+            documentId: activityTranslationDocumentId!,
+            locale,
+          },
+          jwt,
+        );
+
+        if (!res.ok) {
+          console.log(res.data);
+          return {
+            success: false,
+            message: `Server action 'updateActivityAction' failed: An error occurred while updating locale ${locale} activity translation.`,
+            data: res.data,
+          };
+        }
+      }
+    }
+
+    return { success: true, message: "Activity updated successfully." };
+  } catch (error) {
+    console.log("Server action 'updateActivityAction' error: ", error);
+    if (error instanceof ValidationError) {
+      return {
+        success: false,
+        message:
+          "Server action 'updateActivityAction' failed: Invalid or missing fields.",
+      };
+    }
+    return {
+      success: false,
+      message: "Server action 'updateActivityAction' failed",
+    };
+  }
+};

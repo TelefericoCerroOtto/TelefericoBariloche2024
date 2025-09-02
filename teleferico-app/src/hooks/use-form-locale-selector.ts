@@ -3,7 +3,7 @@ import type { Locales } from "@/types";
 import { SharedSelection } from "@heroui/react";
 import { useState } from "react";
 
-export const useLocaleSelection = (initialLocale?: Locales) => {
+export const useFormLocaleSelector = (initialLocale?: Locales) => {
   const [locale, setLocale] = useState<Locales>(
     initialLocale || i18n.defaultLocale,
   );

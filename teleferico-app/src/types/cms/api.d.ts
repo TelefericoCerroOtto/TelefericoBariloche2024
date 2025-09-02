@@ -1,5 +1,6 @@
 import type {
   Activity,
+  ActivityTranslation,
   BusTrip,
   ComponentTranslate,
   Faq,
@@ -15,6 +16,7 @@ import type {
   ZoneTranslation,
 } from "@/types";
 import { BlocksContent } from "@strapi/blocks-react-renderer";
+import { User } from "next-auth";
 // import { BlocksContent } from "@strapi/blocks-react-renderer";
 
 export interface LoginUserRequest {
@@ -183,10 +185,61 @@ export interface UpdateZoneTranslationResponse {
   data: Omit<ZoneTranslation, "zone">;
 }
 
+export interface GetActivityResponse {
+  data: Activity;
+  meta: Meta;
+}
+
 export interface GetActivitiesResponse {
   data: Activity[];
   meta: Meta;
 }
+
+export type PostActivityRequest = {
+  data: Pick<Activity, "price" | "minAge" | "season">;
+};
+
+export type PostActivityResponse = {
+  data: Activity;
+  meta: Meta;
+};
+
+export type UpdateActivityRequest = {
+  data: Partial<Pick<Activity, "price" | "minAge" | "season">>;
+};
+
+export type UpdateActivityResponse = {
+  data: Activity;
+  meta: Meta;
+};
+
+export type PostActivityTranslationRequest = {
+  data: Pick<ActivityTranslation, "name" | "description" | "requirements"> & {
+    activity: {
+      connect: [{ documentId: string }];
+    };
+  };
+};
+
+export type PostActivityTranslationResponse = {
+  data: ActivityTranslation;
+  meta: Meta;
+};
+
+export type UpdateActivityTranslationRequest = {
+  data: Partial<
+    Pick<ActivityTranslation, "name" | "description" | "requirements">
+  > & {
+    activity?: {
+      connect: [{ documentId: string }];
+    };
+  };
+};
+
+export type UpdateActivityTranslationResponse = {
+  data: ActivityTranslation;
+  meta: Meta;
+};
 
 export interface PostPostulationRequest {
   data: {

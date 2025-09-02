@@ -69,22 +69,26 @@ export const loginSchema: ObjectSchema<LoginUserRequest> = object({
   password: string().required(es.string.required),
 });
 
-export const activityTicketSchema = object({
-  activityNameEN: string().required(es.string.required),
-  activityNameES: string().required(es.string.required),
-  activityNamePT: string().required(es.string.required),
+export const newActivitySchema = object({
+  "activityName_es-AR": string().required(es.string.required),
+  activityName_en: string().required(es.string.required),
+  activityName_pt: string().required(es.string.required),
+  "description_es-AR": string().max(500, es.string.max(500)),
+  description_en: string().max(500, es.string.max(500)),
+  description_pt: string().max(500, es.string.max(500)),
   price: number().integer(es.number.integer).required(es.number.required),
   minAge: number().integer(es.number.integer).required(es.number.required),
-  season: string().oneOf([
-    "verano",
-    "otoño",
-    "invierno",
-    "primavera",
-    "allSeasons",
-  ]),
-  requirementsEN: string().required(es.string.required),
-  requirementsES: string().required(es.string.required),
-  requirementsPT: string().required(es.string.required),
+  season: string()
+    .oneOf(["summer", "autumn", "winter", "spring", "allSeasons"])
+    .required(es.string.required),
+  "requirements_es-AR": string(),
+  requirements_en: string(),
+  requirements_pt: string(),
+});
+
+export const updateActivitySchema = newActivitySchema.shape({
+  activityDocumentId: string().required(es.string.required),
+  activityTranslationDocumentId: string(),
 });
 
 export const newAccessTicketSchema = object({

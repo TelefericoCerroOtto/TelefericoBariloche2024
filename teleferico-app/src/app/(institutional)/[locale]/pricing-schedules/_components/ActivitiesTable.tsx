@@ -52,7 +52,7 @@ const dictionaries: Record<
       autumn: "Otoño",
       winter: "Invierno",
       spring: "Primavera",
-      all: "Todo el año",
+      allSeasons: "Todo el año",
     },
   },
   en: {
@@ -73,7 +73,7 @@ const dictionaries: Record<
       autumn: "Autumn",
       winter: "Winter",
       spring: "Spring",
-      all: "All year",
+      allSeasons: "All year",
     },
   },
   pt: {
@@ -99,7 +99,7 @@ const dictionaries: Record<
       autumn: "Outono",
       winter: "Inverno",
       spring: "Primavera",
-      all: "O ano todo",
+      allSeasons: "O ano todo",
     },
   },
 };
@@ -114,11 +114,11 @@ export default function ActivitiesTable() {
 
       switch (columnKey) {
         case "name":
-          cellValue = activity.activity_descriptions?.[0].name ?? "";
+          cellValue = activity.activity_translations?.[0]?.name || "";
           return <span>{cellValue || zeroLabel}</span>;
 
         case "zone":
-          cellValue = activity.activity_descriptions?.[0].name ?? ""; // TODO: Change to zone name
+          cellValue = activity.activity_translations?.[0]?.name || ""; // TODO: Change to zone name
           return <span>{cellValue || zeroLabel}</span>;
 
         case "price":
@@ -155,7 +155,7 @@ export default function ActivitiesTable() {
           return <span>{dictionaries[locale].seasons[cellValue]}</span>;
 
         case "requirements":
-          cellValue = activity.activity_descriptions?.[0].requirements ?? "";
+          cellValue = activity.activity_translations?.[0]?.requirements || "";
           zeroLabel =
             dictionaries[locale].columns.find(
               (column) => column.key === "requirements",
@@ -175,7 +175,7 @@ export default function ActivitiesTable() {
   const query = {
     fields: ["price", "minAge", "season", "label"],
     populate: {
-      activity_descriptions: {
+      activity_translations: {
         filters: {
           locale: {
             $eq: locale,

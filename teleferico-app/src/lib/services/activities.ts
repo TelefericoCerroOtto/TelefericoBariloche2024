@@ -1,20 +1,74 @@
-import { GetActivitiesResponse, Locales } from "@/types";
+import type {
+  GetActivitiesResponse,
+  GetActivityResponse,
+  Locales,
+  PostActivityRequest,
+  PostActivityResponse,
+  UpdateActivityRequest,
+  UpdateActivityResponse,
+} from "@/types";
 import { fetchWrapper } from "@/utils/fetch";
 import { getStrapiURL } from "@/utils/get-strapi-url";
 import { stringifyQuery } from "@/utils/query";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 
-export const getActivities = async (locale: Locales) => {
-  const query = {
-    // fields: ["price", "minAge", "season", "label"],
-    populate: {
-      activity_descriptions: {
+export const getActivity = async <T extends Locales | "all">({
+  documentId,
+  locale,
+}: {
+  documentId: string;
+  locale: T;
+}) => {
+  const query: Record<string, unknown> = {};
+
+  if (locale === "all") {
+    query.populate = {
+      0: "activity_translations", // => populate[0]=activity_translations
+      zone: {
+        populate: {
+          1: "zone_translations", // => populate[zone][populate][1]=zone_translations
+        },
+      },
+    };
+  } else if (locale) {
+    query.populate = {
+      activity_translations: {
+        filters: { locale: { $eq: locale } },
+      },
+      zone: {
+        populate: {
+          zone_translations: { filters: { locale: { $eq: locale } } },
+        },
+      },
+    };
+  }
+
+  const qs = stringifyQuery(query);
+
+  const res = await fetchWrapper<GetActivityResponse>(
+    getStrapiURL(`${STRAPI_ENDPOINTS.ACTIVITIES}/${documentId}`, qs),
+  );
+
+  return res;
+};
+
+export const getActivities = async <T extends Locales | "all">(locale: T) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const query: Record<string, any> = {};
+
+  if (locale === "all") {
+    query.populate = [
+      "activity_translations",
+      { zone: { populate: "zone_translations" } },
+    ];
+  } else if (locale) {
+    query.populate = {
+      activity_translations: {
         filters: {
           locale: {
             $eq: locale,
           },
         },
-        // fields: ["name", "description", "requirements", "locale"],
       },
       zone: {
         populate: {
@@ -24,16 +78,55 @@ export const getActivities = async (locale: Locales) => {
                 $eq: locale,
               },
             },
-            // fields: ["name", "description", "locale"],
           },
         },
-        // fields: ["openTime", "closeTime", "label", "locale"],
       },
-    },
-  };
+    };
+  }
 
   const res = await fetchWrapper<GetActivitiesResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.ACTIVITIES, stringifyQuery(query)),
+  );
+
+  return res;
+};
+
+export const createActivity = async (
+  reqBody: PostActivityRequest,
+  jwt: string,
+) => {
+  const res = await fetchWrapper<PostActivityResponse>(
+    getStrapiURL(STRAPI_ENDPOINTS.ACTIVITIES),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(reqBody),
+    },
+  );
+
+  return res;
+};
+
+export const updateActivity = async (
+  {
+    reqBody,
+    documentId,
+  }: { reqBody: UpdateActivityRequest; documentId: string },
+  jwt: string,
+) => {
+  const res = await fetchWrapper<UpdateActivityResponse>(
+    getStrapiURL(`${STRAPI_ENDPOINTS.ACTIVITIES}/${documentId}`),
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(reqBody),
+    },
   );
 
   return res;

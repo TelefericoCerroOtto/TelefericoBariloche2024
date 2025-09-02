@@ -2,11 +2,11 @@
 
 import {
   FormButtons,
+  FormLocaleSelector,
   LocaleInputField,
-  LocaleSelection,
   TimeInput,
 } from "@/components";
-import { useLocaleSelection } from "@/hooks/use-locale-selection";
+import { useFormLocaleSelector } from "@/hooks";
 import { updateZoneSchema } from "@/lib/schemas/forms";
 import type { ZoneFormData } from "@/types/forms";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
@@ -25,7 +25,8 @@ export default function Form(props: Props) {
 
   const [timeInputLoading, setTimeInputLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { locale, selectedKeys, handleSelectionChange } = useLocaleSelection();
+  const { locale, selectedKeys, handleSelectionChange } =
+    useFormLocaleSelector();
   const router = useRouter();
 
   const onSubmit = async (values: ZoneFormData) => {
@@ -68,7 +69,7 @@ export default function Form(props: Props) {
       className="flex flex-col gap-6 overflow-scroll"
       onSubmit={handleSubmit}
     >
-      <LocaleSelection
+      <FormLocaleSelector
         selectedKeys={selectedKeys}
         handleSelectionChange={handleSelectionChange}
       />
