@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Teleférico Bariloche 2024 — Web (Next.js)
 
-## Getting Started
+Aplicación frontend del proyecto, implementada con Next.js (App Router). Para documentación completa de local, CI/CD y despliegues, ver el README principal del repositorio:
 
-First, run the development server:
+- ../README.md
+
+## Scripts útiles
+
+- `npm run dev`: Ejecuta el servidor de desarrollo en `http://localhost:3000`
+- `npm run build`: Compila la app
+- `npm start`: Inicia la app compilada
+- `npm run lint`: Linter
+
+## Variables de entorno
+
+Estas variables se usan en código y/o en `next.config.mjs`:
+
+- `BUILD_STRAPI_BASE_URL` (build-time)
+- `BUILD_STRAPI_BUCKET_HOSTNAME` (build-time)
+- `BUILD_STRAPI_BUCKET_PATHNAME` (build-time)
+- `NEXT_PUBLIC_BASE_URL` (runtime)
+- `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` (runtime, opcional)
+
+## Desarrollo local (rápido)
+
+1) Asegurá tener el CMS corriendo en `http://localhost:1337` (Strapi)
+
+2) Crear `./teleferico-app/.env.local` con, por ejemplo:
+
+```env
+BUILD_STRAPI_BASE_URL=http://localhost:1337
+BUILD_STRAPI_BUCKET_HOSTNAME=localhost
+BUILD_STRAPI_BUCKET_PATHNAME=/uploads/*
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+```
+
+3) Ejecutar:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Configuración de imágenes y rewrites: `teleferico-app/next.config.mjs`.

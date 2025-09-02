@@ -1,6 +1,21 @@
 # Teleférico Bariloche 2024
 
-Este repositorio alberga la nueva versión del sitio web de Teleférico Cerro Otto, diseñado para ofrecer una experiencia mejorada y moderna. Desarrollado con [Next.js](https://nextjs.org/) y [Strapi](https://strapi.io/), el proyecto está desplegado en Google [Cloud Platform](https://cloud.google.com/?hl=en), garantizando rendimiento y escalabilidad. Esta nueva implementación sustituirá la versión anterior una vez que esté completamente finalizada.
+Este repositorio alberga la nueva versión del sitio web de Teleférico Cerro Otto, diseñado para ofrecer una experiencia mejorada y moderna. Desarrollado con [Next.js](https://nextjs.org/) y [Strapi](https://strapi.io/), el proyecto está desplegado en Google [Cloud Platform](https://cloud.google.com/?hl=es-419), garantizando rendimiento y escalabilidad. Esta nueva implementación sustituirá la versión anterior una vez que esté completamente finalizada.
+
+## Tabla de contenidos
+
+- Estructura del monorepo
+- Configurar entorno local
+  - STRAPI (CMS)
+  - Next.js (Web)
+- Pasos para el despliegue (resumen)
+- CI/CD (resumen)
+- Flujo de trabajo con Git
+
+## Estructura del monorepo 📁
+
+- `teleferico-app`: Aplicación web (Next.js). Consume la API de Strapi y se despliega en Cloud Run.
+- `teleferico-cms`: CMS (Strapi). Usa Cloud SQL + Cloud Storage y se despliega en App Engine.
 
 # Configurar entorno local 🔧
 
@@ -32,21 +47,52 @@ Ubicarse en el directorio donde se desee crear el proyecto, y ejecutar el comand
 > **Nota:** Cuando se utiliza una version de MySQL mayor a la 8._ es necesario instalar el paquete **mysql2** a traves del comando `npm i mysql2`. Si la version de strapi es 4._, hay que configurar el cliente como _mysql2_. Esto se logra cambiando el valor de la variable de entorno _DATABASE_CLIENT_ por _mysql2_ definida dentro del archivo **.env**. De lo contrario se obtendra un error al momento de lanzar el servidor de desarrollo que dira:
 > `ER_NOT_SUPPORTED_AUTH_MODE: Client does not support authentication protocol requested by server;`
 
-### Instalacion
+### Instalación
 
-Clonar el repositorio con
+Clonar el repositorio:
 
-```git
-git clone
+```bash
+git clone <REPO_URL>
+cd TelefericoBariloche2024
 ```
 
 ### Iniciar app
 
 Ubicarse con la terminal dentro del directorio "./teleferico-cms" y ejecutar el comando `npm run develop`. Deberia desplegarse una salida por consola donde se encuentre la direccion ip y el puerto donde se esta corriendo Strapi.
 
-## NextJS
+## Next.js (Web)
 
-Completar...
+### Requisitos
+
+- Node.js 20.x (recomendado 20.17.0)
+
+### Variables de entorno usadas por la app
+
+- `BUILD_STRAPI_BASE_URL`: Base URL del CMS para imágenes y rewrites (build-time)
+- `BUILD_STRAPI_BUCKET_HOSTNAME`: Host del bucket de imágenes (build-time)
+- `BUILD_STRAPI_BUCKET_PATHNAME`: Path del bucket, ej. `/uploads/*` (build-time)
+- `NEXT_PUBLIC_BASE_URL`: Base URL pública del sitio, usada en middleware (runtime)
+- `NEXT_PUBLIC_RECAPTCHA_SITE_KEY`: Clave de reCAPTCHA (runtime)
+
+### Iniciar app
+
+1. Crear un archivo `.env.local` en `./teleferico-app/` con las variables necesarias. Para desarrollo local típico:
+
+   ```env
+   BUILD_STRAPI_BASE_URL=http://localhost:1337
+   BUILD_STRAPI_BUCKET_HOSTNAME=localhost
+   BUILD_STRAPI_BUCKET_PATHNAME=/uploads/*
+   NEXT_PUBLIC_BASE_URL=http://localhost:3000
+   NEXT_PUBLIC_RECAPTCHA_SITE_KEY=
+   ```
+
+2. Ejecutar desde `./teleferico-app`:
+
+   ```bash
+   npm run dev
+   ```
+
+La configuración de imágenes remotas y rewrites está en `teleferico-app/next.config.mjs`.
 
 # Pasos para el despliegue 🚀
 
@@ -84,7 +130,7 @@ module.exports = ({ env }) => ({
 
 **Cloud Storage**
 
-Para que Strapi funcione correctamente con los buckets de cloud sotrage es necesario instalar un paquete. Ejecutar `npm i @strapi-community/strapi-provider-upload-google-cloud-storage` dentro del directorio del proyecto y a continuacion definir el siguiente contenido para los archivos de configuracion _"/config/env/production/plugins.ts"_ y _"/config/env/staging/plugins.ts"_
+Para que Strapi funcione correctamente con los buckets de Cloud Storage es necesario instalar un paquete. Ejecutar `npm i @strapi-community/strapi-provider-upload-google-cloud-storage` dentro del directorio del proyecto y a continuación definir el siguiente contenido para los archivos de configuración _"/config/env/production/plugins.ts"_ y _"/config/env/staging/plugins.ts"_
 
 **TS**
 
@@ -106,7 +152,7 @@ export default ({ env }) => ({
 
 **JS**
 
-```typescript
+```javascript
 module.exports = ({ env }) => ({
   upload: {
     config: {
@@ -141,7 +187,7 @@ Es necesario habilitar todas las APIs que seran utilizadas en GCP(Google Cloud P
 - **IAM:** Aqui se controlan los accesos y permisos de las cuentas y [cuentas de servicios](https://cloud.google.com/iam/docs/service-account-overview?hl=es-419#service-accounts-identities)
 - **App Engine:** Entorno completamente gestionado que permite crear y ejecutar aplicaciones sin preocuparse por la infraestructura subyacente.
 - **App Engine Admin:** Conjunto de interfaces y métodos que permiten interactuar con las aplicaciones de App Engine de forma programática.
-- **Cloud Storage:** Sirve para guardar los archivos como fotos, videos y pdf. Se habilitara atuomaticamente una vez que se inicialice la aplicacion en App Engine.
+- **Cloud Storage:** Sirve para guardar los archivos como fotos, videos y PDF. Se habilitará automáticamente una vez que se inicialice la aplicación en App Engine.
 - **Cloud Build:** Permite el CI/CD del proyecto una vez se registren cambios en el repositorio.
 - **Cloud SQL Admin:**
 - **Compute Engine:** Es necesario para poder usar Cloud SQL.
@@ -207,7 +253,7 @@ El archivo definido tiene la siguiente forma
 
 ```yaml
 runtime: nodejs20
-instance_class: F2
+instance_class: %INSTANCE_CLASS%
 
 env_variables:
   NODE_ENV: %NODE_ENV%
@@ -471,7 +517,7 @@ Para saber que variables de entorno deben declararse en build time, se utilizar�
 
 # Flujo de Trabajo con Git 🔀
 
-Este flujo de trabajo utiliza tres ramas principales: `main`, `staging` y `develop`. Todos los merges se realizan a través de Pull Requests en GitHub para asegurar revisión y calidad del código.
+Este flujo de trabajo utiliza tres ramas principales: `main`, `staging` y `development`. Todos los merges se realizan a través de Pull Requests en GitHub para asegurar revisión y calidad del código.
 
 ## Ramas
 
@@ -521,7 +567,7 @@ Este flujo de trabajo utiliza tres ramas principales: `main`, `staging` y `devel
     Una vez completada la feature, crear una Pull Request a `development`. En caso de que sea un fix, crear PR tambien a `staging`.
     Aprobada la PR, se debe eliminar la rama asociada a la feature o fix del repositorio remoto.
 
-3.  **Despliegue en Staging**::
+3.  **Despliegue en Staging**:
 
     Cuando `development` está listo para ser probado, crear una Pull Request a `staging`:
 
@@ -529,6 +575,6 @@ Este flujo de trabajo utiliza tres ramas principales: `main`, `staging` y `devel
 
 4.  **Despliegue en Producción**:
 
-    Una vez que todo está probado en `staging`, crear Pull Reques a `main`:
+    Una vez que todo está probado en `staging`, crear Pull Request a `main`:
 
     Despliegue automático de `main` en producción también gracias a los **triggers configurados en Cloud Build**.
