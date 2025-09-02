@@ -1,28 +1,23 @@
 "use client";
 
-import { FormButtons } from "@/components";
+import {
+  FormButtons,
+  FormLocaleSelector,
+  LocaleInputField,
+} from "@/components";
+import { useFormLocaleSelector } from "@/hooks";
 import { newAccessTicketSchema } from "@/lib/schemas/forms";
 import type { NewAccessTicketFormData } from "@/types/forms";
-import { lang } from "@/utils/lang.const";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
-import {
-  addToast,
-  Input,
-  NumberInput,
-  Select,
-  SelectItem,
-  type SharedSelection,
-} from "@heroui/react";
+import { addToast, NumberInput, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
-import { Languages } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { newTicketAction } from "./actions";
-import { useRouter } from "next/navigation";
 
 export default function Form() {
-  const [selectValue, setSelectValue] = useState<SharedSelection>(
-    new Set([lang.es]),
-  );
+  const { locale, selectedKeys, handleSelectionChange } =
+    useFormLocaleSelector();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
@@ -69,91 +64,37 @@ export default function Form() {
       className="flex flex-col gap-5 overflow-scroll"
       onSubmit={handleSubmit}
     >
-      <div className="flex items-center gap-3">
-        <Languages />
-        <p>Editando en:</p>
-        <Select
-          variant="underlined"
-          className="w-[120px]"
-          size="sm"
-          selectedKeys={selectValue}
-          onSelectionChange={setSelectValue}
-          disallowEmptySelection
-        >
-          <SelectItem key={lang.es}>Español</SelectItem>
-          <SelectItem key={lang.en}>Inglés</SelectItem>
-          <SelectItem key={lang.pt}>Portugués</SelectItem>
-        </Select>
-      </div>
+      <FormLocaleSelector
+        selectedKeys={selectedKeys}
+        handleSelectionChange={handleSelectionChange}
+      />
 
-      {(() => {
-        switch (selectValue.currentKey) {
-          case lang.es as SharedSelection:
-            return (
-              <Input
-                label="Nombre de la tarifa (Español)"
-                labelPlacement="outside"
-                placeholder="Ej.: Ticket mayor"
-                name="accessName_es-AR"
-                id="accessName_es-AR"
-                value={values["accessName_es-AR"]}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                errorMessage={errors["accessName_es-AR"]}
-                isInvalid={
-                  !!errors["accessName_es-AR"] && touched["accessName_es-AR"]
-                }
-              />
-            );
-          case lang.en as SharedSelection:
-            return (
-              <Input
-                label="Nombre de la tarifa (Inglés)"
-                labelPlacement="outside"
-                placeholder="Ej.: Adult ticket"
-                name="accessName_en"
-                id="accessName_en"
-                value={values.accessName_en}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                errorMessage={errors.accessName_en}
-                isInvalid={!!errors.accessName_en && touched.accessName_en}
-              />
-            );
-          case lang.pt as SharedSelection:
-            return (
-              <Input
-                label="Nombre de la tarifa (Portugués)"
-                labelPlacement="outside"
-                placeholder="Ej.: Bilhete sênior"
-                name="accessName_pt"
-                id="accessName_pt"
-                value={values.accessName_pt}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                errorMessage={errors.accessName_pt}
-                isInvalid={!!errors.accessName_pt && touched.accessName_pt}
-              />
-            );
-          default:
-            return (
-              <Input
-                label="Nombre de la tarifa (Español)"
-                labelPlacement="outside"
-                placeholder="Ej.: Ticket mayor"
-                name="accessName_es-AR"
-                id="accessName_es-AR"
-                value={values["accessName_es-AR"]}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                errorMessage={errors["accessName_es-AR"]}
-                isInvalid={
-                  !!errors["accessName_es-AR"] && touched["accessName_es-AR"]
-                }
-              />
-            );
-        }
-      })()}
+      <LocaleInputField
+        config={{
+          "es-AR": {
+            label: "Nombre de la tarifa (Español)",
+            name: "accessName_es-AR",
+            placeholder: "Ej.: Ticket mayor",
+          },
+          en: {
+            label: "Nombre de la tarifa (Inglés)",
+            name: "accessName_en",
+            placeholder: "Ej.: Adult ticket",
+          },
+          pt: {
+            label: "Nombre de la tarifa (Portugués)",
+            name: "accessName_pt",
+            placeholder: "Ej.: Bilhete sênior",
+          },
+        }}
+        isRequired
+        values={values}
+        errors={errors}
+        touched={touched}
+        handleChange={handleChange}
+        handleBlur={handleBlur}
+        locale={locale}
+      />
 
       <Select
         name="liftingMean"
