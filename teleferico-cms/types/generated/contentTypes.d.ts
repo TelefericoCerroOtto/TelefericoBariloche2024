@@ -521,20 +521,16 @@ export interface ApiActivityActivity extends Struct.CollectionTypeSchema {
         number
       > &
       Schema.Attribute.DefaultTo<0>;
-    season: Schema.Attribute.Enumeration<
-      ['summer', 'autumn', 'winter', 'spring', 'all']
-    > &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'all'>;
     zone: Schema.Attribute.Relation<'oneToOne', 'api::zone.zone'>;
-    activity_descriptions: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::activity-description.activity-description'
-    >;
-    label: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique;
+    label: Schema.Attribute.String & Schema.Attribute.Unique;
     pages: Schema.Attribute.Relation<'oneToMany', 'api::page.page'>;
+    activity_translations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::activity-translation.activity-translation'
+    >;
+    season: Schema.Attribute.Enumeration<
+      ['summer', 'autumn', 'winter', 'spring', 'allSeasons']
+    >;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -550,13 +546,13 @@ export interface ApiActivityActivity extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiActivityDescriptionActivityDescription
+export interface ApiActivityTranslationActivityTranslation
   extends Struct.CollectionTypeSchema {
-  collectionName: 'activity_descriptions';
+  collectionName: 'activity_translations';
   info: {
-    singularName: 'activity-description';
-    pluralName: 'activity-descriptions';
-    displayName: 'ActivityDescription';
+    singularName: 'activity-translation';
+    pluralName: 'activity-translations';
+    displayName: 'ActivityTranslation';
     description: '';
   };
   options: {
@@ -584,6 +580,9 @@ export interface ApiActivityDescriptionActivityDescription
         i18n: {
           localized: true;
         };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 150;
       }>;
     requirements: Schema.Attribute.Text &
       Schema.Attribute.SetPluginOptions<{
@@ -602,7 +601,7 @@ export interface ApiActivityDescriptionActivityDescription
     locale: Schema.Attribute.String;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
-      'api::activity-description.activity-description'
+      'api::activity-translation.activity-translation'
     >;
   };
 }
@@ -1579,7 +1578,7 @@ declare module '@strapi/strapi' {
       'plugin::users-permissions.role': PluginUsersPermissionsRole;
       'plugin::users-permissions.user': PluginUsersPermissionsUser;
       'api::activity.activity': ApiActivityActivity;
-      'api::activity-description.activity-description': ApiActivityDescriptionActivityDescription;
+      'api::activity-translation.activity-translation': ApiActivityTranslationActivityTranslation;
       'api::bus-trip.bus-trip': ApiBusTripBusTrip;
       'api::component-translation.component-translation': ApiComponentTranslationComponentTranslation;
       'api::faq.faq': ApiFaqFaq;

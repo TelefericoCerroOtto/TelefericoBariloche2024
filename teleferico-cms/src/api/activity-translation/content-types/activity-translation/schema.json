@@ -1,10 +1,10 @@
 {
   "kind": "collectionType",
-  "collectionName": "activity_descriptions",
+  "collectionName": "activity_translations",
   "info": {
-    "singularName": "activity-description",
-    "pluralName": "activity-descriptions",
-    "displayName": "ActivityDescription",
+    "singularName": "activity-translation",
+    "pluralName": "activity-translations",
+    "displayName": "ActivityTranslation",
     "description": ""
   },
   "options": {
@@ -23,9 +23,9 @@
         }
       },
       "type": "text",
-      "required": true,
+      "unique": true,
       "minLength": 2,
-      "unique": true
+      "required": true
     },
     "description": {
       "pluginOptions": {
@@ -33,7 +33,8 @@
           "localized": true
         }
       },
-      "type": "text"
+      "type": "text",
+      "maxLength": 150
     },
     "requirements": {
       "pluginOptions": {
@@ -47,7 +48,7 @@
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::activity.activity",
-      "inversedBy": "activity_descriptions"
+      "inversedBy": "activity_translations"
     }
   }
 }
