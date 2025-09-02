@@ -23,11 +23,12 @@ export const ADMIN_ROUTES = {
   BUSES: "/dashboard/buses",
   DASHBOARD: "/dashboard",
   EDIT_ACCESS_TICKET: "/dashboard/prices/access-ticket",
+  EDIT_ACTIVITY_TICKET: "/dashboard/prices/activity-ticket",
   LOGIN: "/login",
   LOGOUT: "/logout",
   NEWS: "/dashboard/news",
   NEW_ACCESS_TICKET: "/dashboard/prices/access-ticket/new",
-  NEW_ACTIVITY_TICKET: "/dashboard/prices/new-act-ticket",
+  NEW_ACTIVITY_TICKET: "/dashboard/prices/activity-ticket/new",
   NEW_BUS_TRAVEL: "/dashboard/buses/new-bus-travel",
   NEW_USER: "/dashboard/admin-users/new-user",
   PRICES: "/dashboard/prices",
@@ -38,6 +39,7 @@ export const ADMIN_ROUTES = {
 
 export const STRAPI_ENDPOINTS = {
   ACTIVITIES: "/api/activities",
+  ACTIVITY_TRANSLATIONS: "/api/activity-translations",
   AUTH: "/api/auth/local",
   BUSTRIPS: "/api/bus-trips",
   COMPONENT_TRANSLATIONS: "/api/component-translations",
