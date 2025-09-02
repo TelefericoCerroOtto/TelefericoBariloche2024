@@ -1,5 +1,4 @@
-import type { UnpopulatedUserResponse } from "@/types";
-import { UserRole } from "@/types/common";
+import type { UnpopulatedUserResponse, UserRole } from "@/types";
 
 declare module "next-auth" {
   interface User extends UnpopulatedUserResponse {
@@ -22,7 +21,7 @@ declare module "next-auth" {
 }
 
 // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
-import { JWT } from "next-auth/jwt";
+import "next-auth/jwt";
 
 declare module "next-auth/jwt" {
   /** Returned by the `jwt` callback and `auth`, when using JWT sessions */

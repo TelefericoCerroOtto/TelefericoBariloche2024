@@ -4,6 +4,7 @@ import type {
   ServiceStateValues,
   StrapiLocales,
   StrapiRecord,
+  UnpopulatedUserResponse,
 } from "@/types";
 import { roles } from "@/utils/roles";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
@@ -32,7 +33,7 @@ export type ServiceStatus = StrapiRecord<{
 export type StrapiImage = StrapiRecord<{
   name: string;
   alternativeText: string;
-  caption: unkown;
+  caption: unknown;
   width: number;
   height: number;
   formats: ImageFormats;
@@ -41,9 +42,9 @@ export type StrapiImage = StrapiRecord<{
   mime: string;
   size: number;
   url: string;
-  previewUrl: unkown;
+  previewUrl: unknown;
   provider: string;
-  provider_metadata: unkown;
+  provider_metadata: unknown;
 }>;
 
 export type Faq = StrapiRecord<{
@@ -97,19 +98,19 @@ export type BusTrip = StrapiRecord<{
   destination: Station;
 }>;
 
-export type ActivityDescription = StrapiRecord<{
+export type ActivityTranslation = StrapiRecord<{
   name: string;
   description: string | null;
   requirements: string | null;
 }>;
 
 export type Activity = StrapiRecord<{
-  label: string;
+  // label: string;
   price: number;
   minAge: number;
-  season: "summer" | "autumn" | "winter" | "spring" | "all";
+  season: "summer" | "autumn" | "winter" | "spring" | "allSeasons";
   zone: Zone;
-  activity_descriptions?: ActivityDescription[];
+  activity_translations: ActivityTranslation[];
   locale: null;
 }>;
 

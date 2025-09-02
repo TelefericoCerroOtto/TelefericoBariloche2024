@@ -38,7 +38,7 @@ export interface Pagination {
   page: number;
   pageCount: number;
   pageSize: number;
-  total: numebr;
+  total: number;
 }
 
 export type Meta = {
@@ -53,7 +53,7 @@ export interface ImageFormat {
   hash: string;
   mime: string;
   name: string;
-  path: unkown;
+  path: unknown;
   size: number;
   width: number;
   height: number;
