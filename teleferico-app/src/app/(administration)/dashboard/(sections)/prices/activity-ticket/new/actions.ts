@@ -6,7 +6,7 @@ import {
   createActivityTranslationAdapter,
   updateActivityTranslationAdapter,
 } from "@/lib/adapters/forms";
-import { newActivitySchema } from "@/lib/schemas/forms";
+import { createActivitySchema } from "@/lib/schemas/forms";
 import { createActivity } from "@/lib/services";
 import {
   createActivityTranslation,
@@ -14,19 +14,19 @@ import {
 } from "@/lib/services/activity-translations";
 import type {
   FormSubmitServerActionResponse,
-  NewActivityFormData,
+  CreateActivityFormData,
 } from "@/types";
 import { getSession } from "@/utils/auth";
 import { ValidationError } from "yup";
 
-export const newActivityAction = async (
-  values: NewActivityFormData,
+export const createActivityAction = async (
+  values: CreateActivityFormData,
 ): FormSubmitServerActionResponse => {
   const { jwt } = await getSession();
   const { locales } = i18n;
 
   try {
-    newActivitySchema.validateSync(values);
+    createActivitySchema.validateSync(values);
     const createActivityReqBody = createActivityAdapter(values);
 
     const res = await createActivity(createActivityReqBody, jwt);
@@ -35,7 +35,7 @@ export const newActivityAction = async (
       return {
         success: false,
         message:
-          "Server action 'newActivityAction' failed: An error occurred while creating the new activity.",
+          "Server action 'createActivityAction' failed: An error occurred while creating the new activity.",
         data: res.data,
       };
     }
@@ -63,7 +63,7 @@ export const newActivityAction = async (
         if (!res.ok) {
           return {
             success: false,
-            message: `Server action 'newActivityAction' failed: An error occurred while creating locale ${locale} activity translation.`,
+            message: `Server action 'createActivityAction' failed: An error occurred while creating locale ${locale} activity translation.`,
             data: res.data,
           };
         }
@@ -93,7 +93,7 @@ export const newActivityAction = async (
         if (!res.ok) {
           return {
             success: false,
-            message: `Server action 'newActivityAction' failed: An error occurred while updating locale ${locale} activity translation.`,
+            message: `Server action 'createActivityAction' failed: An error occurred while updating locale ${locale} activity translation.`,
             data: res.data,
           };
         }
@@ -105,19 +105,19 @@ export const newActivityAction = async (
       message: "New activity successfully created.",
     };
   } catch (error) {
-    console.log("Server action 'newActivityAction' error: ", error);
+    console.log("Server action 'createActivityAction' error: ", error);
 
     if (error instanceof ValidationError) {
       return {
         success: false,
         message:
-          "Server action 'newActivityAction' failed: Invalid or missing fields.",
+          "Server action 'createActivityAction' failed: Invalid or missing fields.",
       };
     }
 
     return {
       success: false,
-      message: "Server action 'newActivityAction' failed",
+      message: "Server action 'createActivityAction' failed",
     };
   }
 };

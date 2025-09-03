@@ -69,7 +69,7 @@ export const loginSchema: ObjectSchema<LoginUserRequest> = object({
   password: string().required(es.string.required),
 });
 
-export const newActivitySchema = object({
+export const createActivitySchema = object({
   "activityName_es-AR": string().required(es.string.required),
   activityName_en: string().required(es.string.required),
   activityName_pt: string().required(es.string.required),
@@ -86,12 +86,12 @@ export const newActivitySchema = object({
   requirements_pt: string(),
 });
 
-export const updateActivitySchema = newActivitySchema.shape({
+export const updateActivitySchema = createActivitySchema.shape({
   activityDocumentId: string().required(es.string.required),
   activityTranslationDocumentId: string(),
 });
 
-export const newAccessTicketSchema = object({
+export const createAccessTicketSchema = object({
   accessName_en: string().required(es.string.required).min(2, es.string.min(2)),
   "accessName_es-AR": string()
     .required(es.string.required)
@@ -106,7 +106,7 @@ export const newAccessTicketSchema = object({
     .required(es.string.required),
 });
 
-export const updateAccessTicketSchema = newAccessTicketSchema.shape({
+export const updateAccessTicketSchema = createAccessTicketSchema.shape({
   documentId: string().required(es.string.required),
 });
 

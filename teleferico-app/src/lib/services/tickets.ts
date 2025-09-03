@@ -36,7 +36,8 @@ export const getAccessTicket = async <T extends Locales | "all">({
   return res;
 };
 
-export const newAccessTicket = async (
+// TODO: replace createAccessTicket with createAccessTicket
+export const createAccessTicket = async (
   reqBody: PostAccessTicketRequest,
   jwt: string,
 ) => {

@@ -1,10 +1,10 @@
 import {
-  newActivitySchema,
+  createActivitySchema,
   updateActivitySchema,
   BusTravelSchema,
   contactSchema,
   loginSchema,
-  newAccessTicketSchema,
+  createAccessTicketSchema,
   newUserSchema,
   postulationSchema,
   timeSchema,
@@ -15,9 +15,11 @@ import {
 import type { InferType } from "yup";
 
 export type LoginFormData = InferType<typeof loginSchema>;
-export type NewActivityFormData = InferType<typeof newActivitySchema>;
+export type CreateActivityFormData = InferType<typeof createActivitySchema>;
 export type UpdateActivityFormData = InferType<typeof updateActivitySchema>;
-export type NewAccessTicketFormData = InferType<typeof newAccessTicketSchema>;
+export type CreateAccessTicketFormData = InferType<
+  typeof createAccessTicketSchema
+>;
 export type UpdateAccessTicketFormData = InferType<
   typeof updateAccessTicketSchema
 >;

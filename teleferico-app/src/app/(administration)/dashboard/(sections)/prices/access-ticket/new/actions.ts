@@ -1,23 +1,23 @@
 "use server";
 
 import { i18n } from "@/i18n";
-import { newAccessTicketSchema } from "@/lib/schemas/forms";
-import { newAccessTicket, updateAccessTicket } from "@/lib/services";
+import { createAccessTicketSchema } from "@/lib/schemas/forms";
+import { createAccessTicket, updateAccessTicket } from "@/lib/services";
 import type {
   FormSubmitServerActionResponse,
-  NewAccessTicketFormData,
+  CreateAccessTicketFormData,
 } from "@/types";
 import { getSession } from "@/utils/auth";
 import { ValidationError } from "yup";
 
 export const newTicketAction = async (
-  values: NewAccessTicketFormData,
+  values: CreateAccessTicketFormData,
 ): FormSubmitServerActionResponse => {
   const { jwt } = await getSession();
   const { locales } = i18n;
 
   try {
-    newAccessTicketSchema.validateSync(values);
+    createAccessTicketSchema.validateSync(values);
 
     let documentId: string = "";
 
@@ -30,7 +30,7 @@ export const newTicketAction = async (
       };
 
       if (i === 0) {
-        const res = await newAccessTicket({ data }, jwt);
+        const res = await createAccessTicket({ data }, jwt);
 
         if (!res.ok) {
           console.log(res.data);

@@ -7,14 +7,14 @@ import {
   LocaleTextareaField,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
-import { newActivitySchema } from "@/lib/schemas/forms";
-import type { NewActivityFormData } from "@/types";
+import { createActivitySchema } from "@/lib/schemas/forms";
+import type { CreateActivityFormData } from "@/types";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { NumberInput, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { newActivityAction } from "./actions";
+import { createActivityAction } from "./actions";
 import { seasonOptions } from "../data";
 
 export default function Form() {
@@ -23,10 +23,10 @@ export default function Form() {
   const { locale, selectedKeys, handleSelectionChange } =
     useFormLocaleSelector();
 
-  const onSubmit = async (values: NewActivityFormData) => {
+  const onSubmit = async (values: CreateActivityFormData) => {
     try {
       setIsSubmitting(true);
-      const res = await newActivityAction(values);
+      const res = await createActivityAction(values);
       if (res.success) {
         alert("Nueva actividad creada exitosamente");
         return router.push(ADMIN_ROUTES.PRICES);
@@ -49,7 +49,7 @@ export default function Form() {
     handleBlur,
     handleSubmit,
     setFieldValue,
-  } = useFormik<NewActivityFormData>({
+  } = useFormik<CreateActivityFormData>({
     initialValues: {
       "activityName_es-AR": "",
       activityName_en: "",
@@ -64,7 +64,7 @@ export default function Form() {
       minAge: 0,
       season: "allSeasons",
     },
-    validationSchema: newActivitySchema,
+    validationSchema: createActivitySchema,
     onSubmit,
   });
 

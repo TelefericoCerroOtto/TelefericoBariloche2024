@@ -4,7 +4,7 @@ import type {
   GetTicketResponse,
   GetZoneResponse,
   Locales,
-  NewActivityFormData,
+  CreateActivityFormData,
   NewUserFormData,
   NewUserRequest,
   PostActivityRequest,
@@ -204,7 +204,7 @@ export const getActivityAdapter = (
 };
 
 export const createActivityAdapter = (
-  values: NewActivityFormData,
+  values: CreateActivityFormData,
 ): PostActivityRequest => {
   const reqBody: PostActivityRequest = {
     data: {
@@ -224,7 +224,7 @@ export const createActivityTranslationAdapter = ({
   relatedActivityDocumentId,
   locale,
 }: {
-  values: NewActivityFormData;
+  values: CreateActivityFormData;
   relatedActivityDocumentId: string;
   locale: Locales;
 }): PostActivityTranslationRequest => {

@@ -6,8 +6,8 @@ import {
   LocaleInputField,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
-import { newAccessTicketSchema } from "@/lib/schemas/forms";
-import type { NewAccessTicketFormData } from "@/types/forms";
+import { createAccessTicketSchema } from "@/lib/schemas/forms";
+import type { CreateAccessTicketFormData } from "@/types/forms";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { addToast, NumberInput, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
@@ -21,7 +21,7 @@ export default function Form() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
-  const onSubmit = async (values: NewAccessTicketFormData) => {
+  const onSubmit = async (values: CreateAccessTicketFormData) => {
     try {
       setIsSubmitting(true);
       const res = await newTicketAction(values);
@@ -47,7 +47,7 @@ export default function Form() {
     handleBlur,
     setFieldValue,
     handleSubmit,
-  } = useFormik<NewAccessTicketFormData>({
+  } = useFormik<CreateAccessTicketFormData>({
     initialValues: {
       accessName_en: "",
       "accessName_es-AR": "",
@@ -55,7 +55,7 @@ export default function Form() {
       price: 0,
       liftingMean: "cablecar",
     },
-    validationSchema: newAccessTicketSchema,
+    validationSchema: createAccessTicketSchema,
     onSubmit,
   });
 
