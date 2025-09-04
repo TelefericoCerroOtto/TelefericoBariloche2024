@@ -1,8 +1,9 @@
 import { auth } from "@/auth";
-import { verifySession } from "@/lib/services";
-import { ADMIN_ROUTES } from "./utils/routes.const";
-import { NextResponse } from "next/server";
 import { i18n } from "@/i18n";
+import { verifySession } from "@/lib/services";
+import type { Locales } from "@/types";
+import { NextResponse } from "next/server";
+import { ADMIN_ROUTES } from "./utils/routes.const";
 
 export default auth(async (req) => {
   const pathname = req.nextUrl.pathname;
@@ -46,34 +47,53 @@ export default auth(async (req) => {
     }
     return;
   } else {
-    const { defaultLocale } = i18n;
-
-    // Check if the default locale is in the pathname
-    if (pathname.startsWith(`/${defaultLocale}`)) {
-      // e.g. incoming request is /es-AR/about
-      // The new URL is now /about
-      const url = new URL(
-        pathname.replace(`/${defaultLocale}`, ""),
-        process.env.NEXT_PUBLIC_BASE_URL,
-      );
-
-      return NextResponse.redirect(url);
-    }
-
-    const pathnameIsMissingLocale = i18n.locales.every(
-      (locale) =>
-        !pathname.startsWith(`/${locale}/`) && pathname !== `/${locale}`,
+    // Locale detection: cookie -> Accept-Language -> default
+    const url = req.nextUrl;
+    const { locales } = i18n;
+    const hasLocalePrefix = locales.some(
+      (l) => url.pathname === `/${l}` || url.pathname.startsWith(`/${l}/`),
     );
 
-    if (pathnameIsMissingLocale) {
-      // We are on the default locale
-      // Rewrite so Next.js understands
+    const normalize = (
+      lang: string | undefined,
+    ): (typeof locales)[number] | undefined => {
+      if (!lang) return undefined;
+      const l = lang.toLowerCase();
+      if (l.startsWith("es")) return "es-AR" as Locales;
+      if (l.startsWith("en")) return "en" as Locales;
+      if (l.startsWith("pt")) return "pt" as Locales;
+      return undefined;
+    };
 
-      // e.g. incoming request is /about
-      // Tell Next.js it should pretend it's /en/about
-      return NextResponse.rewrite(
-        new URL(`/${defaultLocale}${pathname}`, req.url),
-      );
+    const pickLocale = () => {
+      const rawCookie = req.cookies.get("NEXT_LOCALE")?.value;
+      const cookieLocale = normalize(rawCookie);
+      if (cookieLocale) return cookieLocale;
+
+      const header = req.headers.get("accept-language") || "";
+      const preferred = header
+        .split(",")
+        .map((part) => part.split(";")[0].trim())
+        .map(normalize)
+        .find((v): v is (typeof locales)[number] => Boolean(v));
+      return preferred || i18n.defaultLocale;
+    };
+
+    if (url.pathname === "/") {
+      const locale = pickLocale();
+      const redirectURL = new URL(`/${locale}`, url);
+      const res = NextResponse.redirect(redirectURL);
+      res.cookies.set("NEXT_LOCALE", locale, { path: "/" });
+      return res;
+    }
+
+    if (!hasLocalePrefix) {
+      const locale = pickLocale();
+      const redirectURL = new URL(`/${locale}${url.pathname}`, url);
+      redirectURL.search = url.search; // preserve query
+      const res = NextResponse.redirect(redirectURL);
+      res.cookies.set("NEXT_LOCALE", locale, { path: "/" });
+      return res;
     }
   }
 });
@@ -81,8 +101,6 @@ export default auth(async (req) => {
 // export const config = { matcher: ["/dashboard/:path*", "/login", "/logout"] };
 
 export const config = {
-  // Do not run the middleware on the following paths
-  // prettier-ignore
-  matcher:
-  '/((?!api|static|data|css|scripts|.*\\..*|_next).*|robots.txt|sitemap.xml|favicon.ico)',
+  // Skip Next internals and all static assets (files with extensions)
+  matcher: ["/((?!_next|api|.*\\..*).*)"],
 };
