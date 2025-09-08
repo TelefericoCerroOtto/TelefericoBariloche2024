@@ -8,6 +8,7 @@ import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { Input, Spinner } from "@heroui/react";
 import { useFormik } from "formik";
 import { Eye, EyeOff } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -16,6 +17,7 @@ export default function LoginForm() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const { data: session } = useSession();
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
@@ -27,7 +29,8 @@ export default function LoginForm() {
       console.log("loginAction response: ", res);
       if (res === undefined) {
         setIsSubmitting(false);
-        return setError("Login action reponse undefined");
+        console.log("session: ", session);
+        return setError("Login action response undefined");
       }
       if (res?.error) {
         setIsSubmitting(false);
