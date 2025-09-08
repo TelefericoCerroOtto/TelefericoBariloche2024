@@ -27,12 +27,6 @@
       "required": true,
       "unique": true
     },
-    "station": {
-      "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::station.station",
-      "mappedBy": "zone"
-    },
     "zone_translations": {
       "type": "relation",
       "relation": "oneToMany",

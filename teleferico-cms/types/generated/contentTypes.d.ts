@@ -1035,16 +1035,36 @@ export interface ApiStationStation extends Struct.CollectionTypeSchema {
     singularName: 'station';
     pluralName: 'stations';
     displayName: 'Station';
-    description: '';
   };
   options: {
     draftAndPublish: true;
   };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
   attributes: {
-    zone: Schema.Attribute.Relation<'oneToOne', 'api::zone.zone'>;
-    label: Schema.Attribute.String &
+    key: Schema.Attribute.String &
       Schema.Attribute.Required &
-      Schema.Attribute.Unique;
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: false;
+        };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 2;
+      }>;
+    name: Schema.Attribute.Text &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 2;
+      }>;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -1136,7 +1156,6 @@ export interface ApiZoneZone extends Struct.CollectionTypeSchema {
     label: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
-    station: Schema.Attribute.Relation<'oneToOne', 'api::station.station'>;
     zone_translations: Schema.Attribute.Relation<
       'oneToMany',
       'api::zone-translation.zone-translation'

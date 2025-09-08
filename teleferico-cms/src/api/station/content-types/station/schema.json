@@ -4,24 +4,37 @@
   "info": {
     "singularName": "station",
     "pluralName": "stations",
-    "displayName": "Station",
-    "description": ""
+    "displayName": "Station"
   },
   "options": {
     "draftAndPublish": true
   },
-  "pluginOptions": {},
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
   "attributes": {
-    "zone": {
-      "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::zone.zone",
-      "inversedBy": "station"
-    },
-    "label": {
+    "key": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      },
       "type": "string",
       "required": true,
-      "unique": true
+      "unique": false,
+      "minLength": 2
+    },
+    "name": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "text",
+      "required": true,
+      "minLength": 2
     }
   }
 }
