@@ -6,10 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {
-    "node": "18.x"
+    "node": ">=18.18.0"
   },
   "dependencies": {
     "@heroui/react": "^2.7.10",
@@ -31,7 +32,7 @@
     "just-debounce-it": "^3.2.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.453.0",
-    "next": "^15.2.0",
+    "next": "15.5.2",
     "next-auth": "^5.0.0-beta.28",
     "qs": "^6.14.0",
     "react": "^18",
@@ -52,7 +53,7 @@
     "@types/react-dom": "^18",
     "@types/react-google-recaptcha": "^2.1.9",
     "eslint": "^8",
-    "eslint-config-next": "14.2.15",
+    "eslint-config-next": "15.5.2",
     "eslint-config-prettier": "^9.1.0",
     "postcss": "^8",
     "prettier": "^3.3.3",
