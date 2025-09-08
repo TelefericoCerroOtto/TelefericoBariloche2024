@@ -3,10 +3,12 @@ import type {
   ServiceStateValues,
   UpdateServiceStateResponse,
 } from "@/types";
-import { CACHE_TAGS } from "@/utils/cache-tags.const";
-import { fetchWrapper } from "@/utils/fetch";
-import { getStrapiURL } from "@/utils/get-strapi-url";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import {
+  CACHE_TAGS,
+  STRAPI_ENDPOINTS,
+  fetchWrapper,
+  getStrapiURL,
+} from "@/utils";
 
 export const getServiceState = async () => {
   const res = await fetchWrapper<GetServiceStateResponse>(

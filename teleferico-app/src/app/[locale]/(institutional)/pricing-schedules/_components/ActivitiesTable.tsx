@@ -3,7 +3,7 @@
 import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
 import type { Activity, GetActivitiesResponse, Locales } from "@/types";
-import { ROUTES, STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import { ROUTES, STRAPI_ENDPOINTS } from "@/utils";
 import { type ReactNode, useCallback } from "react";
 
 type ColumnKeys =

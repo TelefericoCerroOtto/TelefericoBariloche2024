@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/Sidebar";
 import LogoRecortado from "@/public/logo-recortado.svg";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/utils";
 import {
   Building2,
   BusFront,
@@ -24,10 +24,10 @@ import {
   Rss,
   User,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
 
 const items = [
   {

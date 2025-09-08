@@ -5,10 +5,9 @@ import {
   validateEmailAvailability,
   validateUsernameAvailability,
 } from "@/lib/actions";
-import { newUserSchema } from "@/lib/schemas/forms";
+import { newUserSchema } from "@/lib/schemas";
 import type { NewUserFormData, UserRole } from "@/types";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
-import { selectInputStyles } from "@/utils/styles";
+import { ADMIN_ROUTES, selectInputStyles } from "@/utils";
 import { Input, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import debounce from "just-debounce-it";

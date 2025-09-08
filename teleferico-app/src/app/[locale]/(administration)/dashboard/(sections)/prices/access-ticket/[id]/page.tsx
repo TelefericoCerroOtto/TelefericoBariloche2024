@@ -1,7 +1,7 @@
 import { FormContainer, FormError } from "@/components";
 import Form from "./Form";
 import { getAccessTicket } from "@/lib/services";
-import { getAccessTicketAdapter } from "@/lib/adapters/forms";
+import { getAccessTicketAdapter } from "@/lib/adapters";
 
 const FORM_DESC =
   "Establecé tarifas para el acceso al complejo. Ingresá el tipo de ticket en los distintos idiomas (Español, Ingles, Portugués) y luego completá los campos restantes.";

@@ -1,8 +1,7 @@
-import { BlocksRenderer, ServiceButton } from "@/components";
-import { NoContent } from "@/components";
-import { getPageContent } from "@/lib/services/pages";
+import { BlocksRenderer, NoContent, ServiceButton } from "@/components";
+import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils/routes.const";
+import { ROUTES } from "@/utils";
 import { Skeleton } from "@heroui/react";
 import { Suspense } from "react";
 

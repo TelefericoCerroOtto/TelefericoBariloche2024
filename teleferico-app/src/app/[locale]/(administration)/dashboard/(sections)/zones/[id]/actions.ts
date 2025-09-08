@@ -4,12 +4,11 @@ import { i18n } from "@/i18n";
 import {
   updateZoneAdapter,
   updateZoneTranslationAdapter,
-} from "@/lib/adapters/forms";
-import { updateZoneSchema } from "@/lib/schemas/forms";
-import { updateZone } from "@/lib/services";
-import { updateZoneTranslation } from "@/lib/services/zone-translations";
+} from "@/lib/adapters";
+import { updateZoneSchema } from "@/lib/schemas";
+import { updateZone, updateZoneTranslation } from "@/lib/services";
 import type { FormSubmitServerActionResponse, ZoneFormData } from "@/types";
-import { getSession } from "@/utils/auth";
+import { getSession } from "@/utils";
 import { ValidationError } from "yup";
 
 export const updateZoneAction = async (

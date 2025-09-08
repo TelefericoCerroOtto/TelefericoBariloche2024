@@ -6,7 +6,7 @@ import iglogo from "@/public/iglogo.svg";
 import whitelogo from "@/public/logo-blanco.svg";
 import ytlogo from "@/public/ytlogo.svg";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils/routes.const";
+import { ROUTES } from "@/utils";
 import Image from "next/image";
 import Link from "next/link";
 

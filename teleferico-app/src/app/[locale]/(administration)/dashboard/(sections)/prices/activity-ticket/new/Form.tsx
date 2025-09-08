@@ -7,15 +7,15 @@ import {
   LocaleTextareaField,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
-import { createActivitySchema } from "@/lib/schemas/forms";
+import { createActivitySchema } from "@/lib/schemas";
 import type { CreateActivityFormData } from "@/types";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/utils";
 import { NumberInput, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createActivityAction } from "./actions";
 import { seasonOptions } from "../data";
+import { createActivityAction } from "./actions";
 
 export default function Form() {
   const [isSubmitting, setIsSubmitting] = useState(false);

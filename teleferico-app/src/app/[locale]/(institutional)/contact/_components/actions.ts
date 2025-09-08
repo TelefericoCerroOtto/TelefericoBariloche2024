@@ -1,8 +1,8 @@
 "use server";
 
-// import { verifyCaptchaToken } from "@/lib/services/captcha";
-import { sendEmail } from "@/lib/services/contact";
-import { ContactFormData, FormSubmitServerActionResponse } from "@/types";
+// import { verifyCaptchaToken } from "@/lib/services";
+import { sendEmail } from "@/lib/services";
+import type { ContactFormData, FormSubmitServerActionResponse } from "@/types";
 
 export async function contactUsAction(
   token: string | null,

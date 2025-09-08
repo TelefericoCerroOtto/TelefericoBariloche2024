@@ -1,5 +1,5 @@
-import { ContactFormData } from "@/types";
-import { ROUTE_HANDLERS } from "@/utils/routes.const";
+import type { ContactFormData } from "@/types";
+import { ROUTE_HANDLERS } from "@/utils";
 
 export const sendEmail = async (values: ContactFormData) => {
   const res = await fetch(

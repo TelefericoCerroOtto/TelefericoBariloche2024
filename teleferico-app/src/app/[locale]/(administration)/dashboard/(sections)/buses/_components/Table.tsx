@@ -2,7 +2,7 @@
 
 import { ButtonDos, TableContainer } from "@/components";
 import { buttonStyles } from "@/components/shared/ButtonDos";
-import { tableStyles } from "@/utils/styles";
+import { tableStyles } from "@/utils";
 import {
   Table as NextUITable,
   Selection,

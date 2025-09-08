@@ -1,13 +1,13 @@
 "use server";
 
 import { i18n } from "@/i18n";
-import { updateAccessTicketSchema } from "@/lib/schemas/forms";
+import { updateAccessTicketSchema } from "@/lib/schemas";
 import { updateAccessTicket } from "@/lib/services";
 import type {
   FormSubmitServerActionResponse,
   UpdateAccessTicketFormData,
 } from "@/types";
-import { getSession } from "@/utils/auth";
+import { getSession } from "@/utils";
 import { ValidationError } from "yup";
 
 export const updateTicketAction = async (

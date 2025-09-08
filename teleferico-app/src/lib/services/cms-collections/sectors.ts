@@ -1,10 +1,11 @@
 import { i18n } from "@/i18n";
-import { GetSectorsResponse, Locales } from "@/types";
-import { fetchWrapper } from "@/utils/fetch";
-import { getStrapiURL } from "@/utils/get-strapi-url";
-import { stringifyQuery } from "@/utils/query";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
-
+import type { GetSectorsResponse, Locales } from "@/types";
+import {
+  fetchWrapper,
+  getStrapiURL,
+  STRAPI_ENDPOINTS,
+  stringifyQuery,
+} from "@/utils";
 
 export const getSectors = async (locale: Locales) => {
   const query = {

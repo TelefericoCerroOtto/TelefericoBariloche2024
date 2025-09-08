@@ -1,7 +1,7 @@
 "use server";
 
-import { postPostulationAdapter } from "@/lib/adapters/forms";
-import { postPostulation, uploadResume } from "@/lib/services/postulations";
+import { postPostulationAdapter } from "@/lib/adapters";
+import { postPostulation, uploadResume } from "@/lib/services";
 import type { PostulationFormData } from "@/types";
 
 export const sendPostulationAction = async (

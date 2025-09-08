@@ -8,11 +8,13 @@ import type {
   Locales,
   TranslateComponentKeys,
 } from "@/types";
-import { CACHE_TAGS } from "@/utils/cache-tags.const";
-import { fetchWrapper } from "@/utils/fetch";
-import { getStrapiURL } from "@/utils/get-strapi-url";
-import { stringifyQuery } from "@/utils/query";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import {
+  CACHE_TAGS,
+  fetchWrapper,
+  getStrapiURL,
+  STRAPI_ENDPOINTS,
+  stringifyQuery,
+} from "@/utils";
 
 export type TranslateComponentsResponseTypes = {
   policies: GetPoliciesResponse;

@@ -1,8 +1,8 @@
 import { FormContainer, FormError } from "@/components";
+import { getActivityAdapter } from "@/lib/adapters";
 import { getActivity } from "@/lib/services";
 import type { Locales } from "@/types";
 import Form from "./Form";
-import { getActivityAdapter } from "@/lib/adapters/forms";
 
 const FORM_DESC =
   "Establecé tarifas para las distintas actividades. Editá el nombre y los requisitos de la actividad en los distintos idiomas (Español, Inglés, Portugués) y luego completá los campos restantes.";

@@ -6,10 +6,12 @@ import type {
   UpdateZoneRequest,
   UpdateZoneResponse,
 } from "@/types";
-import { fetchWrapper } from "@/utils/fetch";
-import { getStrapiURL } from "@/utils/get-strapi-url";
-import { stringifyQuery } from "@/utils/query";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import {
+  fetchWrapper,
+  getStrapiURL,
+  STRAPI_ENDPOINTS,
+  stringifyQuery,
+} from "@/utils";
 
 export const getZone = async <T extends Locales | "all">({
   documentId,

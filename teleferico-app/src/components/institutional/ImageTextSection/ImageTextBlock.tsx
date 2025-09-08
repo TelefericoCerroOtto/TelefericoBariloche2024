@@ -5,9 +5,9 @@ import {
   TitleDescBlock,
 } from "@/components";
 import type { ImageTextBlock } from "@/types";
+import { bgStyles, caseStyles } from "@/utils";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "./CustomImage";
-import { bgStyles, caseStyles } from "@/utils/styles";
 
 export function Default(props: ImageTextBlock) {
   const {

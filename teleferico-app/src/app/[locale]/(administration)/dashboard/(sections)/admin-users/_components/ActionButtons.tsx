@@ -2,7 +2,7 @@
 
 import { ButtonDos, CustomLink } from "@/components";
 import { UserResponse } from "@/types";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/utils";
 import {
   Button,
   Modal,

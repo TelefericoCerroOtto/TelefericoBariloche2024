@@ -1,10 +1,11 @@
+import { TimeValueToStrapiTime } from "@/lib/adapters";
 import type {
+  CreateActivityFormData,
   ExtendLocalizations,
   GetActivityResponse,
   GetTicketResponse,
   GetZoneResponse,
   Locales,
-  CreateActivityFormData,
   NewUserFormData,
   NewUserRequest,
   PostActivityRequest,
@@ -20,8 +21,7 @@ import type {
   UpdateZoneTranslationRequest,
   ZoneFormData,
 } from "@/types";
-import { cleanObject } from "@/utils/clean-object";
-import { TimeValueToStrapiTime } from "./formats";
+import { cleanObject } from "@/utils";
 
 // TODO: Agregar el infijo Form a los nombres de los adapters
 

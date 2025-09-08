@@ -1,7 +1,6 @@
+import { cn } from "@/utils";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { cva, type VariantProps } from "class-variance-authority";
-
-import { cn } from "@/utils/tw-merge";
 import { forwardRef } from "react";
 
 const labelVariants = cva(

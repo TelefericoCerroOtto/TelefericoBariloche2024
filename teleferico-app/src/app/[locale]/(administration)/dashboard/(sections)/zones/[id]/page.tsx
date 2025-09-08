@@ -1,7 +1,7 @@
 import { FormContainer, FormError } from "@/components";
+import { getZoneAdapter } from "@/lib/adapters";
 import { getZone } from "@/lib/services";
 import Form from "./Form";
-import { getZoneAdapter } from "@/lib/adapters/forms";
 
 const FORM_DESC =
   "Modificá los horarios de las instalaciones para mantener los tiempos de apertura y cierre actualizados. ";

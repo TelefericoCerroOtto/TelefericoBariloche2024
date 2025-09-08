@@ -3,7 +3,7 @@
 import { signIn } from "@/auth";
 import { getUsers } from "@/lib/services";
 import type { LoginUserRequest } from "@/types";
-import { getSession } from "@/utils/auth";
+import { getSession } from "@/utils";
 import { AuthError } from "next-auth";
 
 export const loginAction = async (data: LoginUserRequest) => {

@@ -7,9 +7,9 @@ import {
   TimeInput,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
-import { updateZoneSchema } from "@/lib/schemas/forms";
+import { updateZoneSchema } from "@/lib/schemas";
 import type { ZoneFormData } from "@/types/forms";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/utils";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";

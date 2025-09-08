@@ -2,7 +2,7 @@
 
 import { CustomLink } from "@/components";
 import type { Zone } from "@/types";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/utils";
 import { Pencil } from "lucide-react";
 
 interface Props {

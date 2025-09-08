@@ -5,7 +5,7 @@ import {
   postulationSchema,
   postulationSchemaEN,
   postulationSchemaPT,
-} from "@/lib/schemas/forms";
+} from "@/lib/schemas";
 import type { Locales } from "@/types";
 import { AnyObject, ObjectSchema } from "yup";
 

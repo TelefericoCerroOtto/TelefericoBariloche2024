@@ -1,10 +1,9 @@
 "use client";
 
 import { FormButtons, TimeInputDeprecated } from "@/components";
-import { BusTravelSchema } from "@/lib/schemas/forms";
-import type { BusTravelFormData } from "@/types/forms";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
-import { selectInputStyles } from "@/utils/styles";
+import { BusTravelSchema } from "@/lib/schemas";
+import type { BusTravelFormData } from "@/types";
+import { ADMIN_ROUTES, selectInputStyles } from "@/utils";
 import { Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 

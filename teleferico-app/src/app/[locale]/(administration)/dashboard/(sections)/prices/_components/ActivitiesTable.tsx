@@ -3,8 +3,7 @@
 import { TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
 import type { Activity, GetActivitiesResponse } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/utils/routes.const";
-import { tableStyles } from "@/utils/styles";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Spinner,
   Table,

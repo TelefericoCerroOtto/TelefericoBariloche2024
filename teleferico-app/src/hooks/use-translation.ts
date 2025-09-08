@@ -3,7 +3,7 @@
 import { useLocale, useProxy } from "@/hooks";
 import { TranslateComponentsResponseTypes } from "@/lib/services";
 import type { TranslateComponentKeys } from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import { STRAPI_ENDPOINTS } from "@/utils";
 
 export function useTranslation<T extends TranslateComponentKeys>(key: T) {
   const { locale } = useLocale();

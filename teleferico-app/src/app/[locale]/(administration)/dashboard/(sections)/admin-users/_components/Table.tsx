@@ -2,7 +2,7 @@
 
 import { TableContainer } from "@/components";
 import type { UserResponse, UserRole } from "@/types";
-import { tableStyles } from "@/utils/styles";
+import { tableStyles } from "@/utils";
 import {
   Table as NextUITable,
   TableBody,

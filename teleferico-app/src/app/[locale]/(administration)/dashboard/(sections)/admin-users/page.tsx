@@ -1,5 +1,5 @@
 import { getUsers } from "@/lib/services";
-import { getSession } from "@/utils/auth";
+import { getSession } from "@/utils";
 import Table from "./_components/Table";
 
 export default async function AdminUsersPage() {

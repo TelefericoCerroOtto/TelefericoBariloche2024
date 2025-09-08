@@ -5,18 +5,18 @@ import {
   createActivityTranslationAdapter,
   updateActivityAdapter,
   updateActivityTranslationAdapter,
-} from "@/lib/adapters/forms";
-import { updateActivitySchema } from "@/lib/schemas/forms";
-import { updateActivity } from "@/lib/services";
+} from "@/lib/adapters";
+import { updateActivitySchema } from "@/lib/schemas";
 import {
   createActivityTranslation,
+  updateActivity,
   updateActivityTranslation,
-} from "@/lib/services/activity-translations";
+} from "@/lib/services";
 import type {
   FormSubmitServerActionResponse,
   UpdateActivityFormData,
 } from "@/types";
-import { getSession } from "@/utils/auth";
+import { getSession } from "@/utils";
 import { ValidationError } from "yup";
 
 export const updateActivityAction = async (

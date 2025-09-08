@@ -7,9 +7,9 @@ import {
   LocaleTextareaField,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
-import { updateActivitySchema } from "@/lib/schemas/forms";
+import { updateActivitySchema } from "@/lib/schemas";
 import type { UpdateActivityFormData } from "@/types";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/utils";
 import { NumberInput, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";

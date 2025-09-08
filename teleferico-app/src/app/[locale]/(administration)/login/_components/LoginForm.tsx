@@ -2,9 +2,9 @@
 
 import { ButtonDos, FormError } from "@/components";
 import { loginAction } from "@/lib/actions";
-import { loginSchema } from "@/lib/schemas/forms";
+import { loginSchema } from "@/lib/schemas";
 import type { LoginFormData, LoginUserRequest } from "@/types";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/utils";
 import { Input, Spinner } from "@heroui/react";
 import { useFormik } from "formik";
 import { Eye, EyeOff } from "lucide-react";

@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/utils/tw-merge";
+import { cn } from "@/utils";
 import { Spinner } from "@heroui/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { type ButtonHTMLAttributes } from "react";

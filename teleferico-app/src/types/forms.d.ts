@@ -1,17 +1,17 @@
 import {
-  createActivitySchema,
-  updateActivitySchema,
   BusTravelSchema,
   contactSchema,
-  loginSchema,
   createAccessTicketSchema,
+  createActivitySchema,
+  loginSchema,
   newUserSchema,
   postulationSchema,
   timeSchema,
   updateAccessTicketSchema,
+  updateActivitySchema,
   updateUserSchema,
   updateZoneSchema,
-} from "@/lib/schemas/forms";
+} from "@/lib/schemas";
 import type { InferType } from "yup";
 
 export type LoginFormData = InferType<typeof loginSchema>;

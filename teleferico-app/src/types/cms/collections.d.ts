@@ -6,7 +6,7 @@ import type {
   StrapiRecord,
   UnpopulatedUserResponse,
 } from "@/types";
-import { roles } from "@/utils/roles";
+import { roles } from "@/utils";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 
 export interface UserRole {

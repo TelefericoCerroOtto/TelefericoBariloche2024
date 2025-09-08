@@ -1,5 +1,5 @@
 import { auth, signOut } from "@/auth";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/utils";
 import { redirect } from "next/navigation";
 
 // Dont call this function from /login route

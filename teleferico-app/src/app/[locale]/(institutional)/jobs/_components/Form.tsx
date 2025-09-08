@@ -2,9 +2,9 @@
 
 import { ButtonDos, FormError, InputSkeleton } from "@/components";
 import { useTranslation } from "@/hooks";
-import { postulationSchema } from "@/lib/schemas/forms";
+import { postulationSchema } from "@/lib/schemas";
 import type { PostulationFormData, Sector } from "@/types";
-import { selectInputStyles } from "@/utils/styles";
+import { selectInputStyles } from "@/utils";
 import { Input, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import { useCallback, useState } from "react";

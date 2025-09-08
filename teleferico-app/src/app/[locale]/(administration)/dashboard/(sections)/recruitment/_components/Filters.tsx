@@ -2,7 +2,7 @@
 "use client";
 
 import { ButtonDos } from "@/components";
-import { selectInputStyles } from "@/utils/styles";
+import { selectInputStyles } from "@/utils";
 import { Input, Select, Selection, SelectItem, Slider } from "@heroui/react";
 import { FormikErrors } from "formik";
 import { Hash, SearchIcon } from "lucide-react";

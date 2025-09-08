@@ -2,9 +2,9 @@
 
 import { TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
+import { StrapiTimeToTableRecordTime } from "@/lib/adapters";
 import { GetZonesResponse, Zone } from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
-import { tableStyles } from "@/utils/styles";
+import { STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Spinner,
   Table,
@@ -16,7 +16,6 @@ import {
 } from "@heroui/react";
 import { useCallback } from "react";
 import ActionsButtons from "./ActionsButtons";
-import { StrapiTimeToTableRecordTime } from "@/lib/adapters/formats";
 
 type ColumnKeys = "name" | "openTime" | "closeTime" | "actions";
 const columns: { key: ColumnKeys; label: string }[] = [

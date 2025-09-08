@@ -6,7 +6,7 @@ import { i18n } from "@/i18n";
 import logoBlanco from "@/public/logo-negativo.svg";
 import logoNegro from "@/public/logo.svg";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils/routes.const";
+import { ROUTES } from "@/utils";
 import {
   Link,
   NavbarBrand,

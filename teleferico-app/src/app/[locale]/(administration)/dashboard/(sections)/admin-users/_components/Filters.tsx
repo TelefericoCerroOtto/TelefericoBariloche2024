@@ -1,7 +1,7 @@
 "use client";
 
 import { TableToolbarContainer } from "@/components";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/utils";
 import { Input } from "@heroui/react";
 import { SearchIcon } from "lucide-react";
 

@@ -3,7 +3,7 @@
 import { ButtonDos, FormError, InputSkeleton } from "@/components";
 import { useLocale, useTranslation } from "@/hooks";
 import { ContactFormData } from "@/types";
-import { getLocaleSchema } from "@/utils/get-locale.schema";
+import { getLocaleSchema } from "@/utils";
 import { Input, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRef, useState } from "react";

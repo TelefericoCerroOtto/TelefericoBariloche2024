@@ -1,6 +1,6 @@
+import { useProxy } from "@/hooks";
 import type { GetServiceStateResponse } from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
-import { useProxy } from "./use-proxy";
+import { STRAPI_ENDPOINTS } from "@/utils";
 
 export function useServiceState() {
   const { data, isError, isLoading } = useProxy<GetServiceStateResponse>(

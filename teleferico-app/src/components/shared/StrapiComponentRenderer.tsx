@@ -7,7 +7,7 @@ import {
   TitleDescBlock,
 } from "@/components";
 import type { Locales, RendereableBlocks } from "@/types";
-import { deepMerge } from "@/utils/object-merge";
+import { deepMerge } from "@/utils";
 import { Spacer, SpacerProps } from "@heroui/react";
 
 export type StrapiComponentRendererConfig = Partial<{

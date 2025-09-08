@@ -1,8 +1,7 @@
 "use server";
 
 import { blockUnblockUser, deleteUser } from "@/lib/services";
-import { getSession } from "@/utils/auth";
-import { CACHE_TAGS } from "@/utils/cache-tags.const";
+import { CACHE_TAGS, getSession } from "@/utils";
 import { revalidateTag } from "next/cache";
 
 export const blockAction = async (userId: number, isBlocked: boolean) => {

@@ -1,9 +1,11 @@
 import { i18n } from "@/i18n";
-import { GetNewResponse, GetNewsResponse, Locales } from "@/types";
-import { fetchWrapper } from "@/utils/fetch";
-import { getStrapiURL } from "@/utils/get-strapi-url";
-import { stringifyQuery } from "@/utils/query";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import type { GetNewResponse, GetNewsResponse, Locales } from "@/types";
+import {
+  fetchWrapper,
+  getStrapiURL,
+  STRAPI_ENDPOINTS,
+  stringifyQuery,
+} from "@/utils";
 
 // TODO: Add pagination
 export const getNews = async ({

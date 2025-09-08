@@ -2,7 +2,7 @@
 
 import { ButtonDos, CustomLink } from "@/components";
 import type { Activity, Ticket } from "@/types";
-import { ROUTE_HANDLERS } from "@/utils/routes.const";
+import { ROUTE_HANDLERS } from "@/utils";
 import {
   Button,
   Modal,

@@ -1,7 +1,7 @@
 import { BlocksRenderer, NoContent } from "@/components";
-import { getPageContent } from "@/lib/services/pages";
+import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils/routes.const";
+import { ROUTES } from "@/utils";
 import { Spacer } from "@heroui/react";
 import Form from "./_components/Form";
 

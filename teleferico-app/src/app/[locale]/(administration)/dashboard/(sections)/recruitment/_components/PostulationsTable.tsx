@@ -1,17 +1,17 @@
 "use client";
 
 import { TableContainer } from "@/components";
-import { tableStyles } from "@/utils/styles";
+import { tableStyles } from "@/utils";
 import {
-  Table,
+  Pagination,
   Selection,
+  Table,
   TableBody,
   TableCell,
   TableColumn,
   TableHeader,
   TableRow,
   User,
-  Pagination,
 } from "@heroui/react";
 import { useFormik } from "formik";
 import { useEffect, useMemo, useState, type Key } from "react";

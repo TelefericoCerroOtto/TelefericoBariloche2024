@@ -3,9 +3,7 @@ import type {
   PostPostulationResponse,
   UploadResumeResponse,
 } from "@/types";
-import { fetchWrapper } from "@/utils/fetch";
-import { getStrapiURL } from "@/utils/get-strapi-url";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import { STRAPI_ENDPOINTS, fetchWrapper, getStrapiURL } from "@/utils";
 
 export const postPostulation = async (postulation: PostPostulationRequest) => {
   const res = await fetchWrapper<PostPostulationResponse>(

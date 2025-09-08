@@ -1,10 +1,10 @@
 "use client";
 
 import { ButtonDos, FormContainer } from "@/components";
-import { CACHE_TAGS } from "@/utils/cache-tags.const";
+import { CACHE_TAGS } from "@/utils";
 import { Select, SelectItem, type Selection } from "@heroui/react";
-import { revalidate } from "./actions";
 import { useState } from "react";
+import { revalidate } from "./actions";
 
 export default function Revalidate() {
   const [value, setValue] = useState<Selection>(new Set([]));

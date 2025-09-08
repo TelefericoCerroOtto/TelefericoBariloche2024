@@ -6,9 +6,9 @@ import {
   LocaleInputField,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
-import { updateAccessTicketSchema } from "@/lib/schemas/forms";
+import { updateAccessTicketSchema } from "@/lib/schemas";
 import type { UpdateAccessTicketFormData } from "@/types/forms";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/utils";
 import { NumberInput, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";

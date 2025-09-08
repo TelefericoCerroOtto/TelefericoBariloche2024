@@ -1,7 +1,7 @@
 import { BlocksRenderer, NoContent } from "@/components";
-import { getPageContent } from "@/lib/services/pages";
-import { Locales } from "@/types";
-import { ROUTES } from "@/utils/routes.const";
+import { getPageContent } from "@/lib/services";
+import type { Locales } from "@/types";
+import { ROUTES } from "@/utils";
 
 export default async function ExplorePage({
   params,
