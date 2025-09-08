@@ -15,21 +15,20 @@ import type {
   Zone,
   ZoneTranslation,
 } from "@/types";
-import { BlocksContent } from "@strapi/blocks-react-renderer";
-import { User } from "next-auth";
-// import { BlocksContent } from "@strapi/blocks-react-renderer";
+import { type BlocksContent } from "@strapi/blocks-react-renderer";
+import { type User } from "next-auth";
 
-export interface LoginUserRequest {
+export type LoginUserRequest = {
   identifier: string;
   password: string;
-}
+};
 
-export interface SuccessfulLoginResponse {
+export type SuccessfulLoginResponse = {
   jwt: string;
   user: User;
-}
+};
 
-export interface UnpopulatedUserResponse {
+export type UnpopulatedUserResponse = {
   id: number;
   documentId: string;
   username: string;
@@ -43,7 +42,7 @@ export interface UnpopulatedUserResponse {
   updatedAt: string;
   publishedAt: string;
   locale?: StrapiLocales | StrapiLocales[];
-}
+};
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export type UserResponse<T extends object = {}> = UnpopulatedUserResponse & T;
@@ -53,7 +52,7 @@ export type GetPersonalDataResponse = UserResponse<{
   localizations: string[];
 }>;
 
-export interface NewUserRequest {
+export type NewUserRequest = {
   email: string;
   password: string;
   username: string;
@@ -62,7 +61,7 @@ export interface NewUserRequest {
   role: {
     connect: { id: number }[];
   };
-}
+};
 
 export type NewUserResponse = UserResponse<{ role: UserRole }>;
 
@@ -78,16 +77,16 @@ export type DeleteUserResponse = UserResponse<{
   localizations: string[];
 }>;
 
-export interface GetRolesResponse {
+export type GetRolesResponse = {
   roles: UserRole[];
-}
+};
 
 export type GetUsersResponse = UserResponse<{ role: UserRole }>[];
 
-export interface GetServiceStateResponse {
+export type GetServiceStateResponse = {
   data: ServiceStatus;
   meta: Meta;
-}
+};
 
 export type UpdateServiceStateResponse = GetServiceStateResponse;
 
@@ -95,22 +94,22 @@ export type GetFaqResponse = {
   data: Faq;
 };
 
-export interface GetFaqsResponse {
+export type GetFaqsResponse = {
   data: Faq[];
   meta: Meta;
-}
+};
 
-export interface GetNewResponse {
+export type GetNewResponse = {
   data: New;
-}
+};
 
-export interface GetNewsResponse {
+export type GetNewsResponse = {
   data: Omit<
     New,
     "createdAt" | "updatedAt" | "publishedAt" | "body" | "locale"
   >[];
   meta: Meta;
-}
+};
 
 export type GetTicketResponse = {
   data: Ticket;
@@ -148,52 +147,93 @@ export type UpdateAccessTicketResponse = {
   meta: Meta;
 };
 
-export interface GetBusTripsResponse {
+export type GetBusTripResponse = {
+  data: BusTrip;
+  meta: Meta;
+};
+
+export type GetBusTripsResponse = {
   data: BusTrip[];
   meta: Meta;
-}
+};
 
-export interface GetSectorsResponse {
+export type PostBusTripRequest = {
+  data: {
+    depTime: string;
+    arrTime: string;
+    origin: {
+      connect: [{ documentId: string }];
+    };
+    destination: {
+      connect: [{ documentId: string }];
+    };
+  };
+};
+
+export type PostBusTripResponse = {
+  data: BusTrip;
+  meta: Meta;
+};
+
+export type UpdateBusTripRequest = {
+  data: Partial<{
+    depTime: string;
+    arrTime: string;
+    origin: {
+      connect: [{ documentId: string }];
+    };
+    destination: {
+      connect: [{ documentId: string }];
+    };
+  }>;
+};
+
+export type UpdateBusTripResponse = {
+  data: BusTrip;
+  meta: Meta;
+};
+
+export type GetSectorsResponse = {
   data: Sector[];
   meta: Meta;
-}
+};
 
-export interface GetZoneResponse {
+export type GetZoneResponse = {
   data: Zone;
   meta: Meta;
-}
+};
 
-export interface GetZonesResponse {
+export type GetZonesResponse = {
   data: Zone[];
   meta: Meta;
-}
+};
 
-export interface UpdateZoneRequest {
+export type UpdateZoneRequest = {
   data: Partial<Pick<Zone, "openTime" | "closeTime">>;
-}
+};
 
-export interface UpdateZoneResponse {
+export type UpdateZoneResponse = {
   data: Omit<Zone, "zone_translations">;
   meta: Meta;
-}
+};
 
-export interface UpdateZoneTranslationRequest {
+export type UpdateZoneTranslationRequest = {
   data: Partial<Pick<ZoneTranslation, "name" | "description">>;
-}
+};
 
-export interface UpdateZoneTranslationResponse {
+export type UpdateZoneTranslationResponse = {
   data: Omit<ZoneTranslation, "zone">;
-}
+};
 
-export interface GetActivityResponse {
+export type GetActivityResponse = {
   data: Activity;
   meta: Meta;
-}
+};
 
-export interface GetActivitiesResponse {
+export type GetActivitiesResponse = {
   data: Activity[];
   meta: Meta;
-}
+};
 
 export type PostActivityRequest = {
   data: Pick<Activity, "price" | "minAge" | "season">;
@@ -241,7 +281,7 @@ export type UpdateActivityTranslationResponse = {
   meta: Meta;
 };
 
-export interface PostPostulationRequest {
+export type PostPostulationRequest = {
   data: {
     name: string;
     surname: string;
@@ -254,9 +294,9 @@ export interface PostPostulationRequest {
       connect: [{ documentId: string }];
     };
   };
-}
+};
 
-export interface PostPostulationResponse {
+export type PostPostulationResponse = {
   data: StrapiRecord<{
     name: string;
     surname: string;
@@ -269,7 +309,7 @@ export interface PostPostulationResponse {
     note: string | null;
   }>;
   meta: Meta;
-}
+};
 
 export type UploadResumeResponse = [
   StrapiRecord<{
@@ -291,7 +331,7 @@ export type UploadResumeResponse = [
   }>,
 ];
 
-export interface GetNavbarItemsResponse {
+export type GetNavbarItemsResponse = {
   data: [
     ComponentTranslate<{
       jsonValue: { items: { label: string; href: string }[] };
@@ -299,9 +339,9 @@ export interface GetNavbarItemsResponse {
     }>,
   ];
   meta: Meta;
-}
+};
 
-export interface GetPoliciesResponse {
+export type GetPoliciesResponse = {
   data: [
     ComponentTranslate<{
       jsonValue: null;
@@ -309,9 +349,9 @@ export interface GetPoliciesResponse {
     }>,
   ];
   meta: Meta;
-}
+};
 
-export interface GetFooterResponse {
+export type GetFooterResponse = {
   data: [
     ComponentTranslate<{
       jsonValue: {
@@ -335,9 +375,9 @@ export interface GetFooterResponse {
     }>,
   ];
   meta: Meta;
-}
+};
 
-export interface GetHoursoverviewResponse {
+export type GetHoursoverviewResponse = {
   data: [
     ComponentTranslate<{
       jsonValue: {
@@ -355,9 +395,9 @@ export interface GetHoursoverviewResponse {
     }>,
   ];
   meta: Meta;
-}
+};
 
-export interface GetServiceButtonResponse {
+export type GetServiceButtonResponse = {
   data: [
     ComponentTranslate<{
       jsonValue: {
@@ -381,9 +421,9 @@ export interface GetServiceButtonResponse {
     }>,
   ];
   meta: Meta;
-}
+};
 
-export interface GetFormsTranslationResponse {
+export type GetFormsTranslationResponse = {
   data: [
     ComponentTranslate<{
       jsonValue: {
@@ -449,4 +489,4 @@ export interface GetFormsTranslationResponse {
     }>,
   ];
   meta: Meta;
-}
+};

@@ -85,17 +85,16 @@ export type Zone = StrapiRecord<{
 }>;
 
 export type Station = StrapiRecord<{
-  label: string;
-  zone: Zone;
-  locale: null;
+  key: string;
+  name: string;
 }>;
 
 export type BusTrip = StrapiRecord<{
   depTime: string;
   arrTime: string;
-  locale: null;
   origin: Station;
   destination: Station;
+  locale: null;
 }>;
 
 export type ActivityTranslation = StrapiRecord<{
