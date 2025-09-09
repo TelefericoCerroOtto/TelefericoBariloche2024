@@ -1,10 +1,13 @@
 "use client";
 
+import { useLocale } from "@/hooks";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
-import { usePathname } from "next/navigation";
 
 const titles: Record<
-  Exclude<keyof typeof ADMIN_ROUTES, "LOGIN" | "LOGOUT">,
+  Exclude<
+    keyof typeof ADMIN_ROUTES,
+    "LOGIN" | "LOGOUT" | "EDIT_ACCESS_TICKET" | "EDIT_ACTIVITY_TICKET"
+  >,
   { path: string; title: string }
 > = {
   ADMIN_GALLERY: { path: ADMIN_ROUTES.ADMIN_GALLERY, title: "Multimedia" },
@@ -38,11 +41,11 @@ const titles: Record<
 };
 
 export default function HeaderTitle() {
-  const pathname = usePathname();
+  const { pathname } = useLocale();
 
   const headerTitle = Object.values(titles).find(
     (item) => item.path === pathname,
   )?.title;
 
-  return <div className="hidden md:block">{headerTitle}</div>;
+  return <div className="hidden w-full md:block">{headerTitle}</div>;
 }
