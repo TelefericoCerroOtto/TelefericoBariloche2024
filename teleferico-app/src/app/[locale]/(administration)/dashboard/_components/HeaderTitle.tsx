@@ -1,6 +1,6 @@
 "use client";
 
-import { ADMIN_ROUTES } from "@/utils";
+import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { usePathname } from "next/navigation";
 
 const titles: Record<

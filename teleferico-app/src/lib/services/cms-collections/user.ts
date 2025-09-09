@@ -10,14 +10,12 @@ import type {
   UpdateUserResponse,
   UserRole,
 } from "@/types";
-import {
-  CACHE_TAGS,
-  STRAPI_ENDPOINTS,
-  fetchWrapper,
-  getStrapiURL,
-  roles,
-  stringifyQuery,
-} from "@/utils";
+import { CACHE_TAGS } from "@/utils/cache-tags.const";
+import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import { fetchWrapper } from "@/utils/fetch";
+import { getStrapiURL } from "@/utils/get-strapi-url";
+import { roles } from "@/utils/roles";
+import { stringifyQuery } from "@/utils/query";
 
 export const getPersonalData = async (jwt: string) => {
   const query = { populate: "*" };

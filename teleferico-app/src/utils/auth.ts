@@ -1,9 +1,9 @@
-import { auth, signOut } from "@/auth";
-import { ADMIN_ROUTES } from "@/utils";
+import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { redirect } from "next/navigation";
 
 // Dont call this function from /login route
 export async function getSession() {
+  const { auth, signOut } = await import("@/auth");
   const session = await auth();
 
   if (!session) {

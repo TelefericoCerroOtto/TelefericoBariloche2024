@@ -1,8 +1,9 @@
 "use server";
 
-import { getServiceState, updateServiceState } from "@/lib/services";
+import { getServiceState, updateServiceState } from "@/lib/services/cms-collections/service-state";
 import type { ServiceStateValues } from "@/types";
-import { CACHE_TAGS, getSession } from "@/utils";
+import { getSession } from "@/utils/auth";
+import { CACHE_TAGS } from "@/utils/cache-tags.const";
 import { revalidateTag } from "next/cache";
 
 export const getStateAction = async () => {

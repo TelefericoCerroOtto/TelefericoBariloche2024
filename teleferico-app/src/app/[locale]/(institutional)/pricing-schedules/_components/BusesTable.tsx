@@ -4,7 +4,8 @@ import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
 import type { BusTrip, GetBusTripsResponse, Locales, Station } from "@/types";
-import { STRAPI_ENDPOINTS, formatStrapiTime } from "@/utils";
+import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import { formatStrapiTime } from "@/utils/format-strapi-time";
 import { type ReactNode, useCallback } from "react";
 
 type ColumnKeys = "depTime" | "arrTime" | "origin" | "destination";

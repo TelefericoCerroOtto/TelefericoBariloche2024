@@ -1,7 +1,7 @@
 import {
   validateEmailAvailability,
   validateUsernameAvailability,
-} from "@/lib/actions";
+} from "@/lib/actions/forms";
 import type { LoginUserRequest } from "@/types";
 import { mixed, number, object, ObjectSchema, string } from "yup";
 
