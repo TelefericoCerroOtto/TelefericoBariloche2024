@@ -4,7 +4,6 @@ export * from "./clean-object";
 export * from "./fetch";
 export * from "./fetcher";
 export * from "./format-strapi-time";
-export * from "./get-locale.schema";
 export * from "./get-strapi-url";
 export * from "./object-merge";
 export * from "./query";
