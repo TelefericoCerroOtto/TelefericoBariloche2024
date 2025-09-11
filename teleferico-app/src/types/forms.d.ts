@@ -1,14 +1,15 @@
 import {
-  BusTravelSchema,
   contactSchema,
   createAccessTicketSchema,
   createActivitySchema,
+  createBusTripSchema,
   loginSchema,
   newUserSchema,
   postulationSchema,
   timeSchema,
   updateAccessTicketSchema,
   updateActivitySchema,
+  updateBusTripSchema,
   updateUserSchema,
   updateZoneSchema,
 } from "@/lib/schemas";
@@ -24,7 +25,8 @@ export type UpdateAccessTicketFormData = InferType<
   typeof updateAccessTicketSchema
 >;
 export type ZoneFormData = InferType<typeof updateZoneSchema>;
-export type BusTravelFormData = InferType<typeof BusTravelSchema>;
+export type CreateBusTripFormData = InferType<typeof createBusTripSchema>;
+export type UpdateBusTripFormData = InferType<typeof updateBusTripSchema>;
 export type TimeFormData = InferType<typeof timeSchema>;
 export type NewUserFormData = InferType<typeof newUserSchema>;
 export type UpdateUserFormData = InferType<typeof updateUserSchema>;

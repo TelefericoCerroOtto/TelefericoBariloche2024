@@ -1,0 +1,28 @@
+import { i18n } from "@/i18n";
+import type { GetStationsResponse, Locales } from "@/types";
+import {
+  fetchWrapper,
+  getStrapiURL,
+  STRAPI_ENDPOINTS,
+  stringifyQuery,
+} from "@/utils";
+
+export const getStations = async (locale: Locales) => {
+  const query = {
+    populate: {
+      station_translations: {
+        filters: {
+          locale: {
+            $eq: locale ?? i18n.defaultLocale,
+          },
+        },
+      },
+    },
+  };
+
+  const res = await fetchWrapper<GetStationsResponse>(
+    getStrapiURL(STRAPI_ENDPOINTS.STATIONS, stringifyQuery(query)),
+  );
+
+  return res;
+};

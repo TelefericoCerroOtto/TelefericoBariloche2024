@@ -135,11 +135,15 @@ export const updateZoneSchema = object({
   zoneTrasnlationDocumentId: string().required(es.string.required),
 });
 
-export const BusTravelSchema = object({
-  depPoint: string().required(es.string.required),
-  arrPoint: string().required(es.string.required),
+export const createBusTripSchema = object({
+  origin: string().required(es.string.required),
+  destination: string().required(es.string.required),
   depTime: timeSchema,
   arrTime: timeSchema,
+});
+
+export const updateBusTripSchema = createBusTripSchema.shape({
+  documentId: string().required(es.string.required),
 });
 
 export const newUserSchema = object({

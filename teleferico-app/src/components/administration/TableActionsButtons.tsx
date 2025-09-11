@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonDos, CustomLink } from "@/components";
-import type { Activity, Ticket } from "@/types";
+import type { Activity, BusTrip, Ticket, Zone } from "@/types";
 import { ROUTE_HANDLERS } from "@/utils";
 import {
   Button,
@@ -17,14 +17,15 @@ import { useState } from "react";
 import { useSWRConfig } from "swr";
 
 interface Props {
-  ticket: Ticket | Activity;
-  title: string;
+  item: Ticket | Activity | BusTrip | Zone;
+  eraseModalTitle?: string;
   editPath: string;
-  erasePath: string;
+  erasePath?: string;
+  swrMutateKey?: string;
 }
 
-export default function ActionsButtons(props: Props) {
-  const { ticket, title, editPath, erasePath } = props;
+export default function TableActionsButtons(props: Props) {
+  const { item, eraseModalTitle, editPath, erasePath, swrMutateKey } = props;
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [isErasing, setIsErasing] = useState(false);
   const { mutate } = useSWRConfig();
@@ -34,7 +35,7 @@ export default function ActionsButtons(props: Props) {
       setIsErasing(true);
 
       const res = await fetch(
-        `${ROUTE_HANDLERS.PROXY}${erasePath}/${ticket.documentId}`,
+        `${ROUTE_HANDLERS.PROXY}${erasePath}/${item.documentId}`,
         {
           method: "DELETE",
         },
@@ -46,7 +47,7 @@ export default function ActionsButtons(props: Props) {
 
       alert("Elemento eliminado con éxito");
       onClose();
-      mutate(`${ROUTE_HANDLERS.PROXY}${erasePath}`);
+      mutate(swrMutateKey);
     } catch (err) {
       console.error(err);
       alert("Ocurrió un error al eliminar el elemento.");
@@ -56,29 +57,36 @@ export default function ActionsButtons(props: Props) {
   };
 
   const name =
-    (ticket as Activity).activity_translations?.[0]?.name ||
-    (ticket as Ticket).name;
+    (item as Activity).activity_translations?.[0]?.name ||
+    (item as Ticket).name ||
+    (item as BusTrip).origin.station_translations?.[0]?.name ||
+    (item as Zone).zone_translations?.[0]?.name ||
+    "este elemento";
 
   return (
     <div className="relative flex flex-row justify-center gap-2">
       <CustomLink
         size="sm"
-        href={`${editPath}/${ticket.documentId}`}
+        href={`${editPath}/${item.documentId}`}
         withButtonStyles
         intent="ghostBlack"
       >
         <Pencil size={20} />
         Editar
       </CustomLink>
-      <ButtonDos size="sm" intent="outlineRed" onClick={onOpen}>
-        <Trash2 size={20} />
-        Eliminar
-      </ButtonDos>
+      {erasePath && (
+        <ButtonDos size="sm" intent="outlineRed" onClick={onOpen}>
+          <Trash2 size={20} />
+          Eliminar
+        </ButtonDos>
+      )}
       <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
         <ModalContent>
           {(onClose) => (
             <>
-              <ModalHeader className="flex flex-col gap-1">{title}</ModalHeader>
+              <ModalHeader className="flex flex-col gap-1">
+                {eraseModalTitle || "Eliminar elemento"}
+              </ModalHeader>
               <ModalBody>
                 <p>
                   ¿Está seguro que desea eliminar <strong>{name}</strong>?

@@ -84,9 +84,15 @@ export type Zone = StrapiRecord<{
   zone_translations: ZoneTranslation[];
 }>;
 
+export type StationTranslation = StrapiRecord<{
+  name: string;
+  station: Station;
+}>;
+
 export type Station = StrapiRecord<{
   key: string;
-  name: string;
+  station_translations: StationTranslation[];
+  locale: null;
 }>;
 
 export type BusTrip = StrapiRecord<{

@@ -20,5 +20,6 @@ export function useProxy<T>(
     data,
     isLoading,
     isError: error,
+    key,
   };
 }

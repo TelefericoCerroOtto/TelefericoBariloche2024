@@ -7,6 +7,7 @@ export * from "./pages";
 export * from "./postulations";
 export * from "./sectors";
 export * from "./service-state";
+export * from "./stations";
 export * from "./tickets";
 export * from "./user";
 export * from "./zone-translations";

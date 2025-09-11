@@ -8,6 +8,7 @@ import type {
   New,
   Sector,
   ServiceStatus,
+  Station,
   StrapiLocales,
   StrapiRecord,
   Ticket,
@@ -144,6 +145,11 @@ export type UpdateAccessTicketRequest = {
 
 export type UpdateAccessTicketResponse = {
   data: Ticket;
+  meta: Meta;
+};
+
+export type GetStationsResponse = {
+  data: Station[];
   meta: Meta;
 };
 

@@ -1,7 +1,5 @@
 "use client";
 
-import { TableToolbarContainer } from "@/components";
-import { ADMIN_ROUTES } from "@/utils";
 import {
   Button,
   Dropdown,
@@ -31,10 +29,7 @@ export default function Filters(props: Props) {
   } = props;
 
   return (
-    <TableToolbarContainer
-      linkHref={ADMIN_ROUTES.NEW_BUS_TRAVEL}
-      title="Nueva Ruta"
-    >
+    <>
       <Dropdown>
         <DropdownTrigger className="sm:flex">
           <Button
@@ -85,6 +80,6 @@ export default function Filters(props: Props) {
           ))}
         </DropdownMenu>
       </Dropdown>
-    </TableToolbarContainer>
+    </>
   );
 }
