@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
-import ActionsButtons from "./ActionsButtons";
+import { TableActionsButtons } from "@/components";
 
 type ColumnKeys =
   | "name"
@@ -69,9 +69,9 @@ export default function ActivitiesTable() {
         }
         case "actions":
           return (
-            <ActionsButtons
-              ticket={activity}
-              title="Eliminar actividad"
+            <TableActionsButtons
+              item={activity}
+              eraseModalTitle="Eliminar actividad"
               editPath={ADMIN_ROUTES.EDIT_ACTIVITY_TICKET}
               erasePath={STRAPI_ENDPOINTS.ACTIVITIES}
             />

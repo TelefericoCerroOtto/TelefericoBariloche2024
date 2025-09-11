@@ -1,10 +1,10 @@
 "use client";
 
-import { TableContainer } from "@/components";
+import { TableContainer, TableActionsButtons } from "@/components";
 import { useProxy } from "@/hooks";
 import { StrapiTimeToTableRecordTime } from "@/lib/adapters";
 import { GetZonesResponse, Zone } from "@/types";
-import { STRAPI_ENDPOINTS, tableStyles } from "@/utils";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Spinner,
   Table,
@@ -15,7 +15,6 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
-import ActionsButtons from "./ActionsButtons";
 
 type ColumnKeys = "name" | "openTime" | "closeTime" | "actions";
 const columns: { key: ColumnKeys; label: string }[] = [
@@ -38,7 +37,9 @@ export default function ZonesTable() {
         return <span>{StrapiTimeToTableRecordTime(zone[columnKey])}</span>;
 
       case "actions":
-        return <ActionsButtons zone={zone} />;
+        return (
+          <TableActionsButtons item={zone} editPath={ADMIN_ROUTES.ZONES} />
+        );
     }
   }, []);
 

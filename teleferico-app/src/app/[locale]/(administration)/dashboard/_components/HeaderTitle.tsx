@@ -26,9 +26,13 @@ const titles: Record<
     path: ADMIN_ROUTES.NEW_ACCESS_TICKET,
     title: "Tarifa De Acceso",
   },
-  NEW_BUS_TRAVEL: {
-    path: ADMIN_ROUTES.NEW_BUS_TRAVEL,
-    title: "AAAA",
+  EDIT_BUS_TRIP: {
+    path: ADMIN_ROUTES.EDIT_BUS_TRIP,
+    title: "Editar Viaje de Bus",
+  },
+  NEW_BUS_TRIP: {
+    path: ADMIN_ROUTES.NEW_BUS_TRIP,
+    title: "Nuevo Viaje de Bus",
   },
   NEW_USER: {
     path: ADMIN_ROUTES.NEW_USER,

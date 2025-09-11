@@ -1,6 +1,6 @@
 "use client";
 
-import { TableContainer } from "@/components";
+import { TableActionsButtons, TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
 import type { GetTicketsResponse, Ticket } from "@/types";
 import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
@@ -14,7 +14,6 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
-import ActionsButtons from "./ActionsButtons";
 
 type ColumnKeys = "name" | "lifting_mean" | "price" | "actions";
 const columns: { key: ColumnKeys; label: string }[] = [
@@ -38,9 +37,9 @@ export default function TicketsTable() {
 
       case "actions":
         return (
-          <ActionsButtons
-            ticket={ticket}
-            title="Eliminar tarifa de acceso"
+          <TableActionsButtons
+            item={ticket}
+            eraseModalTitle="Eliminar tarifa de acceso"
             editPath={ADMIN_ROUTES.EDIT_ACCESS_TICKET}
             erasePath={STRAPI_ENDPOINTS.TICKETS}
           />
