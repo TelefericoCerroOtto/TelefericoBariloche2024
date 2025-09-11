@@ -59,7 +59,7 @@ export default function TableActionsButtons(props: Props) {
   const name =
     (item as Activity).activity_translations?.[0]?.name ||
     (item as Ticket).name ||
-    (item as BusTrip).origin.station_translations?.[0]?.name ||
+    (item as BusTrip).origin?.station_translations?.[0]?.name ||
     (item as Zone).zone_translations?.[0]?.name ||
     "este elemento";
 
