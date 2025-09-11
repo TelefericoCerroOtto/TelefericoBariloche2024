@@ -1035,36 +1035,21 @@ export interface ApiStationStation extends Struct.CollectionTypeSchema {
     singularName: 'station';
     pluralName: 'stations';
     displayName: 'Station';
+    description: '';
   };
   options: {
     draftAndPublish: true;
   };
-  pluginOptions: {
-    i18n: {
-      localized: true;
-    };
-  };
   attributes: {
     key: Schema.Attribute.String &
       Schema.Attribute.Required &
-      Schema.Attribute.SetPluginOptions<{
-        i18n: {
-          localized: false;
-        };
-      }> &
       Schema.Attribute.SetMinMaxLength<{
         minLength: 2;
       }>;
-    name: Schema.Attribute.Text &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetPluginOptions<{
-        i18n: {
-          localized: true;
-        };
-      }> &
-      Schema.Attribute.SetMinMaxLength<{
-        minLength: 2;
-      }>;
+    station_translations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::station-translation.station-translation'
+    >;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;
@@ -1076,6 +1061,49 @@ export interface ApiStationStation extends Struct.CollectionTypeSchema {
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'api::station.station'
+    >;
+  };
+}
+
+export interface ApiStationTranslationStationTranslation
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'station_translations';
+  info: {
+    singularName: 'station-translation';
+    pluralName: 'station-translations';
+    displayName: 'StationTranslation';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    name: Schema.Attribute.Text &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 2;
+      }>;
+    station: Schema.Attribute.Relation<'manyToOne', 'api::station.station'>;
+    createdAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    publishedAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::station-translation.station-translation'
     >;
   };
 }
@@ -1608,6 +1636,7 @@ declare module '@strapi/strapi' {
       'api::sector-name.sector-name': ApiSectorNameSectorName;
       'api::service-state.service-state': ApiServiceStateServiceState;
       'api::station.station': ApiStationStation;
+      'api::station-translation.station-translation': ApiStationTranslationStationTranslation;
       'api::ticket.ticket': ApiTicketTicket;
       'api::zone.zone': ApiZoneZone;
       'api::zone-translation.zone-translation': ApiZoneTranslationZoneTranslation;
