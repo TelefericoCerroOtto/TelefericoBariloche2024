@@ -3,13 +3,13 @@
 import { getStateAction, updateStateAction } from "@/lib/actions";
 import type { ServiceStateValues } from "@/types";
 import {
+  addToast,
   Dropdown,
   DropdownItem,
   DropdownMenu,
   DropdownSection,
   DropdownTrigger,
   Spinner,
-  User,
   type Selection,
 } from "@heroui/react";
 import { Check } from "lucide-react";
@@ -28,15 +28,36 @@ export default function DropdownCablecarMenu({
    * of the items array reference.
    */
 
-  const items: { key: ServiceStateValues; title: string }[] = [
-    { key: "normal", title: "Normal" },
-    { key: "conditional", title: "Condicional" },
+  const items: {
+    key: ServiceStateValues;
+    title: string;
+    description: string;
+  }[] = [
+    {
+      key: "normal",
+      title: "Normal",
+      description: "El servicio funciona con normalidad",
+    },
+    {
+      key: "conditional",
+      title: "Condicional",
+      description: "El servicio funciona con posibles demoras",
+    },
     {
       key: "restricted",
       title: "Condicional con restricciones",
+      description: "El servicio funciona con restricciones severas",
     },
-    { key: "suspended", title: "Suspendido" },
-    { key: "closed", title: "Cerrado" },
+    {
+      key: "suspended",
+      title: "Suspendido",
+      description: "El servicio se encuentra suspendido temporalmente",
+    },
+    {
+      key: "closed",
+      title: "Cerrado",
+      description: "El servicio se encuentra cerrado por el día",
+    },
   ];
 
   const [isLoading, setIsLoading] = useState(false);
@@ -71,6 +92,7 @@ export default function DropdownCablecarMenu({
     <Dropdown
       closeOnSelect={false}
       shouldCloseOnInteractOutside={() => !isLoading}
+      className="w-72"
     >
       <DropdownTrigger>{children(isLoading)}</DropdownTrigger>
       <DropdownMenu
@@ -88,9 +110,14 @@ export default function DropdownCablecarMenu({
             );
             setIsLoading(false);
 
-            if (res.ok) return;
+            if (res.ok) {
+              return addToast({
+                title: "Estado del servicio actualizado correctamente",
+                color: "success",
+                timeout: 2000,
+              });
+            }
 
-            alert("Ocurrio un error al actualizar el estado del servicio");
             console.log("update state action failed", res.data);
             setSelectedKeys(prevValue);
             return;
@@ -110,18 +137,12 @@ export default function DropdownCablecarMenu({
             showDivider
             textValue="Estado del servicio"
           >
-            <User
-              name="Estado del servicio"
-              description="El servicio funciona con normalidad"
-              classNames={{
-                name: "text-default-600",
-                description: "text-default-500",
-              }}
-              avatarProps={{
-                size: "sm",
-                src: "https://i.pravatar.cc/150?u=a042581f4e29026704d",
-              }}
-            />
+            <p className="text-default-600">
+              <strong>Estado del servicio</strong>
+            </p>
+            <p className="text-default-500">
+              {items.find((item) => item.key === selectedValue)?.description}
+            </p>
           </DropdownItem>
         </DropdownSection>
         <DropdownSection items={items}>
