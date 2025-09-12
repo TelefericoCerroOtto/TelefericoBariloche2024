@@ -4,6 +4,7 @@ import { i18n } from "@/i18n";
 import type { Locales } from "@/types";
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
+import { auth } from "@/auth";
 
 type Params = { params: Promise<{ locale: Locales }> };
 
@@ -46,11 +47,12 @@ export default async function RootLayout({
   params: Promise<{ locale: Locales }>;
 }>) {
   const { locale } = await params;
+  const session = await auth();
 
   return (
     <html lang={locale ?? i18n.defaultLocale}>
       <body className={`antialiased ${outfit.className}`}>
-        <Providers>{children}</Providers>
+        <Providers session={session}>{children}</Providers>
       </body>
     </html>
   );

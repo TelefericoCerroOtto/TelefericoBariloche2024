@@ -1,14 +1,13 @@
 "use client";
 
 import { ButtonDos, FormError } from "@/components";
-import { loginAction } from "@/lib/actions/forms";
 import { loginSchema } from "@/lib/schemas/forms";
 import type { LoginFormData, LoginUserRequest } from "@/types";
 import { ADMIN_ROUTES } from "@/utils/routes.const";
 import { Input, Spinner } from "@heroui/react";
 import { useFormik } from "formik";
 import { Eye, EyeOff } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -17,26 +16,22 @@ export default function LoginForm() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
   const onSubmit = async (values: LoginUserRequest) => {
     setIsSubmitting(true);
     try {
-      const res = await loginAction(values);
-
-      console.log("loginAction response: ", res);
-      if (res === undefined) {
-        setIsSubmitting(false);
-        console.log("session: ", session);
-        return setError("Login action response undefined");
-      }
+      const res = await signIn("credentials", { ...values, redirect: false });
       if (res?.error) {
         setIsSubmitting(false);
         return setError(res.error);
       }
-      router.push(ADMIN_ROUTES.DASHBOARD);
+      // Ensure the session is populated on the client immediately
+      await update();
+      router.replace(ADMIN_ROUTES.DASHBOARD);
+      router.refresh();
     } catch (error) {
       setIsSubmitting(false);
       setError("Algo salio mal");
