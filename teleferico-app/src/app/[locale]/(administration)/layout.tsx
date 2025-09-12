@@ -1,4 +1,6 @@
+import { auth } from "@/auth";
 import type { Metadata } from "next";
+import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
   title: "Administración - Teleferico Cerro Otto",
@@ -6,10 +8,20 @@ export const metadata: Metadata = {
     "Panel de administración para ver y gestionar el contenido del sitio",
 };
 
-export default function AdministrationLayout({
+export default async function AdministrationLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return children;
+  const session = await auth();
+
+  return (
+    <SessionProvider
+      session={session ?? undefined}
+      refetchOnWindowFocus
+      refetchInterval={60}
+    >
+      {children}
+    </SessionProvider>
+  );
 }
