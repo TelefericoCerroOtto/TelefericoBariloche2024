@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import type { Metadata } from "next";
 import { SessionProvider } from "next-auth/react";
 
@@ -7,10 +8,12 @@ export const metadata: Metadata = {
     "Panel de administración para ver y gestionar el contenido del sitio",
 };
 
-export default function AdministrationLayout({
+export default async function AdministrationLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <SessionProvider>{children}</SessionProvider>;
+  const session = await auth();
+
+  return <SessionProvider session={session}>{children}</SessionProvider>;
 }
