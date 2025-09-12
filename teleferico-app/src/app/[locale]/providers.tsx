@@ -6,10 +6,20 @@ import { SWRConfig } from "swr";
 import { SessionProvider } from "next-auth/react";
 import type { Session } from "next-auth";
 
-export function Providers({ children, session }: { children: React.ReactNode; session?: Session | null }) {
+export function Providers({
+  children,
+  session,
+}: {
+  children: React.ReactNode;
+  session?: Session | null;
+}) {
   return (
     <SSRProvider>
-      <SessionProvider session={session ?? undefined} refetchOnWindowFocus refetchInterval={0}>
+      <SessionProvider
+        session={session ?? undefined}
+        refetchOnWindowFocus
+        refetchInterval={60}
+      >
         <HeroUIProvider>
           <ToastProvider placement="top-center" />
           <SWRConfig

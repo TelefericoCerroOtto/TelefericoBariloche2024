@@ -1,6 +1,7 @@
 import { SidebarProvider } from "@/components/ui/Sidebar";
 import { Header } from "./_components/Header";
 import Sidebar from "./_components/Sidebar";
+import SessionWatcher from "./_components/SessionWatcher";
 
 export default function DashboardLayout({
   children,
@@ -9,6 +10,7 @@ export default function DashboardLayout({
 }>) {
   return (
     <SidebarProvider>
+      <SessionWatcher />
       <Sidebar />
       <main className="w-full max-w-full">
         <Header />
