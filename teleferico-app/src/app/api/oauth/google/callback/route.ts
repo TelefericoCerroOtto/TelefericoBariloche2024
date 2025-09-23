@@ -8,7 +8,8 @@
  * - Tokens are never logged in full. Redaction is applied if logged.
  * - Only GET is supported. Other methods return 405.
  */
-import { createOAuthClient, verifyState } from "@/lib/google/oauth";
+import { createOAuthClient } from "@/lib/google/oauth";
+import { verifyState } from "@/utils/csrf-state";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -32,15 +33,17 @@ export async function GET(req: NextRequest) {
     const { tokens } = await oauthClient.getToken(code);
     const rt = tokens.refresh_token; // may be undefined if already granted
     const at = tokens.access_token;
+    const ed = tokens.expiry_date;
 
     // Clear state cookie after use
     const res = NextResponse.json(
       {
         message: rt
-          ? "Success. Copy refresh_token and access_toke below and store it in env as OAUTH_REFRESH_TOKEN and OAUTH_ACCESS_TOKEN respectively. Do not commit these values."
+          ? "Success. Copy refresh_token, access_token and expiry_date below and store it in env as OAUTH_REFRESH_TOKEN, OAUTH_ACCESS_TOKEN and OAUTH_TOKEN_EXPIRY_DATE respectively. Do not commit these values."
           : "No refresh_token returned. Re-run with prompt=consent and ensure the grant wasn't previously approved. You may need to revoke access for this client in your Google Account and try again.",
         refresh_token: rt ?? null,
         access_token: at ?? null,
+        expiry_date: ed ?? null,
       },
       { status: 200 },
     );

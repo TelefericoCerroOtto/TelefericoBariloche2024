@@ -12,14 +12,11 @@
  * once. Store the refresh token as OAUTH_REFRESH_TOKEN in your environment; do not
  * commit it to source control.
  */
+import { ENV_KEYS } from "@/lib/constants/env.const";
+import { buildAuthUrl, createOAuthClient } from "@/lib/google/oauth";
+import { generateState } from "@/utils/csrf-state";
+import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";
-import { ENV_KEYS } from "@/lib/google/constants";
-import {
-  assertEnv,
-  buildAuthUrl,
-  createOAuthClient,
-  generateState,
-} from "@/lib/google/oauth";
 
 export async function GET(req: NextRequest) {
   try {
