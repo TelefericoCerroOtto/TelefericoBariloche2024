@@ -7,6 +7,7 @@ import {
   newUserSchema,
   postulationSchema,
   timeSchema,
+  newsFormSchema,
   updateAccessTicketSchema,
   updateActivitySchema,
   updateBusTripSchema,
@@ -32,6 +33,7 @@ export type NewUserFormData = InferType<typeof newUserSchema>;
 export type UpdateUserFormData = InferType<typeof updateUserSchema>;
 export type PostulationFormData = InferType<typeof postulationSchema>;
 export type ContactFormData = InferType<typeof contactSchema>;
+export type NewsFormData = InferType<typeof newsFormSchema>;
 
 export type TimeValue = InferType<typeof timeSchema>;
 export type FormSubmitServerActionResponse = Promise<{

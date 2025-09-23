@@ -8,14 +8,15 @@ export const sendPostulationAction = async (
   postulation: PostulationFormData,
 ) => {
   const adaptedPostulation = postPostulationAdapter(postulation);
-  return { ok: true, data: "Complete postulate action" };
   const postulationRes = await postPostulation(adaptedPostulation);
-  if (!postulationRes.ok) {
+  const postulationId = postulationRes.data?.data?.id;
+
+  if (!postulationRes.ok || !postulationId) {
     return postulationRes;
   }
   const uploadRes = await uploadResume(
     postulation.resume,
-    postulationRes.data.data.id,
+    postulationId,
   );
 
   return { ok: uploadRes, data: { postulationRes, uploadRes } };

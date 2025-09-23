@@ -70,7 +70,7 @@ const items: SidebarItem[] = [
     name: "Noticias",
     url: ADMIN_ROUTES.NEWS,
     icon: Rss,
-    implemented: false,
+    implemented: true,
     tooltip: "Gestionar noticias del sitio web",
     allowedRoles: ["Administrator", "Media Manager"],
   },
