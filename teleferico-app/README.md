@@ -37,7 +37,7 @@ Flujo:
 1. Un admin ejecuta `/api/oauth/google/init` con el encabezado `Authorization: Bearer <INIT_TOKEN>` o el query parameter `?token=<INIT_TOKEN>`.
 2. Se abre la pantalla de consentimiento con `access_type=offline` y `prompt=consent` para obtener un `code`.
 3. Google redirige a `/api/oauth/google/callback?code=...&state=...`.
-4. Si es exitoso, la respuesta JSON muestra el `refresh_token`. Copiarlo a la variable de entorno `OAUTH_REFRESH_TOKEN` (no commitear).
+4. Si es exitoso, la respuesta JSON muestra los valores `refresh_token`, `access_token` y `expiry_date`. Copiarlo a las variables de entorno `OAUTH_REFRESH_TOKEN`, `OAUTH_ACCESS_TOKEN` y `OAUTH_TOKEN_EXPIRY_DATE` respectivamente (no commitear).
 
 <img src="../gmail-oauth-flow.svg"/>
 
