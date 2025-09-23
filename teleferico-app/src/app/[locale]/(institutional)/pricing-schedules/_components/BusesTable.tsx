@@ -9,6 +9,11 @@ import { formatStrapiTime } from "@/utils/format-strapi-time";
 import { type ReactNode, useCallback } from "react";
 
 type ColumnKeys = "depTime" | "arrTime" | "origin" | "destination";
+type StationWithZone = Station & {
+  zone?: {
+    zone_translations?: { name?: string }[];
+  };
+};
 
 const dictionaries: Record<
   Locales,
@@ -61,13 +66,12 @@ export default function BusTable() {
 
       switch (columnKey) {
         case "origin":
-          return (
-            <span>{(cellValue as Station).zone.zone_translations[0].name}</span>
-          );
-        case "destination":
-          return (
-            <span>{(cellValue as Station).zone.zone_translations[0].name}</span>
-          );
+        case "destination": {
+          const station = cellValue as StationWithZone;
+          const zoneName =
+            station.zone?.zone_translations?.[0]?.name ?? "-";
+          return <span>{zoneName}</span>;
+        }
         case "depTime":
           return <span>{formatStrapiTime(cellValue as string, locale)}</span>;
         case "arrTime":
@@ -119,7 +123,7 @@ export default function BusTable() {
     data: items,
     isLoading,
     isError,
-  } = useProxy<GetBusTripsResponse>(STRAPI_ENDPOINTS.BUSTRIPS, query, {
+  } = useProxy<GetBusTripsResponse>(STRAPI_ENDPOINTS.BUS_TRIPS, query, {
     revalidateOnFocus: false,
   });
 

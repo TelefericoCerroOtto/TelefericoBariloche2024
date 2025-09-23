@@ -1,7 +1,14 @@
 "use client";
 
 import { ButtonDos, CustomLink } from "@/components";
-import type { Activity, BusTrip, Ticket, Zone } from "@/types";
+import type {
+  Activity,
+  BusTrip,
+  GetNewsResponse,
+  NewsEntity,
+  Ticket,
+  Zone,
+} from "@/types";
 import { ROUTE_HANDLERS } from "@/utils";
 import {
   Button,
@@ -16,8 +23,10 @@ import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
 
+type NewsListItem = GetNewsResponse["data"][number];
+
 interface Props {
-  item: Ticket | Activity | BusTrip | Zone;
+  item: Ticket | Activity | BusTrip | Zone | NewsEntity | NewsListItem;
   eraseModalTitle?: string;
   editPath: string;
   erasePath?: string;
@@ -61,6 +70,8 @@ export default function TableActionsButtons(props: Props) {
     (item as Ticket).name ||
     (item as BusTrip).origin?.station_translations?.[0]?.name ||
     (item as Zone).zone_translations?.[0]?.name ||
+    (item as NewsEntity).title ||
+    (item as NewsListItem).title ||
     "este elemento";
 
   return (
