@@ -1,20 +1,35 @@
 // https://googleapis.dev/nodejs/googleapis/latest/tasks/index.html#samples
 
+import { ENV_KEYS } from "@/lib/constants/env.const";
+import { GOOGLE_OAUTH_SCOPES } from "@/lib/google/constants";
+import { assertEnv } from "@/utils/env";
 import { google } from "googleapis";
 import { NextRequest } from "next/server";
 
+assertEnv([
+  ENV_KEYS.GOOGLE_CLIENT_ID,
+  ENV_KEYS.GOOGLE_CLIENT_SECRET,
+  ENV_KEYS.OAUTH_REDIRECT_URI,
+  ENV_KEYS.OAUTH_REFRESH_TOKEN,
+]);
+
+const {
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  OAUTH_REDIRECT_URI,
+  OAUTH_REFRESH_TOKEN,
+} = process.env;
+
 const oAuth2Client = new google.auth.OAuth2(
-  process.env.CLIENT_ID,
-  process.env.CLIENT_SECRET,
-  process.env.REDIRECT_URI,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  OAUTH_REDIRECT_URI,
 );
 
 const credentials = {
-  access_token: process.env.OAUTH_ACCESS_TOKEN ?? "",
-  refresh_token: process.env.OAUTH_REFRESH_TOKEN ?? "",
-  scope: "https://www.googleapis.com/auth/gmail.send",
+  refresh_token: OAUTH_REFRESH_TOKEN,
+  scope: GOOGLE_OAUTH_SCOPES[0],
   token_type: "Bearer",
-  expiry_date: (process.env.OAUTH_TOKEN_EXPIRY_DATE as unknown as number) ?? 0,
 };
 
 oAuth2Client.setCredentials(credentials);
