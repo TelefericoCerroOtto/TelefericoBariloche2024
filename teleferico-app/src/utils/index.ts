@@ -7,7 +7,6 @@ export * from "./format-strapi-time";
 export * from "./get-strapi-url";
 export * from "./object-merge";
 export * from "./query";
-export * from "./roles";
 export * from "./routes.const";
 export * from "./styles";
 export * from "./tw-merge";

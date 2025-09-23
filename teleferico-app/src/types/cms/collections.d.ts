@@ -6,13 +6,20 @@ import type {
   StrapiRecord,
   UnpopulatedUserResponse,
 } from "@/types";
-import { roles } from "@/utils";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
+
+export type UserRoles =
+  | "Public"
+  | "Authenticated"
+  | "Administrator"
+  | "Media Manager"
+  | "Recruiter"
+  | "Operations Supervisor";
 
 export interface UserRole {
   id: number;
   documentId: string;
-  name: (typeof roles)[number];
+  name: UserRoles;
   description: string;
   type: string;
   createdAt: string;

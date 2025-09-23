@@ -9,13 +9,13 @@ import type {
   NewUserResponse,
   UpdateUserResponse,
   UserRole,
+  UserRoles,
 } from "@/types";
 import { CACHE_TAGS } from "@/utils/cache-tags.const";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 import { fetchWrapper } from "@/utils/fetch";
 import { getStrapiURL } from "@/utils/get-strapi-url";
-import { roles } from "@/utils/roles";
 import { stringifyQuery } from "@/utils/query";
+import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 
 export const getPersonalData = async (jwt: string) => {
   const query = { populate: "*" };
@@ -35,12 +35,14 @@ export const getPersonalData = async (jwt: string) => {
 };
 
 export const getUsers = async (jwt: string, qs?: unknown) => {
+  const notEqualRole: UserRoles = "Administrator";
+
   const query = {
     populate: "role",
     filters: {
       role: {
         name: {
-          $ne: roles[2],
+          $ne: notEqualRole,
         },
       },
     },
@@ -180,7 +182,11 @@ export const getRoles = async (jwt: string) => {
   );
   // It is not possible to filter the returned roles through query parameters.
   // The roles controller is configured to return all roles.
-  const excludedRoles = [roles[0], roles[1], roles[2]] as string[];
+  const excludedRoles: UserRoles[] = [
+    "Public",
+    "Authenticated",
+    "Administrator",
+  ];
 
   let sanitizedRes: FetchResponse<UserRole[]>;
 
