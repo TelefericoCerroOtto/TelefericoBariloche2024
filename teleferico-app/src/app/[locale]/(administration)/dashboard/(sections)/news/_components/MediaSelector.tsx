@@ -35,6 +35,7 @@ const PAGE_SIZE = 30;
 const resolveUrl = (url?: string) => {
   if (!url) return "";
   if (url.startsWith("http")) return url;
+
   const base =
     process.env.BUILD_STRAPI_BASE_URL ?? process.env.NEXT_PUBLIC_STRAPI_URL ?? "";
   return base ? `${base}${url}` : url;

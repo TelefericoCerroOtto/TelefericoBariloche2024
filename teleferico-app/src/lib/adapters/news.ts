@@ -40,7 +40,6 @@ export const getNewsAdapter = (apiResponse: { data: NewsEntity }): NewsFormData 
   };
 
   let fallbackCover = data.cover;
-
   locales.forEach((locale) => {
     const localeEntry =
       locale === data.locale
@@ -59,7 +58,7 @@ export const getNewsAdapter = (apiResponse: { data: NewsEntity }): NewsFormData 
 
   formData.coverImage = fallbackCover?.image?.documentId ?? "";
   formData.coverImageUrl = resolveMediaUrl(fallbackCover?.image?.url);
-
+  
   return formData as NewsFormData;
 };
 
