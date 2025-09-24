@@ -1,10 +1,10 @@
 "use client";
 
+import { ButtonDos } from "@/components";
 import { useProxy } from "@/hooks";
 import type { StrapiImage } from "@/types";
 import { STRAPI_ENDPOINTS } from "@/utils";
 import {
-  Button,
   Image as HeroImage,
   Modal,
   ModalBody,
@@ -35,7 +35,9 @@ const PAGE_SIZE = 30;
 const resolveUrl = (url?: string) => {
   if (!url) return "";
   if (url.startsWith("http")) return url;
-  const base = process.env.NEXT_PUBLIC_STRAPI_URL ?? "";
+
+  const base =
+    process.env.BUILD_STRAPI_BASE_URL ?? process.env.NEXT_PUBLIC_STRAPI_URL ?? "";
   return base ? `${base}${url}` : url;
 };
 
@@ -58,19 +60,23 @@ export default function MediaSelector(props: Props) {
     },
   );
 
-  const items = Array.isArray(data) ? data : [];
+  const items = Array.isArray(data)
+    ? data
+    : Array.isArray((data as unknown as { data?: StrapiImage[] })?.data)
+      ? ((data as { data?: StrapiImage[] }).data ?? [])
+      : [];
   const previewUrl = resolveUrl(imageUrl);
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-end gap-3">
         <div className="flex-1">
-          <label className="block text-sm font-medium" htmlFor={label}>
+          <label className="block text-sm font-medium text-black" htmlFor={label}>
             {label}
           </label>
           <input
             id={label}
-            className="mt-1 w-full rounded-full border border-custom-border px-4 py-2"
+            className="mt-1 w-full rounded-full border border-custom-border px-4 py-2 text-sm text-black placeholder:text-default-400"
             value={value}
             onChange={(event) =>
               onChange({ documentId: event.target.value ?? "" })
@@ -78,9 +84,9 @@ export default function MediaSelector(props: Props) {
           />
           {error ? <p className="mt-1 text-sm text-danger">{error}</p> : null}
         </div>
-        <Button variant="flat" color="primary" onPress={onOpen}>
+        <ButtonDos intent="outlineRed" size="sm" type="button" onClick={onOpen}>
           Seleccionar
-        </Button>
+        </ButtonDos>
       </div>
       {previewUrl ? (
         <div className="h-32 w-full overflow-hidden rounded-lg border border-dashed border-default-300">
@@ -104,7 +110,7 @@ export default function MediaSelector(props: Props) {
                   <div className="flex justify-center py-10">
                     <Spinner label="Cargando biblioteca" />
                   </div>
-                ) : (
+                ) : items.length > 0 ? (
                   <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                     {items.map((item) => (
                       <button
@@ -120,22 +126,26 @@ export default function MediaSelector(props: Props) {
                         }}
                       >
                         <HeroImage
-                          src={item.url}
+                          src={resolveUrl(item.url)}
                           alt={item.alternativeText ?? item.name}
                           className="h-32 w-full rounded-md object-cover"
                         />
-                        <span className="text-xs font-medium" title={item.name}>
+                        <span className="text-xs font-medium text-black" title={item.name}>
                           {item.name}
                         </span>
                       </button>
                     ))}
                   </div>
+                ) : (
+                  <p className="py-6 text-center text-sm text-default-500">
+                    No hay archivos disponibles para seleccionar.
+                  </p>
                 )}
               </ModalBody>
               <ModalFooter>
-                <Button color="danger" variant="light" onPress={close}>
+                <ButtonDos intent="ghostBlack" size="sm" type="button" onClick={close}>
                   Cerrar
-                </Button>
+                </ButtonDos>
               </ModalFooter>
             </>
           )}

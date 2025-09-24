@@ -203,8 +203,6 @@ const newsShape = i18n.locales.reduce(
     acc[`body_${locale}`] = jsonField;
     acc[`brief_${locale}`] = jsonField;
     acc[`coverAlt_${locale}`] = string().required(es.string.required);
-    acc[`coverImage_${locale}`] = string().required(es.string.required);
-    acc[`coverImageUrl_${locale}`] = string();
     return acc;
   },
   {} as Record<string, ReturnType<typeof string>>,
@@ -213,6 +211,8 @@ const newsShape = i18n.locales.reduce(
 export const newsFormSchema = object({
   ...newsShape,
   documentId: string(),
+  coverImage: string().required(es.string.required),
+  coverImageUrl: string(),
   date: string()
     .required(es.string.required)
     .test("valid-date", "La fecha no es válida", (value) => {

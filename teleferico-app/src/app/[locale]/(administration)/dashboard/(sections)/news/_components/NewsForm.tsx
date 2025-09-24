@@ -7,7 +7,7 @@ import {
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
 import { newsFormSchema } from "@/lib/schemas";
-import type { Locales, NewsFormData } from "@/types";
+import type { NewsFormData } from "@/types";
 import { ADMIN_ROUTES } from "@/utils";
 import { i18n } from "@/i18n";
 import {
@@ -25,8 +25,8 @@ import {
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import LocaleJsonField from "./LocaleJsonField";
-import LocaleMediaSelector from "./LocaleMediaSelector";
+import LocaleBlocksField from "./LocaleBlocksField";
+import MediaSelector from "./MediaSelector";
 import type { createNewsAction } from "../new/actions";
 import type {
   deleteNewsAction,
@@ -50,9 +50,10 @@ const buildInitialValues = (): NewsFormData => {
     base[`body_${locale}`] = "[]";
     base[`brief_${locale}`] = "[]";
     base[`coverAlt_${locale}`] = "";
-    base[`coverImage_${locale}`] = "";
-    base[`coverImageUrl_${locale}`] = "";
   });
+
+  base.coverImage = "";
+  base.coverImageUrl = "";
 
   return base as NewsFormData;
 };
@@ -79,6 +80,7 @@ export default function NewsForm(props: Props) {
     handleBlur,
     handleSubmit,
     setFieldValue,
+    setFieldTouched,
     dirty,
   } = useFormik<NewsFormData>({
     initialValues: formInitialValues,
@@ -200,12 +202,6 @@ export default function NewsForm(props: Props) {
     [],
   );
 
-  const coverLabelByLocale: Record<Locales, string> = {
-    "es-AR": "Imagen de portada",
-    en: "Cover image",
-    pt: "Imagem de capa",
-  };
-
   const disableSubmitButton =
     isSubmitting || Object.keys(errors).length > 0 || !dirty;
 
@@ -256,23 +252,23 @@ export default function NewsForm(props: Props) {
         locale={locale}
         isRequired
       />
-      <LocaleJsonField
+      <LocaleBlocksField
         locale={locale}
         config={localeJsonConfig}
         values={values}
         errors={errors}
         touched={touched}
-        handleChange={handleChange}
-        handleBlur={handleBlur}
+        setFieldValue={setFieldValue}
+        setFieldTouched={setFieldTouched}
       />
-      <LocaleJsonField
+      <LocaleBlocksField
         locale={locale}
         config={briefConfig}
         values={values}
         errors={errors}
         touched={touched}
-        handleChange={handleChange}
-        handleBlur={handleBlur}
+        setFieldValue={setFieldValue}
+        setFieldTouched={setFieldTouched}
       />
       <LocaleInputField
         config={coverAltConfig}
@@ -284,16 +280,17 @@ export default function NewsForm(props: Props) {
         locale={locale}
         isRequired
       />
-      <LocaleMediaSelector
-        locale={locale}
-        values={values}
-        errors={errors}
-        touched={touched}
-        setFieldValue={setFieldValue}
-        name={`coverImage_${locale}` as keyof NewsFormData}
-        urlField={`coverImageUrl_${locale}` as keyof NewsFormData}
-        label={coverLabelByLocale[locale]}
-        showErrors={isSubmitting}
+      <MediaSelector
+        label="Imagen de portada"
+        value={values.coverImage ?? ""}
+        imageUrl={values.coverImageUrl ?? ""}
+        error={
+          touched.coverImage || isSubmitting ? (errors.coverImage as string) : undefined
+        }
+        onChange={({ documentId, url }) => {
+          setFieldValue("coverImage", documentId);
+          setFieldValue("coverImageUrl", url ?? "");
+        }}
       />
       <div className="flex flex-col gap-3 md:flex-row md:items-end">
         <Input

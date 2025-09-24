@@ -23,7 +23,16 @@ export async function GET(
       targetURL.searchParams.set(key, value);
     });
 
-    const res = await fetch(targetURL.href);
+    const session = await auth();
+    const headers = new Headers();
+
+    if (session?.jwt) {
+      headers.set("Authorization", `Bearer ${session.jwt}`);
+    }
+
+    const res = await fetch(targetURL.href, {
+      headers: headers.size > 0 ? headers : undefined,
+    });
     const data = await res.json();
 
     return NextResponse.json(data, {

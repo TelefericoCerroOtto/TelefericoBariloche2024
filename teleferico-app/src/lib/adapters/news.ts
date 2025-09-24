@@ -20,8 +20,6 @@ const getTitleKey = (locale: Locales) => `title_${locale}` as keyof NewsFormData
 const getBodyKey = (locale: Locales) => `body_${locale}` as keyof NewsFormData;
 const getBriefKey = (locale: Locales) => `brief_${locale}` as keyof NewsFormData;
 const getCoverAltKey = (locale: Locales) => `coverAlt_${locale}` as keyof NewsFormData;
-const getCoverImageKey = (locale: Locales) => `coverImage_${locale}` as keyof NewsFormData;
-const getCoverImageUrlKey = (locale: Locales) => `coverImageUrl_${locale}` as keyof NewsFormData;
 
 const locales = i18n.locales;
 
@@ -41,23 +39,26 @@ export const getNewsAdapter = (apiResponse: { data: NewsEntity }): NewsFormData 
     date: data.date,
   };
 
+  let fallbackCover = data.cover;
   locales.forEach((locale) => {
     const localeEntry =
       locale === data.locale
         ? data
         : data.localizations?.find((item) => item.locale === locale);
 
+    if (!fallbackCover && localeEntry?.cover) {
+      fallbackCover = localeEntry.cover;
+    }
+
     formData[getTitleKey(locale)] = localeEntry?.title ?? "";
     formData[getBodyKey(locale)] = JSON.stringify(localeEntry?.body ?? []);
     formData[getBriefKey(locale)] = JSON.stringify(localeEntry?.brief ?? []);
-    formData[getCoverAltKey(locale)] = localeEntry?.cover.alt ?? "";
-    formData[getCoverImageKey(locale)] =
-      localeEntry?.cover.image?.documentId ?? "";
-    formData[getCoverImageUrlKey(locale)] = resolveMediaUrl(
-      localeEntry?.cover.image?.url,
-    );
+    formData[getCoverAltKey(locale)] = localeEntry?.cover?.alt ?? "";
   });
 
+  formData.coverImage = fallbackCover?.image?.documentId ?? "";
+  formData.coverImageUrl = resolveMediaUrl(fallbackCover?.image?.url);
+  
   return formData as NewsFormData;
 };
 
@@ -76,7 +77,7 @@ export const postNewsAdapter = (
     cover: {
       alt: form[getCoverAltKey(locale)] as string,
       image: {
-        connect: [{ documentId: form[getCoverImageKey(locale)] as string }],
+        connect: [{ documentId: form.coverImage }],
       },
     },
   },
@@ -95,7 +96,7 @@ export const patchNewsAdapter = (
     cover: {
       alt: form[getCoverAltKey(locale)] as string,
       image: {
-        connect: [{ documentId: form[getCoverImageKey(locale)] as string }],
+        connect: [{ documentId: form.coverImage }],
       },
     },
   },
