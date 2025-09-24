@@ -107,7 +107,7 @@ export type GetNewResponse = {
 export type GetNewsResponse = {
   data: Omit<
     New,
-    "createdAt" | "updatedAt" | "publishedAt" | "body" | "locale"
+    "createdAt" | "publishedAt" | "body" | "locale"
   >[];
   meta: Meta;
 };

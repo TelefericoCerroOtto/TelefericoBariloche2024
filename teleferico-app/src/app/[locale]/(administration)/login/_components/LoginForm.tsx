@@ -16,7 +16,7 @@ export default function LoginForm() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
-  const { data: session, update } = useSession();
+  const { update } = useSession();
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 

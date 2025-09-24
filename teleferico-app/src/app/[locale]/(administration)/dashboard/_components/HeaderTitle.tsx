@@ -26,10 +26,12 @@ const titles: Record<
     path: ADMIN_ROUTES.NEW_ACCESS_TICKET,
     title: "Tarifa De Acceso",
   },
+  NEW_NEWS: { path: ADMIN_ROUTES.NEW_NEWS, title: "Nueva noticia" },
   EDIT_BUS_TRIP: {
     path: ADMIN_ROUTES.EDIT_BUS_TRIP,
     title: "Editar Viaje de Bus",
   },
+  EDIT_NEWS: { path: ADMIN_ROUTES.EDIT_NEWS, title: "Editar noticia" },
   NEW_BUS_TRIP: {
     path: ADMIN_ROUTES.NEW_BUS_TRIP,
     title: "Nuevo Viaje de Bus",
