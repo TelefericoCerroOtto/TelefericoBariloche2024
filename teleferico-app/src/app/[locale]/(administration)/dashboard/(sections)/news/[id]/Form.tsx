@@ -3,13 +3,14 @@
 import {
   FormButtons,
   FormLocaleSelector,
-  LocaleInputField,
+  InputLocaleWrapper,
+  Rte,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
+import { i18n } from "@/i18n";
 import { newsFormSchema } from "@/lib/schemas";
 import type { NewsFormData } from "@/types";
 import { ADMIN_ROUTES } from "@/utils";
-import { i18n } from "@/i18n";
 import {
   addToast,
   Button,
@@ -25,18 +26,17 @@ import {
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import LocaleBlocksField from "./LocaleBlocksField";
-import MediaSelector from "./MediaSelector";
-import type { createNewsAction } from "../new/actions";
-import type {
-  deleteNewsAction,
-  updateNewsAction,
-} from "../[id]/actions";
+import {
+  briefConfig,
+  coverAltConfig,
+  bodyConfig,
+  titleConfig,
+} from "../_components/data";
+import MediaSelector from "../_components/MediaSelector";
+import { deleteNewsAction, updateNewsAction } from "./actions";
 
 interface Props {
   initialValues?: NewsFormData;
-  onSubmitAction: typeof createNewsAction | typeof updateNewsAction;
-  onDeleteAction?: typeof deleteNewsAction;
 }
 
 const buildInitialValues = (): NewsFormData => {
@@ -59,9 +59,10 @@ const buildInitialValues = (): NewsFormData => {
 };
 
 export default function NewsForm(props: Props) {
-  const { initialValues, onSubmitAction, onDeleteAction } = props;
+  const { initialValues } = props;
   const router = useRouter();
-  const { locale, selectedKeys, handleSelectionChange } = useFormLocaleSelector();
+  const { locale, selectedKeys, handleSelectionChange } =
+    useFormLocaleSelector();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
@@ -80,7 +81,6 @@ export default function NewsForm(props: Props) {
     handleBlur,
     handleSubmit,
     setFieldValue,
-    setFieldTouched,
     dirty,
   } = useFormik<NewsFormData>({
     initialValues: formInitialValues,
@@ -89,7 +89,7 @@ export default function NewsForm(props: Props) {
     onSubmit: async (formValues) => {
       setIsSubmitting(true);
       try {
-        const res = await onSubmitAction(formValues);
+        const res = await updateNewsAction(formValues);
         if (res.success) {
           addToast({
             title: res.message,
@@ -118,98 +118,14 @@ export default function NewsForm(props: Props) {
     },
   });
 
-  const localeJsonConfig = useMemo(
-    () => ({
-      "es-AR": {
-        label: "Contenido (Español)",
-        placeholder: "Pegá aquí el JSON de bloques de Strapi",
-        name: "body_es-AR",
-      },
-      en: {
-        label: "Contenido (Inglés)",
-        placeholder: "Paste Strapi blocks JSON here",
-        name: "body_en",
-      },
-      pt: {
-        label: "Contenido (Portugués)",
-        placeholder: "Cole o JSON de blocos do Strapi aqui",
-        name: "body_pt",
-      },
-    }),
-    [],
-  );
-
-  const briefConfig = useMemo(
-    () => ({
-      "es-AR": {
-        label: "Bajada (Español)",
-        placeholder: "Pegá aquí el JSON de la bajada",
-        name: "brief_es-AR",
-      },
-      en: {
-        label: "Bajada (Inglés)",
-        placeholder: "Paste the brief JSON here",
-        name: "brief_en",
-      },
-      pt: {
-        label: "Bajada (Portugués)",
-        placeholder: "Cole o JSON do resumo aqui",
-        name: "brief_pt",
-      },
-    }),
-    [],
-  );
-
-  const coverAltConfig = useMemo(
-    () => ({
-      "es-AR": {
-        label: "Texto alternativo de la portada (Español)",
-        name: "coverAlt_es-AR",
-        placeholder: "Descripción de la imagen",
-      },
-      en: {
-        label: "Texto alternativo de la portada (Inglés)",
-        name: "coverAlt_en",
-        placeholder: "Image description",
-      },
-      pt: {
-        label: "Texto alternativo de la portada (Portugués)",
-        name: "coverAlt_pt",
-        placeholder: "Descrição da imagem",
-      },
-    }),
-    [],
-  );
-
-  const titleConfig = useMemo(
-    () => ({
-      "es-AR": {
-        label: "Título (Español)",
-        name: "title_es-AR",
-        placeholder: "Ingresá el título en Español",
-      },
-      en: {
-        label: "Título (Inglés)",
-        name: "title_en",
-        placeholder: "Enter the English title",
-      },
-      pt: {
-        label: "Título (Portugués)",
-        name: "title_pt",
-        placeholder: "Digite o título em português",
-      },
-    }),
-    [],
-  );
-
   const disableSubmitButton =
     isSubmitting || Object.keys(errors).length > 0 || !dirty;
 
   const handleDelete = async () => {
-    if (!onDeleteAction || !values.documentId) return;
+    if (!deleteNewsAction || !values.documentId) return;
     setIsSubmitting(true);
     try {
-      const res = await onDeleteAction(values.documentId);
+      const res = await deleteNewsAction(values.documentId);
       if (res.success) {
         addToast({
           title: res.message,
@@ -242,7 +158,8 @@ export default function NewsForm(props: Props) {
         selectedKeys={selectedKeys}
         handleSelectionChange={handleSelectionChange}
       />
-      <LocaleInputField
+      <InputLocaleWrapper
+        Input={Input}
         config={titleConfig}
         values={values}
         errors={errors}
@@ -252,25 +169,30 @@ export default function NewsForm(props: Props) {
         locale={locale}
         isRequired
       />
-      <LocaleBlocksField
-        locale={locale}
-        config={localeJsonConfig}
+      <InputLocaleWrapper
+        Input={Rte}
+        config={bodyConfig}
         values={values}
         errors={errors}
         touched={touched}
-        setFieldValue={setFieldValue}
-        setFieldTouched={setFieldTouched}
-      />
-      <LocaleBlocksField
+        handleChange={handleChange}
+        handleBlur={handleBlur}
         locale={locale}
+        isRequired
+      />
+      <InputLocaleWrapper
+        Input={Rte}
         config={briefConfig}
         values={values}
         errors={errors}
         touched={touched}
-        setFieldValue={setFieldValue}
-        setFieldTouched={setFieldTouched}
+        handleChange={handleChange}
+        handleBlur={handleBlur}
+        locale={locale}
+        isRequired
       />
-      <LocaleInputField
+      <InputLocaleWrapper
+        Input={Input}
         config={coverAltConfig}
         values={values}
         errors={errors}
@@ -285,39 +207,39 @@ export default function NewsForm(props: Props) {
         value={values.coverImage ?? ""}
         imageUrl={values.coverImageUrl ?? ""}
         error={
-          touched.coverImage || isSubmitting ? (errors.coverImage as string) : undefined
+          touched.coverImage || isSubmitting
+            ? (errors.coverImage as string)
+            : undefined
         }
         onChange={({ documentId, url }) => {
           setFieldValue("coverImage", documentId);
           setFieldValue("coverImageUrl", url ?? "");
         }}
       />
-      <div className="flex flex-col gap-3 md:flex-row md:items-end">
-        <Input
-          type="date"
-          label="Fecha de publicación"
-          labelPlacement="outside"
-          value={values.date}
-          name="date"
-          onChange={handleChange}
-          onBlur={handleBlur}
-          errorMessage={touched.date ? (errors.date as string) : undefined}
-          isInvalid={!!errors.date && !!touched.date}
-          className="max-w-xs"
-        />
-        <Checkbox
-          isSelected={values.highglighted}
-          onValueChange={(checked) => setFieldValue("highglighted", checked)}
-        >
-          Noticia destacada
-        </Checkbox>
-      </div>
+      <Input
+        type="date"
+        label="Fecha de publicación"
+        labelPlacement="outside"
+        value={values.date}
+        name="date"
+        onChange={handleChange}
+        onBlur={handleBlur}
+        errorMessage={touched.date ? (errors.date as string) : undefined}
+        isInvalid={!!errors.date && !!touched.date}
+        className="max-w-xs"
+      />
+      <Checkbox
+        isSelected={values.highglighted}
+        onValueChange={(checked) => setFieldValue("highglighted", checked)}
+      >
+        Noticia destacada
+      </Checkbox>
       <FormButtons
         isSubmitting={isSubmitting}
         cancelRedirectRoute={ADMIN_ROUTES.NEWS}
         disableSubmitButton={disableSubmitButton}
       />
-      {onDeleteAction && values.documentId ? (
+      {values.documentId ? (
         <div className="mt-4 flex justify-end">
           <Button
             color="danger"
@@ -346,10 +268,13 @@ export default function NewsForm(props: Props) {
                 <Button variant="light" onPress={close}>
                   Cancelar
                 </Button>
-                <Button color="danger" onPress={() => {
-                  close();
-                  handleDelete();
-                }}>
+                <Button
+                  color="danger"
+                  onPress={() => {
+                    close();
+                    handleDelete();
+                  }}
+                >
                   Eliminar
                 </Button>
               </ModalFooter>

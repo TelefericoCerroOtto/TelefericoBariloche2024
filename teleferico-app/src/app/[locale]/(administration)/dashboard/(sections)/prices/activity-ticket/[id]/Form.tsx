@@ -3,14 +3,19 @@
 import {
   FormButtons,
   FormLocaleSelector,
-  LocaleInputField,
-  LocaleTextareaField,
+  InputLocaleWrapper,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
 import { updateActivitySchema } from "@/lib/schemas";
 import type { UpdateActivityFormData } from "@/types";
 import { ADMIN_ROUTES } from "@/utils";
-import { NumberInput, Select, SelectItem } from "@heroui/react";
+import {
+  Input,
+  NumberInput,
+  Select,
+  SelectItem,
+  Textarea,
+} from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -73,7 +78,8 @@ export default function Form(props: Props) {
         selectedKeys={selectedKeys}
         handleSelectionChange={handleSelectionChange}
       />
-      <LocaleInputField
+      <InputLocaleWrapper
+        Input={Input}
         config={{
           "es-AR": {
             label: "Nombre De La Actividad (Español)",
@@ -99,7 +105,8 @@ export default function Form(props: Props) {
         handleBlur={handleBlur}
         locale={locale}
       />
-      <LocaleTextareaField
+      <InputLocaleWrapper
+        Input={Textarea}
         config={{
           "es-AR": {
             label: "Descripción De La Actividad (Español)",
@@ -126,7 +133,8 @@ export default function Form(props: Props) {
         handleBlur={handleBlur}
         locale={locale}
       />
-      <LocaleInputField
+      <InputLocaleWrapper
+        Input={Input}
         config={{
           "es-AR": {
             label: "Requisitos (Español)",

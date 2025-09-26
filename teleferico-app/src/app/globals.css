@@ -87,3 +87,27 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hace que el placeholder no herede heading, bold, italic, underline, etc. */
+.ProseMirror .pm-placeholder::before {
+  /* reset completo y luego re-definimos solo lo necesario */
+  all: unset;
+  content: attr(data-placeholder);
+
+  /* comportamiento "placeholder" clásico */
+  pointer-events: none;
+  float: left;
+  height: 0;
+
+  /* estilos neutrales, siempre iguales */
+  color: #9ca3af;            /* gray-400 */
+  font-weight: 400;          /* normal */
+  font-style: normal;        /* no italic */
+  text-decoration: none;     /* sin underline/strike */
+  font-size: 0.875rem;       /* ~ text-sm */
+  line-height: 1.25rem;
+
+  /* opcionalmente asegurás que no se desplace al escribir */
+  white-space: pre-wrap;
+  user-select: none;
+}

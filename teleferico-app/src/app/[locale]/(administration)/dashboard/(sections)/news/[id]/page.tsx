@@ -1,8 +1,7 @@
 import { FormContainer, FormError } from "@/components";
 import { getNewsAdapter } from "@/lib/adapters";
 import { getNews } from "@/services";
-import NewsForm from "../_components/NewsForm";
-import { deleteNewsAction, updateNewsAction } from "./actions";
+import Form from "./Form";
 
 const FORM_DESC =
   "Editá la información de la noticia y asegurate de mantener los contenidos sincronizados en todos los idiomas disponibles.";
@@ -23,11 +22,7 @@ export default async function EditNewsPage({
 
   return (
     <FormContainer desc={FORM_DESC}>
-      <NewsForm
-        initialValues={initialValues}
-        onSubmitAction={updateNewsAction}
-        onDeleteAction={deleteNewsAction}
-      />
+      <Form initialValues={initialValues} />
     </FormContainer>
   );
 }

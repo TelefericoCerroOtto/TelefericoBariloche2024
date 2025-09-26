@@ -3,13 +3,13 @@
 import {
   FormButtons,
   FormLocaleSelector,
-  LocaleInputField,
+  InputLocaleWrapper,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
 import { updateAccessTicketSchema } from "@/lib/schemas";
 import type { UpdateAccessTicketFormData } from "@/types/forms";
 import { ADMIN_ROUTES } from "@/utils";
-import { NumberInput, Select, SelectItem } from "@heroui/react";
+import { Input, NumberInput, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -71,7 +71,8 @@ export default function Form(props: Props) {
         handleSelectionChange={handleSelectionChange}
       />
 
-      <LocaleInputField
+      <InputLocaleWrapper
+        Input={Input}
         config={{
           "es-AR": {
             label: "Nombre de la tarifa (Español)",
