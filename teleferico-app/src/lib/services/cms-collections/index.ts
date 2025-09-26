@@ -10,5 +10,6 @@ export * from "./service-state";
 export * from "./stations";
 export * from "./tickets";
 export * from "./user";
+export * from "./upload";
 export * from "./zone-translations";
 export * from "./zones";

@@ -58,7 +58,8 @@ export const getNewsAdapter = (apiResponse: { data: NewsEntity }): NewsFormData 
 
   formData.coverImage = fallbackCover?.image?.documentId ?? "";
   formData.coverImageUrl = resolveMediaUrl(fallbackCover?.image?.url);
-  
+  formData.coverImageFile = null;
+
   return formData as NewsFormData;
 };
 
