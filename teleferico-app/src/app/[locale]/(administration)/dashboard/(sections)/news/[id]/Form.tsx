@@ -4,6 +4,7 @@ import {
   FormButtons,
   FormLocaleSelector,
   InputLocaleWrapper,
+  MediaSelector,
   Rte,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
@@ -32,7 +33,6 @@ import {
   bodyConfig,
   titleConfig,
 } from "../_components/data";
-import MediaSelector from "../_components/MediaSelector";
 import { deleteNewsAction, updateNewsAction } from "./actions";
 
 interface Props {
@@ -54,6 +54,7 @@ const buildInitialValues = (): NewsFormData => {
 
   base.coverImage = "";
   base.coverImageUrl = "";
+  base.coverImageFile = null;
 
   return base as NewsFormData;
 };
@@ -68,7 +69,10 @@ export default function NewsForm(props: Props) {
 
   const formInitialValues = useMemo(() => {
     if (initialValues) {
-      return initialValues;
+      return {
+        ...initialValues,
+        coverImageFile: initialValues.coverImageFile ?? null,
+      };
     }
     return buildInitialValues();
   }, [initialValues]);
@@ -81,6 +85,7 @@ export default function NewsForm(props: Props) {
     handleBlur,
     handleSubmit,
     setFieldValue,
+    setFieldTouched,
     dirty,
   } = useFormik<NewsFormData>({
     initialValues: formInitialValues,
@@ -203,18 +208,35 @@ export default function NewsForm(props: Props) {
         isRequired
       />
       <MediaSelector
+        name="coverImageFile"
         label="Imagen de portada"
-        value={values.coverImage ?? ""}
-        imageUrl={values.coverImageUrl ?? ""}
-        error={
-          touched.coverImage || isSubmitting
-            ? (errors.coverImage as string)
-            : undefined
-        }
-        onChange={({ documentId, url }) => {
-          setFieldValue("coverImage", documentId);
-          setFieldValue("coverImageUrl", url ?? "");
+        value={values.coverImageFile ?? null}
+        defaultPreviewUrl={values.coverImageUrl || null}
+        onChange={(file) => {
+          setFieldValue("coverImageFile", file);
+          setFieldTouched("coverImageFile", true, false);
+          if (file) {
+            setFieldValue("coverImage", "");
+            setFieldValue("coverImageUrl", "");
+          } else {
+            setFieldValue("coverImage", initialValues?.coverImage ?? values.coverImage ?? "");
+            setFieldValue("coverImageUrl", initialValues?.coverImageUrl ?? "");
+          }
         }}
+        isRequired
+        disabled={isSubmitting}
+        isInvalid={
+          (!!errors.coverImageFile && (!!touched.coverImageFile || isSubmitting)) ||
+          (!!errors.coverImage && (!!touched.coverImage || isSubmitting))
+        }
+        errorMessage={
+          (touched.coverImageFile || isSubmitting) && errors.coverImageFile
+            ? (errors.coverImageFile as string)
+            : (touched.coverImage || isSubmitting) && errors.coverImage
+              ? (errors.coverImage as string)
+              : undefined
+        }
+        maxSizeMB={5}
       />
       <Input
         type="date"

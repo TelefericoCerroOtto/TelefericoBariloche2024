@@ -211,8 +211,14 @@ const newsShape = i18n.locales.reduce(
 export const newsFormSchema = object({
   ...newsShape,
   documentId: string(),
-  coverImage: string().required(es.string.required),
+  coverImage: string().default(""),
   coverImageUrl: string(),
+  coverImageFile: mixed<File | null>()
+    .nullable()
+    .test("cover-image-required", es.string.required, function (value) {
+      const coverImage = this.parent.coverImage as string | undefined;
+      return (value instanceof File) || Boolean(coverImage && coverImage.trim().length > 0);
+    }),
   date: string()
     .required(es.string.required)
     .test("valid-date", "La fecha no es válida", (value) => {

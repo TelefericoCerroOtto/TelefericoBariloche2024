@@ -3,7 +3,7 @@
 import { i18n } from "@/i18n";
 import { patchNewsAdapter } from "@/lib/adapters";
 import { newsFormSchema } from "@/lib/schemas";
-import { deleteNews, updateNews } from "@/services";
+import { deleteNews, updateNews, uploadMedia } from "@/services";
 import type {
   FormSubmitServerActionResponse,
   NewsFormData,
@@ -17,9 +17,39 @@ export const updateNewsAction = async (
   values: NewsFormData,
 ): FormSubmitServerActionResponse => {
   try {
-    newsFormSchema.validateSync(values, { abortEarly: false });
+    const formValues: NewsFormData = {
+      ...values,
+      coverImageFile: values.coverImageFile ?? null,
+    };
 
-    if (!values.documentId) {
+    if (formValues.coverImageFile instanceof File) {
+      const uploadRes = await uploadMedia(formValues.coverImageFile);
+
+      if (!uploadRes.ok) {
+        return {
+          success: false,
+          message: DEFAULT_UPDATE_ERROR,
+          data: uploadRes.data,
+        };
+      }
+
+      const uploaded = uploadRes.data?.[0];
+      if (!uploaded?.documentId) {
+        return {
+          success: false,
+          message: DEFAULT_UPDATE_ERROR,
+        };
+      }
+
+      formValues.coverImage = uploaded.documentId;
+      formValues.coverImageUrl = uploaded.url ?? "";
+    }
+
+    formValues.coverImageFile = null;
+
+    newsFormSchema.validateSync(formValues, { abortEarly: false });
+
+    if (!formValues.documentId) {
       return {
         success: false,
         message:
@@ -31,8 +61,8 @@ export const updateNewsAction = async (
 
     for (let index = 0; index < locales.length; index++) {
       const locale = locales[index];
-      const payload = patchNewsAdapter(values, locale);
-      const res = await updateNews(values.documentId, payload, {
+      const payload = patchNewsAdapter(formValues, locale);
+      const res = await updateNews(formValues.documentId, payload, {
         locale,
       });
 

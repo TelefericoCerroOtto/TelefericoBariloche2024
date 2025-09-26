@@ -3,7 +3,7 @@
 import { i18n } from "@/i18n";
 import { patchNewsAdapter, postNewsAdapter } from "@/lib/adapters";
 import { newsFormSchema } from "@/lib/schemas";
-import { createNews, updateNews } from "@/services";
+import { createNews, updateNews, uploadMedia } from "@/services";
 import type {
   FormSubmitServerActionResponse,
   NewsFormData,
@@ -17,7 +17,37 @@ export const createNewsAction = async (
   values: NewsFormData,
 ): FormSubmitServerActionResponse => {
   try {
-    newsFormSchema.validateSync(values, { abortEarly: false });
+    const formValues: NewsFormData = {
+      ...values,
+      coverImageFile: values.coverImageFile ?? null,
+    };
+
+    if (formValues.coverImageFile instanceof File) {
+      const uploadRes = await uploadMedia(formValues.coverImageFile);
+
+      if (!uploadRes.ok) {
+        return {
+          success: false,
+          message: DEFAULT_ERROR_MESSAGE,
+          data: uploadRes.data,
+        };
+      }
+
+      const uploaded = uploadRes.data?.[0];
+      if (!uploaded?.documentId) {
+        return {
+          success: false,
+          message: DEFAULT_ERROR_MESSAGE,
+        };
+      }
+
+      formValues.coverImage = uploaded.documentId;
+      formValues.coverImageUrl = uploaded.url ?? "";
+    }
+
+    formValues.coverImageFile = null;
+
+    newsFormSchema.validateSync(formValues, { abortEarly: false });
 
     const locales = i18n.locales;
     let documentId = "";
@@ -26,7 +56,7 @@ export const createNewsAction = async (
       const locale = locales[index];
 
       if (index === 0) {
-        const payload = postNewsAdapter(values, locale);
+        const payload = postNewsAdapter(formValues, locale);
         const res = await createNews(payload);
 
         if (!res.ok) {
@@ -39,7 +69,7 @@ export const createNewsAction = async (
 
         documentId = res.data.data.documentId;
       } else {
-        const payload = patchNewsAdapter(values, locale);
+        const payload = patchNewsAdapter(formValues, locale);
         const res = await updateNews(documentId, payload, { locale });
 
         if (!res.ok) {

@@ -4,6 +4,7 @@ import {
   FormButtons,
   FormLocaleSelector,
   InputLocaleWrapper,
+  MediaSelector,
   Rte,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
@@ -21,7 +22,6 @@ import {
   coverAltConfig,
   titleConfig,
 } from "../_components/data";
-import MediaSelector from "../_components/MediaSelector";
 import { createNewsAction } from "./actions";
 
 const buildInitialValues = (): NewsFormData => {
@@ -39,6 +39,7 @@ const buildInitialValues = (): NewsFormData => {
 
   base.coverImage = "";
   base.coverImageUrl = "";
+  base.coverImageFile = null;
 
   return base as NewsFormData;
 };
@@ -58,6 +59,7 @@ export default function NewsForm() {
     handleSubmit,
     setFieldValue,
     dirty,
+    setFieldTouched,
   } = useFormik<NewsFormData>({
     initialValues: buildInitialValues(),
     validationSchema: newsFormSchema,
@@ -148,18 +150,34 @@ export default function NewsForm() {
         isRequired
       />
       <MediaSelector
+        name="coverImageFile"
         label="Imagen de portada"
-        value={values.coverImage ?? ""}
-        imageUrl={values.coverImageUrl ?? ""}
-        error={
-          touched.coverImage || isSubmitting
-            ? (errors.coverImage as string)
-            : undefined
-        }
-        onChange={({ documentId, url }) => {
-          setFieldValue("coverImage", documentId);
-          setFieldValue("coverImageUrl", url ?? "");
+        value={values.coverImageFile ?? null}
+        defaultPreviewUrl={values.coverImageUrl || null}
+        onChange={(file) => {
+          setFieldValue("coverImageFile", file);
+          setFieldTouched("coverImageFile", true, false);
+          if (file) {
+            setFieldValue("coverImage", "");
+            setFieldValue("coverImageUrl", "");
+          } else {
+            setFieldValue("coverImage", values.coverImage ?? "");
+          }
         }}
+        isRequired
+        disabled={isSubmitting}
+        isInvalid={
+          (!!errors.coverImageFile && (!!touched.coverImageFile || isSubmitting)) ||
+          (!!errors.coverImage && (!!touched.coverImage || isSubmitting))
+        }
+        errorMessage={
+          (touched.coverImageFile || isSubmitting) && errors.coverImageFile
+            ? (errors.coverImageFile as string)
+            : (touched.coverImage || isSubmitting) && errors.coverImage
+              ? (errors.coverImage as string)
+              : undefined
+        }
+        maxSizeMB={5}
       />
       <Input
         type="date"

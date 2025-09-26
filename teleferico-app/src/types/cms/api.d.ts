@@ -9,6 +9,7 @@ import type {
   Sector,
   ServiceStatus,
   Station,
+  StrapiImage,
   StrapiLocales,
   StrapiRecord,
   Ticket,
@@ -336,6 +337,8 @@ export type UploadResumeResponse = [
     locale: null;
   }>,
 ];
+
+export type UploadMediaResponse = StrapiImage[];
 
 export type GetNavbarItemsResponse = {
   data: [
