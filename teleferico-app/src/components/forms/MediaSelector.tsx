@@ -1,7 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { formatBytesToMB } from "@/lib/adapters";
 import { cn } from "@/utils";
+import { Spinner } from "@heroui/react";
 import {
   useCallback,
   useEffect,
@@ -10,6 +11,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
+import { ButtonDos } from "../shared";
 
 export interface MediaSelectorProps {
   id?: string;
@@ -19,6 +21,7 @@ export interface MediaSelectorProps {
   isInvalid?: boolean;
   errorMessage?: string;
   disabled?: boolean;
+  // eslint-disable-next-line no-unused-vars
   onChange?: (file: File | null) => void;
   value?: File | null;
   defaultPreviewUrl?: string | null;
@@ -31,13 +34,11 @@ export interface MediaSelectorProps {
 const DEFAULT_ACCEPT = "image/*";
 const DEFAULT_ERROR_MESSAGE = "Could not load the image.";
 
-const formatBytesToMB = (bytes: number) => Math.round((bytes / (1024 * 1024)) * 10) / 10;
-
 export default function MediaSelector(props: MediaSelectorProps) {
   const {
     id,
     name,
-    label,
+    label = "Cargar archivo",
     isRequired,
     isInvalid,
     errorMessage,
@@ -60,11 +61,13 @@ export default function MediaSelector(props: MediaSelectorProps) {
 
   const isControlled = value !== undefined;
   const [internalFile, setInternalFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(defaultPreviewUrl);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    defaultPreviewUrl,
+  );
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
-  const file = isControlled ? value ?? null : internalFile;
+  const file = isControlled ? (value ?? null) : internalFile;
 
   const revokeObjectUrl = useCallback(() => {
     if (objectUrlRef.current) {
@@ -109,9 +112,13 @@ export default function MediaSelector(props: MediaSelectorProps) {
     const { files } = event.target;
     const selectedFile = files && files.length > 0 ? files[0] : null;
 
-    if (selectedFile && maxSizeMB && selectedFile.size > maxSizeMB * 1024 * 1024) {
+    if (
+      selectedFile &&
+      maxSizeMB &&
+      selectedFile.size > maxSizeMB * 1024 * 1024
+    ) {
       setLocalError(
-        `The selected file is too large. Maximum allowed size is ${maxSizeMB} MB (received ${formatBytesToMB(selectedFile.size)} MB).`,
+        `El archivo seleccionado es demasiado grande. El tamaño maximo es de ${maxSizeMB} MB (Cargado ${formatBytesToMB(selectedFile.size)} MB).`,
       );
       updateFile(null);
       setIsPreviewLoading(false);
@@ -143,55 +150,50 @@ export default function MediaSelector(props: MediaSelectorProps) {
   const describedBy = displayError ? errorId : undefined;
 
   const renderPreview = () => {
-    if (isPreviewLoading) {
+    if (!previewUrl) {
       return (
-        <div className="flex h-40 w-full items-center justify-center rounded-md border border-dashed border-muted-foreground/40 bg-muted/20">
-          <div
-            className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent"
-            aria-label="Loading image preview"
-          />
-        </div>
-      );
-    }
-
-    if (previewUrl) {
-      return (
-        <div className="relative h-40 w-full overflow-hidden rounded-md border border-dashed border-muted-foreground/40 bg-muted/10">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={previewUrl}
-            alt={file?.name ?? label ?? "Selected media preview"}
-            className="h-full w-full object-cover"
-            onLoad={() => setIsPreviewLoading(false)}
-            onError={() => {
-              setLocalError(DEFAULT_ERROR_MESSAGE);
-              setIsPreviewLoading(false);
-              revokeObjectUrl();
-              setPreviewUrl(null);
-            }}
-          />
+        <div className="flex h-40 w-full items-center justify-center rounded-md border border-dashed border-muted-foreground/40 bg-muted/5 text-sm text-muted-foreground">
+          No se ha cargado ninguna imagen
         </div>
       );
     }
 
     return (
-      <div className="flex h-40 w-full items-center justify-center rounded-md border border-dashed border-muted-foreground/40 bg-muted/5 text-sm text-muted-foreground">
-        No image selected
+      <div className="relative h-48 w-full overflow-hidden rounded-md border border-dashed border-muted-foreground/40 bg-muted/10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={previewUrl}
+          alt={file?.name ?? label ?? "Selected media preview"}
+          className={cn(
+            "h-full w-full object-contain transition-opacity",
+            isPreviewLoading ? "opacity-0" : "opacity-100",
+          )}
+          onLoad={() => setIsPreviewLoading(false)}
+          onError={() => {
+            setLocalError(DEFAULT_ERROR_MESSAGE);
+            setIsPreviewLoading(false);
+            revokeObjectUrl();
+            setPreviewUrl(null);
+          }}
+        />
+        {isPreviewLoading && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Spinner size="md" aria-label="Loading image preview" />
+          </div>
+        )}
       </div>
     );
   };
 
   return (
     <div className={cn("space-y-2", className)}>
-      {label ? (
-        <label
-          htmlFor={inputId}
-          className="block text-sm font-medium text-foreground"
-        >
-          {label}
-          {isRequired ? <span className="ml-1 text-destructive">*</span> : null}
-        </label>
-      ) : null}
+      <label
+        htmlFor={inputId}
+        className="block text-sm font-medium text-foreground"
+      >
+        {label}
+        {isRequired ? <span className="ml-1 text-destructive">*</span> : null}
+      </label>
       <input
         ref={inputRef}
         id={inputId}
@@ -207,22 +209,22 @@ export default function MediaSelector(props: MediaSelectorProps) {
         onChange={handleInputChange}
       />
       <div className="flex flex-wrap items-center gap-2">
-        <Button
+        <ButtonDos
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={disabled}
         >
-          {file ? "Change image" : "Select image"}
-        </Button>
+          {file ? "Cambiar imagen" : "Seleccionar imagen"}
+        </ButtonDos>
         {(file || previewUrl) && (
-          <Button
+          <ButtonDos
             type="button"
-            variant="outline"
+            intent="outlineRed"
             onClick={handleClear}
             disabled={disabled}
           >
-            Clear
-          </Button>
+            Limpiar
+          </ButtonDos>
         )}
         {file ? (
           <span className="max-w-[240px] truncate text-sm text-muted-foreground">
