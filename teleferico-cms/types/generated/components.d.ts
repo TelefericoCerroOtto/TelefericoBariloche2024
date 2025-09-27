@@ -1,5 +1,31 @@
 import type { Struct, Schema } from '@strapi/strapi';
 
+export interface PagePropertiesSeo extends Struct.ComponentSchema {
+  collectionName: 'components_page_properties_seos';
+  info: {
+    displayName: 'SEO';
+    icon: 'search';
+    description: '';
+  };
+  attributes: {
+    MetaTitle: Schema.Attribute.String;
+    MetaDescription: Schema.Attribute.Text;
+    MetaTag: Schema.Attribute.Component<'page-properties.metat-tag', true>;
+  };
+}
+
+export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
+  collectionName: 'components_page_properties_metat_tags';
+  info: {
+    displayName: 'MetatTag';
+    icon: 'priceTag';
+  };
+  attributes: {
+    name: Schema.Attribute.String;
+    content: Schema.Attribute.Text;
+  };
+}
+
 export interface UtilsComponentsTitle extends Struct.ComponentSchema {
   collectionName: 'components_utils_components_titles';
   info: {
@@ -65,32 +91,6 @@ export interface UtilsComponentsHoursOverviewItem
     desc: Schema.Attribute.Blocks & Schema.Attribute.Required;
     icon: Schema.Attribute.Component<'utils-components.image', false> &
       Schema.Attribute.Required;
-  };
-}
-
-export interface PagePropertiesSeo extends Struct.ComponentSchema {
-  collectionName: 'components_page_properties_seos';
-  info: {
-    displayName: 'SEO';
-    icon: 'search';
-    description: '';
-  };
-  attributes: {
-    MetaTitle: Schema.Attribute.String;
-    MetaDescription: Schema.Attribute.Text;
-    MetaTag: Schema.Attribute.Component<'page-properties.metat-tag', true>;
-  };
-}
-
-export interface PagePropertiesMetatTag extends Struct.ComponentSchema {
-  collectionName: 'components_page_properties_metat_tags';
-  info: {
-    displayName: 'MetatTag';
-    icon: 'priceTag';
-  };
-  attributes: {
-    name: Schema.Attribute.String;
-    content: Schema.Attribute.Text;
   };
 }
 
@@ -259,13 +259,13 @@ export interface PageComponentsFaqSection extends Struct.ComponentSchema {
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'page-properties.seo': PagePropertiesSeo;
+      'page-properties.metat-tag': PagePropertiesMetatTag;
       'utils-components.title': UtilsComponentsTitle;
       'utils-components.service-states': UtilsComponentsServiceStates;
       'utils-components.link': UtilsComponentsLink;
       'utils-components.image': UtilsComponentsImage;
       'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
-      'page-properties.seo': PagePropertiesSeo;
-      'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-components.title-desc-block': PageComponentsTitleDescBlock;
       'page-components.spacer': PageComponentsSpacer;
       'page-components.service-state-modal': PageComponentsServiceStateModal;
