@@ -1,3 +1,6 @@
+// TODO: refactor to use a dynamic import based on locale
+// TODO: move to lib directory
+
 import {
   contactSchema,
   contactSchemaEN,
