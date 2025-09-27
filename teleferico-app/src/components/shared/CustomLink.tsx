@@ -21,6 +21,7 @@ export default function CustomLink(props: Props) {
     size,
     fullWidth,
     className,
+    ...rest
   } = props;
   const { locale } = useLocale();
 
@@ -32,6 +33,7 @@ export default function CustomLink(props: Props) {
           ? buttonStyles({ intent, size, fullWidth, className })
           : className
       }
+      {...rest}
     >
       {children}
     </Link>
