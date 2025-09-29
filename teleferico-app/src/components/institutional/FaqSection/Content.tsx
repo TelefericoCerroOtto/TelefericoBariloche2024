@@ -7,20 +7,12 @@ import {
   stringifyQuery,
 } from "@/utils";
 import Error from "./Error";
+import FaqList from "./FaqList";
 
 // TODO: Encontrar alguna manera de no tener que pasar por props el locale en todos los RSC
 interface Props {
   locale: Locales;
   favs: boolean;
-}
-
-function Faq({ q, a }: { q: string; a: string }) {
-  return (
-    <div>
-      <p className="text-start text-2xl font-bold">{q}</p>
-      <p className="text-start">{a}</p>
-    </div>
-  );
 }
 
 export default async function Content(props: Props) {
@@ -50,11 +42,9 @@ export default async function Content(props: Props) {
   const { data: faqs } = data;
 
   return (
-    <section className="w-full">
-      <div className="grid max-w-[1536px] grid-cols-1 gap-y-6 px-10 md:grid-cols-2 md:gap-x-14 lg:px-28">
-        {faqs.map((faq) => (
-          <Faq q={faq.question} a={faq.answer} key={faq.id} />
-        ))}
+    <section className="w-full px-6 py-8 md:px-10 lg:px-16">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+        <FaqList faqs={faqs.map(({ id, question, answer }) => ({ id, question, answer }))} />
       </div>
     </section>
   );
