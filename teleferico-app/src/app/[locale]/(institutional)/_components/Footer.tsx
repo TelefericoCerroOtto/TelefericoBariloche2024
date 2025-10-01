@@ -53,10 +53,10 @@ export default async function Footer(props: Props) {
   return (
     <footer
       role="contentinfo"
-      className="bg-custom-red text-white"
+      className="bg-custom-red text-base text-white leading-relaxed md:text-lg lg:text-[19px]"
     >
       <div className="mx-auto w-full max-w-[1536px] px-6 py-12 sm:px-10 lg:px-16">
-        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-[minmax(0,1.15fr)_repeat(2,minmax(0,1fr))] lg:gap-16">
+        <div className="grid gap-y-12 md:grid-cols-2 md:gap-x-12 lg:grid-cols-[minmax(0,1.15fr)_repeat(2,minmax(0,1fr))] lg:gap-x-16 lg:gap-y-0">
           <div className="flex flex-col items-center gap-6 text-center md:items-start md:text-left">
             <Image
               src={whitelogo.src}
@@ -87,8 +87,8 @@ export default async function Footer(props: Props) {
               ))}
             </ul>
           </div>
-          <section className="space-y-3 text-center text-sm text-white/80 md:text-left">
-            <h2 className="text-base font-semibold uppercase tracking-wide text-white">
+          <section className="space-y-4 text-center text-white/80 md:text-left">
+            <h2 className="text-lg font-semibold uppercase tracking-wide text-white md:text-xl">
               {footerIntl.contact.title}
             </h2>
             <address className="space-y-1 not-italic">
@@ -101,15 +101,15 @@ export default async function Footer(props: Props) {
             className="text-center md:text-left"
           >
             {/* Grouping links within nav helps screen readers announce the section as navigational. */}
-            <h2 className="text-base font-semibold uppercase tracking-wide text-white">
+            <h2 className="text-lg font-semibold uppercase tracking-wide text-white md:text-xl">
               Menu
             </h2>
-            <ul className="mt-3 flex flex-col gap-2 text-sm text-white/80">
+            <ul className="mt-4 flex flex-col gap-3 text-base text-white/80 md:text-lg">
               {menuItems.map((item, idx) => (
                 <li key={idx}>
                   <CustomLink
                     href={item.href}
-                    className="transition hover:text-white hover:underline focus-visible:text-white focus-visible:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    className="transition underline-offset-4 hover:text-white hover:underline focus-visible:text-white focus-visible:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
                     {footerIntl.menuitems[item.tag]}
                   </CustomLink>
