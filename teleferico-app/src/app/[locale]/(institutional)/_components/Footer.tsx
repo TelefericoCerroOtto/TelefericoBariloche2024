@@ -51,28 +51,34 @@ export default async function Footer(props: Props) {
   const footerIntl = data.data[0].jsonValue;
 
   return (
-    <footer className="flex items-center justify-center bg-custom-red px-16 py-10 text-white lg:h-[350px]">
-      <div className="flex w-full max-w-[1536px] flex-col items-stretch lg:flex-row">
-        <div className="h-full min-h-[60px] w-full lg:w-1/2">
-          <Image
-            src={whitelogo.src}
-            alt="logo blanco"
-            width={156}
-            height={60}
-          />
-        </div>
-        <div className="flex h-full w-full flex-col-reverse justify-between gap-8 text-inherit lg:w-1/2 lg:flex-row">
-          <div className="flex flex-col gap-3">
-            <p className="font-bold">{footerIntl.contact.title}</p>
-            <p>{footerIntl.contact.direction}</p>
-            <p>Tel. +54 294 4441 1031</p>
-            <ul className="flex gap-3">
+    <footer
+      role="contentinfo"
+      className="bg-custom-red text-white"
+    >
+      <div className="mx-auto w-full max-w-[1536px] px-6 py-12 sm:px-10 lg:px-16">
+        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-[minmax(0,1.15fr)_repeat(2,minmax(0,1fr))] lg:gap-16">
+          <div className="flex flex-col items-center gap-6 text-center md:items-start md:text-left">
+            <Image
+              src={whitelogo.src}
+              alt="logo blanco"
+              width={220}
+              height={84}
+              className="h-auto w-44 sm:w-52 lg:w-56"
+            />
+            {/* Social icons include aria-labels for clearer assistive tech announcements. */}
+            <ul className="flex flex-wrap items-center justify-center gap-4 md:justify-start">
               {socialIcons.map((item, idx) => (
                 <li key={idx}>
-                  <Link href={item.href} target="_blank">
+                  <Link
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={footerIntl.socialitems[item.tag]}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
                     <Image
-                      width={25}
-                      height={25}
+                      width={24}
+                      height={24}
                       src={item.imgsrc}
                       alt={footerIntl.socialitems[item.tag]}
                     />
@@ -81,18 +87,36 @@ export default async function Footer(props: Props) {
               ))}
             </ul>
           </div>
-          <div>
-            <p className="font-bold">Menu</p>
-            <ul>
+          <section className="space-y-3 text-center text-sm text-white/80 md:text-left">
+            <h2 className="text-base font-semibold uppercase tracking-wide text-white">
+              {footerIntl.contact.title}
+            </h2>
+            <address className="space-y-1 not-italic">
+              <p>{footerIntl.contact.direction}</p>
+              <p className="text-white">Tel. +54 294 4441 1031</p>
+            </address>
+          </section>
+          <nav
+            aria-label="Footer"
+            className="text-center md:text-left"
+          >
+            {/* Grouping links within nav helps screen readers announce the section as navigational. */}
+            <h2 className="text-base font-semibold uppercase tracking-wide text-white">
+              Menu
+            </h2>
+            <ul className="mt-3 flex flex-col gap-2 text-sm text-white/80">
               {menuItems.map((item, idx) => (
-                <li key={idx} className="hover:underline">
-                  <CustomLink href={item.href}>
+                <li key={idx}>
+                  <CustomLink
+                    href={item.href}
+                    className="transition hover:text-white hover:underline focus-visible:text-white focus-visible:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  >
                     {footerIntl.menuitems[item.tag]}
                   </CustomLink>
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
         </div>
       </div>
     </footer>
