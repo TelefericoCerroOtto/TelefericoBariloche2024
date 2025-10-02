@@ -1,9 +1,12 @@
-import { BlocksRenderer, NoContent, ServiceButton } from "@/components";
+import {
+  BlocksRenderer,
+  NoContent,
+  Schedules,
+  ServiceButton,
+} from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils";
-import { Skeleton } from "@heroui/react";
-import { Suspense } from "react";
 
 export default async function Home({
   params,
@@ -23,10 +26,17 @@ export default async function Home({
 
   return (
     <>
-      <BlocksRenderer blocks={blocks} locale={locale} />
-      <Suspense fallback={<Skeleton className="h-8 w-[400px]" />}>
-        <ServiceButton locale={locale} />
-      </Suspense>
+      <BlocksRenderer
+        blocks={blocks}
+        locale={locale}
+        customBlocks={[
+          {
+            position: 0,
+            component: ServiceButton,
+          },
+        ]}
+      />
+      <Schedules locale={locale} />
     </>
   );
 }
