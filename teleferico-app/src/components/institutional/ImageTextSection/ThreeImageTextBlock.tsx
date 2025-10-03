@@ -5,7 +5,8 @@ import {
 } from "@/components";
 import type { ImageTextBlock } from "@/types";
 import { bgStyles, caseStyles } from "@/utils";
-import Gondola from "@/public/gondola.svg";
+import Image from "next/image";
+import gondola from "@/public/gondola.svg";
 import CustomImage from "./CustomImage";
 
 const LogoBadge = () => (
@@ -13,7 +14,15 @@ const LogoBadge = () => (
     aria-hidden="true"
     className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 ring-1 ring-red-500/30"
   >
-    <Gondola className="h-5 w-5 text-red-600" focusable="false" />
+    <Image
+      src={gondola}
+      alt=""
+      className="h-5 w-5 text-red-600"
+      width={20}
+      height={20}
+      aria-hidden="true"
+      sizes="40px"
+    />
   </span>
 );
 
