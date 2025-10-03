@@ -41,7 +41,9 @@ export default function Navbar(props: Props) {
   const { locale, pathname } = useLocale();
   const { push } = useRouter();
   const { direction, isScrolled } = useScrollDirection({ threshold: 12 });
+
   const isCompact = direction === "down" && isScrolled;
+
   const isPathInList = useMemo(
     () =>
       [NEWS, POLICIES, JOBS, CONTACT, FAQS].some((route) =>
@@ -49,16 +51,18 @@ export default function Navbar(props: Props) {
       ),
     [pathname],
   );
+
   const logo = useMemo(
     () => (isPathInList || isMenuOpen || isScrolled ? logoNegro : logoBlanco),
     [isMenuOpen, isPathInList, isScrolled],
   );
+
   const useSolidBackground = isScrolled || isMenuOpen || isPathInList;
 
   const itemBaseClass = useMemo(
     () =>
       cn(
-        "group relative inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-200",
+        "group relative inline-flex items-center rounded-full px-3 py-1.5 text-xl font-medium transition-colors duration-200",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         useSolidBackground
           ? "text-muted-foreground hover:text-foreground"
@@ -78,7 +82,7 @@ export default function Navbar(props: Props) {
         "top-0 z-50 w-full border-b border-border/40 px-4 transition-all duration-300 ease-out md:px-6",
         "supports-[backdrop-filter]:backdrop-blur-xl",
         useSolidBackground
-          ? "bg-background/90 text-foreground shadow-sm"
+          ? "bg-background/90 bg-gray-100 text-foreground shadow-sm"
           : "bg-transparent text-white",
         isCompact ? "h-14 md:h-16" : "h-16 md:h-20",
       )}
@@ -90,11 +94,7 @@ export default function Navbar(props: Props) {
       <NavbarContent>
         <NavbarMenuToggle
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-          className={cn(
-            "md:hidden",
-            "text-current",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          )}
+          className="text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:hidden"
         />
         <NavbarBrand>
           <Link
@@ -111,12 +111,11 @@ export default function Navbar(props: Props) {
           </Link>
         </NavbarBrand>
       </NavbarContent>
-      <NavbarContent className="hidden gap-1 md:flex" justify="end">
+
+      <NavbarContent className="hidden gap-1 lg:flex" justify="end">
         {items.map((item, index) => {
           const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.includes(item.href);
+            item.href === "/" ? pathname === "/" : pathname.includes(item.href);
 
           return (
             <NavbarItem key={index} isActive={isActive} className="px-0">
@@ -125,9 +124,7 @@ export default function Navbar(props: Props) {
                 className={cn(
                   itemBaseClass,
                   isActive &&
-                    (useSolidBackground
-                      ? "text-foreground"
-                      : "text-white"),
+                    (useSolidBackground ? "text-foreground" : "text-white"),
                 )}
                 aria-current={isActive ? "page" : undefined}
               >
@@ -145,45 +142,55 @@ export default function Navbar(props: Props) {
           );
         })}
       </NavbarContent>
+
       <NavbarContent justify="end">
         <Select
           variant="bordered"
           aria-label="Change language"
-          className="w-[132px]"
+          className="w-[160px]" // un toque más ancho para la tipografía grande
           classNames={{
             trigger: [
-              "h-10 rounded-full border border-border/50 bg-background/80 px-3 text-sm transition-colors",
-              "hover:border-primary/40 focus:border-primary/60",
+              // subí la altura y el tamaño de fuente
+              "h-11 rounded-full border border-border/50 bg-white px-3 text-base md:text-lg leading-6 transition-colors",
+              "border-black/40 focus:border-primary/80",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             ],
-            value: ["text-foreground"],
-            popoverContent: ["rounded-2xl border border-border/60 bg-background/95 backdrop-blur"],
+            // asegura tamaño también en el valor renderizado
+            value: ["text-base md:text-lg leading-6 text-foreground"],
+            selectorIcon: ["text-foreground scale-110"], // ícono un pelín más grande
+            popoverContent: [
+              "rounded-2xl border border-border/60 bg-background/95 backdrop-blur",
+            ],
           }}
           items={langs}
-          disallowEmptySelection={true}
+          disallowEmptySelection
           defaultSelectedKeys={new Set([locale])}
           onSelectionChange={(key) => {
-            // TODO: Using the "es-AR" prefix crashes the navigation
-            // Maybe the middleware's rewrite function has something to do with it
-            if (key.currentKey === "es-AR") push(pathname);
-            else push(`/${key.currentKey}${pathname}`);
+            const href = `/${key.currentKey}${pathname}`;
+            push(href);
           }}
         >
-          {(item) => <SelectItem key={item.locale}>{item.label}</SelectItem>}
+          {(item) => (
+            <SelectItem
+              key={item.locale}
+              className="text-base leading-6 md:text-lg"
+            >
+              {item.label}
+            </SelectItem>
+          )}
         </Select>
       </NavbarContent>
+
       <NavbarMenu className="border-t border-border/40 bg-background/95 px-4 py-6 text-foreground backdrop-blur-xl">
         {items.map((item, index) => {
           const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.includes(item.href);
+            item.href === "/" ? pathname === "/" : pathname.includes(item.href);
 
           return (
             <NavbarMenuItem key={index} className="px-0">
               <CustomLink
                 href={item.href}
-                className="block w-full rounded-xl px-4 py-2 text-base font-medium text-foreground transition-colors hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="block w-full rounded-xl px-4 py-2 text-lg font-medium text-foreground transition-colors hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => setIsMenuOpen(false)}
               >
