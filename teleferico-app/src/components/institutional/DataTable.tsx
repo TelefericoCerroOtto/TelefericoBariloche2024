@@ -78,9 +78,10 @@ export default function DataTable<T extends { id: number | string }>(
           className="min-w-[650px]"
           classNames={{
             wrapper: "p-0 border",
-            th: ["rounded-none", "border-b", "border-divider"],
+            th: ["rounded-none", "border-b", "border-divider", "text-lg"],
             tr: ["my-2"],
             td: [
+              "text-lg",
               // group-data-[selecciona por grupo de filas dentro de la tabla: primera, del medio y ultima]
               // /tr selecciona la fila
 

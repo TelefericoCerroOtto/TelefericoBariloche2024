@@ -16,7 +16,7 @@ export default function BlockRendererClient({
 }) {
   if (!content) return null;
   return (
-    <article className={`prose max-w-none text-black ${className}`}>
+    <article className={`prose max-w-none text-2xl text-black ${className}`}>
       <BlocksRenderer
         content={content}
         blocks={{

@@ -21,9 +21,16 @@ export const buttonStyles = cva(
         disable: "bg-custom-gray text-white cursor-default active:scale-100",
       },
       size: {
-        default: "h-12 px-4 text-base sm:text-sm",
-        sm: "h-9 px-2 text-xs",
-        lg: "h-12 px-8 text-lg",
+        default: "h-12 px-4 sm:text-sm",
+        sm: "h-9 px-2",
+        lg: "h-12 px-8",
+      },
+      fontSize: {
+        base: "text-base",
+        sm: "text-sm",
+        lg: "text-lg",
+        default: "text-xl",
+        "2xl": "text-2xl",
       },
       fullWidth: {
         true: "w-full",
@@ -32,6 +39,7 @@ export const buttonStyles = cva(
     defaultVariants: {
       intent: "solid",
       size: "default",
+      fontSize: "default",
     },
   },
 );

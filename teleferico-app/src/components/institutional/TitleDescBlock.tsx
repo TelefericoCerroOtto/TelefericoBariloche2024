@@ -67,14 +67,14 @@ export default function TitleDescBlock(props: Props) {
     <div
       className={`flex gap-4 ${flexdirVariants[flexdir]} ${sizeVariants[size]} ${alignVariants[align]} ${bgStyles[bgColor]}`}
     >
-      {epigraph ? <p className="text-small text-primary">{epigraph}</p> : null}
+      {epigraph ? <p className="text-lg text-primary">{epigraph}</p> : null}
       <h3
-        className={`${caseStyles[titleCase]} text-3xl font-bold text-inherit md:text-4xl`}
+        className={`${caseStyles[titleCase]} font-bold text-inherit md:text-5xl`}
       >
         {title}
       </h3>
       {desc && typeof desc === "string" ? (
-        <p className="text-inherit">{desc}</p>
+        <p className="text-2xl">{desc}</p>
       ) : (
         <BlockRendererClient content={desc as BlocksContent} />
       )}
