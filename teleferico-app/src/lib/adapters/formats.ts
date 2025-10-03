@@ -60,3 +60,7 @@ function validateTime(hh: number, mm: number, ss: number = 0): void {
     throw new Error(`Invalid seconds value: ${ss}`);
   }
 }
+
+export function formatBytesToMB(bytes: number) {
+  return Math.round((bytes / (1024 * 1024)) * 10) / 10;
+}

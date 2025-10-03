@@ -7,8 +7,10 @@ import type {
   Meta,
   New,
   Sector,
+  ServiceStateValues,
   ServiceStatus,
   Station,
+  StrapiImage,
   StrapiLocales,
   StrapiRecord,
   Ticket,
@@ -105,10 +107,7 @@ export type GetNewResponse = {
 };
 
 export type GetNewsResponse = {
-  data: Omit<
-    New,
-    "createdAt" | "updatedAt" | "publishedAt" | "body" | "locale"
-  >[];
+  data: Omit<New, "createdAt" | "publishedAt" | "body" | "locale">[];
   meta: Meta;
 };
 
@@ -337,6 +336,8 @@ export type UploadResumeResponse = [
   }>,
 ];
 
+export type UploadMediaResponse = StrapiImage[];
+
 export type GetNavbarItemsResponse = {
   data: [
     ComponentTranslate<{
@@ -413,9 +414,9 @@ export type GetServiceButtonResponse = {
           close: string;
         };
         modal: {
-          states: {
+          items: {
             order: number;
-            state: string;
+            state: ServiceStateValues;
             stateLegend: string;
             title: string;
             stateDesc: string;

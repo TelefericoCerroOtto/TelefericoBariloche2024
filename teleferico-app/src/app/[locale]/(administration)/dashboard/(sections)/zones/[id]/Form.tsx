@@ -3,13 +3,14 @@
 import {
   FormButtons,
   FormLocaleSelector,
-  LocaleInputField,
+  InputLocaleWrapper,
   TimeInput,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
 import { updateZoneSchema } from "@/lib/schemas";
 import type { ZoneFormData } from "@/types/forms";
 import { ADMIN_ROUTES } from "@/utils";
+import { Input } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
@@ -73,7 +74,8 @@ export default function Form(props: Props) {
         selectedKeys={selectedKeys}
         handleSelectionChange={handleSelectionChange}
       />
-      <LocaleInputField
+      <InputLocaleWrapper
+        Input={Input}
         config={{
           "es-AR": {
             label: "Nombre de la zona (Español)",

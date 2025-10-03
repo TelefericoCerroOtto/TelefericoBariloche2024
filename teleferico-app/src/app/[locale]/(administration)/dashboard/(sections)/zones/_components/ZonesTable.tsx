@@ -28,7 +28,9 @@ export default function ZonesTable() {
   const renderCell = useCallback((zone: Zone, columnKey: ColumnKeys) => {
     switch (columnKey) {
       case "name":
-        return <span>{zone.zone_translations[0].name}</span>;
+        return (
+          <span>{zone.zone_translations?.[0].name || zone.label || "-"}</span>
+        );
 
       case "openTime":
         return <span>{StrapiTimeToTableRecordTime(zone[columnKey])}</span>;

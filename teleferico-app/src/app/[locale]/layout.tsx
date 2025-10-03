@@ -49,7 +49,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale ?? i18n.defaultLocale}>
-      <body className={`antialiased ${outfit.className}`}>
+      <body className={`antialiased ${outfit.className} text-2xl`}>
         <Providers>{children}</Providers>
       </body>
     </html>

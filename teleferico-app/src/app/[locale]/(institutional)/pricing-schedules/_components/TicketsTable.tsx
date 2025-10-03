@@ -65,21 +65,15 @@ export default function TicketsTable() {
   const { locale } = useLocale();
   const renderCell = useCallback(
     (ticket: Ticket, columnKey: ColumnKeys) => {
-      const cellValue = ticket[columnKey];
-
       switch (columnKey) {
         case "name":
-          return <span className="font-bold">{cellValue}</span>;
+          return <span>{ticket[columnKey]}</span>;
 
         case "lifting_mean":
-          return (
-            <span>
-              {dictionaries[locale].lifts[cellValue as Ticket["lifting_mean"]]}
-            </span>
-          );
+          return <span>{dictionaries[locale].lifts[ticket[columnKey]]}</span>;
 
         case "price":
-          if (cellValue === 0)
+          if (ticket[columnKey] === 0)
             return (
               <span>
                 {
@@ -89,10 +83,10 @@ export default function TicketsTable() {
                 }
               </span>
             );
-          return <span>$ {cellValue as string}</span>;
+          return <span>$ {ticket[columnKey]}</span>;
 
         default:
-          return <span>{cellValue as string}</span>;
+          return <span>{ticket[columnKey] as string}</span>;
       }
     },
     [locale],

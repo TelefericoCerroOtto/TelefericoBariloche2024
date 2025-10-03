@@ -10,35 +10,47 @@ export default auth(async (req) => {
   const pathname = url.pathname;
 
   // Locale helpers
-  const normalize = (lang: string | undefined): Locales | undefined => {
-    if (!lang) return undefined;
-    const l = lang.toLowerCase();
-    if (l.startsWith("es")) return "es-AR" as Locales;
-    if (l.startsWith("en")) return "en" as Locales;
-    if (l.startsWith("pt")) return "pt" as Locales;
-    return undefined;
-  };
+  // const normalize = (lang: string | undefined): Locales | undefined => {
+  //   if (!lang) return undefined;
+  //   const l = lang.toLowerCase();
+  //   if (l.startsWith("es")) return "es-AR" as Locales;
+  //   if (l.startsWith("en")) return "en" as Locales;
+  //   if (l.startsWith("pt")) return "pt" as Locales;
+  //   return undefined;
+  // };
 
+  // TODO: re-implement this function to pick locale from cookie or Accept-Language header. Cookie default language was "en".
   const pickLocale = (): Locales => {
-    const rawCookie = req.cookies.get("NEXT_LOCALE")?.value;
-    const cookieLocale = normalize(rawCookie);
-    if (cookieLocale) return cookieLocale;
+    // const rawCookie = req.cookies.get("NEXT_LOCALE")?.value;
+    // const cookieLocale = normalize(rawCookie);
+    // if (cookieLocale) return cookieLocale;
 
-    const header = req.headers.get("accept-language") || "";
-    const preferred = header
-      .split(",")
-      .map((part) => part.split(";")[0].trim())
-      .map(normalize)
-      .find((v): v is Locales => Boolean(v));
-    return preferred || i18n.defaultLocale;
+    // const header = req.headers.get("accept-language") || "";
+    // const preferred = header
+    //   .split(",")
+    //   .map((part) => part.split(";")[0].trim())
+    //   .map(normalize)
+    //   .find((v): v is Locales => Boolean(v));
+    // return preferred || i18n.defaultLocale;
+    return i18n.defaultLocale;
   };
 
   const segments = pathname.split("/");
   const maybeLocale = segments[1] as string | undefined;
   const hasLocalePrefix = i18n.locales.includes(maybeLocale as Locales);
-  const adminPath = "/" + (hasLocalePrefix ? segments.slice(2).join("/") : segments.slice(1).join("/"));
-  const adminRoots = [ADMIN_ROUTES.DASHBOARD, ADMIN_ROUTES.LOGIN, ADMIN_ROUTES.LOGOUT];
-  const isAdminPath = adminRoots.some((route) => adminPath === route || adminPath.startsWith(`${route}/`));
+  const adminPath =
+    "/" +
+    (hasLocalePrefix
+      ? segments.slice(2).join("/")
+      : segments.slice(1).join("/"));
+  const adminRoots = [
+    ADMIN_ROUTES.DASHBOARD,
+    ADMIN_ROUTES.LOGIN,
+    ADMIN_ROUTES.LOGOUT,
+  ];
+  const isAdminPath = adminRoots.some(
+    (route) => adminPath === route || adminPath.startsWith(`${route}/`),
+  );
 
   // Handle Administration routes (with or without locale prefix)
   if (isAdminPath) {
@@ -58,15 +70,24 @@ export default auth(async (req) => {
       const { isLogged } = await verifySession(req.auth.jwt);
       if (isLogged) {
         // Restrict login/logout for authenticated users
-        if (adminPath === ADMIN_ROUTES.LOGIN || adminPath === ADMIN_ROUTES.LOGOUT) {
-          const newUrl = new URL(`/${i18n.defaultLocale}${ADMIN_ROUTES.DASHBOARD}`, url);
+        if (
+          adminPath === ADMIN_ROUTES.LOGIN ||
+          adminPath === ADMIN_ROUTES.LOGOUT
+        ) {
+          const newUrl = new URL(
+            `/${i18n.defaultLocale}${ADMIN_ROUTES.DASHBOARD}`,
+            url,
+          );
           return Response.redirect(newUrl);
         }
         return;
       } else {
         // Avoid infinite redirection loop to logout page
         if (adminPath !== ADMIN_ROUTES.LOGOUT) {
-          const newUrl = new URL(`/${i18n.defaultLocale}${ADMIN_ROUTES.LOGOUT}`, url);
+          const newUrl = new URL(
+            `/${i18n.defaultLocale}${ADMIN_ROUTES.LOGOUT}`,
+            url,
+          );
           const response = Response.redirect(newUrl);
           return response;
         }
@@ -76,7 +97,10 @@ export default auth(async (req) => {
 
     // Not authenticated user wants to access a protected route
     if (adminPath !== ADMIN_ROUTES.LOGIN) {
-      const newUrl = new URL(`/${i18n.defaultLocale}${ADMIN_ROUTES.LOGIN}`, url);
+      const newUrl = new URL(
+        `/${i18n.defaultLocale}${ADMIN_ROUTES.LOGIN}`,
+        url,
+      );
       return Response.redirect(newUrl);
     }
     return;

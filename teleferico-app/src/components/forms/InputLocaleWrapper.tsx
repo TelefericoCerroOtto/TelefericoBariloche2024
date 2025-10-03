@@ -1,6 +1,11 @@
 import { i18n } from "@/i18n";
 import type { Locales } from "@/types";
-import { Textarea } from "@heroui/react";
+import { Rte } from "@/components";
+import {
+  InputProps,
+  type InternalForwardRefRenderFunction,
+  type TextAreaProps,
+} from "@heroui/react";
 import type { FormikErrors, FormikTouched } from "formik";
 
 type LocaleConfig = {
@@ -10,6 +15,10 @@ type LocaleConfig = {
 };
 
 interface Props<T extends Record<string, unknown>> {
+  Input:
+    | InternalForwardRefRenderFunction<"textarea", TextAreaProps, never>
+    | InternalForwardRefRenderFunction<"input", InputProps, never>
+    | typeof Rte;
   locale: Locales;
   config: Record<Locales, LocaleConfig>;
   values: T;
@@ -20,7 +29,8 @@ interface Props<T extends Record<string, unknown>> {
   handleBlur: React.FocusEventHandler<HTMLInputElement>;
 }
 
-export default function LocaleTextareaField<T extends Record<string, unknown>>({
+export default function InputLocaleWrapper<T extends Record<string, unknown>>({
+  Input,
   locale,
   config,
   values,
@@ -34,7 +44,7 @@ export default function LocaleTextareaField<T extends Record<string, unknown>>({
     config[locale] ?? config[i18n.defaultLocale];
 
   return (
-    <Textarea
+    <Input
       label={label}
       labelPlacement="outside"
       placeholder={placeholder}

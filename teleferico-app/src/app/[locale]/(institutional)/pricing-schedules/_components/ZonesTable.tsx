@@ -58,20 +58,17 @@ export default function ZonesTable() {
 
   const renderCell = useCallback(
     (zone: Zone, columnKey: ColumnKeys) => {
-      let cellValue: string;
-      if (columnKey === "name") cellValue = zone.zone_translations[0].name;
-      else cellValue = zone[columnKey];
-
       switch (columnKey) {
         case "name":
-          return <span>{cellValue}</span>;
-        case "openTime":
-          return <span>{formatStrapiTime(cellValue, locale)}</span>;
-        case "closeTime":
-          return <span>{formatStrapiTime(cellValue, locale)}</span>;
+          return (
+            <span>{zone.zone_translations?.[0].name || zone.label || "-"}</span>
+          );
 
-        default:
-          return <span>{cellValue as string}</span>;
+        case "openTime":
+          return <span>{formatStrapiTime(zone[columnKey], locale)}</span>;
+
+        case "closeTime":
+          return <span>{formatStrapiTime(zone[columnKey], locale)}</span>;
       }
     },
     [locale],

@@ -3,7 +3,8 @@ import {
   validateUsernameAvailability,
 } from "@/lib/actions/forms";
 import type { LoginUserRequest } from "@/types";
-import { mixed, number, object, ObjectSchema, string } from "yup";
+import { boolean, mixed, number, object, ObjectSchema, string } from "yup";
+import { i18n } from "@/i18n";
 
 const locales = {
   "es-AR": {
@@ -179,6 +180,52 @@ export const updateUserSchema = object({
   role: string()
     .matches(/^\d+$/, "Debe ser un id con caracteres numericos")
     .required(es.string.required),
+});
+
+const jsonField = string()
+  .required(es.string.required)
+  .test("is-json", "El contenido debe ser un JSON válido", (value) => {
+    if (!value) return false;
+    try {
+      const parsed = JSON.parse(value);
+      return typeof parsed === "object" && parsed !== null;
+    } catch (error) {
+      console.error("Invalid JSON content", error);
+      return false;
+    }
+  });
+
+const newsShape = i18n.locales.reduce(
+  (acc, locale) => {
+    acc[`title_${locale}`] = string()
+      .required(es.string.required)
+      .min(3, es.string.min(3));
+    acc[`body_${locale}`] = jsonField;
+    acc[`brief_${locale}`] = jsonField;
+    acc[`coverAlt_${locale}`] = string().required(es.string.required);
+    return acc;
+  },
+  {} as Record<string, ReturnType<typeof string>>,
+);
+
+export const newsFormSchema = object({
+  ...newsShape,
+  documentId: string(),
+  coverImage: string().default(""),
+  coverImageUrl: string(),
+  coverImageFile: mixed<File | null>()
+    .nullable()
+    .test("cover-image-required", es.string.required, function (value) {
+      const coverImage = this.parent.coverImage as string | undefined;
+      return (value instanceof File) || Boolean(coverImage && coverImage.trim().length > 0);
+    }),
+  date: string()
+    .required(es.string.required)
+    .test("valid-date", "La fecha no es válida", (value) => {
+      if (!value) return false;
+      return !Number.isNaN(Date.parse(value));
+    }),
+  highglighted: boolean().default(false),
 });
 
 // MIME types de los formatos de archivo
