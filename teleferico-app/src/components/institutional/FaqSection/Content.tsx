@@ -43,8 +43,14 @@ export default async function Content(props: Props) {
 
   return (
     <section className="w-full px-6 py-8 md:px-10 lg:px-16">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-        <FaqList faqs={faqs.map(({ id, question, answer }) => ({ id, question, answer }))} />
+      <div className="mx-auto flex w-full flex-col gap-6">
+        <FaqList
+          faqs={faqs.map(({ id, question, answer }) => ({
+            id,
+            question,
+            answer,
+          }))}
+        />
       </div>
     </section>
   );
