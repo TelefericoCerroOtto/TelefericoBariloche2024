@@ -8,7 +8,7 @@ import { type ReactNode, useCallback } from "react";
 
 type ColumnKeys =
   | "name"
-  | "zone"
+  // | "zone"
   | "price"
   | "minAge"
   | "season"
@@ -36,7 +36,7 @@ const dictionaries: Record<
     linkLabel: "Ver las actividades",
     columns: [
       { key: "name", label: "Actividad" },
-      { key: "zone", label: "Zona" },
+      // { key: "zone", label: "Zona" },
       { key: "price", label: "Precio por persona", zeroLabel: "Sin cargo" },
       {
         key: "minAge",
@@ -62,7 +62,7 @@ const dictionaries: Record<
     linkLabel: "View activities",
     columns: [
       { key: "name", label: "Actividad" },
-      { key: "zone", label: "Zone" },
+      // { key: "zone", label: "Zone" },
       { key: "price", label: "Price per person", zeroLabel: "Free" },
       { key: "minAge", label: "Minimum age", unit: "years", zeroLabel: "None" },
       { key: "season", label: "Season" },
@@ -83,7 +83,7 @@ const dictionaries: Record<
     linkLabel: "Ver atividades",
     columns: [
       { key: "name", label: "Atividade" },
-      { key: "zone", label: "Zona" },
+      // { key: "zone", label: "Zona" },
       { key: "price", label: "Preço por pessoa", zeroLabel: "Grátis" },
       {
         key: "minAge",
@@ -117,9 +117,9 @@ export default function ActivitiesTable() {
           cellValue = activity.activity_translations?.[0]?.name || "";
           return <span>{cellValue || zeroLabel}</span>;
 
-        case "zone":
-          cellValue = activity.activity_translations?.[0]?.name || ""; // TODO: Change to zone name
-          return <span>{cellValue || zeroLabel}</span>;
+        // case "zone":
+        //   cellValue = activity.activity_translations?.[0]?.name || ""; // TODO: Change to zone name
+        //   return <span>{cellValue || zeroLabel}</span>;
 
         case "price":
           cellValue = activity[columnKey];
