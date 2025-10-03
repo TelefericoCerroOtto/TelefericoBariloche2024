@@ -7,6 +7,7 @@ import type {
   Meta,
   New,
   Sector,
+  ServiceStateValues,
   ServiceStatus,
   Station,
   StrapiImage,
@@ -106,10 +107,7 @@ export type GetNewResponse = {
 };
 
 export type GetNewsResponse = {
-  data: Omit<
-    New,
-    "createdAt" | "publishedAt" | "body" | "locale"
-  >[];
+  data: Omit<New, "createdAt" | "publishedAt" | "body" | "locale">[];
   meta: Meta;
 };
 
@@ -416,9 +414,9 @@ export type GetServiceButtonResponse = {
           close: string;
         };
         modal: {
-          states: {
+          items: {
             order: number;
-            state: string;
+            state: ServiceStateValues;
             stateLegend: string;
             title: string;
             stateDesc: string;
