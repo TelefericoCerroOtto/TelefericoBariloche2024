@@ -1,6 +1,8 @@
 import type {
+  DynamicZone,
   Image,
   ImageFormats,
+  RendereableBlocks,
   ServiceStateValues,
   StrapiLocales,
   StrapiRecord,
@@ -28,9 +30,26 @@ export interface UserRole {
   locale: null;
 }
 
-type ComponentTranslate<
-  T extends { jsonValue: unknown; rtValue: BlocksContent | null },
-> = StrapiRecord<T & { key: string }>;
+export type ComponentTranslationKeys =
+  | "policies"
+  | "navbar"
+  | "footer"
+  | "hoursoverview"
+  | "servicebutton"
+  | "forms"
+  | "schedules";
+
+export type ComponentTranslation<
+  T extends {
+    jsonValue: unknown;
+    rtValue: BlocksContent | null;
+    key?: ComponentTranslationKeys;
+  },
+> = StrapiRecord<
+  T & {
+    key: ComponentTranslationKeys;
+  }
+>;
 
 export type ServiceStatus = StrapiRecord<{
   state: ServiceStateValues;
@@ -144,4 +163,15 @@ export type Postulation = StrapiRecord<{
   sector: Sector;
   faved_by: UnpopulatedUserResponse[];
   locale: null;
+}>;
+
+export type PageContent = StrapiRecord<{
+  blocks: DynamicZone<RendereableBlocks>;
+  createdAt: string;
+  documentId: string;
+  id: number;
+  locale: StrapiLocales;
+  publishedAt: string;
+  route: string;
+  updatedAt: string;
 }>;

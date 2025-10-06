@@ -2,10 +2,11 @@ import type {
   Activity,
   ActivityTranslation,
   BusTrip,
-  ComponentTranslate,
+  ComponentTranslation,
   Faq,
   Meta,
   New,
+  PageContent,
   Sector,
   ServiceStateValues,
   ServiceStatus,
@@ -85,6 +86,11 @@ export type GetRolesResponse = {
 };
 
 export type GetUsersResponse = UserResponse<{ role: UserRole }>[];
+
+export type GetPageResponse = {
+  data: PageContent[];
+  meta: Meta;
+};
 
 export type GetServiceStateResponse = {
   data: ServiceStatus;
@@ -340,9 +346,10 @@ export type UploadMediaResponse = StrapiImage[];
 
 export type GetNavbarItemsResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: { items: { label: string; href: string }[] };
       rtValue: null;
+      key: "navbar";
     }>,
   ];
   meta: Meta;
@@ -350,9 +357,10 @@ export type GetNavbarItemsResponse = {
 
 export type GetPoliciesResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: null;
       rtValue: BlocksContent;
+      key: "policies";
     }>,
   ];
   meta: Meta;
@@ -360,7 +368,7 @@ export type GetPoliciesResponse = {
 
 export type GetFooterResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: {
         socialitems: {
           ig: string;
@@ -379,6 +387,7 @@ export type GetFooterResponse = {
         };
       };
       rtValue: BlocksContent;
+      key: "footer";
     }>,
   ];
   meta: Meta;
@@ -386,7 +395,7 @@ export type GetFooterResponse = {
 
 export type GetHoursoverviewResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: {
         title: string;
         desc: BlocksContent;
@@ -399,6 +408,7 @@ export type GetHoursoverviewResponse = {
         }>;
       };
       rtValue: null;
+      key: "hoursoverview";
     }>,
   ];
   meta: Meta;
@@ -406,7 +416,7 @@ export type GetHoursoverviewResponse = {
 
 export type GetServiceButtonResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: {
         error: BlocksContent;
         button: {
@@ -425,6 +435,7 @@ export type GetServiceButtonResponse = {
         };
       };
       rtValue: null;
+      key: "servicebutton";
     }>,
   ];
   meta: Meta;
@@ -432,7 +443,7 @@ export type GetServiceButtonResponse = {
 
 export type GetFormsTranslationResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: {
         fields: {
           firstName: {
@@ -493,6 +504,25 @@ export type GetFormsTranslationResponse = {
         };
       };
       rtValue: null;
+      key: "forms";
+    }>,
+  ];
+  meta: Meta;
+};
+
+export type GetSchedulesTranslationResponse = {
+  data: [
+    ComponentTranslation<{
+      jsonValue: {
+        header: { epigraph: string; title: string; legend: string };
+        components: {
+          Loading: { title: string; legend: string };
+          Error: { title: string; legend: string; button: string };
+          Empty: { title: string; legend: string };
+        };
+      };
+      rtValue: null;
+      key: "schedules";
     }>,
   ];
   meta: Meta;
