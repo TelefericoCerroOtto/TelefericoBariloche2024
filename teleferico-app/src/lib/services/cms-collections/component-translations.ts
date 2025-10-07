@@ -1,12 +1,13 @@
 import type {
+  ComponentTranslationKeys,
   GetFooterResponse,
   GetFormsTranslationResponse,
   GetHoursoverviewResponse,
   GetNavbarItemsResponse,
   GetPoliciesResponse,
+  GetSchedulesTranslationResponse,
   GetServiceButtonResponse,
   Locales,
-  TranslateComponentKeys,
 } from "@/types";
 import {
   CACHE_TAGS,
@@ -23,14 +24,17 @@ export type TranslateComponentsResponseTypes = {
   hoursoverview: GetHoursoverviewResponse;
   servicebutton: GetServiceButtonResponse;
   forms: GetFormsTranslationResponse;
+  schedules: GetSchedulesTranslationResponse;
 };
 
-export const getComponentTranslation = async <T extends TranslateComponentKeys>(
+export const getComponentTranslation = async <
+  T extends ComponentTranslationKeys,
+>(
   locale: Locales,
   key: T,
 ) => {
   const translateComponentCacheTags: Record<
-    TranslateComponentKeys,
+    ComponentTranslationKeys,
     Partial<keyof typeof CACHE_TAGS>
   > = {
     policies: "POLICIES_CONTENT",
@@ -39,6 +43,7 @@ export const getComponentTranslation = async <T extends TranslateComponentKeys>(
     hoursoverview: "HOURS_OVERVIEW",
     servicebutton: "SERVICE_BUTTON",
     forms: "FORMS",
+    schedules: "SCHEDULES",
   };
 
   const query = {

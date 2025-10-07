@@ -1,6 +1,5 @@
 export * from "./api";
 export * from "./components";
 export * from "./general";
-export * from "./pages";
 export * from "./collections";
 export * from "./news";
