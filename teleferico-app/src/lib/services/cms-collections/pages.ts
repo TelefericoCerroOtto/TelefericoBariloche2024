@@ -3,6 +3,7 @@ import type { GetPageResponse, Locales } from "@/types";
 import {
   fetchWrapper,
   getStrapiURL,
+  PAGE_TAG_PREFIX,
   STRAPI_ENDPOINTS,
   stringifyQuery,
 } from "@/utils";
@@ -28,6 +29,13 @@ export const getPageContent = async (locale: Locales, route: string) => {
           },
           "page-components.faq-section": "*",
           "page-components.spacer": "*",
+          "page-components.schedules": {
+            populate: {
+              zones: {
+                populate: "zone_translations",
+              },
+            },
+          },
         },
       },
     },
@@ -38,7 +46,7 @@ export const getPageContent = async (locale: Locales, route: string) => {
     {
       cache: "force-cache",
       next: {
-        tags: [`content${route}`],
+        tags: [`${PAGE_TAG_PREFIX}${route}`],
       },
     },
   );

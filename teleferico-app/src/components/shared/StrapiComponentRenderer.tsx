@@ -5,6 +5,7 @@ import {
   HoursOverview,
   ImageTextRenderer,
   TitleDescBlock,
+  Schedules,
 } from "@/components";
 import type { Locales, RendereableBlocks } from "@/types";
 import { deepMerge } from "@/utils";
@@ -95,6 +96,10 @@ export default function StrapiComponentRenderer(props: Props) {
       return (
         <Spacer x={xSpace as SpacerProps["x"]} y={ySpace as SpacerProps["y"]} />
       );
+    }
+
+    case "page-components.schedules": {
+      return <Schedules block={block} locale={locale} />;
     }
 
     default:
