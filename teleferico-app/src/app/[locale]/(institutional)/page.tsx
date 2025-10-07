@@ -1,9 +1,4 @@
-import {
-  BlocksRenderer,
-  NoContent,
-  Schedules,
-  ServiceButton,
-} from "@/components";
+import { BlocksRenderer, NoContent, ServiceButton } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
 import { ROUTES } from "@/utils";
@@ -36,7 +31,6 @@ export default async function Home({
           },
         ]}
       />
-      <Schedules locale={locale} />
     </>
   );
 }

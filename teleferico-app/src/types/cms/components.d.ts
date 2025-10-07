@@ -1,5 +1,5 @@
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
-import type { ServiceStateValues, StrapiImage } from "./index";
+import type { ServiceStateValues, StrapiImage, Zone } from "@/types";
 
 // UTILS
 export interface Link {
@@ -97,6 +97,12 @@ export interface Spacer {
   ySpace: number;
 }
 
+export interface Schedules {
+  __component: "page-components.schedules";
+  id: number;
+  zones: Zone[];
+}
+
 export type RendereableBlocks =
   | ServiceStateModal
   | Hero
@@ -104,4 +110,5 @@ export type RendereableBlocks =
   | ImageTextBlock
   | TitleDescBlock
   | FaqSection
-  | Spacer;
+  | Spacer
+  | Schedules;
