@@ -1,20 +1,32 @@
-export const CACHE_TAGS = {
-  ACTIVITIES_CONTENT: "page-content/activities",
-  CONTACT_CONTENT: "page-content/contact",
-  EXPLORE_CONTENT: "page-content/explore",
-  FAQS_CONTENT: "page-content/faqs",
+import { ROUTES } from "./routes.const";
+
+export const PAGE_TAG_PREFIX = "page-content";
+
+const PAGE_CONTENT_CACHE_TAGS = {
+  ACTIVITIES_CONTENT: `${PAGE_TAG_PREFIX}${ROUTES.ACTIVITIES}`,
+  CONTACT_CONTENT: `${PAGE_TAG_PREFIX}${ROUTES.CONTACT}`,
+  EXPLORE_CONTENT: `${PAGE_TAG_PREFIX}${ROUTES.EXPLORE}`,
+  FAQS_CONTENT: `${PAGE_TAG_PREFIX}${ROUTES.FAQS}`,
+  FOUNDATION_CONTENT: `${PAGE_TAG_PREFIX}${ROUTES.FOUNDATION}`,
+  HOME_CONTENT: `${PAGE_TAG_PREFIX}${ROUTES.HOME}`,
+  JOBS_CONTENT: `${PAGE_TAG_PREFIX}${ROUTES.JOBS}`,
+  LOCATION_CONTENT: `${PAGE_TAG_PREFIX}${ROUTES.LOCATION}`,
+  POLICIES_CONTENT: `${PAGE_TAG_PREFIX}${ROUTES.POLICIES}`,
+  PRICINGSCHEDULES_CONTENT: `${PAGE_TAG_PREFIX}${ROUTES.PRICINGSCHEDULES}`,
+} as const;
+
+const COMPONENTS_CACHE_TAGS = {
   FOOTER: "footer",
   FORMS: "forms",
-  FOUNDATION_CONTENT: "page-content/foundation",
-  HOME_CONTENT: "page-content/",
   HOURS_OVERVIEW: "hours-overview",
-  JOBS_CONTENT: "page-content/jobs",
-  LOCATION_CONTENT: "page-content/location",
   NAVITEMS: "navitems",
-  POLICIES_CONTENT: "page-content/policies",
-  PRICINGSCHEDULES_CONTENT: "page-content/pricing-schedules",
   SCHEDULES: "schedules",
   SERVICE_BUTTON: "service-button",
   SERVICE_STATE: "service-state",
   USERS: "users",
+} as const;
+
+export const CACHE_TAGS = {
+  ...PAGE_CONTENT_CACHE_TAGS,
+  ...COMPONENTS_CACHE_TAGS,
 } as const;
