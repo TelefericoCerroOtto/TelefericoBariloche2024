@@ -32,6 +32,11 @@
       "relation": "oneToMany",
       "target": "api::zone-translation.zone-translation",
       "mappedBy": "zone"
+    },
+    "isOpen": {
+      "type": "boolean",
+      "default": false,
+      "required": true
     }
   }
 }
