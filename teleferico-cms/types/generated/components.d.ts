@@ -1,5 +1,73 @@
 import type { Struct, Schema } from '@strapi/strapi';
 
+export interface UtilsComponentsTitle extends Struct.ComponentSchema {
+  collectionName: 'components_utils_components_titles';
+  info: {
+    displayName: 'State Title';
+    icon: 'italic';
+    description: '';
+  };
+  attributes: {
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    state: Schema.Attribute.Component<'utils-components.service-states', false>;
+  };
+}
+
+export interface UtilsComponentsServiceStates extends Struct.ComponentSchema {
+  collectionName: 'components_utils_components_service_states';
+  info: {
+    displayName: 'ServiceStates';
+    icon: 'bulletList';
+    description: '';
+  };
+  attributes: {
+    name: Schema.Attribute.Enumeration<
+      ['normal', 'conditional', 'restricted', 'suspended', 'closed']
+    > &
+      Schema.Attribute.Required;
+  };
+}
+
+export interface UtilsComponentsLink extends Struct.ComponentSchema {
+  collectionName: 'components_utils_components_links';
+  info: {
+    displayName: 'Link';
+    icon: 'link';
+    description: '';
+  };
+  attributes: {
+    href: Schema.Attribute.String & Schema.Attribute.Required;
+    label: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface UtilsComponentsImage extends Struct.ComponentSchema {
+  collectionName: 'components_utils_components_images';
+  info: {
+    displayName: 'Image';
+    icon: 'picture';
+  };
+  attributes: {
+    image: Schema.Attribute.Media<'images'> & Schema.Attribute.Required;
+    alt: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface UtilsComponentsHoursOverviewItem
+  extends Struct.ComponentSchema {
+  collectionName: 'components_utils_components_hours_overview_items';
+  info: {
+    displayName: 'HoursOverviewItem';
+    icon: 'bulletList';
+  };
+  attributes: {
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    desc: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    icon: Schema.Attribute.Component<'utils-components.image', false> &
+      Schema.Attribute.Required;
+  };
+}
+
 export interface PagePropertiesSeo extends Struct.ComponentSchema {
   collectionName: 'components_page_properties_seos';
   info: {
@@ -199,77 +267,14 @@ export interface PageComponentsFaqSection extends Struct.ComponentSchema {
   };
 }
 
-export interface UtilsComponentsTitle extends Struct.ComponentSchema {
-  collectionName: 'components_utils_components_titles';
-  info: {
-    displayName: 'State Title';
-    icon: 'italic';
-    description: '';
-  };
-  attributes: {
-    title: Schema.Attribute.String & Schema.Attribute.Required;
-    state: Schema.Attribute.Component<'utils-components.service-states', false>;
-  };
-}
-
-export interface UtilsComponentsServiceStates extends Struct.ComponentSchema {
-  collectionName: 'components_utils_components_service_states';
-  info: {
-    displayName: 'ServiceStates';
-    icon: 'bulletList';
-    description: '';
-  };
-  attributes: {
-    name: Schema.Attribute.Enumeration<
-      ['normal', 'conditional', 'restricted', 'suspended', 'closed']
-    > &
-      Schema.Attribute.Required;
-  };
-}
-
-export interface UtilsComponentsLink extends Struct.ComponentSchema {
-  collectionName: 'components_utils_components_links';
-  info: {
-    displayName: 'Link';
-    icon: 'link';
-    description: '';
-  };
-  attributes: {
-    href: Schema.Attribute.String & Schema.Attribute.Required;
-    label: Schema.Attribute.String & Schema.Attribute.Required;
-  };
-}
-
-export interface UtilsComponentsImage extends Struct.ComponentSchema {
-  collectionName: 'components_utils_components_images';
-  info: {
-    displayName: 'Image';
-    icon: 'picture';
-  };
-  attributes: {
-    image: Schema.Attribute.Media<'images'> & Schema.Attribute.Required;
-    alt: Schema.Attribute.String & Schema.Attribute.Required;
-  };
-}
-
-export interface UtilsComponentsHoursOverviewItem
-  extends Struct.ComponentSchema {
-  collectionName: 'components_utils_components_hours_overview_items';
-  info: {
-    displayName: 'HoursOverviewItem';
-    icon: 'bulletList';
-  };
-  attributes: {
-    title: Schema.Attribute.String & Schema.Attribute.Required;
-    desc: Schema.Attribute.Blocks & Schema.Attribute.Required;
-    icon: Schema.Attribute.Component<'utils-components.image', false> &
-      Schema.Attribute.Required;
-  };
-}
-
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'utils-components.title': UtilsComponentsTitle;
+      'utils-components.service-states': UtilsComponentsServiceStates;
+      'utils-components.link': UtilsComponentsLink;
+      'utils-components.image': UtilsComponentsImage;
+      'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
       'page-properties.seo': PagePropertiesSeo;
       'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-components.title-desc-block': PageComponentsTitleDescBlock;
@@ -280,11 +285,6 @@ declare module '@strapi/strapi' {
       'page-components.hours-overview': PageComponentsHoursOverview;
       'page-components.hero': PageComponentsHero;
       'page-components.faq-section': PageComponentsFaqSection;
-      'utils-components.title': UtilsComponentsTitle;
-      'utils-components.service-states': UtilsComponentsServiceStates;
-      'utils-components.link': UtilsComponentsLink;
-      'utils-components.image': UtilsComponentsImage;
-      'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
     }
   }
 }

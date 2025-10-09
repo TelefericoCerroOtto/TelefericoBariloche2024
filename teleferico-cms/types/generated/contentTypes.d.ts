@@ -1189,6 +1189,9 @@ export interface ApiZoneZone extends Struct.CollectionTypeSchema {
       'oneToMany',
       'api::zone-translation.zone-translation'
     >;
+    isOpen: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
     createdAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     publishedAt: Schema.Attribute.DateTime;

@@ -103,7 +103,8 @@ export const getAccessTicketAdapter = (
 };
 
 export const getZoneAdapter = (zone: GetZoneResponse): ZoneFormData => {
-  const { openTime, closeTime, documentId, zone_translations } = zone.data;
+  const { openTime, closeTime, isOpen, documentId, zone_translations } =
+    zone.data;
   const { documentId: zoneTrasnlationDocumentId } = zone_translations[0];
   const [openHour, openMins] = openTime.split(":").map(Number);
   const [closeHour, closeMins] = closeTime.split(":").map(Number);
@@ -120,6 +121,7 @@ export const getZoneAdapter = (zone: GetZoneResponse): ZoneFormData => {
       hour: closeHour,
       mins: closeMins,
     },
+    isOpen,
     documentId,
     zoneTrasnlationDocumentId,
   };
@@ -138,13 +140,25 @@ export const getZoneAdapter = (zone: GetZoneResponse): ZoneFormData => {
   return formData;
 };
 
-export const updateZoneAdapter = (zone: ZoneFormData): UpdateZoneRequest => {
-  const reqBody: UpdateZoneRequest = { data: { openTime: "", closeTime: "" } };
+export const updateZoneAdapter = (
+  zone: ZoneFormData | Partial<ZoneFormData>,
+): UpdateZoneRequest => {
+  const reqBody: { data: Record<string, unknown> } = { data: {} };
 
-  reqBody.data.openTime = TimeValueToStrapiTime(zone.openTime);
-  reqBody.data.closeTime = TimeValueToStrapiTime(zone.closeTime);
+  // Solo agrega si viene definido (no null/undefined)
+  if (zone.openTime != null) {
+    reqBody.data.openTime = TimeValueToStrapiTime(zone.openTime);
+  }
+  if (zone.closeTime != null) {
+    reqBody.data.closeTime = TimeValueToStrapiTime(zone.closeTime);
+  }
 
-  return reqBody;
+  // Para booleanos: no usar truthy; chequear presencia y tipo
+  if ("isOpen" in zone && typeof zone.isOpen === "boolean") {
+    reqBody.data.isOpen = zone.isOpen;
+  }
+
+  return reqBody as UpdateZoneRequest;
 };
 
 export const updateZoneTranslationAdapter = (
@@ -152,7 +166,11 @@ export const updateZoneTranslationAdapter = (
   locale: Locales,
 ): UpdateZoneTranslationRequest => {
   const reqBody: UpdateZoneTranslationRequest = {
-    data: { name: "", description: "" },
+    data: {
+      name: "",
+      description: "",
+      zone: { connect: [{ documentId: zone.documentId }] },
+    },
   };
 
   reqBody.data.name = zone[`zoneName_${locale}`];

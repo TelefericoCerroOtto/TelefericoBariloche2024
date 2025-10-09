@@ -220,7 +220,7 @@ export type GetZonesResponse = {
 };
 
 export type UpdateZoneRequest = {
-  data: Partial<Pick<Zone, "openTime" | "closeTime">>;
+  data: Partial<Pick<Zone, "openTime" | "closeTime" | "isOpen">>;
 };
 
 export type UpdateZoneResponse = {
@@ -229,7 +229,9 @@ export type UpdateZoneResponse = {
 };
 
 export type UpdateZoneTranslationRequest = {
-  data: Partial<Pick<ZoneTranslation, "name" | "description">>;
+  data: Partial<Pick<ZoneTranslation, "name" | "description">> & {
+    zone: { connect: [{ documentId: string }] };
+  };
 };
 
 export type UpdateZoneTranslationResponse = {
@@ -281,7 +283,7 @@ export type UpdateActivityTranslationRequest = {
   data: Partial<
     Pick<ActivityTranslation, "name" | "description" | "requirements">
   > & {
-    activity?: {
+    activity: {
       connect: [{ documentId: string }];
     };
   };

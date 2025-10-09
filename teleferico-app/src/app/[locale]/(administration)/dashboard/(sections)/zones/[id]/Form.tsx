@@ -10,7 +10,7 @@ import { useFormLocaleSelector } from "@/hooks";
 import { updateZoneSchema } from "@/lib/schemas";
 import type { ZoneFormData } from "@/types/forms";
 import { ADMIN_ROUTES } from "@/utils";
-import { Input } from "@heroui/react";
+import { Input, Switch } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
@@ -132,6 +132,15 @@ export default function Form(props: Props) {
           if (el) setTimeInputLoading(false);
         }}
       />
+      <Switch
+        name="isOpen"
+        id="isOpen"
+        isSelected={values.isOpen}
+        onChange={handleChange}
+      >
+        {values.isOpen ? "Abierto al público" : "Cerrado al público"}
+      </Switch>
+
       <FormButtons
         isSubmitting={isSubmitting}
         cancelRedirectRoute={ADMIN_ROUTES.ZONES}
