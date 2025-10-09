@@ -9,7 +9,7 @@ import type {
   Zone,
 } from "@/types";
 import { formatStrapiTime, STRAPI_ENDPOINTS } from "@/utils";
-import { Button, Spinner } from "@heroui/react";
+import { Button, Spinner, Tooltip } from "@heroui/react";
 import Image from "next/image";
 import { useMemo } from "react";
 import { useSWRConfig } from "swr";
@@ -17,9 +17,10 @@ import { useSWRConfig } from "swr";
 type ZoneSchedule = {
   id: number;
   name: string;
-  description?: string | null;
-  openTime?: string | null;
-  closeTime?: string | null;
+  description: string | undefined | null;
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
 };
 
 type Translations = GetSchedulesTranslationResponse["data"][0]["jsonValue"];
@@ -105,6 +106,7 @@ function mapZoneToSchedule(zone: Zone, locale: Locales): ZoneSchedule {
   return {
     id: zone.id,
     description: t?.description,
+    isOpen: zone.isOpen ?? false,
     openTime: zone.openTime ?? undefined,
     closeTime: zone.closeTime ?? undefined,
     name: t?.name ?? zone.label ?? "-",
@@ -130,8 +132,6 @@ export default function SchedulesClient(props: Props) {
     }),
     [locale, zonesId],
   );
-
-  console.log("query:", query);
 
   const { data, isError, isLoading, key } = useProxy<GetZonesResponse>(
     STRAPI_ENDPOINTS.ZONES,
@@ -170,6 +170,7 @@ export default function SchedulesClient(props: Props) {
       {schedules.map((s, index) => {
         const open = s.openTime ? formatStrapiTime(s.openTime, locale) : "-";
         const close = s.closeTime ? formatStrapiTime(s.closeTime, locale) : "-";
+        const isOpen = s.isOpen;
 
         return (
           <li key={s.id} className="h-full">
@@ -182,13 +183,16 @@ export default function SchedulesClient(props: Props) {
                 <h3 className="text-xl font-semibold leading-tight">
                   {s.name}
                 </h3>
+                {s.description ? (
+                  <Tooltip content={s.description} placement="top">
+                    <p className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-gray-800 text-base font-bold text-white">
+                      ?
+                    </p>
+                  </Tooltip>
+                ) : null}
               </div>
 
-              {s.description ? (
-                <p className="mt-3 text-sm leading-relaxed text-slate-600">
-                  {s.description}
-                </p>
-              ) : null}
+              {/*BADGE*/}
 
               <dl className="mt-6 grid gap-4 text-sm text-slate-700">
                 <TimeRow label="Opens" value={open} />
