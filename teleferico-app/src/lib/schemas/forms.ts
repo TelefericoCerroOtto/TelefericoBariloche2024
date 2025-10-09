@@ -132,6 +132,7 @@ export const updateZoneSchema = object({
   zoneName_pt: string().required(es.string.required).min(2, pt.string.min(2)),
   openTime: timeSchema,
   closeTime: timeSchema,
+  isOpen: boolean().required(es.string.required),
   documentId: string().required(es.string.required),
   zoneTrasnlationDocumentId: string().required(es.string.required),
 });
@@ -217,7 +218,10 @@ export const newsFormSchema = object({
     .nullable()
     .test("cover-image-required", es.string.required, function (value) {
       const coverImage = this.parent.coverImage as string | undefined;
-      return (value instanceof File) || Boolean(coverImage && coverImage.trim().length > 0);
+      return (
+        value instanceof File ||
+        Boolean(coverImage && coverImage.trim().length > 0)
+      );
     }),
   date: string()
     .required(es.string.required)

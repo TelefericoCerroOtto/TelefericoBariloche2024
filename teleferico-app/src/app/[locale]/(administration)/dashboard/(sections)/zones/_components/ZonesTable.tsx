@@ -15,12 +15,14 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
+import ZoneOpenToggle from "./ZoneOpenToggle";
 
-type ColumnKeys = "name" | "openTime" | "closeTime" | "actions";
+type ColumnKeys = "name" | "openTime" | "closeTime" | "isOpen" | "actions";
 const columns: { key: ColumnKeys; label: string }[] = [
   { key: "name", label: "Zona" },
   { key: "openTime", label: "Horario De Apertura" },
   { key: "closeTime", label: "Horario De Cierre" },
+  { key: "isOpen", label: "Zona abierta" },
   { key: "actions", label: "Acciones" },
 ];
 
@@ -29,7 +31,7 @@ export default function ZonesTable() {
     switch (columnKey) {
       case "name":
         return (
-          <span>{zone.zone_translations?.[0].name || zone.label || "-"}</span>
+          <span>{zone.zone_translations?.[0]?.name || zone.label || "-"}</span>
         );
 
       case "openTime":
@@ -37,6 +39,9 @@ export default function ZonesTable() {
 
       case "closeTime":
         return <span>{StrapiTimeToTableRecordTime(zone[columnKey])}</span>;
+
+      case "isOpen":
+        return <ZoneOpenToggle zone={zone} />;
 
       case "actions":
         return (
