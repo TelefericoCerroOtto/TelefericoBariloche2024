@@ -11,7 +11,7 @@ import type {
 import { formatStrapiTime, STRAPI_ENDPOINTS } from "@/utils";
 import { Button, Spinner, Tooltip } from "@heroui/react";
 import Image from "next/image";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSWRConfig } from "swr";
 
 type ZoneSchedule = {
@@ -24,6 +24,26 @@ type ZoneSchedule = {
 };
 
 type Translations = GetSchedulesTranslationResponse["data"][0]["jsonValue"];
+
+type ZoneStatus = "open" | "closed";
+
+const badgeStyles: Record<ZoneStatus, string> = {
+  open: "bg-emerald-100 text-emerald-700",
+  closed: "bg-rose-100 text-rose-700",
+};
+
+const badgeLabels: Record<ZoneStatus, Record<Locales, string>> = {
+  open: {
+    "es-AR": "Abierto",
+    en: "Open",
+    pt: "Aberto",
+  },
+  closed: {
+    "es-AR": "Cerrado",
+    en: "Closed",
+    pt: "Fechado",
+  },
+};
 
 interface Props {
   translations: Translations;
@@ -113,11 +133,63 @@ function mapZoneToSchedule(zone: Zone, locale: Locales): ZoneSchedule {
   };
 }
 
+function createDateFromStrapiTime(time: string | undefined, reference: Date) {
+  if (!time) {
+    return null;
+  }
+
+  const [hoursStr, minutesStr, secondsStr] = time.split(":");
+  const hours = Number(hoursStr);
+  const minutes = Number(minutesStr);
+  const seconds = Number(secondsStr ?? "0");
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || Number.isNaN(seconds)) {
+    return null;
+  }
+
+  const date = new Date(reference);
+  date.setHours(hours, minutes, seconds, 0);
+  return date;
+}
+
+function getZoneStatus(zone: ZoneSchedule, reference: Date): ZoneStatus {
+  const openDate = createDateFromStrapiTime(zone.openTime, reference);
+  const closeDate = createDateFromStrapiTime(zone.closeTime, reference);
+
+  if (!openDate || !closeDate) {
+    return zone.isOpen ? "open" : "closed";
+  }
+
+  const nowTime = reference.getTime();
+  if (nowTime >= closeDate.getTime()) {
+    return "closed";
+  }
+
+  if (nowTime >= openDate.getTime()) {
+    return zone.isOpen ? "open" : "closed";
+  }
+
+  return "closed";
+}
+
 export default function SchedulesClient(props: Props) {
   const { translations, zonesId } = props;
 
   const { locale } = useLocale();
   const { mutate } = useSWRConfig();
+
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const interval = window.setInterval(
+      () => setNow(new Date()),
+      5 * 60 * 1000,
+    );
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const query = useMemo(
     () => ({
@@ -170,7 +242,8 @@ export default function SchedulesClient(props: Props) {
       {schedules.map((s, index) => {
         const open = s.openTime ? formatStrapiTime(s.openTime, locale) : "-";
         const close = s.closeTime ? formatStrapiTime(s.closeTime, locale) : "-";
-        const isOpen = s.isOpen;
+        const status = getZoneStatus(s, now);
+        const badgeText = badgeLabels[status][locale] ?? badgeLabels[status].en;
 
         return (
           <li key={s.id} className="h-full">
@@ -193,6 +266,11 @@ export default function SchedulesClient(props: Props) {
               </div>
 
               {/*BADGE*/}
+              <span
+                className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${badgeStyles[status]}`}
+              >
+                {badgeText}
+              </span>
 
               <dl className="mt-6 grid gap-4 text-sm text-slate-700">
                 <TimeRow label="Opens" value={open} />
