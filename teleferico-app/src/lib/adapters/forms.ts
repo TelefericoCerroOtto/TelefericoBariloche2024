@@ -113,6 +113,9 @@ export const getZoneAdapter = (zone: GetZoneResponse): ZoneFormData => {
     "zoneName_es-AR": "",
     zoneName_en: "",
     zoneName_pt: "",
+    "zoneDescription_es-AR": "",
+    zoneDescription_en: "",
+    zoneDescription_pt: "",
     openTime: {
       hour: openHour,
       mins: openMins,
@@ -127,14 +130,15 @@ export const getZoneAdapter = (zone: GetZoneResponse): ZoneFormData => {
   };
 
   const mapLocales = {
-    "es-AR": "zoneName_es-AR",
-    en: "zoneName_en",
-    pt: "zoneName_pt",
+    "es-AR": ["zoneName_es-AR", "zoneDescription_es-AR"],
+    en: ["zoneName_en", "zoneDescription_en"],
+    pt: ["zoneName_pt", "zoneDescription_pt"],
   } as const;
 
-  zone_translations.map((zdesc) => {
-    const { locale, name } = zdesc;
-    formData[mapLocales[locale]] = name;
+  zone_translations.map((ztrans) => {
+    const { locale, name, description } = ztrans;
+    formData[mapLocales[locale][0]] = name;
+    formData[mapLocales[locale][1]] = description || "";
   });
 
   return formData;
@@ -174,6 +178,7 @@ export const updateZoneTranslationAdapter = (
   };
 
   reqBody.data.name = zone[`zoneName_${locale}`];
+  reqBody.data.description = zone[`zoneDescription_${locale}`] || "";
 
   return reqBody;
 };
