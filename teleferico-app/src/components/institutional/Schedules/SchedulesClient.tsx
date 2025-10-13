@@ -32,19 +32,6 @@ const badgeStyles: Record<ZoneStatus, string> = {
   closed: "bg-rose-100 text-rose-700",
 };
 
-const badgeLabels: Record<ZoneStatus, Record<Locales, string>> = {
-  open: {
-    "es-AR": "Abierto",
-    en: "Open",
-    pt: "Aberto",
-  },
-  closed: {
-    "es-AR": "Cerrado",
-    en: "Closed",
-    pt: "Fechado",
-  },
-};
-
 interface Props {
   translations: Translations;
   zonesId: string[];
@@ -243,7 +230,7 @@ export default function SchedulesClient(props: Props) {
         const open = s.openTime ? formatStrapiTime(s.openTime, locale) : "-";
         const close = s.closeTime ? formatStrapiTime(s.closeTime, locale) : "-";
         const status = getZoneStatus(s, now);
-        const badgeText = badgeLabels[status][locale] ?? badgeLabels[status].en;
+        const badgeText = translations.badge[status];
 
         return (
           <li key={s.id} className="h-full">
@@ -273,8 +260,14 @@ export default function SchedulesClient(props: Props) {
               </span>
 
               <dl className="mt-6 grid gap-4 text-sm text-slate-700">
-                <TimeRow label="Opens" value={open} />
-                <TimeRow label="Closes" value={close} />
+                <TimeRow
+                  label={translations.components.TimeRow.opens}
+                  value={open}
+                />
+                <TimeRow
+                  label={translations.components.TimeRow.closes}
+                  value={close}
+                />
               </dl>
             </article>
           </li>
