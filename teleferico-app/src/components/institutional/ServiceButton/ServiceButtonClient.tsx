@@ -1,13 +1,8 @@
 "use client";
 
 import { BlockRendererClient, FormError } from "@/components";
-import { useProxy } from "@/hooks";
-import type {
-  GetServiceButtonResponse,
-  GetServiceStateResponse,
-  ServiceStateValues,
-} from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils";
+import { useServiceState } from "@/hooks";
+import type { GetServiceButtonResponse, ServiceStateValues } from "@/types";
 import {
   Button,
   Modal,
@@ -20,8 +15,7 @@ import {
 } from "@heroui/react";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { CableCar, ChevronRight } from "lucide-react";
-import { useEffect, useId, useMemo } from "react";
-import { useSWRConfig } from "swr";
+import { useId, useMemo } from "react";
 
 interface Props {
   content: GetServiceButtonResponse["data"][0]["jsonValue"];
@@ -89,13 +83,7 @@ const stateStyles: Record<
 export default function ServiceButtonClient(props: Props) {
   const { content } = props;
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
-  const { mutate } = useSWRConfig();
-  const {
-    data: serviceState,
-    isError,
-    isLoading,
-    key,
-  } = useProxy<GetServiceStateResponse>(STRAPI_ENDPOINTS.SERVICE_STATE, {});
+  const { serviceState, isLoading, isError } = useServiceState();
 
   const modalId = useId();
   const stateKey = (serviceState?.data.state ?? "normal") as ServiceStateValues;
@@ -104,14 +92,6 @@ export default function ServiceButtonClient(props: Props) {
     () => [...content.modal.items].sort((a, b) => a.order - b.order),
     [content.modal.items],
   );
-
-  useEffect(() => {
-    const interval = window.setInterval(() => mutate(key), 5 * 60 * 1000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [key, mutate]);
 
   if (isLoading) return <Skeleton className="h-full w-full rounded-3xl" />;
 
