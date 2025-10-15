@@ -179,10 +179,7 @@ export default function SchedulesClient(props: Props) {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const interval = window.setInterval(
-      () => setNow(new Date()),
-      5 * 60 * 1000,
-    );
+    const interval = window.setInterval(() => setNow(new Date()), 60 * 1000);
 
     return () => {
       window.clearInterval(interval);
