@@ -1,6 +1,5 @@
 import type {
   DynamicZone,
-  Image,
   ImageFormats,
   RendereableBlocks,
   ServiceStateValues,
@@ -86,7 +85,7 @@ export type New = StrapiRecord<{
   highlighted: boolean;
   brief: BlocksContent;
   date: string; // format: yyyy-mm-dd
-  cover: Image;
+  cover: StrapiImage;
 }>;
 
 export type Ticket = StrapiRecord<{

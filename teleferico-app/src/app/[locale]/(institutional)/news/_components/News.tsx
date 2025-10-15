@@ -28,7 +28,6 @@ export default async function News(props: Props) {
     return <Alert color="warning" description="No news were found" />;
 
   const { data: news } = data;
-  news.forEach((item) => console.log(item.cover.image.formats));
 
   return (
     <div className="flex w-full flex-col gap-6 px-10 sm:px-20 lg:px-40">
@@ -39,8 +38,8 @@ export default async function News(props: Props) {
             key={item.id}
             title={item.title}
             documentId={item.documentId}
-            imgAlt={item.cover.alt}
-            imgSrc={item.cover.image.formats.small.url}
+            imgAlt={item.cover.alternativeText || "News cover image"}
+            imgSrc={item.cover.formats.small.url}
             brief={item.brief}
           />
         ))}

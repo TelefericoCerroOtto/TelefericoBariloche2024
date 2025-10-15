@@ -34,8 +34,8 @@ export default async function FeaturedNew(props: Props) {
       </div>
       <div className="relative mb-14 h-[550px] w-full">
         <Image
-          src={cover.image.url}
-          alt={cover.alt}
+          src={cover.url}
+          alt={cover.alternativeText || "Featured new cover image"}
           fill
           className="object-cover"
         />
