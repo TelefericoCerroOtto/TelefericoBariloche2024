@@ -2,6 +2,7 @@
 
 import { TableActionsButtons, TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
+import { i18n } from "@/i18n";
 import type { GetNewsResponse } from "@/types";
 import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
@@ -31,6 +32,7 @@ const PAGE_SIZE = 10;
 
 export default function NewsTable() {
   const [page, setPage] = useState(1);
+
   const {
     filterValue,
     onSearchChange,
@@ -62,19 +64,14 @@ export default function NewsTable() {
     }
 
     return {
-      fields: ["title", "highlighted", "date", "updatedAt", "documentId"],
-      populate: {
-        cover: {
-          populate: "image",
-        },
-      },
+      populate: "cover",
       sort: ["date:desc"],
       pagination: {
         page,
         pageSize: PAGE_SIZE,
       },
       filters: Object.keys(filters).length > 0 ? filters : undefined,
-      locale: "es-AR",
+      locale: i18n.defaultLocale,
     };
   }, [dateValue, filterValue, highlightedOnly, page]);
 
@@ -86,11 +83,10 @@ export default function NewsTable() {
     },
   );
 
-  useEffect(() => {
-    if (isError) {
-      console.error("Hubo un error al cargar las noticias", isError);
-    }
-  }, [isError]);
+  if (isError) {
+    console.log("Hubo un error al cargar las noticias", isError);
+    alert("Hubo un error al cargar las noticias");
+  }
 
   const renderCell = useCallback(
     (item: GetNewsResponse["data"][number], columnKey: ColumnKeys) => {
@@ -100,7 +96,7 @@ export default function NewsTable() {
         case "date":
           return (
             <span>
-              {new Date(item.date).toLocaleDateString("es-AR", {
+              {new Date(item.date).toLocaleDateString(i18n.defaultLocale, {
                 day: "2-digit",
                 month: "2-digit",
                 year: "numeric",

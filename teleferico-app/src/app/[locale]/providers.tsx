@@ -13,7 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           value={{
             revalidateOnFocus: true,
             refreshWhenOffline: false,
-            focusThrottleInterval: 6000,
+            focusThrottleInterval: 1 * 60 * 1000,
           }}
         >
           {children}

@@ -17,7 +17,7 @@ export const getNews = async ({
 }) => {
   const query = {
     locale: locale ?? i18n.defaultLocale,
-    populate: "cover.image",
+    populate: "cover",
     sort: "date:desc",
     fields: ["title", "highlighted", "brief", "date"],
     ...(highlighted && {
@@ -31,6 +31,7 @@ export const getNews = async ({
 
   const res = await fetchWrapper<GetNewsResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.NEWS, stringifyQuery(query)),
+    { cache: "no-store" },
   );
 
   return res;

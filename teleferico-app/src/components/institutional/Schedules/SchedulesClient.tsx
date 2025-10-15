@@ -1,9 +1,10 @@
 "use client";
 
-import { useLocale, useProxy } from "@/hooks";
+import { useLocale, useProxy, useServiceState } from "@/hooks";
 import LogoRecortado from "@/public/logo-recortado.svg";
 import type {
   GetSchedulesTranslationResponse,
+  GetServiceStateResponse,
   GetZonesResponse,
   Locales,
   Zone,
@@ -30,19 +31,6 @@ type ZoneStatus = "open" | "closed";
 const badgeStyles: Record<ZoneStatus, string> = {
   open: "bg-emerald-100 text-emerald-700",
   closed: "bg-rose-100 text-rose-700",
-};
-
-const badgeLabels: Record<ZoneStatus, Record<Locales, string>> = {
-  open: {
-    "es-AR": "Abierto",
-    en: "Open",
-    pt: "Aberto",
-  },
-  closed: {
-    "es-AR": "Cerrado",
-    en: "Closed",
-    pt: "Fechado",
-  },
 };
 
 interface Props {
@@ -133,7 +121,7 @@ function mapZoneToSchedule(zone: Zone, locale: Locales): ZoneSchedule {
   };
 }
 
-function createDateFromStrapiTime(time: string | undefined, reference: Date) {
+function createDateFromStrapiTime(time: string | undefined) {
   if (!time) {
     return null;
   }
@@ -147,25 +135,36 @@ function createDateFromStrapiTime(time: string | undefined, reference: Date) {
     return null;
   }
 
-  const date = new Date(reference);
+  const date = new Date();
   date.setHours(hours, minutes, seconds, 0);
   return date;
 }
 
-function getZoneStatus(zone: ZoneSchedule, reference: Date): ZoneStatus {
-  const openDate = createDateFromStrapiTime(zone.openTime, reference);
-  const closeDate = createDateFromStrapiTime(zone.closeTime, reference);
+function getZoneStatus(
+  zone: ZoneSchedule,
+  reference: Date,
+  serviceState: GetServiceStateResponse["data"]["state"] | undefined,
+): ZoneStatus {
+  const openDate = createDateFromStrapiTime(zone.openTime);
+  const closeDate = createDateFromStrapiTime(zone.closeTime);
+
+  if (serviceState !== undefined && serviceState === "closed") {
+    return "closed";
+  }
 
   if (!openDate || !closeDate) {
     return zone.isOpen ? "open" : "closed";
   }
 
   const nowTime = reference.getTime();
-  if (nowTime >= closeDate.getTime()) {
+  const closeTime = closeDate.getTime();
+  const openTime = openDate.getTime();
+
+  if (nowTime >= closeTime && nowTime < openTime) {
     return "closed";
   }
 
-  if (nowTime >= openDate.getTime()) {
+  if (nowTime >= openTime && nowTime < closeTime) {
     return zone.isOpen ? "open" : "closed";
   }
 
@@ -177,14 +176,10 @@ export default function SchedulesClient(props: Props) {
 
   const { locale } = useLocale();
   const { mutate } = useSWRConfig();
-
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const interval = window.setInterval(
-      () => setNow(new Date()),
-      5 * 60 * 1000,
-    );
+    const interval = window.setInterval(() => setNow(new Date()), 60 * 1000);
 
     return () => {
       window.clearInterval(interval);
@@ -205,6 +200,11 @@ export default function SchedulesClient(props: Props) {
     [locale, zonesId],
   );
 
+  const {
+    serviceState,
+    isError: isErrorServiceState,
+    isLoading: isLoadingServiceState,
+  } = useServiceState();
   const { data, isError, isLoading, key } = useProxy<GetZonesResponse>(
     STRAPI_ENDPOINTS.ZONES,
     query,
@@ -218,10 +218,10 @@ export default function SchedulesClient(props: Props) {
     return items.sort((a, b) => a.name.localeCompare(b.name, locale));
   }, [data, locale]);
 
-  if (isLoading) {
+  if (isLoading || isLoadingServiceState) {
     return <LoadingBlock translations={translations.components.Loading} />;
   }
-  if (isError) {
+  if (isError || isErrorServiceState) {
     console.log(
       "Error while fetching zones info in SchedulesClient component: ",
       isError,
@@ -242,8 +242,8 @@ export default function SchedulesClient(props: Props) {
       {schedules.map((s, index) => {
         const open = s.openTime ? formatStrapiTime(s.openTime, locale) : "-";
         const close = s.closeTime ? formatStrapiTime(s.closeTime, locale) : "-";
-        const status = getZoneStatus(s, now);
-        const badgeText = badgeLabels[status][locale] ?? badgeLabels[status].en;
+        const status = getZoneStatus(s, now, serviceState?.data.state);
+        const badgeText = translations.badge[status];
 
         return (
           <li key={s.id} className="h-full">
@@ -273,8 +273,14 @@ export default function SchedulesClient(props: Props) {
               </span>
 
               <dl className="mt-6 grid gap-4 text-sm text-slate-700">
-                <TimeRow label="Opens" value={open} />
-                <TimeRow label="Closes" value={close} />
+                <TimeRow
+                  label={translations.components.TimeRow.opens}
+                  value={open}
+                />
+                <TimeRow
+                  label={translations.components.TimeRow.closes}
+                  value={close}
+                />
               </dl>
             </article>
           </li>
