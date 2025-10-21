@@ -244,3 +244,158 @@ export const StrapiBlocksContentToTiptapJSONContent = (
     content: documentContent,
   };
 };
+
+export const TiptapJSONContentToStrapiBlocksContent = (
+  document: JSONContent | null | undefined,
+): BlocksContent => {
+  type StrapiNode = {
+    type?: string;
+    text?: string;
+    children?: StrapiNode[];
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    url?: string;
+    openInNewTab?: boolean;
+    level?: number;
+    format?: "ordered" | "unordered";
+    start?: number;
+  };
+
+  // Converts Tiptap text nodes into Strapi leaves, preserving formatting marks
+  const toStrapiTextNodes = (nodes: JSONContent[] | undefined): StrapiNode[] => {
+    if (!nodes?.length) {
+      return [];
+    }
+
+    return nodes.flatMap((node) => {
+      if (!node) {
+        return [];
+      }
+
+      if (node.type === "text") {
+        const leaf: StrapiNode = { text: node.text ?? "" };
+        let linkMark: NonNullable<JSONContent["marks"]>[number] | undefined;
+
+        for (const mark of node.marks ?? []) {
+          switch (mark.type) {
+            case "bold":
+              leaf.bold = true;
+              break;
+            case "italic":
+              leaf.italic = true;
+              break;
+            case "underline":
+              leaf.underline = true;
+              break;
+            case "link":
+              linkMark = mark;
+              break;
+            default:
+              break;
+          }
+        }
+
+        // Skip empty text nodes without styling metadata to avoid noisy entries
+        if (!leaf.text?.length && !linkMark && !leaf.bold && !leaf.italic && !leaf.underline) {
+          return [];
+        }
+
+        if (linkMark) {
+          const href = typeof linkMark.attrs?.href === "string" ? linkMark.attrs.href : "";
+          const openInNewTab = linkMark.attrs?.target === "_blank" ? true : undefined;
+
+          return [
+            {
+              type: "link",
+              url: href,
+              openInNewTab,
+              // Reuse the computed leaf as the link child so other marks remain applied
+              children: [leaf],
+            },
+          ];
+        }
+
+        return [leaf];
+      }
+
+      if (node.type === "hardBreak") {
+        return [{ text: "\n" }];
+      }
+
+      // Unknown inline node types are ignored to keep the payload compatible with Strapi
+      return [];
+    });
+  };
+
+  // Maps Tiptap block level nodes back to Strapi dynamic zone objects
+  const toStrapiBlockNode = (node: JSONContent | undefined): StrapiNode | null => {
+    if (!node) {
+      return null;
+    }
+
+    switch (node.type) {
+      case "paragraph":
+        return {
+          type: "paragraph",
+          children: toStrapiTextNodes(node.content),
+        };
+      case "heading":
+        return {
+          type: "heading",
+          level: typeof node.attrs?.level === "number" ? node.attrs.level : 1,
+          children: toStrapiTextNodes(node.content),
+        };
+      case "bulletList":
+      case "orderedList": {
+        const children = (node.content ?? [])
+          .map((item) => toStrapiBlockNode(item))
+          .filter((item): item is StrapiNode => Boolean(item));
+
+        const strapiList: StrapiNode = {
+          type: "list",
+          format: node.type === "orderedList" ? "ordered" : "unordered",
+          children,
+        };
+
+        if (node.type === "orderedList" && typeof node.attrs?.start === "number") {
+          strapiList.start = node.attrs.start;
+        }
+
+        return strapiList;
+      }
+      case "listItem": {
+        const children = (node.content ?? [])
+          .map((child) => toStrapiBlockNode(child))
+          .filter((child): child is StrapiNode => Boolean(child));
+
+        return { type: "list-item", children };
+      }
+      default: {
+        if (node.text !== undefined) {
+          return {
+            type: "paragraph",
+            children: toStrapiTextNodes([node]),
+          };
+        }
+
+        if (node.content?.length) {
+          return {
+            type: "paragraph",
+            children: toStrapiTextNodes(node.content),
+          };
+        }
+
+        return null;
+      }
+    }
+  };
+
+  const topLevelNodes = document?.type === "doc" ? document.content ?? [] : document ? [document] : [];
+
+  const blocks = topLevelNodes
+    .map((node) => toStrapiBlockNode(node))
+    .filter((node): node is StrapiNode => Boolean(node));
+
+  return blocks as BlocksContent;
+};
