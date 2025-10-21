@@ -1,4 +1,6 @@
 import type { TimeValue } from "@/types";
+import { type BlocksContent } from "@strapi/blocks-react-renderer";
+import { type JSONContent } from "@tiptap/react";
 
 export const TimeValueToStrapiTime = (time: TimeValue): string => {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -64,3 +66,5 @@ function validateTime(hh: number, mm: number, ss: number = 0): void {
 export function formatBytesToMB(bytes: number) {
   return Math.round((bytes / (1024 * 1024)) * 10) / 10;
 }
+
+export function StrapiBlocksContentToTiptapJSONContent = (content: BlocksContent): JSONContent => {}
