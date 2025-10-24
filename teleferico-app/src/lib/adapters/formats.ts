@@ -249,7 +249,239 @@ export const StrapiBlocksContentToTiptapJSONContent = (
 export const TiptapJSONContentToStrapiBlocksContent = (
   content: JSONContent,
 ): StrapiBlocksPayload => {
-  {
-    /*IMPLEMENTATION*/
-  }
+  type StrapiTextNode = {
+    type: "text";
+    text: string;
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+  };
+
+  type StrapiLinkNode = {
+    type: "link";
+    url: string;
+    openInNewTab?: boolean;
+    children: StrapiTextNode[];
+  };
+
+  type StrapiInlineNode = StrapiTextNode | StrapiLinkNode;
+
+  type StrapiParagraphNode = {
+    type: "paragraph";
+    children: StrapiInlineNode[];
+  };
+
+  type StrapiHeadingNode = {
+    type: "heading";
+    level: 1 | 2 | 3 | 4 | 5 | 6;
+    children: StrapiInlineNode[];
+  };
+
+  type StrapiListItemNode = {
+    type: "list-item";
+    children: StrapiParagraphNode[];
+  };
+
+  type StrapiListNode = {
+    type: "list";
+    format: "ordered" | "unordered";
+    start?: number;
+    children: StrapiListItemNode[];
+  };
+
+  type StrapiBlockNode =
+    | StrapiParagraphNode
+    | StrapiHeadingNode
+    | StrapiListNode
+    | StrapiListItemNode;
+
+  type TiptapMark = NonNullable<JSONContent["marks"]>[number];
+
+  const createTextNode = (
+    text: string,
+    marks: TiptapMark[] = [],
+  ): { node: StrapiTextNode | null; link: TiptapMark | null } => {
+    const textNode: StrapiTextNode = { type: "text", text };
+    let linkMark: TiptapMark | null = null;
+
+    // Map Tiptap marks into Strapi boolean flags
+    for (const mark of marks) {
+      switch (mark.type) {
+        case "bold":
+          textNode.bold = true;
+          break;
+        case "italic":
+          textNode.italic = true;
+          break;
+        case "underline":
+          textNode.underline = true;
+          break;
+        case "link":
+          linkMark = mark;
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (!text.length && !textNode.bold && !textNode.italic && !textNode.underline) {
+      return { node: null, link: linkMark };
+    }
+
+    return { node: textNode, link: linkMark };
+  };
+
+  const convertInlineNodes = (
+    nodes: JSONContent[] | undefined,
+  ): StrapiInlineNode[] => {
+    if (!nodes?.length) {
+      return [];
+    }
+
+    return nodes.flatMap((node) => {
+      if (!node) {
+        return [];
+      }
+
+      if (node.type === "text") {
+        const marks = node.marks ?? [];
+        const { node: textNode, link } = createTextNode(node.text ?? "", marks);
+
+        if (!textNode) {
+          return [];
+        }
+
+        if (link) {
+          const attrs = (link.attrs ?? {}) as Record<string, unknown>;
+          const url = String(attrs.href ?? "");
+          const openInNewTab = attrs.target === "_blank" ? true : undefined;
+
+          const linkNode: StrapiLinkNode = {
+            type: "link",
+            url,
+            children: [textNode],
+          };
+
+          if (openInNewTab) {
+            linkNode.openInNewTab = true;
+          }
+
+          return [linkNode];
+        }
+
+        return [textNode];
+      }
+
+      if (node.type === "hardBreak") {
+        const { node: textNode } = createTextNode("\n", []);
+        return textNode ? [textNode] : [];
+      }
+
+      // For any other inline node we try to reuse its children as inline content
+      return convertInlineNodes(node.content);
+    });
+  };
+
+  const ensureParagraphChildren = (
+    inlineNodes: StrapiInlineNode[],
+  ): StrapiInlineNode[] => {
+    if (inlineNodes.length) {
+      return inlineNodes;
+    }
+
+    return [{ type: "text", text: "" }];
+  };
+
+  const convertParagraphNode = (
+    node: JSONContent | undefined,
+  ): StrapiParagraphNode => {
+    const inlineNodes = node?.type === "paragraph"
+      ? convertInlineNodes(node.content)
+      : convertInlineNodes(node?.content ?? (node ? [node] : undefined));
+
+    return {
+      type: "paragraph",
+      children: ensureParagraphChildren(inlineNodes),
+    };
+  };
+
+  const convertHeadingNode = (node: JSONContent): StrapiHeadingNode => {
+    const rawLevel = Number(node.attrs?.level ?? 1);
+    const normalizedLevel = Math.min(6, Math.max(1, rawLevel)) as
+      | 1
+      | 2
+      | 3
+      | 4
+      | 5
+      | 6;
+
+    return {
+      type: "heading",
+      level: normalizedLevel,
+      children: ensureParagraphChildren(convertInlineNodes(node.content)),
+    };
+  };
+
+  const convertListItemNode = (node: JSONContent): StrapiListItemNode => {
+    const paragraphs = (node.content ?? [])
+      .map((child) => convertParagraphNode(child))
+      .filter((child) => Boolean(child));
+
+    return {
+      type: "list-item",
+      children: paragraphs.length ? paragraphs : [convertParagraphNode(undefined)],
+    };
+  };
+
+  const convertListNode = (node: JSONContent): StrapiListNode => {
+    const format = node.type === "orderedList" ? "ordered" : "unordered";
+
+    const children = (node.content ?? [])
+      .map((child) =>
+        child.type === "listItem"
+          ? convertListItemNode(child)
+          : convertListItemNode({ type: "listItem", content: [child] }),
+      )
+      .filter((child) => Boolean(child));
+
+    const listNode: StrapiListNode = {
+      type: "list",
+      format,
+      children,
+    };
+
+    if (format === "ordered") {
+      const start = node.attrs?.start;
+      if (typeof start === "number" && start !== 1) {
+        listNode.start = start;
+      }
+    }
+
+    return listNode;
+  };
+
+  const convertBlockNode = (node: JSONContent): StrapiBlockNode => {
+    switch (node.type) {
+      case "paragraph":
+        return convertParagraphNode(node);
+      case "heading":
+        return convertHeadingNode(node);
+      case "orderedList":
+      case "bulletList":
+        return convertListNode(node);
+      case "listItem":
+        return convertListItemNode(node);
+      default:
+        // Fallback to paragraph to keep unexpected nodes renderable in Strapi
+        return convertParagraphNode(node);
+    }
+  };
+
+  const documentChildren = content?.type === "doc" ? content.content ?? [] : [content];
+
+  const blocks = documentChildren
+    .map((node) => (node ? convertBlockNode(node) : null))
+    .filter((node): node is StrapiBlockNode => Boolean(node));
+
+  return blocks as StrapiBlocksPayload;
 };
