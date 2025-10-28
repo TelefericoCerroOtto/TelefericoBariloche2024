@@ -1,5 +1,15 @@
-import type { StrapiBlocksPayload, TimeValue } from "@/types";
-import { type BlocksContent } from "@strapi/blocks-react-renderer";
+import type {
+  StrapiBlockNode,
+  StrapiBlocksPayload,
+  StrapiHeadingNode,
+  StrapiInlineNode,
+  StrapiLinkNode,
+  StrapiListItemNode,
+  StrapiListNode,
+  StrapiParagraphNode,
+  StrapiTextNode,
+  TimeValue,
+} from "@/types";
 import { type JSONContent } from "@tiptap/react";
 
 export const TimeValueToStrapiTime = (time: TimeValue): string => {
@@ -68,7 +78,7 @@ export function formatBytesToMB(bytes: number) {
 }
 
 export const StrapiBlocksContentToTiptapJSONContent = (
-  content: BlocksContent,
+  content: StrapiBlocksPayload,
 ): JSONContent => {
   type StrapiNode = {
     type?: string;
@@ -249,52 +259,6 @@ export const StrapiBlocksContentToTiptapJSONContent = (
 export const TiptapJSONContentToStrapiBlocksContent = (
   content: JSONContent,
 ): StrapiBlocksPayload => {
-  type StrapiTextNode = {
-    type: "text";
-    text: string;
-    bold?: boolean;
-    italic?: boolean;
-    underline?: boolean;
-  };
-
-  type StrapiLinkNode = {
-    type: "link";
-    url: string;
-    openInNewTab?: boolean;
-    children: StrapiTextNode[];
-  };
-
-  type StrapiInlineNode = StrapiTextNode | StrapiLinkNode;
-
-  type StrapiParagraphNode = {
-    type: "paragraph";
-    children: StrapiInlineNode[];
-  };
-
-  type StrapiHeadingNode = {
-    type: "heading";
-    level: 1 | 2 | 3 | 4 | 5 | 6;
-    children: StrapiInlineNode[];
-  };
-
-  type StrapiListItemNode = {
-    type: "list-item";
-    children: StrapiParagraphNode[];
-  };
-
-  type StrapiListNode = {
-    type: "list";
-    format: "ordered" | "unordered";
-    start?: number;
-    children: StrapiListItemNode[];
-  };
-
-  type StrapiBlockNode =
-    | StrapiParagraphNode
-    | StrapiHeadingNode
-    | StrapiListNode
-    | StrapiListItemNode;
-
   type TiptapMark = NonNullable<JSONContent["marks"]>[number];
 
   const createTextNode = (
@@ -324,7 +288,12 @@ export const TiptapJSONContentToStrapiBlocksContent = (
       }
     }
 
-    if (!text.length && !textNode.bold && !textNode.italic && !textNode.underline) {
+    if (
+      !text.length &&
+      !textNode.bold &&
+      !textNode.italic &&
+      !textNode.underline
+    ) {
       return { node: null, link: linkMark };
     }
 
@@ -395,9 +364,10 @@ export const TiptapJSONContentToStrapiBlocksContent = (
   const convertParagraphNode = (
     node: JSONContent | undefined,
   ): StrapiParagraphNode => {
-    const inlineNodes = node?.type === "paragraph"
-      ? convertInlineNodes(node.content)
-      : convertInlineNodes(node?.content ?? (node ? [node] : undefined));
+    const inlineNodes =
+      node?.type === "paragraph"
+        ? convertInlineNodes(node.content)
+        : convertInlineNodes(node?.content ?? (node ? [node] : undefined));
 
     return {
       type: "paragraph",
@@ -423,13 +393,33 @@ export const TiptapJSONContentToStrapiBlocksContent = (
   };
 
   const convertListItemNode = (node: JSONContent): StrapiListItemNode => {
-    const paragraphs = (node.content ?? [])
-      .map((child) => convertParagraphNode(child))
-      .filter((child) => Boolean(child));
+    // TipTap normalmente tiene algo tipo:
+    // listItem -> [{ type: 'paragraph', content: [...] }, { ... }]
+    // Nosotros tenemos que sacar los inline nodes de esos párrafos y ponerlos todos juntos.
+
+    const inlineChildren: StrapiInlineNode[] = [];
+
+    for (const child of node.content ?? []) {
+      if (child.type === "paragraph") {
+        const inlines = convertInlineNodes(child.content);
+        inlineChildren.push(...inlines);
+      } else {
+        // fallback: si por algún motivo hay algo raro tipo heading adentro,
+        // tratamos de convertir su contenido como inline igual
+        const inlines = convertInlineNodes(child.content ?? [child]);
+        inlineChildren.push(...inlines);
+      }
+    }
+
+    // Si quedó vacío, Strapi igual quiere algo (no le gusta array vacío en algunos casos),
+    // así que le mandamos un text node vacío.
+    if (!inlineChildren.length) {
+      inlineChildren.push({ type: "text", text: "" });
+    }
 
     return {
       type: "list-item",
-      children: paragraphs.length ? paragraphs : [convertParagraphNode(undefined)],
+      children: inlineChildren,
     };
   };
 
@@ -477,7 +467,8 @@ export const TiptapJSONContentToStrapiBlocksContent = (
     }
   };
 
-  const documentChildren = content?.type === "doc" ? content.content ?? [] : [content];
+  const documentChildren =
+    content?.type === "doc" ? (content.content ?? []) : [content];
 
   const blocks = documentChildren
     .map((node) => (node ? convertBlockNode(node) : null))
