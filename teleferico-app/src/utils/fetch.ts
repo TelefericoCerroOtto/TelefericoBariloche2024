@@ -8,7 +8,7 @@ export const fetchWrapper = async <T>(
   try {
     const res = await fetch(input, init);
 
-    if (res.status === 200 || res.status === 201) {
+    if (res.status === 200 || res.status === 201 || res.status === 204) {
       const data = (await res.json()) as T;
       return { ok: true, data };
     }
