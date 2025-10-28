@@ -3,6 +3,9 @@
 const nextConfig = {
   experimental: {
     globalNotFound: true,
+    serverActions: {
+      bodySizeLimit: "5mb"
+    }
   },
   images: {
     remotePatterns: [
