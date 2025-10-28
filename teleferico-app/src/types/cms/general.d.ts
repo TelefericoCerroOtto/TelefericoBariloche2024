@@ -45,8 +45,7 @@ export type StrapiHeadingNode = {
 // Item de lista
 export type StrapiListItemNode = {
   type: "list-item";
-  // normalmente Strapi mete párrafos acá
-  children: StrapiParagraphNode[];
+  children: StrapiInlineNode[]; // nodos inline directamente
 };
 
 // Lista ordenada / desordenada

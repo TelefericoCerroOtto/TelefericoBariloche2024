@@ -2,8 +2,6 @@
 
 Use this document as the single source of truth for how Codex should structure commits and follow project conventions.
 
----
-
 ## Commit Message Rules (Conventional Commits)
 
 **Format**
@@ -43,13 +41,42 @@ Use this document as the single source of truth for how Codex should structure c
   Example:
   BREAKING CHANGE: rename `getUser` to `fetchUser` in cms/services
 
+## Code Changes
+
+### `./teleferico-app` folder
+
+- **Avoid large code refactors.**  
+  Always limit modifications to the specific code block defined in the prompt.  
+  If a broader refactor seems necessary, **suggest it as an option** but **do not implement it**.
+
+- **Respect existing interfaces and types.**  
+  Do not modify function properties or types unless explicitly required by the prompt.  
+  Adapt any new functionality to the already existing interfaces.
+
+- **Creating new types or interfaces.**  
+  Only create new ones when absolutely necessary, and strictly follow the current project typing structure.  
+  → Check the directory: `./teleferico-app/src/types`
+
+- **Utility functions.**  
+  Any new utility function must be placed under:  
+  `./teleferico-app/src/utils`  
+  and imported from there.  
+  If the function contains logic or reasoning, include **comments explaining the implementation**.
+
+- **Style and accessibility updates.**
+  - Follow the project’s **current color palette**.
+  - If not yet implemented, **improve component accessibility** (contrast, ARIA roles, alt text, focus states, etc.).
+  - Ensure all style changes remain **visually consistent** with the rest of the site.
+
 ---
+
+### `./teleferico-cms` folder
+
+_Not guideline yet._
 
 ## Tests Policy
 
 - Do not create, update, or remove test files unless explicitly requested in the prompt.
-
----
 
 ## Dependencies & Packages Policy
 
@@ -58,8 +85,6 @@ Use this document as the single source of truth for how Codex should structure c
 - Use only existing, already-installed dependencies available in the project.
 - If a change would normally require adding a dependency, suggest the changes on the answer and ask for implement it.
 - Only proceed with dependency changes if explicitly requested in the prompt.
-
----
 
 ## Pull Request Titles (if applicable)
 
@@ -72,8 +97,6 @@ Use this document as the single source of truth for how Codex should structure c
 - Provide a **concise summary** of what changed (1–5 short bullets or 1–3 short sentences).
 - Focus on the essentials (e.g., created/updated/refactored, key files/areas touched, notable impact).
 - If relevant, add one line for BREAKING CHANGE or follow-up tasks.
-
----
 
 ## Quick Checklist for Codex
 
