@@ -2,6 +2,7 @@ import { getNews } from "@/lib/services";
 import Card from "./Card";
 import { Locales } from "@/types";
 import { Alert } from "@heroui/react";
+import { BlocksContent } from "@strapi/blocks-react-renderer";
 
 interface Props {
   locale: Locales;
@@ -40,7 +41,7 @@ export default async function News(props: Props) {
             documentId={item.documentId}
             imgAlt={item.cover.alternativeText || "News cover image"}
             imgSrc={item.cover.formats.small.url}
-            brief={item.brief}
+            brief={item.brief as BlocksContent}
           />
         ))}
       </div>

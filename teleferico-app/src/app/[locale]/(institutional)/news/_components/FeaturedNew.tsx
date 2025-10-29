@@ -2,6 +2,7 @@ import { CustomLink, TitleDescBlock } from "@/components";
 import { getNews } from "@/lib/services";
 import { Locales } from "@/types";
 import { Alert } from "@heroui/react";
+import { BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
 
 interface Props {
@@ -26,7 +27,12 @@ export default async function FeaturedNew(props: Props) {
   return (
     <>
       <div className="mb-14 flex w-full px-10 sm:px-20 lg:px-40">
-        <TitleDescBlock title={title} desc={brief} size="lg" align="start">
+        <TitleDescBlock
+          title={title}
+          desc={brief as BlocksContent}
+          size="lg"
+          align="start"
+        >
           <CustomLink href={`/news/${documentId}`} withButtonStyles>
             Ver noticia
           </CustomLink>
