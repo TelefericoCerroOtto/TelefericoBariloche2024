@@ -59,8 +59,11 @@ export default function ButtonDos(props: Props) {
     className,
     isLoading = false,
     disabled,
+    onClick,
     ...buttonProps
   } = props;
+
+  const isDisabled = disabled || isLoading;
 
   return (
     <button
@@ -72,6 +75,16 @@ export default function ButtonDos(props: Props) {
           className,
         }),
       )}
+      disabled={isDisabled}
+      aria-disabled={isDisabled}
+      onClick={(e) => {
+        if (isDisabled) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        onClick?.(e);
+      }}
       {...buttonProps}
     >
       {isLoading ? <Spinner size="sm" color="white" /> : children}
