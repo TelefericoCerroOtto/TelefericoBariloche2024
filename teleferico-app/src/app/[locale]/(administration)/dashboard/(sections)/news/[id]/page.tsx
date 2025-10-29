@@ -1,6 +1,6 @@
 import { FormContainer, FormError } from "@/components";
 import { getNewsAdapter } from "@/lib/adapters";
-import { getNews } from "@/services";
+import { getNew } from "@/lib/services";
 import Form from "./Form";
 
 const FORM_DESC =
@@ -12,9 +12,13 @@ export default async function EditNewsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const res = await getNews(id, { locale: "all" });
+  const res = await getNew({ locale: "all", documentId: id });
 
   if (!res.ok) {
+    console.log(
+      `get news with documentId ${id} data error at editing news form page. `,
+      res.data,
+    );
     return <FormError message="Ocurrió un error al cargar la noticia" />;
   }
 

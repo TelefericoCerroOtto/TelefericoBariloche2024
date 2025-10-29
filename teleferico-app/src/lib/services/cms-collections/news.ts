@@ -1,5 +1,15 @@
 import { i18n } from "@/i18n";
-import type { GetNewResponse, GetNewsResponse, Locales } from "@/types";
+import type {
+  CreateNewRequest,
+  CreateNewResponse,
+  ExtendLocalizations,
+  GetNewResponse,
+  GetNewsResponse,
+  Locales,
+  StrapiLocales,
+  UpdateNewRequest,
+  UpdateNewResponse,
+} from "@/types";
 import {
   fetchWrapper,
   getStrapiURL,
@@ -37,25 +47,108 @@ export const getNews = async ({
   return res;
 };
 
-export const getNew = async ({
+export const getNew = async <T extends Locales | "all">({
   locale,
   documentId,
 }: {
-  locale: string;
+  locale: T;
   documentId: string;
 }) => {
-  const query = {
-    locale: locale ?? i18n.defaultLocale,
-    populate: "cover.image",
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const query: Record<string, any> = {
+    populate: ["cover"],
   };
 
-  const res = await fetchWrapper<GetNewResponse>(
+  if (locale === "all") {
+    query.populate.push("localizations");
+  } else if (!!locale) {
+    query.locale = locale;
+  }
+
+  const res = await fetchWrapper<
+    T extends "all" ? ExtendLocalizations<GetNewResponse> : GetNewResponse
+  >(
     getStrapiURL(
       `${STRAPI_ENDPOINTS.NEWS}/${documentId}`,
       stringifyQuery(query),
     ),
     {},
     "get new fetch error",
+  );
+
+  return res;
+};
+
+export const updateNew = async (
+  {
+    reqBody,
+    documentId,
+    locale,
+  }: {
+    reqBody: UpdateNewRequest;
+    documentId: string;
+    locale: StrapiLocales;
+  },
+  jwt: string,
+) => {
+  const query = {
+    locale,
+  };
+
+  const res = await fetchWrapper<UpdateNewResponse>(
+    getStrapiURL(
+      `${STRAPI_ENDPOINTS.NEWS}/${documentId}`,
+      stringifyQuery(query),
+    ),
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(reqBody),
+    },
+  );
+
+  return res;
+};
+
+export const deleteNew = async (documentId: string, jwt: string) => {
+  const res = await fetchWrapper<object>(
+    getStrapiURL(`${STRAPI_ENDPOINTS.NEWS}/${documentId}`),
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+    },
+  );
+
+  return res;
+};
+
+export const createNew = async (
+  {
+    reqBody,
+    locale,
+  }: {
+    reqBody: CreateNewRequest;
+    locale: Locales;
+  },
+  jwt: string,
+) => {
+  const query = { locale };
+
+  const res = await fetchWrapper<CreateNewResponse>(
+    getStrapiURL(STRAPI_ENDPOINTS.NEWS, stringifyQuery(query)),
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(reqBody),
+    },
   );
 
   return res;

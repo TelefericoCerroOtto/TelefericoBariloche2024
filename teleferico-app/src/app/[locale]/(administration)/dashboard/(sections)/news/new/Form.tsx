@@ -8,40 +8,34 @@ import {
   Rte,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
-import { i18n } from "@/i18n";
-import { newsFormSchema } from "@/lib/schemas";
-import type { NewsFormData } from "@/types";
+import { createNewSchema } from "@/lib/schemas";
+import type { CreateNewFormData } from "@/types";
 import { ADMIN_ROUTES } from "@/utils";
 import { addToast, Checkbox, Input } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  bodyConfig,
-  briefConfig,
-  coverAltConfig,
-  titleConfig,
-} from "../_components/data";
+import { bodyConfig, briefConfig, titleConfig } from "../_components/data";
 import { createNewsAction } from "./actions";
+import { createEmptyJSONContent } from "@/utils/tiptap";
 
-const buildInitialValues = (): NewsFormData => {
-  const base: Record<string, unknown> = {
-    highglighted: false,
+const buildInitialValues = (): CreateNewFormData => {
+  const base: CreateNewFormData = {
+    highlighted: false,
     date: "",
+    "title_es-AR": "",
+    title_en: "",
+    title_pt: "",
+    "body_es-AR": createEmptyJSONContent(),
+    body_en: createEmptyJSONContent(),
+    body_pt: createEmptyJSONContent(),
+    "brief_es-AR": createEmptyJSONContent(),
+    brief_en: createEmptyJSONContent(),
+    brief_pt: createEmptyJSONContent(),
+    newCoverImageFile: null,
   };
 
-  i18n.locales.forEach((locale) => {
-    base[`title_${locale}`] = "";
-    base[`body_${locale}`] = "[]";
-    base[`brief_${locale}`] = "[]";
-    base[`coverAlt_${locale}`] = "";
-  });
-
-  base.coverImage = "";
-  base.coverImageUrl = "";
-  base.coverImageFile = null;
-
-  return base as NewsFormData;
+  return base;
 };
 
 export default function NewsForm() {
@@ -54,15 +48,15 @@ export default function NewsForm() {
     values,
     errors,
     touched,
+    dirty,
     handleChange,
     handleBlur,
     handleSubmit,
     setFieldValue,
-    dirty,
     setFieldTouched,
-  } = useFormik<NewsFormData>({
+  } = useFormik<CreateNewFormData>({
     initialValues: buildInitialValues(),
-    validationSchema: newsFormSchema,
+    validationSchema: createNewSchema,
     enableReinitialize: true,
     onSubmit: async (formValues) => {
       setIsSubmitting(true);
@@ -70,24 +64,29 @@ export default function NewsForm() {
         const res = await createNewsAction(formValues);
         if (res.success) {
           addToast({
-            title: res.message,
+            title: "Noticia creada exitosamente.",
             color: "success",
             timeout: 2500,
           });
           router.push(ADMIN_ROUTES.NEWS);
         } else {
           addToast({
-            title: res.message,
+            title: "Ocurrió un error al crear la noticia.",
             color: "danger",
             timeout: 3000,
           });
-          console.error("create/update news error", res.data);
+          console.error(
+            "create/update news error: ",
+            res.message,
+            " -> ",
+            res.data,
+          );
           setIsSubmitting(false);
         }
       } catch (error) {
         console.error("news form submit error", error);
         addToast({
-          title: "Ocurrió un error al guardar la noticia.",
+          title: "Ocurrió un error inesperado al crear la noticia.",
           color: "danger",
           timeout: 3000,
         });
@@ -99,6 +98,8 @@ export default function NewsForm() {
   const disableSubmitButton =
     isSubmitting || Object.keys(errors).length > 0 || !dirty;
 
+  console.log("errors: ", errors.newCoverImageFile);
+
   return (
     <form className="flex flex-col gap-5 overflow-auto" onSubmit={handleSubmit}>
       <FormLocaleSelector
@@ -108,9 +109,7 @@ export default function NewsForm() {
       <InputLocaleWrapper
         Input={Input}
         config={titleConfig}
-        values={values}
-        errors={errors}
-        touched={touched}
+        formik={{ values, setFieldValue, setFieldTouched, errors, touched }}
         handleChange={handleChange}
         handleBlur={handleBlur}
         locale={locale}
@@ -119,9 +118,7 @@ export default function NewsForm() {
       <InputLocaleWrapper
         Input={Rte}
         config={bodyConfig}
-        values={values}
-        errors={errors}
-        touched={touched}
+        formik={{ values, setFieldValue, setFieldTouched, errors, touched }}
         handleChange={handleChange}
         handleBlur={handleBlur}
         locale={locale}
@@ -130,53 +127,24 @@ export default function NewsForm() {
       <InputLocaleWrapper
         Input={Rte}
         config={briefConfig}
-        values={values}
-        errors={errors}
-        touched={touched}
-        handleChange={handleChange}
-        handleBlur={handleBlur}
-        locale={locale}
-        isRequired
-      />
-      <InputLocaleWrapper
-        Input={Input}
-        config={coverAltConfig}
-        values={values}
-        errors={errors}
-        touched={touched}
+        formik={{ values, setFieldValue, setFieldTouched, errors, touched }}
         handleChange={handleChange}
         handleBlur={handleBlur}
         locale={locale}
         isRequired
       />
       <MediaSelector
-        name="coverImageFile"
+        name="newCoverImageFile"
         label="Imagen de portada"
-        value={values.coverImageFile ?? null}
-        defaultPreviewUrl={values.coverImageUrl || null}
-        onChange={(file) => {
-          setFieldValue("coverImageFile", file);
-          setFieldTouched("coverImageFile", true, false);
-          if (file) {
-            setFieldValue("coverImage", "");
-            setFieldValue("coverImageUrl", "");
-          } else {
-            setFieldValue("coverImage", values.coverImage ?? "");
-          }
+        value={values.newCoverImageFile}
+        onChange={async (file) => {
+          await setFieldValue("newCoverImageFile", file, true);
+          await setFieldTouched("newCoverImageFile", true, true);
         }}
         isRequired
         disabled={isSubmitting}
-        isInvalid={
-          (!!errors.coverImageFile && (!!touched.coverImageFile || isSubmitting)) ||
-          (!!errors.coverImage && (!!touched.coverImage || isSubmitting))
-        }
-        errorMessage={
-          (touched.coverImageFile || isSubmitting) && errors.coverImageFile
-            ? (errors.coverImageFile as string)
-            : (touched.coverImage || isSubmitting) && errors.coverImage
-              ? (errors.coverImage as string)
-              : undefined
-        }
+        isInvalid={!!errors.newCoverImageFile && !!touched.newCoverImageFile}
+        errorMessage={errors.newCoverImageFile as string}
         maxSizeMB={5}
       />
       <Input
@@ -192,8 +160,10 @@ export default function NewsForm() {
         className="max-w-xs"
       />
       <Checkbox
-        isSelected={values.highglighted}
-        onValueChange={(checked) => setFieldValue("highglighted", checked)}
+        id="highlighted"
+        name="highlighted"
+        isSelected={values.highlighted}
+        onChange={handleChange}
       >
         Noticia destacada
       </Checkbox>

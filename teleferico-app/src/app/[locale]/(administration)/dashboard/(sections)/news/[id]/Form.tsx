@@ -8,9 +8,8 @@ import {
   Rte,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
-import { i18n } from "@/i18n";
-import { newsFormSchema } from "@/lib/schemas";
-import type { NewsFormData } from "@/types";
+import { updateNewSchema } from "@/lib/schemas";
+import type { UpdateNewFormData } from "@/types";
 import { ADMIN_ROUTES } from "@/utils";
 import {
   addToast,
@@ -26,38 +25,14 @@ import {
 } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import {
-  briefConfig,
-  coverAltConfig,
-  bodyConfig,
-  titleConfig,
-} from "../_components/data";
+import { useState } from "react";
+import { bodyConfig, briefConfig, titleConfig } from "../_components/data";
+import { Trash } from "lucide-react";
 import { deleteNewsAction, updateNewsAction } from "./actions";
 
 interface Props {
-  initialValues?: NewsFormData;
+  initialValues: UpdateNewFormData;
 }
-
-const buildInitialValues = (): NewsFormData => {
-  const base: Record<string, unknown> = {
-    highglighted: false,
-    date: "",
-  };
-
-  i18n.locales.forEach((locale) => {
-    base[`title_${locale}`] = "";
-    base[`body_${locale}`] = "[]";
-    base[`brief_${locale}`] = "[]";
-    base[`coverAlt_${locale}`] = "";
-  });
-
-  base.coverImage = "";
-  base.coverImageUrl = "";
-  base.coverImageFile = null;
-
-  return base as NewsFormData;
-};
 
 export default function NewsForm(props: Props) {
   const { initialValues } = props;
@@ -66,17 +41,6 @@ export default function NewsForm(props: Props) {
     useFormLocaleSelector();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
-
-  const formInitialValues = useMemo(() => {
-    if (initialValues) {
-      return {
-        ...initialValues,
-        coverImageFile: initialValues.coverImageFile ?? null,
-      };
-    }
-    return buildInitialValues();
-  }, [initialValues]);
-
   const {
     values,
     errors,
@@ -87,9 +51,9 @@ export default function NewsForm(props: Props) {
     setFieldValue,
     setFieldTouched,
     dirty,
-  } = useFormik<NewsFormData>({
-    initialValues: formInitialValues,
-    validationSchema: newsFormSchema,
+  } = useFormik<UpdateNewFormData>({
+    initialValues,
+    validationSchema: updateNewSchema,
     enableReinitialize: true,
     onSubmit: async (formValues) => {
       setIsSubmitting(true);
@@ -97,24 +61,29 @@ export default function NewsForm(props: Props) {
         const res = await updateNewsAction(formValues);
         if (res.success) {
           addToast({
-            title: res.message,
+            title: "Noticia actualizada.",
             color: "success",
             timeout: 2500,
           });
           router.push(ADMIN_ROUTES.NEWS);
         } else {
           addToast({
-            title: res.message,
+            title: "Ocurrió un error al actualizar la noticia.",
             color: "danger",
             timeout: 3000,
           });
-          console.error("create/update news error", res.data);
+          console.error(
+            "create/update news error: ",
+            res.message,
+            " -> ",
+            res.data,
+          );
           setIsSubmitting(false);
         }
       } catch (error) {
         console.error("news form submit error", error);
         addToast({
-          title: "Ocurrió un error al guardar la noticia.",
+          title: "Ocurrió un error inesperado al actualizar la noticia.",
           color: "danger",
           timeout: 3000,
         });
@@ -127,7 +96,6 @@ export default function NewsForm(props: Props) {
     isSubmitting || Object.keys(errors).length > 0 || !dirty;
 
   const handleDelete = async () => {
-    if (!deleteNewsAction || !values.documentId) return;
     setIsSubmitting(true);
     try {
       const res = await deleteNewsAction(values.documentId);
@@ -166,9 +134,7 @@ export default function NewsForm(props: Props) {
       <InputLocaleWrapper
         Input={Input}
         config={titleConfig}
-        values={values}
-        errors={errors}
-        touched={touched}
+        formik={{ values, setFieldValue, setFieldTouched, errors, touched }}
         handleChange={handleChange}
         handleBlur={handleBlur}
         locale={locale}
@@ -177,9 +143,7 @@ export default function NewsForm(props: Props) {
       <InputLocaleWrapper
         Input={Rte}
         config={bodyConfig}
-        values={values}
-        errors={errors}
-        touched={touched}
+        formik={{ values, setFieldValue, setFieldTouched, errors, touched }}
         handleChange={handleChange}
         handleBlur={handleBlur}
         locale={locale}
@@ -188,20 +152,7 @@ export default function NewsForm(props: Props) {
       <InputLocaleWrapper
         Input={Rte}
         config={briefConfig}
-        values={values}
-        errors={errors}
-        touched={touched}
-        handleChange={handleChange}
-        handleBlur={handleBlur}
-        locale={locale}
-        isRequired
-      />
-      <InputLocaleWrapper
-        Input={Input}
-        config={coverAltConfig}
-        values={values}
-        errors={errors}
-        touched={touched}
+        formik={{ values, setFieldValue, setFieldTouched, errors, touched }}
         handleChange={handleChange}
         handleBlur={handleBlur}
         locale={locale}
@@ -210,32 +161,20 @@ export default function NewsForm(props: Props) {
       <MediaSelector
         name="coverImageFile"
         label="Imagen de portada"
-        value={values.coverImageFile ?? null}
-        defaultPreviewUrl={values.coverImageUrl || null}
+        defaultPreviewUrl={values.coverImage.url}
+        defaultName={values.coverImage.name}
         onChange={(file) => {
-          setFieldValue("coverImageFile", file);
-          setFieldTouched("coverImageFile", true, false);
-          if (file) {
-            setFieldValue("coverImage", "");
-            setFieldValue("coverImageUrl", "");
-          } else {
-            setFieldValue("coverImage", initialValues?.coverImage ?? values.coverImage ?? "");
-            setFieldValue("coverImageUrl", initialValues?.coverImageUrl ?? "");
-          }
+          setFieldValue("newCoverImageFile", file, true);
+          setFieldTouched("newCoverImageFile", true, true);
         }}
         isRequired
         disabled={isSubmitting}
         isInvalid={
-          (!!errors.coverImageFile && (!!touched.coverImageFile || isSubmitting)) ||
-          (!!errors.coverImage && (!!touched.coverImage || isSubmitting))
+          touched.newCoverImageFile &&
+          !!errors.newCoverImageFile &&
+          Object.keys(errors?.coverImage || {}).length > 0
         }
-        errorMessage={
-          (touched.coverImageFile || isSubmitting) && errors.coverImageFile
-            ? (errors.coverImageFile as string)
-            : (touched.coverImage || isSubmitting) && errors.coverImage
-              ? (errors.coverImage as string)
-              : undefined
-        }
+        errorMessage={errors.newCoverImageFile}
         maxSizeMB={5}
       />
       <Input
@@ -251,28 +190,31 @@ export default function NewsForm(props: Props) {
         className="max-w-xs"
       />
       <Checkbox
-        isSelected={values.highglighted}
-        onValueChange={(checked) => setFieldValue("highglighted", checked)}
+        id="highlighted"
+        name="highlighted"
+        isSelected={values.highlighted}
+        onChange={handleChange}
       >
         Noticia destacada
       </Checkbox>
-      <FormButtons
-        isSubmitting={isSubmitting}
-        cancelRedirectRoute={ADMIN_ROUTES.NEWS}
-        disableSubmitButton={disableSubmitButton}
-      />
       {values.documentId ? (
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-center">
           <Button
             color="danger"
-            variant="bordered"
+            variant="ghost"
             onPress={onOpen}
+            startContent={<Trash />}
             isDisabled={isSubmitting}
           >
             Eliminar noticia
           </Button>
         </div>
       ) : null}
+      <FormButtons
+        isSubmitting={isSubmitting}
+        cancelRedirectRoute={ADMIN_ROUTES.NEWS}
+        disableSubmitButton={disableSubmitButton}
+      />
       <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
         <ModalContent>
           {(close) => (
@@ -293,8 +235,8 @@ export default function NewsForm(props: Props) {
                 <Button
                   color="danger"
                   onPress={() => {
-                    close();
                     handleDelete();
+                    close();
                   }}
                 >
                   Eliminar

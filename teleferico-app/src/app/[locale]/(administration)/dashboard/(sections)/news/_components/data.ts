@@ -34,24 +34,6 @@ export const briefConfig = {
   },
 };
 
-export const coverAltConfig = {
-  "es-AR": {
-    label: "Descripción de la imagen (Español)",
-    name: "coverAlt_es-AR",
-    placeholder: "Ej: Cabaña nevada en el bosque",
-  },
-  en: {
-    label: "Descripción de la imagen (Inglés)",
-    name: "coverAlt_en",
-    placeholder: "Ej: Snowy cabin in the woods",
-  },
-  pt: {
-    label: "Descripción de la imagen (Portugués)",
-    name: "coverAlt_pt",
-    placeholder: "Ej: Cabana nevada na floresta",
-  },
-};
-
 export const titleConfig = {
   "es-AR": {
     label: "Título (Español)",
