@@ -200,10 +200,24 @@ export const updateUserSchema = object({
 });
 
 export const tiptapJsonSchema = mixed<JSONContent>()
-  .test("tt-non-empty", "Este campo es obligatorio.", (value) => {
-    const doc = typeof value === "string" ? JSON.parse(value) : value;
-    if (!isValidTiptapDoc(doc)) return false;
-    return isTiptapNonEmpty(doc);
+  .transform((val) => {
+    // Normalizamos a JSONContent o null antes de validar
+    if (typeof val === "string") {
+      const s = val.trim();
+      if (s === "") return null;
+      try {
+        return JSON.parse(s) as JSONContent;
+      } catch {
+        return null;
+      }
+    }
+    return (val ?? null) as JSONContent | null;
+  })
+  .test("tt-non-empty", "Este campo es obligatorio.", (val) => {
+    // Desde acá, val ya es JSONContent | null por la transform
+    if (!val || typeof val !== "object") return false;
+    if (!isValidTiptapDoc(val)) return false;
+    return isTiptapNonEmpty(val);
   })
   .test(
     "tt-json-parse",
