@@ -20,6 +20,7 @@ import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { newTicketAction } from "./actions";
+import { nameConfig } from "./data";
 
 export default function Form() {
   const { locale, selectedKeys, handleSelectionChange } =
@@ -52,6 +53,7 @@ export default function Form() {
     handleChange,
     handleBlur,
     setFieldValue,
+    setFieldTouched,
     handleSubmit,
   } = useFormik<CreateAccessTicketFormData>({
     initialValues: {
@@ -77,27 +79,9 @@ export default function Form() {
 
       <InputLocaleWrapper
         Input={Input}
-        config={{
-          "es-AR": {
-            label: "Nombre de la tarifa (Español)",
-            name: "accessName_es-AR",
-            placeholder: "Ej.: Ticket mayor",
-          },
-          en: {
-            label: "Nombre de la tarifa (Inglés)",
-            name: "accessName_en",
-            placeholder: "Ej.: Adult ticket",
-          },
-          pt: {
-            label: "Nombre de la tarifa (Portugués)",
-            name: "accessName_pt",
-            placeholder: "Ej.: Bilhete sênior",
-          },
-        }}
+        config={nameConfig}
         isRequired
-        values={values}
-        errors={errors}
-        touched={touched}
+        formik={{ values, errors, touched, setFieldTouched, setFieldValue }}
         handleChange={handleChange}
         handleBlur={handleBlur}
         locale={locale}

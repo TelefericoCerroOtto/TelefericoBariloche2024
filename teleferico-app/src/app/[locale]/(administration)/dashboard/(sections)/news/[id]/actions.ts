@@ -1,86 +1,72 @@
 "use server";
 
 import { i18n } from "@/i18n";
-import { patchNewsAdapter } from "@/lib/adapters";
-import { newsFormSchema } from "@/lib/schemas";
-import { deleteNews, updateNews, uploadMedia } from "@/services";
+import { updateNewsAdapter } from "@/lib/adapters";
+import { updateNewSchema } from "@/lib/schemas";
+import { updateNew, uploadImage } from "@/lib/services";
+import { deleteNew } from "@/lib/services";
 import type {
   FormSubmitServerActionResponse,
-  NewsFormData,
+  UpdateNewFormData,
 } from "@/types";
+import { getSession } from "@/utils";
 import { ValidationError } from "yup";
 
 const DEFAULT_UPDATE_ERROR =
   "Server action 'updateNewsAction' failed: An unexpected error occurred.";
 
 export const updateNewsAction = async (
-  values: NewsFormData,
+  values: UpdateNewFormData,
 ): FormSubmitServerActionResponse => {
   try {
-    const formValues: NewsFormData = {
-      ...values,
-      coverImageFile: values.coverImageFile ?? null,
-    };
+    const { jwt } = await getSession();
+    updateNewSchema.validateSync(values);
+    const { newCoverImageFile, documentId } = values;
 
-    if (formValues.coverImageFile instanceof File) {
-      const uploadRes = await uploadMedia(formValues.coverImageFile);
+    let coverImageId;
 
-      if (!uploadRes.ok) {
-        return {
-          success: false,
-          message: DEFAULT_UPDATE_ERROR,
-          data: uploadRes.data,
-        };
-      }
-
-      const uploaded = uploadRes.data?.[0];
-      if (!uploaded?.documentId) {
-        return {
-          success: false,
-          message: DEFAULT_UPDATE_ERROR,
-        };
-      }
-
-      formValues.coverImage = uploaded.documentId;
-      formValues.coverImageUrl = uploaded.url ?? "";
-    }
-
-    formValues.coverImageFile = null;
-
-    newsFormSchema.validateSync(formValues, { abortEarly: false });
-
-    if (!formValues.documentId) {
-      return {
-        success: false,
-        message:
-          "Server action 'updateNewsAction' failed: Missing news identifier.",
-      };
-    }
-
-    const locales = i18n.locales;
-
-    for (let index = 0; index < locales.length; index++) {
-      const locale = locales[index];
-      const payload = patchNewsAdapter(formValues, locale);
-      const res = await updateNews(formValues.documentId, payload, {
-        locale,
-      });
-
+    if (newCoverImageFile) {
+      const res = await uploadImage(newCoverImageFile, jwt);
       if (!res.ok) {
+        console.log("Failed to upload image at updateNewsAction: ", res.data);
         return {
           success: false,
           message:
-            index === 0
-              ? DEFAULT_UPDATE_ERROR
-              : `Server action 'updateNewsAction' failed while updating locale ${locale}.`,
-          data: res.data,
+            "Server action 'updateNewsAction' failed: Cannot upload image",
+        };
+      }
+      coverImageId = res.data[0].id;
+    }
+
+    for (let i = 0; i < i18n.locales.length; i++) {
+      const locale = i18n.locales[i];
+      const adaptedNewReqBody = updateNewsAdapter({
+        values: { ...values, coverImageId },
+        locale,
+      });
+
+      const res = await updateNew(
+        { reqBody: adaptedNewReqBody, documentId, locale },
+        jwt,
+      );
+
+      if (!res.ok) {
+        console.log(
+          `Failed to update new with documentId ${documentId} in locale ${locale}: `,
+          res.data,
+        );
+        return {
+          success: false,
+          message:
+            "Server action 'updateNewsAction' failed: Cannot update the news",
+          data: res.data?.error,
         };
       }
     }
 
     return {
       success: true,
-      message: "Noticia actualizada correctamente.",
+      message: "News successfully updated",
     };
   } catch (error) {
     console.error("updateNewsAction error", error);
@@ -104,20 +90,20 @@ export const deleteNewsAction = async (
   documentId: string,
 ): FormSubmitServerActionResponse => {
   try {
-    const res = await deleteNews(documentId);
+    const { jwt } = await getSession();
+    const res = await deleteNew(documentId, jwt);
 
     if (!res.ok) {
       return {
         success: false,
-        message:
-          "Server action 'deleteNewsAction' failed: An unexpected error occurred.",
+        message: `Server action 'deleteNewsAction' failed: Cannot delete new with documentId ${documentId}.`,
         data: res.data,
       };
     }
 
     return {
       success: true,
-      message: "Noticia eliminada correctamente.",
+      message: "Noticia eliminada correctamente",
     };
   } catch (error) {
     console.error("deleteNewsAction error", error);

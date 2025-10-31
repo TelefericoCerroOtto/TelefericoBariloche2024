@@ -1,8 +1,9 @@
 import type {
   DynamicZone,
-  ImageFormats,
   RendereableBlocks,
   ServiceStateValues,
+  StrapiBlocksPayload,
+  StrapiImage,
   StrapiLocales,
   StrapiRecord,
   UnpopulatedUserResponse,
@@ -55,23 +56,6 @@ export type ServiceStatus = StrapiRecord<{
   locale: null;
 }>;
 
-export type StrapiImage = StrapiRecord<{
-  name: string;
-  alternativeText: string;
-  caption: unknown;
-  width: number;
-  height: number;
-  formats: ImageFormats;
-  hash: string;
-  ext: string;
-  mime: string;
-  size: number;
-  url: string;
-  previewUrl: unknown;
-  provider: string;
-  provider_metadata: unknown;
-}>;
-
 export type Faq = StrapiRecord<{
   question: string;
   answer: string;
@@ -81,9 +65,9 @@ export type Faq = StrapiRecord<{
 export type New = StrapiRecord<{
   locale: StrapiLocales;
   title: string;
-  body: BlocksContent;
+  body: StrapiBlocksPayload;
   highlighted: boolean;
-  brief: BlocksContent;
+  brief: StrapiBlocksPayload;
   date: string; // format: yyyy-mm-dd
   cover: StrapiImage;
 }>;

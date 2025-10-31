@@ -2,19 +2,34 @@
 
 import UnderlineExtension from "@tiptap/extension-underline";
 import { Placeholder } from "@tiptap/extensions";
-import { EditorContent, EditorContentProps, useEditor } from "@tiptap/react";
+import {
+  EditorContent,
+  useEditor,
+  type Content,
+  type EditorContentProps,
+  type JSONContent,
+} from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { type RefAttributes } from "react";
+import debounce from "lodash/debounce";
+import { useEffect, useMemo, useRef, type RefAttributes } from "react";
 import Toolbar from "./Toolbar";
 
 interface Props
   extends RefAttributes<HTMLDivElement>,
-    Omit<EditorContentProps, "ref" | "editor"> {
+    Omit<
+      EditorContentProps,
+      "ref" | "editor" | "onChange" | "onBlur" | "content"
+    > {
   label?: string;
   placeholder?: string;
   errorMessage?: string;
   isRequired?: boolean;
   isInvalid?: boolean;
+  // eslint-disable-next-line no-unused-vars
+  onChange?: (json: JSONContent) => void;
+  // eslint-disable-next-line no-unused-vars
+  onBlur?: () => void;
+  content?: Content;
 }
 
 const Rte = (props: Props) => {
@@ -23,6 +38,7 @@ const Rte = (props: Props) => {
     content,
     id,
     name,
+    value,
     placeholder = "Escriba algo...",
     errorMessage,
     isRequired,
@@ -30,6 +46,25 @@ const Rte = (props: Props) => {
     onChange,
     onBlur,
   } = props;
+  const skipNextOnUpdateRef = useRef(true);
+  const lastSerializedRef = useRef("");
+
+  const emitChangeDebounced = useMemo(
+    () =>
+      debounce((raw: JSONContent) => {
+        // trabajo pesado acá, pero solo si hubo cambio real
+        const plain = JSON.parse(JSON.stringify(raw)) as JSONContent; // sello a POJO
+        onChange?.(plain);
+      }, 250),
+    [onChange],
+  );
+
+  useEffect(() => {
+    return () => {
+      emitChangeDebounced.cancel(); // evita setState después del unmount
+    };
+  }, [emitChangeDebounced]);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -56,10 +91,37 @@ const Rte = (props: Props) => {
             ? placeholder
             : "";
         },
+
         emptyNodeClass: "pm-placeholder",
         showOnlyCurrent: true,
       }),
     ],
+    onUpdate: ({ editor }) => {
+      if (skipNextOnUpdateRef.current) {
+        skipNextOnUpdateRef.current = false;
+        return;
+      }
+
+      const raw = editor.getJSON();
+      const serialized = JSON.stringify(raw);
+
+      if (serialized === lastSerializedRef.current) return; // no cambió, salir
+      lastSerializedRef.current = serialized;
+
+      emitChangeDebounced(raw); // programo el sellado + onChange
+    },
+    onBlur: ({ editor }) => {
+      // Forzar último envío inmediato (sin debounce)
+      const raw = editor.getJSON();
+      const serialized = JSON.stringify(raw);
+      if (serialized !== lastSerializedRef.current) {
+        lastSerializedRef.current = serialized;
+        const plain = JSON.parse(JSON.stringify(raw)) as JSONContent;
+        onChange?.(plain);
+      }
+      emitChangeDebounced.flush();
+      onBlur?.();
+    },
     content,
     editorProps: {
       attributes: {
@@ -70,15 +132,56 @@ const Rte = (props: Props) => {
     immediatelyRender: false,
   });
 
+  useEffect(() => {
+    if (!editor) return;
+
+    // Sincronización “afuera → adentro” (prop `content` cambió):
+    // - `emitChangeDebounced.cancel()` descarta cualquier onChange pendiente del ciclo anterior
+    //   Evita emitir un estado viejo justo después de setear contenido desde el componente padre (prop `content`).
+    // - `skipNextOnUpdateRef.current = true` ignora el onUpdate que provoca setContent/clearContent,
+    //   para no marcar el form como dirty ni disparar validaciones por un cambio programático.
+    // - `lastSerializedRef.current = ""` (o JSON actual) alinea el cache local con el nuevo estado,
+    //   evitando que el próximo onUpdate se considere un cambio real.
+
+    // Caso content vacio
+    if (content === undefined || content === null) {
+      if (!editor.isEmpty) {
+        emitChangeDebounced.cancel();
+        skipNextOnUpdateRef.current = true;
+        editor.commands.clearContent(true);
+        lastSerializedRef.current = "";
+      }
+      return;
+    }
+
+    const currentJsonSerialized = JSON.stringify(editor.getJSON());
+
+    // Caso content es string
+    if (typeof content === "string") {
+      const currentText = editor.getText();
+      if (currentText !== content) {
+        emitChangeDebounced.cancel();
+        skipNextOnUpdateRef.current = true;
+        editor.commands.setContent(content);
+        lastSerializedRef.current = currentJsonSerialized;
+      }
+      return;
+    }
+
+    const incomingJson = content as JSONContent;
+
+    // Caso content es json
+    if (currentJsonSerialized !== JSON.stringify(incomingJson)) {
+      emitChangeDebounced.cancel();
+      skipNextOnUpdateRef.current = true;
+      editor.commands.setContent(incomingJson);
+      lastSerializedRef.current = JSON.stringify(incomingJson);
+    }
+  }, [editor, content, emitChangeDebounced]);
+
   if (!editor) {
     return null;
   }
-
-  // const saveContent = () => {
-  //   if (editor) {
-  //     console.log(editor.getJSON());
-  //   }
-  // };
 
   return (
     <>
@@ -93,17 +196,10 @@ const Rte = (props: Props) => {
             id={id}
             name={name}
             editor={editor}
+            value={value}
             className={`rounded-lg border p-2 ${isInvalid && "border-red-600"}`}
-            onChange={onChange}
-            onBlur={onBlur}
           />
           {isInvalid && <p className="text-sm text-red-600">{errorMessage}</p>}
-          {/* <button
-            onClick={saveContent}
-            className="mt-2 rounded bg-blue-500 p-2 text-white"
-          >
-            Log content
-          </button> */}
         </div>
       </div>
     </>

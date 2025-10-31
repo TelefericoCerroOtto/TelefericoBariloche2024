@@ -3,8 +3,9 @@ import {
   validateUsernameAvailability,
 } from "@/lib/actions/forms";
 import type { LoginUserRequest } from "@/types";
+import { isTiptapNonEmpty, isValidTiptapDoc } from "@/utils/tiptap";
+import { type JSONContent } from "@tiptap/react";
 import { boolean, mixed, number, object, ObjectSchema, string } from "yup";
-import { i18n } from "@/i18n";
 
 const locales = {
   "es-AR": {
@@ -59,6 +60,18 @@ const locales = {
     },
   },
 };
+
+const VALID_IMAGE_FILE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_FILE_SIZE_MB = 5;
+
+const FILE_TYPES = [
+  "application/pdf", // PDF
+  "application/msword", // DOC (Word 97-2003)
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX (Word moderno)
+  "text/plain", // TXT
+];
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 1MB
 
 // TODO: Crear el tipo de las requests
 // export const mySchema: Yup.ObjectSchema<myRequestType> = object({ ... })
@@ -186,67 +199,99 @@ export const updateUserSchema = object({
     .required(es.string.required),
 });
 
-const jsonField = string()
-  .required(es.string.required)
-  .test("is-json", "El contenido debe ser un JSON válido", (value) => {
-    if (!value) return false;
-    try {
-      const parsed = JSON.parse(value);
-      return typeof parsed === "object" && parsed !== null;
-    } catch (error) {
-      console.error("Invalid JSON content", error);
-      return false;
+export const tiptapJsonSchema = mixed<JSONContent>()
+  .transform((val) => {
+    // Normalizamos a JSONContent o null antes de validar
+    if (typeof val === "string") {
+      const s = val.trim();
+      if (s === "") return null;
+      try {
+        return JSON.parse(s) as JSONContent;
+      } catch {
+        return null;
+      }
     }
-  });
+    return (val ?? null) as JSONContent | null;
+  })
+  .test("tt-non-empty", "Este campo es obligatorio.", (val) => {
+    // Desde acá, val ya es JSONContent | null por la transform
+    if (!val || typeof val !== "object") return false;
+    if (!isValidTiptapDoc(val)) return false;
+    return isTiptapNonEmpty(val);
+  })
+  .test(
+    "tt-json-parse",
+    "El contenido del editor no es JSON válido.",
+    (value) => {
+      try {
+        const doc = typeof value === "string" ? JSON.parse(value) : value;
+        return !!doc && typeof doc === "object";
+      } catch {
+        return false;
+      }
+    },
+  )
+  .test(
+    "tt-doc-shape",
+    "El contenido del editor no tiene el formato de TipTap.",
+    (value) => {
+      const doc = typeof value === "string" ? JSON.parse(value) : value;
+      return isValidTiptapDoc(doc);
+    },
+  );
 
-const newsShape = i18n.locales.reduce(
-  (acc, locale) => {
-    acc[`title_${locale}`] = string()
-      .required(es.string.required)
-      .min(3, es.string.min(3));
-    acc[`body_${locale}`] = jsonField;
-    acc[`brief_${locale}`] = jsonField;
-    acc[`coverAlt_${locale}`] = string().required(es.string.required);
-    return acc;
-  },
-  {} as Record<string, ReturnType<typeof string>>,
-);
+const imageStoredSchema = object({
+  size: number().required(es.number.required),
+  name: string().required(es.string.required),
+  url: string().required(es.string.required),
+  id: number().required(es.number.required),
+  documentId: string().required(es.string.required),
+});
 
-export const newsFormSchema = object({
-  ...newsShape,
-  documentId: string(),
-  coverImage: string().default(""),
-  coverImageUrl: string(),
-  coverImageFile: mixed<File | null>()
-    .nullable()
-    .test("cover-image-required", es.string.required, function (value) {
-      const coverImage = this.parent.coverImage as string | undefined;
-      return (
-        value instanceof File ||
-        Boolean(coverImage && coverImage.trim().length > 0)
-      );
-    }),
+const imageUploadSchema = mixed<File>()
+  .nullable()
+  .test("file-type", "Formato no soportado (solo JPG, PNG o WebP)", (file) => {
+    if (!file) return true;
+    return VALID_IMAGE_FILE_TYPES.includes(file.type);
+  })
+  .test(
+    "file-size",
+    `El archivo no debe superar ${MAX_IMAGE_FILE_SIZE_MB}MB`,
+    (file) => {
+      if (!file) return true;
+      return file.size <= MAX_IMAGE_FILE_SIZE_MB * 1024 * 1024;
+    },
+  );
+
+export const createNewSchema = object({
+  "title_es-AR": string().required(es.string.required).min(3, es.string.min(3)),
+  title_en: string().required(es.string.required).min(3, es.string.min(3)),
+  title_pt: string().required(es.string.required).min(3, es.string.min(3)),
+  "body_es-AR": tiptapJsonSchema.required(es.string.required),
+  body_en: tiptapJsonSchema.required(es.string.required),
+  body_pt: tiptapJsonSchema.required(es.string.required),
+  "brief_es-AR": tiptapJsonSchema.required(es.string.required),
+  brief_en: tiptapJsonSchema.required(es.string.required),
+  brief_pt: tiptapJsonSchema.required(es.string.required),
+  newCoverImageFile: imageUploadSchema.required(es.mixed.required).nullable(),
   date: string()
     .required(es.string.required)
     .test("valid-date", "La fecha no es válida", (value) => {
       if (!value) return false;
       return !Number.isNaN(Date.parse(value));
     }),
-  highglighted: boolean().default(false),
+  highlighted: boolean().default(false),
+});
+
+export const updateNewSchema = createNewSchema.shape({
+  newCoverImageFile: imageUploadSchema,
+  coverImage: imageStoredSchema,
+  documentId: string().required(es.string.required),
 });
 
 // MIME types de los formatos de archivo
 // Si solo validáramos por extensión, alguien podría subir un archivo malicioso renombrado como
 // cv.docx.exe. Por eso, validar por MIME type es más seguro.
-
-const FILE_TYPES = [
-  "application/pdf", // PDF
-  "application/msword", // DOC (Word 97-2003)
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX (Word moderno)
-  "text/plain", // TXT
-];
-
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 1MB
 
 export const postulationSchema = object({
   name: string()

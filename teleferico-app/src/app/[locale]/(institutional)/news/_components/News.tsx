@@ -2,6 +2,7 @@ import { getNews } from "@/lib/services";
 import Card from "./Card";
 import { Locales } from "@/types";
 import { Alert } from "@heroui/react";
+import { BlocksContent } from "@strapi/blocks-react-renderer";
 
 interface Props {
   locale: Locales;
@@ -35,12 +36,13 @@ export default async function News(props: Props) {
       <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {news.map((item) => (
           <Card
+            locale={locale}
             key={item.id}
             title={item.title}
             documentId={item.documentId}
             imgAlt={item.cover.alternativeText || "News cover image"}
             imgSrc={item.cover.formats.small.url}
-            brief={item.brief}
+            brief={item.brief as BlocksContent}
           />
         ))}
       </div>

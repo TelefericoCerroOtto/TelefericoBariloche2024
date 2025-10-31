@@ -16,6 +16,7 @@ import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { updateZoneAction } from "./actions";
+import { nameConfig } from "./data";
 
 interface Props {
   initialValues: ZoneFormData;
@@ -59,6 +60,7 @@ export default function Form(props: Props) {
     handleBlur,
     handleSubmit,
     setFieldValue,
+    setFieldTouched,
   } = useFormik<ZoneFormData>({
     initialValues,
     validationSchema: updateZoneSchema,
@@ -76,26 +78,8 @@ export default function Form(props: Props) {
       />
       <InputLocaleWrapper
         Input={Input}
-        config={{
-          "es-AR": {
-            label: "Nombre de la zona (Español)",
-            name: "zoneName_es-AR",
-            placeholder: "Ej.: Confiteria Giratoria",
-          },
-          en: {
-            label: "Nombre de la zona (Inglés)",
-            name: "zoneName_en",
-            placeholder: "Ej.: Revolving restaurant",
-          },
-          pt: {
-            label: "Nombre de la zona (Portugués)",
-            name: "zoneName_pt",
-            placeholder: "Ej.: Restarunte Giratório",
-          },
-        }}
-        values={values}
-        errors={errors}
-        touched={touched}
+        config={nameConfig}
+        formik={{ values, errors, touched, setFieldTouched, setFieldValue }}
         handleChange={handleChange}
         handleBlur={handleBlur}
         locale={locale}

@@ -17,6 +17,7 @@ export interface MediaSelectorProps {
   id?: string;
   name: string;
   label?: string;
+  defaultName?: string;
   isRequired?: boolean;
   isInvalid?: boolean;
   errorMessage?: string;
@@ -39,6 +40,7 @@ export default function MediaSelector(props: MediaSelectorProps) {
     id,
     name,
     label = "Cargar archivo",
+    defaultName = "",
     isRequired,
     isInvalid,
     errorMessage,
@@ -145,21 +147,25 @@ export default function MediaSelector(props: MediaSelectorProps) {
     }
   };
 
-  const displayError = localError ?? errorMessage ?? null;
+  const errorMsg = localError || errorMessage || null;
   const hasError = Boolean(localError) || Boolean(isInvalid);
-  const describedBy = displayError ? errorId : undefined;
+  const describedBy = hasError ? errorId : undefined;
 
   const renderPreview = () => {
     if (!previewUrl) {
       return (
-        <div className="flex h-40 w-full items-center justify-center rounded-md border border-dashed border-muted-foreground/40 bg-muted/5 text-sm text-muted-foreground">
+        <div
+          className={`flex h-40 w-full items-center justify-center rounded-md border border-dashed ${hasError ? "border-destructive" : "border-muted-foreground/40"} bg-muted/5 text-sm text-muted-foreground`}
+        >
           No se ha cargado ninguna imagen
         </div>
       );
     }
 
     return (
-      <div className="relative h-48 w-full overflow-hidden rounded-md border border-dashed border-muted-foreground/40 bg-muted/10">
+      <div
+        className={`relative h-48 w-full overflow-hidden rounded-md border border-dashed ${hasError ? "border-destructive" : "border-muted-foreground/40"} bg-muted/10`}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={previewUrl}
@@ -214,28 +220,30 @@ export default function MediaSelector(props: MediaSelectorProps) {
           onClick={() => inputRef.current?.click()}
           disabled={disabled}
         >
-          {file ? "Cambiar imagen" : "Seleccionar imagen"}
+          {file || defaultPreviewUrl ? "Cambiar imagen" : "Seleccionar imagen"}
         </ButtonDos>
         {(file || previewUrl) && (
           <ButtonDos
             type="button"
             intent="outlineRed"
             onClick={handleClear}
-            disabled={disabled}
+            disabled={
+              disabled || (!!defaultPreviewUrl && !objectUrlRef.current)
+            }
           >
             Limpiar
           </ButtonDos>
         )}
-        {file ? (
+        {file || defaultName ? (
           <span className="max-w-[240px] truncate text-sm text-muted-foreground">
-            {file.name}
+            {file?.name || defaultName}
           </span>
         ) : null}
       </div>
       {renderPreview()}
-      {displayError ? (
+      {hasError ? (
         <p id={errorId} className="text-sm text-destructive">
-          {displayError}
+          {errorMsg}
         </p>
       ) : null}
     </div>

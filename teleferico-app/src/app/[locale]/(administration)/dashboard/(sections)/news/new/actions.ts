@@ -1,81 +1,83 @@
 "use server";
 
 import { i18n } from "@/i18n";
-import { patchNewsAdapter, postNewsAdapter } from "@/lib/adapters";
-import { newsFormSchema } from "@/lib/schemas";
-import { createNews, updateNews, uploadMedia } from "@/services";
+import { createNewsAdapter, updateNewsAdapter } from "@/lib/adapters";
+import { createNewSchema } from "@/lib/schemas";
+import { createNew, updateNew, uploadImage } from "@/lib/services";
 import type {
+  CreateNewFormData,
   FormSubmitServerActionResponse,
-  NewsFormData,
 } from "@/types";
+import { getSession } from "@/utils";
 import { ValidationError } from "yup";
 
 const DEFAULT_ERROR_MESSAGE =
   "Server action 'createNewsAction' failed: An unexpected error occurred.";
 
 export const createNewsAction = async (
-  values: NewsFormData,
+  values: CreateNewFormData,
 ): FormSubmitServerActionResponse => {
   try {
-    const formValues: NewsFormData = {
-      ...values,
-      coverImageFile: values.coverImageFile ?? null,
-    };
+    const { jwt } = await getSession();
+    createNewSchema.validateSync(values);
+    const { newCoverImageFile } = values;
+    const { locales } = i18n;
 
-    if (formValues.coverImageFile instanceof File) {
-      const uploadRes = await uploadMedia(formValues.coverImageFile);
-
-      if (!uploadRes.ok) {
-        return {
-          success: false,
-          message: DEFAULT_ERROR_MESSAGE,
-          data: uploadRes.data,
-        };
-      }
-
-      const uploaded = uploadRes.data?.[0];
-      if (!uploaded?.documentId) {
-        return {
-          success: false,
-          message: DEFAULT_ERROR_MESSAGE,
-        };
-      }
-
-      formValues.coverImage = uploaded.documentId;
-      formValues.coverImageUrl = uploaded.url ?? "";
+    if (!newCoverImageFile) {
+      return {
+        success: false,
+        message: "No cover image file uploaded",
+      };
     }
 
-    formValues.coverImageFile = null;
+    const res = await uploadImage(newCoverImageFile, jwt);
 
-    newsFormSchema.validateSync(formValues, { abortEarly: false });
+    if (!res.ok) {
+      console.log("Failed to upload image at createNewsAction: ", res.data);
+      return {
+        success: false,
+        message:
+          "Server action 'createNewsAction' failed: Can not upload image",
+      };
+    }
+    const coverImageId = res.data[0].id;
+    let documentId: string = "";
 
-    const locales = i18n.locales;
-    let documentId = "";
+    for (let i = 0; i < locales.length; i++) {
+      const locale = locales[i];
+      if (i === 0) {
+        const reqBody = createNewsAdapter({
+          values: {
+            ...values,
+            coverImageId,
+          },
+        });
 
-    for (let index = 0; index < locales.length; index++) {
-      const locale = locales[index];
-
-      if (index === 0) {
-        const payload = postNewsAdapter(formValues, locale);
-        const res = await createNews(payload);
+        const res = await createNew({ reqBody, locale }, jwt);
 
         if (!res.ok) {
           return {
             success: false,
-            message: DEFAULT_ERROR_MESSAGE,
+            message: `Server action 'createNewsAction' failed: Can not create news in locale ${locale}`,
             data: res.data,
           };
         }
 
         documentId = res.data.data.documentId;
       } else {
-        const payload = patchNewsAdapter(formValues, locale);
-        const res = await updateNews(documentId, payload, { locale });
+        const reqBody = updateNewsAdapter({
+          values: {
+            ...values,
+            coverImageId,
+          },
+          locale,
+        });
 
+        const res = await updateNew({ reqBody, documentId, locale }, jwt);
         if (!res.ok) {
           return {
             success: false,
-            message: `Server action 'createNewsAction' failed while updating locale ${locale}.`,
+            message: `Server action 'createNewsAction' failed: Can not update new with documentId ${documentId} in locale ${locale}`,
             data: res.data,
           };
         }
@@ -84,7 +86,7 @@ export const createNewsAction = async (
 
     return {
       success: true,
-      message: "Noticia creada correctamente.",
+      message: "News successfully created",
     };
   } catch (error) {
     console.error("createNewsAction error", error);
