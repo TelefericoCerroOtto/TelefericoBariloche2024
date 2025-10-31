@@ -1,4 +1,5 @@
 import { BlockRendererClient } from "@/components";
+import { Locales } from "@/types";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,14 +10,15 @@ interface Props {
   imgAlt: string;
   title: string;
   brief: BlocksContent;
+  locale: Locales;
 }
 
 export default function Card(props: Props) {
-  const { title, brief, documentId, imgAlt, imgSrc } = props;
+  const { title, brief, documentId, imgAlt, imgSrc, locale } = props;
 
   return (
     <Link
-      href={`/news/${documentId}`}
+      href={`/${locale}/news/${documentId}`}
       className="group flex w-full max-w-[300px] flex-col gap-3 hover:cursor-pointer"
     >
       <div className="relative aspect-square w-full overflow-hidden">

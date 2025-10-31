@@ -1,6 +1,7 @@
 import { BlockRendererClient, TitleDescBlock } from "@/components";
 import { getNew } from "@/lib/services";
 import type { Locales } from "@/types";
+import { BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
@@ -18,16 +19,24 @@ export default async function NewDetailPage({
 
   return (
     <>
-      <TitleDescBlock title={title} desc={brief} size="lg" align="center" />
+      <TitleDescBlock
+        title={title}
+        desc={brief as BlocksContent}
+        size="lg"
+        align="center"
+      />
       <div className="relative mb-14 h-[550px] w-full">
         <Image
-          src={cover.image.url}
-          alt={cover.alt}
+          src={cover.url}
+          alt={cover.alternativeText || "News cover image"}
           fill
           className="object-cover"
         />
       </div>
-      <BlockRendererClient content={body} className="px-12 lg:px-32" />
+      <BlockRendererClient
+        content={body as BlocksContent}
+        className="px-12 lg:px-32"
+      />
     </>
   );
 }

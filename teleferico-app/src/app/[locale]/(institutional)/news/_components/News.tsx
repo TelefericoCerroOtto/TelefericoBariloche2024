@@ -36,6 +36,7 @@ export default async function News(props: Props) {
       <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {news.map((item) => (
           <Card
+            locale={locale}
             key={item.id}
             title={item.title}
             documentId={item.documentId}
