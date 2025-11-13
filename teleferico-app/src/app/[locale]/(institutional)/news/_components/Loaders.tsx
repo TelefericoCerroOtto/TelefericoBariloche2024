@@ -1,55 +1,56 @@
-import { Skeleton } from "@heroui/react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const cardPlaceholders = Array.from({ length: 6 });
 
 export function CardLoader() {
   return (
-    <div className="grid h-full w-full grid-cols-1 gap-8 px-10 sm:grid-cols-2 sm:px-20 md:grid-cols-3 lg:grid-cols-4 lg:px-40">
-      <div className="flex w-full max-w-[300px] flex-col gap-3">
-        <div className="aspect-square w-full">
-          <Skeleton className="h-full w-full" />
+    <section
+      aria-label="Loading news"
+      aria-busy="true"
+      role="status"
+      className="w-full px-6 py-12 sm:px-10 lg:px-20"
+    >
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-8 w-56 rounded-full" />
+          <Skeleton className="h-4 w-80 max-w-full rounded-full" />
         </div>
-        <Skeleton className="h-8 w-10/12" />
-        <Skeleton className="h-5 w-full" />
-        <Skeleton className="h-5 w-10/12" />
-        <Skeleton className="h-5 w-full" />
-      </div>
-      <div className="flex w-full max-w-[300px] flex-col gap-3">
-        <div className="aspect-square w-full">
-          <Skeleton className="h-full w-full" />
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 lg:gap-10">
+          {cardPlaceholders.map((_, index) => (
+            <div key={index} className="flex h-full flex-col gap-4">
+              <Skeleton className="aspect-[4/3] w-full rounded-3xl" />
+              <Skeleton className="h-5 w-3/4 rounded-full" />
+              <Skeleton className="h-4 w-1/2 rounded-full" />
+              <Skeleton className="h-4 w-full rounded-full" />
+            </div>
+          ))}
         </div>
-        <Skeleton className="h-8 w-10/12" />
-        <Skeleton className="h-5 w-full" />
-        <Skeleton className="h-5 w-10/12" />
-        <Skeleton className="h-5 w-full" />
       </div>
-      <div className="flex w-full max-w-[300px] flex-col gap-3">
-        <div className="aspect-square w-full">
-          <Skeleton className="h-full w-full" />
-        </div>
-        <Skeleton className="h-8 w-10/12" />
-        <Skeleton className="h-5 w-full" />
-        <Skeleton className="h-5 w-10/12" />
-        <Skeleton className="h-5 w-full" />
-      </div>
-      <div className="flex w-full max-w-[300px] flex-col gap-3">
-        <div className="aspect-square w-full">
-          <Skeleton className="h-full w-full" />
-        </div>
-        <Skeleton className="h-8 w-10/12" />
-        <Skeleton className="h-5 w-full" />
-        <Skeleton className="h-5 w-10/12" />
-        <Skeleton className="h-5 w-full" />
-      </div>
-    </div>
+    </section>
   );
 }
 
 export function FeaturedNewLoader() {
   return (
-    <div className="flex h-full w-full flex-col items-center">
-      <Skeleton className="mb-10 h-12 w-3/4" />
-      <Skeleton className="mb-8 h-6 w-2/4" />
-      <Skeleton className="mb-14 h-6 w-1/4" />
-      <Skeleton className="h-80 w-10/12" />
-    </div>
+    <section
+      aria-label="Loading featured news"
+      aria-busy="true"
+      role="status"
+      className="w-full px-6 py-12 sm:px-10 lg:px-20"
+    >
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 lg:flex-row lg:items-center lg:gap-16">
+        <div className="flex w-full flex-1 flex-col gap-4">
+          <Skeleton className="h-6 w-32 rounded-full" />
+          <Skeleton className="h-12 w-full rounded-3xl sm:w-11/12" />
+          <Skeleton className="h-4 w-2/3 rounded-full" />
+          <Skeleton className="h-4 w-5/6 rounded-full" />
+          <div className="flex gap-4">
+            <Skeleton className="h-11 w-32 rounded-full" />
+            <Skeleton className="h-11 w-28 rounded-full" />
+          </div>
+        </div>
+        <Skeleton className="aspect-[4/3] w-full rounded-3xl lg:w-1/2" />
+      </div>
+    </section>
   );
 }
