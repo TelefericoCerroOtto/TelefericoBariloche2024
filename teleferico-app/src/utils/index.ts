@@ -5,6 +5,7 @@ export * from "./fetch";
 export * from "./fetcher";
 export * from "./format-strapi-time";
 export * from "./get-strapi-url";
+export * from "./blocks-to-text";
 export * from "./object-merge";
 export * from "./query";
 export * from "./routes.const";
