@@ -15,7 +15,7 @@ const locales = {
     string: {
       required: "Este campo es obligatorio",
       min: (min: number) => `Debe tener al menos ${min} caracteres`,
-      max: (max: number) => `Debe tener al menos ${max} caracteres`,
+      max: (max: number) => `Debe tener máximo ${max} caracteres`,
       email: "El correo electrónico no es válido",
     },
     number: {
@@ -286,6 +286,38 @@ export const createNewSchema = object({
 export const updateNewSchema = createNewSchema.shape({
   newCoverImageFile: imageUploadSchema,
   coverImage: imageStoredSchema,
+  documentId: string().required(es.string.required),
+});
+
+export const createFaqSchema = object({
+  "question_es-AR": string()
+    .required(es.string.required)
+    .min(8, es.string.min(8))
+    .max(100, es.string.max(100)),
+  question_en: string()
+    .required(es.string.required)
+    .min(8, es.string.min(8))
+    .max(100, es.string.max(100)),
+  question_pt: string()
+    .required(es.string.required)
+    .min(8, es.string.min(8))
+    .max(100, es.string.max(100)),
+  "answer_es-AR": string()
+    .required(es.string.required)
+    .min(10, es.string.min(10))
+    .max(250, es.string.max(250)),
+  answer_en: string()
+    .required(es.string.required)
+    .min(10, es.string.min(10))
+    .max(250, es.string.max(250)),
+  answer_pt: string()
+    .required(es.string.required)
+    .min(10, es.string.min(10))
+    .max(250, es.string.max(250)),
+  featured: boolean().required(es.string.required),
+});
+
+export const updateFaqSchema = createFaqSchema.shape({
   documentId: string().required(es.string.required),
 });
 
