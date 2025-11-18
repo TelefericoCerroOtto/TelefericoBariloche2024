@@ -14,8 +14,11 @@ import {
   updateUserSchema,
   updateZoneSchema,
   updateNewSchema,
+  createFaqSchema,
+  updateFaqSchema,
 } from "@/lib/schemas";
 import type { InferType } from "yup";
+import type { Locales } from "./i18n";
 
 export type LoginFormData = InferType<typeof loginSchema>;
 export type CreateActivityFormData = InferType<typeof createActivitySchema>;
@@ -36,6 +39,8 @@ export type PostulationFormData = InferType<typeof postulationSchema>;
 export type ContactFormData = InferType<typeof contactSchema>;
 export type CreateNewFormData = InferType<typeof createNewSchema>;
 export type UpdateNewFormData = InferType<typeof updateNewSchema>;
+export type CreateFaqFormData = InferType<typeof createFaqSchema>;
+export type UpdateFaqFormData = InferType<typeof updateFaqSchema>;
 
 export type TimeValue = InferType<typeof timeSchema>;
 export type FormSubmitServerActionResponse = Promise<{
@@ -43,3 +48,7 @@ export type FormSubmitServerActionResponse = Promise<{
   message: string;
   data?: unknown;
 }>;
+export type InputLocaleConfig = Record<
+  Locales,
+  { label: string; placeholder: string; name: string }
+>;

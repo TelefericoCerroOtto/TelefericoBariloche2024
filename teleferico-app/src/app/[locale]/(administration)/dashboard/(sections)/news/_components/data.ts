@@ -1,4 +1,6 @@
-export const bodyConfig = {
+import type { InputLocaleConfig } from "@/types";
+
+export const bodyConfig: InputLocaleConfig = {
   "es-AR": {
     label: "Cuerpo de la noticia (Español)",
     placeholder: "Escribe el cuerpo de la noticia en Español...",
@@ -16,7 +18,7 @@ export const bodyConfig = {
   },
 };
 
-export const briefConfig = {
+export const briefConfig: InputLocaleConfig = {
   "es-AR": {
     label: "Resumen (Español)",
     placeholder: "Resumen de la noticia en Español...",
@@ -34,7 +36,7 @@ export const briefConfig = {
   },
 };
 
-export const titleConfig = {
+export const titleConfig: InputLocaleConfig = {
   "es-AR": {
     label: "Título (Español)",
     name: "title_es-AR",

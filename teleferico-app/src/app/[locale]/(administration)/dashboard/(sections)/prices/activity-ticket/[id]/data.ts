@@ -1,4 +1,6 @@
-export const nameConfig = {
+import type { InputLocaleConfig } from "@/types";
+
+export const nameConfig: InputLocaleConfig = {
   "es-AR": {
     label: "Nombre De La Actividad (Español)",
     name: "activityName_es-AR",
@@ -16,7 +18,7 @@ export const nameConfig = {
   },
 };
 
-export const descConfig = {
+export const descConfig: InputLocaleConfig = {
   "es-AR": {
     label: "Descripción De La Actividad (Español)",
     name: "description_es-AR",
@@ -34,7 +36,7 @@ export const descConfig = {
   },
 };
 
-export const requirementsConfig = {
+export const requirementsConfig: InputLocaleConfig = {
   "es-AR": {
     label: "Requisitos (Español)",
     name: "requirements_es-AR",
