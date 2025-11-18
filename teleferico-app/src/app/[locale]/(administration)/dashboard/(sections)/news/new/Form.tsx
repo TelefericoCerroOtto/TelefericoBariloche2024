@@ -98,8 +98,6 @@ export default function NewsForm() {
   const disableSubmitButton =
     isSubmitting || Object.keys(errors).length > 0 || !dirty;
 
-  console.log("errors: ", errors.newCoverImageFile);
-
   return (
     <form className="flex flex-col gap-5 overflow-auto" onSubmit={handleSubmit}>
       <FormLocaleSelector
