@@ -1,68 +1,204 @@
 // https://googleapis.dev/nodejs/googleapis/latest/tasks/index.html#samples
 
-import { ENV_KEYS } from "@/lib/constants/env.const";
-import { GOOGLE_OAUTH_SCOPES } from "@/lib/google/constants";
-import { assertEnv } from "@/utils/env";
-import { google } from "googleapis";
-import { NextRequest } from "next/server";
+import { ensureGmail } from "@/lib/google/gmail";
+import { extractOrigin } from "@/lib/http/extract-origin";
+import { contactSchema } from "@/lib/schemas";
+import { withTimeout } from "@/utils/promise-timeout";
+import { NextRequest, NextResponse } from "next/server";
+import { ValidationError } from "yup";
 
-assertEnv([
-  ENV_KEYS.GOOGLE_CLIENT_ID,
-  ENV_KEYS.GOOGLE_CLIENT_SECRET,
-  ENV_KEYS.OAUTH_REDIRECT_URI,
-  ENV_KEYS.OAUTH_REFRESH_TOKEN,
-]);
+const REQUEST_TIMEOUT_MS = 10_000;
+const MAX_BODY_BYTES = 8 * 1024; // keep payloads tiny to limit abuse
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+const MIN_FORM_AGE_MS = 3_000;
+const MAX_FORM_AGE_MS = 30 * 60 * 1000;
+const HONEYPOT_FIELD = "company";
 
-const {
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  OAUTH_REDIRECT_URI,
-  OAUTH_REFRESH_TOKEN,
-} = process.env;
-
-const oAuth2Client = new google.auth.OAuth2(
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  OAUTH_REDIRECT_URI,
-);
-
-const credentials = {
-  refresh_token: OAUTH_REFRESH_TOKEN,
-  scope: GOOGLE_OAUTH_SCOPES[0],
-  token_type: "Bearer",
+// Basic in-memory rate limiter to slow abusive clients.
+type RateEntry = {
+  hits: number;
+  reset: number;
 };
+const rateLimitStore = new Map<string, RateEntry>();
 
-oAuth2Client.setCredentials(credentials);
+// Track the allowed origins once to enforce simple same-origin protection.
+const allowedOrigins = (() => {
+  const origins = new Set<string>();
+  const base = process.env.NEXT_PUBLIC_BASE_URL;
+  if (base) origins.add(base.replace(/\/$/, ""));
+  const extra = process.env.CONTACT_ALLOWED_ORIGINS;
+  if (extra) {
+    extra
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+      .forEach((origin) => origins.add(origin.replace(/\/$/, "")));
+  }
+  return origins;
+})();
 
-const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
-
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const requiredFields = ["name", "email", "consultation"];
-
-  const missingFields = requiredFields.filter((field) => !body[field]);
-
-  if (missingFields.length > 0) {
-    return new Response(
-      JSON.stringify({
-        message: `Missing fields: ${missingFields.join(", ")}`,
-      }),
-      { status: 400 },
-    );
+function getClientIp(req: NextRequest) {
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0]!.trim();
   }
 
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp;
+
+  return "unknown";
+}
+
+function isRateLimited(ip: string, now: number) {
+  const entry = rateLimitStore.get(ip);
+  if (!entry || entry.reset <= now) {
+    rateLimitStore.set(ip, { hits: 1, reset: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  entry.hits += 1;
+  if (entry.hits > RATE_LIMIT_MAX) {
+    return true;
+  }
+  return false;
+}
+
+function sanitizeInput(value: string) {
+  return value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[\u0000-\u001F\u007F]+/g, " ")
+    .trim();
+}
+
+export async function POST(req: NextRequest) {
   try {
+    const origin = extractOrigin(req);
+    if (allowedOrigins.size > 0 && (!origin || !allowedOrigins.has(origin))) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Forbidden",
+        },
+        { status: 403 },
+      );
+    }
+
+    const contentType = req.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Unsupported content type",
+        },
+        { status: 415 },
+      );
+    }
+
+    const contentLengthHeader = req.headers.get("content-length");
+    if (contentLengthHeader) {
+      const contentLength = Number(contentLengthHeader);
+      if (!Number.isFinite(contentLength) || contentLength > MAX_BODY_BYTES) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Payload too large",
+          },
+          { status: 413 },
+        );
+      }
+    }
+
+    let rawBody = "";
+    rawBody = await withTimeout(
+      req.text(),
+      REQUEST_TIMEOUT_MS,
+      "REQUEST_TIMEOUT",
+    );
+    if (Buffer.byteLength(rawBody, "utf8") > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Payload too large",
+        },
+        { status: 413 },
+      );
+    }
+
+    const parsedBody = JSON.parse(rawBody) as Record<string, unknown>;
+
+    const honeypot =
+      typeof parsedBody[HONEYPOT_FIELD] === "string"
+        ? parsedBody[HONEYPOT_FIELD]
+        : "";
+    if (honeypot && honeypot.trim().length > 0) {
+      // Respond as if the submission succeeded so bots do not learn about the trap.
+      return NextResponse.json({
+        ok: true,
+        message: "Submission received",
+      });
+    }
+
+    const submittedAt = parsedBody.submittedAt;
+    const submittedAtMs =
+      typeof submittedAt === "number" ? submittedAt : Number(submittedAt);
+    const now = Date.now();
+    if (!Number.isFinite(submittedAtMs)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Missing submission timestamp",
+        },
+        { status: 400 },
+      );
+    }
+
+    const formAge = now - submittedAtMs;
+    if (formAge < MIN_FORM_AGE_MS || formAge > MAX_FORM_AGE_MS) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Invalid submission timing",
+        },
+        { status: 400 },
+      );
+    }
+
+    const ip = getClientIp(req);
+    if (isRateLimited(ip, now)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Too many requests",
+        },
+        { status: 429 },
+      );
+    }
+
+    const { name, email, consultation } = parsedBody;
+    await contactSchema.validate(
+      { name, email, consultation },
+      { abortEarly: false, stripUnknown: true },
+    );
+
+    const safeName = sanitizeInput(String(name));
+    const safeEmail = sanitizeInput(String(email));
+    const safeConsultation = sanitizeInput(String(consultation));
+
+    const gmail = ensureGmail();
+
     const rawMessage = [
       `From: ${process.env.GMAIL_SENDER}`,
       `To: ${process.env.GMAIL_RECEIVER}`,
       "Subject: Nuevo mensaje desde el formulario de contacto",
       "Content-Type: text/plain; charset=utf-8",
       "",
-      `Nombre: ${body.name}`,
-      `Email: ${body.email}`,
+      `Nombre: ${safeName}`,
+      `Email: ${safeEmail}`,
       "",
-      `Mensaje:`,
-      body.consultation,
+      "Mensaje:",
+      safeConsultation,
+      "",
+      `Enviado: ${new Date(submittedAtMs).toISOString()}`,
     ].join("\n");
 
     const encodedMessage = Buffer.from(rawMessage)
@@ -71,21 +207,62 @@ export async function POST(req: NextRequest) {
       .replace(/\//g, "_")
       .replace(/=+$/, "");
 
-    await gmail.users.messages.send({
-      userId: "me",
-      requestBody: {
-        raw: encodedMessage,
-      },
-    });
+    await withTimeout(
+      gmail.users.messages.send({
+        userId: "me",
+        requestBody: {
+          raw: encodedMessage,
+        },
+      }),
+      REQUEST_TIMEOUT_MS,
+      "GMAIL_TIMEOUT",
+    );
 
-    return new Response(JSON.stringify({ message: "Email sent" }), {
-      status: 200,
+    return NextResponse.json({
+      ok: true,
+      message: "Email sent",
     });
   } catch (error) {
-    console.error("API route handler sending email error: ", error);
-    return new Response(
-      JSON.stringify({ message: "Error while sending email" }),
-      { status: 500 },
-    );
+    console.log("Contact API route handler error error: ", error);
+
+    if (error instanceof Error) {
+      switch (error.message) {
+        case "REQUEST_TIMEOUT":
+          return NextResponse.json(
+            {
+              ok: false,
+              message: "Request timed out",
+            },
+            { status: 408 },
+          );
+
+        case "GMAIL_TIMEOUT":
+          return NextResponse.json(
+            {
+              ok: false,
+              message: "Failed to deliver message",
+            },
+            { status: 504 },
+          );
+        default:
+          return NextResponse.json(
+            {
+              ok: false,
+              message: error.message || "Contact route hanlder error",
+            },
+            { status: 500 },
+          );
+      }
+    }
+
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Validation failed",
+        },
+        { status: 400 },
+      );
+    }
   }
 }

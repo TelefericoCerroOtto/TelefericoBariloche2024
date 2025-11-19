@@ -1,36 +1,46 @@
 "use server";
 
-// import { verifyCaptchaToken } from "@/lib/services";
 import { sendEmail } from "@/lib/services";
 import type { ContactFormData, FormSubmitServerActionResponse } from "@/types";
 
-export async function contactUsAction(
-  token: string | null,
-  values: ContactFormData,
-): FormSubmitServerActionResponse {
+// Extend the payload with abuse-detection metadata before sending it to the API.
+type ContactUsActionInput = {
+  token: string | null;
+  values: ContactFormData;
+  honeypot: string;
+  submittedAt: number;
+};
+
+export async function contactUsAction({
+  token,
+  values,
+  honeypot,
+  submittedAt,
+}: ContactUsActionInput): FormSubmitServerActionResponse {
   if (!token) {
     return {
       success: false,
-      message: "Token not found",
+      message: "Captcha token is missing.",
     };
   }
 
   try {
-    // TODO: implement backend token verification
-    // const captchaData = await verifyCaptchaToken(token);
-    // console.log("captchaData: ", captchaData);
+    const { ok, message } = await sendEmail({
+      ...values,
+      submittedAt,
+      company: honeypot,
+      token,
+    });
 
-    // if (captchaData.success === false) {
-    //   return {
-    //     success: false,
-    //     message: "Captcha Failed",
-    //   };
-    // }
-
-    const data = await sendEmail(values);
-    return data;
+    return {
+      success: ok,
+      message,
+    };
   } catch (error) {
-    console.log("contactUsAction error:", error);
+    console.error(
+      "contactUsAction error",
+      error instanceof Error ? error.message : error,
+    );
     return {
       success: false,
       message: "Contact action failed",
