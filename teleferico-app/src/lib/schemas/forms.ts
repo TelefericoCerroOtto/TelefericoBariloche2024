@@ -2,12 +2,34 @@ import {
   validateEmailAvailability,
   validateUsernameAvailability,
 } from "@/lib/actions/forms";
-import type { LoginUserRequest } from "@/types";
+import type { Locales, LoginUserRequest } from "@/types";
 import { isTiptapNonEmpty, isValidTiptapDoc } from "@/utils/tiptap";
 import { type JSONContent } from "@tiptap/react";
 import { boolean, mixed, number, object, ObjectSchema, string } from "yup";
 
-const locales = {
+type LocaleMessage = {
+  mixed: {
+    required: string;
+  };
+  string: {
+    required: string;
+    // eslint-disable-next-line no-unused-vars
+    min: (min: number) => string;
+    // eslint-disable-next-line no-unused-vars
+    max: (max: number) => string;
+    email: string;
+  };
+  number: {
+    required: string;
+    integer: string;
+    // eslint-disable-next-line no-unused-vars
+    min: (min: number) => string;
+    // eslint-disable-next-line no-unused-vars
+    max: (max: number) => string;
+  };
+};
+
+const localeMessages: Record<Locales, LocaleMessage> = {
   "es-AR": {
     mixed: {
       required: "Este campo es obligatorio",
@@ -76,7 +98,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 1MB
 // TODO: Crear el tipo de las requests
 // export const mySchema: Yup.ObjectSchema<myRequestType> = object({ ... })
 
-const { en, pt, "es-AR": es } = locales;
+const { en, pt, "es-AR": es } = localeMessages;
 
 export const loginSchema: ObjectSchema<LoginUserRequest> = object({
   identifier: string().email(es.string.email).required(es.string.required),
@@ -325,131 +347,53 @@ export const updateFaqSchema = createFaqSchema.shape({
 // Si solo validáramos por extensión, alguien podría subir un archivo malicioso renombrado como
 // cv.docx.exe. Por eso, validar por MIME type es más seguro.
 
-export const postulationSchema = object({
-  name: string()
-    .required(es.string.required)
-    .min(2, es.string.min(2))
-    .max(30, es.string.max(30)),
-  surname: string()
-    .required(es.string.required)
-    .min(2, es.string.min(2))
-    .max(30, es.string.max(30)),
-  genre: string()
-    .required(es.string.required)
-    .oneOf(["male", "female", "other"]),
-  age: number()
-    .integer(es.number.integer)
-    .required(es.number.required)
-    .min(18, es.number.min(18))
-    .max(80, es.number.max(80)),
-  email: string().email(es.string.email).required(es.string.required),
-  sector: string().required(es.string.required),
-  note: string().max(400, es.string.max(400)),
-  campNo: number().integer(es.number.integer),
-  resume: mixed<File>()
-    .required(es.mixed.required)
-    .test(
-      "fileType",
-      "Solo se permiten archivos PDF, DOC, DOCX o TXT",
-      (file) => {
-        return file && FILE_TYPES.includes(file.type);
-      },
-    )
-    .test("fileSize", "El archivo no debe superar los 5MB", (file) => {
-      return file && file.size <= MAX_FILE_SIZE;
-    }),
-});
+export const buildPostulationSchema = (locale: Locales) => {
+  const m = localeMessages[locale];
 
-export const postulationSchemaEN = object({
-  name: string()
-    .required(en.string.required)
-    .min(2, en.string.min(2))
-    .max(30, en.string.max(30)),
-  surname: string()
-    .required(en.string.required)
-    .min(2, en.string.min(2))
-    .max(30, en.string.max(30)),
-  genre: string()
-    .required(en.string.required)
-    .oneOf(["male", "female", "other"]),
-  age: number()
-    .integer(en.number.integer)
-    .required(en.number.required)
-    .min(18, en.number.min(18))
-    .max(80, en.number.max(80)),
-  email: string().email(en.string.email).required(en.string.required),
-  sector: string().required(en.string.required),
-  note: string().max(400, en.string.max(400)),
-  campNo: number().integer(en.number.integer),
-  resume: mixed<File>()
-    .required(en.mixed.required)
-    .test(
-      "fileType",
-      "Solo se permiten archivos PDF, DOC, DOCX o TXT",
-      (file) => {
-        return file && FILE_TYPES.includes(file.type);
-      },
-    )
-    .test("fileSize", "El archivo no debe superar los 5MB", (file) => {
-      return file && file.size <= MAX_FILE_SIZE;
-    }),
-});
+  return object({
+    name: string()
+      .required(m.string.required)
+      .min(2, m.string.min(2))
+      .max(30, m.string.max(30)),
+    surname: string()
+      .required(m.string.required)
+      .min(2, m.string.min(2))
+      .max(30, m.string.max(30)),
+    genre: string()
+      .required(m.string.required)
+      .oneOf(["male", "female", "other"]),
+    age: number()
+      .integer(m.number.integer)
+      .required(m.number.required)
+      .min(18, m.number.min(18))
+      .max(80, m.number.max(80)),
+    email: string().email(m.string.email).required(m.string.required),
+    sector: string().required(m.string.required),
+    note: string().max(400, m.string.max(400)),
+    campNo: number().integer(m.number.integer),
+    resume: mixed<File>()
+      .required(m.mixed.required)
+      .test(
+        "fileType",
+        "Solo se permiten archivos PDF, DOC, DOCX o TXT",
+        (file) => {
+          return file && FILE_TYPES.includes(file.type);
+        },
+      )
+      .test("fileSize", "El archivo no debe superar los 5MB", (file) => {
+        return file && file.size <= MAX_FILE_SIZE;
+      }),
+  });
+};
 
-export const postulationSchemaPT = object({
-  name: string()
-    .required(pt.string.required)
-    .min(2, pt.string.min(2))
-    .max(30, pt.string.max(30)),
-  surname: string()
-    .required(pt.string.required)
-    .min(2, pt.string.min(2))
-    .max(30, pt.string.max(30)),
-  genre: string()
-    .required(pt.string.required)
-    .oneOf(["male", "female", "other"]),
-  age: number()
-    .integer(pt.number.integer)
-    .required(pt.number.required)
-    .min(18, pt.number.min(18))
-    .max(80, pt.number.max(80)),
-  email: string().email(pt.string.email).required(pt.string.required),
-  sector: string().required(pt.string.required),
-  note: string().max(400, pt.string.max(400)),
-  campNo: number().integer(pt.number.integer),
-  resume: mixed<File>()
-    .required(pt.mixed.required)
-    .test(
-      "fileType",
-      "Solo se permiten archivos PDF, DOC, DOCX o TXT",
-      (file) => {
-        return file && FILE_TYPES.includes(file.type);
-      },
-    )
-    .test("fileSize", "El archivo no debe superar los 5MB", (file) => {
-      return file && file.size <= MAX_FILE_SIZE;
-    }),
-});
+export const buildContactSchema = (locale: Locales) => {
+  const m = localeMessages[locale];
 
-export const contactSchema = object({
-  name: string().required(es.string.required).min(2, es.string.min(2)),
-  email: string().required(es.string.required).email(es.string.email),
-  consultation: string()
-    .required(es.string.required)
-    .max(150, es.string.max(150)),
-});
-
-export const contactSchemaEN = object({
-  name: string().required(en.string.required).min(2, en.string.min(2)),
-  email: string().required(en.string.required).email(en.string.email),
-  consultation: string()
-    .required(en.string.required)
-    .max(150, en.string.max(150)),
-});
-
-export const contactSchemaPT = object({
-  name: string().required(es.string.required).min(2, es.string.min(2)),
-  email: string().required(es.string.required).email(es.string.email),
-  consultation: string()
-    .required(es.string.required)
-    .max(150, es.string.max(150)),
-});
+  return object({
+    name: string().required(m.string.required).min(2, m.string.min(2)),
+    email: string().required(m.string.required).email(m.string.email),
+    consultation: string()
+      .required(m.string.required)
+      .max(150, m.string.max(150)),
+  });
+};
