@@ -3,12 +3,12 @@
 import { ButtonDos, FormError, InputSkeleton } from "@/components";
 import { useLocale, useTranslation } from "@/hooks";
 import { ContactFormData } from "@/types";
-import { getLocaleSchema } from "@/utils/get-locale.schema";
 import { Input, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRef, useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { contactUsAction } from "./actions";
+import { buildContactSchema } from "@/lib/schemas";
 
 export default function Form() {
   const { data, error, loading: loadingLocale } = useTranslation("forms");
@@ -65,7 +65,7 @@ export default function Form() {
   } = useFormik<ContactFormData>({
     initialValues: { name: "", email: "", consultation: "" },
     onSubmit,
-    validationSchema: getLocaleSchema(locale, "contactSchema"),
+    validationSchema: buildContactSchema(locale),
   });
 
   if (error)
