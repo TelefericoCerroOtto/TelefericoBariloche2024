@@ -390,10 +390,16 @@ export const buildContactSchema = (locale: Locales) => {
   const m = localeMessages[locale];
 
   return object({
-    name: string().required(m.string.required).min(2, m.string.min(2)),
-    email: string().required(m.string.required).email(m.string.email),
+    name: string()
+      .required(m.string.required)
+      .min(2, m.string.min(2))
+      .max(80, m.string.max(80)),
+    email: string()
+      .required(m.string.required)
+      .email(m.string.email)
+      .max(254, m.string.max(254)),
     consultation: string()
       .required(m.string.required)
-      .max(150, m.string.max(150)),
+      .max(800, m.string.max(800)),
   });
 };

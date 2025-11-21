@@ -2,7 +2,9 @@
 
 import { ensureGmail } from "@/lib/google/gmail";
 import { extractOrigin } from "@/lib/http/extract-origin";
-import { contactSchema } from "@/lib/schemas";
+import { getClientIp } from "@/lib/http/get-client-ip";
+import { sanitizeInput } from "@/lib/http/sanitize";
+import { buildContactSchema } from "@/lib/schemas";
 import { withTimeout } from "@/utils/promise-timeout";
 import { NextRequest, NextResponse } from "next/server";
 import { ValidationError } from "yup";
@@ -38,18 +40,6 @@ const allowedOrigins = (() => {
   return origins;
 })();
 
-function getClientIp(req: NextRequest) {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0]!.trim();
-  }
-
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp;
-
-  return "unknown";
-}
-
 function isRateLimited(ip: string, now: number) {
   const entry = rateLimitStore.get(ip);
   if (!entry || entry.reset <= now) {
@@ -61,13 +51,6 @@ function isRateLimited(ip: string, now: number) {
     return true;
   }
   return false;
-}
-
-function sanitizeInput(value: string) {
-  return value
-    .replace(/[\r\n\t]+/g, " ")
-    .replace(/[\u0000-\u001F\u007F]+/g, " ")
-    .trim();
 }
 
 export async function POST(req: NextRequest) {
@@ -126,12 +109,15 @@ export async function POST(req: NextRequest) {
 
     const parsedBody = JSON.parse(rawBody) as Record<string, unknown>;
 
+    const rawHoneypot = parsedBody[HONEYPOT_FIELD];
+
     const honeypot =
-      typeof parsedBody[HONEYPOT_FIELD] === "string"
-        ? parsedBody[HONEYPOT_FIELD]
-        : "";
-    if (honeypot && honeypot.trim().length > 0) {
-      // Respond as if the submission succeeded so bots do not learn about the trap.
+      rawHoneypot == null // null o undefined
+        ? ""
+        : String(rawHoneypot);
+
+    if (honeypot.trim().length > 0) {
+      // Bot completes honeypot field. Respond as if the submission succeeded so bots do not learn about the trap.
       return NextResponse.json({
         ok: true,
         message: "Submission received",
@@ -175,7 +161,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { name, email, consultation } = parsedBody;
-    await contactSchema.validate(
+    await buildContactSchema("en").validate(
       { name, email, consultation },
       { abortEarly: false, stripUnknown: true },
     );
