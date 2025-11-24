@@ -1,22 +1,15 @@
 "use server";
 
 import { sendEmail } from "@/lib/services";
-import type { ContactFormData, FormSubmitServerActionResponse } from "@/types";
+import type {
+  ContactRequestPayload,
+  FormSubmitServerActionResponse,
+} from "@/types";
 
-// Extend the payload with abuse-detection metadata before sending it to the API.
-type ContactUsActionInput = {
-  token: string | null;
-  values: ContactFormData;
-  honeypot: string;
-  submittedAt: number;
-};
-
-export async function contactUsAction({
-  token,
-  values,
-  honeypot,
-  submittedAt,
-}: ContactUsActionInput): FormSubmitServerActionResponse {
+export async function contactUsAction(
+  token: string | null,
+  values: ContactRequestPayload,
+): FormSubmitServerActionResponse {
   if (!token) {
     return {
       success: false,
@@ -24,23 +17,26 @@ export async function contactUsAction({
     };
   }
 
+  // TODO: implement backend token verification
+  // const captchaData = await verifyCaptchaToken(token);
+  // console.log("captchaData: ", captchaData);
+
+  // if (captchaData.success === false) {
+  //   return {
+  //     success: false,
+  //     message: "Captcha Failed",
+  //   };
+  // }
+
   try {
-    const { ok, message } = await sendEmail({
-      ...values,
-      submittedAt,
-      company: honeypot,
-      token,
-    });
+    const { ok, message } = await sendEmail(values);
 
     return {
       success: ok,
       message,
     };
   } catch (error) {
-    console.error(
-      "contactUsAction error",
-      error instanceof Error ? error.message : error,
-    );
+    console.error("contactUsAction error: ", error);
     return {
       success: false,
       message: "Contact action failed",

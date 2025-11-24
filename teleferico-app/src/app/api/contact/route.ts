@@ -15,9 +15,10 @@ const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const MIN_FORM_AGE_MS = 3_000;
 const MAX_FORM_AGE_MS = 30 * 60 * 1000;
-const HONEYPOT_FIELD = "company";
+const HONEYPOT_FIELD = "honeypot";
+const FORM_LOADED_AT_FIELD = "formLoadedAt";
 
-// Basic in-memory rate limiter to slow abusive clients.
+// Basic in-memory rate limiter to slow abusive clients. Per-instance only.
 type RateEntry = {
   hits: number;
   reset: number;
@@ -124,11 +125,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const submittedAt = parsedBody.submittedAt;
-    const submittedAtMs =
-      typeof submittedAt === "number" ? submittedAt : Number(submittedAt);
+    // submittedAt viene del momento en que el form se cargó / reseteó en el cliente.
+    // Sirve para estimar cuánto tiempo tuvo el usuario el formulario antes de enviarlo
+    // y filtrar submissions demasiado rápidas (probable bot) o demasiado viejas.
+
+    const formLoadedAt = parsedBody[FORM_LOADED_AT_FIELD];
+    const formLoadedAtMs =
+      typeof formLoadedAt === "number" ? formLoadedAt : Number(formLoadedAt);
     const now = Date.now();
-    if (!Number.isFinite(submittedAtMs)) {
+    if (!Number.isFinite(formLoadedAtMs)) {
       return NextResponse.json(
         {
           ok: false,
@@ -138,7 +143,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const formAge = now - submittedAtMs;
+    const formAge = now - formLoadedAtMs;
     if (formAge < MIN_FORM_AGE_MS || formAge > MAX_FORM_AGE_MS) {
       return NextResponse.json(
         {
@@ -184,7 +189,7 @@ export async function POST(req: NextRequest) {
       "Mensaje:",
       safeConsultation,
       "",
-      `Enviado: ${new Date(submittedAtMs).toISOString()}`,
+      `Enviado: ${new Date(formLoadedAtMs).toISOString()}`,
     ].join("\n");
 
     const encodedMessage = Buffer.from(rawMessage)

@@ -1,34 +1,20 @@
-import type { ContactFormData } from "@/types";
+import type { ContactApiResponse, ContactRequestPayload } from "@/types";
 import { ROUTE_HANDLERS } from "@/utils";
-
-type ContactRequestPayload = ContactFormData & {
-  submittedAt: number;
-  company: string;
-  token?: string | null;
-};
-
-type ContactApiResponse = {
-  ok: boolean;
-  message: string;
-};
+import { assertEnv } from "@/utils/env";
+import { ENV_KEYS } from "../constants/env.const";
 
 const CONTACT_TIMEOUT_MS = 10_000;
 
 export const sendEmail = async (
   payload: ContactRequestPayload,
 ): Promise<ContactApiResponse> => {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  if (!baseUrl) {
-    return {
-      ok: false,
-      message: "Contact service misconfigured",
-    };
-  }
-
-  const url = `${baseUrl}${ROUTE_HANDLERS.CONTACT}`;
-
   let res: Response;
+
   try {
+    assertEnv([ENV_KEYS.NEXT_PUBLIC_BASE_URL]);
+    const baseUrl = process.env[ENV_KEYS.NEXT_PUBLIC_BASE_URL];
+    const url = `${baseUrl}${ROUTE_HANDLERS.CONTACT}`;
+
     res = await fetch(url, {
       method: "POST",
       headers: {
@@ -39,6 +25,8 @@ export const sendEmail = async (
       signal: AbortSignal.timeout(CONTACT_TIMEOUT_MS),
     });
   } catch (error) {
+    console.log("sendEmail error: ", error);
+
     const isTimeout =
       error instanceof Error &&
       (error.name === "TimeoutError" || error.name === "AbortError");
@@ -60,10 +48,11 @@ export const sendEmail = async (
 
   return {
     ok,
-    message: typeof messageFromApi === "string"
-      ? messageFromApi
-      : ok
-        ? "Message sent"
-        : "Unexpected response from server",
+    message:
+      typeof messageFromApi === "string"
+        ? messageFromApi
+        : ok
+          ? "Message sent"
+          : "Unexpected response from server",
   };
 };

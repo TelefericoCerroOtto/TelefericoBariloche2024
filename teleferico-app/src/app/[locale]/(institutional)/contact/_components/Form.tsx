@@ -16,7 +16,7 @@ export default function Form() {
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [honeypot, setHoneypot] = useState("");
-  const [submittedAt, setSubmittedAt] = useState(() => Date.now());
+  const [formLoadedAt, setFormLoadedAt] = useState(() => Date.now());
   const recaptchaRef = useRef<ReCAPTCHA | null>(null);
 
   const onSubmit = async (values: ContactFormData) => {
@@ -24,11 +24,10 @@ export default function Form() {
     if (!token) return;
     setIsLoading(true);
     try {
-      const res = await contactUsAction({
-        token,
-        values,
+      const res = await contactUsAction(token, {
+        ...values,
         honeypot,
-        submittedAt,
+        formLoadedAt,
       });
 
       const message = res.message;
@@ -37,7 +36,7 @@ export default function Form() {
         alert(message || "Formulario enviado correctamente");
         setToken(null);
         setHoneypot("");
-        setSubmittedAt(Date.now());
+        setFormLoadedAt(Date.now());
         recaptchaRef.current?.reset();
         resetForm();
       } else {
