@@ -48,7 +48,8 @@ export type TimeValue = InferType<typeof timeSchema>;
 export type FormSubmitServerActionResponse = Promise<{
   success: boolean;
   message: string;
-  data?: unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: any;
 }>;
 export type InputLocaleConfig = Record<
   Locales,
