@@ -1,7 +1,7 @@
 import type { ContactApiResponse, ContactRequestPayload } from "@/types";
 import { ROUTE_HANDLERS } from "@/utils";
 import { assertEnv } from "@/utils/env";
-import { ENV_KEYS } from "../constants/env.const";
+import { ENV_KEYS } from "@/lib/constants/env.const";
 
 const CONTACT_TIMEOUT_MS = 10_000;
 
@@ -11,7 +11,7 @@ export const sendEmail = async (
   let res: Response;
 
   try {
-    assertEnv([ENV_KEYS.NEXT_PUBLIC_BASE_URL]);
+    assertEnv([ENV_KEYS.INTERNAL_API_KEY, ENV_KEYS.NEXT_PUBLIC_BASE_URL]);
     const baseUrl = process.env[ENV_KEYS.NEXT_PUBLIC_BASE_URL];
     const url = `${baseUrl}${ROUTE_HANDLERS.CONTACT}`;
 
@@ -19,11 +19,15 @@ export const sendEmail = async (
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Origin: baseUrl as string,
+        "x-internal-api-key": process.env[ENV_KEYS.INTERNAL_API_KEY] as string,
       },
       cache: "no-store",
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(CONTACT_TIMEOUT_MS),
     });
+
+    return await res.json();
   } catch (error) {
     console.log("sendEmail error: ", error);
 
@@ -35,24 +39,4 @@ export const sendEmail = async (
       message: isTimeout ? "Request timed out" : "Network error",
     };
   }
-
-  let data: unknown;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
-
-  const ok = (data as { ok?: boolean })?.ok ?? res.ok;
-  const messageFromApi = (data as { message?: string })?.message;
-
-  return {
-    ok,
-    message:
-      typeof messageFromApi === "string"
-        ? messageFromApi
-        : ok
-          ? "Message sent"
-          : "Unexpected response from server",
-  };
 };

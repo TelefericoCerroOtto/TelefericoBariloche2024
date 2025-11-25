@@ -3,6 +3,7 @@
 import { ensureGmail } from "@/lib/google/gmail";
 import { extractOrigin } from "@/lib/http/extract-origin";
 import { getClientIp } from "@/lib/http/get-client-ip";
+import { requireInternalApiKey } from "@/lib/http/internal-api-key";
 import { sanitizeInput } from "@/lib/http/sanitize";
 import { buildContactSchema } from "@/lib/schemas";
 import { withTimeout } from "@/utils/promise-timeout";
@@ -56,6 +57,9 @@ function isRateLimited(ip: string, now: number) {
 
 export async function POST(req: NextRequest) {
   try {
+    const authError = requireInternalApiKey(req);
+    if (authError) return authError;
+
     const origin = extractOrigin(req);
     if (allowedOrigins.size > 0 && (!origin || !allowedOrigins.has(origin))) {
       return NextResponse.json(
