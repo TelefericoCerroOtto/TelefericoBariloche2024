@@ -578,3 +578,23 @@ Este flujo de trabajo utiliza tres ramas principales: `main`, `staging` y `devel
     Una vez que todo está probado en `staging`, crear Pull Request a `main`:
 
     Despliegue automático de `main` en producción también gracias a los **triggers configurados en Cloud Build**.
+
+## Convención para mensajes de commit
+
+Para asegurar historial consistente usamos el formato de [Conventional Commits](https://www.conventionalcommits.org/):
+
+- Formato: `<tipo>(<directorio>/alcance): descripción en inglés`.
+- Tipos admitidos: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `perf`, `build`, `ci`, `chore`, `revert`. Elegir el que mejor describa el cambio.
+- Directorios admitidos:
+  - `app`: Cambios dentro del directorio _./teleferico-app_
+  - `cms`: Cambios dentro del directorio _./teleferico-cms_
+  - `root`: Cambios dentro del directorio _./_ y fuera de los directorios _./teleferico-app_ y _./teleferico-cms_
+- El alcance puede ser cualquier palabra que haga referencia al alcance general que englobe todos los cambios de ese commit (nombre de archivo, entidad, nombre de un directorio, funcionalidad, etc.).
+- La descripción debe ser concisa (≤72 caracteres) y enfocada en el resultado del cambio.
+- El cuerpo es opcional; úsalo para detallar el porqué del cambio o pasos extra. Referencias a issues o tickets van al final como `Refs: ABC-123`.
+
+Ejemplo completo:
+
+```
+feat(app/auth): implement session verification and expiration handling in JWT callback
+```

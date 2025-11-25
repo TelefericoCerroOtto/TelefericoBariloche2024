@@ -4,6 +4,7 @@ import { ButtonDos, CustomLink } from "@/components";
 import type {
   Activity,
   BusTrip,
+  Faq,
   GetNewsResponse,
   NewsEntity,
   Ticket,
@@ -26,15 +27,23 @@ import { useSWRConfig } from "swr";
 type NewsListItem = GetNewsResponse["data"][number];
 
 interface Props {
-  item: Ticket | Activity | BusTrip | Zone | NewsEntity | NewsListItem;
+  item: Ticket | Activity | BusTrip | Zone | NewsEntity | NewsListItem | Faq;
   eraseModalTitle?: string;
   editPath: string;
   erasePath?: string;
   swrMutateKey?: string;
+  disabled?: boolean;
 }
 
 export default function TableActionsButtons(props: Props) {
-  const { item, eraseModalTitle, editPath, erasePath, swrMutateKey } = props;
+  const {
+    item,
+    eraseModalTitle,
+    editPath,
+    erasePath,
+    swrMutateKey,
+    disabled = false,
+  } = props;
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [isErasing, setIsErasing] = useState(false);
   const { mutate } = useSWRConfig();
@@ -81,12 +90,18 @@ export default function TableActionsButtons(props: Props) {
         href={`${editPath}/${item.documentId}`}
         withButtonStyles
         intent="ghostBlack"
+        disabled={disabled}
       >
         <Pencil size={20} />
         Editar
       </CustomLink>
       {erasePath && (
-        <ButtonDos size="sm" intent="outlineRed" onClick={onOpen}>
+        <ButtonDos
+          size="sm"
+          intent="outlineRed"
+          onClick={onOpen}
+          disabled={disabled}
+        >
           <Trash2 size={20} />
           Eliminar
         </ButtonDos>

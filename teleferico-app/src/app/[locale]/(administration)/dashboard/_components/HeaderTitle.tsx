@@ -6,7 +6,11 @@ import { ADMIN_ROUTES } from "@/utils/routes.const";
 const titles: Record<
   Exclude<
     keyof typeof ADMIN_ROUTES,
-    "LOGIN" | "LOGOUT" | "EDIT_ACCESS_TICKET" | "EDIT_ACTIVITY_TICKET"
+    | "LOGIN"
+    | "LOGOUT"
+    | "EDIT_ACCESS_TICKET"
+    | "EDIT_ACTIVITY_TICKET"
+    | "EDIT_FAQS"
   >,
   { path: string; title: string }
 > = {
@@ -17,6 +21,8 @@ const titles: Record<
   NEWS: { path: ADMIN_ROUTES.NEWS, title: "Noticias" },
   PRICES: { path: ADMIN_ROUTES.PRICES, title: "Tarifas" },
   RECRUITMENT: { path: ADMIN_ROUTES.RECRUITMENT, title: "Trabajo" },
+  FAQS: { path: ADMIN_ROUTES.FAQS, title: "Preguntas Frecuentes" },
+  NEW_FAQ: { path: ADMIN_ROUTES.NEW_FAQ, title: "Nueva Pregunta Frecuente" },
   ZONES: { path: ADMIN_ROUTES.ZONES, title: "Horarios Zonas" },
   NEW_ACTIVITY_TICKET: {
     path: ADMIN_ROUTES.NEW_ACTIVITY_TICKET,

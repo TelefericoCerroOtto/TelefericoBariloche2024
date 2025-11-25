@@ -1,6 +1,6 @@
 "use server";
 
-import { getServiceState, updateServiceState } from "@/lib/services/cms-collections/service-state";
+import { getServiceState, updateServiceState } from "@/lib/services";
 import type { ServiceStateValues } from "@/types";
 import { getSession } from "@/utils/auth";
 import { CACHE_TAGS } from "@/utils/cache-tags.const";

@@ -1,14 +1,14 @@
 "use client";
 
 import { ButtonDos, FormError, InputSkeleton } from "@/components";
-import { useTranslation } from "@/hooks";
-import { postulationSchema } from "@/lib/schemas";
+import { useLocale, useTranslation } from "@/hooks";
 import type { PostulationFormData, Sector } from "@/types";
 import { selectInputStyles } from "@/utils";
 import { Input, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import { useCallback, useState } from "react";
 import { sendPostulationAction } from "./actions";
+import { buildPostulationSchema } from "@/lib/schemas";
 
 interface Props {
   sectors: Sector[];
@@ -17,6 +17,7 @@ interface Props {
 export default function Form(props: Props) {
   const { sectors } = props;
   const { data, error, loading } = useTranslation("forms");
+  const { locale } = useLocale();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -60,7 +61,7 @@ export default function Form(props: Props) {
       sector: "tech",
     },
     onSubmit,
-    validationSchema: postulationSchema,
+    validationSchema: buildPostulationSchema(locale),
   });
 
   console.log("errors", errors);

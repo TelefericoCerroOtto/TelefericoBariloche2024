@@ -24,6 +24,7 @@ import {
   Power,
   Repeat2,
   Rss,
+  MessageCircleQuestionMark,
   User,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
@@ -72,6 +73,14 @@ const items: SidebarItem[] = [
     icon: Rss,
     implemented: true,
     tooltip: "Gestionar noticias del sitio web",
+    allowedRoles: ["Administrator", "Media Manager"],
+  },
+  {
+    name: "Preguntas Frecuentes",
+    url: ADMIN_ROUTES.FAQS,
+    icon: MessageCircleQuestionMark,
+    implemented: true,
+    tooltip: "Gestionar preguntas frecuentes del sitio web",
     allowedRoles: ["Administrator", "Media Manager"],
   },
   {

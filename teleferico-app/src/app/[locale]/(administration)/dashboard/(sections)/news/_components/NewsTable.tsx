@@ -84,7 +84,7 @@ export default function NewsTable() {
   );
 
   if (isError) {
-    console.log("Hubo un error al cargar las noticias", isError);
+    console.log("get news error: ", isError);
     alert("Hubo un error al cargar las noticias");
   }
 
