@@ -29,11 +29,12 @@ export async function contactUsAction(
   // }
 
   try {
-    const { ok, message } = await sendEmail(values);
+    const { ok, message, code } = await sendEmail(values);
 
     return {
       success: ok,
       message,
+      data: { code },
     };
   } catch (error) {
     console.error("contactUsAction error: ", error);

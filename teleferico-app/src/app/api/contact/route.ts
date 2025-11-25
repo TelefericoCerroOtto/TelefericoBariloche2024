@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           message: "Invalid submission timing",
+          code: "INVALID_FORM_AGE",
         },
         { status: 400 },
       );

@@ -8,4 +8,5 @@ export type ContactRequestPayload = ContactFormData & {
 export type ContactApiResponse = {
   ok: boolean;
   message: string;
+  code?: "INVALID_FORM_AGE";
 };

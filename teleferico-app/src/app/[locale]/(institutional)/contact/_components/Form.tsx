@@ -2,13 +2,40 @@
 
 import { ButtonDos, FormError, InputSkeleton } from "@/components";
 import { useLocale, useTranslation } from "@/hooks";
-import { ContactFormData } from "@/types";
+import { ContactFormData, Locales } from "@/types";
 import { Input, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRef, useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { contactUsAction } from "./actions";
 import { buildContactSchema } from "@/lib/schemas";
+
+const translations: Record<
+  Locales,
+  { success: string; failed: string; reload: string; translationError: string }
+> = {
+  "es-AR": {
+    success: "Formulario enviado correctamente",
+    failed: "Ocurrio un error inesperado",
+    reload:
+      "Ocurrió un error inesperado con el formulario. Vamos a recargar la página para que puedas enviarlo de nuevo.",
+    translationError: "No se pudo recuperar el contenido del formulario",
+  },
+  en: {
+    success: "Form submitted successfully",
+    failed: "An unexpected error occurred",
+    reload:
+      "An unexpected error occurred with the form. We will reload the page so you can submit it again.",
+    translationError: "Could not retrieve the form content",
+  },
+  pt: {
+    success: "Formulário enviado com sucesso",
+    failed: "Ocorreu um erro inesperado",
+    reload:
+      "Ocorreu um erro inesperado com o formulário. Vamos recarregar a página para que você possa enviá-lo novamente.",
+    translationError: "Não foi possível recuperar o conteúdo do formulário",
+  },
+};
 
 export default function Form() {
   const { data, error, loading: loadingLocale } = useTranslation("forms");
@@ -30,24 +57,25 @@ export default function Form() {
         formLoadedAt,
       });
 
-      const message = res.message;
-
       if (res.success) {
-        alert(message || "Formulario enviado correctamente");
+        alert(translations[locale].success);
         setToken(null);
         setHoneypot("");
         setFormLoadedAt(Date.now());
         recaptchaRef.current?.reset();
         resetForm();
       } else {
-        alert(message || "Ocurrio un error inesperado");
+        console.log("Contact form submission failed: ", res.message);
+        if (res.data?.code === "INVALID_FORM_AGE") {
+          alert(translations[locale].reload);
+          window.location.reload();
+        }
+        alert(translations[locale].failed);
       }
     } catch (error) {
-      console.error(
-        "submit contact form error",
-        error instanceof Error ? error.message : error,
-      );
-      alert("Ocurrio un error inesperado");
+      console.log("Contact form onSubmit error: ", error);
+      recaptchaRef.current?.reset();
+      alert(translations[locale].failed);
     } finally {
       setIsLoading(false);
     }
@@ -68,9 +96,7 @@ export default function Form() {
   });
 
   if (error)
-    return (
-      <FormError message="No se pudo recuperar el contenido de la formulario" />
-    );
+    return <FormError message={translations[locale].translationError} />;
 
   if (loadingLocale)
     return (
