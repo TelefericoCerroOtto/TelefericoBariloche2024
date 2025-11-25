@@ -2,7 +2,7 @@
 
 import { ButtonDos, FormError, InputSkeleton } from "@/components";
 import { useLocale, useTranslation } from "@/hooks";
-import { ContactFormData } from "@/types";
+import { ContactFormData, Locales } from "@/types";
 import { Input, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRef, useState } from "react";
@@ -10,28 +10,93 @@ import ReCAPTCHA from "react-google-recaptcha";
 import { contactUsAction } from "./actions";
 import { buildContactSchema } from "@/lib/schemas";
 
+const translations: Record<
+  Locales,
+  {
+    success: string;
+    failed: string;
+    reload: string;
+    translationError: string;
+    captchaFailed: string;
+  }
+> = {
+  "es-AR": {
+    success: "Formulario enviado correctamente",
+    failed: "Ocurrio un error inesperado",
+    reload:
+      "Ocurrió un error inesperado con el formulario. Vamos a recargar la página para que puedas enviarlo de nuevo.",
+    translationError: "No se pudo recuperar el contenido del formulario",
+    captchaFailed: "El captcha falló. Por favor, inténtalo de nuevo.",
+  },
+  en: {
+    success: "Form submitted successfully",
+    failed: "An unexpected error occurred",
+    reload:
+      "An unexpected error occurred with the form. We will reload the page so you can submit it again.",
+    translationError: "Could not retrieve the form content",
+    captchaFailed: "Captcha failed. Please try again.",
+  },
+  pt: {
+    success: "Formulário enviado com sucesso",
+    failed: "Ocorreu um erro inesperado",
+    reload:
+      "Ocorreu um erro inesperado com o formulário. Vamos recarregar a página para que você possa enviá-lo novamente.",
+    translationError: "Não foi possível recuperar o conteúdo do formulário",
+    captchaFailed: "O captcha falhou. Por favor, tente novamente.",
+  },
+};
+
 export default function Form() {
   const { data, error, loading: loadingLocale } = useTranslation("forms");
   const { locale } = useLocale();
   const [isLoading, setIsLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [honeypot, setHoneypot] = useState("");
+  const [formLoadedAt, setFormLoadedAt] = useState(() => Date.now());
   const recaptchaRef = useRef<ReCAPTCHA | null>(null);
 
   const onSubmit = async (values: ContactFormData) => {
+    if (isLoading) return; // prevent double submits while a request is in flight
+    if (!token) return;
     setIsLoading(true);
+    try {
+      const res = await contactUsAction(token, {
+        ...values,
+        honeypot,
+        formLoadedAt,
+      });
 
-    const res = await contactUsAction(token, values);
+      if (res.success) {
+        alert(translations[locale].success);
+        setToken(null);
+        setHoneypot("");
+        setFormLoadedAt(Date.now());
+        recaptchaRef.current?.reset();
+        resetForm();
+      } else {
+        console.log("Contact form submission failed: ", res.message);
 
-    setIsLoading(false);
+        const code = res.data?.code;
+        if (code === "INVALID_FORM_AGE") {
+          alert(translations[locale].reload);
+          window.location.reload();
+          return;
+        }
 
-    if (res.success) {
-      alert("Formulario enviado correctamente");
-      setToken(null);
+        if (code === "CAPTCHA_FAILED") {
+          alert(translations[locale].captchaFailed);
+          recaptchaRef.current?.reset();
+          return;
+        }
+
+        alert(translations[locale].failed);
+      }
+    } catch (error) {
+      console.log("Contact form onSubmit error: ", error);
       recaptchaRef.current?.reset();
-      resetForm();
-    } else {
-      alert("Ocurrio un error inesperado");
-      console.log("submit contact form error", res.message);
+      alert(translations[locale].failed);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -50,9 +115,7 @@ export default function Form() {
   });
 
   if (error)
-    return (
-      <FormError message="No se pudo recuperar el contenido de la formulario" />
-    );
+    return <FormError message={translations[locale].translationError} />;
 
   if (loadingLocale)
     return (
@@ -67,6 +130,21 @@ export default function Form() {
 
   return (
     <form className="grid flex-grow grid-cols-1 gap-4" onSubmit={handleSubmit}>
+      {/* Honeypot field discourages bots while staying invisible to real users. */}
+      <div className="absolute left-[-9999px]" aria-hidden="true">
+        <label htmlFor="company" aria-hidden="true">
+          Do not fill out
+        </label>
+        <input
+          id="company"
+          name="company"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={honeypot}
+          onChange={(event) => setHoneypot(event.target.value)}
+        />
+      </div>
       <Input
         id="name"
         name="name"

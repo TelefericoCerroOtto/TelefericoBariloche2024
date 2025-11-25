@@ -1,21 +1,21 @@
 import {
-  contactSchema,
+  buildContactSchema,
+  buildPostulationSchema,
   createAccessTicketSchema,
   createActivitySchema,
   createBusTripSchema,
+  createFaqSchema,
+  createNewSchema,
   loginSchema,
   newUserSchema,
-  postulationSchema,
   timeSchema,
-  createNewSchema,
   updateAccessTicketSchema,
   updateActivitySchema,
   updateBusTripSchema,
+  updateFaqSchema,
+  updateNewSchema,
   updateUserSchema,
   updateZoneSchema,
-  updateNewSchema,
-  createFaqSchema,
-  updateFaqSchema,
 } from "@/lib/schemas";
 import type { InferType } from "yup";
 import type { Locales } from "./i18n";
@@ -35,8 +35,10 @@ export type UpdateBusTripFormData = InferType<typeof updateBusTripSchema>;
 export type TimeFormData = InferType<typeof timeSchema>;
 export type NewUserFormData = InferType<typeof newUserSchema>;
 export type UpdateUserFormData = InferType<typeof updateUserSchema>;
-export type PostulationFormData = InferType<typeof postulationSchema>;
-export type ContactFormData = InferType<typeof contactSchema>;
+export type PostulationFormData = InferType<
+  ReturnType<typeof buildPostulationSchema>
+>;
+export type ContactFormData = InferType<ReturnType<typeof buildContactSchema>>;
 export type CreateNewFormData = InferType<typeof createNewSchema>;
 export type UpdateNewFormData = InferType<typeof updateNewSchema>;
 export type CreateFaqFormData = InferType<typeof createFaqSchema>;
@@ -46,7 +48,8 @@ export type TimeValue = InferType<typeof timeSchema>;
 export type FormSubmitServerActionResponse = Promise<{
   success: boolean;
   message: string;
-  data?: unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: any;
 }>;
 export type InputLocaleConfig = Record<
   Locales,
