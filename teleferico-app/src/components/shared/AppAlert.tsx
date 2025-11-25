@@ -9,6 +9,7 @@ import {
   Info,
   OctagonAlert,
 } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { cn } from "@/utils";
 
@@ -24,6 +25,7 @@ export interface AppAlertProps {
   title: string;
   message: string;
   variant: AppAlertVariant;
+  children?: ReactNode; // 👈 para agregar el botón “Aceptar”
 }
 
 const variantStyles: Record<
@@ -90,7 +92,12 @@ const variantStyles: Record<
   },
 };
 
-export default function AppAlert({ title, message, variant }: AppAlertProps) {
+export default function AppAlert({
+  title,
+  message,
+  variant,
+  children,
+}: AppAlertProps) {
   const styles = variantStyles[variant] ?? variantStyles.default;
   const Icon = styles.icon;
 
@@ -107,7 +114,7 @@ export default function AppAlert({ title, message, variant }: AppAlertProps) {
       <CardBody className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start">
         <div
           className={cn(
-            "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-border/40", // subtle frame for the logo
+            "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-border/40",
             styles.accent,
             styles.logoPanel,
           )}
@@ -152,6 +159,8 @@ export default function AppAlert({ title, message, variant }: AppAlertProps) {
               </p>
             </div>
           </div>
+
+          {children && <div className="mt-3 flex justify-end">{children}</div>}
         </div>
       </CardBody>
     </Card>
