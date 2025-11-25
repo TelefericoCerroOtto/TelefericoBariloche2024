@@ -12,7 +12,13 @@ import { buildContactSchema } from "@/lib/schemas";
 
 const translations: Record<
   Locales,
-  { success: string; failed: string; reload: string; translationError: string }
+  {
+    success: string;
+    failed: string;
+    reload: string;
+    translationError: string;
+    captchaFailed: string;
+  }
 > = {
   "es-AR": {
     success: "Formulario enviado correctamente",
@@ -20,6 +26,7 @@ const translations: Record<
     reload:
       "Ocurrió un error inesperado con el formulario. Vamos a recargar la página para que puedas enviarlo de nuevo.",
     translationError: "No se pudo recuperar el contenido del formulario",
+    captchaFailed: "El captcha falló. Por favor, inténtalo de nuevo.",
   },
   en: {
     success: "Form submitted successfully",
@@ -27,6 +34,7 @@ const translations: Record<
     reload:
       "An unexpected error occurred with the form. We will reload the page so you can submit it again.",
     translationError: "Could not retrieve the form content",
+    captchaFailed: "Captcha failed. Please try again.",
   },
   pt: {
     success: "Formulário enviado com sucesso",
@@ -34,6 +42,7 @@ const translations: Record<
     reload:
       "Ocorreu um erro inesperado com o formulário. Vamos recarregar a página para que você possa enviá-lo novamente.",
     translationError: "Não foi possível recuperar o conteúdo do formulário",
+    captchaFailed: "O captcha falhou. Por favor, tente novamente.",
   },
 };
 
@@ -66,10 +75,20 @@ export default function Form() {
         resetForm();
       } else {
         console.log("Contact form submission failed: ", res.message);
-        if (res.data?.code === "INVALID_FORM_AGE") {
+
+        const code = res.data?.code;
+        if (code === "INVALID_FORM_AGE") {
           alert(translations[locale].reload);
           window.location.reload();
+          return;
         }
+
+        if (code === "CAPTCHA_FAILED") {
+          alert(translations[locale].captchaFailed);
+          recaptchaRef.current?.reset();
+          return;
+        }
+
         alert(translations[locale].failed);
       }
     } catch (error) {

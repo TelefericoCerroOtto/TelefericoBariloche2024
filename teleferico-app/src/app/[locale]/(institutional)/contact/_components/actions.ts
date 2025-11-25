@@ -1,6 +1,6 @@
 "use server";
 
-import { sendEmail } from "@/lib/services";
+import { sendEmail, verifyCaptchaToken } from "@/lib/services";
 import type {
   ContactRequestPayload,
   FormSubmitServerActionResponse,
@@ -17,16 +17,15 @@ export async function contactUsAction(
     };
   }
 
-  // TODO: implement backend token verification
-  // const captchaData = await verifyCaptchaToken(token);
-  // console.log("captchaData: ", captchaData);
+  const captchaData = await verifyCaptchaToken(token);
 
-  // if (captchaData.success === false) {
-  //   return {
-  //     success: false,
-  //     message: "Captcha Failed",
-  //   };
-  // }
+  if (!captchaData.success) {
+    return {
+      success: false,
+      message: "Captcha failed. Please try again.",
+      data: { code: "CAPTCHA_FAILED" },
+    };
+  }
 
   try {
     const { ok, message, code } = await sendEmail(values);
