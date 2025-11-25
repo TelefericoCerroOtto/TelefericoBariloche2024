@@ -1,6 +1,7 @@
 "use server";
 
-import { sendEmail, verifyCaptchaToken } from "@/lib/services";
+import { verifyCaptchaToken } from "@/lib/google/captcha";
+import { sendEmail } from "@/lib/services";
 import type {
   ContactRequestPayload,
   FormSubmitServerActionResponse,
