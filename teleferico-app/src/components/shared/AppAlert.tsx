@@ -1,6 +1,4 @@
-import LogoRecortado from "@/public/logo-recortado.svg";
 import { Card, CardBody } from "@heroui/react";
-import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -10,8 +8,6 @@ import {
   OctagonAlert,
 } from "lucide-react";
 import type { ReactNode } from "react";
-
-import { cn } from "@/utils";
 
 export type AppAlertVariant =
   | "danger"
@@ -25,70 +21,74 @@ export interface AppAlertProps {
   title: string;
   message: string;
   variant: AppAlertVariant;
-  children?: ReactNode; // 👈 para agregar el botón “Aceptar”
+  children?: ReactNode;
 }
 
 const variantStyles: Record<
   AppAlertVariant,
   {
     icon: LucideIcon;
-    container: string;
-    accent: string;
+    bg: string;
+    border: string;
+    iconBg: string;
     iconColor: string;
-    title: string;
-    message: string;
-    logoPanel?: string;
+    titleColor: string;
+    messageColor: string;
   }
 > = {
   danger: {
     icon: OctagonAlert,
-    container: "bg-red-50 border-custom-red/30 text-custom-red",
-    accent: "bg-custom-red/10",
+    bg: "bg-white",
+    border: "border-custom-red",
+    iconBg: "bg-custom-red/10",
     iconColor: "text-custom-red",
-    title: "text-custom-red",
-    message: "text-custom-red/80",
+    titleColor: "text-custom-red",
+    messageColor: "text-slate-700",
   },
   success: {
     icon: CheckCircle2,
-    container: "bg-emerald-50 border-custom-green/30 text-custom-green",
-    accent: "bg-custom-green/10",
+    bg: "bg-white",
+    border: "border-custom-green",
+    iconBg: "bg-custom-green/10",
     iconColor: "text-custom-green",
-    title: "text-custom-green",
-    message: "text-custom-green/80",
+    titleColor: "text-custom-green",
+    messageColor: "text-slate-700",
   },
   info: {
     icon: Info,
-    container: "bg-sky-50 border-custom-blue/30 text-custom-blue",
-    accent: "bg-custom-blue/10",
+    bg: "bg-white",
+    border: "border-custom-blue",
+    iconBg: "bg-custom-blue/10",
     iconColor: "text-custom-blue",
-    title: "text-custom-blue",
-    message: "text-custom-blue/80",
+    titleColor: "text-custom-blue",
+    messageColor: "text-slate-700",
   },
   warning: {
     icon: AlertTriangle,
-    container: "bg-amber-50 border-custom-orange/30 text-custom-orange",
-    accent: "bg-custom-orange/10",
+    bg: "bg-white",
+    border: "border-custom-orange",
+    iconBg: "bg-custom-orange/10",
     iconColor: "text-custom-orange",
-    title: "text-custom-orange",
-    message: "text-custom-orange/80",
+    titleColor: "text-custom-orange",
+    messageColor: "text-slate-700",
   },
   default: {
     icon: Bell,
-    container: "bg-white border-border text-foreground",
-    accent: "bg-foreground/5",
+    bg: "bg-white",
+    border: "border-border",
+    iconBg: "bg-foreground/5",
     iconColor: "text-foreground",
-    title: "text-foreground",
-    message: "text-foreground/80",
-    logoPanel: "bg-white/70",
+    titleColor: "text-foreground",
+    messageColor: "text-foreground/80",
   },
   black: {
     icon: Bell,
-    container: "bg-foreground border-foreground text-background",
-    accent: "bg-background/20",
+    bg: "bg-foreground",
+    border: "border-foreground",
+    iconBg: "bg-background/15",
     iconColor: "text-background",
-    title: "text-background",
-    message: "text-background/80",
-    logoPanel: "bg-background/10",
+    titleColor: "text-background",
+    messageColor: "text-background/80",
   },
 };
 
@@ -106,61 +106,35 @@ export default function AppAlert({
       as="section"
       role="alert"
       aria-live="polite"
-      className={cn(
-        "w-full overflow-hidden rounded-xl border shadow-sm backdrop-blur transition-colors duration-200",
-        styles.container,
-      )}
+      className={`w-full rounded-2xl border shadow-md ${styles.bg} ${styles.border} `}
     >
-      <CardBody className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start">
-        <div
-          className={cn(
-            "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-border/40",
-            styles.accent,
-            styles.logoPanel,
-          )}
-        >
-          <Image
-            src={LogoRecortado}
-            alt="Teleférico Cerro Otto"
-            width={42}
-            height={42}
-            className="h-10 w-10 object-contain"
-          />
-        </div>
+      <CardBody className="p-6">
+        <div className="flex gap-4">
+          {/* Icono de la variante */}
+          <div
+            aria-hidden="true"
+            className={`mt-1 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full ${styles.iconBg} `}
+          >
+            <Icon className={`h-6 w-6 ${styles.iconColor}`} />
+          </div>
 
-        <div className="flex flex-1 flex-col gap-3">
-          <div className="flex items-start gap-3">
-            <span
-              aria-hidden="true"
-              className={cn(
-                "mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                styles.accent,
-              )}
-            >
-              <Icon className={cn("h-5 w-5", styles.iconColor)} />
-            </span>
-
-            <div className="space-y-1">
+          {/* Texto + botón */}
+          <div className="flex flex-1 flex-col gap-4">
+            <div>
               <p
-                className={cn(
-                  "text-base font-semibold leading-tight sm:text-lg",
-                  styles.title,
-                )}
+                className={`text-lg font-semibold leading-tight sm:text-xl ${styles.titleColor} `}
               >
                 {title}
               </p>
               <p
-                className={cn(
-                  "text-sm leading-relaxed sm:text-base",
-                  styles.message,
-                )}
+                className={`mt-1 text-base leading-relaxed sm:text-lg ${styles.messageColor} `}
               >
                 {message}
               </p>
             </div>
-          </div>
 
-          {children && <div className="mt-3 flex justify-end">{children}</div>}
+            {children && <div className="flex justify-end">{children}</div>}
+          </div>
         </div>
       </CardBody>
     </Card>
