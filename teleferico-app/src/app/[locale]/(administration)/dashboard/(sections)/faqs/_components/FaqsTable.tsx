@@ -1,7 +1,7 @@
 "use client";
 
 import { TableActionsButtons, TableContainer } from "@/components";
-import { useProxy } from "@/hooks";
+import { useAppAlert, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
 import { GetFaqsResponse } from "@/types";
 import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
@@ -29,6 +29,7 @@ const PAGE_SIZE = 10;
 
 export default function FaqsTable() {
   const [page, setPage] = useState(1);
+  const { showAlert } = useAppAlert();
 
   const query = useMemo(() => {
     return {
@@ -50,7 +51,11 @@ export default function FaqsTable() {
 
   if (isError) {
     console.log("get faqs error: ", isError);
-    alert("Hubo un error al cargar las preguntas frecuentes.");
+    showAlert({
+      title: "Error",
+      message: "Hubo un error al cargar las preguntas frecuentes.",
+      variant: "danger",
+    });
   }
 
   const renderCell = useCallback(

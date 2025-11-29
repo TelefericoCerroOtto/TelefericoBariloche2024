@@ -14,6 +14,7 @@ import debounce from "just-debounce-it";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { createUserAction } from "./actions";
+import { useAppAlert } from "@/hooks";
 
 interface Props {
   roles: UserRole[];
@@ -26,6 +27,7 @@ export default function Form(props: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const { showAlert } = useAppAlert();
 
   const onSubmit = useCallback(
     async (values: NewUserFormData) => {
@@ -34,7 +36,11 @@ export default function Form(props: Props) {
         const res = await createUserAction(values);
         if (res.ok) {
           setIsSubmitting(false);
-          alert("Usuario creado exitosamente");
+          showAlert({
+            title: "Éxito",
+            message: "Usuario creado correctamente",
+            variant: "success",
+          });
           router.push(ADMIN_ROUTES.ADMIN_USERS);
           return;
         } else {

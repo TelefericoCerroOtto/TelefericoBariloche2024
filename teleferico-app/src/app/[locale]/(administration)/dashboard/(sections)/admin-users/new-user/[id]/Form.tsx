@@ -15,6 +15,7 @@ import { isEqual } from "lodash";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { updateUserAction } from "../_components/actions";
+import { useAppAlert } from "@/hooks";
 
 interface Props {
   user: UserResponse<{ role: UserRole }>;
@@ -28,6 +29,7 @@ export default function Form(props: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const { showAlert } = useAppAlert();
 
   const onSubmit = useCallback(async (values: UpdateUserFormData) => {
     setIsSubmitting(true);
@@ -35,7 +37,11 @@ export default function Form(props: Props) {
       const res = await updateUserAction(initialValues, values);
       if (res.ok) {
         setIsSubmitting(false);
-        alert("Usuario actualizado");
+        showAlert({
+          title: "Éxito",
+          message: "Usuario actualizado correctamente",
+          variant: "success",
+        });
         router.push(ADMIN_ROUTES.ADMIN_USERS);
         return;
       } else {

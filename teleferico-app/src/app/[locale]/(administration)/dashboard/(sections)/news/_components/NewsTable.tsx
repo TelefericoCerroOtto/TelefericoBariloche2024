@@ -1,7 +1,7 @@
 "use client";
 
 import { TableActionsButtons, TableContainer } from "@/components";
-import { useProxy } from "@/hooks";
+import { useAppAlert, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
 import type { GetNewsResponse } from "@/types";
 import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
@@ -43,6 +43,7 @@ export default function NewsTable() {
     highlightedOnly,
     onHighlightedChange,
   } = useNewsFilters();
+  const { showAlert } = useAppAlert();
 
   useEffect(() => {
     setPage(1);
@@ -85,7 +86,11 @@ export default function NewsTable() {
 
   if (isError) {
     console.log("get news error: ", isError);
-    alert("Hubo un error al cargar las noticias");
+    showAlert({
+      title: "Error",
+      message: "Hubo un error al cargar las noticias",
+      variant: "danger",
+    });
   }
 
   const renderCell = useCallback(

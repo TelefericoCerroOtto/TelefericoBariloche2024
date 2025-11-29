@@ -1,5 +1,6 @@
 "use client";
 
+import { useAppAlert } from "@/hooks";
 import { getStateAction, updateStateAction } from "@/lib/actions";
 import type { ServiceStateValues } from "@/types";
 import {
@@ -64,6 +65,7 @@ export default function DropdownCablecarMenu({
   const [selectedKeys, setSelectedKeys] = useState<Selection>(
     new Set(["normal"]),
   );
+  const { showAlert } = useAppAlert();
 
   const selectedValue = useMemo(
     () => Array.from(selectedKeys).join(", ").replaceAll("_", " "),
@@ -123,7 +125,11 @@ export default function DropdownCablecarMenu({
             return;
           } catch (error) {
             setIsLoading(false);
-            alert("Ocurrio un error al actualizar el estado del servicio");
+            showAlert({
+              title: "Error",
+              message: "Ocurrio un error al actualizar el estado del servicio",
+              variant: "danger",
+            });
             console.log("update state on dropdown menu error", error);
           }
         }}
