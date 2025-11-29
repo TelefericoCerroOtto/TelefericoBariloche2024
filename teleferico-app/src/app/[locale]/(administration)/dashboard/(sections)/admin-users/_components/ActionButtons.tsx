@@ -16,6 +16,7 @@ import {
 import { CirclePause, CirclePlay, Pencil, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { blockAction, deleteAction } from "./actions";
+import { useAppAlert } from "@/hooks";
 
 interface Props {
   user: UserResponse;
@@ -28,6 +29,7 @@ export default function ActionButtons({ user }: Props) {
   const [selectedAction, setSelectedAction] = useState<Actions>("delete");
   const [isLoading, setIsLoading] = useState(false);
   const { id, blocked, name, surname, username } = user;
+  const { showAlert } = useAppAlert();
 
   const generator = useCallback(
     function (
@@ -47,19 +49,21 @@ export default function ActionButtons({ user }: Props) {
           setIsLoading(false);
           if (res.ok) {
             onClose();
-            alert(message);
+            showAlert({ title: "Éxito", message, variant: "success" });
             return;
           }
-          alert(
-            `Ocurrio un error inesperado ${JSON.stringify(res.data, null, 2)}`,
-          );
+          showAlert({
+            title: "Error",
+            message: `Ocurrio un error inesperado ${JSON.stringify(res.data, null, 2)}`,
+            variant: "danger",
+          });
         } catch (error) {
           console.log("action error", error);
           setIsLoading(false);
         }
       };
     },
-    [blocked, id],
+    [blocked, id, showAlert],
   );
 
   const modalContent: Record<

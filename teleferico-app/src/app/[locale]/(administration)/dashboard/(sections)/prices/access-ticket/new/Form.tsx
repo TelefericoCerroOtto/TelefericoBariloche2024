@@ -5,7 +5,7 @@ import {
   FormLocaleSelector,
   InputLocaleWrapper,
 } from "@/components";
-import { useFormLocaleSelector } from "@/hooks";
+import { useAppAlert, useFormLocaleSelector } from "@/hooks";
 import { createAccessTicketSchema } from "@/lib/schemas";
 import type { CreateAccessTicketFormData } from "@/types";
 import { ADMIN_ROUTES } from "@/utils";
@@ -27,22 +27,36 @@ export default function Form() {
     useFormLocaleSelector();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const { showAlert } = useAppAlert();
 
   const onSubmit = async (values: CreateAccessTicketFormData) => {
     try {
       setIsSubmitting(true);
       const res = await newTicketAction(values);
       if (res.success) {
-        alert("Nueva tarifa creada exitosamente");
+        showAlert({
+          title: "Éxito",
+          message: "Nueva tarifa creada exitosamente",
+          variant: "success",
+        });
         return router.push(ADMIN_ROUTES.PRICES);
       }
       setIsSubmitting(false);
       console.log(res.message);
-      return alert("Ocurrió un error intesperado al crear la tarifa");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error al crear la tarifa",
+        variant: "danger",
+      });
+      return;
     } catch (error) {
       setIsSubmitting(false);
       console.log("new access ticket submit error: ", error);
-      alert("Ocurrió un error al enviar el formulario");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error al enviar el formulario",
+        variant: "danger",
+      });
     }
   };
 

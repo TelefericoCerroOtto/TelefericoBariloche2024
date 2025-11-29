@@ -5,7 +5,7 @@ import {
   FormLocaleSelector,
   InputLocaleWrapper,
 } from "@/components";
-import { useFormLocaleSelector } from "@/hooks";
+import { useAppAlert, useFormLocaleSelector } from "@/hooks";
 import { updateActivitySchema } from "@/lib/schemas";
 import type { UpdateActivityFormData } from "@/types";
 import { ADMIN_ROUTES } from "@/utils";
@@ -34,22 +34,36 @@ export default function Form(props: Props) {
   const router = useRouter();
   const { locale, selectedKeys, handleSelectionChange } =
     useFormLocaleSelector();
+  const { showAlert } = useAppAlert();
 
   const onSubmit = async (values: UpdateActivityFormData) => {
     setIsSubmitting(true);
     try {
       const res = await updateActivityAction(values);
       if (res.success) {
-        alert("Actividad actualizada exitosamente");
+        showAlert({
+          title: "Éxito",
+          message: "Actividad actualizada exitosamente",
+          variant: "success",
+        });
         return router.push(ADMIN_ROUTES.PRICES);
       }
       setIsSubmitting(false);
       console.log(res.message);
-      return alert("Ocurrió un error inesperado al actualizar la actividad");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error al actualizar la actividad",
+        variant: "danger",
+      });
+      return;
     } catch (error) {
       setIsSubmitting(false);
       console.log("update activity submit error: ", error);
-      alert("Ocurrió un error al enviar el formulario");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error al enviar el formulario",
+        variant: "danger",
+      });
     }
   };
 

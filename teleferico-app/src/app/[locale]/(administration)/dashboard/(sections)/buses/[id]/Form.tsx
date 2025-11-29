@@ -1,6 +1,7 @@
 "use client";
 
 import { FormButtons, TimeInput } from "@/components";
+import { useAppAlert } from "@/hooks";
 import { updateBusTripSchema } from "@/lib/schemas";
 import type { Station, UpdateBusTripFormData } from "@/types";
 import { ADMIN_ROUTES, selectInputStyles } from "@/utils";
@@ -22,22 +23,36 @@ export default function Form(props: Props) {
   const [timeInputLoading, setTimeInputLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const { showAlert } = useAppAlert();
 
   const onSubmit = async (values: UpdateBusTripFormData) => {
     setIsSubmitting(true);
     try {
       const res = await updateBusTripAction(values);
       if (res.success) {
-        alert("Viaje actualizado exitosamente");
+        showAlert({
+          title: "Éxito",
+          message: "Viaje actualizado correctamente",
+          variant: "success",
+        });
         return router.push(ADMIN_ROUTES.BUSES);
       }
       setIsSubmitting(false);
       console.log(res.message, "\n", res.data);
-      return alert("Ocurrió un error inesperado al crear el viaje");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error al actualizar el viaje",
+        variant: "danger",
+      });
+      return;
     } catch (error) {
       setIsSubmitting(false);
       console.log("new bus trip submit error: ", error);
-      alert("Ocurrió un error al enviar el formulario");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error al actualizar el viaje",
+        variant: "danger",
+      });
     }
   };
 

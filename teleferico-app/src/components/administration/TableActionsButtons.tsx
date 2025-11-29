@@ -1,6 +1,7 @@
 "use client";
 
 import { ButtonDos, CustomLink } from "@/components";
+import { useAppAlert } from "@/hooks";
 import type {
   Activity,
   BusTrip,
@@ -47,6 +48,7 @@ export default function TableActionsButtons(props: Props) {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [isErasing, setIsErasing] = useState(false);
   const { mutate } = useSWRConfig();
+  const { showAlert } = useAppAlert();
 
   const eraseElement = async (onClose: () => void) => {
     try {
@@ -63,12 +65,20 @@ export default function TableActionsButtons(props: Props) {
         throw new Error("Error al eliminar el elemento");
       }
 
-      alert("Elemento eliminado con éxito");
+      showAlert({
+        title: "Éxito",
+        message: "Elemento eliminado con éxito",
+        variant: "success",
+      });
       onClose();
       mutate(swrMutateKey);
     } catch (err) {
       console.error(err);
-      alert("Ocurrió un error al eliminar el elemento.");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error al eliminar el elemento.",
+        variant: "danger",
+      });
     } finally {
       setIsErasing(false);
     }

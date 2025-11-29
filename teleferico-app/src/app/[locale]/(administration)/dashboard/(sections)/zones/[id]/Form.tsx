@@ -6,7 +6,7 @@ import {
   InputLocaleWrapper,
   TimeInput,
 } from "@/components";
-import { useFormLocaleSelector } from "@/hooks";
+import { useAppAlert, useFormLocaleSelector } from "@/hooks";
 import { updateZoneSchema } from "@/lib/schemas";
 import type { ZoneFormData } from "@/types/forms";
 import { ADMIN_ROUTES } from "@/utils";
@@ -30,24 +30,36 @@ export default function Form(props: Props) {
   const { locale, selectedKeys, handleSelectionChange } =
     useFormLocaleSelector();
   const router = useRouter();
+  const { showAlert } = useAppAlert();
 
   const onSubmit = async (values: ZoneFormData) => {
     setIsSubmitting(true);
     try {
       const res = await updateZoneAction(values);
       if (res.success) {
-        alert("Zona actualizada exitosamente");
+        showAlert({
+          title: "Éxito",
+          message: "Zona actualizada exitosamente",
+          variant: "success",
+        });
         return router.push(ADMIN_ROUTES.ZONES);
       }
       setIsSubmitting(false);
       console.log(res.message);
-      return alert(
-        `Ocurrió un error inesperado al actualizar la zona ${values["zoneName_es-AR"]}`,
-      );
+      showAlert({
+        title: "Error",
+        message: `Ocurrió un error inesperado al actualizar la zona ${values["zoneName_es-AR"]}`,
+        variant: "danger",
+      });
+      return;
     } catch (error) {
       setIsSubmitting(false);
       console.log("new access ticket submit error: ", error);
-      alert("Ocurrió un error al enviar el formulario");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error al enviar el formulario",
+        variant: "danger",
+      });
     }
   };
 

@@ -1,15 +1,16 @@
 "use client";
 
 import { FormButtons, TimeInput } from "@/components";
+import { useAppAlert } from "@/hooks";
 import { createBusTripSchema } from "@/lib/schemas";
 import type { CreateBusTripFormData, Station } from "@/types";
 import { ADMIN_ROUTES, selectInputStyles } from "@/utils";
 import { Select, SelectItem } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createBusTripAction } from "./actions";
-import { useRouter } from "next/navigation";
 
 interface Props {
   stations: Station[];
@@ -21,22 +22,36 @@ export default function Form(props: Props) {
   const [timeInputLoading, setTimeInputLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const { showAlert } = useAppAlert();
 
   const onSubmit = async (values: CreateBusTripFormData) => {
     setIsSubmitting(true);
     try {
       const res = await createBusTripAction(values);
       if (res.success) {
-        alert("Viaje creado exitosamente");
+        showAlert({
+          title: "Éxito",
+          message: "Viaje de bus creado correctamente",
+          variant: "success",
+        });
         return router.push(ADMIN_ROUTES.BUSES);
       }
       setIsSubmitting(false);
       console.log(res.message, "\n", res.data);
-      return alert("Ocurrió un error inesperado al crear el viaje");
+      showAlert({
+        title: "Error",
+        message: "No se pudo crear el viaje de bus",
+        variant: "danger",
+      });
+      return;
     } catch (error) {
       setIsSubmitting(false);
       console.log("new bus trip submit error: ", error);
-      alert("Ocurrió un error al enviar el formulario");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error inesperado",
+        variant: "danger",
+      });
     }
   };
 

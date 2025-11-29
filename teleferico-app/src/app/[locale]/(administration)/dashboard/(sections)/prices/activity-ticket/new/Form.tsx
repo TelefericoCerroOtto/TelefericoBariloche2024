@@ -5,7 +5,7 @@ import {
   FormLocaleSelector,
   InputLocaleWrapper,
 } from "@/components";
-import { useFormLocaleSelector } from "@/hooks";
+import { useAppAlert, useFormLocaleSelector } from "@/hooks";
 import { createActivitySchema } from "@/lib/schemas";
 import type { CreateActivityFormData } from "@/types";
 import { ADMIN_ROUTES } from "@/utils";
@@ -28,22 +28,36 @@ export default function Form() {
   const router = useRouter();
   const { locale, selectedKeys, handleSelectionChange } =
     useFormLocaleSelector();
+  const { showAlert } = useAppAlert();
 
   const onSubmit = async (values: CreateActivityFormData) => {
     try {
       setIsSubmitting(true);
       const res = await createActivityAction(values);
       if (res.success) {
-        alert("Nueva actividad creada exitosamente");
+        showAlert({
+          title: "Éxito",
+          message: "Nueva actividad creada exitosamente",
+          variant: "success",
+        });
         return router.push(ADMIN_ROUTES.PRICES);
       }
       setIsSubmitting(false);
       console.log(res.message);
-      return alert("Ocurrió un error inesperado al crear la actividad");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error al crear la actividad",
+        variant: "danger",
+      });
+      return;
     } catch (error) {
       setIsSubmitting(false);
       console.log("new activity ticket submit error: ", error);
-      alert("Ocurrió un error al enviar el formulario");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error al enviar el formulario",
+        variant: "danger",
+      });
     }
   };
 

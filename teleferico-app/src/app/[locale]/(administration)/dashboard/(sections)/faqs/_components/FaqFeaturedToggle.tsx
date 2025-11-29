@@ -6,6 +6,7 @@ import { addToast, Switch } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
 import { updateFaqFeaturedStatus } from "./actions";
+import { useAppAlert } from "@/hooks";
 
 interface Props {
   faq: Faq;
@@ -19,6 +20,7 @@ export default function FaqFeaturedToggle({ faq, onUpdate }: Props) {
   );
   const [isUpdating, setIsUpdating] = useState(false);
   const { mutate } = useSWRConfig();
+  const { showAlert } = useAppAlert();
 
   useEffect(() => {
     setIsFeatured(faq.featured ?? false);
@@ -37,7 +39,11 @@ export default function FaqFeaturedToggle({ faq, onUpdate }: Props) {
 
       if (!res.success) {
         setIsFeatured(previousValue);
-        alert("No se pudo actualizar el estado de la zona.");
+        showAlert({
+          title: "Error",
+          message: "No se pudo actualizar el estado de la zona.",
+          variant: "danger",
+        });
         console.log(res?.message ?? "Failed to update zone open status.");
         return;
       }
@@ -55,7 +61,11 @@ export default function FaqFeaturedToggle({ faq, onUpdate }: Props) {
       });
     } catch (error) {
       setIsFeatured(previousValue);
-      alert("Ocurrió un error inesperado al actualizar el estado de la zona.");
+      showAlert({
+        title: "Error",
+        message: "Ocurrió un error inesperado",
+        variant: "danger",
+      });
       console.log("Unexpected error updating zone open status.", error);
     } finally {
       setIsUpdating(false);

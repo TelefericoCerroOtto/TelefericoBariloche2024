@@ -6,6 +6,7 @@ import { addToast, Switch } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
 import { updateZoneOpenStatusAction } from "./actions";
+import { useAppAlert } from "@/hooks";
 
 interface Props {
   zone: Zone;
@@ -15,6 +16,7 @@ export default function ZoneOpenToggle({ zone }: Props) {
   const [isOpen, setIsOpen] = useState<boolean>(() => zone.isOpen ?? false);
   const [isUpdating, setIsUpdating] = useState(false);
   const { mutate } = useSWRConfig();
+  const { showAlert } = useAppAlert();
 
   useEffect(() => {
     setIsOpen(zone.isOpen ?? false);
@@ -32,7 +34,11 @@ export default function ZoneOpenToggle({ zone }: Props) {
 
       if (!res.success) {
         setIsOpen(previousValue);
-        alert("No se pudo actualizar el estado de la zona.");
+        showAlert({
+          title: "Error",
+          message: "No se pudo actualizar el estado de la zona.",
+          variant: "danger",
+        });
         console.log(res?.message ?? "Failed to update zone open status.");
         return;
       }
@@ -50,7 +56,12 @@ export default function ZoneOpenToggle({ zone }: Props) {
       });
     } catch (error) {
       setIsOpen(previousValue);
-      alert("Ocurrió un error inesperado al actualizar el estado de la zona.");
+      showAlert({
+        title: "Error",
+        message:
+          "Ocurrió un error inesperado al actualizar el estado de la zona.",
+        variant: "danger",
+      });
       console.log("Unexpected error updating zone open status.", error);
     } finally {
       setIsUpdating(false);
