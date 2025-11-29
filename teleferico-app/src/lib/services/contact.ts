@@ -3,7 +3,7 @@ import { ROUTE_HANDLERS } from "@/utils";
 import { assertEnv } from "@/utils/env";
 import { ENV_KEYS } from "@/lib/constants/env.const";
 
-const CONTACT_TIMEOUT_MS = 10_000;
+const CONTACT_TIMEOUT_MS = 30_000;
 
 export const sendEmail = async (
   payload: ContactRequestPayload,
