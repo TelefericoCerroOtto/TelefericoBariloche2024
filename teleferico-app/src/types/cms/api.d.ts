@@ -11,9 +11,9 @@ import type {
   ServiceStateValues,
   ServiceStatus,
   Station,
+  StrapiFile,
   StrapiImage,
   StrapiLocales,
-  StrapiPDF,
   StrapiRecord,
   Ticket,
   UserRole,
@@ -351,6 +351,7 @@ export type PostPostulationRequest = {
     sector: {
       connect: [{ documentId: string }];
     };
+    resume: number;
   };
 };
 
@@ -389,7 +390,7 @@ export type UploadResumeResponse = [
   }>,
 ];
 
-export type UploadMediaResponse<T extends StrapiImage | StrapiPDF> = T[];
+export type UploadMediaResponse<T extends StrapiImage | StrapiFile> = T[];
 
 export type GetNavbarItemsResponse = {
   data: [

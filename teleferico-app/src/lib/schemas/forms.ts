@@ -10,6 +10,9 @@ import { boolean, mixed, number, object, ObjectSchema, string } from "yup";
 type LocaleMessage = {
   mixed: {
     required: string;
+    resumeType: string;
+    // eslint-disable-next-line no-unused-vars
+    fileSize: (s: number) => string;
   };
   string: {
     required: string;
@@ -33,6 +36,8 @@ const localeMessages: Record<Locales, LocaleMessage> = {
   "es-AR": {
     mixed: {
       required: "Este campo es obligatorio",
+      resumeType: "Solo se permiten archivos PDF, DOC, DOCX o TXT",
+      fileSize: (s: number) => `El archivo no debe superar ${s}MB`,
     },
     string: {
       required: "Este campo es obligatorio",
@@ -50,6 +55,8 @@ const localeMessages: Record<Locales, LocaleMessage> = {
   en: {
     mixed: {
       required: "This field is required",
+      resumeType: "Only PDF, DOC, DOCX or TXT files are allowed",
+      fileSize: (s: number) => `The file must not exceed ${s}MB`,
     },
     string: {
       required: "This field is required",
@@ -67,6 +74,8 @@ const localeMessages: Record<Locales, LocaleMessage> = {
   pt: {
     mixed: {
       required: "Este campo é obrigatório",
+      resumeType: "Apenas arquivos PDF, DOC, DOCX ou TXT são permitidos",
+      fileSize: (s: number) => `O arquivo não deve exceder ${s}MB`,
     },
     string: {
       required: "Este campo é obrigatório",
@@ -373,14 +382,11 @@ export const buildPostulationSchema = (locale: Locales) => {
     campNo: number().integer(m.number.integer),
     resume: mixed<File>()
       .required(m.mixed.required)
-      .test(
-        "fileType",
-        "Solo se permiten archivos PDF, DOC, DOCX o TXT",
-        (file) => {
-          return file && FILE_TYPES.includes(file.type);
-        },
-      )
-      .test("fileSize", "El archivo no debe superar los 5MB", (file) => {
+      .test("fileType", m.mixed.resumeType, (file) => {
+        console.log("file type: ", file.type);
+        return file && FILE_TYPES.includes(file.type);
+      })
+      .test("fileSize", m.mixed.fileSize(MAX_FILE_SIZE), (file) => {
         return file && file.size <= MAX_FILE_SIZE;
       }),
   });

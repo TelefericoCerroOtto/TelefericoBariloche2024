@@ -1,4 +1,4 @@
-import type { StrapiImage, UploadMediaResponse } from "@/types";
+import type { StrapiFile, StrapiImage, UploadMediaResponse } from "@/types";
 import { STRAPI_ENDPOINTS, fetchWrapper, getStrapiURL } from "@/utils";
 
 const uploadMedia = async <T>(file: File, jwt: string) => {
@@ -21,6 +21,4 @@ const uploadMedia = async <T>(file: File, jwt: string) => {
 };
 
 export const uploadImage = uploadMedia<UploadMediaResponse<StrapiImage>>;
-
-// TODO: Evaluar que funcion utilizar, esta o la de ./teleferico-app/src/lib/services/cms-collections/postulations.ts
-// export const uploadResume = uploadMedia<UploadMediaResponse<StrapiPDF>>;
+export const uploadFile = uploadMedia<UploadMediaResponse<StrapiFile>>;

@@ -1,23 +1,46 @@
 "use server";
 
-import { postPostulationAdapter } from "@/lib/adapters";
-import { postPostulation, uploadResume } from "@/lib/services";
-import type { PostulationFormData } from "@/types";
+import { verifyCaptchaToken } from "@/lib/google/captcha";
+import { sendPostulation } from "@/lib/services/postulation";
+import {
+  FormSubmitServerActionResponse,
+  PostulationRequestPayload,
+} from "@/types";
 
 export const sendPostulationAction = async (
-  postulation: PostulationFormData,
-) => {
-  const adaptedPostulation = postPostulationAdapter(postulation);
-  const postulationRes = await postPostulation(adaptedPostulation);
-  const postulationId = postulationRes.data?.data?.id;
-
-  if (!postulationRes.ok || !postulationId) {
-    return postulationRes;
+  token: string | null,
+  values: PostulationRequestPayload,
+): FormSubmitServerActionResponse => {
+  if (!token) {
+    return {
+      success: false,
+      message: "Captcha token is missing.",
+    };
   }
-  const uploadRes = await uploadResume(
-    postulation.resume,
-    postulationId,
-  );
 
-  return { ok: uploadRes, data: { postulationRes, uploadRes } };
+  const captchaData = await verifyCaptchaToken(token);
+
+  if (!captchaData.success) {
+    return {
+      success: false,
+      message: "Captcha failed. Please try again.",
+      data: { code: "CAPTCHA_FAILED" },
+    };
+  }
+
+  try {
+    const { ok, message, code } = await sendPostulation(values);
+
+    return {
+      success: ok,
+      message,
+      data: { code },
+    };
+  } catch (error) {
+    console.error("sendPostulationAction error: ", error);
+    return {
+      success: false,
+      message: "Postulation action failed",
+    };
+  }
 };
