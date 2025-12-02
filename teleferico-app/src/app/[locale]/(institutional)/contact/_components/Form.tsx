@@ -1,6 +1,6 @@
 "use client";
 
-import { ButtonDos, FormError, InputSkeleton } from "@/components";
+import { ButtonDos, FormError, Honeypot } from "@/components";
 import { useLocale, useTranslation } from "@/hooks";
 import { useAppAlert } from "@/hooks/use-app-alert";
 import { buildContactSchema } from "@/lib/schemas";
@@ -10,6 +10,7 @@ import { useFormik } from "formik";
 import { useRef, useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { contactUsAction } from "./actions";
+import Fallback from "./Fallback";
 
 const translations: Record<
   Locales,
@@ -89,7 +90,7 @@ const translations: Record<
 export default function Form() {
   const { data, error, loading: loadingLocale } = useTranslation("forms");
   const { locale } = useLocale();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [honeypot, setHoneypot] = useState("");
   const [formLoadedAt, setFormLoadedAt] = useState(() => Date.now());
@@ -97,9 +98,9 @@ export default function Form() {
   const { showAlert } = useAppAlert();
 
   const onSubmit = async (values: ContactFormData) => {
-    if (isLoading) return; // prevent double submits while a request is in flight
+    if (isSubmitting) return; // prevent double submits while a request is in flight
     if (!token) return;
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
       const res = await contactUsAction(token, {
         ...values,
@@ -157,7 +158,7 @@ export default function Form() {
         message: translations[locale].failed.message,
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -180,34 +181,16 @@ export default function Form() {
       <FormError message={translations[locale].translationError.message} />
     );
 
-  if (loadingLocale)
-    return (
-      <div className="grid flex-grow grid-cols-1 gap-4">
-        <InputSkeleton />
-        <InputSkeleton />
-        <InputSkeleton />
-      </div>
-    );
+  if (loadingLocale) return <Fallback />;
 
   const formIntl = data!.data[0].jsonValue;
 
   return (
     <form className="grid flex-grow grid-cols-1 gap-4" onSubmit={handleSubmit}>
-      {/* Honeypot field discourages bots while staying invisible to real users. */}
-      <div className="absolute left-[-9999px]" aria-hidden="true">
-        <label htmlFor="company" aria-hidden="true">
-          Do not fill out
-        </label>
-        <input
-          id="company"
-          name="company"
-          type="text"
-          tabIndex={-1}
-          autoComplete="off"
-          value={honeypot}
-          onChange={(event) => setHoneypot(event.target.value)}
-        />
-      </div>
+      <Honeypot
+        value={honeypot}
+        onChange={(event) => setHoneypot(event.target.value)}
+      />
       <Input
         id="name"
         name="name"
@@ -253,9 +236,9 @@ export default function Form() {
       <ButtonDos
         type="submit"
         className="w-[90px]"
-        isLoading={isLoading}
+        isLoading={isSubmitting}
         disabled={
-          isLoading ||
+          isSubmitting ||
           !token ||
           Object.keys(errors).length > 0 ||
           values.name === ""
