@@ -140,7 +140,7 @@ export type Sector = StrapiRecord<{
 export type Postulation = StrapiRecord<{
   name: string;
   surname: string;
-  genre: string;
+  gender: string;
   age: number;
   email: string;
   resume: unknown;

@@ -20,7 +20,7 @@ import {
   allPostulations,
   columns,
   favsPostulations,
-  genreOptions,
+  genderOptions,
   sectorOptions,
 } from "./data";
 import Filters from "./Filters";
@@ -30,7 +30,7 @@ export interface Postulation {
   name: string;
   email: string;
   age: number;
-  genre: string;
+  gender: string;
   sector: string;
   campNo: number;
   note: string;
@@ -41,7 +41,7 @@ export interface FormData {
   name: string;
   minAge: number;
   maxAge: number;
-  genre: string;
+  gender: string;
   sector: string;
   campNo: number;
 }
@@ -74,7 +74,7 @@ export const renderCell = (postulation: Postulation, columnKey: Key) => {
     case "role":
       return <span>{cellValue as string}</span>;
 
-    case "genre":
+    case "gender":
       return <span>{cellValue as string}</span>;
 
     case "campNo":
@@ -122,7 +122,7 @@ export default function PostulationsTable(props: Props) {
       name: "",
       minAge: 18,
       maxAge: 70,
-      genre: "",
+      gender: "",
       sector: "",
       campNo: 0,
       favs,
@@ -152,7 +152,7 @@ export default function PostulationsTable(props: Props) {
           setFieldValue={setFieldValue}
           values={values}
           sectorOptions={sectorOptions}
-          genreOptions={genreOptions}
+          genderOptions={genderOptions}
           selectedRows={selectedRows}
         />
       </form>

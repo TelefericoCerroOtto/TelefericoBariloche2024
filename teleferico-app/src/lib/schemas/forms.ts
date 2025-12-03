@@ -368,7 +368,7 @@ export const buildPostulationSchema = (locale: Locales) => {
       .required(m.string.required)
       .min(2, m.string.min(2))
       .max(30, m.string.max(30)),
-    genre: string()
+    gender: string()
       .required(m.string.required)
       .oneOf(["male", "female", "other"]),
     age: number()

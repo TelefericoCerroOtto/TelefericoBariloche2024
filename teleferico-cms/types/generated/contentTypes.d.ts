@@ -841,7 +841,7 @@ export interface ApiPostulationPostulation extends Struct.CollectionTypeSchema {
       'manyToMany',
       'plugin::users-permissions.user'
     >;
-    genre: Schema.Attribute.Enumeration<['male', 'female', 'other']> &
+    gender: Schema.Attribute.Enumeration<['male', 'female', 'other']> &
       Schema.Attribute.Required;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<

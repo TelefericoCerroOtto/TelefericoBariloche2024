@@ -23,7 +23,7 @@ export const sendPostulationAdapter = (
 
   formData.append("name", values.name);
   formData.append("surname", values.surname);
-  formData.append("genre", values.genre);
+  formData.append("gender", values.gender);
   formData.append("age", String(values.age));
   formData.append("email", values.email);
   formData.append("sector", values.sector);
@@ -46,7 +46,7 @@ export const sendPostulationAdapter = (
 export const postulationFormDataAdapter = (formData: FormData) => {
   const rawName = formData.get("name");
   const rawSurname = formData.get("surname");
-  const rawGenre = formData.get("genre");
+  const rawGenre = formData.get("gender");
   const rawAge = formData.get("age");
   const rawEmail = formData.get("email");
   const rawSector = formData.get("sector");
@@ -57,7 +57,7 @@ export const postulationFormDataAdapter = (formData: FormData) => {
   return {
     name: asString(rawName),
     surname: asString(rawSurname),
-    genre: asString(rawGenre),
+    gender: asString(rawGenre),
     age: asNumber(rawAge),
     email: asString(rawEmail),
     sector: asString(rawSector),
@@ -70,13 +70,13 @@ export const postulationFormDataAdapter = (formData: FormData) => {
 export const createPostulationAdapter = (
   values: PostulationFormData & { resumeId: number },
 ): PostPostulationRequest => {
-  const { name, surname, age, email, sector, genre, resumeId, campNo, note } =
+  const { name, surname, age, email, sector, gender, resumeId, campNo, note } =
     values;
   const reqBody: PostPostulationRequest = {
     data: {
       name,
       surname,
-      genre,
+      gender,
       age,
       email,
       campNo: undefined,

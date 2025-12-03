@@ -343,7 +343,7 @@ export type PostPostulationRequest = {
   data: {
     name: string;
     surname: string;
-    genre: string;
+    gender: string;
     age: number;
     email: string;
     note?: string;
@@ -359,7 +359,7 @@ export type PostPostulationResponse = {
   data: StrapiRecord<{
     name: string;
     surname: string;
-    genre: string;
+    gender: string;
     age: number;
     email: string;
     resume: unknown;
@@ -502,7 +502,7 @@ export type GetFormsTranslationResponse = {
             label: string;
             placeholder: string;
           };
-          genre: {
+          gender: {
             label: string;
             placeholder: string;
             items: {

@@ -11,7 +11,7 @@ import { type Option } from "./data";
 
 interface Props {
   isFiltering?: boolean;
-  genreOptions?: Option[];
+  genderOptions?: Option[];
   sectorOptions: Option[];
   values: FormData;
   selectedRows: Selection;
@@ -26,7 +26,7 @@ interface Props {
 export default function Filters(props: Props) {
   const {
     isFiltering,
-    genreOptions,
+    genderOptions,
     sectorOptions,
     selectedRows,
     setFieldValue,
@@ -85,14 +85,14 @@ export default function Filters(props: Props) {
           className="min-w-[175px]"
           labelPlacement="inside"
           size="sm"
-          name="genre"
-          id="genre"
+          name="gender"
+          id="gender"
           label="Género"
           placeholder="Seleccionar"
-          items={genreOptions}
+          items={genderOptions}
           selectionMode="multiple"
-          value={values.genre}
-          onChange={(evt) => setFieldValue("genre", evt.target.value)}
+          value={values.gender}
+          onChange={(evt) => setFieldValue("gender", evt.target.value)}
         >
           {(item) => <SelectItem key={item.key}>{item.label}</SelectItem>}
         </Select>

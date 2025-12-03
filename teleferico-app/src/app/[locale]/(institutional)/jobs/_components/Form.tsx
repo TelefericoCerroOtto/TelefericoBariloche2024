@@ -112,7 +112,7 @@ export default function Form(props: Props) {
       name: "Manuel",
       surname: "Fernandez",
       email: "manu@strapi.io",
-      genre: "male",
+      gender: "male",
       resume: undefined as unknown as File,
       age: 27,
       sector: sectors[0]?.key || "",
@@ -163,22 +163,24 @@ export default function Form(props: Props) {
       />
       <Select
         {...selectInputStyles}
-        name="genre"
-        id="genre"
-        label={formIntl.fields.genre.label}
-        placeholder={formIntl.fields.genre.placeholder}
-        defaultSelectedKeys={[values.genre]}
+        name="gender"
+        id="gender"
+        label={formIntl.fields.gender.label}
+        placeholder={formIntl.fields.gender.placeholder}
+        defaultSelectedKeys={[values.gender]}
         onChange={handleChange}
         onBlur={handleBlur}
-        errorMessage={errors.genre}
-        isInvalid={errors.genre !== undefined && touched.genre}
+        errorMessage={errors.gender}
+        isInvalid={errors.gender !== undefined && touched.gender}
         isRequired
       >
-        <SelectItem key="male">{formIntl.fields.genre.items.male}</SelectItem>
+        <SelectItem key="male">{formIntl.fields.gender.items.male}</SelectItem>
         <SelectItem key="female">
-          {formIntl.fields.genre.items.female}
+          {formIntl.fields.gender.items.female}
         </SelectItem>
-        <SelectItem key="other">{formIntl.fields.genre.items.other}</SelectItem>
+        <SelectItem key="other">
+          {formIntl.fields.gender.items.other}
+        </SelectItem>
       </Select>
       <Input
         id="age"

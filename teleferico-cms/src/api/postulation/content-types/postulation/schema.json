@@ -24,7 +24,7 @@
       "maxLength": 30,
       "minLength": 2
     },
-    "genre": {
+    "gender": {
       "type": "enumeration",
       "enum": [
         "male",
