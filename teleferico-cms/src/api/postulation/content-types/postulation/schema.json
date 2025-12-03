@@ -14,30 +14,30 @@
   "attributes": {
     "name": {
       "type": "string",
-      "required": true,
+      "minLength": 2,
       "maxLength": 30,
-      "minLength": 2
+      "required": true
     },
     "surname": {
       "type": "string",
-      "required": true,
+      "minLength": 2,
       "maxLength": 30,
-      "minLength": 2
+      "required": true
     },
     "gender": {
       "type": "enumeration",
+      "required": true,
       "enum": [
         "male",
         "female",
         "other"
-      ],
-      "required": true
+      ]
     },
     "age": {
       "type": "integer",
       "required": true,
-      "max": 80,
-      "min": 18
+      "min": 18,
+      "max": 80
     },
     "email": {
       "type": "email",
