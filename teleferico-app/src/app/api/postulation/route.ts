@@ -14,10 +14,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { ValidationError } from "yup";
 
 const rateLimitStore = new Map();
-const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_MAX = 2;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const MIN_FORM_AGE_MS = 3_000;
-const MAX_FORM_AGE_MS = 30 * 60 * 1000;
+const MAX_FORM_AGE_MS = 24 * 60 * 60 * 1000; // 24 horas
 const HONEYPOT_FIELD = "honeypot";
 const FORM_LOADED_AT_FIELD = "formLoadedAt";
 
@@ -132,6 +132,7 @@ async function postulationHandler(
 
 export const POST = withFormGuards(
   {
+    useInternalApiKey: true,
     rateLimited: {
       rateLimitStore,
       maxHits: RATE_LIMIT_MAX,
