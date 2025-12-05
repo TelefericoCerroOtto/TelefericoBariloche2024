@@ -24,18 +24,22 @@ export const sendPostulation = async (
 
     const formData = sendPostulationAdapter(values);
 
+    const headers: HeadersInit = {
+      Origin: baseUrl as string,
+      "x-internal-api-key": process.env[ENV_KEYS.INTERNAL_API_KEY] as string,
+    };
+
+    if (values.clientIp && values.clientIp !== "unknown") {
+      headers["x-client-ip"] = values.clientIp;
+    }
+
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        Origin: baseUrl as string,
-        "x-internal-api-key": process.env[ENV_KEYS.INTERNAL_API_KEY] as string,
-      },
+      headers,
       cache: "no-store",
       body: formData,
       signal: AbortSignal.timeout(POSTULATION_TIMEOUT_MS),
     });
-
-    console.log("postulation route handler response: ", res);
 
     return await res.json();
   } catch (error) {
