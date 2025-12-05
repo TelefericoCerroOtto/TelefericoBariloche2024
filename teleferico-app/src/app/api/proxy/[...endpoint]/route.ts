@@ -1,11 +1,17 @@
 import { auth } from "@/auth";
+import { ensureTrustedOrigin } from "@/lib/http/origin";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ endpoint: string[] }> },
 ) {
-  if (req.headers.get("sec-fetch-site") !== "same-origin") {
+  const result = ensureTrustedOrigin(req);
+  if (!result.ok) return result.res;
+
+  // (Opcional) plus con sec-fetch-site, pero suave:
+  const site = req.headers.get("sec-fetch-site");
+  if (site && site !== "same-origin" && site !== "same-site") {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -24,15 +30,12 @@ export async function GET(
     });
 
     const session = await auth();
-    const headers = new Headers();
 
-    if (session?.jwt) {
-      headers.set("Authorization", `Bearer ${session.jwt}`);
-    }
+    const headers: HeadersInit | undefined = session?.jwt
+      ? { Authorization: `Bearer ${session.jwt}` }
+      : undefined;
 
-    const res = await fetch(targetURL.href, {
-      headers: headers.size > 0 ? headers : undefined,
-    });
+    const res = await fetch(targetURL.href, { headers });
     const data = await res.json();
 
     return NextResponse.json(data, {

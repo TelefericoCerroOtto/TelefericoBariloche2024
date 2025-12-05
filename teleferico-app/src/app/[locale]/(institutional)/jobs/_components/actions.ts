@@ -1,35 +1,28 @@
 "use server";
 
-import { verifyCaptchaToken } from "@/lib/google/captcha";
+import { ensureValidCaptcha } from "@/lib/http/ensure-valid-captcha";
+import { getClientIpFromHeaders } from "@/lib/http/ip";
 import { sendPostulation } from "@/lib/services/postulation";
-import {
-  FormSubmitServerActionResponse,
-  PostulationRequestPayload,
-} from "@/types";
+import { GuardClientPayload, PostulationFormData } from "@/types";
+import { headers } from "next/headers";
 
 export const sendPostulationAction = async (
   token: string | null,
-  values: PostulationRequestPayload,
-): FormSubmitServerActionResponse => {
-  if (!token) {
-    return {
-      success: false,
-      message: "Captcha token is missing.",
-    };
+  values: PostulationFormData & GuardClientPayload,
+) => {
+  const captcha = await ensureValidCaptcha(token);
+  if (!captcha.ok) {
+    return captcha.res;
   }
 
-  const captchaData = await verifyCaptchaToken(token);
-
-  if (!captchaData.success) {
-    return {
-      success: false,
-      message: "Captcha failed. Please try again.",
-      data: { code: "CAPTCHA_FAILED" },
-    };
-  }
+  const h = await headers();
+  const clientIp = getClientIpFromHeaders(h);
 
   try {
-    const { ok, message, code } = await sendPostulation(values);
+    const { ok, message, code } = await sendPostulation({
+      ...values,
+      clientIp,
+    });
 
     return {
       success: ok,

@@ -1,9 +1,9 @@
 import { requireInternalApiKey } from "@/lib/http/internal-api-key";
 import { NextRequest, NextResponse } from "next/server";
 import { checkContentLength } from "./content-length";
-import { extractOrigin } from "./extract-origin";
+import { getClientIp } from "./ip";
+import { ensureTrustedOrigin } from "./origin";
 import { isRateLimited, type LimitStore } from "./rate-limit";
-import { getClientIp } from "./get-client-ip";
 
 export type FormGuardOptions = {
   maxBodyBytes?: number;
@@ -18,23 +18,6 @@ export type FormGuardOptions = {
 
 type GuardResult = { ok: true } | { ok: false; res: NextResponse };
 
-function buildAllowedOrigins(extraAllowedOrigins?: Set<string>): Set<string> {
-  const merged = new Set<string>();
-
-  const base = process.env.NEXT_PUBLIC_BASE_URL;
-  if (base) {
-    merged.add(base.replace(/\/$/, ""));
-  }
-
-  if (extraAllowedOrigins) {
-    for (const origin of extraAllowedOrigins) {
-      merged.add(origin.replace(/\/$/, ""));
-    }
-  }
-
-  return merged;
-}
-
 export async function runFormGuards(
   req: NextRequest,
   options: FormGuardOptions,
@@ -47,28 +30,8 @@ export async function runFormGuards(
     if (authError) return { ok: false, res: authError };
   }
 
-  const origin = extractOrigin(req);
-  const allowedOrigins = buildAllowedOrigins(extraAllowedOrigins);
-
-  console.log("origin: ", origin);
-  console.log("allowedOrigins: ", allowedOrigins);
-
-  if (
-    allowedOrigins &&
-    allowedOrigins.size > 0 &&
-    (!origin || !allowedOrigins.has(origin))
-  ) {
-    return {
-      ok: false,
-      res: NextResponse.json(
-        {
-          ok: false,
-          message: "Forbidden",
-        },
-        { status: 403 },
-      ),
-    };
-  }
+  const result = ensureTrustedOrigin(req, extraAllowedOrigins);
+  if (!result.ok) return result;
 
   if (maxBodyBytes) {
     const lenError = checkContentLength(req, maxBodyBytes);
@@ -76,8 +39,10 @@ export async function runFormGuards(
   }
 
   const ip = getClientIp(req);
+  console.log("ip: ", ip);
   if (rateLimited) {
     const { rateLimitStore, maxHits, windowMs } = rateLimited;
+    console.log("rateLimitStore: ", rateLimitStore);
     if (isRateLimited(ip, rateLimitStore, maxHits, windowMs)) {
       return {
         ok: false,
@@ -85,6 +50,7 @@ export async function runFormGuards(
           {
             ok: false,
             message: "Too many requests",
+            code: "TOO_MANY_REQUESTS",
           },
           { status: 429 },
         ),

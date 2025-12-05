@@ -1,12 +1,9 @@
-import type { ContactFormData } from "@/types";
+import type { ContactFormData, GuardErrorCodes, GuardPayload } from "@/types";
 
-export type ContactRequestPayload = ContactFormData & {
-  honeypot: string;
-  formLoadedAt: number;
-};
+export type ContactRequestPayload = ContactFormData & GuardPayload;
 
 export type ContactApiResponse = {
   ok: boolean;
   message: string;
-  code?: "INVALID_FORM_AGE";
+  code?: GuardErrorCodes;
 };
