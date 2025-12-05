@@ -48,42 +48,65 @@ export default function Form(props: Props) {
           message: translations[locale].success.message,
           variant: "success",
         });
+
         setToken(null);
         setHoneypot("");
         setFormLoadedAt(Date.now());
         recaptchaRef.current?.reset();
         resetForm();
+        if (resumeRef.current) {
+          resumeRef.current.value = "";
+        }
         return;
       } else {
         setIsSubmitting(false);
         console.log("submit postulation error: ", res);
         const code = res.data?.code;
-        if (code === "INVALID_FORM_AGE") {
-          showAlert({
-            variant: "warning",
-            title: translations[locale].reload.title,
-            message: translations[locale].reload.message,
-          });
-          window.location.reload();
-          return;
-        }
 
-        if (code === "CAPTCHA_FAILED") {
-          showAlert({
-            variant: "danger",
-            title: translations[locale].captchaFailed.title,
-            message: translations[locale].captchaFailed.message,
-          });
-          recaptchaRef.current?.reset();
-          return;
-        }
+        switch (code) {
+          case "INVALID_FORM_AGE":
+            showAlert({
+              variant: "warning",
+              title: translations[locale].reload.title,
+              message: translations[locale].reload.message,
+            });
+            window.location.reload();
+            break;
 
-        showAlert({
-          title: translations[locale].failed.title,
-          message: translations[locale].failed.message,
-          variant: "warning",
-        });
-        return;
+          case "CAPTCHA_FAILED":
+            showAlert({
+              variant: "danger",
+              title: translations[locale].captchaFailed.title,
+              message: translations[locale].captchaFailed.message,
+            });
+            recaptchaRef.current?.reset();
+            break;
+
+          case "CAPTCHA_MISSING":
+            showAlert({
+              variant: "danger",
+              title: translations[locale].captchaMissing.title,
+              message: translations[locale].captchaMissing.message,
+            });
+            recaptchaRef.current?.reset();
+            break;
+
+          case "TOO_MANY_REQUESTS":
+            showAlert({
+              variant: "warning",
+              title: translations[locale].tooManyRequests.title,
+              message: translations[locale].tooManyRequests.message,
+            });
+            break;
+
+          default:
+            showAlert({
+              title: translations[locale].failed.title,
+              message: translations[locale].failed.message,
+              variant: "warning",
+            });
+            break;
+        }
       }
     } catch (error) {
       setIsSubmitting(false);
