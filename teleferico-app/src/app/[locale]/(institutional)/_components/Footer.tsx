@@ -6,15 +6,15 @@ import iglogo from "@/public/iglogo.svg";
 import whitelogo from "@/public/logo-blanco.svg";
 import ytlogo from "@/public/ytlogo.svg";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils";
+import { PUBLIC_ROUTES } from "@/utils";
 import Image from "next/image";
 import Link from "next/link";
 
 const menuItems = [
-  { tag: "jobs" as const, href: ROUTES.JOBS },
-  { tag: "contact" as const, href: ROUTES.CONTACT },
-  { tag: "policies" as const, href: ROUTES.POLICIES },
-  { tag: "faqs" as const, href: ROUTES.FAQS },
+  { tag: "jobs" as const, href: PUBLIC_ROUTES.JOBS },
+  { tag: "contact" as const, href: PUBLIC_ROUTES.CONTACT },
+  { tag: "policies" as const, href: PUBLIC_ROUTES.POLICIES },
+  { tag: "faqs" as const, href: PUBLIC_ROUTES.FAQS },
 ];
 
 const socialIcons = [
@@ -53,7 +53,7 @@ export default async function Footer(props: Props) {
   return (
     <footer
       role="contentinfo"
-      className="bg-custom-red text-base text-white leading-relaxed md:text-lg lg:text-[19px]"
+      className="bg-custom-red text-base leading-relaxed text-white md:text-lg lg:text-[19px]"
     >
       <div className="mx-auto w-full max-w-[1536px] px-6 py-12 sm:px-10 lg:px-16">
         <div className="grid gap-y-12 md:grid-cols-2 md:gap-x-12 lg:grid-cols-[minmax(0,1.15fr)_repeat(2,minmax(0,1fr))] lg:gap-x-16 lg:gap-y-0">
@@ -96,10 +96,7 @@ export default async function Footer(props: Props) {
               <p className="text-white">Tel. +54 294 4441 1031</p>
             </address>
           </section>
-          <nav
-            aria-label="Footer"
-            className="text-center md:text-left"
-          >
+          <nav aria-label="Footer" className="text-center md:text-left">
             {/* Grouping links within nav helps screen readers announce the section as navigational. */}
             <h2 className="text-lg font-semibold uppercase tracking-wide text-white md:text-xl">
               Menu
@@ -109,7 +106,7 @@ export default async function Footer(props: Props) {
                 <li key={idx}>
                   <CustomLink
                     href={item.href}
-                    className="transition underline-offset-4 hover:text-white hover:underline focus-visible:text-white focus-visible:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                    className="underline-offset-4 transition hover:text-white hover:underline focus-visible:text-white focus-visible:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
                     {footerIntl.menuitems[item.tag]}
                   </CustomLink>

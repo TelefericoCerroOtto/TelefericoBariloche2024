@@ -1,7 +1,7 @@
 import { BlocksRenderer, NoContent } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils";
+import { PUBLIC_ROUTES } from "@/utils";
 
 export default async function ActivitiesPage({
   params,
@@ -12,7 +12,7 @@ export default async function ActivitiesPage({
 
   // TODO: El componente 'Link' devuelto en el block ImageTextBlock de Strapi tiene que poblarse con el id de la actividad.
   // Esto es, incorporar el doucmentId dentro de la respuesta para luego colocarlo el atributo href del mismo.
-  const res = await getPageContent(locale, ROUTES.ACTIVITIES);
+  const res = await getPageContent(locale, PUBLIC_ROUTES.ACTIVITIES);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok)
     throw new Error(
@@ -24,7 +24,7 @@ export default async function ActivitiesPage({
 
   return (
     <BlocksRenderer
-      config={{ "image-text-block": { baseUrl: ROUTES.ACTIVITIES } }}
+      config={{ "image-text-block": { baseUrl: PUBLIC_ROUTES.ACTIVITIES } }}
       blocks={blocks}
       locale={locale}
     />

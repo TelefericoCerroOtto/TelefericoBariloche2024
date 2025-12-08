@@ -1,4 +1,4 @@
-export const ROUTES = {
+export const PUBLIC_ROUTES = {
   ACTIVITIES: "/activities",
   CONTACT: "/contact",
   EXPLORE: "/explore",
@@ -16,6 +16,8 @@ export const ROUTE_HANDLERS = {
   PROXY: "/api/proxy",
   CONTACT: "/api/contact",
   POSTUALTION: "/api/postulation",
+  POSTULATIONS_FAVORITE: (documentId: string) =>
+    `/api/admin/postulations/${documentId}/favorite` as const,
 } as const;
 
 export const ADMIN_ROUTES = {

@@ -1,7 +1,7 @@
 import { BlocksRenderer, NoContent } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils";
+import { PUBLIC_ROUTES } from "@/utils";
 
 export default async function FoundationPage({
   params,
@@ -9,7 +9,7 @@ export default async function FoundationPage({
   params: Promise<{ locale: Locales }>;
 }>) {
   const { locale } = await params;
-  const res = await getPageContent(locale, ROUTES.FOUNDATION);
+  const res = await getPageContent(locale, PUBLIC_ROUTES.FOUNDATION);
 
   if (!res.ok)
     throw new Error(

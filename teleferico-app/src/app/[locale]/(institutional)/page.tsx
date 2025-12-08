@@ -1,7 +1,7 @@
 import { BlocksRenderer, NoContent, ServiceButton } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils";
+import { PUBLIC_ROUTES } from "@/utils";
 
 export default async function Home({
   params,
@@ -9,7 +9,7 @@ export default async function Home({
   params: Promise<{ locale: Locales }>;
 }>) {
   const { locale } = await params;
-  const res = await getPageContent(locale, ROUTES.HOME);
+  const res = await getPageContent(locale, PUBLIC_ROUTES.HOME);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok)
     throw new Error(

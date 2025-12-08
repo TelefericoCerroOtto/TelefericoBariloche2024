@@ -1,7 +1,7 @@
 import { BlocksRenderer, NoContent } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils";
+import { PUBLIC_ROUTES } from "@/utils";
 import { Spacer } from "@heroui/react";
 
 export default async function FAQSPage({
@@ -11,7 +11,7 @@ export default async function FAQSPage({
 }>) {
   const { locale } = await params;
 
-  const res = await getPageContent(locale, ROUTES.FAQS);
+  const res = await getPageContent(locale, PUBLIC_ROUTES.FAQS);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok)
     throw new Error(
