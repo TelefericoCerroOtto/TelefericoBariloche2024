@@ -17,6 +17,7 @@ declare module "next-auth" {
       role: UserRole;
     };
     jwt: string;
+    csrfToken: string;
   }
 }
 
@@ -33,5 +34,7 @@ declare module "next-auth/jwt" {
     role: UserRole;
     id: string;
     blocked: boolean;
+    authExpiresAt: number;
+    csrfToken: string;
   }
 }

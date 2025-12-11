@@ -2,6 +2,22 @@ import { SidebarProvider } from "@/components/ui/Sidebar";
 import { Header } from "./_components/Header";
 import Sidebar from "./_components/Sidebar";
 import SessionWatcher from "./_components/SessionWatcher";
+import { auth } from "@/auth";
+import { type Metadata } from "next";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const session = await auth();
+  const csrfToken = session?.csrfToken;
+
+  return {
+    other: csrfToken
+      ? {
+          // Esto produce: <meta name="csrf-token" content="...">
+          "csrf-token": csrfToken,
+        }
+      : {},
+  };
+}
 
 export default function DashboardLayout({
   children,

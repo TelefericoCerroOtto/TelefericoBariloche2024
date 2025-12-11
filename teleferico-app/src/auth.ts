@@ -1,4 +1,5 @@
 import { getPersonalData, login, verifySession } from "@/lib/services";
+import { randomBytes } from "crypto";
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
@@ -98,6 +99,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.username = user.username;
         token.authExpiresAt =
           Math.floor(Date.now() / 1000) + SESSION_MAX_AGE_SECONDS;
+
+        // [CSRF] Generar el CSRF token en el momento del signIn
+        if (!token.csrfToken) {
+          token.csrfToken = randomBytes(32).toString("hex");
+        }
+      }
+
+      // [CSRF] Fallback: si por algún motivo el trigger no fue "signIn" pero aún no hay csrfToken,
+      // aseguramos que exista uno (por ejemplo en futuros triggers "update").
+      if (!token.csrfToken) {
+        token.csrfToken = randomBytes(32).toString("hex");
       }
 
       const authExpiresAt =
@@ -129,6 +141,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.user.id = token.id;
       session.user.blocked = token.blocked;
       session.user.username = token.username;
+      session.csrfToken = token.csrfToken;
 
       return session;
     },

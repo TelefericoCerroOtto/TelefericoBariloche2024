@@ -141,7 +141,6 @@ export function renderPostulationCell({
       const isFavForUser =
         item.faved_by?.some((u) => String(u.id) === String(userId)) ?? false;
 
-      console.log("item", item);
       const resumePath = item.resume?.url ?? null;
 
       return (

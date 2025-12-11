@@ -5,6 +5,7 @@ import type {
   PostulationStatus,
 } from "@/types";
 import type { Selection } from "@heroui/react";
+import { adminFetch } from "@/lib/http/csrf";
 
 type PostulationItem = GetPostulationsResponse["data"][number];
 
@@ -61,7 +62,7 @@ export async function handleBulkPostulationStatus({
       postulationStatus,
     };
 
-    const res = await fetch(ROUTE_HANDLERS.POSTULATIONS_BULK_STATUS, {
+    const res = await adminFetch(ROUTE_HANDLERS.POSTULATIONS_BULK_STATUS, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(reqBody),
@@ -70,7 +71,7 @@ export async function handleBulkPostulationStatus({
     const json = await res.json();
 
     if (!res.ok || !json.ok) {
-      console.error("bulk status error", json);
+      console.log("bulk status error", json);
       showAlert({
         title: "Error",
         message:

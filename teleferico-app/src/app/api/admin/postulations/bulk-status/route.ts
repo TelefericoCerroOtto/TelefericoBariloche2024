@@ -1,14 +1,17 @@
 import { auth } from "@/auth";
 import { POSTULATION_STATUSES } from "@/lib/constants/enum-fields.const";
+import { requireCsrf } from "@/lib/http/csrf";
 import type { PostulationsBulkStatusRequestPayload } from "@/types";
 import { getStrapiURL, STRAPI_ENDPOINTS } from "@/utils";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const csrfError = await requireCsrf(req);
+    if (csrfError) return csrfError;
 
-    if (!session?.jwt || !session.user?.id) {
+    const session = await auth();
+    if (!session) {
       return NextResponse.json(
         { ok: false, message: "Unauthorized" },
         { status: 401 },

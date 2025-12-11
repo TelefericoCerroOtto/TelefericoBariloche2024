@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppAlert } from "@/hooks";
+import { adminFetch } from "@/lib/http/csrf";
 import { ROUTE_HANDLERS } from "@/utils";
 import {
   addToast,
@@ -37,7 +38,7 @@ export default function ActionsButton(props: Props) {
     try {
       setIsLoading(true);
 
-      const res = await fetch(ROUTE_HANDLERS.POSTULATIONS_FAVORITE(id), {
+      const res = await adminFetch(ROUTE_HANDLERS.POSTULATIONS_FAVORITE(id), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -46,7 +47,7 @@ export default function ActionsButton(props: Props) {
       });
 
       if (!res.ok) {
-        console.error("toggle favorite error", await res.text());
+        console.log("toggle favorite error", await res.text());
         showAlert({
           title: "Error",
           message: "No se pudo actualizar el favorito",
