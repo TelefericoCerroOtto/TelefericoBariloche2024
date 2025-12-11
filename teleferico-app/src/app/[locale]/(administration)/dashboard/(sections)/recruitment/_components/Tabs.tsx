@@ -1,10 +1,17 @@
 "use client";
 
+import type { Sector } from "@/types";
 import { Tabs as NextUITabs, Tab } from "@heroui/react";
 import { useState } from "react";
-import PostulationsTable from "./PostulationsTable";
+import PostulationsTable from "./PostulationTable/PostulationsTable";
 
-export default function Tabs() {
+interface Props {
+  sectors: Sector[];
+  userId: string;
+}
+
+export default function Tabs(props: Props) {
+  const { sectors, userId } = props;
   const [selected, setSelected] = useState<string | number>("general");
 
   return (
@@ -24,10 +31,7 @@ export default function Tabs() {
         }}
       >
         <Tab key="general" title={<span>Todas</span>}>
-          <PostulationsTable favs={false} />
-        </Tab>
-        <Tab key="favs" title={<span>Favoritas</span>}>
-          <PostulationsTable favs={true} />
+          <PostulationsTable sectors={sectors} userId={userId} />
         </Tab>
       </NextUITabs>
     </div>

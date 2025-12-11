@@ -14,10 +14,12 @@ export const PUBLIC_ROUTES = {
 
 export const ROUTE_HANDLERS = {
   PROXY: "/api/proxy",
+  PROXY_FILE: "/api/proxy-file",
   CONTACT: "/api/contact",
   POSTUALTION: "/api/postulation",
   POSTULATIONS_FAVORITE: (documentId: string) =>
     `/api/admin/postulations/${documentId}/favorite` as const,
+  POSTULATIONS_BULK_STATUS: "/api/admin/postulations/bulk-status",
 } as const;
 
 export const ADMIN_ROUTES = {

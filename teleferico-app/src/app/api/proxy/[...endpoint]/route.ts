@@ -1,5 +1,7 @@
 import { auth } from "@/auth";
+import { ENV_KEYS } from "@/lib/constants/env.const";
 import { ensureTrustedOrigin } from "@/lib/http/origin";
+import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
@@ -17,7 +19,8 @@ export async function GET(
 
   try {
     const { endpoint } = await params;
-    const strapiBase = process.env.BUILD_STRAPI_BASE_URL ?? "";
+    assertEnv([ENV_KEYS.BUILD_STRAPI_BASE_URL]);
+    const strapiBase = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL];
     const endpointPath = endpoint.join("/");
 
     if (!strapiBase) {
@@ -36,10 +39,11 @@ export async function GET(
       : undefined;
 
     const res = await fetch(targetURL.href, { headers });
+    const status = res.status;
     const data = await res.json();
 
     return NextResponse.json(data, {
-      status: res.status,
+      status,
       headers: {
         "Content-Type": "application/json",
       },
