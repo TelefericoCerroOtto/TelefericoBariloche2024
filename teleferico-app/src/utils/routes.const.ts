@@ -13,13 +13,13 @@ export const PUBLIC_ROUTES = {
 } as const;
 
 export const ROUTE_HANDLERS = {
-  PROXY: "/api/proxy",
-  PROXY_FILE: "/api/proxy-file",
-  CONTACT: "/api/contact",
-  POSTUALTION: "/api/postulation",
+  PROXY: "/api/proxy", // TODO: public endpoint
+  PROXY_FILE: "/api/proxy-file", // public endpoint
+  CONTACT: "/api/contact", // server endpoint
+  POSTUALTION: "/api/postulation", // server endpoint
   POSTULATIONS_FAVORITE: (documentId: string) =>
-    `/api/admin/postulations/${documentId}/favorite` as const,
-  POSTULATIONS_BULK_STATUS: "/api/admin/postulations/bulk-status",
+    `/api/admin/postulations/${documentId}/favorite` as const, // admin endpoint
+  POSTULATIONS_BULK_STATUS: "/api/admin/postulations/bulk-status", // admin endpoint
 } as const;
 
 export const ADMIN_ROUTES = {
