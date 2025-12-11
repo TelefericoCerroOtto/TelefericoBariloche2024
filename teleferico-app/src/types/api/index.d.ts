@@ -1,3 +1,3 @@
-export * from "./contact";
 export * from "./form-guards";
-export * from "./postulations";
+export * from "./forms";
+export * from "./admin";

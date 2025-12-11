@@ -7,6 +7,7 @@ import type {
   Meta,
   New,
   PageContent,
+  Postulation,
   Sector,
   ServiceStateValues,
   ServiceStatus,
@@ -336,6 +337,16 @@ export type UpdateActivityTranslationRequest = {
 
 export type UpdateActivityTranslationResponse = {
   data: ActivityTranslation;
+  meta: Meta;
+};
+
+export type GetPostulationResponse = {
+  data: Postulation;
+  meta: Meta;
+};
+
+export type GetPostulationsResponse = {
+  data: Postulation[];
   meta: Meta;
 };
 
