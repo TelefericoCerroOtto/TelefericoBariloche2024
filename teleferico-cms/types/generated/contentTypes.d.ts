@@ -859,6 +859,11 @@ export interface ApiPostulationPostulation extends Struct.CollectionTypeSchema {
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 400;
       }>;
+    postulation_status: Schema.Attribute.Enumeration<
+      ['unreviewed', 'discarded', 'hired']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'unreviewed'>;
     publishedAt: Schema.Attribute.DateTime;
     resume: Schema.Attribute.Media<'files'>;
     sector: Schema.Attribute.Relation<'oneToOne', 'api::sector.sector'>;

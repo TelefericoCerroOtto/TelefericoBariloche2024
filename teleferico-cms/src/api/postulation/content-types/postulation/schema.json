@@ -68,6 +68,16 @@
       "type": "relation",
       "relation": "oneToOne",
       "target": "api::sector.sector"
+    },
+    "postulation_status": {
+      "type": "enumeration",
+      "required": true,
+      "default": "unreviewed",
+      "enum": [
+        "unreviewed",
+        "discarded",
+        "hired"
+      ]
     }
   }
 }
