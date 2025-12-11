@@ -97,9 +97,6 @@ export function ensureTrustedOrigin(
   | { ok: false; res: NextResponse<{ ok: false; message: string }> } {
   const origin = extractOrigin(req);
 
-  console.log("Request origin: ", origin);
-  console.log("Allowed origins: ", allowedOrigins);
-
   // 1) Intentar validación estricta con allowedOrigins
   if (isOriginAllowed(origin, allowedOrigins)) {
     return { ok: true, origin: origin! };
