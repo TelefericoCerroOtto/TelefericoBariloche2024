@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { requireCsrf } from "@/lib/http/csrf";
 import type { FavPostulationRequestPayload } from "@/types";
 import { STRAPI_ENDPOINTS, getStrapiURL } from "@/utils";
 import { NextRequest, NextResponse } from "next/server";
@@ -8,8 +9,11 @@ export async function POST(
   ctx: RouteContext<"/api/admin/postulations/[id]/favorite">,
 ) {
   try {
+    const csrfError = await requireCsrf(req);
+    if (csrfError) return csrfError;
+
     const session = await auth();
-    if (!session?.jwt || !session.user?.id) {
+    if (!session) {
       return NextResponse.json(
         { ok: false, message: "Unauthorized" },
         { status: 401 },
