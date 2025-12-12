@@ -41,10 +41,10 @@ export default function FaqFeaturedToggle({ faq, onUpdate }: Props) {
         setIsFeatured(previousValue);
         showAlert({
           title: "Error",
-          message: "No se pudo actualizar el estado de la zona.",
+          message: "Algo falló al marcar como favorita la pregunta.",
           variant: "danger",
         });
-        console.log(res?.message ?? "Failed to update zone open status.");
+        console.log(res?.message ?? "Failed to update faq featured status.");
         return;
       }
 
@@ -55,7 +55,7 @@ export default function FaqFeaturedToggle({ faq, onUpdate }: Props) {
       );
 
       addToast({
-        title: "El estado de la zona se actualizó correctamente.",
+        title: "Pregunta frecuente destacada.",
         color: "success",
         timeout: 5000,
       });
