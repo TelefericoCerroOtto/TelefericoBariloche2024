@@ -38,6 +38,7 @@ export const updateFaqAction = async (
     return {
       success: true,
       message: "Faq successfully updated.",
+      data: undefined,
     };
   } catch (error) {
     console.error("updateFaqAction error", error);
@@ -47,12 +48,14 @@ export const updateFaqAction = async (
         success: false,
         message:
           "Server action 'updateFaqAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
 
     return {
       success: false,
       message: DEFAULT_ERROR_MESSAGE,
+      data: error,
     };
   }
 };

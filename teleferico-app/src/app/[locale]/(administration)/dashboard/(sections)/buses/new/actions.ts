@@ -33,6 +33,7 @@ export const createBusTripAction = async (
     return {
       success: true,
       message: "New activity successfully created.",
+      data: res.data,
     };
   } catch (error) {
     console.log("Server action 'createBusTripAction' error: ", error);
@@ -42,12 +43,14 @@ export const createBusTripAction = async (
         success: false,
         message:
           "Server action 'createBusTripAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
 
     return {
       success: false,
       message: "Server action 'createBusTripAction' failed",
+      data: error,
     };
   }
 };

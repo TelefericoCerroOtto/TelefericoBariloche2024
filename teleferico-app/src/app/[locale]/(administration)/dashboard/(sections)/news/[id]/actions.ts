@@ -33,6 +33,7 @@ export const updateNewsAction = async (
           success: false,
           message:
             "Server action 'updateNewsAction' failed: Cannot upload image",
+          data: res.data,
         };
       }
       coverImageId = res.data[0].id;
@@ -67,6 +68,7 @@ export const updateNewsAction = async (
     return {
       success: true,
       message: "News successfully updated",
+      data: undefined,
     };
   } catch (error) {
     console.error("updateNewsAction error", error);
@@ -76,12 +78,14 @@ export const updateNewsAction = async (
         success: false,
         message:
           "Server action 'updateNewsAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
 
     return {
       success: false,
       message: DEFAULT_UPDATE_ERROR,
+      data: error,
     };
   }
 };
@@ -104,6 +108,7 @@ export const deleteNewsAction = async (
     return {
       success: true,
       message: "Noticia eliminada correctamente",
+      data: res.data,
     };
   } catch (error) {
     console.error("deleteNewsAction error", error);
@@ -111,6 +116,7 @@ export const deleteNewsAction = async (
       success: false,
       message:
         "Server action 'deleteNewsAction' failed: An unexpected error occurred.",
+      data: error,
     };
   }
 };

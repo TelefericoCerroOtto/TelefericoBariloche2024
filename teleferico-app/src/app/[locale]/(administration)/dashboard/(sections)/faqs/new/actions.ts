@@ -54,6 +54,7 @@ export const createFaqAction = async (
     return {
       success: true,
       message: "Faq successfully created",
+      data: undefined,
     };
   } catch (error) {
     console.error("createFaqAction error", error);
@@ -63,12 +64,14 @@ export const createFaqAction = async (
         success: false,
         message:
           "Server action 'createFaqAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
 
     return {
       success: false,
       message: DEFAULT_ERROR_MESSAGE,
+      data: error,
     };
   }
 };

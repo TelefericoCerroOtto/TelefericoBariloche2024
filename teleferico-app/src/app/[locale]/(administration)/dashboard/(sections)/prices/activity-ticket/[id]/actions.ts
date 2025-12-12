@@ -98,7 +98,11 @@ export const updateActivityAction = async (
       }
     }
 
-    return { success: true, message: "Activity updated successfully." };
+    return {
+      success: true,
+      message: "Activity updated successfully.",
+      data: undefined,
+    };
   } catch (error) {
     console.log("Server action 'updateActivityAction' error: ", error);
     if (error instanceof ValidationError) {
@@ -106,11 +110,13 @@ export const updateActivityAction = async (
         success: false,
         message:
           "Server action 'updateActivityAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
     return {
       success: false,
       message: "Server action 'updateActivityAction' failed",
+      data: error,
     };
   }
 };

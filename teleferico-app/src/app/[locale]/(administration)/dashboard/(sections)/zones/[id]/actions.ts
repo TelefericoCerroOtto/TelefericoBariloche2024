@@ -64,6 +64,7 @@ export const updateZoneAction = async (
     return {
       success: true,
       message: "Zone successfully updated.",
+      data: undefined,
     };
   } catch (error) {
     console.log("Server action 'updateZoneAction' error: ", error);
@@ -72,11 +73,13 @@ export const updateZoneAction = async (
         success: false,
         message:
           "Server action 'updateZoneAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
     return {
       success: false,
       message: "Server action 'updateZoneAction' failed",
+      data: error,
     };
   }
 };

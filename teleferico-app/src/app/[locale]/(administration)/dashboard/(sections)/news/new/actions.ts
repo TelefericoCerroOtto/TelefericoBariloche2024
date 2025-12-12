@@ -27,6 +27,7 @@ export const createNewsAction = async (
       return {
         success: false,
         message: "No cover image file uploaded",
+        data: undefined,
       };
     }
 
@@ -38,6 +39,7 @@ export const createNewsAction = async (
         success: false,
         message:
           "Server action 'createNewsAction' failed: Can not upload image",
+        data: res.data,
       };
     }
     const coverImageId = res.data[0].id;
@@ -87,6 +89,7 @@ export const createNewsAction = async (
     return {
       success: true,
       message: "News successfully created",
+      data: undefined,
     };
   } catch (error) {
     console.error("createNewsAction error", error);
@@ -96,12 +99,14 @@ export const createNewsAction = async (
         success: false,
         message:
           "Server action 'createNewsAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
 
     return {
       success: false,
       message: DEFAULT_ERROR_MESSAGE,
+      data: error,
     };
   }
 };

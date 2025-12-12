@@ -36,6 +36,7 @@ export const updateBusTripAction = async (
     return {
       success: true,
       message: "Bus trip successfully updated.",
+      data: undefined,
     };
   } catch (error) {
     console.log("Server action 'updateBusTripAction' error: ", error);
@@ -45,12 +46,14 @@ export const updateBusTripAction = async (
         success: false,
         message:
           "Server action 'updateBusTripAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
 
     return {
       success: false,
       message: "Server action 'updateBusTripAction' failed",
+      data: error,
     };
   }
 };
