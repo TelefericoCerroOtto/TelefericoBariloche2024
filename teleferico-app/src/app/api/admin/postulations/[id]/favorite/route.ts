@@ -1,7 +1,10 @@
 import { auth } from "@/auth";
-import { requireCsrf } from "@/lib/http/csrf";
-import type { FavPostulationRequestPayload } from "@/types";
-import { STRAPI_ENDPOINTS, getStrapiURL } from "@/utils";
+import { requireCsrf } from "@/lib/http/guards";
+import { updatePostulation } from "@/lib/services";
+import type {
+  FavPostulationRequestPayload,
+  UpdatePostulationRequest,
+} from "@/types";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
@@ -20,8 +23,7 @@ export async function POST(
       );
     }
 
-    const { params } = await ctx;
-    const { id } = await params;
+    const { id: documentId } = await ctx.params;
 
     const body = (await req.json()) as FavPostulationRequestPayload;
 
@@ -32,44 +34,31 @@ export async function POST(
       );
     }
 
-    const reqBody = {
-      data:
-        body.favorite === true
-          ? {
-              faved_by: {
+    const reqBody: UpdatePostulationRequest = {
+      data: {
+        faved_by:
+          body.favorite === true
+            ? {
                 connect: [session.user.id],
-              },
-            }
-          : {
-              faved_by: {
+              }
+            : {
                 disconnect: [session.user.id],
               },
-            },
+      },
     };
 
-    const res = await fetch(
-      getStrapiURL(`${STRAPI_ENDPOINTS.POSTULATIONS}/${id}`),
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.jwt}`,
-        },
-        body: JSON.stringify(reqBody),
-      },
-    );
+    const res = await updatePostulation({ reqBody, documentId }, session.jwt);
 
     if (!res.ok) {
-      console.error("Strapi favorite toggle error", await res.text());
+      console.error("Strapi favorite toggle error", await res.data);
+
       return NextResponse.json(
         { ok: false, message: "Failed to toggle favorite" },
         { status: 500 },
       );
     }
 
-    const json = await res.json();
-
-    return NextResponse.json({ ok: true, data: json }, { status: 200 });
+    return NextResponse.json({ ok: true, data: res.data }, { status: 200 });
   } catch (error) {
     console.error("Toggle favorite route error", error);
     return NextResponse.json(

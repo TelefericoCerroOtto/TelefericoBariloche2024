@@ -11,8 +11,8 @@ import type {
   UserRole,
   UserRoles,
 } from "@/types";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import { CACHE_TAGS } from "@/utils/cache-tags.const";
-import { fetchWrapper } from "@/utils/fetch";
 import { getStrapiURL } from "@/utils/get-strapi-url";
 import { stringifyQuery } from "@/utils/query";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
@@ -20,7 +20,7 @@ import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 export const getPersonalData = async (jwt: string) => {
   const query = { populate: "*" };
 
-  const res = await fetchWrapper<GetPersonalDataResponse>(
+  const res = await strapiFetch<GetPersonalDataResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.USERS_ME, stringifyQuery(query)),
     {
       method: "GET",
@@ -48,7 +48,7 @@ export const getUsers = async (jwt: string, qs?: unknown) => {
     },
   };
 
-  const res = await fetchWrapper<GetUsersResponse>(
+  const res = await strapiFetch<GetUsersResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.USERS, stringifyQuery(qs ?? query)),
     {
       method: "GET",
@@ -67,7 +67,7 @@ export const getUsers = async (jwt: string, qs?: unknown) => {
 export const getUserRole = async (userId: string, jwt: string) => {
   const query = { populate: "role" };
 
-  const res = await fetchWrapper<GetUserResponse>(
+  const res = await strapiFetch<GetUserResponse>(
     getStrapiURL(`${STRAPI_ENDPOINTS.USERS}/${userId}`, stringifyQuery(query)),
     {
       method: "GET",
@@ -90,7 +90,7 @@ export const getUserRole = async (userId: string, jwt: string) => {
 export const getUserData = async (userId: string, jwt: string) => {
   const query = { populate: "role" };
 
-  const res = await fetchWrapper<GetUserResponse>(
+  const res = await strapiFetch<GetUserResponse>(
     getStrapiURL(`${STRAPI_ENDPOINTS.USERS}/${userId}`, stringifyQuery(query)),
     {
       method: "GET",
@@ -106,7 +106,7 @@ export const getUserData = async (userId: string, jwt: string) => {
 };
 
 export const createUser = async (user: NewUserRequest, jwt: string) => {
-  const res = await fetchWrapper<NewUserResponse>(
+  const res = await strapiFetch<NewUserResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.USERS),
     {
       method: "POST",
@@ -126,7 +126,7 @@ export const updateUser = async (
   jwt: string,
   bodyContent: BodyInit,
 ) => {
-  const res = await fetchWrapper<UpdateUserResponse>(
+  const res = await strapiFetch<UpdateUserResponse>(
     getStrapiURL(`${STRAPI_ENDPOINTS.USERS}/${userId}`),
     {
       method: "PUT",
@@ -154,7 +154,7 @@ export const blockUnblockUser = async (
 };
 
 export const deleteUser = async (userId: number, jwt: string) => {
-  const res = await fetchWrapper<DeleteUserResponse>(
+  const res = await strapiFetch<DeleteUserResponse>(
     getStrapiURL(`${STRAPI_ENDPOINTS.USERS}/${userId}`),
     {
       method: "DELETE",
@@ -169,7 +169,7 @@ export const deleteUser = async (userId: number, jwt: string) => {
 };
 
 export const getRoles = async (jwt: string) => {
-  const res = await fetchWrapper<GetRolesResponse>(
+  const res = await strapiFetch<GetRolesResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.ROLES),
     {
       method: "GET",

@@ -1,8 +1,11 @@
 import { auth } from "@/auth";
 import { POSTULATION_STATUSES } from "@/lib/constants/enum-fields.const";
-import { requireCsrf } from "@/lib/http/csrf";
-import type { PostulationsBulkStatusRequestPayload } from "@/types";
-import { getStrapiURL, STRAPI_ENDPOINTS } from "@/utils";
+import { requireCsrf } from "@/lib/http/guards";
+import { updatePostulation } from "@/lib/services";
+import type {
+  PostulationsBulkStatusRequestPayload,
+  UpdatePostulationRequest,
+} from "@/types";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -20,9 +23,9 @@ export async function POST(req: NextRequest) {
 
     const body = (await req.json()) as PostulationsBulkStatusRequestPayload;
 
-    if (!Array.isArray(body.ids) || body.ids.length === 0) {
+    if (!Array.isArray(body.documentIds) || body.documentIds.length === 0) {
       return NextResponse.json(
-        { ok: false, message: "Missing ids" },
+        { ok: false, message: "Missing documentIds" },
         { status: 400 },
       );
     }
@@ -34,29 +37,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { ids, postulationStatus } = body;
+    const { documentIds, postulationStatus } = body;
+
+    const reqBody: UpdatePostulationRequest = {
+      data: {
+        postulation_status: postulationStatus,
+      },
+    };
 
     const results = await Promise.allSettled(
-      ids.map((id) =>
-        fetch(getStrapiURL(`${STRAPI_ENDPOINTS.POSTULATIONS}/${id}`), {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.jwt}`,
-          },
-          body: JSON.stringify({
-            data: {
-              postulation_status: postulationStatus,
-            },
-          }),
-        }),
+      documentIds.map((documentId) =>
+        updatePostulation({ reqBody, documentId }, session.jwt),
       ),
     );
+
+    for (const [i, r] of results.entries()) {
+      const documentId = documentIds[i];
+
+      if (r.status === "rejected") {
+        console.error("[postulations/bulk-status] rejected", {
+          documentId,
+          reason: r.reason,
+        });
+        continue;
+      }
+
+      if (!r.value.ok) {
+        console.error("[postulations/bulk-status] failed", {
+          documentId,
+          // strapiFetch devuelve ErrorResponse o null
+          error: r.value.data,
+        });
+      }
+    }
 
     const successCount = results.filter(
       (r) => r.status === "fulfilled" && r.value.ok,
     ).length;
-    const failureCount = ids.length - successCount;
+    const failureCount = documentIds.length - successCount;
 
     if (successCount === 0) {
       return NextResponse.json(

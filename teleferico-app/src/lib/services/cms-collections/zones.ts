@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   GetZoneResponse,
   GetZonesResponse,
@@ -6,12 +7,7 @@ import type {
   UpdateZoneRequest,
   UpdateZoneResponse,
 } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getZone = async <T extends Locales | "all">({
   documentId,
@@ -39,7 +35,7 @@ export const getZone = async <T extends Locales | "all">({
 
   const qs = stringifyQuery(query);
 
-  const res = await fetchWrapper<GetZoneResponse>(
+  const res = await strapiFetch<GetZoneResponse>(
     getStrapiURL(`${STRAPI_ENDPOINTS.ZONES}/${documentId}`, qs),
   );
 
@@ -59,7 +55,7 @@ export const getZones = async (locale: Locales) => {
     },
   };
 
-  const res = await fetchWrapper<GetZonesResponse>(
+  const res = await strapiFetch<GetZonesResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.ZONES, stringifyQuery(query)),
   );
 
@@ -76,7 +72,7 @@ export const updateZone = async (
   },
   jwt: string,
 ) => {
-  const res = await fetchWrapper<UpdateZoneResponse>(
+  const res = await strapiFetch<UpdateZoneResponse>(
     getStrapiURL(`${STRAPI_ENDPOINTS.ZONES}/${documentId}`),
     {
       method: "PUT",

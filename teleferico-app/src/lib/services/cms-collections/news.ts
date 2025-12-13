@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   CreateNewRequest,
   CreateNewResponse,
@@ -10,12 +11,7 @@ import type {
   UpdateNewRequest,
   UpdateNewResponse,
 } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 // TODO: Add pagination
 export const getNews = async ({
@@ -39,7 +35,7 @@ export const getNews = async ({
     }),
   };
 
-  const res = await fetchWrapper<GetNewsResponse>(
+  const res = await strapiFetch<GetNewsResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.NEWS, stringifyQuery(query)),
     { cache: "no-store" },
   );
@@ -65,7 +61,7 @@ export const getNew = async <T extends Locales | "all">({
     query.locale = locale;
   }
 
-  const res = await fetchWrapper<
+  const res = await strapiFetch<
     T extends "all" ? ExtendLocalizations<GetNewResponse> : GetNewResponse
   >(
     getStrapiURL(
@@ -95,7 +91,7 @@ export const updateNew = async (
     locale,
   };
 
-  const res = await fetchWrapper<UpdateNewResponse>(
+  const res = await strapiFetch<UpdateNewResponse>(
     getStrapiURL(
       `${STRAPI_ENDPOINTS.NEWS}/${documentId}`,
       stringifyQuery(query),
@@ -114,7 +110,7 @@ export const updateNew = async (
 };
 
 export const deleteNew = async (documentId: string, jwt: string) => {
-  const res = await fetchWrapper<object>(
+  const res = await strapiFetch<object>(
     getStrapiURL(`${STRAPI_ENDPOINTS.NEWS}/${documentId}`),
     {
       method: "DELETE",
@@ -139,7 +135,7 @@ export const createNew = async (
 ) => {
   const query = { locale };
 
-  const res = await fetchWrapper<CreateNewResponse>(
+  const res = await strapiFetch<CreateNewResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.NEWS, stringifyQuery(query)),
     {
       method: "POST",

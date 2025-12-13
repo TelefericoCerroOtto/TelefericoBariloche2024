@@ -13,7 +13,7 @@ declare module "next-auth" {
       username: string;
       email: string;
       blocked: boolean;
-      id: string;
+      id: number;
       role: UserRole;
     };
     jwt: string;

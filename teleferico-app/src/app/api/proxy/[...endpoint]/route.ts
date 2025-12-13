@@ -1,12 +1,14 @@
 import { auth } from "@/auth";
 import { ENV_KEYS } from "@/lib/constants/env.const";
-import { ensureTrustedOrigin } from "@/lib/http/origin";
+import { ensureTrustedOrigin } from "@/lib/http/guards";
+import { buildProxyTargetURL } from "@/lib/http/guards/proxy-target";
+import { STRAPI_ENDPOINTS } from "@/utils";
 import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ endpoint: string[] }> },
+  ctx: RouteContext<"/api/proxy/[...endpoint]">,
 ) {
   const result = ensureTrustedOrigin(req);
   if (!result.ok) return result.res;
@@ -18,34 +20,63 @@ export async function GET(
   }
 
   try {
-    const { endpoint } = await params;
+    const { endpoint } = await ctx.params;
+
     assertEnv([ENV_KEYS.BUILD_STRAPI_BASE_URL]);
-    const strapiBase = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL];
-    const endpointPath = endpoint.join("/");
+    const strapiBase = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL] as string;
 
-    if (!strapiBase) {
-      return new Response("Strapi URL not configured", { status: 500 });
-    }
+    const {
+      ACTIVITIES,
+      BUS_TRIPS,
+      COMPONENT_TRANSLATIONS,
+      FAQS,
+      NEWS,
+      POSTULATIONS,
+      SERVICE_STATE,
+      TICKETS,
+      ZONES,
+    } = STRAPI_ENDPOINTS;
 
-    const targetURL = new URL(endpointPath, strapiBase);
-    req.nextUrl.searchParams.forEach((value, key) => {
-      targetURL.searchParams.set(key, value);
+    const built = buildProxyTargetURL(req, endpoint, strapiBase, {
+      allowedPrefixes: [
+        ACTIVITIES,
+        BUS_TRIPS,
+        COMPONENT_TRANSLATIONS,
+        FAQS,
+        NEWS,
+        POSTULATIONS,
+        SERVICE_STATE,
+        TICKETS,
+        ZONES,
+      ],
     });
+    if (!built.ok) return built.error;
 
     const session = await auth();
 
-    const headers: HeadersInit | undefined = session?.jwt
-      ? { Authorization: `Bearer ${session.jwt}` }
-      : undefined;
+    const headers: HeadersInit = {};
+    if (session?.jwt) {
+      headers.Authorization = `Bearer ${session.jwt}`;
+    }
 
-    const res = await fetch(targetURL.href, { headers });
+    const res = await fetch(built.url, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
     const status = res.status;
-    const data = await res.json();
 
-    return NextResponse.json(data, {
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const data = await res.json().catch(() => null); // puede venir json vacio, por eso catch
+      return NextResponse.json(data, { status });
+    }
+
+    const text = await res.text().catch(() => "");
+    return new Response(text, {
       status,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": contentType || "text/plain; charset=utf-8",
       },
     });
   } catch (error) {

@@ -1,10 +1,12 @@
 // https://googleapis.dev/nodejs/googleapis/latest/tasks/index.html#samples
 
 import { ensureGmail } from "@/lib/google/gmail";
-import { validateFormAge } from "@/lib/http/form-age";
-import { withFormGuards } from "@/lib/http/form-guards";
-import { handleHoneypot } from "@/lib/http/honeypot";
-import { sanitizeInput } from "@/lib/http/sanitize";
+import {
+  handleHoneypot,
+  sanitizeInput,
+  validateFormAge,
+  withFormGuards,
+} from "@/lib/http/guards";
 import { buildContactSchema } from "@/lib/schemas";
 import type { ContactApiResponse } from "@/types";
 import { withTimeout } from "@/utils/promise-timeout";

@@ -168,7 +168,7 @@ Capas de seguridad principales:
        <meta name="csrf-token" content="..." />
        ```
 
-     - Leído en el cliente y enviado en un header `x-csrf-token` en cada request mutadora del dashboard a traves de la funcion `adminFetch`.
+     - Leído en el cliente y enviado en un header `x-csrf-token` en cada request mutadora del dashboard a traves de la funcion `authenticatedInternalApiFetch`.
      - Verificado en un helper tipo `requireCsrf(req)` que compara el header con `session.csrfToken`.
 
    - `ensureTrustedOrigin`:
@@ -249,7 +249,7 @@ Capas de seguridad principales:
     other: { "csrf-token": session.csrfToken }
     ```
 
-  - Un helper de cliente (p.ej. `adminFetch`) lee `<meta name="csrf-token">` y manda `x-csrf-token`.
+  - Un helper de cliente (p.ej. `authenticatedInternalApiFetch`) lee `<meta name="csrf-token">` y manda `x-csrf-token`.
   - Un helper servidor (`requireCsrf(req)`) compara `x-csrf-token` con el valor de `session.csrfToken`.
 
 - **Orquestador de guards (`runFormGuards` + `withFormGuards`)**

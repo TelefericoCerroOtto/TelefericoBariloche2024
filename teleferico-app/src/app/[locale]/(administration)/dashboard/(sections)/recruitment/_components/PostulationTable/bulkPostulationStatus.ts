@@ -1,11 +1,12 @@
-import { ROUTE_HANDLERS } from "@/utils";
+import { authenticatedInternalApiFetch } from "@/lib/http/clients/auth-internal-fetch";
 import type {
   GetPostulationsResponse,
+  PostulationBulkStatusApiResponse,
   PostulationsBulkStatusRequestPayload,
   PostulationStatus,
 } from "@/types";
+import { ROUTE_HANDLERS } from "@/utils";
 import type { Selection } from "@heroui/react";
-import { adminFetch } from "@/lib/http/csrf";
 
 type PostulationItem = GetPostulationsResponse["data"][number];
 
@@ -45,37 +46,50 @@ export async function handleBulkPostulationStatus({
 }: HandleBulkStatusDeps) {
   if (!postulations.length) return;
 
-  const ids =
+  const documentIds =
     selectedRows === "all"
       ? postulations.map((p) => p.documentId)
       : postulations
           .filter((p) => (selectedRows as Set<unknown>).has(p.documentId))
           .map((p) => p.documentId);
 
-  if (!ids.length) return;
+  if (!documentIds.length) return;
 
   try {
     setIsBulkApplying(true);
 
     const reqBody: PostulationsBulkStatusRequestPayload = {
-      ids,
+      documentIds,
       postulationStatus,
     };
 
-    const res = await adminFetch(ROUTE_HANDLERS.POSTULATIONS_BULK_STATUS, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reqBody),
-    });
+    const res = await authenticatedInternalApiFetch(
+      ROUTE_HANDLERS.POSTULATIONS_BULK_STATUS,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reqBody),
+      },
+    );
 
-    const json = await res.json();
-
-    if (!res.ok || !json.ok) {
-      console.log("bulk status error", json);
+    if (!res.ok) {
+      console.log("bulk status error", res);
       showAlert({
         title: "Error",
         message:
-          json?.message ??
+          "Ocurrió un error al actualizar el estado de las postulaciones.",
+        variant: "danger",
+      });
+      return;
+    }
+
+    const data = (await res.json()) as PostulationBulkStatusApiResponse;
+
+    if (!data.ok) {
+      console.log("bulk status error", data.message, "\n", data.data);
+      showAlert({
+        title: "Error",
+        message:
           "Ocurrió un error al actualizar el estado de las postulaciones.",
         variant: "danger",
       });
@@ -85,7 +99,7 @@ export async function handleBulkPostulationStatus({
     showAlert({
       title: "Estados actualizados",
       message:
-        json.message ??
+        data.message ??
         "Las postulaciones seleccionadas se actualizaron correctamente.",
       variant: "success",
     });

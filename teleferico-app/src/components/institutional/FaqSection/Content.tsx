@@ -1,11 +1,7 @@
 import { i18n } from "@/i18n";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type { GetFaqsResponse, Locales } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 import Error from "./Error";
 import FaqList from "./FaqList";
 import EmptyFaqs from "./EmptyFaqs";
@@ -35,7 +31,7 @@ export default async function Content(props: Props) {
     };
   }
 
-  const { ok, data } = await fetchWrapper<GetFaqsResponse>(
+  const { ok, data } = await strapiFetch<GetFaqsResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.FAQS, stringifyQuery(query)),
     { cache: "no-store" },
   );

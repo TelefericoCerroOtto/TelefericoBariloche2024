@@ -9,9 +9,9 @@ import type {
   GetServiceButtonResponse,
   Locales,
 } from "@/types";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import {
   CACHE_TAGS,
-  fetchWrapper,
   getStrapiURL,
   STRAPI_ENDPOINTS,
   stringifyQuery,
@@ -53,7 +53,7 @@ export const getComponentTranslation = async <
     },
   };
 
-  const res = await fetchWrapper<TranslateComponentsResponseTypes[T]>(
+  const res = await strapiFetch<TranslateComponentsResponseTypes[T]>(
     getStrapiURL(
       STRAPI_ENDPOINTS.COMPONENT_TRANSLATIONS,
       stringifyQuery(query),

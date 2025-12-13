@@ -1,4 +1,4 @@
-import { requireInternalApiKey } from "@/lib/http/internal-api-key";
+import { requireInternalApiKey } from "./internal-api-key"; // do not import from "@/lib/http/guards" to avoid circle dependencies
 import { NextRequest, NextResponse } from "next/server";
 import { checkContentLength } from "./content-length";
 import { getClientIp } from "./ip";

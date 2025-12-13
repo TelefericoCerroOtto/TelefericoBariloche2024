@@ -351,14 +351,17 @@ export type GetPostulationsResponse = {
 };
 
 export type PostPostulationRequest = {
-  data: {
-    name: string;
-    surname: string;
-    gender: string;
-    age: number;
-    email: string;
-    note?: string;
-    campNo?: number;
+  data: Pick<
+    Postulation,
+    | "name"
+    | "surname"
+    | "gender"
+    | "age"
+    | "email"
+    | "campNo"
+    | "note"
+    | "postulation_status"
+  > & {
     sector: {
       connect: [{ documentId: string }];
     };
@@ -367,39 +370,28 @@ export type PostPostulationRequest = {
 };
 
 export type PostPostulationResponse = {
-  data: StrapiRecord<{
-    name: string;
-    surname: string;
-    gender: string;
-    age: number;
-    email: string;
-    resume: unknown;
-    locale: null;
-    campNo: string | null;
-    note: string | null;
-  }>;
+  data: StrapiRecord<Omit<Postulation, "faved_by" | "sector" | "resume">>;
   meta: Meta;
 };
 
-export type UploadResumeResponse = [
-  StrapiRecord<{
-    name: string;
-    alternativeText: null;
-    caption: null;
-    width: null;
-    height: null;
-    formats: null;
-    hash: string;
-    ext: string;
-    mime: "application/pdf";
-    size: number;
-    url: string;
-    previewUrl: null;
-    provider: string;
-    provider_metadata: null;
-    locale: null;
-  }>,
-];
+export type UpdatePostulationRequest = {
+  data: Partial<
+    Pick<Postulation, "postulation_status"> & {
+      faved_by:
+        | {
+            connect: number[];
+          }
+        | {
+            disconnect: number[];
+          };
+    }
+  >;
+};
+
+export type UpdatePostulationResponse = {
+  data: StrapiRecord<Omit<Postulation, "faved_by" | "sector" | "resume">>;
+  meta: Meta;
+};
 
 export type UploadMediaResponse<T extends StrapiImage | StrapiFile> = T[];
 

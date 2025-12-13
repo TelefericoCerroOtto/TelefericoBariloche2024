@@ -1,6 +1,8 @@
 import { auth } from "@/auth";
 import { ENV_KEYS } from "@/lib/constants/env.const";
-import { ensureTrustedOrigin } from "@/lib/http/origin";
+import { ensureTrustedOrigin } from "@/lib/http/guards";
+import { buildProxyTargetURL } from "@/lib/http/guards/proxy-target";
+import { STRAPI_ENDPOINTS } from "@/utils";
 import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -19,18 +21,18 @@ export async function GET(
 
   try {
     const { endpoint } = await params;
+
     assertEnv([ENV_KEYS.BUILD_STRAPI_BASE_URL]);
     const strapiBase = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL];
-    const endpointPath = endpoint.join("/");
 
     if (!strapiBase) {
       return new Response("Strapi URL not configured", { status: 500 });
     }
 
-    const targetURL = new URL(endpointPath, strapiBase);
-    req.nextUrl.searchParams.forEach((value, key) => {
-      targetURL.searchParams.set(key, value);
+    const built = buildProxyTargetURL(req, endpoint, strapiBase, {
+      allowedPrefixes: [STRAPI_ENDPOINTS.UPLOAD_ASSETS],
     });
+    if (!built.ok) return built.error;
 
     const session = await auth();
 
@@ -39,29 +41,44 @@ export async function GET(
       headers.Authorization = `Bearer ${session.jwt}`;
     }
 
-    const res = await fetch(targetURL.href, { headers });
+    const res = await fetch(built.url, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
 
+    // Si falla, no asumimos JSON: propagamos texto si se puede
     if (!res.ok) {
-      // Propagamos código de error si Strapi devuelve 4xx/5xx
-      return new NextResponse(null, { status: res.status });
+      const contentType = res.headers.get("content-type") ?? "";
+      const status = res.status;
+
+      // Si viene JSON (a veces Strapi devuelve JSON en errores), lo devolvemos como JSON
+      if (contentType.includes("application/json")) {
+        const data = await res.json().catch(() => null);
+        return NextResponse.json(data ?? { message: "Upstream error" }, {
+          status,
+        });
+      }
+
+      // Caso general: texto
+      const text = await res.text().catch(() => "");
+      return new Response(text || "Upstream error", { status });
     }
 
-    // Leemos el body como ArrayBuffer (podría ser stream si lo necesitás)
+    // OK: devolvemos binario
     const buffer = await res.arrayBuffer();
 
     const contentType =
       res.headers.get("content-type") ?? "application/octet-stream";
 
-    // Si Strapi no manda Content-Disposition, definimos uno
     const contentDisposition =
-      res.headers.get("content-disposition") ?? 'inline; filename="resume"';
+      res.headers.get("content-disposition") ?? 'inline; filename="file"';
 
     return new NextResponse(buffer, {
       status: 200,
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": contentDisposition,
-        // Podés copiar más headers según necesites
       },
     });
   } catch (error) {

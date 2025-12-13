@@ -1,12 +1,13 @@
 import type { StrapiFile, StrapiImage, UploadMediaResponse } from "@/types";
-import { STRAPI_ENDPOINTS, fetchWrapper, getStrapiURL } from "@/utils";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import { STRAPI_ENDPOINTS, getStrapiURL } from "@/utils";
 
 const uploadMedia = async <T>(file: File, jwt: string) => {
   const formData = new FormData();
   formData.append("files", file);
 
-  const res = await fetchWrapper<T>(
-    getStrapiURL(STRAPI_ENDPOINTS.UPLOADS),
+  const res = await strapiFetch<T>(
+    getStrapiURL(STRAPI_ENDPOINTS.UPLOAD_API),
     {
       method: "POST",
       headers: {

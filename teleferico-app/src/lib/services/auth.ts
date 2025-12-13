@@ -1,8 +1,9 @@
 import type { LoginFormData, SuccessfulLoginResponse } from "@/types";
-import { STRAPI_ENDPOINTS, fetchWrapper, getStrapiURL } from "@/utils";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import { STRAPI_ENDPOINTS, getStrapiURL } from "@/utils";
 
 export const login = async (values: LoginFormData) => {
-  const res = fetchWrapper<SuccessfulLoginResponse>(
+  const res = strapiFetch<SuccessfulLoginResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.AUTH),
     {
       method: "POST",

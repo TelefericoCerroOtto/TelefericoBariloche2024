@@ -7,12 +7,8 @@ import type {
   UpdateActivityRequest,
   UpdateActivityResponse,
 } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getActivity = async <T extends Locales | "all">({
   documentId,
@@ -47,7 +43,7 @@ export const getActivity = async <T extends Locales | "all">({
 
   const qs = stringifyQuery(query);
 
-  const res = await fetchWrapper<GetActivityResponse>(
+  const res = await strapiFetch<GetActivityResponse>(
     getStrapiURL(`${STRAPI_ENDPOINTS.ACTIVITIES}/${documentId}`, qs),
   );
 
@@ -86,7 +82,7 @@ export const getActivities = async <T extends Locales | "all">(locale: T) => {
     };
   }
 
-  const res = await fetchWrapper<GetActivitiesResponse>(
+  const res = await strapiFetch<GetActivitiesResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.ACTIVITIES, stringifyQuery(query)),
   );
 
@@ -97,7 +93,7 @@ export const createActivity = async (
   reqBody: PostActivityRequest,
   jwt: string,
 ) => {
-  const res = await fetchWrapper<PostActivityResponse>(
+  const res = await strapiFetch<PostActivityResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.ACTIVITIES),
     {
       method: "POST",
@@ -119,7 +115,7 @@ export const updateActivity = async (
   }: { reqBody: UpdateActivityRequest; documentId: string },
   jwt: string,
 ) => {
-  const res = await fetchWrapper<UpdateActivityResponse>(
+  const res = await strapiFetch<UpdateActivityResponse>(
     getStrapiURL(`${STRAPI_ENDPOINTS.ACTIVITIES}/${documentId}`),
     {
       method: "PUT",

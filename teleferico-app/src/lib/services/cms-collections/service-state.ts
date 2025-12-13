@@ -3,13 +3,13 @@ import type {
   ServiceStateValues,
   UpdateServiceStateResponse,
 } from "@/types";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import { CACHE_TAGS } from "@/utils/cache-tags.const";
 import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
-import { fetchWrapper } from "@/utils/fetch";
 import { getStrapiURL } from "@/utils/get-strapi-url";
 
 export const getServiceState = async () => {
-  const res = await fetchWrapper<GetServiceStateResponse>(
+  const res = await strapiFetch<GetServiceStateResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.SERVICE_STATE),
     {
       method: "GET",
@@ -26,7 +26,7 @@ export const updateServiceState = async (
   state: ServiceStateValues,
   jwt: string,
 ) => {
-  const res = await fetchWrapper<UpdateServiceStateResponse>(
+  const res = await strapiFetch<UpdateServiceStateResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.SERVICE_STATE),
     {
       method: "PUT",

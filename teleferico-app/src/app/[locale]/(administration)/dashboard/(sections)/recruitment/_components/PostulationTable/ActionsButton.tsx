@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppAlert } from "@/hooks";
-import { adminFetch } from "@/lib/http/csrf";
+import { authenticatedInternalApiFetch } from "@/lib/http/clients/auth-internal-fetch";
 import { ROUTE_HANDLERS } from "@/utils";
 import {
   addToast,
@@ -38,13 +38,16 @@ export default function ActionsButton(props: Props) {
     try {
       setIsLoading(true);
 
-      const res = await adminFetch(ROUTE_HANDLERS.POSTULATIONS_FAVORITE(id), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const res = await authenticatedInternalApiFetch(
+        ROUTE_HANDLERS.POSTULATIONS_FAVORITE(id),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ favorite: nextFavorite }),
         },
-        body: JSON.stringify({ favorite: nextFavorite }),
-      });
+      );
 
       if (!res.ok) {
         console.log("toggle favorite error", await res.text());

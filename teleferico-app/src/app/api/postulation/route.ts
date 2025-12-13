@@ -3,9 +3,11 @@ import {
   postulationFormDataAdapter,
 } from "@/lib/adapters";
 import { ENV_KEYS } from "@/lib/constants/env.const";
-import { validateFormAge } from "@/lib/http/form-age";
-import { withFormGuards } from "@/lib/http/form-guards";
-import { handleHoneypot } from "@/lib/http/honeypot";
+import {
+  handleHoneypot,
+  validateFormAge,
+  withFormGuards,
+} from "@/lib/http/guards";
 import { buildPostulationSchema } from "@/lib/schemas";
 import { createPostulation, uploadFile } from "@/lib/services";
 import type { PostulationApiResponse } from "@/types";

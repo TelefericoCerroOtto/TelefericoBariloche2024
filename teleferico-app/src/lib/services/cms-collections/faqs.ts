@@ -8,12 +8,8 @@ import type {
   UpdateFaqRequest,
   UpdateFaqResponse,
 } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getFaq = async <T extends Locales | "all">({
   locale,
@@ -31,7 +27,7 @@ export const getFaq = async <T extends Locales | "all">({
     query.locale = locale;
   }
 
-  const res = await fetchWrapper<
+  const res = await strapiFetch<
     T extends "all" ? ExtendLocalizations<GetFaqResponse> : GetFaqResponse
   >(
     getStrapiURL(
@@ -54,7 +50,7 @@ export const createFaq = async (
     locale,
   };
 
-  const res = await fetchWrapper<CreateFaqResponse>(
+  const res = await strapiFetch<CreateFaqResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.FAQS, stringifyQuery(query)),
     {
       method: "POST",
@@ -81,7 +77,7 @@ export const updateFaq = async (
     locale,
   };
 
-  const res = await fetchWrapper<UpdateFaqResponse>(
+  const res = await strapiFetch<UpdateFaqResponse>(
     getStrapiURL(
       `${STRAPI_ENDPOINTS.FAQS}/${documentId}`,
       stringifyQuery(query),

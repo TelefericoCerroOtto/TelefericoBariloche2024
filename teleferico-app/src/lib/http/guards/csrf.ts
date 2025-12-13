@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { NextRequest, NextResponse } from "next/server";
 
-function getCsrfTokenFromMeta(): string | null {
+export function getCsrfTokenFromMeta(): string | null {
   if (typeof document === "undefined") return null;
   const meta = document.querySelector('meta[name="csrf-token"]');
   return meta?.getAttribute("content") ?? null;
@@ -30,19 +30,4 @@ export async function requireCsrf(
   }
 
   return null;
-}
-
-export async function adminFetch(input: RequestInfo, init: RequestInit = {}) {
-  const csrfToken = getCsrfTokenFromMeta();
-
-  const headers = new Headers(init.headers || {});
-  if (csrfToken) {
-    headers.set("x-csrf-token", csrfToken);
-  }
-
-  return await fetch(input, {
-    ...init,
-    headers,
-    credentials: "include", // por si necesitás cookies siempre
-  });
 }

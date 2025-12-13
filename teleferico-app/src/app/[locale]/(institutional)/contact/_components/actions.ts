@@ -1,7 +1,6 @@
 "use server";
 
-import { ensureValidCaptcha } from "@/lib/http/ensure-valid-captcha";
-import { getClientIpFromHeaders } from "@/lib/http/ip";
+import { ensureValidCaptcha, getClientIpFromHeaders } from "@/lib/http/guards";
 import { sendEmail } from "@/lib/services";
 import type { ContactFormData, GuardClientPayload } from "@/types";
 import { headers } from "next/headers";

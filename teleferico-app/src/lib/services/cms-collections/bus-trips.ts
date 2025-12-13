@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   GetBusTripResponse,
   GetBusTripsResponse,
@@ -7,12 +8,7 @@ import type {
   PostBusTripResponse,
   UpdateBusTripRequest,
 } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getBusTrip = async (documentId: string, locale: Locales) => {
   const query = {
@@ -42,7 +38,7 @@ export const getBusTrip = async (documentId: string, locale: Locales) => {
     },
   };
 
-  const res = await fetchWrapper<GetBusTripResponse>(
+  const res = await strapiFetch<GetBusTripResponse>(
     getStrapiURL(
       `${STRAPI_ENDPOINTS.BUS_TRIPS}/${documentId}`,
       stringifyQuery(query),
@@ -80,7 +76,7 @@ export const getBusTrips = async (locale: Locales) => {
     },
   };
 
-  const res = await fetchWrapper<GetBusTripsResponse>(
+  const res = await strapiFetch<GetBusTripsResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.BUS_TRIPS, stringifyQuery(query)),
   );
 
@@ -91,7 +87,7 @@ export const createBusTrip = async (
   reqBody: PostBusTripRequest,
   jwt: string,
 ) => {
-  const res = await fetchWrapper<PostBusTripResponse>(
+  const res = await strapiFetch<PostBusTripResponse>(
     getStrapiURL(STRAPI_ENDPOINTS.BUS_TRIPS),
     {
       method: "POST",
@@ -113,7 +109,7 @@ export const updateBusTrip = async (
   }: { reqBody: UpdateBusTripRequest; documentId: string },
   jwt: string,
 ) => {
-  const res = await fetchWrapper<PostBusTripResponse>(
+  const res = await strapiFetch<PostBusTripResponse>(
     getStrapiURL(`${STRAPI_ENDPOINTS.BUS_TRIPS}/${documentId}`),
     {
       method: "PUT",
