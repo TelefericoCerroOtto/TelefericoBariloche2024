@@ -32,7 +32,7 @@ import { renderPostulationCell } from "./renderPostulationCell";
 
 interface Props {
   sectors: Sector[];
-  userId: string;
+  userId: number;
 }
 
 export default function PostulationsTable({ sectors, userId }: Props) {

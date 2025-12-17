@@ -14,7 +14,7 @@ interface RenderCellParams {
   item: PostulationItem;
   columnKey: ColumnKeys;
   genderOptions: Option<Genders>[];
-  userId: string;
+  userId: number;
   handleFavoriteSync: (
     // eslint-disable-next-line no-unused-vars
     postulationId?: string,

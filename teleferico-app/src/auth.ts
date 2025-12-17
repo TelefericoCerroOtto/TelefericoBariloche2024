@@ -1,6 +1,6 @@
 import { getPersonalData, login, verifySession } from "@/lib/services";
 import { randomBytes } from "crypto";
-import NextAuth, { CredentialsSignin } from "next-auth";
+import NextAuth, { CredentialsSignin, type Session } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 const SESSION_MAX_AGE_SECONDS = 60 * 45; // 45 minutes
@@ -45,6 +45,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         identifier: {},
         password: {},
       },
+
+      /**
+       * [Strapi ID vs Auth.js ID - Why this conversion exists]
+       *
+       * Auth.js (NextAuth) models `User.id` as `string | undefined` (via DefaultUser),
+       * while Strapi returns `id` as a number. In this codebase we keep Strapi IDs as
+       * `number` for consistency across services, ACL checks, and database relations.
+       *
+       * However, the Credentials Provider `authorize()` is part of Auth.js boundary.
+       * Returning a `User` with `id: string` aligns with Auth.js expectations and avoids
+       * type friction with the core types and adapter-related typings.
+       *
+       * Strategy:
+       * 1) In `authorize()`: convert Strapi numeric id -> string (Auth.js boundary).
+       * 2) In `jwt` callback on `signIn`: convert id back to number and store it in the JWT token.
+       * 3) In `session` callback: expose `session.user.id` as number to the rest of the app.
+       *
+       * Result:
+       * - Compatibility with Auth.js core typing
+       * - Numeric IDs preserved inside the application domain
+       * - Reduced risk of accidental string/number mismatches in business logic
+       */
+
       authorize: async (credentials) => {
         let user = null;
 
@@ -58,9 +81,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const res = await getPersonalData(jwt);
           if (res.ok) {
             // eslint-disable-next-line no-unused-vars, @typescript-eslint/no-unused-vars
-            const { localizations: _, role, id, ...userData } = res.data;
+            const { role, id, ...userData } = res.data;
             user = {
-              id: id.toString(),
+              id: id.toString(), // Auth.js core types assume User.id is a string. We bridge here.
               ...userData,
               role,
               jwt,
@@ -90,8 +113,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     jwt: async ({ user, trigger, token }) => {
       if (trigger === "signIn") {
-        token.id = user.id as string;
-        token.name = user.name as string;
+        token.id = Number(user.id);
+        token.name = user.name;
         token.surname = user.surname;
         token.jwt = user.jwt;
         token.role = user.role;
@@ -134,16 +157,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     session: async ({ token, session }) => {
-      session.jwt = token.jwt;
-      session.user.name = token.name;
-      session.user.surname = token.surname;
-      session.user.role = token.role;
-      session.user.id = token.id;
-      session.user.blocked = token.blocked;
-      session.user.username = token.username;
-      session.csrfToken = token.csrfToken;
+      /**
+       * We build a fresh `Session` object instead of mutating `session` in-place because
+       * callback typing may include AdapterUser/AdapterSession intersections (id as string).
+       * Our app contract is `session.user.id: number`, aligned with Strapi numeric IDs.
+       */
+      const nextSession: Session = {
+        user: {
+          name: token.name,
+          surname: token.surname,
+          username: token.username,
+          email: token.email,
+          blocked: token.blocked,
+          id: token.id,
+          role: token.role,
+          documentId: token.documentId,
+        },
+        jwt: token.jwt,
+        csrfToken: token.csrfToken,
+        expires: session.expires,
+      };
 
-      return session;
+      return nextSession;
     },
   },
 });

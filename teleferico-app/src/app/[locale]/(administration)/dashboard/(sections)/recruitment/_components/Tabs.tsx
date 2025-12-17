@@ -7,7 +7,7 @@ import PostulationsTable from "./PostulationTable/PostulationsTable";
 
 interface Props {
   sectors: Sector[];
-  userId: string;
+  userId: number;
 }
 
 export default function Tabs(props: Props) {
