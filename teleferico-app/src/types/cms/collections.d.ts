@@ -7,7 +7,6 @@ import type {
   StrapiImage,
   StrapiLocales,
   StrapiRecord,
-  UnpopulatedUserResponse,
 } from "@/types";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 
@@ -19,7 +18,7 @@ export type UserRoles =
   | "Recruiter"
   | "Operations Supervisor";
 
-export interface UserRole {
+export type UserRole = {
   id: number;
   documentId: string;
   name: UserRoles;
@@ -29,7 +28,24 @@ export interface UserRole {
   updatedAt: string;
   publishedAt: string;
   locale: null;
-}
+};
+
+export type User = {
+  id: number;
+  documentId: string;
+  username: string;
+  email: string;
+  provider: string;
+  confirmed: boolean;
+  blocked: boolean;
+  name: string;
+  surname: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  role: UserRole;
+  faved_postulations: Postulation[];
+};
 
 export type ComponentTranslationKeys =
   | "policies"
@@ -157,7 +173,7 @@ export type Postulation = StrapiRecord<{
   campNo: number | null;
   note: string | null;
   postulation_status: PostulationStatus;
-  faved_by: UnpopulatedUserResponse[];
+  faved_by: User[];
   locale: null;
 }>;
 

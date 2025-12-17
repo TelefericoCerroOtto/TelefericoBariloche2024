@@ -14,15 +14,14 @@ import type {
   Station,
   StrapiFile,
   StrapiImage,
-  StrapiLocales,
   StrapiRecord,
   Ticket,
+  User,
   UserRole,
   Zone,
   ZoneTranslation,
 } from "@/types";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
-import { type User } from "next-auth";
 
 export type LoginUserRequest = {
   identifier: string;
@@ -31,32 +30,17 @@ export type LoginUserRequest = {
 
 export type SuccessfulLoginResponse = {
   jwt: string;
-  user: User;
-};
-
-export type UnpopulatedUserResponse = {
-  id: number;
-  documentId: string;
-  username: string;
-  name: string;
-  surname: string;
-  email: string;
-  provider: string;
-  confirmed: boolean;
-  blocked: boolean;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string;
-  locale?: StrapiLocales | StrapiLocales[];
+  user: Omit<User, "faved_postulations" | "role">;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type UserResponse<T extends object = {}> = UnpopulatedUserResponse & T;
+export type UserResponse<T extends object = {}> = Omit<
+  User,
+  "faved_postulations" | "role"
+> &
+  T;
 
-export type GetPersonalDataResponse = UserResponse<{
-  role: UserRole;
-  localizations: string[];
-}>;
+export type GetPersonalDataResponse = User;
 
 export type NewUserRequest = {
   email: string;
