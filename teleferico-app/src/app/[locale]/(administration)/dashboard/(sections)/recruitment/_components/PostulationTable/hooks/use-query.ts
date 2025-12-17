@@ -6,7 +6,7 @@ import type { TimePreset } from "./use-filters";
 interface UsePostulationsQueryParams {
   page: number;
   pageSize: number;
-  userId: string;
+  userId: number;
 
   debouncedSearch: string;
   debouncedCampNo: string;
