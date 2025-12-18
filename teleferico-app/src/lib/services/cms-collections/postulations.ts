@@ -1,3 +1,4 @@
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   PostPostulationRequest,
@@ -5,7 +6,6 @@ import type {
   UpdatePostulationRequest,
   UpdatePostulationResponse,
 } from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils";
 
 export const createPostulation = async (
   token: string,

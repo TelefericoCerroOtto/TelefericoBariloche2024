@@ -6,9 +6,9 @@ import {
   InputLocaleWrapper,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { updateFaqSchema } from "@/lib/schemas";
 import type { UpdateFaqFormData } from "@/types";
-import { ADMIN_ROUTES } from "@/utils";
 import { addToast, Checkbox, Input, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";

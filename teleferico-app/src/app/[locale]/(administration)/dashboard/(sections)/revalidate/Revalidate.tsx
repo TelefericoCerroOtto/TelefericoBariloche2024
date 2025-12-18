@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonDos, FormContainer } from "@/components";
-import { CACHE_TAGS } from "@/utils";
+import { CACHE_TAGS } from "@/lib/constants/cache-tags.const";
 import { Select, SelectItem, type Selection } from "@heroui/react";
 import { useState } from "react";
 import { revalidate } from "./actions";

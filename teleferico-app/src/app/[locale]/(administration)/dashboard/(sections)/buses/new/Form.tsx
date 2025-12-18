@@ -2,9 +2,10 @@
 
 import { FormButtons, TimeInput } from "@/components";
 import { useAppAlert } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import { selectInputStyles } from "@/lib/constants/styles.const";
 import { createBusTripSchema } from "@/lib/schemas";
 import type { CreateBusTripFormData, Station } from "@/types";
-import { ADMIN_ROUTES, selectInputStyles } from "@/utils";
 import { Select, SelectItem } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";

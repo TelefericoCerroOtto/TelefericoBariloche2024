@@ -1,9 +1,9 @@
 import { auth } from "@/auth";
 import { i18n } from "@/i18n";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { verifySession } from "@/lib/services";
 import type { Locales } from "@/types";
 import { NextResponse } from "next/server";
-import { ADMIN_ROUTES } from "./utils/routes.const";
 
 export default auth(async (req) => {
   const url = req.nextUrl;

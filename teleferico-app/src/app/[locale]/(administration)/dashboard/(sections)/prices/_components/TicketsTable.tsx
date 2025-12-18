@@ -2,8 +2,9 @@
 
 import { TableActionsButtons, TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import type { GetTicketsResponse, Ticket } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Spinner,
   Table,

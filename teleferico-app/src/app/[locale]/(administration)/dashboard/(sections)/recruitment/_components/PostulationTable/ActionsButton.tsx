@@ -1,8 +1,8 @@
 "use client";
 
 import { useAppAlert } from "@/hooks";
+import { ROUTE_HANDLERS } from "@/lib/constants/routes.const";
 import { authenticatedInternalApiFetch } from "@/lib/http/clients/auth-internal-fetch";
-import { ROUTE_HANDLERS } from "@/utils";
 import {
   addToast,
   Button,

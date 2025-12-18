@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale } from "@/hooks";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 
 const titles: Record<
   Exclude<

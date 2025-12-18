@@ -3,8 +3,9 @@
 import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { GetZonesResponse, Locales, Zone } from "@/types";
-import { STRAPI_ENDPOINTS, formatStrapiTime } from "@/utils";
+import { formatStrapiTime } from "@/utils";
 import { ReactNode, useCallback } from "react";
 
 type ColumnKeys = "name" | "openTime" | "closeTime";

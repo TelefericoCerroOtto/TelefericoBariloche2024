@@ -1,3 +1,5 @@
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   CreateFaqRequest,
   CreateFaqResponse,
@@ -8,8 +10,7 @@ import type {
   UpdateFaqRequest,
   UpdateFaqResponse,
 } from "@/types";
-import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
+import { stringifyQuery } from "@/utils";
 
 export const getFaq = async <T extends Locales | "all">({
   locale,

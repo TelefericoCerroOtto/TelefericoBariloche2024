@@ -11,20 +11,20 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/Sidebar";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import LogoRecortado from "@/public/logo-recortado.svg";
 import type { UserRole } from "@/types";
-import { ADMIN_ROUTES } from "@/utils";
 import { Tooltip } from "@heroui/react";
 import {
   Building2,
   BusFront,
   CircleDollarSign,
   Image as LucideImage,
+  MessageCircleQuestionMark,
   PersonStanding,
   Power,
   Repeat2,
   Rss,
-  MessageCircleQuestionMark,
   User,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
@@ -161,7 +161,7 @@ export default function Sidebar() {
                           >
                             <div className="flex flex-col items-center gap-2">
                               <item.icon />
-                              <p className="text-center text-[11px] leading-3">
+                              <p className="text-center text-sm leading-4">
                                 {item.name}
                               </p>
                             </div>
@@ -181,7 +181,7 @@ export default function Sidebar() {
                             aria-disabled={false}
                           >
                             <item.icon />
-                            <p className="text-center text-[11px] leading-3">
+                            <p className="text-center text-sm leading-4">
                               {item.name}
                             </p>
                           </Link>

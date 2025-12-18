@@ -2,13 +2,14 @@
 
 import { TableContainer } from "@/components";
 import { useAppAlert, useProxy } from "@/hooks";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import type {
   Genders,
   GetPostulationsResponse,
   PostulationStatus,
   Sector,
 } from "@/types";
-import { STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Pagination,
   Spinner,

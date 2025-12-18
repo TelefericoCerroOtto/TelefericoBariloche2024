@@ -3,11 +3,11 @@ import {
   CustomLink,
   HighlightLastWord,
 } from "@/components";
+import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import gondola from "@/public/gondola.svg";
 import type { ImageTextBlock } from "@/types";
-import { bgStyles, caseStyles } from "@/utils";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
-import gondola from "@/public/gondola.svg";
 import CustomImage from "./CustomImage";
 
 const LogoBadge = () => (
@@ -66,7 +66,7 @@ export function TwoImageTextBlock(props: ImageTextBlock) {
           </div>
           <div className="mt-2 min-h-[1.5rem] text-center md:text-left">
             {epigraph ? (
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-sm">
+              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-base">
                 {epigraph}
               </p>
             ) : null}

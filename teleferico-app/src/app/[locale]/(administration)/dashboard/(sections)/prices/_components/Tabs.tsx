@@ -1,7 +1,7 @@
 "use client";
 
 import { buttonStyles } from "@/components/shared/ButtonDos";
-import { ADMIN_ROUTES } from "@/utils";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { Tabs as NextUITabs, Tab } from "@heroui/react";
 import { useState } from "react";
 import ActivitiesTable from "./ActivitiesTable";

@@ -1,11 +1,11 @@
+import { CACHE_TAGS } from "@/lib/constants/cache-tags.const";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   GetServiceStateResponse,
   ServiceStateValues,
   UpdateServiceStateResponse,
 } from "@/types";
-import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { CACHE_TAGS } from "@/utils/cache-tags.const";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 
 export const getServiceState = async () => {
   const res = await strapiFetch<GetServiceStateResponse>(

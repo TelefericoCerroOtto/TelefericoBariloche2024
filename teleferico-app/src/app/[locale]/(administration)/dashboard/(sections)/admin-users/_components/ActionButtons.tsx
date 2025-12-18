@@ -1,8 +1,9 @@
 "use client";
 
 import { ButtonDos, CustomLink } from "@/components";
+import { useAppAlert } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { UserResponse } from "@/types";
-import { ADMIN_ROUTES } from "@/utils";
 import {
   Button,
   Modal,
@@ -16,7 +17,6 @@ import {
 import { CirclePause, CirclePlay, Pencil, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { blockAction, deleteAction } from "./actions";
-import { useAppAlert } from "@/hooks";
 
 interface Props {
   user: UserResponse;

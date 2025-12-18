@@ -1,5 +1,5 @@
 import { TableToolbarContainer } from "@/components";
-import { ADMIN_ROUTES } from "@/utils";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 
 export default function Filters() {
   return (

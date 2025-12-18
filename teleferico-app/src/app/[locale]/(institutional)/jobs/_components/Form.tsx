@@ -2,9 +2,9 @@
 
 import { ButtonDos, FormError, Honeypot } from "@/components";
 import { useAppAlert, useLocale, useTranslation } from "@/hooks";
+import { selectInputStyles } from "@/lib/constants/styles.const";
 import { buildPostulationSchema } from "@/lib/schemas";
 import type { PostulationFormData, Sector } from "@/types";
-import { selectInputStyles } from "@/utils";
 import { Input, Select, SelectItem, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { X } from "lucide-react";
@@ -312,7 +312,7 @@ export default function Form(props: Props) {
                   resumeRef.current!.value = "";
                 }}
                 disabled={isSubmitting}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-default-300 text-xs font-bold text-danger-500 hover:bg-danger-50"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-default-300 text-sm font-bold text-danger-500 hover:bg-danger-50"
                 aria-label={"Limpiar archivo seleccionado"}
               >
                 <X />
