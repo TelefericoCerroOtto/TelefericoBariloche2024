@@ -187,7 +187,7 @@ const Rte = (props: Props) => {
     <>
       <div className="flex flex-col">
         <div className="w-full p-2">
-          <p className="text-sm">
+          <p className="text-base font-semibold">
             {label}
             {isRequired ? <span className="text-red-600"> *</span> : ""}
           </p>
@@ -199,7 +199,9 @@ const Rte = (props: Props) => {
             value={value}
             className={`rounded-lg border p-2 ${isInvalid && "border-red-600"}`}
           />
-          {isInvalid && <p className="text-sm text-red-600">{errorMessage}</p>}
+          {isInvalid && (
+            <p className="text-base text-red-600">{errorMessage}</p>
+          )}
         </div>
       </div>
     </>

@@ -3,7 +3,10 @@
 import { FormButtons, TimeInput } from "@/components";
 import { useAppAlert } from "@/hooks";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
-import { selectInputStyles } from "@/lib/constants/styles.const";
+import {
+  formTimeInputClassNames,
+  selectInputStyles,
+} from "@/lib/constants/styles.const";
 import { createBusTripSchema } from "@/lib/schemas";
 import type { CreateBusTripFormData, Station } from "@/types";
 import { Select, SelectItem } from "@heroui/react";
@@ -109,6 +112,7 @@ export default function Form(props: Props) {
         id="depTime"
         label="Horario De Salida"
         labelPlacement="outside"
+        classNames={formTimeInputClassNames}
         hourCycle={24}
         value={new Time(values.depTime.hour, values.depTime.mins)}
         onChange={(value) => {
@@ -125,6 +129,7 @@ export default function Form(props: Props) {
         id="arrTime"
         label="Horario De Llegada"
         labelPlacement="outside"
+        classNames={formTimeInputClassNames}
         hourCycle={24}
         value={new Time(values.arrTime.hour, values.arrTime.mins)}
         onChange={(value) => {

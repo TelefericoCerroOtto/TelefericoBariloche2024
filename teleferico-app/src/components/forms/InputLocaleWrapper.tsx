@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { Rte } from "@/components";
 import { i18n } from "@/i18n";
+import { formInputClassNames } from "@/lib/constants/styles.const";
 import type { Locales } from "@/types";
 import {
   InputProps,
@@ -87,6 +88,7 @@ export default function InputLocaleWrapper<T extends Record<string, unknown>>({
       id={name}
       isRequired={isRequired}
       value={values[name] as string}
+      classNames={formInputClassNames}
       onChange={handleChange}
       onBlur={handleBlur}
       errorMessage={errors[name] as string}

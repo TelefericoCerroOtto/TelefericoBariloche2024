@@ -6,7 +6,7 @@ export default function FormHeader() {
     <div className="flex flex-col">
       <Image src={LogoTeleferico} alt="Logo de teleferico" />
       <h1 className="text-2xl font-bold">Sistema De Administración</h1>
-      <p>Inicie sesión para contniuar</p>
+      <p className="text-lg">Inicie sesión para contniuar</p>
     </div>
   );
 }
