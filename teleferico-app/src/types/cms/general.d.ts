@@ -135,7 +135,7 @@ export type StrapiImage = StrapiRecord<{
   provider_metadata: unknown;
 }>;
 
-export type StrapiPDF = StrapiRecord<{
+export type StrapiFile = StrapiRecord<{
   name: string;
   alternativeText: null;
   caption: null;

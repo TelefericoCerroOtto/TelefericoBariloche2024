@@ -33,6 +33,8 @@ const badgeStyles: Record<ZoneStatus, string> = {
   closed: "bg-rose-100 text-rose-700",
 };
 
+const REFRESH_INTERVAL_MS = 60 * 1000; // 1 min
+
 interface Props {
   translations: Translations;
   zonesId: string[];
@@ -106,7 +108,6 @@ const EmptyBlock = ({
 );
 
 function mapZoneToSchedule(zone: Zone, locale: Locales): ZoneSchedule {
-  console.log("Zone data:", zone);
   const t =
     zone.zone_translations?.find((i) => i.locale === locale) ??
     zone.zone_translations?.[0];
@@ -143,12 +144,12 @@ function createDateFromStrapiTime(time: string | undefined) {
 function getZoneStatus(
   zone: ZoneSchedule,
   reference: Date,
-  serviceState: GetServiceStateResponse["data"]["state"] | undefined,
+  serviceState: GetServiceStateResponse["data"]["state"],
 ): ZoneStatus {
   const openDate = createDateFromStrapiTime(zone.openTime);
   const closeDate = createDateFromStrapiTime(zone.closeTime);
 
-  if (serviceState !== undefined && serviceState === "closed") {
+  if (serviceState === "closed" || serviceState === "suspended") {
     return "closed";
   }
 
@@ -208,7 +209,7 @@ export default function SchedulesClient(props: Props) {
   const { data, isError, isLoading, key } = useProxy<GetZonesResponse>(
     STRAPI_ENDPOINTS.ZONES,
     query,
-    { revalidateOnFocus: true },
+    { refreshInterval: REFRESH_INTERVAL_MS },
   );
 
   const schedules = useMemo(() => {
@@ -225,6 +226,8 @@ export default function SchedulesClient(props: Props) {
     console.log(
       "Error while fetching zones info in SchedulesClient component: ",
       isError,
+      "\n",
+      isErrorServiceState,
     );
     return (
       <ErrorBlock
@@ -242,7 +245,7 @@ export default function SchedulesClient(props: Props) {
       {schedules.map((s, index) => {
         const open = s.openTime ? formatStrapiTime(s.openTime, locale) : "-";
         const close = s.closeTime ? formatStrapiTime(s.closeTime, locale) : "-";
-        const status = getZoneStatus(s, now, serviceState?.data.state);
+        const status = getZoneStatus(s, now, serviceState!.data.state);
         const badgeText = translations.badge[status];
 
         return (

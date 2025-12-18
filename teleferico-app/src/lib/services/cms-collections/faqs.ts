@@ -8,12 +8,8 @@ import type {
   UpdateFaqRequest,
   UpdateFaqResponse,
 } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getFaq = async <T extends Locales | "all">({
   locale,
@@ -31,13 +27,13 @@ export const getFaq = async <T extends Locales | "all">({
     query.locale = locale;
   }
 
-  const res = await fetchWrapper<
+  const res = await strapiFetch<
     T extends "all" ? ExtendLocalizations<GetFaqResponse> : GetFaqResponse
   >(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.FAQS}/${documentId}`,
-      stringifyQuery(query),
-    ),
+    {
+      endpoint: `${STRAPI_ENDPOINTS.FAQS}/${documentId}`,
+      qp: stringifyQuery(query),
+    },
     {
       method: "GET",
     },
@@ -54,8 +50,8 @@ export const createFaq = async (
     locale,
   };
 
-  const res = await fetchWrapper<CreateFaqResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.FAQS, stringifyQuery(query)),
+  const res = await strapiFetch<CreateFaqResponse>(
+    { endpoint: STRAPI_ENDPOINTS.FAQS, qp: stringifyQuery(query) },
     {
       method: "POST",
       headers: {
@@ -81,11 +77,11 @@ export const updateFaq = async (
     locale,
   };
 
-  const res = await fetchWrapper<UpdateFaqResponse>(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.FAQS}/${documentId}`,
-      stringifyQuery(query),
-    ),
+  const res = await strapiFetch<UpdateFaqResponse>(
+    {
+      endpoint: `${STRAPI_ENDPOINTS.FAQS}/${documentId}`,
+      qp: stringifyQuery(query),
+    },
     {
       method: "PUT",
       headers: {

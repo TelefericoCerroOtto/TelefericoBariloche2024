@@ -1,95 +1,22 @@
 "use client";
 
-import { ButtonDos, FormError, InputSkeleton } from "@/components";
+import { ButtonDos, FormError, Honeypot } from "@/components";
 import { useLocale, useTranslation } from "@/hooks";
 import { useAppAlert } from "@/hooks/use-app-alert";
 import { buildContactSchema } from "@/lib/schemas";
-import { ContactFormData, Locales } from "@/types";
+import { ContactFormData } from "@/types";
 import { Input, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRef, useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
 import { contactUsAction } from "./actions";
-
-const translations: Record<
-  Locales,
-  {
-    success: { title: string; message: string };
-    failed: { title: string; message: string };
-    reload: { title: string; message: string };
-    translationError: { title: string; message: string };
-    captchaFailed: { title: string; message: string };
-  }
-> = {
-  "es-AR": {
-    success: { title: "Enviado", message: "Formulario enviado correctamente" },
-    failed: { title: "Error", message: "Ocurrió un error inesperado" },
-    reload: {
-      title: "Recargar página",
-      message:
-        "Ocurrió un error inesperado con el formulario. Vamos a recargar la página para que puedas enviarlo de nuevo.",
-    },
-    translationError: {
-      title: "Error de traducción",
-      message: "No se pudo recuperar el contenido del formulario",
-    },
-    captchaFailed: {
-      title: "Captcha fallido",
-      message: "El captcha falló. Por favor, inténtalo de nuevo.",
-    },
-  },
-  en: {
-    success: {
-      title: "Sent",
-      message: "Form submitted successfully",
-    },
-    failed: {
-      title: "Error",
-      message: "An unexpected error occurred",
-    },
-    reload: {
-      title: "Reload page",
-      message:
-        "An unexpected error occurred with the form. We'll reload the page so you can submit it again.",
-    },
-    translationError: {
-      title: "Translation error",
-      message: "The form content could not be retrieved",
-    },
-    captchaFailed: {
-      title: "Captcha failed",
-      message: "Captcha failed. Please try again.",
-    },
-  },
-  pt: {
-    success: {
-      title: "Enviado",
-      message: "Formulário enviado com sucesso",
-    },
-    failed: {
-      title: "Erro",
-      message: "Ocorreu um erro inesperado",
-    },
-    reload: {
-      title: "Recarregar página",
-      message:
-        "Ocorreu um erro inesperado com o formulário. Vamos recarregar a página para que você possa enviá-lo novamente.",
-    },
-    translationError: {
-      title: "Erro de tradução",
-      message: "Não foi possível recuperar o conteúdo do formulário",
-    },
-    captchaFailed: {
-      title: "Captcha falhou",
-      message: "O captcha falhou. Por favor, tente novamente.",
-    },
-  },
-};
+import { translations } from "./data";
+import Fallback from "./Fallback";
 
 export default function Form() {
   const { data, error, loading: loadingLocale } = useTranslation("forms");
   const { locale } = useLocale();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [honeypot, setHoneypot] = useState("");
   const [formLoadedAt, setFormLoadedAt] = useState(() => Date.now());
@@ -97,9 +24,9 @@ export default function Form() {
   const { showAlert } = useAppAlert();
 
   const onSubmit = async (values: ContactFormData) => {
-    if (isLoading) return; // prevent double submits while a request is in flight
+    if (isSubmitting) return; // prevent double submits while a request is in flight
     if (!token) return;
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
       const res = await contactUsAction(token, {
         ...values,
@@ -120,33 +47,52 @@ export default function Form() {
         resetForm();
       } else {
         console.log("Contact form submission failed: ", res.message);
-
         const code = res.data?.code;
-        if (code === "INVALID_FORM_AGE") {
-          showAlert({
-            variant: "warning",
-            title: translations[locale].reload.title,
-            message: translations[locale].reload.message,
-          });
-          window.location.reload();
-          return;
-        }
 
-        if (code === "CAPTCHA_FAILED") {
-          showAlert({
-            variant: "danger",
-            title: translations[locale].captchaFailed.title,
-            message: translations[locale].captchaFailed.message,
-          });
-          recaptchaRef.current?.reset();
-          return;
-        }
+        switch (code) {
+          case "INVALID_FORM_AGE":
+            showAlert({
+              variant: "warning",
+              title: translations[locale].reload.title,
+              message: translations[locale].reload.message,
+            });
+            window.location.reload();
+            break;
 
-        showAlert({
-          variant: "danger",
-          title: translations[locale].failed.title,
-          message: translations[locale].failed.message,
-        });
+          case "CAPTCHA_FAILED":
+            showAlert({
+              variant: "danger",
+              title: translations[locale].captchaFailed.title,
+              message: translations[locale].captchaFailed.message,
+            });
+            recaptchaRef.current?.reset();
+            break;
+
+          case "CAPTCHA_MISSING":
+            showAlert({
+              variant: "danger",
+              title: translations[locale].captchaMissing.title,
+              message: translations[locale].captchaMissing.message,
+            });
+            recaptchaRef.current?.reset();
+            break;
+
+          case "TOO_MANY_REQUESTS":
+            showAlert({
+              variant: "warning",
+              title: translations[locale].tooManyRequests.title,
+              message: translations[locale].tooManyRequests.message,
+            });
+            break;
+
+          default:
+            showAlert({
+              variant: "danger",
+              title: translations[locale].failed.title,
+              message: translations[locale].failed.message,
+            });
+            break;
+        }
       }
     } catch (error) {
       console.log("Contact form onSubmit error: ", error);
@@ -157,7 +103,7 @@ export default function Form() {
         message: translations[locale].failed.message,
       });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -180,34 +126,16 @@ export default function Form() {
       <FormError message={translations[locale].translationError.message} />
     );
 
-  if (loadingLocale)
-    return (
-      <div className="grid flex-grow grid-cols-1 gap-4">
-        <InputSkeleton />
-        <InputSkeleton />
-        <InputSkeleton />
-      </div>
-    );
+  if (loadingLocale) return <Fallback />;
 
   const formIntl = data!.data[0].jsonValue;
 
   return (
     <form className="grid flex-grow grid-cols-1 gap-4" onSubmit={handleSubmit}>
-      {/* Honeypot field discourages bots while staying invisible to real users. */}
-      <div className="absolute left-[-9999px]" aria-hidden="true">
-        <label htmlFor="company" aria-hidden="true">
-          Do not fill out
-        </label>
-        <input
-          id="company"
-          name="company"
-          type="text"
-          tabIndex={-1}
-          autoComplete="off"
-          value={honeypot}
-          onChange={(event) => setHoneypot(event.target.value)}
-        />
-      </div>
+      <Honeypot
+        value={honeypot}
+        onChange={(event) => setHoneypot(event.target.value)}
+      />
       <Input
         id="name"
         name="name"
@@ -253,9 +181,9 @@ export default function Form() {
       <ButtonDos
         type="submit"
         className="w-[90px]"
-        isLoading={isLoading}
+        isLoading={isSubmitting}
         disabled={
-          isLoading ||
+          isSubmitting ||
           !token ||
           Object.keys(errors).length > 0 ||
           values.name === ""

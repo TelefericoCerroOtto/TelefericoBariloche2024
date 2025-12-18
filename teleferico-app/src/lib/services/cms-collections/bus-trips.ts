@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   GetBusTripResponse,
   GetBusTripsResponse,
@@ -7,12 +8,7 @@ import type {
   PostBusTripResponse,
   UpdateBusTripRequest,
 } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getBusTrip = async (documentId: string, locale: Locales) => {
   const query = {
@@ -42,12 +38,10 @@ export const getBusTrip = async (documentId: string, locale: Locales) => {
     },
   };
 
-  const res = await fetchWrapper<GetBusTripResponse>(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.BUS_TRIPS}/${documentId}`,
-      stringifyQuery(query),
-    ),
-  );
+  const res = await strapiFetch<GetBusTripResponse>({
+    endpoint: `${STRAPI_ENDPOINTS.BUS_TRIPS}/${documentId}`,
+    qp: stringifyQuery(query),
+  });
 
   return res;
 };
@@ -80,9 +74,10 @@ export const getBusTrips = async (locale: Locales) => {
     },
   };
 
-  const res = await fetchWrapper<GetBusTripsResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.BUS_TRIPS, stringifyQuery(query)),
-  );
+  const res = await strapiFetch<GetBusTripsResponse>({
+    endpoint: STRAPI_ENDPOINTS.BUS_TRIPS,
+    qp: stringifyQuery(query),
+  });
 
   return res;
 };
@@ -91,8 +86,8 @@ export const createBusTrip = async (
   reqBody: PostBusTripRequest,
   jwt: string,
 ) => {
-  const res = await fetchWrapper<PostBusTripResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.BUS_TRIPS),
+  const res = await strapiFetch<PostBusTripResponse>(
+    { endpoint: STRAPI_ENDPOINTS.BUS_TRIPS },
     {
       method: "POST",
       headers: {
@@ -113,8 +108,8 @@ export const updateBusTrip = async (
   }: { reqBody: UpdateBusTripRequest; documentId: string },
   jwt: string,
 ) => {
-  const res = await fetchWrapper<PostBusTripResponse>(
-    getStrapiURL(`${STRAPI_ENDPOINTS.BUS_TRIPS}/${documentId}`),
+  const res = await strapiFetch<PostBusTripResponse>(
+    { endpoint: `${STRAPI_ENDPOINTS.BUS_TRIPS}/${documentId}` },
     {
       method: "PUT",
       headers: {

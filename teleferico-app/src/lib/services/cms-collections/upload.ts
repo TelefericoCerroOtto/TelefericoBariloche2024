@@ -1,12 +1,13 @@
-import type { StrapiImage, UploadMediaResponse } from "@/types";
-import { STRAPI_ENDPOINTS, fetchWrapper, getStrapiURL } from "@/utils";
+import type { StrapiFile, StrapiImage, UploadMediaResponse } from "@/types";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import { STRAPI_ENDPOINTS } from "@/utils";
 
 const uploadMedia = async <T>(file: File, jwt: string) => {
   const formData = new FormData();
   formData.append("files", file);
 
-  const res = await fetchWrapper<T>(
-    getStrapiURL(STRAPI_ENDPOINTS.UPLOADS),
+  const res = await strapiFetch<T>(
+    { endpoint: STRAPI_ENDPOINTS.UPLOAD_API },
     {
       method: "POST",
       headers: {
@@ -14,13 +15,11 @@ const uploadMedia = async <T>(file: File, jwt: string) => {
       },
       body: formData,
     },
-    "Failed to upload media file",
+    { errorMsg: "Failed to upload media file" },
   );
 
   return res;
 };
 
 export const uploadImage = uploadMedia<UploadMediaResponse<StrapiImage>>;
-
-// TODO: Evaluar que funcion utilizar, esta o la de ./teleferico-app/src/lib/services/cms-collections/postulations.ts
-// export const uploadResume = uploadMedia<UploadMediaResponse<StrapiPDF>>;
+export const uploadFile = uploadMedia<UploadMediaResponse<StrapiFile>>;

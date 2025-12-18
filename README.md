@@ -598,3 +598,58 @@ Ejemplo completo:
 ```
 feat(app/auth): implement session verification and expiration handling in JWT callback
 ```
+
+## Convencion para Pull Request
+
+En una nueva terminal situarse sobre el directorio raíz del proyecto y cambiar a la rama que se desea mergear. Ejecutar el comando `git diff <branch_name>...HEAD > ./tmp-pr-diff.txt` donde `<branch_name>` es el nombre de la rama que recibirá el merge.
+
+**Ejemplo**
+
+```bash
+git switch feat/forms
+git diff develop...HEAD
+```
+
+Luego copiar en la IA el siguiente prompt y adjuntar el archivo generado.
+
+```
+You are an assistant that writes Pull Request descriptions for my project.
+
+Follow these strict rules:
+- Write the PR description in **English**.
+- Format the output in **Markdown**.
+- Follow EXACTLY this structure and headings:
+  1. Summary
+  2. Context
+  3. Changes
+  4. Technical Details
+  5. Breaking Changes (only if they exist)
+- Do NOT invent features or changes that are not clearly supported by the diff.
+- Group changes by logical area (e.g., Frontend/UI, Backend/API, Types/Schemas).
+- Be concise but clear.
+- Do NOT propose commit messages.
+- Do NOT mention branch names.
+- Do NOT include any instruction text, only the final PR description.
+
+Use the following template as reference:
+
+## Summary
+- ...
+
+## Context
+- ...
+
+## Changes
+- ...
+
+## Technical Details
+- ...
+
+## Breaking Changes
+- [ ] (explain impact)
+
+Now, based ONLY on the .txt diff file attached, write the PR description
+In a new terminal go into projects directory, switch to the branch you want to compare with (the one who merges) anda execute
+`git diff <branch_name>...HEAD > ./tmp-pr-diff.txt`
+
+```

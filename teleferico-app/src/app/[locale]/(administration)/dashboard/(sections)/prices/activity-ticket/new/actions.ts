@@ -103,6 +103,7 @@ export const createActivityAction = async (
     return {
       success: true,
       message: "New activity successfully created.",
+      data: undefined,
     };
   } catch (error) {
     console.log("Server action 'createActivityAction' error: ", error);
@@ -112,12 +113,14 @@ export const createActivityAction = async (
         success: false,
         message:
           "Server action 'createActivityAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
 
     return {
       success: false,
       message: "Server action 'createActivityAction' failed",
+      data: error,
     };
   }
 };

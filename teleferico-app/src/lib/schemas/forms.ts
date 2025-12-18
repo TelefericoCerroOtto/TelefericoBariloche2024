@@ -2,7 +2,18 @@ import {
   validateEmailAvailability,
   validateUsernameAvailability,
 } from "@/lib/actions/forms";
-import type { Locales, LoginUserRequest } from "@/types";
+import {
+  GENDERS,
+  LIFTING_MEANS,
+  SEASONS,
+} from "@/lib/constants/enum-fields.const";
+import type {
+  Genders,
+  LiftingMean,
+  Locales,
+  LoginUserRequest,
+  Season,
+} from "@/types";
 import { isTiptapNonEmpty, isValidTiptapDoc } from "@/utils/tiptap";
 import { type JSONContent } from "@tiptap/react";
 import { boolean, mixed, number, object, ObjectSchema, string } from "yup";
@@ -10,6 +21,9 @@ import { boolean, mixed, number, object, ObjectSchema, string } from "yup";
 type LocaleMessage = {
   mixed: {
     required: string;
+    resumeType: string;
+    // eslint-disable-next-line no-unused-vars
+    fileSize: (s: number) => string;
   };
   string: {
     required: string;
@@ -33,6 +47,8 @@ const localeMessages: Record<Locales, LocaleMessage> = {
   "es-AR": {
     mixed: {
       required: "Este campo es obligatorio",
+      resumeType: "Solo se permiten archivos PDF, DOC, DOCX o TXT",
+      fileSize: (s: number) => `El archivo no debe superar ${s}MB`,
     },
     string: {
       required: "Este campo es obligatorio",
@@ -50,6 +66,8 @@ const localeMessages: Record<Locales, LocaleMessage> = {
   en: {
     mixed: {
       required: "This field is required",
+      resumeType: "Only PDF, DOC, DOCX or TXT files are allowed",
+      fileSize: (s: number) => `The file must not exceed ${s}MB`,
     },
     string: {
       required: "This field is required",
@@ -67,6 +85,8 @@ const localeMessages: Record<Locales, LocaleMessage> = {
   pt: {
     mixed: {
       required: "Este campo é obrigatório",
+      resumeType: "Apenas arquivos PDF, DOC, DOCX ou TXT são permitidos",
+      fileSize: (s: number) => `O arquivo não deve exceder ${s}MB`,
     },
     string: {
       required: "Este campo é obrigatório",
@@ -114,9 +134,7 @@ export const createActivitySchema = object({
   description_pt: string().max(500, es.string.max(500)),
   price: number().integer(es.number.integer).required(es.number.required),
   minAge: number().integer(es.number.integer).required(es.number.required),
-  season: string()
-    .oneOf(["summer", "autumn", "winter", "spring", "allSeasons"])
-    .required(es.string.required),
+  season: string<Season>().oneOf(SEASONS).required(es.string.required),
   "requirements_es-AR": string(),
   requirements_en: string(),
   requirements_pt: string(),
@@ -137,8 +155,8 @@ export const createAccessTicketSchema = object({
     .integer(es.number.integer)
     .required(es.number.required)
     .min(0, es.number.min(0)),
-  liftingMean: string()
-    .oneOf(["cablecar", "road&funicular"])
+  liftingMean: string<LiftingMean>()
+    .oneOf(LIFTING_MEANS)
     .required(es.string.required),
 });
 
@@ -359,9 +377,7 @@ export const buildPostulationSchema = (locale: Locales) => {
       .required(m.string.required)
       .min(2, m.string.min(2))
       .max(30, m.string.max(30)),
-    genre: string()
-      .required(m.string.required)
-      .oneOf(["male", "female", "other"]),
+    gender: string<Genders>().required(m.string.required).oneOf(GENDERS),
     age: number()
       .integer(m.number.integer)
       .required(m.number.required)
@@ -373,14 +389,11 @@ export const buildPostulationSchema = (locale: Locales) => {
     campNo: number().integer(m.number.integer),
     resume: mixed<File>()
       .required(m.mixed.required)
-      .test(
-        "fileType",
-        "Solo se permiten archivos PDF, DOC, DOCX o TXT",
-        (file) => {
-          return file && FILE_TYPES.includes(file.type);
-        },
-      )
-      .test("fileSize", "El archivo no debe superar los 5MB", (file) => {
+      .test("fileType", m.mixed.resumeType, (file) => {
+        console.log("file type: ", file.type);
+        return file && FILE_TYPES.includes(file.type);
+      })
+      .test("fileSize", m.mixed.fileSize(MAX_FILE_SIZE), (file) => {
         return file && file.size <= MAX_FILE_SIZE;
       }),
   });

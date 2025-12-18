@@ -45,11 +45,11 @@ export type CreateFaqFormData = InferType<typeof createFaqSchema>;
 export type UpdateFaqFormData = InferType<typeof updateFaqSchema>;
 
 export type TimeValue = InferType<typeof timeSchema>;
-export type FormSubmitServerActionResponse = Promise<{
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type FormSubmitServerActionResponse<T = any> = Promise<{
   success: boolean;
   message: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data?: any;
+  data: T | undefined;
 }>;
 export type InputLocaleConfig = Record<
   Locales,

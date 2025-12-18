@@ -1,7 +1,7 @@
 "use client";
 
 import { TableActionsButtons, TableContainer } from "@/components";
-import { useAppAlert, useProxy } from "@/hooks";
+import { useAppAlert, useDebouncedValue, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
 import type { GetNewsResponse } from "@/types";
 import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
@@ -45,6 +45,8 @@ export default function NewsTable() {
   } = useNewsFilters();
   const { showAlert } = useAppAlert();
 
+  const debouncedFilterValue = useDebouncedValue(filterValue, 500);
+
   useEffect(() => {
     setPage(1);
   }, [filterValue, dateValue, highlightedOnly]);
@@ -52,8 +54,8 @@ export default function NewsTable() {
   const query = useMemo(() => {
     const filters: Record<string, unknown> = {};
 
-    if (filterValue) {
-      filters.title = { $containsi: filterValue };
+    if (debouncedFilterValue) {
+      filters.title = { $containsi: debouncedFilterValue };
     }
 
     if (dateValue) {
@@ -74,7 +76,7 @@ export default function NewsTable() {
       filters: Object.keys(filters).length > 0 ? filters : undefined,
       locale: i18n.defaultLocale,
     };
-  }, [dateValue, filterValue, highlightedOnly, page]);
+  }, [dateValue, debouncedFilterValue, highlightedOnly, page]);
 
   const { data, isError, isLoading, key } = useProxy<GetNewsResponse>(
     STRAPI_ENDPOINTS.NEWS,

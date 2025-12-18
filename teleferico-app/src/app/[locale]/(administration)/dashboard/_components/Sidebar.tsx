@@ -48,7 +48,7 @@ const items: SidebarItem[] = [
     url: ADMIN_ROUTES.ZONES,
     icon: Building2,
     implemented: true,
-    tooltip: "Gestionar horarios y zonas del teleférico",
+    tooltip: "Gestionar horarios y zonas del complejo",
     allowedRoles: ["Administrator", "Operations Supervisor"],
   },
   {
@@ -95,7 +95,7 @@ const items: SidebarItem[] = [
     name: "Trabajo",
     url: ADMIN_ROUTES.RECRUITMENT,
     icon: PersonStanding,
-    implemented: false,
+    implemented: true,
     tooltip: "Gestionar curriculums de postulantes",
     allowedRoles: ["Administrator", "Recruiter"],
   },

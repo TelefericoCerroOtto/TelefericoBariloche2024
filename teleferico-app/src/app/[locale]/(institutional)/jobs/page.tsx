@@ -1,7 +1,7 @@
 import { BlocksRenderer, NoContent } from "@/components";
 import { getPageContent, getSectors } from "@/lib/services";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils";
+import { PUBLIC_ROUTES } from "@/utils";
 import { Spacer } from "@heroui/react";
 import { Form } from "./_components";
 
@@ -12,7 +12,7 @@ export default async function JobsPage({
 }>) {
   const { locale } = await params;
 
-  const res = await getPageContent(locale, ROUTES.JOBS);
+  const res = await getPageContent(locale, PUBLIC_ROUTES.JOBS);
   const { ok, data } = await getSectors(locale);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok || !ok)

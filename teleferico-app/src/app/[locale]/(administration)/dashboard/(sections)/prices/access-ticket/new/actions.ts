@@ -63,6 +63,7 @@ export const newTicketAction = async (
     return {
       success: true,
       message: "New access ticket successfully created.",
+      data: undefined,
     };
   } catch (error) {
     console.log("Server action 'newTicketAction' error: ", error);
@@ -71,11 +72,13 @@ export const newTicketAction = async (
         success: false,
         message:
           "Server action 'newTicketAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
     return {
       success: false,
       message: "Server action 'newTicketAction' failed",
+      data: error,
     };
   }
 };

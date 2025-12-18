@@ -7,21 +7,21 @@ import type {
   Meta,
   New,
   PageContent,
+  Postulation,
   Sector,
   ServiceStateValues,
   ServiceStatus,
   Station,
+  StrapiFile,
   StrapiImage,
-  StrapiLocales,
-  StrapiPDF,
   StrapiRecord,
   Ticket,
+  User,
   UserRole,
   Zone,
   ZoneTranslation,
 } from "@/types";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
-import { type User } from "next-auth";
 
 export type LoginUserRequest = {
   identifier: string;
@@ -30,32 +30,17 @@ export type LoginUserRequest = {
 
 export type SuccessfulLoginResponse = {
   jwt: string;
-  user: User;
-};
-
-export type UnpopulatedUserResponse = {
-  id: number;
-  documentId: string;
-  username: string;
-  name: string;
-  surname: string;
-  email: string;
-  provider: string;
-  confirmed: boolean;
-  blocked: boolean;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string;
-  locale?: StrapiLocales | StrapiLocales[];
+  user: Omit<User, "faved_postulations" | "role">;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type UserResponse<T extends object = {}> = UnpopulatedUserResponse & T;
+export type UserResponse<T extends object = {}> = Omit<
+  User,
+  "faved_postulations" | "role"
+> &
+  T;
 
-export type GetPersonalDataResponse = UserResponse<{
-  role: UserRole;
-  localizations: string[];
-}>;
+export type GetPersonalDataResponse = User;
 
 export type NewUserRequest = {
   email: string;
@@ -339,57 +324,60 @@ export type UpdateActivityTranslationResponse = {
   meta: Meta;
 };
 
+export type GetPostulationResponse = {
+  data: Postulation;
+  meta: Meta;
+};
+
+export type GetPostulationsResponse = {
+  data: Postulation[];
+  meta: Meta;
+};
+
 export type PostPostulationRequest = {
-  data: {
-    name: string;
-    surname: string;
-    genre: string;
-    age: number;
-    email: string;
-    note?: string;
-    campNo?: number;
+  data: Pick<
+    Postulation,
+    | "name"
+    | "surname"
+    | "gender"
+    | "age"
+    | "email"
+    | "campNo"
+    | "note"
+    | "postulation_status"
+  > & {
     sector: {
       connect: [{ documentId: string }];
     };
+    resume: number;
   };
 };
 
 export type PostPostulationResponse = {
-  data: StrapiRecord<{
-    name: string;
-    surname: string;
-    genre: string;
-    age: number;
-    email: string;
-    resume: unknown;
-    locale: null;
-    campNo: string | null;
-    note: string | null;
-  }>;
+  data: StrapiRecord<Omit<Postulation, "faved_by" | "sector" | "resume">>;
   meta: Meta;
 };
 
-export type UploadResumeResponse = [
-  StrapiRecord<{
-    name: string;
-    alternativeText: null;
-    caption: null;
-    width: null;
-    height: null;
-    formats: null;
-    hash: string;
-    ext: string;
-    mime: "application/pdf";
-    size: number;
-    url: string;
-    previewUrl: null;
-    provider: string;
-    provider_metadata: null;
-    locale: null;
-  }>,
-];
+export type UpdatePostulationRequest = {
+  data: Partial<
+    Pick<Postulation, "postulation_status"> & {
+      faved_by:
+        | {
+            connect: number[];
+          }
+        | {
+            disconnect: number[];
+          };
+    }
+  >;
+};
 
-export type UploadMediaResponse<T extends StrapiImage | StrapiPDF> = T[];
+export type UpdatePostulationResponse = {
+  data: StrapiRecord<Omit<Postulation, "faved_by" | "sector" | "resume">>;
+  meta: Meta;
+};
+
+export type UploadMediaResponse<T extends StrapiImage | StrapiFile> = T[];
 
 export type GetNavbarItemsResponse = {
   data: [
@@ -501,7 +489,7 @@ export type GetFormsTranslationResponse = {
             label: string;
             placeholder: string;
           };
-          genre: {
+          gender: {
             label: string;
             placeholder: string;
             items: {
@@ -542,6 +530,10 @@ export type GetFormsTranslationResponse = {
             placeholder: string;
           };
           cv: {
+            label: string;
+            placeholder: string;
+          };
+          note: {
             label: string;
             placeholder: string;
           };

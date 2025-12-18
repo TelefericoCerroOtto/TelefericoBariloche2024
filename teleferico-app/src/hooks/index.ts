@@ -1,4 +1,5 @@
 export * from "./use-app-alert";
+export * from "./use-debounced-value";
 export * from "./use-form-locale-selector";
 export * from "./use-is-mobile";
 export * from "./use-locale";

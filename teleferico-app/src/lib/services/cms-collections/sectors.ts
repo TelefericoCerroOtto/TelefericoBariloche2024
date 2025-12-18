@@ -1,11 +1,7 @@
 import { i18n } from "@/i18n";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type { GetSectorsResponse, Locales } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getSectors = async (locale: Locales) => {
   const query = {
@@ -20,9 +16,10 @@ export const getSectors = async (locale: Locales) => {
     },
   };
 
-  const res = await fetchWrapper<GetSectorsResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.SECTORS, stringifyQuery(query)),
-  );
+  const res = await strapiFetch<GetSectorsResponse>({
+    endpoint: STRAPI_ENDPOINTS.SECTORS,
+    qp: stringifyQuery(query),
+  });
 
   return res;
 };

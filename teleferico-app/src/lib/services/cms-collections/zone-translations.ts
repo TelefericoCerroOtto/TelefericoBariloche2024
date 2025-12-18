@@ -3,12 +3,8 @@ import type {
   UpdateZoneTranslationRequest,
   UpdateZoneTranslationResponse,
 } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const updateZoneTranslation = async (
   {
@@ -26,11 +22,11 @@ export const updateZoneTranslation = async (
     locale,
   };
 
-  const res = await fetchWrapper<UpdateZoneTranslationResponse>(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.ZONE_TRANSLATIONS}/${documentId}`,
-      stringifyQuery(query),
-    ),
+  const res = await strapiFetch<UpdateZoneTranslationResponse>(
+    {
+      endpoint: `${STRAPI_ENDPOINTS.ZONE_TRANSLATIONS}/${documentId}`,
+      qp: stringifyQuery(query),
+    },
     {
       method: "PUT",
       headers: {

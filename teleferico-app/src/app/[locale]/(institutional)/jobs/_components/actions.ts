@@ -1,23 +1,38 @@
 "use server";
 
-import { postPostulationAdapter } from "@/lib/adapters";
-import { postPostulation, uploadResume } from "@/lib/services";
-import type { PostulationFormData } from "@/types";
+import { ensureValidCaptcha, getClientIpFromHeaders } from "@/lib/http/guards";
+import { sendPostulation } from "@/lib/services/postulation";
+import { GuardClientPayload, PostulationFormData } from "@/types";
+import { headers } from "next/headers";
 
 export const sendPostulationAction = async (
-  postulation: PostulationFormData,
+  token: string | null,
+  values: PostulationFormData & GuardClientPayload,
 ) => {
-  const adaptedPostulation = postPostulationAdapter(postulation);
-  const postulationRes = await postPostulation(adaptedPostulation);
-  const postulationId = postulationRes.data?.data?.id;
-
-  if (!postulationRes.ok || !postulationId) {
-    return postulationRes;
+  const captcha = await ensureValidCaptcha(token);
+  if (!captcha.ok) {
+    return captcha.res;
   }
-  const uploadRes = await uploadResume(
-    postulation.resume,
-    postulationId,
-  );
 
-  return { ok: uploadRes, data: { postulationRes, uploadRes } };
+  const h = await headers();
+  const clientIp = getClientIpFromHeaders(h);
+
+  try {
+    const { ok, message, code } = await sendPostulation({
+      ...values,
+      clientIp,
+    });
+
+    return {
+      success: ok,
+      message,
+      data: { code },
+    };
+  } catch (error) {
+    console.error("sendPostulationAction error: ", error);
+    return {
+      success: false,
+      message: "Postulation action failed",
+    };
+  }
 };

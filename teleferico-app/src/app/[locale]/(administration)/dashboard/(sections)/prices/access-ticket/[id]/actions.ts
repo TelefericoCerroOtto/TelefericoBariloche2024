@@ -47,6 +47,7 @@ export const updateTicketAction = async (
     return {
       success: true,
       message: "Access ticket successfully updated.",
+      data: undefined,
     };
   } catch (error) {
     console.log("Server action 'updateTicketAction' error: ", error);
@@ -55,11 +56,13 @@ export const updateTicketAction = async (
         success: false,
         message:
           "Server action 'updateTicketAction' failed: Invalid or missing fields.",
+        data: error,
       };
     }
     return {
       success: false,
       message: "Server action 'updateTicketAction' failed",
+      data: error,
     };
   }
 };

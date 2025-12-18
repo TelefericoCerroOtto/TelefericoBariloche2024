@@ -5,6 +5,8 @@ import { HeroUIProvider, ToastProvider } from "@heroui/react";
 import { SSRProvider } from "@react-aria/ssr";
 import { SWRConfig } from "swr";
 
+const FOCUS_THROTTLE_INTERVAL_MS = 1 * 30 * 1000; // 30 seconds
+
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SSRProvider>
@@ -15,7 +17,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             value={{
               revalidateOnFocus: true,
               refreshWhenOffline: false,
-              focusThrottleInterval: 1 * 60 * 1000,
+              focusThrottleInterval: FOCUS_THROTTLE_INTERVAL_MS,
             }}
           >
             {children}

@@ -9,13 +9,8 @@ import type {
   GetServiceButtonResponse,
   Locales,
 } from "@/types";
-import {
-  CACHE_TAGS,
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import { CACHE_TAGS, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export type TranslateComponentsResponseTypes = {
   policies: GetPoliciesResponse;
@@ -53,11 +48,11 @@ export const getComponentTranslation = async <
     },
   };
 
-  const res = await fetchWrapper<TranslateComponentsResponseTypes[T]>(
-    getStrapiURL(
-      STRAPI_ENDPOINTS.COMPONENT_TRANSLATIONS,
-      stringifyQuery(query),
-    ),
+  const res = await strapiFetch<TranslateComponentsResponseTypes[T]>(
+    {
+      endpoint: STRAPI_ENDPOINTS.COMPONENT_TRANSLATIONS,
+      qp: stringifyQuery(query),
+    },
     {
       cache: "force-cache",
       next: { tags: [CACHE_TAGS[translateComponentCacheTags[key]]] },

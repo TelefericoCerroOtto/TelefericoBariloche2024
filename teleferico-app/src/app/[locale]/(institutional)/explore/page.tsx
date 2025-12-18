@@ -1,7 +1,7 @@
 import { BlocksRenderer, NoContent } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils";
+import { PUBLIC_ROUTES } from "@/utils";
 
 export default async function ExplorePage({
   params,
@@ -10,7 +10,7 @@ export default async function ExplorePage({
 }>) {
   const { locale } = await params;
 
-  const res = await getPageContent(locale, ROUTES.EXPLORE);
+  const res = await getPageContent(locale, PUBLIC_ROUTES.EXPLORE);
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok)
     throw new Error(

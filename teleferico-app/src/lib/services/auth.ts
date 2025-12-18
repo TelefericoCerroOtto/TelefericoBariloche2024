@@ -1,9 +1,10 @@
-import type { LoginFormData, SuccessfulLoginResponse } from "@/types";
-import { STRAPI_ENDPOINTS, fetchWrapper, getStrapiURL } from "@/utils";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import type { LoginFormData, SuccessfulLoginResponse, User } from "@/types";
+import { STRAPI_ENDPOINTS } from "@/utils";
 
 export const login = async (values: LoginFormData) => {
-  const res = fetchWrapper<SuccessfulLoginResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.AUTH),
+  const res = strapiFetch<SuccessfulLoginResponse>(
+    { endpoint: STRAPI_ENDPOINTS.AUTH },
     {
       method: "POST",
       headers: {
@@ -12,7 +13,7 @@ export const login = async (values: LoginFormData) => {
       body: JSON.stringify(values),
       cache: "no-cache",
     },
-    "login service error",
+    { skipToken: true, errorMsg: "login service error" },
   );
 
   return res;
@@ -20,17 +21,21 @@ export const login = async (values: LoginFormData) => {
 
 export const verifySession = async (jwt: string) => {
   try {
-    const res = await fetch(getStrapiURL(STRAPI_ENDPOINTS.USERS_ME), {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${jwt}`,
+    const res = await strapiFetch<Omit<User, "faved_postulations" | "role">>(
+      { endpoint: STRAPI_ENDPOINTS.USERS_ME },
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
       },
-    });
+    );
 
-    if (res.status === 200) return { isLogged: true };
+    if (res.ok) return { isLogged: true };
+    console.log("verify session failed: ", res.data);
     return { isLogged: false };
   } catch (error) {
-    console.log("verify session error", error);
+    console.log("verify session error: ", error);
     return { isLogged: false };
   }
 };

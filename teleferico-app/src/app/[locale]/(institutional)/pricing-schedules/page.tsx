@@ -1,7 +1,7 @@
 import { NoContent, StrapiComponentRenderer } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils";
+import { PUBLIC_ROUTES } from "@/utils";
 import { Spacer } from "@heroui/react";
 import {
   ActivitiesTable,
@@ -16,7 +16,10 @@ export default async function PricingSchedulesPage({
   params: Promise<{ locale: Locales }>;
 }>) {
   const { locale } = await params;
-  const { ok, data } = await getPageContent(locale, ROUTES.PRICINGSCHEDULES);
+  const { ok, data } = await getPageContent(
+    locale,
+    PUBLIC_ROUTES.PRICINGSCHEDULES,
+  );
   if (!ok)
     throw new Error(
       "Internal server error while trying to get content for pricing schedules page",

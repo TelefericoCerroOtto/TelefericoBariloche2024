@@ -2,6 +2,7 @@
 
 import { ButtonDos, CustomLink } from "@/components";
 import { useAppAlert } from "@/hooks";
+import { deleteItemAction } from "@/lib/actions/delete-item";
 import type {
   Activity,
   BusTrip,
@@ -11,7 +12,6 @@ import type {
   Ticket,
   Zone,
 } from "@/types";
-import { ROUTE_HANDLERS } from "@/utils";
 import {
   Button,
   Modal,
@@ -41,7 +41,7 @@ export default function TableActionsButtons(props: Props) {
     item,
     eraseModalTitle,
     editPath,
-    erasePath,
+    erasePath = "",
     swrMutateKey,
     disabled = false,
   } = props;
@@ -54,15 +54,17 @@ export default function TableActionsButtons(props: Props) {
     try {
       setIsErasing(true);
 
-      const res = await fetch(
-        `${ROUTE_HANDLERS.PROXY}${erasePath}/${item.documentId}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const res = await deleteItemAction(erasePath, item.documentId);
 
-      if (!res.ok) {
-        throw new Error("Error al eliminar el elemento");
+      if (!res.success) {
+        console.log("Delete item in table failed.", res.data);
+
+        showAlert({
+          title: "Error",
+          message: "Ocurrió un error al eliminar el elemento.",
+          variant: "danger",
+        });
+        return;
       }
 
       showAlert({

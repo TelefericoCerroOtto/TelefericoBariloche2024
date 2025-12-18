@@ -10,14 +10,14 @@ export default auth(async (req) => {
   const pathname = url.pathname;
 
   // Locale helpers
-  // const normalize = (lang: string | undefined): Locales | undefined => {
-  //   if (!lang) return undefined;
-  //   const l = lang.toLowerCase();
-  //   if (l.startsWith("es")) return "es-AR" as Locales;
-  //   if (l.startsWith("en")) return "en" as Locales;
-  //   if (l.startsWith("pt")) return "pt" as Locales;
-  //   return undefined;
-  // };
+  const normalize = (lang: string | undefined): Locales | undefined => {
+    if (!lang) return undefined;
+    const l = lang.toLowerCase();
+    if (l.startsWith("es")) return "es-AR" as Locales;
+    if (l.startsWith("en")) return "en" as Locales;
+    if (l.startsWith("pt")) return "pt" as Locales;
+    return undefined;
+  };
 
   // TODO: re-implement this function to pick locale from cookie or Accept-Language header. Cookie default language was "en".
   const pickLocale = (): Locales => {
@@ -106,17 +106,29 @@ export default auth(async (req) => {
     return;
   }
 
-  // Public paths
-  // Only redirect the root path to a locale-prefixed homepage
-  if (url.pathname === "/") {
-    const locale = pickLocale();
-    const redirectURL = new URL(`/${locale}`, url);
+  // 🚩 Public paths
+
+  // 1) Si la ruta NO tiene un locale válido como prefijo,
+  //    la redirigimos a un locale.
+  if (!hasLocalePrefix) {
+    // Si el primer segmento parece un idioma corto (es, en, pt),
+    // lo normalizamos al locale completo.
+    const normalized = normalize(maybeLocale);
+
+    const targetLocale = normalized ?? pickLocale();
+    const startIndex = normalized ? 2 : 1; // si había "es" lo sacamos, si no, usamos toda la ruta
+    const rest = segments.slice(startIndex).join("/");
+
+    const redirectPath =
+      rest && rest.length > 0 ? `/${targetLocale}/${rest}` : `/${targetLocale}`;
+
+    const redirectURL = new URL(redirectPath, url);
     const res = NextResponse.redirect(redirectURL);
-    res.cookies.set("NEXT_LOCALE", locale, { path: "/" });
+    res.cookies.set("NEXT_LOCALE", targetLocale, { path: "/" });
     return res;
   }
 
-  // If the current path already has a locale prefix, persist it in the cookie for future redirects.
+  // 2) Si ya tiene un locale prefijo, persistimos ese locale en la cookie.
   if (hasLocalePrefix) {
     const cookieLocale = req.cookies.get("NEXT_LOCALE")?.value;
     if (cookieLocale !== maybeLocale) {
@@ -126,11 +138,9 @@ export default auth(async (req) => {
     }
   }
 
-  // Do not redirect any other path. Let Next.js route or 404.
+  // 3) Cualquier otra cosa, dejamos que Next resuelva (o 404).
   return;
 });
-
-// export const config = { matcher: ["/dashboard/:path*", "/login", "/logout"] };
 
 export const config = {
   // Skip Next internals, API routes, and all static assets (including favicon)

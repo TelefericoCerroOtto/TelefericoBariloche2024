@@ -3,10 +3,10 @@ import type {
   RendereableBlocks,
   ServiceStateValues,
   StrapiBlocksPayload,
+  StrapiFile,
   StrapiImage,
   StrapiLocales,
   StrapiRecord,
-  UnpopulatedUserResponse,
 } from "@/types";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 
@@ -18,7 +18,7 @@ export type UserRoles =
   | "Recruiter"
   | "Operations Supervisor";
 
-export interface UserRole {
+export type UserRole = {
   id: number;
   documentId: string;
   name: UserRoles;
@@ -28,7 +28,24 @@ export interface UserRole {
   updatedAt: string;
   publishedAt: string;
   locale: null;
-}
+};
+
+export type User = {
+  id: number;
+  documentId: string;
+  username: string;
+  email: string;
+  provider: string;
+  confirmed: boolean;
+  blocked: boolean;
+  name: string;
+  surname: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  role: UserRole;
+  faved_postulations: Postulation[];
+};
 
 export type ComponentTranslationKeys =
   | "policies"
@@ -72,11 +89,13 @@ export type New = StrapiRecord<{
   cover: StrapiImage;
 }>;
 
+export type LiftingMean = "cablecar" | "road&funicular";
+
 export type Ticket = StrapiRecord<{
   name: string;
   description: string | null;
   price: number;
-  lifting_mean: "cablecar" | "road&funicular";
+  lifting_mean: LiftingMean;
 }>;
 
 export type ZoneTranslation = StrapiRecord<{
@@ -119,11 +138,13 @@ export type ActivityTranslation = StrapiRecord<{
   requirements: string | null;
 }>;
 
+export type Season = "summer" | "autumn" | "winter" | "spring" | "allSeasons";
+
 export type Activity = StrapiRecord<{
   // label: string;
   price: number;
   minAge: number;
-  season: "summer" | "autumn" | "winter" | "spring" | "allSeasons";
+  season: Season;
   zone: Zone;
   activity_translations: ActivityTranslation[];
   locale: null;
@@ -137,15 +158,22 @@ export type Sector = StrapiRecord<{
   locale: null;
 }>;
 
+export type PostulationStatus = "unreviewed" | "hired" | "discarded";
+
+export type Genders = "male" | "female" | "other";
+
 export type Postulation = StrapiRecord<{
   name: string;
   surname: string;
-  genre: string;
+  gender: Genders;
   age: number;
   email: string;
-  resume: unknown;
+  resume: StrapiFile;
   sector: Sector;
-  faved_by: UnpopulatedUserResponse[];
+  campNo: number | null;
+  note: string | null;
+  postulation_status: PostulationStatus;
+  faved_by: User[];
   locale: null;
 }>;
 

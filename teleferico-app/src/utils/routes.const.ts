@@ -1,4 +1,4 @@
-export const ROUTES = {
+export const PUBLIC_ROUTES = {
   ACTIVITIES: "/activities",
   CONTACT: "/contact",
   EXPLORE: "/explore",
@@ -13,8 +13,13 @@ export const ROUTES = {
 } as const;
 
 export const ROUTE_HANDLERS = {
-  PROXY: "/api/proxy",
-  CONTACT: "/api/contact",
+  PROXY: "/api/proxy", // TODO: public endpoint
+  PROXY_FILE: "/api/proxy-file", // public endpoint
+  CONTACT: "/api/contact", // server endpoint
+  POSTUALTION: "/api/postulation", // server endpoint
+  POSTULATIONS_FAVORITE: (documentId: string) =>
+    `/api/admin/postulations/${documentId}/favorite` as const, // admin endpoint
+  POSTULATIONS_BULK_STATUS: "/api/admin/postulations/bulk-status", // admin endpoint
 } as const;
 
 export const ADMIN_ROUTES = {
@@ -59,8 +64,8 @@ export const STRAPI_ENDPOINTS = {
   SERVICE_STATE: "/api/service-state",
   STATIONS: "/api/stations",
   TICKETS: "/api/tickets",
-  UPLOADS: "/api/upload",
-  UPLOAD_FILES: "/api/upload/files",
+  UPLOAD_API: "/api/upload",
+  UPLOAD_ASSETS: "/uploads",
   USERS: "/api/users",
   USERS_ME: "/api/users/me",
   ZONES: "/api/zones",

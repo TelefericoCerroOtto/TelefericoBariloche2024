@@ -1,6 +1,7 @@
 export { default as FormButtons } from "./FormButtons";
 export { default as FormContainer } from "./FormContainer";
 export { default as FormLocaleSelector } from "./FormLocaleSelector";
+export { default as Honeypot } from "./Honeypot";
 export { default as InputLocaleWrapper } from "./InputLocaleWrapper";
 export { default as InputSkeleton } from "./InputSkeleton";
 export { default as MediaSelector } from "./MediaSelector";

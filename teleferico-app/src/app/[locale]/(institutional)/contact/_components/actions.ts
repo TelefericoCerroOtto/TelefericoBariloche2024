@@ -1,35 +1,24 @@
 "use server";
 
-import { verifyCaptchaToken } from "@/lib/google/captcha";
+import { ensureValidCaptcha, getClientIpFromHeaders } from "@/lib/http/guards";
 import { sendEmail } from "@/lib/services";
-import type {
-  ContactRequestPayload,
-  FormSubmitServerActionResponse,
-} from "@/types";
+import type { ContactFormData, GuardClientPayload } from "@/types";
+import { headers } from "next/headers";
 
 export async function contactUsAction(
   token: string | null,
-  values: ContactRequestPayload,
-): FormSubmitServerActionResponse {
-  if (!token) {
-    return {
-      success: false,
-      message: "Captcha token is missing.",
-    };
+  values: ContactFormData & GuardClientPayload,
+) {
+  const captcha = await ensureValidCaptcha(token);
+  if (!captcha.ok) {
+    return captcha.res;
   }
 
-  const captchaData = await verifyCaptchaToken(token);
-
-  if (!captchaData.success) {
-    return {
-      success: false,
-      message: "Captcha failed. Please try again.",
-      data: { code: "CAPTCHA_FAILED" },
-    };
-  }
+  const h = await headers();
+  const clientIp = getClientIpFromHeaders(h);
 
   try {
-    const { ok, message, code } = await sendEmail(values);
+    const { ok, message, code } = await sendEmail({ ...values, clientIp });
 
     return {
       success: ok,

@@ -1,7 +1,7 @@
 import { BlocksRenderer, NoContent } from "@/components";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { ROUTES } from "@/utils";
+import { PUBLIC_ROUTES } from "@/utils";
 import { Spacer } from "@heroui/react";
 import { Suspense } from "react";
 import Loader from "./_components/Loader";
@@ -14,7 +14,7 @@ export default async function PoliciesPage({
 }>) {
   const { locale } = await params;
 
-  const { ok, data } = await getPageContent(locale, ROUTES.POLICIES);
+  const { ok, data } = await getPageContent(locale, PUBLIC_ROUTES.POLICIES);
 
   if (!ok)
     throw new Error(

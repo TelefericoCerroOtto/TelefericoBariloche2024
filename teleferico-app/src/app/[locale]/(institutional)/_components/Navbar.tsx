@@ -6,7 +6,7 @@ import { i18n } from "@/i18n";
 import logoBlanco from "@/public/logo-negativo.svg";
 import logoNegro from "@/public/logo.svg";
 import type { Locales } from "@/types";
-import { ROUTES, cn } from "@/utils";
+import { PUBLIC_ROUTES, cn } from "@/utils";
 import {
   Link,
   NavbarBrand,
@@ -33,7 +33,7 @@ interface Props {
   items: { label: string; href: string }[];
 }
 
-const { HOME, JOBS, NEWS, POLICIES, CONTACT, FAQS } = ROUTES;
+const { HOME, JOBS, NEWS, POLICIES, CONTACT, FAQS } = PUBLIC_ROUTES;
 
 export default function Navbar(props: Props) {
   const { items } = props;

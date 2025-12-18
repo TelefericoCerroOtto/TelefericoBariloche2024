@@ -7,12 +7,8 @@ import type {
   UpdateActivityRequest,
   UpdateActivityResponse,
 } from "@/types";
-import {
-  fetchWrapper,
-  getStrapiURL,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getActivity = async <T extends Locales | "all">({
   documentId,
@@ -45,11 +41,10 @@ export const getActivity = async <T extends Locales | "all">({
     };
   }
 
-  const qs = stringifyQuery(query);
-
-  const res = await fetchWrapper<GetActivityResponse>(
-    getStrapiURL(`${STRAPI_ENDPOINTS.ACTIVITIES}/${documentId}`, qs),
-  );
+  const res = await strapiFetch<GetActivityResponse>({
+    endpoint: `${STRAPI_ENDPOINTS.ACTIVITIES}/${documentId}`,
+    qp: stringifyQuery(query),
+  });
 
   return res;
 };
@@ -86,9 +81,10 @@ export const getActivities = async <T extends Locales | "all">(locale: T) => {
     };
   }
 
-  const res = await fetchWrapper<GetActivitiesResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.ACTIVITIES, stringifyQuery(query)),
-  );
+  const res = await strapiFetch<GetActivitiesResponse>({
+    endpoint: STRAPI_ENDPOINTS.ACTIVITIES,
+    qp: stringifyQuery(query),
+  });
 
   return res;
 };
@@ -97,8 +93,8 @@ export const createActivity = async (
   reqBody: PostActivityRequest,
   jwt: string,
 ) => {
-  const res = await fetchWrapper<PostActivityResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.ACTIVITIES),
+  const res = await strapiFetch<PostActivityResponse>(
+    { endpoint: STRAPI_ENDPOINTS.ACTIVITIES },
     {
       method: "POST",
       headers: {
@@ -119,8 +115,8 @@ export const updateActivity = async (
   }: { reqBody: UpdateActivityRequest; documentId: string },
   jwt: string,
 ) => {
-  const res = await fetchWrapper<UpdateActivityResponse>(
-    getStrapiURL(`${STRAPI_ENDPOINTS.ACTIVITIES}/${documentId}`),
+  const res = await strapiFetch<UpdateActivityResponse>(
+    { endpoint: `${STRAPI_ENDPOINTS.ACTIVITIES}/${documentId}` },
     {
       method: "PUT",
       headers: {

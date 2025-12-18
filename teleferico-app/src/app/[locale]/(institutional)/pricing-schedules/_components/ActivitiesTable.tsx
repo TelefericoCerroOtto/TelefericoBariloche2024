@@ -3,7 +3,7 @@
 import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
 import type { Activity, GetActivitiesResponse, Locales } from "@/types";
-import { ROUTES, STRAPI_ENDPOINTS } from "@/utils";
+import { PUBLIC_ROUTES, STRAPI_ENDPOINTS } from "@/utils";
 import { type ReactNode, useCallback } from "react";
 
 type ColumnKeys =
@@ -217,7 +217,7 @@ export default function ActivitiesTable() {
       isLoading={isLoading}
       isError={isError}
       link={{
-        href: ROUTES.ACTIVITIES,
+        href: PUBLIC_ROUTES.ACTIVITIES,
         label: dictionaries[locale].linkLabel,
       }}
     />
