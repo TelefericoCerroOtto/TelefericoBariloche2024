@@ -4,7 +4,7 @@ import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
 import type { BusTrip, GetBusTripsResponse, Locales, Station } from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { formatStrapiTime } from "@/utils/format-strapi-time";
 import { type ReactNode, useCallback } from "react";
 
@@ -68,8 +68,7 @@ export default function BusTable() {
         case "origin":
         case "destination": {
           const station = cellValue as StationWithZone;
-          const zoneName =
-            station.zone?.zone_translations?.[0]?.name ?? "-";
+          const zoneName = station.zone?.zone_translations?.[0]?.name ?? "-";
           return <span>{zoneName}</span>;
         }
         case "depTime":

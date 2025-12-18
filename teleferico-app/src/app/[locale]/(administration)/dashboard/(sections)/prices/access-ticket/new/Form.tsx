@@ -6,9 +6,9 @@ import {
   InputLocaleWrapper,
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { createAccessTicketSchema } from "@/lib/schemas";
 import type { CreateAccessTicketFormData } from "@/types";
-import { ADMIN_ROUTES } from "@/utils";
 import {
   addToast,
   Input,

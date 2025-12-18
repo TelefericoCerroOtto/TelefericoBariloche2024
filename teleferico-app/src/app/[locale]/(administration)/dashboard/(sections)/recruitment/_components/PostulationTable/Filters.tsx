@@ -1,7 +1,8 @@
 /* eslint-disable no-unused-vars */
 "use client";
 
-import { selectInputStyles } from "@/utils";
+import { selectInputStyles } from "@/lib/constants/styles.const";
+import { PostulationStatus } from "@/types";
 import {
   Input,
   Select,
@@ -13,7 +14,6 @@ import {
 import { Hash, SearchIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { type TimePreset } from "./hooks/use-filters";
-import { PostulationStatus } from "@/types";
 
 export interface Option<T = string> {
   key: T;

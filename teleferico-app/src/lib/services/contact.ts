@@ -1,7 +1,7 @@
-import type { ContactApiResponse, ContactRequestPayload } from "@/types";
-import { ROUTE_HANDLERS } from "@/utils";
-import { assertEnv } from "@/utils/env";
 import { ENV_KEYS } from "@/lib/constants/env.const";
+import { ROUTE_HANDLERS } from "@/lib/constants/routes.const";
+import type { ContactApiResponse, ContactRequestPayload } from "@/types";
+import { assertEnv } from "@/utils/env";
 
 const CONTACT_TIMEOUT_MS = 30_000;
 

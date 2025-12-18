@@ -1,10 +1,11 @@
 "use client";
 
-import { TableContainer } from "@/components";
+import { TableActionsButtons, TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
 import { StrapiTimeToTableRecordTime } from "@/lib/adapters";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import { BusTrip, GetBusTripsResponse } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Table as NextUITable,
   Spinner,
@@ -15,7 +16,6 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
-import { TableActionsButtons } from "@/components";
 import Toolbar from "./Toolbar";
 
 type ColumnKeys = "origin" | "destination" | "depTime" | "arrTime" | "actions";

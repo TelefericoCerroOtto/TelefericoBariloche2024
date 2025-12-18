@@ -4,11 +4,11 @@ import {
   HighlightLastWord,
   TitleDescBlock,
 } from "@/components";
+import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import gondola from "@/public/gondola.svg";
 import type { ImageTextBlock } from "@/types";
-import { bgStyles, caseStyles } from "@/utils";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
-import gondola from "@/public/gondola.svg";
 import CustomImage from "./CustomImage";
 
 const LogoBadge = () => (
@@ -104,7 +104,9 @@ export function DefaultFW(props: ImageTextBlock) {
       <div
         className={`flex w-full flex-col items-center ps-0 md:items-start md:ps-12 lg:w-1/2 ${isInverted ? "lg:items-center" : "lg:items-start lg:px-10"}`}
       >
-        <div className={`relative w-full max-w-2xl rounded-3xl bg-background/85 px-8 py-12 text-foreground shadow-xl shadow-black/5 ring-1 ring-red-500/15 backdrop-blur ${isInverted ? "lg:ml-auto" : ""}`}>
+        <div
+          className={`relative w-full max-w-2xl rounded-3xl bg-background/85 px-8 py-12 text-foreground shadow-xl shadow-black/5 ring-1 ring-red-500/15 backdrop-blur ${isInverted ? "lg:ml-auto" : ""}`}
+        >
           <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-5">
             <LogoBadge />
             <h4

@@ -1,9 +1,10 @@
 "use server";
 
 import { newUserAdapter } from "@/lib/adapters";
+import { CACHE_TAGS } from "@/lib/constants/cache-tags.const";
 import { createUser, updateUser } from "@/lib/services";
 import type { NewUserFormData, UpdateUserFormData } from "@/types/forms";
-import { getSession, CACHE_TAGS, filterDifferences } from "@/utils";
+import { filterDifferences, getSession } from "@/utils";
 import { revalidateTag } from "next/cache";
 
 export const createUserAction = async (user: NewUserFormData) => {

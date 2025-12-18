@@ -3,11 +3,11 @@ import {
   CustomLink,
   HighlightLastWord,
 } from "@/components";
+import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import gondola from "@/public/gondola.svg";
 import type { ImageTextBlock } from "@/types";
-import { bgStyles, caseStyles } from "@/utils";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
-import gondola from "@/public/gondola.svg";
 import CustomImage from "./CustomImage";
 
 const LogoBadge = () => (

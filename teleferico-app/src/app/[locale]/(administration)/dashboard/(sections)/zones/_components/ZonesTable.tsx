@@ -1,10 +1,11 @@
 "use client";
 
-import { TableContainer, TableActionsButtons } from "@/components";
+import { TableActionsButtons, TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
 import { StrapiTimeToTableRecordTime } from "@/lib/adapters";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import { GetZonesResponse, Zone } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Spinner,
   Table,

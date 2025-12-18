@@ -1,9 +1,10 @@
 "use client";
 
-import { TableContainer } from "@/components";
+import { TableActionsButtons, TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import type { Activity, GetActivitiesResponse } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Spinner,
   Table,
@@ -14,7 +15,6 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
-import { TableActionsButtons } from "@/components";
 
 type ColumnKeys =
   | "name"

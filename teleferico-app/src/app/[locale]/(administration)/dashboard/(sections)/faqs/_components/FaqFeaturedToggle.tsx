@@ -1,12 +1,12 @@
 "use client";
 
+import { useAppAlert } from "@/hooks";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { Faq } from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils";
 import { addToast, Switch } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
 import { updateFaqFeaturedStatus } from "./actions";
-import { useAppAlert } from "@/hooks";
 
 interface Props {
   faq: Faq;

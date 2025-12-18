@@ -1,6 +1,6 @@
-import { STRAPI_ENDPOINTS } from "@/utils";
-import { useProxy } from "./use-proxy";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { GetServiceStateResponse } from "@/types";
+import { useProxy } from "./use-proxy";
 
 const REFRESH_INTERVAL_MS = 10 * 1000; // 10 seconds
 

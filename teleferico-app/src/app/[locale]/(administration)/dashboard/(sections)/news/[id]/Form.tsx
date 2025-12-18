@@ -8,9 +8,9 @@ import {
   Rte,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { updateNewSchema } from "@/lib/schemas";
 import type { UpdateNewFormData } from "@/types";
-import { ADMIN_ROUTES } from "@/utils";
 import {
   addToast,
   Button,
@@ -24,10 +24,10 @@ import {
   useDisclosure,
 } from "@heroui/react";
 import { useFormik } from "formik";
+import { Trash } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { bodyConfig, briefConfig, titleConfig } from "../_components/data";
-import { Trash } from "lucide-react";
 import { deleteNewsAction, updateNewsAction } from "./actions";
 
 interface Props {

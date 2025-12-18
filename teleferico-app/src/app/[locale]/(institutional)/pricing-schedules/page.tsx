@@ -1,7 +1,7 @@
 import { NoContent, StrapiComponentRenderer } from "@/components";
+import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { PUBLIC_ROUTES } from "@/utils";
 import { Spacer } from "@heroui/react";
 import {
   ActivitiesTable,

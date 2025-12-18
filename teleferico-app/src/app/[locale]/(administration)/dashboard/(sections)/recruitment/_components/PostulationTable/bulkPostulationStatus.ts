@@ -1,3 +1,4 @@
+import { ROUTE_HANDLERS } from "@/lib/constants/routes.const";
 import { authenticatedInternalApiFetch } from "@/lib/http/clients/auth-internal-fetch";
 import type {
   GetPostulationsResponse,
@@ -5,7 +6,6 @@ import type {
   PostulationsBulkStatusRequestPayload,
   PostulationStatus,
 } from "@/types";
-import { ROUTE_HANDLERS } from "@/utils";
 import type { Selection } from "@heroui/react";
 
 type PostulationItem = GetPostulationsResponse["data"][number];

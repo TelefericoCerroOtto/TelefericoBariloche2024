@@ -1,7 +1,9 @@
 import { i18n } from "@/i18n";
+import { PAGE_TAG_PREFIX } from "@/lib/constants/cache-tags.const";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type { GetPageResponse, Locales } from "@/types";
-import { PAGE_TAG_PREFIX, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
+import { stringifyQuery } from "@/utils";
 
 export const getPageContent = async (locale: Locales, route: string) => {
   const query = {

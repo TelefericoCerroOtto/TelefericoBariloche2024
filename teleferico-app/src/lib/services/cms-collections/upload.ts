@@ -1,6 +1,6 @@
-import type { StrapiFile, StrapiImage, UploadMediaResponse } from "@/types";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { STRAPI_ENDPOINTS } from "@/utils";
+import type { StrapiFile, StrapiImage, UploadMediaResponse } from "@/types";
 
 const uploadMedia = async <T>(file: File, jwt: string) => {
   const formData = new FormData();

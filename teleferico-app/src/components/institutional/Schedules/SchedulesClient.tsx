@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale, useProxy, useServiceState } from "@/hooks";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import LogoRecortado from "@/public/logo-recortado.svg";
 import type {
   GetSchedulesTranslationResponse,
@@ -9,7 +10,7 @@ import type {
   Locales,
   Zone,
 } from "@/types";
-import { formatStrapiTime, STRAPI_ENDPOINTS } from "@/utils";
+import { formatStrapiTime } from "@/utils";
 import { Button, Spinner, Tooltip } from "@heroui/react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";

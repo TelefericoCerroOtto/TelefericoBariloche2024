@@ -7,9 +7,9 @@ import {
   TimeInput,
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { updateZoneSchema } from "@/lib/schemas";
 import type { ZoneFormData } from "@/types/forms";
-import { ADMIN_ROUTES } from "@/utils";
 import { Input, Switch } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";

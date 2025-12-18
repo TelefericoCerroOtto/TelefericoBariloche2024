@@ -2,9 +2,9 @@
 
 import { ButtonDos, FormError, Honeypot } from "@/components";
 import { useAppAlert, useLocale, useTranslation } from "@/hooks";
+import { selectInputStyles } from "@/lib/constants/styles.const";
 import { buildPostulationSchema } from "@/lib/schemas";
 import type { PostulationFormData, Sector } from "@/types";
-import { selectInputStyles } from "@/utils";
 import { Input, Select, SelectItem, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { X } from "lucide-react";

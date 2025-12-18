@@ -3,8 +3,9 @@
 import { TableActionsButtons, TableContainer } from "@/components";
 import { useAppAlert, useDebouncedValue, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import type { GetNewsResponse } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Pagination,
   Spinner,

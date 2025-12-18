@@ -1,7 +1,7 @@
 import { BlocksRenderer, NoContent, ServiceButton } from "@/components";
+import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { PUBLIC_ROUTES } from "@/utils";
 
 export default async function Home({
   params,

@@ -1,4 +1,5 @@
-import { fetcher, ROUTE_HANDLERS, stringifyQuery } from "@/utils";
+import { ROUTE_HANDLERS } from "@/lib/constants/routes.const";
+import { fetcher, stringifyQuery } from "@/utils";
 import useSWR, { type BareFetcher, type SWRConfiguration } from "swr";
 
 export function useProxy<T>(

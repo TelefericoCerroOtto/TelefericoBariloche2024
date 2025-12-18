@@ -6,9 +6,9 @@ import {
   InputLocaleWrapper,
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { createActivitySchema } from "@/lib/schemas";
 import type { CreateActivityFormData } from "@/types";
-import { ADMIN_ROUTES } from "@/utils";
 import {
   Input,
   NumberInput,

@@ -1,3 +1,6 @@
+import { CACHE_TAGS } from "@/lib/constants/cache-tags.const";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   DeleteUserResponse,
   FetchResponse,
@@ -11,10 +14,7 @@ import type {
   UserRole,
   UserRoles,
 } from "@/types";
-import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { CACHE_TAGS } from "@/utils/cache-tags.const";
 import { stringifyQuery } from "@/utils/query";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 
 export const getPersonalData = async (jwt: string) => {
   const query = { populate: "*" };

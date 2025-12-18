@@ -1,6 +1,6 @@
 "use client";
 
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { signOut } from "next-auth/react";
 import { useEffect } from "react";
 

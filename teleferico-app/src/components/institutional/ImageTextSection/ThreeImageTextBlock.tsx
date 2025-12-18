@@ -3,10 +3,10 @@ import {
   CustomLink,
   HighlightLastWord,
 } from "@/components";
-import type { ImageTextBlock } from "@/types";
-import { bgStyles, caseStyles } from "@/utils";
-import Image from "next/image";
+import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
 import gondola from "@/public/gondola.svg";
+import type { ImageTextBlock } from "@/types";
+import Image from "next/image";
 import CustomImage from "./CustomImage";
 
 const LogoBadge = () => (
@@ -74,7 +74,9 @@ export function Horizontal(props: ImageTextBlock) {
         </div>
         {description ? (
           typeof description === "string" ? (
-            <p className="text-center text-base leading-relaxed text-foreground/80 md:text-lg">{description}</p>
+            <p className="text-center text-base leading-relaxed text-foreground/80 md:text-lg">
+              {description}
+            </p>
           ) : (
             <div className="space-y-4 text-center text-base leading-relaxed text-foreground/80 md:text-lg">
               <BlockRendererClient content={description} />
@@ -142,7 +144,9 @@ export function Ladder(props: ImageTextBlock) {
           </div>
           {description ? (
             typeof description === "string" ? (
-              <p className="mt-4 text-left text-base leading-relaxed text-foreground/80 md:text-lg">{description}</p>
+              <p className="mt-4 text-left text-base leading-relaxed text-foreground/80 md:text-lg">
+                {description}
+              </p>
             ) : (
               <div className="mt-4 space-y-4 text-left text-base leading-relaxed text-foreground/80 md:text-lg">
                 <BlockRendererClient content={description} />
@@ -213,7 +217,9 @@ export function Miniatures(props: ImageTextBlock) {
           </div>
           {description ? (
             typeof description === "string" ? (
-              <p className="mt-4 text-left text-base leading-relaxed text-foreground/80 md:text-lg">{description}</p>
+              <p className="mt-4 text-left text-base leading-relaxed text-foreground/80 md:text-lg">
+                {description}
+              </p>
             ) : (
               <div className="mt-4 space-y-4 text-left text-base leading-relaxed text-foreground/80 md:text-lg">
                 <BlockRendererClient content={description} />

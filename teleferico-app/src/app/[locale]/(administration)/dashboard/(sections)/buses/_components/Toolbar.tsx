@@ -1,10 +1,9 @@
 "use client";
 
 import { TableToolbarContainer } from "@/components";
-import { ADMIN_ROUTES } from "@/utils";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { Selection } from "@heroui/react";
 import { Dispatch, SetStateAction } from "react";
-// import Filters from "./Filters";
 
 interface Props {
   departureFilter?: Selection;

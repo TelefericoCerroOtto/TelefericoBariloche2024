@@ -1,5 +1,5 @@
 import { BlockRendererClient } from "@/components";
-import { bgStyles, caseStyles } from "@/utils";
+import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { type ReactNode } from "react";
 

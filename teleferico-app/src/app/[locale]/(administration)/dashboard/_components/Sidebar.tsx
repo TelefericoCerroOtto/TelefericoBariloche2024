@@ -11,20 +11,20 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/Sidebar";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import LogoRecortado from "@/public/logo-recortado.svg";
 import type { UserRole } from "@/types";
-import { ADMIN_ROUTES } from "@/utils";
 import { Tooltip } from "@heroui/react";
 import {
   Building2,
   BusFront,
   CircleDollarSign,
   Image as LucideImage,
+  MessageCircleQuestionMark,
   PersonStanding,
   Power,
   Repeat2,
   Rss,
-  MessageCircleQuestionMark,
   User,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
