@@ -9,6 +9,10 @@ import {
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import {
+  formCheckboxClassNames,
+  formInputClassNames,
+} from "@/lib/constants/styles.const";
 import { createNewSchema } from "@/lib/schemas";
 import type { CreateNewFormData } from "@/types";
 import { createEmptyJSONContent } from "@/utils/tiptap";
@@ -156,12 +160,14 @@ export default function NewsForm() {
         errorMessage={touched.date ? (errors.date as string) : undefined}
         isInvalid={!!errors.date && !!touched.date}
         className="max-w-xs"
+        classNames={formInputClassNames}
       />
       <Checkbox
         id="highlighted"
         name="highlighted"
         isSelected={values.highlighted}
         onChange={handleChange}
+        classNames={formCheckboxClassNames}
       >
         Noticia destacada
       </Checkbox>

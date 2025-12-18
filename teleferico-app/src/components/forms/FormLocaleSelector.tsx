@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n";
+import { formSelectClassNames } from "@/lib/constants/styles.const";
 import { Select, SelectItem, SharedSelection } from "@heroui/react";
 import { Languages } from "lucide-react";
 
@@ -22,11 +23,12 @@ export default function FormLocaleSelector(props: Props) {
   return (
     <div className="flex items-center gap-3">
       <Languages />
-      <p>Editando en:</p>
+      <p className="text-base">Editando en:</p>
       <Select
         variant="underlined"
         className="w-[120px]"
         size="sm"
+        classNames={formSelectClassNames}
         disallowEmptySelection
         items={items}
         selectedKeys={selectedKeys}

@@ -4,6 +4,7 @@ import { ButtonDos, FormError, Honeypot } from "@/components";
 import { useLocale, useTranslation } from "@/hooks";
 import { useAppAlert } from "@/hooks/use-app-alert";
 import { buildContactSchema } from "@/lib/schemas";
+import { formInputClassNames } from "@/lib/constants/styles.const";
 import { ContactFormData } from "@/types";
 import { Input, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
@@ -147,6 +148,7 @@ export default function Form() {
         placeholder={formIntl.fields["name"].placeholder}
         errorMessage={errors.name}
         isInvalid={!!errors.name && touched.name}
+        classNames={formInputClassNames}
       />
       <Input
         id="email"
@@ -160,6 +162,7 @@ export default function Form() {
         errorMessage={errors.email}
         isInvalid={!!errors.email && touched.email}
         type="email"
+        classNames={formInputClassNames}
       />
       <Textarea
         id="consultation"
@@ -172,6 +175,7 @@ export default function Form() {
         placeholder={formIntl.fields["consultation"].placeholder}
         errorMessage={errors.consultation}
         isInvalid={!!errors.consultation && touched.consultation}
+        classNames={formInputClassNames}
       />
       <ReCAPTCHA
         ref={recaptchaRef}

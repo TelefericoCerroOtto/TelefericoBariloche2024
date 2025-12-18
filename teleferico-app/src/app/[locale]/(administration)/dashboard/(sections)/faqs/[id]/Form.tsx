@@ -7,6 +7,7 @@ import {
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import { formCheckboxClassNames } from "@/lib/constants/styles.const";
 import { updateFaqSchema } from "@/lib/schemas";
 import type { UpdateFaqFormData } from "@/types";
 import { addToast, Checkbox, Input, Textarea } from "@heroui/react";
@@ -105,6 +106,7 @@ export default function FaqForm(props: Props) {
         name="featured"
         isSelected={values.featured}
         onChange={handleChange}
+        classNames={formCheckboxClassNames}
       >
         Pregunta destacada
       </Checkbox>
