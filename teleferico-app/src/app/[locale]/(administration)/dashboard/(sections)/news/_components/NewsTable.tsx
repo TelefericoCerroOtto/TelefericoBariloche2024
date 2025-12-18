@@ -113,7 +113,7 @@ export default function NewsTable() {
         case "highglighted":
           return (
             <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              className={`rounded-full px-3 py-1 text-sm font-semibold ${
                 item.highlighted
                   ? "bg-green-100 text-green-700"
                   : "bg-default-200 text-default-600"
@@ -181,7 +181,7 @@ export default function NewsTable() {
             {(column) => (
               <TableColumn
                 key={column.key}
-                className={`${column.key === "actions" ? "text-center" : ""} text-black`}
+                className={`${column.key === "actions" ? "text-center" : ""} text-base font-semibold text-black`}
               >
                 {column.label}
               </TableColumn>

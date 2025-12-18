@@ -161,7 +161,7 @@ export default function Sidebar() {
                           >
                             <div className="flex flex-col items-center gap-2">
                               <item.icon />
-                              <p className="text-center text-[11px] leading-3">
+                              <p className="text-center text-sm leading-4">
                                 {item.name}
                               </p>
                             </div>
@@ -181,7 +181,7 @@ export default function Sidebar() {
                             aria-disabled={false}
                           >
                             <item.icon />
-                            <p className="text-center text-[11px] leading-3">
+                            <p className="text-center text-sm leading-4">
                               {item.name}
                             </p>
                           </Link>

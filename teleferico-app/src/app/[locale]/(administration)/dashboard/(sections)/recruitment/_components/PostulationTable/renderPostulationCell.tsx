@@ -123,14 +123,14 @@ export function renderPostulationCell({
           <PopoverTrigger>
             <button
               type="button"
-              className="max-w-[260px] truncate text-left text-sm text-default-700 hover:underline"
+              className="max-w-[260px] truncate text-left text-base text-default-700 hover:underline"
               aria-label="Ver nota completa"
               title="Ver nota completa"
             >
               {preview}
             </button>
           </PopoverTrigger>
-          <PopoverContent className="max-w-md whitespace-pre-wrap text-sm">
+          <PopoverContent className="max-w-md whitespace-pre-wrap text-base">
             {item.note}
           </PopoverContent>
         </Popover>

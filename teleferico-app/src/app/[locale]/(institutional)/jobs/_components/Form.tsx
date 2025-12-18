@@ -312,7 +312,7 @@ export default function Form(props: Props) {
                   resumeRef.current!.value = "";
                 }}
                 disabled={isSubmitting}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-default-300 text-xs font-bold text-danger-500 hover:bg-danger-50"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-default-300 text-sm font-bold text-danger-500 hover:bg-danger-50"
                 aria-label={"Limpiar archivo seleccionado"}
               >
                 <X />

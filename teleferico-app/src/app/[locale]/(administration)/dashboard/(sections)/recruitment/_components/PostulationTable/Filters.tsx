@@ -218,7 +218,7 @@ export default function Filters(props: FiltersProps) {
 
       {/* Solo favoritas */}
       <div className="flex flex-col items-center gap-2">
-        <span className="text-sm">Ver solo favoritas</span>
+        <span className="text-base">Ver solo favoritas</span>
         <Switch
           size="sm"
           isSelected={favoritesOnly}

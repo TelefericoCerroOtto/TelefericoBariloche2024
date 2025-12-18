@@ -270,12 +270,12 @@ export default function SchedulesClient(props: Props) {
 
               {/*BADGE*/}
               <span
-                className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${badgeStyles[status]}`}
+                className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold uppercase tracking-wide ${badgeStyles[status]}`}
               >
                 {badgeText}
               </span>
 
-              <dl className="mt-6 grid gap-4 text-sm text-slate-700">
+              <dl className="mt-6 grid gap-4 text-base text-slate-700">
                 <TimeRow
                   label={translations.components.TimeRow.opens}
                   value={open}

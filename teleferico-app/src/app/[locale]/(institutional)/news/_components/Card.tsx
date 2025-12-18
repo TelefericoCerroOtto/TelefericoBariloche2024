@@ -61,7 +61,7 @@ export default function Card(props: Props) {
             className="h-full w-full object-cover transition-transform duration-500 ease-out motion-safe:group-hover:scale-[1.03] motion-reduce:transform-none"
           />
           {highlighted ? (
-            <span className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-custom-red px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white shadow-sm">
+            <span className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-custom-red px-3 py-1 text-sm font-semibold uppercase tracking-wide text-white shadow-sm">
               {locale === "pt" ? "Em destaque" : locale === "en" ? "Featured" : "Destacada"}
             </span>
           ) : null}

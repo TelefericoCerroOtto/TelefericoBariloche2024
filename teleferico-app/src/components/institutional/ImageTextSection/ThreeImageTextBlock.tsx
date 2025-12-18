@@ -67,7 +67,7 @@ export function Horizontal(props: ImageTextBlock) {
         </div>
         <div className="min-h-[1.5rem] text-center">
           {epigraph ? (
-            <p className="inline-block border-l-2 border-red-500/40 pl-4 text-xs font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-sm">
+            <p className="inline-block border-l-2 border-red-500/40 pl-4 text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-base">
               {epigraph}
             </p>
           ) : null}
@@ -135,7 +135,7 @@ export function Ladder(props: ImageTextBlock) {
           </div>
           <div className="mt-2 min-h-[1.5rem] text-center md:text-left">
             {epigraph ? (
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-sm">
+              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-base">
                 {epigraph}
               </p>
             ) : null}
@@ -206,7 +206,7 @@ export function Miniatures(props: ImageTextBlock) {
           </div>
           <div className="mt-2 min-h-[1.5rem] text-center md:text-left">
             {epigraph ? (
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-sm">
+              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-base">
                 {epigraph}
               </p>
             ) : null}

@@ -66,7 +66,7 @@ export function TwoImageTextBlock(props: ImageTextBlock) {
           </div>
           <div className="mt-2 min-h-[1.5rem] text-center md:text-left">
             {epigraph ? (
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-sm">
+              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-base">
                 {epigraph}
               </p>
             ) : null}

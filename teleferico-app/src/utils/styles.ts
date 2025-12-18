@@ -15,7 +15,7 @@ export const tableStyles = {
   classNames: {
     thead: "border-b border-b-custom-border ",
     table: "bg-white",
-    th: "bg-white font-bold text-black",
+    th: "bg-white text-base font-bold text-black",
   },
 };
 
