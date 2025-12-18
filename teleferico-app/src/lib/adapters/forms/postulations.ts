@@ -79,8 +79,9 @@ export const createPostulationAdapter = (
       gender,
       age,
       email,
-      campNo: undefined,
-      note: undefined,
+      campNo: null,
+      note: null,
+      postulation_status: "unreviewed",
       sector: {
         connect: [{ documentId: sector }],
       },

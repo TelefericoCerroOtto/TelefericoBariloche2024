@@ -2,7 +2,18 @@ import {
   validateEmailAvailability,
   validateUsernameAvailability,
 } from "@/lib/actions/forms";
-import type { Locales, LoginUserRequest } from "@/types";
+import {
+  GENDERS,
+  LIFTING_MEANS,
+  SEASONS,
+} from "@/lib/constants/enum-fields.const";
+import type {
+  Genders,
+  LiftingMean,
+  Locales,
+  LoginUserRequest,
+  Season,
+} from "@/types";
 import { isTiptapNonEmpty, isValidTiptapDoc } from "@/utils/tiptap";
 import { type JSONContent } from "@tiptap/react";
 import { boolean, mixed, number, object, ObjectSchema, string } from "yup";
@@ -123,9 +134,7 @@ export const createActivitySchema = object({
   description_pt: string().max(500, es.string.max(500)),
   price: number().integer(es.number.integer).required(es.number.required),
   minAge: number().integer(es.number.integer).required(es.number.required),
-  season: string()
-    .oneOf(["summer", "autumn", "winter", "spring", "allSeasons"])
-    .required(es.string.required),
+  season: string<Season>().oneOf(SEASONS).required(es.string.required),
   "requirements_es-AR": string(),
   requirements_en: string(),
   requirements_pt: string(),
@@ -146,8 +155,8 @@ export const createAccessTicketSchema = object({
     .integer(es.number.integer)
     .required(es.number.required)
     .min(0, es.number.min(0)),
-  liftingMean: string()
-    .oneOf(["cablecar", "road&funicular"])
+  liftingMean: string<LiftingMean>()
+    .oneOf(LIFTING_MEANS)
     .required(es.string.required),
 });
 
@@ -368,9 +377,7 @@ export const buildPostulationSchema = (locale: Locales) => {
       .required(m.string.required)
       .min(2, m.string.min(2))
       .max(30, m.string.max(30)),
-    gender: string()
-      .required(m.string.required)
-      .oneOf(["male", "female", "other"]),
+    gender: string<Genders>().required(m.string.required).oneOf(GENDERS),
     age: number()
       .integer(m.number.integer)
       .required(m.number.required)

@@ -533,6 +533,10 @@ export type GetFormsTranslationResponse = {
             label: string;
             placeholder: string;
           };
+          note: {
+            label: string;
+            placeholder: string;
+          };
         };
         buttons: {
           send: string;

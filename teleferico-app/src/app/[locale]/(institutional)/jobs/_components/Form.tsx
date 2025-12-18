@@ -5,7 +5,7 @@ import { useAppAlert, useLocale, useTranslation } from "@/hooks";
 import { buildPostulationSchema } from "@/lib/schemas";
 import type { PostulationFormData, Sector } from "@/types";
 import { selectInputStyles } from "@/utils";
-import { Input, Select, SelectItem } from "@heroui/react";
+import { Input, Select, SelectItem, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { X } from "lucide-react";
 import { useRef, useState } from "react";
@@ -132,13 +132,14 @@ export default function Form(props: Props) {
     validateForm,
   } = useFormik<PostulationFormData>({
     initialValues: {
-      name: "Manuel",
-      surname: "Fernandez",
-      email: "manu@strapi.io",
+      name: "",
+      surname: "",
+      email: "",
       gender: "male",
       resume: undefined as unknown as File,
+      note: "",
       age: 27,
-      sector: sectors[0]?.key || "",
+      sector: sectors[0]?.documentId || "",
     },
     onSubmit,
     validationSchema: buildPostulationSchema(locale),
@@ -250,7 +251,6 @@ export default function Form(props: Props) {
         placeholder={formIntl.fields.sector.placeholder}
         disallowEmptySelection
         items={sectors}
-        value={[values.sector]}
         defaultSelectedKeys={[values.sector]}
         onChange={handleChange}
         onBlur={handleBlur}
@@ -275,6 +275,19 @@ export default function Form(props: Props) {
         onBlur={handleBlur}
         errorMessage={errors.campNo}
         isInvalid={errors.campNo !== undefined && touched.campNo}
+      />
+      <Textarea
+        id="note"
+        name="note"
+        type="note"
+        labelPlacement="outside"
+        label={formIntl.fields.note.label}
+        placeholder={formIntl.fields.note.placeholder}
+        value={values.note}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        errorMessage={errors.note}
+        isInvalid={errors.note !== undefined && touched.note}
       />
       <Input
         id="resume"
