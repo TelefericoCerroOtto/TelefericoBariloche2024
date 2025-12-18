@@ -17,9 +17,9 @@ import { ValidationError } from "yup";
 
 const rateLimitStore = new Map();
 const RATE_LIMIT_MAX = 2;
-const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
-const MIN_FORM_AGE_MS = 3_000;
-const MAX_FORM_AGE_MS = 24 * 60 * 60 * 1000; // 24 horas
+const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+const MIN_FORM_AGE_MS = 5 * 1000; // 5 seconds
+const MAX_FORM_AGE_MS = 15 * 60 * 1000; // 15 minutes
 const HONEYPOT_FIELD = "honeypot";
 const FORM_LOADED_AT_FIELD = "formLoadedAt";
 
