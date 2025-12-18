@@ -44,7 +44,7 @@ export default async function SchedulesServer(props: Props) {
 
       <header className="relative z-10 flex flex-col gap-4 pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-3 sm:max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/70">
+          <p className="text-base font-semibold uppercase tracking-[0.3em] text-white/70">
             {translations.header.epigraph}
           </p>
           <h2
@@ -53,7 +53,7 @@ export default async function SchedulesServer(props: Props) {
           >
             {translations.header.title}
           </h2>
-          <p className="max-w-xl text-base text-white/80">
+          <p className="max-w-xl text-lg text-white/80">
             {translations.header.legend}
           </p>
         </div>
