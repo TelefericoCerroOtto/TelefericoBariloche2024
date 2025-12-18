@@ -1,3 +1,4 @@
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   ExtendLocalizations,
   GetTicketResponse,
@@ -7,8 +8,7 @@ import type {
   UpdateAccessTicketRequest,
   UpdateAccessTicketResponse,
 } from "@/types";
-import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
+import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getAccessTicket = async <T extends Locales | "all">({
   documentId,
@@ -25,11 +25,12 @@ export const getAccessTicket = async <T extends Locales | "all">({
     query.locale = locale;
   }
 
-  const qs = stringifyQuery(query);
-
   const res = await strapiFetch<
     T extends "all" ? ExtendLocalizations<GetTicketResponse> : GetTicketResponse
-  >(getStrapiURL(`${STRAPI_ENDPOINTS.TICKETS}/${documentId}`, qs));
+  >({
+    endpoint: `${STRAPI_ENDPOINTS.TICKETS}/${documentId}`,
+    qp: stringifyQuery(query),
+  });
 
   return res;
 };
@@ -40,7 +41,7 @@ export const createAccessTicket = async (
   jwt: string,
 ) => {
   const res = await strapiFetch<PostAccessTicketResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.TICKETS),
+    { endpoint: STRAPI_ENDPOINTS.TICKETS },
     {
       method: "POST",
       headers: {
@@ -71,10 +72,10 @@ export const updateAccessTicket = async (
   };
 
   const res = await strapiFetch<UpdateAccessTicketResponse>(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.TICKETS}/${documentId}`,
-      stringifyQuery(query),
-    ),
+    {
+      endpoint: `${STRAPI_ENDPOINTS.TICKETS}/${documentId}`,
+      qp: stringifyQuery(query),
+    },
     {
       method: "PUT",
       headers: {

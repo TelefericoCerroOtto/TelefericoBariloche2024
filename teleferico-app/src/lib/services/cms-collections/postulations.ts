@@ -5,14 +5,14 @@ import type {
   UpdatePostulationRequest,
   UpdatePostulationResponse,
 } from "@/types";
-import { STRAPI_ENDPOINTS, getStrapiURL } from "@/utils";
+import { STRAPI_ENDPOINTS } from "@/utils";
 
 export const createPostulation = async (
   token: string,
   reqBody: PostPostulationRequest,
 ) => {
   const res = await strapiFetch<PostPostulationResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.POSTULATIONS),
+    { endpoint: STRAPI_ENDPOINTS.POSTULATIONS },
     {
       method: "POST",
       headers: {
@@ -34,7 +34,7 @@ export const updatePostulation = async (
   jwt: string,
 ) => {
   const res = await strapiFetch<UpdatePostulationResponse>(
-    getStrapiURL(`${STRAPI_ENDPOINTS.POSTULATIONS}/${documentId}`),
+    { endpoint: `${STRAPI_ENDPOINTS.POSTULATIONS}/${documentId}` },
     {
       method: "PUT",
       headers: {

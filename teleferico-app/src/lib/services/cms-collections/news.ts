@@ -11,7 +11,7 @@ import type {
   UpdateNewRequest,
   UpdateNewResponse,
 } from "@/types";
-import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
+import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 // TODO: Add pagination
 export const getNews = async ({
@@ -36,7 +36,7 @@ export const getNews = async ({
   };
 
   const res = await strapiFetch<GetNewsResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.NEWS, stringifyQuery(query)),
+    { endpoint: STRAPI_ENDPOINTS.NEWS, qp: stringifyQuery(query) },
     { cache: "no-store" },
   );
 
@@ -64,12 +64,12 @@ export const getNew = async <T extends Locales | "all">({
   const res = await strapiFetch<
     T extends "all" ? ExtendLocalizations<GetNewResponse> : GetNewResponse
   >(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.NEWS}/${documentId}`,
-      stringifyQuery(query),
-    ),
+    {
+      endpoint: `${STRAPI_ENDPOINTS.NEWS}/${documentId}`,
+      qp: stringifyQuery(query),
+    },
     {},
-    "get new fetch error",
+    { errorMsg: "get new fetch error" },
   );
 
   return res;
@@ -92,10 +92,10 @@ export const updateNew = async (
   };
 
   const res = await strapiFetch<UpdateNewResponse>(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.NEWS}/${documentId}`,
-      stringifyQuery(query),
-    ),
+    {
+      endpoint: `${STRAPI_ENDPOINTS.NEWS}/${documentId}`,
+      qp: stringifyQuery(query),
+    },
     {
       method: "PUT",
       headers: {
@@ -111,7 +111,7 @@ export const updateNew = async (
 
 export const deleteNew = async (documentId: string, jwt: string) => {
   const res = await strapiFetch<object>(
-    getStrapiURL(`${STRAPI_ENDPOINTS.NEWS}/${documentId}`),
+    { endpoint: `${STRAPI_ENDPOINTS.NEWS}/${documentId}` },
     {
       method: "DELETE",
       headers: {
@@ -136,7 +136,7 @@ export const createNew = async (
   const query = { locale };
 
   const res = await strapiFetch<CreateNewResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.NEWS, stringifyQuery(query)),
+    { endpoint: STRAPI_ENDPOINTS.NEWS, qp: stringifyQuery(query) },
     {
       method: "POST",
       headers: {

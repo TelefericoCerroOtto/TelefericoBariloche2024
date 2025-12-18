@@ -6,7 +6,7 @@ import type {
   UpdateActivityTranslationResponse,
 } from "@/types";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
+import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const createActivityTranslation = async (
   {
@@ -23,7 +23,10 @@ export const createActivityTranslation = async (
   };
 
   const res = await strapiFetch<PostActivityTranslationResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.ACTIVITY_TRANSLATIONS, stringifyQuery(query)),
+    {
+      endpoint: STRAPI_ENDPOINTS.ACTIVITY_TRANSLATIONS,
+      qp: stringifyQuery(query),
+    },
     {
       method: "POST",
       headers: {
@@ -54,10 +57,10 @@ export const updateActivityTranslation = async (
   };
 
   const res = await strapiFetch<UpdateActivityTranslationResponse>(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.ACTIVITY_TRANSLATIONS}/${documentId}`,
-      stringifyQuery(query),
-    ),
+    {
+      endpoint: `${STRAPI_ENDPOINTS.ACTIVITY_TRANSLATIONS}/${documentId}`,
+      qp: stringifyQuery(query),
+    },
     {
       method: "PUT",
       headers: {

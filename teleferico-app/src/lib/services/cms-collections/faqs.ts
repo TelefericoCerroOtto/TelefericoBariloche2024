@@ -9,7 +9,7 @@ import type {
   UpdateFaqResponse,
 } from "@/types";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
+import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getFaq = async <T extends Locales | "all">({
   locale,
@@ -30,10 +30,10 @@ export const getFaq = async <T extends Locales | "all">({
   const res = await strapiFetch<
     T extends "all" ? ExtendLocalizations<GetFaqResponse> : GetFaqResponse
   >(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.FAQS}/${documentId}`,
-      stringifyQuery(query),
-    ),
+    {
+      endpoint: `${STRAPI_ENDPOINTS.FAQS}/${documentId}`,
+      qp: stringifyQuery(query),
+    },
     {
       method: "GET",
     },
@@ -51,7 +51,7 @@ export const createFaq = async (
   };
 
   const res = await strapiFetch<CreateFaqResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.FAQS, stringifyQuery(query)),
+    { endpoint: STRAPI_ENDPOINTS.FAQS, qp: stringifyQuery(query) },
     {
       method: "POST",
       headers: {
@@ -78,10 +78,10 @@ export const updateFaq = async (
   };
 
   const res = await strapiFetch<UpdateFaqResponse>(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.FAQS}/${documentId}`,
-      stringifyQuery(query),
-    ),
+    {
+      endpoint: `${STRAPI_ENDPOINTS.FAQS}/${documentId}`,
+      qp: stringifyQuery(query),
+    },
     {
       method: "PUT",
       headers: {

@@ -1,12 +1,7 @@
 import { i18n } from "@/i18n";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type { GetPageResponse, Locales } from "@/types";
-import {
-  getStrapiURL,
-  PAGE_TAG_PREFIX,
-  STRAPI_ENDPOINTS,
-  stringifyQuery,
-} from "@/utils";
+import { PAGE_TAG_PREFIX, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const getPageContent = async (locale: Locales, route: string) => {
   const query = {
@@ -42,7 +37,7 @@ export const getPageContent = async (locale: Locales, route: string) => {
   };
 
   const res = await strapiFetch<GetPageResponse>(
-    getStrapiURL(STRAPI_ENDPOINTS.PAGES, stringifyQuery(query)),
+    { endpoint: STRAPI_ENDPOINTS.PAGES, qp: stringifyQuery(query) },
     {
       cache: "force-cache",
       next: {

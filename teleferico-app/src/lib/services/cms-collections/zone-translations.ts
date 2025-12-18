@@ -4,7 +4,7 @@ import type {
   UpdateZoneTranslationResponse,
 } from "@/types";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { getStrapiURL, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
+import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
 
 export const updateZoneTranslation = async (
   {
@@ -23,10 +23,10 @@ export const updateZoneTranslation = async (
   };
 
   const res = await strapiFetch<UpdateZoneTranslationResponse>(
-    getStrapiURL(
-      `${STRAPI_ENDPOINTS.ZONE_TRANSLATIONS}/${documentId}`,
-      stringifyQuery(query),
-    ),
+    {
+      endpoint: `${STRAPI_ENDPOINTS.ZONE_TRANSLATIONS}/${documentId}`,
+      qp: stringifyQuery(query),
+    },
     {
       method: "PUT",
       headers: {

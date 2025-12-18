@@ -1,12 +1,42 @@
+import { ENV_KEYS } from "@/lib/constants/env.const";
 import type { ErrorResponse, FetchResponse } from "@/types";
+import { assertEnv } from "@/utils/env";
+
+type Options = {
+  errorMsg?: string;
+  skipToken?: boolean;
+};
+
+function getStrapiURL(endpoint: string, qp?: string) {
+  assertEnv([ENV_KEYS.BUILD_STRAPI_BASE_URL]);
+  return `${process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL]}${endpoint}${qp ? `?${qp}` : ""}`;
+}
 
 export const strapiFetch = async <T>(
-  input: string | URL | globalThis.Request,
+  { endpoint, qp }: { endpoint: string; qp?: string },
   init?: RequestInit,
-  errMsg?: string,
+  options?: Options,
 ): Promise<FetchResponse<T>> => {
+  const input = getStrapiURL(endpoint, qp);
+  const { errorMsg, skipToken } = options ?? {};
+
   try {
-    const res = await fetch(input, init);
+    const headers = new Headers(init?.headers ?? {});
+    if (!skipToken) {
+      const auth = headers.get("Authorization");
+      if (!auth) {
+        assertEnv([ENV_KEYS.BUILD_STRAPI_CONTENT_TOKEN]);
+        const token = process.env[
+          ENV_KEYS.BUILD_STRAPI_CONTENT_TOKEN
+        ] as string;
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+    }
+
+    const res = await fetch(input, {
+      ...init,
+      headers,
+    });
 
     if (res.status === 200 || res.status === 201 || res.status === 204) {
       if (res.status === 204) {
@@ -22,7 +52,7 @@ export const strapiFetch = async <T>(
     return { ok: false, data } as { ok: false; data: ErrorResponse };
   } catch (error) {
     console.log(
-      errMsg ? errMsg : `error in strapiFetch while fetching to ${input}: `,
+      errorMsg ? errorMsg : `error in strapiFetch while fetching to ${input}: `,
       error,
     );
 
