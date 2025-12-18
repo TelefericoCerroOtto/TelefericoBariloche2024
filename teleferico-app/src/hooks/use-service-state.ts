@@ -2,6 +2,8 @@ import { STRAPI_ENDPOINTS } from "@/utils";
 import { useProxy } from "./use-proxy";
 import type { GetServiceStateResponse } from "@/types";
 
+const REFRESH_INTERVAL_MS = 10 * 1000; // 10 seconds
+
 export const useServiceState = () => {
   const {
     data: serviceState,
@@ -10,7 +12,7 @@ export const useServiceState = () => {
   } = useProxy<GetServiceStateResponse>(
     STRAPI_ENDPOINTS.SERVICE_STATE,
     {},
-    { revalidateOnFocus: true, refreshInterval: 10 * 1000 },
+    { revalidateOnFocus: true, refreshInterval: REFRESH_INTERVAL_MS },
   );
 
   return {
