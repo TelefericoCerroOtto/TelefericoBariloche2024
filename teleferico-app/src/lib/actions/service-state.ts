@@ -1,9 +1,9 @@
 "use server";
 
+import { getSession } from "@/lib/auth/get-session";
 import { CACHE_TAGS } from "@/lib/constants/cache-tags.const";
 import { getServiceState, updateServiceState } from "@/lib/services";
 import type { ServiceStateValues } from "@/types";
-import { getSession } from "@/utils/auth";
 import { revalidateTag } from "next/cache";
 
 export const getStateAction = async () => {

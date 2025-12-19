@@ -3,7 +3,7 @@
 import { i18n } from "@/i18n";
 import { updateFaqAdapter } from "@/lib/adapters";
 import { updateFaq } from "@/lib/services";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 
 export const updateFaqFeaturedStatus = async (
   documentId: string,

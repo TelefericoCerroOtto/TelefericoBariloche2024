@@ -8,7 +8,7 @@ import {
 import { updateZoneSchema } from "@/lib/schemas";
 import { updateZone, updateZoneTranslation } from "@/lib/services";
 import type { FormSubmitServerActionResponse, ZoneFormData } from "@/types";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 import { ValidationError } from "yup";
 
 export const updateZoneAction = async (

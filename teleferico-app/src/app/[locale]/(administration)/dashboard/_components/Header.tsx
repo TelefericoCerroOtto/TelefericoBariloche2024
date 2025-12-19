@@ -1,8 +1,8 @@
 import { SidebarTrigger } from "@/components/ui/Sidebar";
+import { getSession } from "@/lib/auth/get-session";
 import HeaderTitle from "./HeaderTitle";
 import ProfileButton from "./ProfileButton";
 import ServiceButton from "./ServiceButton";
-import { getSession } from "@/utils/auth";
 
 export async function Header() {
   const session = await getSession();

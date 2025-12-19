@@ -1,6 +1,6 @@
 import { FormError } from "@/components";
 import { getRoles } from "@/lib/services";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 import Form from "./_components/Form";
 
 export default async function NewUserPage() {

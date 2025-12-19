@@ -7,7 +7,7 @@ import type {
   FormSubmitServerActionResponse,
   UpdateAccessTicketFormData,
 } from "@/types";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 import { ValidationError } from "yup";
 
 export const updateTicketAction = async (

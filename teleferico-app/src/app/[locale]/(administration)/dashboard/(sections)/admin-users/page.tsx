@@ -1,6 +1,6 @@
 import { getUsers } from "@/lib/services";
-import { getSession } from "@/utils";
 import UsersAdminTable from "./_components/UsersAdminTable";
+import { getSession } from "@/lib/auth/get-session";
 
 export default async function AdminUsersPage() {
   const session = await getSession();

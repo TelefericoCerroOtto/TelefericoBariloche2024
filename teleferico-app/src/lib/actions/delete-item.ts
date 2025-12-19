@@ -2,7 +2,7 @@
 
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import { FormSubmitServerActionResponse } from "@/types";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 import { assertEnv } from "@/utils/env";
 
 export const deleteItemAction = async (

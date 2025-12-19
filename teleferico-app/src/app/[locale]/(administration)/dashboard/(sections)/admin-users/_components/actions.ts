@@ -2,7 +2,7 @@
 
 import { CACHE_TAGS } from "@/lib/constants/cache-tags.const";
 import { blockUnblockUser, deleteUser } from "@/lib/services";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 import { revalidateTag } from "next/cache";
 
 export const blockAction = async (userId: number, isBlocked: boolean) => {

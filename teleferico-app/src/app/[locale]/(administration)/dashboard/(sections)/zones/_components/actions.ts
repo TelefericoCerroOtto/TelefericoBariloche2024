@@ -2,7 +2,7 @@
 
 import { updateZoneAdapter } from "@/lib/adapters";
 import { updateZone } from "@/lib/services";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 
 export const updateZoneOpenStatusAction = async (
   documentId: string,
