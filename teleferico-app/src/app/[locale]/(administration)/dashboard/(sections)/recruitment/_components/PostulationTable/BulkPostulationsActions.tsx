@@ -68,7 +68,7 @@ export default function BulkPostulationActions(
       {/* Lado derecho: futuros controles de acciones masivas */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex flex-col items-center gap-2">
-          <span className="text-sm text-default-700">
+          <span className="text-sm text-default-foreground">
             Cambiar estado de el/los postulante/s
           </span>
           <Select
