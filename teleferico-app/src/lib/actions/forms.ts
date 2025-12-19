@@ -1,7 +1,7 @@
 "use server";
 
 import { signIn } from "@/auth";
-import { getUsers } from "@/lib/services/cms-collections/user";
+import { getUsers } from "@/lib/services";
 import type { LoginUserRequest } from "@/types";
 import { getSession } from "@/utils/auth";
 import { AuthError } from "next-auth";
