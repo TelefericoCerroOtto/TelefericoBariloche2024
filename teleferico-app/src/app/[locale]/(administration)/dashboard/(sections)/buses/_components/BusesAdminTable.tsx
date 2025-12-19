@@ -155,18 +155,21 @@ export default function BusesAdminTable() {
       // setArrivalFilter={setArrivalFilter}
       />
       <TableContainer>
-        <NextUITable {...tableStyles}>
+        <NextUITable {...tableStyles} className="text-base">
           <TableHeader columns={columns}>
             {(column) => (
               <TableColumn
                 key={column.key}
-                className={`${column.key === "actions" ? "text-center" : ""} text-black`}
+                className={`${
+                  column.key === "actions" ? "text-center" : ""
+                } text-lg font-semibold text-black`}
               >
                 {column.label}
               </TableColumn>
             )}
           </TableHeader>
           <TableBody
+            className="text-base"
             emptyContent={"No hay viajes para mostrar"}
             items={data?.data || []}
             isLoading={isLoading}
@@ -175,7 +178,7 @@ export default function BusesAdminTable() {
             {(entry) => (
               <TableRow key={entry.id}>
                 {(columnKey) => (
-                  <TableCell>
+                  <TableCell className="text-base">
                     {renderCell(entry, columnKey as ColumnKeys)}
                   </TableCell>
                 )}

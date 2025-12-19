@@ -114,7 +114,7 @@ export default function NewsAdminTable() {
         case "highglighted":
           return (
             <span
-              className={`rounded-full px-3 py-1 text-sm font-semibold ${
+              className={`rounded-full px-3 py-1 text-base font-semibold ${
                 item.highlighted
                   ? "bg-green-100 text-green-700"
                   : "bg-default-200 text-default-600"
@@ -166,9 +166,11 @@ export default function NewsAdminTable() {
       <TableContainer>
         <Table
           {...tableStyles}
+          className="text-base"
           bottomContent={
             <div className="flex w-full justify-center">
               <Pagination
+                className="text-base"
                 isDisabled={isLoading}
                 showControls
                 page={page}
@@ -182,13 +184,16 @@ export default function NewsAdminTable() {
             {(column) => (
               <TableColumn
                 key={column.key}
-                className={`${column.key === "actions" ? "text-center" : ""} text-base font-semibold text-black`}
+                className={`${
+                  column.key === "actions" ? "text-center" : ""
+                } text-lg font-semibold text-black`}
               >
                 {column.label}
               </TableColumn>
             )}
           </TableHeader>
           <TableBody
+            className="text-base"
             emptyContent={"No hay noticias para mostrar"}
             items={data?.data ?? []}
             isLoading={isLoading}
@@ -197,7 +202,7 @@ export default function NewsAdminTable() {
             {(item) => (
               <TableRow key={item.id}>
                 {(columnKey) => (
-                  <TableCell>
+                  <TableCell className="text-base">
                     {renderCell(item, columnKey as ColumnKeys)}
                   </TableCell>
                 )}
