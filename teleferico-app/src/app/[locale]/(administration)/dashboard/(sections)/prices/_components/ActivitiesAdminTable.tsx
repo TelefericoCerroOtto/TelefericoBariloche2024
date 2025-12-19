@@ -41,7 +41,7 @@ const seasonLabels: Record<string, string> = {
   all: "Todo el año",
 };
 
-export default function ActivitiesTable() {
+export default function ActivitiesAdminTable() {
   const renderCell = useCallback(
     (activity: Activity, columnKey: ColumnKeys) => {
       switch (columnKey) {

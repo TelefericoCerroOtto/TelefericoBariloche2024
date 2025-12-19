@@ -27,7 +27,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
   { key: "actions", label: "Acciones" },
 ];
 
-export default function ZonesTable() {
+export default function ZonesAdminTable() {
   const renderCell = useCallback((zone: Zone, columnKey: ColumnKeys) => {
     switch (columnKey) {
       case "name":

@@ -31,7 +31,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
 type ColumnKeys = "title" | "date" | "highglighted" | "updatedAt" | "actions";
 const PAGE_SIZE = 10;
 
-export default function NewsTable() {
+export default function NewsAdminTable() {
   const [page, setPage] = useState(1);
 
   const {

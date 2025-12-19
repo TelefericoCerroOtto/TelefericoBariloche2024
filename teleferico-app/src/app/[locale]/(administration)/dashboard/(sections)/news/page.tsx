@@ -1,5 +1,5 @@
-import NewsTable from "./_components/NewsTable";
+import NewsAdminTable from "./_components/NewsAdminTable";
 
 export default function NewsPage() {
-  return <NewsTable />;
+  return <NewsAdminTable />;
 }

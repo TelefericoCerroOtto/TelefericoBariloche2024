@@ -1,5 +1,5 @@
-import ZonesTable from "./_components/ZonesTable";
+import ZonesAdminTable from "./_components/ZonesAdminTable";
 
 export default function ZonesPage() {
-  return <ZonesTable />;
+  return <ZonesAdminTable />;
 }

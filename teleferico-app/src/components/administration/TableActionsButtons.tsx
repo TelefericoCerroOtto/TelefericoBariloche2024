@@ -1,6 +1,5 @@
 "use client";
 
-import { ButtonDos, CustomLink } from "@/components";
 import { useAppAlert } from "@/hooks";
 import { deleteItemAction } from "@/lib/actions/delete-item";
 import type {
@@ -22,6 +21,7 @@ import {
   useDisclosure,
 } from "@heroui/react";
 import { Pencil, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
 
@@ -49,6 +49,7 @@ export default function TableActionsButtons(props: Props) {
   const [isErasing, setIsErasing] = useState(false);
   const { mutate } = useSWRConfig();
   const { showAlert } = useAppAlert();
+  const router = useRouter();
 
   const eraseElement = async (onClose: () => void) => {
     try {
@@ -95,28 +96,33 @@ export default function TableActionsButtons(props: Props) {
     (item as NewsListItem).title ||
     "este elemento";
 
+  const href = `${editPath}/${item.documentId}`;
+
   return (
     <div className="relative flex flex-row justify-center gap-2">
-      <CustomLink
-        size="sm"
-        href={`${editPath}/${item.documentId}`}
-        withButtonStyles
-        intent="ghostBlack"
-        disabled={disabled}
+      <Button
+        isDisabled={disabled}
+        variant="ghost"
+        size="md"
+        startContent={<Pencil size={20} />}
+        onPress={() => {
+          if (disabled) return;
+          router.push(href);
+        }}
       >
-        <Pencil size={20} />
         Editar
-      </CustomLink>
+      </Button>
       {erasePath && (
-        <ButtonDos
-          size="sm"
-          intent="outlineRed"
-          onClick={onOpen}
-          disabled={disabled}
+        <Button
+          size="md"
+          startContent={<Trash2 size={20} />}
+          variant="ghost"
+          color="primary"
+          onPress={onOpen}
+          isDisabled={disabled}
         >
-          <Trash2 size={20} />
           Eliminar
-        </ButtonDos>
+        </Button>
       )}
       <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
         <ModalContent>

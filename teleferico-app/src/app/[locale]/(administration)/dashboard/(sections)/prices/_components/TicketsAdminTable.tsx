@@ -24,7 +24,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
   { key: "actions", label: "Acciones" },
 ];
 
-export default function TicketsTable() {
+export default function TicketsAdminTable() {
   const renderCell = useCallback((ticket: Ticket, columnKey: ColumnKeys) => {
     switch (columnKey) {
       case "name":

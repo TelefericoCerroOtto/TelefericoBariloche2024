@@ -3,7 +3,7 @@
 import type { Sector } from "@/types";
 import { Tabs as NextUITabs, Tab } from "@heroui/react";
 import { useState } from "react";
-import PostulationsTable from "./PostulationTable/PostulationsTable";
+import PostulationsAdminTable from "./PostulationTable/PostulationsAdminTable";
 
 interface Props {
   sectors: Sector[];
@@ -31,7 +31,7 @@ export default function Tabs(props: Props) {
         }}
       >
         <Tab key="general" title={<span>Todas</span>}>
-          <PostulationsTable sectors={sectors} userId={userId} />
+          <PostulationsAdminTable sectors={sectors} userId={userId} />
         </Tab>
       </NextUITabs>
     </div>

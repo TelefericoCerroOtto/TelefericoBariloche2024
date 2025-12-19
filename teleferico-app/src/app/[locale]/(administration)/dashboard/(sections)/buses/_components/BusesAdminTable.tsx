@@ -30,8 +30,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
 
 // TODO: Implement filters for departure and arrival points
 
-// TODO: Rename file to BusTripsTable.tsx
-export default function BusTripsTable() {
+export default function BusesAdminTable() {
   const query = {
     populate: {
       origin: {

@@ -50,7 +50,7 @@ interface Props {
   users: UserResponse<{ role: UserRole }>[];
 }
 
-export default function Table(props: Props) {
+export default function UsersAdminTable(props: Props) {
   const { users } = props;
   const { filterValue, filteredItems, onSearchChange, onSearchClear } =
     useFilters<UserResponse<{ role: UserRole }>>(users);

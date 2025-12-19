@@ -28,7 +28,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
 ];
 const PAGE_SIZE = 10;
 
-export default function FaqsTable() {
+export default function FaqsAdminTable() {
   const [page, setPage] = useState(1);
   const { showAlert } = useAppAlert();
 
