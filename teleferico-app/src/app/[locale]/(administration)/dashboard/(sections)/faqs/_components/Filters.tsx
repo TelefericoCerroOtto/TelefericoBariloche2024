@@ -5,7 +5,7 @@ export default function Filters() {
   return (
     <TableToolbarContainer
       linkHref={ADMIN_ROUTES.NEW_FAQ}
-      title="Nueva noticia"
+      title="Nueva pregunta frecuente"
     >
       <></>
     </TableToolbarContainer>

@@ -7,6 +7,10 @@ import {
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import {
+  formInputClassNames,
+  selectInputStyles,
+} from "@/lib/constants/styles.const";
 import { createActivitySchema } from "@/lib/schemas";
 import type { CreateActivityFormData } from "@/types";
 import {
@@ -129,6 +133,7 @@ export default function Form() {
         name="price"
         id="price"
         type="number"
+        classNames={formInputClassNames}
         hideStepper
         value={values.price}
         onChange={(value) => {
@@ -141,6 +146,7 @@ export default function Form() {
         name="minAge"
         id="minAge"
         type="number"
+        classNames={formInputClassNames}
         hideStepper
         value={values.minAge}
         onChange={(value) => {
@@ -153,9 +159,7 @@ export default function Form() {
         variant="flat"
         radius="full"
         className="rounded-full"
-        classNames={{
-          trigger: "bg-accent hover:bg-accent border border-custom-border",
-        }}
+        classNames={selectInputStyles.classNames}
         label="Temporada"
         labelPlacement="outside"
         placeholder="Seleccione una temporada"

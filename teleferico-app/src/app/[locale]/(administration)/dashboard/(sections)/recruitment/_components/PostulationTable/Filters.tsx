@@ -1,7 +1,6 @@
 /* eslint-disable no-unused-vars */
 "use client";
 
-import { selectInputStyles } from "@/lib/constants/styles.const";
 import { PostulationStatus } from "@/types";
 import {
   Input,
@@ -145,7 +144,6 @@ export default function Filters(props: FiltersProps) {
 
         {/* Género (multi) */}
         <Select
-          {...selectInputStyles}
           className="min-w-[175px]"
           labelPlacement="inside"
           size="sm"
@@ -162,7 +160,6 @@ export default function Filters(props: FiltersProps) {
 
         {/* Sector (multi) */}
         <Select
-          {...selectInputStyles}
           className="min-w-[175px]"
           size="sm"
           labelPlacement="inside"
@@ -179,7 +176,6 @@ export default function Filters(props: FiltersProps) {
 
         {/* Fecha de la postulación */}
         <Select
-          {...selectInputStyles}
           className="min-w-[160px]"
           size="sm"
           labelPlacement="inside"
@@ -199,7 +195,6 @@ export default function Filters(props: FiltersProps) {
 
         {/* Estado de postulación */}
         <Select
-          {...selectInputStyles}
           className="min-w-[150px]"
           size="sm"
           labelPlacement="inside"

@@ -73,7 +73,7 @@ export default function Form(props: Props) {
 
   return (
     <form
-      className="flex flex-col gap-5 overflow-scroll"
+      className="flex flex-col gap-5 overflow-visible"
       onSubmit={handleSubmit}
     >
       <Select
@@ -143,7 +143,7 @@ export default function Form(props: Props) {
       />
       <FormButtons
         isSubmitting={isSubmitting}
-        cancelRedirectRoute={ADMIN_ROUTES.PRICES}
+        cancelRedirectRoute={ADMIN_ROUTES.BUSES}
         disableSubmitButton={
           timeInputLoading ||
           Object.keys(errors).length > 0 ||

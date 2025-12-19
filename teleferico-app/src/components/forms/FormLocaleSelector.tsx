@@ -25,7 +25,7 @@ export default function FormLocaleSelector(props: Props) {
       <Languages />
       <p className="text-base">Editando en:</p>
       <Select
-        variant="underlined"
+        variant="faded"
         className="w-[120px]"
         size="sm"
         classNames={formSelectClassNames}
