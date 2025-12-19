@@ -92,9 +92,11 @@ export default function FaqsAdminTable() {
     <TableContainer>
       <Table
         {...tableStyles}
+        className="text-base"
         bottomContent={
           <div className="flex w-full justify-center">
             <Pagination
+              className="text-base"
               isDisabled={isLoading}
               showControls
               page={page}
@@ -108,13 +110,16 @@ export default function FaqsAdminTable() {
           {(column) => (
             <TableColumn
               key={column.key}
-              className={`${column.key === "actions" ? "text-center" : ""} text-black`}
+              className={`${
+                column.key === "actions" ? "text-center" : ""
+              } text-lg font-semibold text-black`}
             >
               {column.label}
             </TableColumn>
           )}
         </TableHeader>
         <TableBody
+          className="text-base"
           emptyContent="No se encontraron preguntas frecuentes."
           items={data?.data ?? []}
           isLoading={isLoading}
@@ -123,7 +128,7 @@ export default function FaqsAdminTable() {
           {(item) => (
             <TableRow key={item.id}>
               {(columnKey) => (
-                <TableCell>
+                <TableCell className="text-base">
                   {renderCell(item, columnKey as ColumnKeys)}
                 </TableCell>
               )}

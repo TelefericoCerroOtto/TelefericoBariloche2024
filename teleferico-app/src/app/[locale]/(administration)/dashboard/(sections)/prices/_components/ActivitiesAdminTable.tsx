@@ -107,18 +107,21 @@ export default function ActivitiesAdminTable() {
 
   return (
     <TableContainer>
-      <Table {...tableStyles}>
+      <Table {...tableStyles} className="text-base">
         <TableHeader columns={columns}>
           {(column) => (
             <TableColumn
               key={column.key}
-              className={`${column.key === "actions" ? "text-center" : ""} text-black`}
+              className={`${
+                column.key === "actions" ? "text-center" : ""
+              } text-lg font-semibold text-black`}
             >
               {column.label}
             </TableColumn>
           )}
         </TableHeader>
         <TableBody
+          className="text-base"
           emptyContent={"No hay tarifas para mostrar"}
           items={data?.data || []}
           isLoading={isLoading}
@@ -127,7 +130,7 @@ export default function ActivitiesAdminTable() {
           {(entry) => (
             <TableRow key={entry.id}>
               {(columnKey) => (
-                <TableCell>
+                <TableCell className="text-base">
                   {renderCell(entry as Activity, columnKey as ColumnKeys)}
                 </TableCell>
               )}
