@@ -9,3 +9,5 @@ export { default as NoContent } from "./NoContent";
 export { default as PageWrapper } from "./PageWrapper";
 export { default as ServiceButton } from "./ServiceButton/ServiceButton";
 export { HighlightLastWord, default as TitleDescBlock } from "./TitleDescBlock";
+export { default as Schedules } from "./Schedules/Schedules";
+export { default as NotFoundContent } from "./NotFoundContent";

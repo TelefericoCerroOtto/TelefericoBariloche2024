@@ -1,0 +1,126 @@
+"use server";
+
+import { i18n } from "@/i18n";
+import {
+  createActivityAdapter,
+  createActivityTranslationAdapter,
+  updateActivityTranslationAdapter,
+} from "@/lib/adapters";
+import { createActivitySchema } from "@/lib/schemas";
+import {
+  createActivity,
+  createActivityTranslation,
+  updateActivityTranslation,
+} from "@/lib/services";
+import type {
+  CreateActivityFormData,
+  FormSubmitServerActionResponse,
+} from "@/types";
+import { getSession } from "@/lib/auth/get-session";
+import { ValidationError } from "yup";
+
+export const createActivityAction = async (
+  values: CreateActivityFormData,
+): FormSubmitServerActionResponse => {
+  const { jwt } = await getSession();
+  const { locales } = i18n;
+
+  try {
+    createActivitySchema.validateSync(values);
+    const createActivityReqBody = createActivityAdapter(values);
+
+    const res = await createActivity(createActivityReqBody, jwt);
+
+    if (!res.ok) {
+      return {
+        success: false,
+        message:
+          "Server action 'createActivityAction' failed: An error occurred while creating the new activity.",
+        data: res.data,
+      };
+    }
+
+    const activityDocumentId: string = res.data.data.documentId;
+    let activityTranslationDocumentId: string = "";
+
+    for (let i = 0; i < locales.length; i++) {
+      const locale = locales[i];
+
+      if (i === 0) {
+        // for the first locale, create the activity translation
+        const createActivityTranslationReqBody =
+          createActivityTranslationAdapter({
+            values,
+            relatedActivityDocumentId: activityDocumentId,
+            locale,
+          });
+
+        const res = await createActivityTranslation(
+          { reqBody: createActivityTranslationReqBody, locale },
+          jwt,
+        );
+
+        if (!res.ok) {
+          return {
+            success: false,
+            message: `Server action 'createActivityAction' failed: An error occurred while creating locale ${locale} activity translation.`,
+            data: res.data,
+          };
+        }
+
+        activityTranslationDocumentId = res.data.data.documentId;
+      } else {
+        // for the rest of locales, update the activity translation
+        const updateActivityTranslationReqBody =
+          updateActivityTranslationAdapter({
+            values: {
+              ...values,
+              activityDocumentId,
+              activityTranslationDocumentId,
+            },
+            locale,
+          });
+
+        const res = await updateActivityTranslation(
+          {
+            reqBody: updateActivityTranslationReqBody,
+            documentId: activityTranslationDocumentId,
+            locale,
+          },
+          jwt,
+        );
+
+        if (!res.ok) {
+          return {
+            success: false,
+            message: `Server action 'createActivityAction' failed: An error occurred while updating locale ${locale} activity translation.`,
+            data: res.data,
+          };
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: "New activity successfully created.",
+      data: undefined,
+    };
+  } catch (error) {
+    console.log("Server action 'createActivityAction' error: ", error);
+
+    if (error instanceof ValidationError) {
+      return {
+        success: false,
+        message:
+          "Server action 'createActivityAction' failed: Invalid or missing fields.",
+        data: error,
+      };
+    }
+
+    return {
+      success: false,
+      message: "Server action 'createActivityAction' failed",
+      data: error,
+    };
+  }
+};

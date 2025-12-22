@@ -1,13 +1,14 @@
 "use server";
 
 import { signIn } from "@/auth";
+import { getSession } from "@/lib/auth/get-session";
 import { getUsers } from "@/lib/services";
 import type { LoginUserRequest } from "@/types";
-import { getSession } from "@/utils/auth";
 import { AuthError } from "next-auth";
 
 export const loginAction = async (data: LoginUserRequest) => {
   try {
+    // TODO: CUANDO SE CIERRA SESION DE MANERA AUTOMATICA POR LA OPCION session.maxAge, y se vuelve a utilizar signIn, esta devuelve undefined
     const res = await signIn("credentials", {
       ...data,
       redirect: false,
@@ -15,8 +16,7 @@ export const loginAction = async (data: LoginUserRequest) => {
 
     return res;
   } catch (error) {
-    console.log("loginAction error", error);
-
+    console.log("login action error: ", error);
     if (error instanceof AuthError) {
       switch (error.type) {
         case "CredentialsSignin":

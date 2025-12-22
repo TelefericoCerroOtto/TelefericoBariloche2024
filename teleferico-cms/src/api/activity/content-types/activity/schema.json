@@ -25,34 +25,36 @@
       "min": 0,
       "max": 99
     },
+    "zone": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::zone.zone"
+    },
+    "label": {
+      "type": "string",
+      "required": false,
+      "unique": true
+    },
+    "pages": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::page.page"
+    },
+    "activity_translations": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::activity-translation.activity-translation",
+      "mappedBy": "activity"
+    },
     "season": {
-      "pluginOptions": {},
       "type": "enumeration",
       "enum": [
         "summer",
         "autumn",
         "winter",
         "spring",
-        "all"
-      ],
-      "default": "all",
-      "required": true
-    },
-    "zone": {
-      "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::zone.zone"
-    },
-    "activity_descriptions": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::activity-description.activity-description",
-      "mappedBy": "activity"
-    },
-    "label": {
-      "type": "string",
-      "required": true,
-      "unique": true
+        "allSeasons"
+      ]
     }
   }
 }

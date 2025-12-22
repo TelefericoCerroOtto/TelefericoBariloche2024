@@ -1,0 +1,206 @@
+"use client";
+
+import { CustomLink } from "@/components";
+import { useLocale, useScrollDirection } from "@/hooks";
+import { i18n } from "@/i18n";
+import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
+import logoBlanco from "@/public/logo-negativo.svg";
+import logoNegro from "@/public/logo.svg";
+import type { Locales } from "@/types";
+import { cn } from "@/utils";
+import {
+  Link,
+  NavbarBrand,
+  NavbarContent,
+  NavbarItem,
+  NavbarMenu,
+  NavbarMenuItem,
+  NavbarMenuToggle,
+  Navbar as NuiNavbar,
+  Select,
+  SelectItem,
+} from "@heroui/react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+
+const langs: { locale: Locales; label: string }[] = [
+  { locale: i18n.locales[0], label: "Español" },
+  { locale: i18n.locales[1], label: "English" },
+  { locale: i18n.locales[2], label: "Português" },
+];
+
+interface Props {
+  items: { label: string; href: string }[];
+}
+
+const { HOME, JOBS, NEWS, POLICIES, CONTACT, FAQS } = PUBLIC_ROUTES;
+
+export default function Navbar(props: Props) {
+  const { items } = props;
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { locale, pathname } = useLocale();
+  const { push } = useRouter();
+  const { direction, isScrolled } = useScrollDirection({ threshold: 12 });
+
+  const isCompact = direction === "down" && isScrolled;
+
+  const isPathInList = useMemo(
+    () =>
+      [NEWS, POLICIES, JOBS, CONTACT, FAQS].some((route) =>
+        pathname.includes(route),
+      ),
+    [pathname],
+  );
+
+  const logo = useMemo(
+    () => (isPathInList || isMenuOpen || isScrolled ? logoNegro : logoBlanco),
+    [isMenuOpen, isPathInList, isScrolled],
+  );
+
+  const useSolidBackground = isScrolled || isMenuOpen || isPathInList;
+
+  const itemBaseClass = useMemo(
+    () =>
+      cn(
+        "group relative inline-flex items-center rounded-full px-3 py-1.5 text-xl font-medium transition-colors duration-200",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        useSolidBackground
+          ? "text-muted-foreground hover:text-foreground"
+          : "text-white/80 hover:text-white",
+      ),
+    [useSolidBackground],
+  );
+
+  return (
+    <NuiNavbar
+      as="nav"
+      aria-label="Main"
+      position="sticky"
+      onMenuOpenChange={setIsMenuOpen}
+      isBlurred={false}
+      className={cn(
+        "top-0 z-50 w-full border-b border-border/40 px-4 transition-all duration-300 ease-out md:px-6",
+        "supports-[backdrop-filter]:backdrop-blur-xl",
+        useSolidBackground
+          ? "bg-background/90 bg-gray-100 text-foreground shadow-sm"
+          : "bg-transparent text-white",
+        isCompact ? "h-14 md:h-16" : "h-16 md:h-20",
+      )}
+      classNames={{
+        wrapper: ["max-w-[1600px]", "px-0"],
+        item: ["data-[active=true]:text-primary"],
+      }}
+    >
+      <NavbarContent>
+        <NavbarMenuToggle
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          className="text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:hidden"
+        />
+        <NavbarBrand>
+          <Link
+            href={HOME}
+            className="flex items-center gap-3 rounded-lg px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <Image
+              src={logo}
+              alt="Teleferico Cerro Otto"
+              width={140}
+              height={48}
+              priority
+            />
+          </Link>
+        </NavbarBrand>
+      </NavbarContent>
+
+      <NavbarContent className="hidden gap-1 lg:flex" justify="end">
+        {items.map((item, index) => {
+          const isActive =
+            item.href === "/" ? pathname === "/" : pathname.includes(item.href);
+
+          return (
+            <NavbarItem key={index} isActive={isActive} className="px-0">
+              <CustomLink
+                href={item.href}
+                className={cn(
+                  itemBaseClass,
+                  isActive &&
+                    (useSolidBackground ? "text-foreground" : "text-white"),
+                )}
+                aria-current={isActive ? "page" : undefined}
+              >
+                <span>{item.label}</span>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "pointer-events-none absolute bottom-0 left-3 right-3 h-0.5 origin-left scale-x-0 rounded-full bg-primary transition-transform duration-200",
+                    "group-hover:scale-x-100 group-focus-visible:scale-x-100",
+                    isActive && "scale-x-100",
+                  )}
+                />
+              </CustomLink>
+            </NavbarItem>
+          );
+        })}
+      </NavbarContent>
+
+      <NavbarContent justify="end">
+        <Select
+          variant="bordered"
+          aria-label="Change language"
+          className="w-[160px]" // un toque más ancho para la tipografía grande
+          classNames={{
+            trigger: [
+              // subí la altura y el tamaño de fuente
+              "h-11 rounded-full border border-border/50 bg-white px-3 text-base md:text-lg leading-6 transition-colors",
+              "border-black/40 focus:border-primary/80",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            ],
+            // asegura tamaño también en el valor renderizado
+            value: ["text-base md:text-lg leading-6 text-foreground"],
+            selectorIcon: ["text-foreground scale-110"], // ícono un pelín más grande
+            popoverContent: [
+              "rounded-2xl border border-border/60 bg-background/95 backdrop-blur",
+            ],
+          }}
+          items={langs}
+          disallowEmptySelection
+          defaultSelectedKeys={new Set([locale])}
+          onSelectionChange={(key) => {
+            const href = `/${key.currentKey}${pathname}`;
+            push(href);
+          }}
+        >
+          {(item) => (
+            <SelectItem
+              key={item.locale}
+              className="text-base leading-6 md:text-lg"
+            >
+              {item.label}
+            </SelectItem>
+          )}
+        </Select>
+      </NavbarContent>
+
+      <NavbarMenu className="border-t border-border/40 bg-background/95 px-4 py-6 text-foreground backdrop-blur-xl">
+        {items.map((item, index) => {
+          const isActive =
+            item.href === "/" ? pathname === "/" : pathname.includes(item.href);
+
+          return (
+            <NavbarMenuItem key={index} className="px-0">
+              <CustomLink
+                href={item.href}
+                className="block w-full rounded-xl px-4 py-2 text-lg font-medium text-foreground transition-colors hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                aria-current={isActive ? "page" : undefined}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {item.label}
+              </CustomLink>
+            </NavbarMenuItem>
+          );
+        })}
+      </NavbarMenu>
+    </NuiNavbar>
+  );
+}

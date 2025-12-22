@@ -34,17 +34,6 @@
       "type": "blocks",
       "required": true
     },
-    "cover": {
-      "type": "component",
-      "repeatable": false,
-      "pluginOptions": {
-        "i18n": {
-          "localized": true
-        }
-      },
-      "component": "utils-components.image",
-      "required": true
-    },
     "highlighted": {
       "pluginOptions": {
         "i18n": {
@@ -71,6 +60,20 @@
         }
       },
       "type": "date",
+      "required": true
+    },
+    "cover": {
+      "allowedTypes": [
+        "images",
+        "files"
+      ],
+      "type": "media",
+      "multiple": false,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      },
       "required": true
     }
   }

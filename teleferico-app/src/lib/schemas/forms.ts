@@ -1,19 +1,59 @@
 import {
   validateEmailAvailability,
   validateUsernameAvailability,
-} from "@/lib/actions";
-import type { LoginUserRequest } from "@/types";
-import { mixed, number, object, ObjectSchema, string } from "yup";
+} from "@/lib/actions/forms";
+import {
+  GENDERS,
+  LIFTING_MEANS,
+  SEASONS,
+} from "@/lib/constants/enum-fields.const";
+import type {
+  Genders,
+  LiftingMean,
+  Locales,
+  LoginUserRequest,
+  Season,
+} from "@/types";
+import { isTiptapNonEmpty, isValidTiptapDoc } from "@/utils/tiptap";
+import { type JSONContent } from "@tiptap/react";
+import { boolean, mixed, number, object, ObjectSchema, string } from "yup";
 
-const locales = {
+type LocaleMessage = {
+  mixed: {
+    required: string;
+    resumeType: string;
+    // eslint-disable-next-line no-unused-vars
+    fileSize: (s: number) => string;
+  };
+  string: {
+    required: string;
+    // eslint-disable-next-line no-unused-vars
+    min: (min: number) => string;
+    // eslint-disable-next-line no-unused-vars
+    max: (max: number) => string;
+    email: string;
+  };
+  number: {
+    required: string;
+    integer: string;
+    // eslint-disable-next-line no-unused-vars
+    min: (min: number) => string;
+    // eslint-disable-next-line no-unused-vars
+    max: (max: number) => string;
+  };
+};
+
+const localeMessages: Record<Locales, LocaleMessage> = {
   "es-AR": {
     mixed: {
       required: "Este campo es obligatorio",
+      resumeType: "Solo se permiten archivos PDF, DOC, DOCX o TXT",
+      fileSize: (s: number) => `El archivo no debe superar ${s}MB`,
     },
     string: {
       required: "Este campo es obligatorio",
       min: (min: number) => `Debe tener al menos ${min} caracteres`,
-      max: (max: number) => `Debe tener al menos ${max} caracteres`,
+      max: (max: number) => `Debe tener máximo ${max} caracteres`,
       email: "El correo electrónico no es válido",
     },
     number: {
@@ -26,6 +66,8 @@ const locales = {
   en: {
     mixed: {
       required: "This field is required",
+      resumeType: "Only PDF, DOC, DOCX or TXT files are allowed",
+      fileSize: (s: number) => `The file must not exceed ${s}MB`,
     },
     string: {
       required: "This field is required",
@@ -43,6 +85,8 @@ const locales = {
   pt: {
     mixed: {
       required: "Este campo é obrigatório",
+      resumeType: "Apenas arquivos PDF, DOC, DOCX ou TXT são permitidos",
+      fileSize: (s: number) => `O arquivo não deve exceder ${s}MB`,
     },
     string: {
       required: "Este campo é obrigatório",
@@ -59,40 +103,65 @@ const locales = {
   },
 };
 
+const VALID_IMAGE_FILE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_FILE_SIZE_MB = 5;
+
+const FILE_TYPES = [
+  "application/pdf", // PDF
+  "application/msword", // DOC (Word 97-2003)
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX (Word moderno)
+  "text/plain", // TXT
+];
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 1MB
+
 // TODO: Crear el tipo de las requests
 // export const mySchema: Yup.ObjectSchema<myRequestType> = object({ ... })
 
-const { en, pt, "es-AR": es } = locales;
+const { en, pt, "es-AR": es } = localeMessages;
 
 export const loginSchema: ObjectSchema<LoginUserRequest> = object({
   identifier: string().email(es.string.email).required(es.string.required),
   password: string().required(es.string.required),
 });
 
-export const activityTicketSchema = object({
-  activityNameEN: string().required(es.string.required),
-  activityNameES: string().required(es.string.required),
-  activityNamePT: string().required(es.string.required),
+export const createActivitySchema = object({
+  "activityName_es-AR": string().required(es.string.required),
+  activityName_en: string().required(es.string.required),
+  activityName_pt: string().required(es.string.required),
+  "description_es-AR": string().max(500, es.string.max(500)),
+  description_en: string().max(500, es.string.max(500)),
+  description_pt: string().max(500, es.string.max(500)),
   price: number().integer(es.number.integer).required(es.number.required),
   minAge: number().integer(es.number.integer).required(es.number.required),
-  season: string().oneOf([
-    "verano",
-    "otoño",
-    "invierno",
-    "primavera",
-    "allSeasons",
-  ]),
-  requirementsEN: string().required(es.string.required),
-  requirementsES: string().required(es.string.required),
-  requirementsPT: string().required(es.string.required),
+  season: string<Season>().oneOf(SEASONS).required(es.string.required),
+  "requirements_es-AR": string(),
+  requirements_en: string(),
+  requirements_pt: string(),
 });
 
-export const accessTicketSchema = object({
-  accessNameEN: string().required(es.string.required),
-  accessNameES: string().required(es.string.required),
-  accessNamePT: string().required(es.string.required),
-  price: number().integer(es.number.integer).required(es.number.required),
-  elevationMethod: string().oneOf(["teleferico", "camino"]),
+export const updateActivitySchema = createActivitySchema.shape({
+  activityDocumentId: string().required(es.string.required),
+  activityTranslationDocumentId: string(),
+});
+
+export const createAccessTicketSchema = object({
+  accessName_en: string().required(es.string.required).min(2, es.string.min(2)),
+  "accessName_es-AR": string()
+    .required(es.string.required)
+    .min(2, es.string.min(2)),
+  accessName_pt: string().required(es.string.required).min(2, es.string.min(2)),
+  price: number()
+    .integer(es.number.integer)
+    .required(es.number.required)
+    .min(0, es.number.min(0)),
+  liftingMean: string<LiftingMean>()
+    .oneOf(LIFTING_MEANS)
+    .required(es.string.required),
+});
+
+export const updateAccessTicketSchema = createAccessTicketSchema.shape({
+  documentId: string().required(es.string.required),
 });
 
 export const timeSchema = object({
@@ -108,16 +177,31 @@ export const timeSchema = object({
     .required(es.number.required),
 });
 
-export const zoneScheduleSchema = object({
+export const updateZoneSchema = object({
+  "zoneName_es-AR": string()
+    .required(es.string.required)
+    .min(2, es.string.min(2)),
+  zoneName_en: string().required(es.string.required).min(2, en.string.min(2)),
+  zoneName_pt: string().required(es.string.required).min(2, pt.string.min(2)),
+  "zoneDescription_es-AR": string().max(500, es.string.max(500)),
+  zoneDescription_en: string().max(500, en.string.max(500)),
+  zoneDescription_pt: string().max(500, pt.string.max(500)),
   openTime: timeSchema,
   closeTime: timeSchema,
+  isOpen: boolean().required(es.string.required),
+  documentId: string().required(es.string.required),
+  zoneTrasnlationDocumentId: string().required(es.string.required),
 });
 
-export const BusTravelSchema = object({
-  depPoint: string().required(es.string.required),
-  arrPoint: string().required(es.string.required),
+export const createBusTripSchema = object({
+  origin: string().required(es.string.required),
+  destination: string().required(es.string.required),
   depTime: timeSchema,
   arrTime: timeSchema,
+});
+
+export const updateBusTripSchema = createBusTripSchema.shape({
+  documentId: string().required(es.string.required),
 });
 
 export const newUserSchema = object({
@@ -155,144 +239,180 @@ export const updateUserSchema = object({
     .required(es.string.required),
 });
 
+export const tiptapJsonSchema = mixed<JSONContent>()
+  .transform((val) => {
+    // Normalizamos a JSONContent o null antes de validar
+    if (typeof val === "string") {
+      const s = val.trim();
+      if (s === "") return null;
+      try {
+        return JSON.parse(s) as JSONContent;
+      } catch {
+        return null;
+      }
+    }
+    return (val ?? null) as JSONContent | null;
+  })
+  .test("tt-non-empty", "Este campo es obligatorio.", (val) => {
+    // Desde acá, val ya es JSONContent | null por la transform
+    if (!val || typeof val !== "object") return false;
+    if (!isValidTiptapDoc(val)) return false;
+    return isTiptapNonEmpty(val);
+  })
+  .test(
+    "tt-json-parse",
+    "El contenido del editor no es JSON válido.",
+    (value) => {
+      try {
+        const doc = typeof value === "string" ? JSON.parse(value) : value;
+        return !!doc && typeof doc === "object";
+      } catch {
+        return false;
+      }
+    },
+  )
+  .test(
+    "tt-doc-shape",
+    "El contenido del editor no tiene el formato de TipTap.",
+    (value) => {
+      const doc = typeof value === "string" ? JSON.parse(value) : value;
+      return isValidTiptapDoc(doc);
+    },
+  );
+
+const imageStoredSchema = object({
+  size: number().required(es.number.required),
+  name: string().required(es.string.required),
+  url: string().required(es.string.required),
+  id: number().required(es.number.required),
+  documentId: string().required(es.string.required),
+});
+
+const imageUploadSchema = mixed<File>()
+  .nullable()
+  .test("file-type", "Formato no soportado (solo JPG, PNG o WebP)", (file) => {
+    if (!file) return true;
+    return VALID_IMAGE_FILE_TYPES.includes(file.type);
+  })
+  .test(
+    "file-size",
+    `El archivo no debe superar ${MAX_IMAGE_FILE_SIZE_MB}MB`,
+    (file) => {
+      if (!file) return true;
+      return file.size <= MAX_IMAGE_FILE_SIZE_MB * 1024 * 1024;
+    },
+  );
+
+export const createNewSchema = object({
+  "title_es-AR": string().required(es.string.required).min(3, es.string.min(3)),
+  title_en: string().required(es.string.required).min(3, es.string.min(3)),
+  title_pt: string().required(es.string.required).min(3, es.string.min(3)),
+  "body_es-AR": tiptapJsonSchema.required(es.string.required),
+  body_en: tiptapJsonSchema.required(es.string.required),
+  body_pt: tiptapJsonSchema.required(es.string.required),
+  "brief_es-AR": tiptapJsonSchema.required(es.string.required),
+  brief_en: tiptapJsonSchema.required(es.string.required),
+  brief_pt: tiptapJsonSchema.required(es.string.required),
+  newCoverImageFile: imageUploadSchema.required(es.mixed.required).nullable(),
+  date: string()
+    .required(es.string.required)
+    .test("valid-date", "La fecha no es válida", (value) => {
+      if (!value) return false;
+      return !Number.isNaN(Date.parse(value));
+    }),
+  highlighted: boolean().default(false),
+});
+
+export const updateNewSchema = createNewSchema.shape({
+  newCoverImageFile: imageUploadSchema,
+  coverImage: imageStoredSchema,
+  documentId: string().required(es.string.required),
+});
+
+export const createFaqSchema = object({
+  "question_es-AR": string()
+    .required(es.string.required)
+    .min(8, es.string.min(8))
+    .max(100, es.string.max(100)),
+  question_en: string()
+    .required(es.string.required)
+    .min(8, es.string.min(8))
+    .max(100, es.string.max(100)),
+  question_pt: string()
+    .required(es.string.required)
+    .min(8, es.string.min(8))
+    .max(100, es.string.max(100)),
+  "answer_es-AR": string()
+    .required(es.string.required)
+    .min(10, es.string.min(10))
+    .max(250, es.string.max(250)),
+  answer_en: string()
+    .required(es.string.required)
+    .min(10, es.string.min(10))
+    .max(250, es.string.max(250)),
+  answer_pt: string()
+    .required(es.string.required)
+    .min(10, es.string.min(10))
+    .max(250, es.string.max(250)),
+  featured: boolean().required(es.string.required),
+});
+
+export const updateFaqSchema = createFaqSchema.shape({
+  documentId: string().required(es.string.required),
+});
+
 // MIME types de los formatos de archivo
 // Si solo validáramos por extensión, alguien podría subir un archivo malicioso renombrado como
 // cv.docx.exe. Por eso, validar por MIME type es más seguro.
 
-const FILE_TYPES = [
-  "application/pdf", // PDF
-  "application/msword", // DOC (Word 97-2003)
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // DOCX (Word moderno)
-  "text/plain", // TXT
-];
+export const buildPostulationSchema = (locale: Locales) => {
+  const m = localeMessages[locale];
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 1MB
-
-export const postulationSchema = object({
-  name: string()
-    .required(es.string.required)
-    .min(2, es.string.min(2))
-    .max(30, es.string.max(30)),
-  surname: string()
-    .required(es.string.required)
-    .min(2, es.string.min(2))
-    .max(30, es.string.max(30)),
-  genre: string()
-    .required(es.string.required)
-    .oneOf(["male", "female", "other"]),
-  age: number()
-    .integer(es.number.integer)
-    .required(es.number.required)
-    .min(18, es.number.min(18))
-    .max(80, es.number.max(80)),
-  email: string().email(es.string.email).required(es.string.required),
-  sector: string().required(es.string.required),
-  note: string().max(400, es.string.max(400)),
-  campNo: number().integer(es.number.integer),
-  resume: mixed<File>()
-    .required(es.mixed.required)
-    .test(
-      "fileType",
-      "Solo se permiten archivos PDF, DOC, DOCX o TXT",
-      (file) => {
+  return object({
+    name: string()
+      .required(m.string.required)
+      .min(2, m.string.min(2))
+      .max(30, m.string.max(30)),
+    surname: string()
+      .required(m.string.required)
+      .min(2, m.string.min(2))
+      .max(30, m.string.max(30)),
+    gender: string<Genders>().required(m.string.required).oneOf(GENDERS),
+    age: number()
+      .integer(m.number.integer)
+      .required(m.number.required)
+      .min(18, m.number.min(18))
+      .max(80, m.number.max(80)),
+    email: string().email(m.string.email).required(m.string.required),
+    sector: string().required(m.string.required),
+    note: string().max(400, m.string.max(400)),
+    campNo: number().integer(m.number.integer),
+    resume: mixed<File>()
+      .required(m.mixed.required)
+      .test("fileType", m.mixed.resumeType, (file) => {
+        console.log("file type: ", file.type);
         return file && FILE_TYPES.includes(file.type);
-      },
-    )
-    .test("fileSize", "El archivo no debe superar los 5MB", (file) => {
-      return file && file.size <= MAX_FILE_SIZE;
-    }),
-});
+      })
+      .test("fileSize", m.mixed.fileSize(MAX_FILE_SIZE), (file) => {
+        return file && file.size <= MAX_FILE_SIZE;
+      }),
+  });
+};
 
-export const postulationSchemaEN = object({
-  name: string()
-    .required(en.string.required)
-    .min(2, en.string.min(2))
-    .max(30, en.string.max(30)),
-  surname: string()
-    .required(en.string.required)
-    .min(2, en.string.min(2))
-    .max(30, en.string.max(30)),
-  genre: string()
-    .required(en.string.required)
-    .oneOf(["male", "female", "other"]),
-  age: number()
-    .integer(en.number.integer)
-    .required(en.number.required)
-    .min(18, en.number.min(18))
-    .max(80, en.number.max(80)),
-  email: string().email(en.string.email).required(en.string.required),
-  sector: string().required(en.string.required),
-  note: string().max(400, en.string.max(400)),
-  campNo: number().integer(en.number.integer),
-  resume: mixed<File>()
-    .required(en.mixed.required)
-    .test(
-      "fileType",
-      "Solo se permiten archivos PDF, DOC, DOCX o TXT",
-      (file) => {
-        return file && FILE_TYPES.includes(file.type);
-      },
-    )
-    .test("fileSize", "El archivo no debe superar los 5MB", (file) => {
-      return file && file.size <= MAX_FILE_SIZE;
-    }),
-});
+export const buildContactSchema = (locale: Locales) => {
+  const m = localeMessages[locale];
 
-export const postulationSchemaPT = object({
-  name: string()
-    .required(pt.string.required)
-    .min(2, pt.string.min(2))
-    .max(30, pt.string.max(30)),
-  surname: string()
-    .required(pt.string.required)
-    .min(2, pt.string.min(2))
-    .max(30, pt.string.max(30)),
-  genre: string()
-    .required(pt.string.required)
-    .oneOf(["male", "female", "other"]),
-  age: number()
-    .integer(pt.number.integer)
-    .required(pt.number.required)
-    .min(18, pt.number.min(18))
-    .max(80, pt.number.max(80)),
-  email: string().email(pt.string.email).required(pt.string.required),
-  sector: string().required(pt.string.required),
-  note: string().max(400, pt.string.max(400)),
-  campNo: number().integer(pt.number.integer),
-  resume: mixed<File>()
-    .required(pt.mixed.required)
-    .test(
-      "fileType",
-      "Solo se permiten archivos PDF, DOC, DOCX o TXT",
-      (file) => {
-        return file && FILE_TYPES.includes(file.type);
-      },
-    )
-    .test("fileSize", "El archivo no debe superar los 5MB", (file) => {
-      return file && file.size <= MAX_FILE_SIZE;
-    }),
-});
-
-export const contactSchema = object({
-  name: string().required(es.string.required).min(2, es.string.min(2)),
-  email: string().required(es.string.required).email(es.string.email),
-  consultation: string()
-    .required(es.string.required)
-    .max(150, es.string.max(150)),
-});
-
-export const contactSchemaEN = object({
-  name: string().required(en.string.required).min(2, en.string.min(2)),
-  email: string().required(en.string.required).email(en.string.email),
-  consultation: string()
-    .required(en.string.required)
-    .max(150, en.string.max(150)),
-});
-
-export const contactSchemaPT = object({
-  name: string().required(es.string.required).min(2, es.string.min(2)),
-  email: string().required(es.string.required).email(es.string.email),
-  consultation: string()
-    .required(es.string.required)
-    .max(150, es.string.max(150)),
-});
+  return object({
+    name: string()
+      .required(m.string.required)
+      .min(2, m.string.min(2))
+      .max(80, m.string.max(80)),
+    email: string()
+      .required(m.string.required)
+      .email(m.string.email)
+      .max(254, m.string.max(254)),
+    consultation: string()
+      .required(m.string.required)
+      .max(800, m.string.max(800)),
+  });
+};

@@ -1,56 +1,48 @@
 import type {
   Activity,
+  ActivityTranslation,
   BusTrip,
-  ComponentTranslate,
+  ComponentTranslation,
   Faq,
   Meta,
   New,
+  PageContent,
+  Postulation,
   Sector,
+  ServiceStateValues,
   ServiceStatus,
-  StrapiLocales,
+  Station,
+  StrapiFile,
+  StrapiImage,
   StrapiRecord,
   Ticket,
+  User,
   UserRole,
   Zone,
+  ZoneTranslation,
 } from "@/types";
-import { BlocksContent } from "@strapi/blocks-react-renderer";
-// import { BlocksContent } from "@strapi/blocks-react-renderer";
+import { type BlocksContent } from "@strapi/blocks-react-renderer";
 
-export interface LoginUserRequest {
+export type LoginUserRequest = {
   identifier: string;
   password: string;
-}
+};
 
-export interface SuccessfulLoginResponse {
+export type SuccessfulLoginResponse = {
   jwt: string;
-  user: User;
-}
-
-export interface UnpopulatedUserResponse {
-  id: number;
-  documentId: string;
-  username: string;
-  name: string;
-  surname: string;
-  email: string;
-  provider: string;
-  confirmed: boolean;
-  blocked: boolean;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string;
-  locale?: StrapiLocales | StrapiLocales[];
-}
+  user: Omit<User, "faved_postulations" | "role">;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export type UserResponse<T extends object = {}> = UnpopulatedUserResponse & T;
+export type UserResponse<T extends object = {}> = Omit<
+  User,
+  "faved_postulations" | "role"
+> &
+  T;
 
-export type GetPersonalDataResponse = UserResponse<{
-  role: UserRole;
-  localizations: string[];
-}>;
+export type GetPersonalDataResponse = User;
 
-export interface NewUserRequest {
+export type NewUserRequest = {
   email: string;
   password: string;
   username: string;
@@ -59,7 +51,7 @@ export interface NewUserRequest {
   role: {
     connect: { id: number }[];
   };
-}
+};
 
 export type NewUserResponse = UserResponse<{ role: UserRole }>;
 
@@ -75,138 +67,343 @@ export type DeleteUserResponse = UserResponse<{
   localizations: string[];
 }>;
 
-export interface GetRolesResponse {
+export type GetRolesResponse = {
   roles: UserRole[];
-}
+};
 
 export type GetUsersResponse = UserResponse<{ role: UserRole }>[];
 
-export interface GetServiceStateResponse {
+export type GetPageResponse = {
+  data: PageContent[];
+  meta: Meta;
+};
+
+export type GetServiceStateResponse = {
   data: ServiceStatus;
   meta: Meta;
-}
+};
 
 export type UpdateServiceStateResponse = GetServiceStateResponse;
 
 export type GetFaqResponse = {
   data: Faq;
+  meta: Meta;
 };
 
-export interface GetFaqsResponse {
+export type GetFaqsResponse = {
   data: Faq[];
   meta: Meta;
-}
+};
 
-export interface GetNewResponse {
-  data: New;
-}
+export type CreateFaqRequest = {
+  data: Pick<Faq, "question" | "answer" | "featured">;
+};
 
-export interface GetNewsResponse {
-  data: Omit<
-    New,
-    "createdAt" | "updatedAt" | "publishedAt" | "body" | "locale"
-  >[];
+export type CreateFaqResponse = {
+  data: Faq;
   meta: Meta;
-}
+};
+
+export type UpdateFaqRequest = {
+  data: Partial<Pick<Faq, "question" | "answer" | "featured">>;
+};
+
+export type UpdateFaqResponse = {
+  data: Faq;
+  meta: Meta;
+};
+
+export type GetNewResponse = {
+  data: New;
+  meta: Meta;
+};
+
+export type GetNewsResponse = {
+  data: Omit<New, "createdAt" | "publishedAt" | "body" | "locale">[];
+  meta: Meta;
+};
+
+export type CreateNewRequest = {
+  data: Pick<New, "title" | "body" | "brief" | "date" | "highlighted"> & {
+    cover: number;
+  };
+};
+
+export type CreateNewResponse = {
+  data: New;
+  meta: Meta;
+};
+
+export type UpdateNewRequest = {
+  data: Partial<
+    Pick<New, "title" | "body" | "brief" | "date" | "highlighted"> & {
+      cover: number;
+    }
+  >;
+};
+
+export type UpdateNewResponse = {
+  data: New;
+  meta: Meta;
+};
+
+export type GetTicketResponse = {
+  data: Ticket;
+  meta: Meta;
+};
 
 export type GetTicketsResponse = {
   data: Ticket[];
   meta: Meta;
 };
 
-export interface GetBusTripsResponse {
-  data: BusTrip[];
-  meta: Meta;
-}
-
-export interface GetSectorsResponse {
-  data: Sector[];
-  meta: Meta;
-}
-
-export interface GetZonesResponse {
-  data: Zone[];
-  meta: Meta;
-}
-
-export interface GetActivitiesResponse {
-  data: Activity[];
-  meta: Meta;
-}
-
-export interface PostPostulationRequest {
+export type PostAccessTicketRequest = {
   data: {
     name: string;
-    surname: string;
-    genre: string;
-    age: number;
-    email: string;
-    note?: string;
-    campNo?: number;
-    sector: {
+    price: number;
+    lifting_mean: "cablecar" | "road&funicular";
+  };
+};
+
+export type PostAccessTicketResponse = {
+  data: Ticket;
+  meta: Meta;
+};
+
+export type UpdateAccessTicketRequest = {
+  data: {
+    name?: string;
+    price?: number;
+    lifting_mean?: "cablecar" | "road&funicular";
+  };
+};
+
+export type UpdateAccessTicketResponse = {
+  data: Ticket;
+  meta: Meta;
+};
+
+export type GetStationsResponse = {
+  data: Station[];
+  meta: Meta;
+};
+
+export type GetBusTripResponse = {
+  data: BusTrip;
+  meta: Meta;
+};
+
+export type GetBusTripsResponse = {
+  data: BusTrip[];
+  meta: Meta;
+};
+
+export type PostBusTripRequest = {
+  data: {
+    depTime: string;
+    arrTime: string;
+    origin: {
+      connect: [{ documentId: string }];
+    };
+    destination: {
       connect: [{ documentId: string }];
     };
   };
-}
+};
 
-export interface PostPostulationResponse {
-  data: StrapiRecord<{
-    name: string;
-    surname: string;
-    genre: string;
-    age: number;
-    email: string;
-    resume: unknown;
-    locale: null;
-    campNo: string | null;
-    note: string | null;
-  }>;
+export type PostBusTripResponse = {
+  data: BusTrip;
   meta: Meta;
-}
+};
 
-export type UploadResumeResponse = [
-  StrapiRecord<{
-    name: string;
-    alternativeText: null;
-    caption: null;
-    width: null;
-    height: null;
-    formats: null;
-    hash: string;
-    ext: string;
-    mime: "application/pdf";
-    size: number;
-    url: string;
-    previewUrl: null;
-    provider: string;
-    provider_metadata: null;
-    locale: null;
-  }>,
-];
+export type UpdateBusTripRequest = {
+  data: Partial<{
+    depTime: string;
+    arrTime: string;
+    origin: {
+      connect: [{ documentId: string }];
+    };
+    destination: {
+      connect: [{ documentId: string }];
+    };
+  }>;
+};
 
-export interface GetNavbarItemsResponse {
+export type UpdateBusTripResponse = {
+  data: BusTrip;
+  meta: Meta;
+};
+
+export type GetSectorsResponse = {
+  data: Sector[];
+  meta: Meta;
+};
+
+export type GetZoneResponse = {
+  data: Zone;
+  meta: Meta;
+};
+
+export type GetZonesResponse = {
+  data: Zone[];
+  meta: Meta;
+};
+
+export type UpdateZoneRequest = {
+  data: Partial<Pick<Zone, "openTime" | "closeTime" | "isOpen">>;
+};
+
+export type UpdateZoneResponse = {
+  data: Omit<Zone, "zone_translations">;
+  meta: Meta;
+};
+
+export type UpdateZoneTranslationRequest = {
+  data: Partial<Pick<ZoneTranslation, "name" | "description">> & {
+    zone: { connect: [{ documentId: string }] };
+  };
+};
+
+export type UpdateZoneTranslationResponse = {
+  data: Omit<ZoneTranslation, "zone">;
+};
+
+export type GetActivityResponse = {
+  data: Activity;
+  meta: Meta;
+};
+
+export type GetActivitiesResponse = {
+  data: Activity[];
+  meta: Meta;
+};
+
+export type PostActivityRequest = {
+  data: Pick<Activity, "price" | "minAge" | "season">;
+};
+
+export type PostActivityResponse = {
+  data: Activity;
+  meta: Meta;
+};
+
+export type UpdateActivityRequest = {
+  data: Partial<Pick<Activity, "price" | "minAge" | "season">>;
+};
+
+export type UpdateActivityResponse = {
+  data: Activity;
+  meta: Meta;
+};
+
+export type PostActivityTranslationRequest = {
+  data: Pick<ActivityTranslation, "name" | "description" | "requirements"> & {
+    activity: {
+      connect: [{ documentId: string }];
+    };
+  };
+};
+
+export type PostActivityTranslationResponse = {
+  data: ActivityTranslation;
+  meta: Meta;
+};
+
+export type UpdateActivityTranslationRequest = {
+  data: Partial<
+    Pick<ActivityTranslation, "name" | "description" | "requirements">
+  > & {
+    activity: {
+      connect: [{ documentId: string }];
+    };
+  };
+};
+
+export type UpdateActivityTranslationResponse = {
+  data: ActivityTranslation;
+  meta: Meta;
+};
+
+export type GetPostulationResponse = {
+  data: Postulation;
+  meta: Meta;
+};
+
+export type GetPostulationsResponse = {
+  data: Postulation[];
+  meta: Meta;
+};
+
+export type PostPostulationRequest = {
+  data: Pick<
+    Postulation,
+    | "name"
+    | "surname"
+    | "gender"
+    | "age"
+    | "email"
+    | "campNo"
+    | "note"
+    | "postulation_status"
+  > & {
+    sector: {
+      connect: [{ documentId: string }];
+    };
+    resume: number;
+  };
+};
+
+export type PostPostulationResponse = {
+  data: StrapiRecord<Omit<Postulation, "faved_by" | "sector" | "resume">>;
+  meta: Meta;
+};
+
+export type UpdatePostulationRequest = {
+  data: Partial<
+    Pick<Postulation, "postulation_status"> & {
+      faved_by:
+        | {
+            connect: number[];
+          }
+        | {
+            disconnect: number[];
+          };
+    }
+  >;
+};
+
+export type UpdatePostulationResponse = {
+  data: StrapiRecord<Omit<Postulation, "faved_by" | "sector" | "resume">>;
+  meta: Meta;
+};
+
+export type UploadMediaResponse<T extends StrapiImage | StrapiFile> = T[];
+
+export type GetNavbarItemsResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: { items: { label: string; href: string }[] };
       rtValue: null;
+      key: "navbar";
     }>,
   ];
   meta: Meta;
-}
+};
 
-export interface GetPoliciesResponse {
+export type GetPoliciesResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: null;
       rtValue: BlocksContent;
+      key: "policies";
     }>,
   ];
   meta: Meta;
-}
+};
 
-export interface GetFooterResponse {
+export type GetFooterResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: {
         socialitems: {
           ig: string;
@@ -225,14 +422,15 @@ export interface GetFooterResponse {
         };
       };
       rtValue: BlocksContent;
+      key: "footer";
     }>,
   ];
   meta: Meta;
-}
+};
 
-export interface GetHoursoverviewResponse {
+export type GetHoursoverviewResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: {
         title: string;
         desc: BlocksContent;
@@ -245,14 +443,15 @@ export interface GetHoursoverviewResponse {
         }>;
       };
       rtValue: null;
+      key: "hoursoverview";
     }>,
   ];
   meta: Meta;
-}
+};
 
-export interface GetServiceButtonResponse {
+export type GetServiceButtonResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: {
         error: BlocksContent;
         button: {
@@ -260,9 +459,9 @@ export interface GetServiceButtonResponse {
           close: string;
         };
         modal: {
-          states: {
+          items: {
             order: number;
-            state: string;
+            state: ServiceStateValues;
             stateLegend: string;
             title: string;
             stateDesc: string;
@@ -271,14 +470,15 @@ export interface GetServiceButtonResponse {
         };
       };
       rtValue: null;
+      key: "servicebutton";
     }>,
   ];
   meta: Meta;
-}
+};
 
-export interface GetFormsTranslationResponse {
+export type GetFormsTranslationResponse = {
   data: [
-    ComponentTranslate<{
+    ComponentTranslation<{
       jsonValue: {
         fields: {
           firstName: {
@@ -289,7 +489,7 @@ export interface GetFormsTranslationResponse {
             label: string;
             placeholder: string;
           };
-          genre: {
+          gender: {
             label: string;
             placeholder: string;
             items: {
@@ -333,13 +533,44 @@ export interface GetFormsTranslationResponse {
             label: string;
             placeholder: string;
           };
+          note: {
+            label: string;
+            placeholder: string;
+          };
         };
         buttons: {
           send: string;
         };
       };
       rtValue: null;
+      key: "forms";
     }>,
   ];
   meta: Meta;
-}
+};
+
+export type GetSchedulesTranslationResponse = {
+  data: [
+    ComponentTranslation<{
+      jsonValue: {
+        header: { epigraph: string; title: string; legend: string };
+        components: {
+          Loading: { title: string; legend: string };
+          Error: { title: string; legend: string; button: string };
+          Empty: { title: string; legend: string };
+          TimeRow: {
+            opens: string;
+            closes: string;
+          };
+        };
+        badge: {
+          open: string;
+          closed: string;
+        };
+      };
+      rtValue: null;
+      key: "schedules";
+    }>,
+  ];
+  meta: Meta;
+};

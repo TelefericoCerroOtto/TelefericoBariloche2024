@@ -1,6 +1,7 @@
 import { FormError, StrapiComponentRenderer } from "@/components";
 import type { Locales, RendereableBlocks } from "@/types";
 import { Fragment, type ComponentType } from "react";
+import { type StrapiComponentRendererConfig } from "../shared/StrapiComponentRenderer";
 
 interface Props {
   blocks: RendereableBlocks | RendereableBlocks[];
@@ -9,15 +10,20 @@ interface Props {
     component: ComponentType<{ locale: Locales }>;
   }[];
   locale: Locales;
+  config?: StrapiComponentRendererConfig;
 }
 
 export default function BlocksRenderer(props: Props) {
-  const { blocks, customBlocks = [], locale } = props;
+  const { blocks, customBlocks = [], locale, config } = props;
 
   if (!Array.isArray(blocks)) {
     return (
       <>
-        <StrapiComponentRenderer block={blocks} locale={locale} />
+        <StrapiComponentRenderer
+          customConfig={config}
+          block={blocks}
+          locale={locale}
+        />
         {customBlocks.map((cb, index) => (
           <cb.component key={index} locale={locale} />
         ))}
@@ -26,7 +32,7 @@ export default function BlocksRenderer(props: Props) {
   }
 
   if (!blocks || blocks.length === 0) {
-    console.error("BlocksRenderer blocks", blocks);
+    console.error("Missed blocks in BlocksRenderer component: ", blocks);
     return <FormError message="No content was found" />;
   }
 
@@ -46,7 +52,11 @@ export default function BlocksRenderer(props: Props) {
 
         return (
           <Fragment key={idx}>
-            <StrapiComponentRenderer block={block} locale={locale} />
+            <StrapiComponentRenderer
+              customConfig={config}
+              block={block}
+              locale={locale}
+            />
             {selectedBlocks.map((cb, index) => (
               <cb.component key={`custom-${idx}-${index}`} locale={locale} />
             ))}

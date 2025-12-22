@@ -1,0 +1,15 @@
+{
+  "collectionName": "components_page_components_schedules",
+  "info": {
+    "displayName": "Schedules",
+    "icon": "clock"
+  },
+  "options": {},
+  "attributes": {
+    "zones": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::zone.zone"
+    }
+  }
+}

@@ -4,6 +4,7 @@ import bus from "@/public/busInfo.png";
 import cerro from "@/public/cerroInfo.png";
 import gondola from "@/public/gondolaInfo.png";
 import type { Locales } from "@/types";
+import { Spacer } from "@heroui/react";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
 
@@ -55,7 +56,7 @@ export default async function HoursOverview(props: Props) {
     throw new Error("No se pudo recuperar la informacion del footer");
   }
 
-  const content = data.data[0].jsonValue
+  const content = data.data[0].jsonValue;
   const itemsIntl = content.items.map((item) => {
     const { src } = items.find((itm) => item.tag === itm.tag)!;
     const { desc, ...props } = item;
@@ -65,11 +66,12 @@ export default async function HoursOverview(props: Props) {
 
   if (withTextBlock)
     return (
-      <section className="mb-14">
+      <section className="mb-14 text-lg">
         <TitleDescBlock
           title={content.title}
           desc={content.desc as BlocksContent}
         />
+        <Spacer y={16} />
         <HoursOverviewItems items={itemsIntl} />
       </section>
     );

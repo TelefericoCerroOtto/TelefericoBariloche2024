@@ -1,16 +1,23 @@
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { GetServiceStateResponse } from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils/routes.const";
 import { useProxy } from "./use-proxy";
 
-export function useServiceState() {
-  const { data, isError, isLoading } = useProxy<GetServiceStateResponse>(
+const REFRESH_INTERVAL_MS = 10 * 1000; // 10 seconds
+
+export const useServiceState = () => {
+  const {
+    data: serviceState,
+    isError,
+    isLoading,
+  } = useProxy<GetServiceStateResponse>(
     STRAPI_ENDPOINTS.SERVICE_STATE,
     {},
+    { revalidateOnFocus: true, refreshInterval: REFRESH_INTERVAL_MS },
   );
 
   return {
-    serviceState: data,
-    isLoading,
+    serviceState,
     isError,
+    isLoading,
   };
-}
+};

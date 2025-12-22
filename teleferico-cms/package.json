@@ -11,10 +11,10 @@
     "strapi": "strapi"
   },
   "dependencies": {
-    "@strapi-community/strapi-provider-upload-google-cloud-storage": "^4.10.5",
-    "@strapi/plugin-cloud": "5.0.4",
-    "@strapi/plugin-users-permissions": "5.0.4",
-    "@strapi/strapi": "^5.0.5",
+    "@strapi-community/strapi-provider-upload-google-cloud-storage": "^5.0.5",
+    "@strapi/plugin-cloud": "5.29.0",
+    "@strapi/plugin-users-permissions": "5.29.0",
+    "@strapi/strapi": "^5.29.0",
     "mysql2": "^3.11.3",
     "pg": "^8.13.0",
     "react": "^18.0.0",

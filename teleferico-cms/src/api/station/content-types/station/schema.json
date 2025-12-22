@@ -12,16 +12,18 @@
   },
   "pluginOptions": {},
   "attributes": {
-    "zone": {
-      "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::zone.zone",
-      "inversedBy": "station"
-    },
-    "label": {
+    "key": {
+      "pluginOptions": {},
       "type": "string",
       "required": true,
-      "unique": true
+      "unique": false,
+      "minLength": 2
+    },
+    "station_translations": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::station-translation.station-translation",
+      "mappedBy": "station"
     }
   }
 }

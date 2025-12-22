@@ -22,17 +22,10 @@
           "localized": true
         }
       },
-      "type": "string",
+      "type": "text",
       "required": true,
-      "unique": true
-    },
-    "description": {
-      "pluginOptions": {
-        "i18n": {
-          "localized": true
-        }
-      },
-      "type": "text"
+      "unique": false,
+      "minLength": 2
     },
     "price": {
       "pluginOptions": {
@@ -41,12 +34,21 @@
         }
       },
       "type": "integer",
-      "required": true
+      "required": true,
+      "min": 0
     },
     "lifting_mean": {
-      "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::elevation-mean.elevation-mean"
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      },
+      "type": "enumeration",
+      "enum": [
+        "cablecar",
+        "road&funicular"
+      ],
+      "required": true
     }
   }
 }

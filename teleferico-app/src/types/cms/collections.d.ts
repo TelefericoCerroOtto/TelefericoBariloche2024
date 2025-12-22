@@ -1,49 +1,76 @@
 import type {
-  Image,
-  ImageFormats,
+  DynamicZone,
+  RendereableBlocks,
   ServiceStateValues,
+  StrapiBlocksPayload,
+  StrapiFile,
+  StrapiImage,
   StrapiLocales,
   StrapiRecord,
 } from "@/types";
-import { roles } from "@/utils/roles";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 
-export interface UserRole {
+export type UserRoles =
+  | "Public"
+  | "Authenticated"
+  | "Administrator"
+  | "Media Manager"
+  | "Recruiter"
+  | "Operations Supervisor";
+
+export type UserRole = {
   id: number;
   documentId: string;
-  name: (typeof roles)[number];
+  name: UserRoles;
   description: string;
   type: string;
   createdAt: string;
   updatedAt: string;
   publishedAt: string;
   locale: null;
-}
+};
 
-type ComponentTranslate<
-  T extends { jsonValue: unknown; rtValue: BlocksContent | null },
-> = StrapiRecord<T & { key: string }>;
+export type User = {
+  id: number;
+  documentId: string;
+  username: string;
+  email: string;
+  provider: string;
+  confirmed: boolean;
+  blocked: boolean;
+  name: string;
+  surname: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  role: UserRole;
+  faved_postulations: Postulation[];
+};
+
+export type ComponentTranslationKeys =
+  | "policies"
+  | "navbar"
+  | "footer"
+  | "hoursoverview"
+  | "servicebutton"
+  | "forms"
+  | "schedules";
+
+export type ComponentTranslation<
+  T extends {
+    jsonValue: unknown;
+    rtValue: BlocksContent | null;
+    key?: ComponentTranslationKeys;
+  },
+> = StrapiRecord<
+  T & {
+    key: ComponentTranslationKeys;
+  }
+>;
 
 export type ServiceStatus = StrapiRecord<{
   state: ServiceStateValues;
   locale: null;
-}>;
-
-export type StrapiImage = StrapiRecord<{
-  name: string;
-  alternativeText: string;
-  caption: unkown;
-  width: number;
-  height: number;
-  formats: ImageFormats;
-  hash: string;
-  ext: string;
-  mime: string;
-  size: number;
-  url: string;
-  previewUrl: unkown;
-  provider: string;
-  provider_metadata: unkown;
 }>;
 
 export type Faq = StrapiRecord<{
@@ -55,17 +82,14 @@ export type Faq = StrapiRecord<{
 export type New = StrapiRecord<{
   locale: StrapiLocales;
   title: string;
-  body: BlocksContent;
+  body: StrapiBlocksPayload;
   highlighted: boolean;
-  brief: BlocksContent;
+  brief: StrapiBlocksPayload;
   date: string; // format: yyyy-mm-dd
-  cover: Image;
+  cover: StrapiImage;
 }>;
 
-export type LiftingMean = StrapiRecord<{
-  name: string;
-  description: string | null;
-}>;
+export type LiftingMean = "cablecar" | "road&funicular";
 
 export type Ticket = StrapiRecord<{
   name: string;
@@ -74,61 +98,92 @@ export type Ticket = StrapiRecord<{
   lifting_mean: LiftingMean;
 }>;
 
-export type ZoneDescription = StrapiRecord<{
+export type ZoneTranslation = StrapiRecord<{
   name: string;
-  description: string;
+  description: string | null;
+  zone: Zone;
 }>;
 
 export type Zone = StrapiRecord<{
-  openTime: string; // format: hh:mm:ss:mmmm
-  closeTime: string; // format: hh:mm:ss:mmmm
+  openTime: string; // format: hh:mm:ss
+  closeTime: string; // format: hh:mm:ss
   label: string;
+  isOpen: boolean;
   locale: null;
-  zone_descriptions: ZoneDescription[];
+  zone_translations: ZoneTranslation[];
+}>;
+
+export type StationTranslation = StrapiRecord<{
+  name: string;
+  station: Station;
 }>;
 
 export type Station = StrapiRecord<{
-  label: string;
-  zone: Zone;
+  key: string;
+  station_translations: StationTranslation[];
   locale: null;
 }>;
 
 export type BusTrip = StrapiRecord<{
   depTime: string;
   arrTime: string;
-  locale: null;
   origin: Station;
   destination: Station;
+  locale: null;
 }>;
 
-export type ActivityDescription = StrapiRecord<{
+export type ActivityTranslation = StrapiRecord<{
   name: string;
   description: string | null;
   requirements: string | null;
 }>;
 
+export type Season = "summer" | "autumn" | "winter" | "spring" | "allSeasons";
+
 export type Activity = StrapiRecord<{
-  label: string;
+  // label: string;
   price: number;
   minAge: number;
-  season: "summer" | "autumn" | "winter" | "spring" | "all";
+  season: Season;
   zone: Zone;
-  activity_descriptions: ActivityDescription[];
+  activity_translations: ActivityTranslation[];
   locale: null;
 }>;
 
-export type SectorName = StrapiRecord<{name: string}>
+export type SectorName = StrapiRecord<{ name: string }>;
 
-export type Sector = StrapiRecord<{ key: string; sector_names: SectorName[]; locale: null }>;
+export type Sector = StrapiRecord<{
+  key: string;
+  sector_names: SectorName[];
+  locale: null;
+}>;
+
+export type PostulationStatus = "unreviewed" | "hired" | "discarded";
+
+export type Genders = "male" | "female" | "other";
 
 export type Postulation = StrapiRecord<{
   name: string;
   surname: string;
-  genre: string;
+  gender: Genders;
   age: number;
   email: string;
-  resume: unknown;
+  resume: StrapiFile;
   sector: Sector;
-  faved_by: UnpopulatedUserResponse[];
+  campNo: number | null;
+  note: string | null;
+  postulation_status: PostulationStatus;
+  faved_by: User[];
   locale: null;
+}>;
+
+export type PageContent = StrapiRecord<{
+  blocks: DynamicZone<RendereableBlocks>;
+  createdAt: string;
+  documentId: string;
+  id: number;
+  locale: StrapiLocales;
+  publishedAt: string;
+  route: string;
+  updatedAt: string;
 }>;

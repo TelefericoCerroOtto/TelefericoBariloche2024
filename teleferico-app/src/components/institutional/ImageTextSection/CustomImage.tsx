@@ -13,7 +13,7 @@ export default function CustomImage(props: Props) {
       src={image?.image?.url ?? notFoundImg.src}
       alt={image?.alt ?? "imagen de fondo gris"}
       fill
-      className="object-cover"
+      className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transition-none motion-reduce:transform-none"
     />
   );
 }

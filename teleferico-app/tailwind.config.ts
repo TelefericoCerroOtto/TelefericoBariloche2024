@@ -1,14 +1,14 @@
-import type { Config } from "tailwindcss";
-import { nextui } from "@nextui-org/react";
-import plugin from "tailwindcss-animate";
+import { heroui } from "@heroui/react";
 import tailwindtypo from "@tailwindcss/typography";
+import type { Config } from "tailwindcss";
+import plugin from "tailwindcss-animate";
 
 const config: Config = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./node_modules/@nextui-org/theme/dist/**/*.{js,ts,jsx,tsx}",
+    "./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     screens: {
@@ -85,6 +85,6 @@ const config: Config = {
     },
   },
   darkMode: ["class", "class"],
-  plugins: [nextui(), plugin, tailwindtypo],
+  plugins: [heroui(), plugin, tailwindtypo],
 };
 export default config;
