@@ -1,9 +1,10 @@
 import "@/app/globals.css";
 import { PageWrapper } from "@/components";
 import { i18n } from "@/i18n";
+import { isLocales } from "@/lib/helpers/i18n-guards";
 import { getComponentTranslation } from "@/lib/services";
-import type { Locales } from "@/types";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { Footer, Navbar } from "./_components";
 
 export const metadata: Metadata = {
@@ -22,9 +23,13 @@ export default async function InstitutionalLayout({
   params,
 }: Readonly<{
   children: React.ReactNode;
-  params: Promise<{ locale: Locales }>;
+  params: Promise<{ locale: string }>;
 }>) {
   const { locale } = await params;
+  if (!isLocales(locale)) {
+    notFound();
+  }
+
   const { ok, data } = await getComponentTranslation(locale, "navbar");
   // TODO: Mejorar respuesta de interfaz en caso de que falle la llamada
   if (!ok) throw new Error("No se pudo recuperar el contenido del Navbar");
