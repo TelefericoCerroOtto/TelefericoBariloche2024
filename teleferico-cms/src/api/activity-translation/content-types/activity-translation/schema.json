@@ -1,0 +1,54 @@
+{
+  "kind": "collectionType",
+  "collectionName": "activity_translations",
+  "info": {
+    "singularName": "activity-translation",
+    "pluralName": "activity-translations",
+    "displayName": "ActivityTranslation",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "name": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "text",
+      "unique": true,
+      "minLength": 2,
+      "required": true
+    },
+    "description": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "text",
+      "maxLength": 150
+    },
+    "requirements": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "text"
+    },
+    "activity": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::activity.activity",
+      "inversedBy": "activity_translations"
+    }
+  }
+}

@@ -16,32 +16,36 @@
   },
   "attributes": {
     "question": {
+      "type": "text",
       "pluginOptions": {
         "i18n": {
           "localized": true
         }
       },
-      "type": "string",
+      "minLength": 8,
+      "maxLength": 100,
       "required": true
     },
     "answer": {
+      "type": "text",
       "pluginOptions": {
         "i18n": {
           "localized": true
         }
       },
-      "type": "text",
+      "minLength": 10,
+      "maxLength": 250,
       "required": true
     },
     "featured": {
+      "type": "boolean",
       "pluginOptions": {
         "i18n": {
           "localized": false
         }
       },
-      "type": "boolean",
-      "default": false,
-      "required": false
+      "required": false,
+      "default": false
     }
   }
 }

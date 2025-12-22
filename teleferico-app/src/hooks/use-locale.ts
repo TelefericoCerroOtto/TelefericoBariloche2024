@@ -7,17 +7,17 @@ import { usePathname } from "next/navigation";
 export const useLocale = () => {
   const fullPathname = usePathname();
   const firstSegment = fullPathname.split("/")[1];
-  let pathname, language;
+  let pathname, locale;
 
   // Si el primer segmento es un idioma válido, lo tomamos. Si no, usamos el idioma por defecto.
   if (i18n.locales.includes(firstSegment as Locales)) {
     pathname = fullPathname.replace(`/${firstSegment}`, "");
     if (pathname === "") pathname = "/";
-    language = firstSegment as Locales;
+    locale = firstSegment as Locales;
   } else {
     pathname = fullPathname;
-    language = i18n.defaultLocale;
+    locale = i18n.defaultLocale;
   }
 
-  return { pathname, fullPathname, language };
+  return { pathname, fullPathname, locale };
 };

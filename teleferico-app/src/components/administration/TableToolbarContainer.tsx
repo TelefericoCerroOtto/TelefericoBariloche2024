@@ -1,3 +1,5 @@
+"use client";
+
 import { buttonStyles } from "@/components/shared/ButtonDos";
 import Link from "next/link";
 import { type ReactNode } from "react";

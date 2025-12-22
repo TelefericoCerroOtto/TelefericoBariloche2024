@@ -1,0 +1,35 @@
+{
+  "kind": "collectionType",
+  "collectionName": "station_translations",
+  "info": {
+    "singularName": "station-translation",
+    "pluralName": "station-translations",
+    "displayName": "StationTranslation"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "name": {
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "type": "text",
+      "required": true,
+      "minLength": 2
+    },
+    "station": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::station.station",
+      "inversedBy": "station_translations"
+    }
+  }
+}

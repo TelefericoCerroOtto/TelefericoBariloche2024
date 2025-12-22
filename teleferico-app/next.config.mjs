@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
+
 const nextConfig = {
+  experimental: {
+    globalNotFound: true,
+    serverActions: {
+      bodySizeLimit: "5mb"
+    }
+  },
   images: {
     remotePatterns: [
       {

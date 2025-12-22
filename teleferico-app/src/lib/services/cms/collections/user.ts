@@ -1,0 +1,206 @@
+import { CACHE_TAGS } from "@/lib/constants/cache-tags.const";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
+import type {
+  DeleteUserResponse,
+  FetchResponse,
+  GetPersonalDataResponse,
+  GetRolesResponse,
+  GetUserResponse,
+  GetUsersResponse,
+  NewUserRequest,
+  NewUserResponse,
+  UpdateUserResponse,
+  UserRole,
+  UserRoles,
+} from "@/types";
+import { stringifyQuery } from "@/utils/query";
+
+export const getPersonalData = async (jwt: string) => {
+  const query = { populate: "*" };
+
+  const res = await strapiFetch<GetPersonalDataResponse>(
+    { endpoint: STRAPI_ENDPOINTS.USERS_ME, qp: stringifyQuery(query) },
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+      cache: "no-cache",
+    },
+    { errorMsg: "getPersonalData error" },
+  );
+  return res;
+};
+
+export const getUsers = async (jwt: string, qs?: unknown) => {
+  const notEqualRole: UserRoles = "Administrator";
+
+  const query = {
+    populate: "role",
+    filters: {
+      role: {
+        name: {
+          $ne: notEqualRole,
+        },
+      },
+    },
+  };
+
+  const res = await strapiFetch<GetUsersResponse>(
+    { endpoint: STRAPI_ENDPOINTS.USERS, qp: stringifyQuery(qs ?? query) },
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+      cache: "no-cache",
+      next: { tags: [CACHE_TAGS.USERS] },
+    },
+    { errorMsg: "get users error" },
+  );
+
+  return res;
+};
+
+export const getUserRole = async (userId: string, jwt: string) => {
+  const query = { populate: "role" };
+
+  const res = await strapiFetch<GetUserResponse>(
+    {
+      endpoint: `${STRAPI_ENDPOINTS.USERS}/${userId}`,
+      qp: stringifyQuery(query),
+    },
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+      cache: "no-cache",
+    },
+    { errorMsg: "get user role error" },
+  );
+
+  let sanitizedRes: FetchResponse<UserRole>;
+
+  if (res.ok) sanitizedRes = { ok: res.ok, data: res.data.role };
+  else sanitizedRes = { ok: res.ok, data: res.data };
+
+  return sanitizedRes;
+};
+
+export const getUserData = async (userId: string, jwt: string) => {
+  const query = { populate: "role" };
+
+  const res = await strapiFetch<GetUserResponse>(
+    {
+      endpoint: `${STRAPI_ENDPOINTS.USERS}/${userId}`,
+      qp: stringifyQuery(query),
+    },
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+      cache: "no-cache",
+    },
+    { errorMsg: "get user role error" },
+  );
+
+  return res;
+};
+
+export const createUser = async (user: NewUserRequest, jwt: string) => {
+  const res = await strapiFetch<NewUserResponse>(
+    { endpoint: STRAPI_ENDPOINTS.USERS },
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(user),
+    },
+  );
+
+  return res;
+};
+
+export const updateUser = async (
+  userId: number,
+  jwt: string,
+  bodyContent: BodyInit,
+) => {
+  const res = await strapiFetch<UpdateUserResponse>(
+    { endpoint: `${STRAPI_ENDPOINTS.USERS}/${userId}` },
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: bodyContent,
+      cache: "no-cache",
+    },
+    { errorMsg: "update user error" },
+  );
+
+  return res;
+};
+
+export const blockUnblockUser = async (
+  userId: number,
+  jwt: string,
+  blocked: boolean,
+) => {
+  const bodyContent = JSON.stringify({ blocked });
+  console.log("bodyContent", bodyContent);
+  return await updateUser(userId, jwt, bodyContent);
+};
+
+export const deleteUser = async (userId: number, jwt: string) => {
+  const res = await strapiFetch<DeleteUserResponse>(
+    { endpoint: `${STRAPI_ENDPOINTS.USERS}/${userId}` },
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+    },
+    { errorMsg: "delete user error" },
+  );
+
+  return res;
+};
+
+export const getRoles = async (jwt: string) => {
+  const res = await strapiFetch<GetRolesResponse>(
+    { endpoint: STRAPI_ENDPOINTS.ROLES },
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
+      cache: "no-cache",
+    },
+    { errorMsg: "get roles error" },
+  );
+  // It is not possible to filter the returned roles through query parameters.
+  // The roles controller is configured to return all roles.
+  const excludedRoles: UserRoles[] = [
+    "Public",
+    "Authenticated",
+    "Administrator",
+  ];
+
+  let sanitizedRes: FetchResponse<UserRole[]>;
+
+  if (res.ok) {
+    sanitizedRes = {
+      ok: res.ok,
+      data: res.data.roles.filter((role) => !excludedRoles.includes(role.name)),
+    };
+  } else sanitizedRes = { ok: res.ok, data: res.data };
+
+  return sanitizedRes;
+};

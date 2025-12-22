@@ -10,7 +10,7 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import Link from "next/link";
 import { ReactNode, type Key } from "react";
 
@@ -19,6 +19,8 @@ interface Props<T> {
   desc: string;
   link?: { href: string; label: string };
   isLoading?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  isError?: any;
   // eslint-disable-next-line no-unused-vars
   renderCell: (entry: T, columnKey: Key) => ReactNode;
   items: Array<T>;
@@ -41,9 +43,19 @@ const dictionaries = {
 export default function DataTable<T extends { id: number | string }>(
   props: Props<T>,
 ) {
-  const { title, desc, link, items, columns, renderCell, isLoading } = props;
+  const { title, desc, link, items, columns, renderCell, isLoading, isError } =
+    props;
 
-  const { language } = useLocale();
+  // TODO: Mejorar respuesta de interfaz en caso de que no carguen los datos
+  if (isError)
+    console.log(
+      "Hubo un error al cargar los datos de la tabla: ",
+      title,
+      "\n",
+      isError,
+    );
+
+  const { locale } = useLocale();
 
   return (
     <div className="flex flex-col gap-8">
@@ -66,9 +78,10 @@ export default function DataTable<T extends { id: number | string }>(
           className="min-w-[650px]"
           classNames={{
             wrapper: "p-0 border",
-            th: ["rounded-none", "border-b", "border-divider"],
+            th: ["rounded-none", "border-b", "border-divider", "text-lg"],
             tr: ["my-2"],
             td: [
+              "text-lg",
               // group-data-[selecciona por grupo de filas dentro de la tabla: primera, del medio y ultima]
               // /tr selecciona la fila
 
@@ -96,10 +109,8 @@ export default function DataTable<T extends { id: number | string }>(
           <TableBody
             items={items}
             isLoading={isLoading}
-            loadingContent={
-              <Spinner label={dictionaries.loaderIntl[language]} />
-            }
-            emptyContent={dictionaries.emptyContent[language]}
+            loadingContent={<Spinner label={dictionaries.loaderIntl[locale]} />}
+            emptyContent={dictionaries.emptyContent[locale]}
           >
             {(entry) => (
               <TableRow key={entry.id}>
