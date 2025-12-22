@@ -5,7 +5,7 @@ import { updateFaqAdapter } from "@/lib/adapters";
 import { updateFaqSchema } from "@/lib/schemas";
 import { updateFaq } from "@/lib/services";
 import { FormSubmitServerActionResponse, UpdateFaqFormData } from "@/types";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 import { ValidationError } from "yup";
 
 const DEFAULT_ERROR_MESSAGE =

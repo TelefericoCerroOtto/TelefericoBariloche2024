@@ -1,6 +1,6 @@
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type { LoginFormData, SuccessfulLoginResponse, User } from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils";
 
 export const login = async (values: LoginFormData) => {
   const res = strapiFetch<SuccessfulLoginResponse>(

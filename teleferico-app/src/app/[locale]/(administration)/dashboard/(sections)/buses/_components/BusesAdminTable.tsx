@@ -1,10 +1,11 @@
 "use client";
 
-import { TableContainer } from "@/components";
+import { TableActionsButtons, TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
 import { StrapiTimeToTableRecordTime } from "@/lib/adapters";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import { BusTrip, GetBusTripsResponse } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Table as NextUITable,
   Spinner,
@@ -15,7 +16,6 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
-import { TableActionsButtons } from "@/components";
 import Toolbar from "./Toolbar";
 
 type ColumnKeys = "origin" | "destination" | "depTime" | "arrTime" | "actions";
@@ -30,8 +30,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
 
 // TODO: Implement filters for departure and arrival points
 
-// TODO: Rename file to BusTripsTable.tsx
-export default function BusTripsTable() {
+export default function BusesAdminTable() {
   const query = {
     populate: {
       origin: {
@@ -156,18 +155,21 @@ export default function BusTripsTable() {
       // setArrivalFilter={setArrivalFilter}
       />
       <TableContainer>
-        <NextUITable {...tableStyles}>
+        <NextUITable {...tableStyles} className="text-base">
           <TableHeader columns={columns}>
             {(column) => (
               <TableColumn
                 key={column.key}
-                className={`${column.key === "actions" ? "text-center" : ""} text-black`}
+                className={`${
+                  column.key === "actions" ? "text-center" : ""
+                } text-lg font-semibold text-black`}
               >
                 {column.label}
               </TableColumn>
             )}
           </TableHeader>
           <TableBody
+            className="text-base"
             emptyContent={"No hay viajes para mostrar"}
             items={data?.data || []}
             isLoading={isLoading}
@@ -176,7 +178,7 @@ export default function BusTripsTable() {
             {(entry) => (
               <TableRow key={entry.id}>
                 {(columnKey) => (
-                  <TableCell>
+                  <TableCell className="text-base">
                     {renderCell(entry, columnKey as ColumnKeys)}
                   </TableCell>
                 )}

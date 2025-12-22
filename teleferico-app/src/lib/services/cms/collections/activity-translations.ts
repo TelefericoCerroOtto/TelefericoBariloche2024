@@ -1,3 +1,5 @@
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   Locales,
   PostActivityTranslationRequest,
@@ -5,8 +7,7 @@ import type {
   UpdateActivityTranslationRequest,
   UpdateActivityTranslationResponse,
 } from "@/types";
-import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
+import { stringifyQuery } from "@/utils";
 
 export const createActivityTranslation = async (
   {

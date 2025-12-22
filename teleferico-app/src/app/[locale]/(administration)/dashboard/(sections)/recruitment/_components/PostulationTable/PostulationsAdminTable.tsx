@@ -2,13 +2,14 @@
 
 import { TableContainer } from "@/components";
 import { useAppAlert, useProxy } from "@/hooks";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import type {
   Genders,
   GetPostulationsResponse,
   PostulationStatus,
   Sector,
 } from "@/types";
-import { STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Pagination,
   Spinner,
@@ -207,6 +208,7 @@ export default function PostulationsTable({ sectors, userId }: Props) {
       <TableContainer>
         <Table
           {...tableStyles}
+          className="text-base"
           selectionMode="multiple"
           selectedKeys={selectedRows}
           onSelectionChange={setSelectedRows}
@@ -214,6 +216,7 @@ export default function PostulationsTable({ sectors, userId }: Props) {
           bottomContent={
             <div className="flex w-full justify-center">
               <Pagination
+                className="text-base"
                 isDisabled={isLoading}
                 showControls
                 page={page}
@@ -227,13 +230,16 @@ export default function PostulationsTable({ sectors, userId }: Props) {
             {(column) => (
               <TableColumn
                 key={column.key}
-                className={`${column.key === "actions" ? "text-center" : ""} text-base text-default-700`}
+                className={`${
+                  column.key === "actions" ? "text-center" : ""
+                } text-lg font-semibold text-default-700`}
               >
                 {column.label}
               </TableColumn>
             )}
           </TableHeader>
           <TableBody
+            className="text-base"
             emptyContent={"No hay postulaciones para mostrar"}
             items={postulations}
             isLoading={isLoading}
@@ -242,7 +248,7 @@ export default function PostulationsTable({ sectors, userId }: Props) {
             {(item) => (
               <TableRow key={item.documentId}>
                 {(columnKey) => (
-                  <TableCell>
+                  <TableCell className="text-base">
                     {renderCell(item, columnKey as ColumnKeys)}
                   </TableCell>
                 )}

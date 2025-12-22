@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 "use client";
 
-import { selectInputStyles } from "@/utils";
+import { PostulationStatus } from "@/types";
 import {
   Input,
   Select,
@@ -13,7 +13,6 @@ import {
 import { Hash, SearchIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { type TimePreset } from "./hooks/use-filters";
-import { PostulationStatus } from "@/types";
 
 export interface Option<T = string> {
   key: T;
@@ -145,7 +144,6 @@ export default function Filters(props: FiltersProps) {
 
         {/* Género (multi) */}
         <Select
-          {...selectInputStyles}
           className="min-w-[175px]"
           labelPlacement="inside"
           size="sm"
@@ -162,7 +160,6 @@ export default function Filters(props: FiltersProps) {
 
         {/* Sector (multi) */}
         <Select
-          {...selectInputStyles}
           className="min-w-[175px]"
           size="sm"
           labelPlacement="inside"
@@ -179,7 +176,6 @@ export default function Filters(props: FiltersProps) {
 
         {/* Fecha de la postulación */}
         <Select
-          {...selectInputStyles}
           className="min-w-[160px]"
           size="sm"
           labelPlacement="inside"
@@ -199,7 +195,6 @@ export default function Filters(props: FiltersProps) {
 
         {/* Estado de postulación */}
         <Select
-          {...selectInputStyles}
           className="min-w-[150px]"
           size="sm"
           labelPlacement="inside"
@@ -218,7 +213,7 @@ export default function Filters(props: FiltersProps) {
 
       {/* Solo favoritas */}
       <div className="flex flex-col items-center gap-2">
-        <span className="text-sm">Ver solo favoritas</span>
+        <span className="text-base">Ver solo favoritas</span>
         <Switch
           size="sm"
           isSelected={favoritesOnly}

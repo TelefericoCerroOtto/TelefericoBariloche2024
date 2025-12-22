@@ -69,7 +69,7 @@ export default async function FeaturedNew(props: Props) {
               aria-labelledby={headingId}
               className="relative flex h-full flex-col justify-center gap-6 overflow-hidden p-8 motion-safe:duration-500 motion-safe:animate-in motion-safe:fade-in-50 motion-safe:slide-in-from-left-6 motion-reduce:animate-none sm:p-10"
             >
-              <span className="border-custom-red/25 bg-custom-red/10 inline-flex w-fit items-center rounded-full border px-4 py-1 text-xs font-semibold uppercase tracking-wider text-custom-red">
+              <span className="border-custom-red/25 bg-custom-red/10 inline-flex w-fit items-center rounded-full border px-4 py-1 text-sm font-semibold uppercase tracking-wider text-custom-red">
                 {locale === "pt"
                   ? "Em destaque"
                   : locale === "en"

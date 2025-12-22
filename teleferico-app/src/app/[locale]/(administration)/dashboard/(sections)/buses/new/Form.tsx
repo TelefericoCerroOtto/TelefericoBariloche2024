@@ -2,9 +2,13 @@
 
 import { FormButtons, TimeInput } from "@/components";
 import { useAppAlert } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import {
+  formTimeInputClassNames,
+  selectInputStyles,
+} from "@/lib/constants/styles.const";
 import { createBusTripSchema } from "@/lib/schemas";
 import type { CreateBusTripFormData, Station } from "@/types";
-import { ADMIN_ROUTES, selectInputStyles } from "@/utils";
 import { Select, SelectItem } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";
@@ -69,7 +73,7 @@ export default function Form(props: Props) {
 
   return (
     <form
-      className="flex flex-col gap-5 overflow-scroll"
+      className="flex flex-col gap-5 overflow-visible"
       onSubmit={handleSubmit}
     >
       <Select
@@ -108,6 +112,7 @@ export default function Form(props: Props) {
         id="depTime"
         label="Horario De Salida"
         labelPlacement="outside"
+        classNames={formTimeInputClassNames}
         hourCycle={24}
         value={new Time(values.depTime.hour, values.depTime.mins)}
         onChange={(value) => {
@@ -124,6 +129,7 @@ export default function Form(props: Props) {
         id="arrTime"
         label="Horario De Llegada"
         labelPlacement="outside"
+        classNames={formTimeInputClassNames}
         hourCycle={24}
         value={new Time(values.arrTime.hour, values.arrTime.mins)}
         onChange={(value) => {
@@ -137,7 +143,7 @@ export default function Form(props: Props) {
       />
       <FormButtons
         isSubmitting={isSubmitting}
-        cancelRedirectRoute={ADMIN_ROUTES.PRICES}
+        cancelRedirectRoute={ADMIN_ROUTES.BUSES}
         disableSubmitButton={
           timeInputLoading ||
           Object.keys(errors).length > 0 ||

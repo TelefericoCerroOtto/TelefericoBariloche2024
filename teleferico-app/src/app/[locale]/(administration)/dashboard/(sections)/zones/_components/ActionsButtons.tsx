@@ -1,8 +1,8 @@
 "use client";
 
 import { CustomLink } from "@/components";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import type { Zone } from "@/types";
-import { ADMIN_ROUTES } from "@/utils";
 import { Pencil } from "lucide-react";
 
 interface Props {

@@ -11,20 +11,20 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/Sidebar";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import LogoRecortado from "@/public/logo-recortado.svg";
 import type { UserRole } from "@/types";
-import { ADMIN_ROUTES } from "@/utils";
 import { Tooltip } from "@heroui/react";
 import {
   Building2,
   BusFront,
   CircleDollarSign,
   Image as LucideImage,
+  MessageCircleQuestionMark,
   PersonStanding,
   Power,
   Repeat2,
   Rss,
-  MessageCircleQuestionMark,
   User,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
@@ -84,20 +84,20 @@ const items: SidebarItem[] = [
     allowedRoles: ["Administrator", "Media Manager"],
   },
   {
-    name: "Multimedia",
-    url: ADMIN_ROUTES.ADMIN_GALLERY,
-    icon: LucideImage,
-    implemented: false,
-    tooltip: "Gestión de recursos multimedia",
-    allowedRoles: ["Administrator", "Media Manager"],
-  },
-  {
     name: "Trabajo",
     url: ADMIN_ROUTES.RECRUITMENT,
     icon: PersonStanding,
     implemented: true,
     tooltip: "Gestionar curriculums de postulantes",
     allowedRoles: ["Administrator", "Recruiter"],
+  },
+  {
+    name: "Multimedia",
+    url: ADMIN_ROUTES.ADMIN_GALLERY,
+    icon: LucideImage,
+    implemented: false,
+    tooltip: "Gestión de recursos multimedia",
+    allowedRoles: ["Administrator", "Media Manager"],
   },
   {
     name: "Usuarios",
@@ -111,7 +111,7 @@ const items: SidebarItem[] = [
     name: "Revalidar",
     url: ADMIN_ROUTES.REVALIDATE,
     icon: Repeat2,
-    implemented: true,
+    implemented: false,
     tooltip: "Revalidar la caché del sitio web",
     allowedRoles: ["Administrator"],
   },
@@ -161,7 +161,7 @@ export default function Sidebar() {
                           >
                             <div className="flex flex-col items-center gap-2">
                               <item.icon />
-                              <p className="text-center text-[11px] leading-3">
+                              <p className="text-center text-sm leading-4">
                                 {item.name}
                               </p>
                             </div>
@@ -181,7 +181,7 @@ export default function Sidebar() {
                             aria-disabled={false}
                           >
                             <item.icon />
-                            <p className="text-center text-[11px] leading-3">
+                            <p className="text-center text-sm leading-4">
                               {item.name}
                             </p>
                           </Link>

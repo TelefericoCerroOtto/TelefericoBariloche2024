@@ -1,7 +1,8 @@
 import { i18n } from "@/i18n";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type { GetFaqsResponse, Locales } from "@/types";
-import { STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
+import { stringifyQuery } from "@/utils";
 import EmptyFaqs from "./EmptyFaqs";
 import Error from "./Error";
 import FaqList from "./FaqList";

@@ -1,4 +1,4 @@
-import { ADMIN_ROUTES } from "@/utils";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { redirect } from "next/navigation";
 
 export default function FormRedirectPage() {

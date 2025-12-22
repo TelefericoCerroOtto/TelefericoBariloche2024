@@ -6,9 +6,13 @@ import {
   InputLocaleWrapper,
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import {
+  formInputClassNames,
+  selectInputStyles,
+} from "@/lib/constants/styles.const";
 import { updateAccessTicketSchema } from "@/lib/schemas";
 import type { UpdateAccessTicketFormData } from "@/types/forms";
-import { ADMIN_ROUTES } from "@/utils";
 import { Input, NumberInput, Select, SelectItem } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
@@ -102,9 +106,7 @@ export default function Form(props: Props) {
         variant="flat"
         radius="full"
         className="rounded-full"
-        classNames={{
-          trigger: "bg-accent hover:bg-accent border border-custom-border",
-        }}
+        classNames={selectInputStyles.classNames}
         label="Medio De Elevación"
         labelPlacement="outside"
         placeholder="Seleccionar"
@@ -128,6 +130,7 @@ export default function Form(props: Props) {
         name="price"
         id="price"
         type="number"
+        classNames={formInputClassNames}
         isRequired
         hideStepper
         value={values.price}

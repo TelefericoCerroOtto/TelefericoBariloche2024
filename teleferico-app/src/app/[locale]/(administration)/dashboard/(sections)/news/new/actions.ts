@@ -8,7 +8,7 @@ import type {
   CreateNewFormData,
   FormSubmitServerActionResponse,
 } from "@/types";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 import { ValidationError } from "yup";
 
 const DEFAULT_ERROR_MESSAGE =

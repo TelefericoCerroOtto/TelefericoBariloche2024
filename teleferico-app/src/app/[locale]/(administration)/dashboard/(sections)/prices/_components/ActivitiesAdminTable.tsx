@@ -1,9 +1,10 @@
 "use client";
 
-import { TableContainer } from "@/components";
+import { TableActionsButtons, TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import type { Activity, GetActivitiesResponse } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Spinner,
   Table,
@@ -14,7 +15,6 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
-import { TableActionsButtons } from "@/components";
 
 type ColumnKeys =
   | "name"
@@ -41,7 +41,7 @@ const seasonLabels: Record<string, string> = {
   all: "Todo el año",
 };
 
-export default function ActivitiesTable() {
+export default function ActivitiesAdminTable() {
   const renderCell = useCallback(
     (activity: Activity, columnKey: ColumnKeys) => {
       switch (columnKey) {
@@ -107,18 +107,21 @@ export default function ActivitiesTable() {
 
   return (
     <TableContainer>
-      <Table {...tableStyles}>
+      <Table {...tableStyles} className="text-base">
         <TableHeader columns={columns}>
           {(column) => (
             <TableColumn
               key={column.key}
-              className={`${column.key === "actions" ? "text-center" : ""} text-black`}
+              className={`${
+                column.key === "actions" ? "text-center" : ""
+              } text-lg font-semibold text-black`}
             >
               {column.label}
             </TableColumn>
           )}
         </TableHeader>
         <TableBody
+          className="text-base"
           emptyContent={"No hay tarifas para mostrar"}
           items={data?.data || []}
           isLoading={isLoading}
@@ -127,7 +130,7 @@ export default function ActivitiesTable() {
           {(entry) => (
             <TableRow key={entry.id}>
               {(columnKey) => (
-                <TableCell>
+                <TableCell className="text-base">
                   {renderCell(entry as Activity, columnKey as ColumnKeys)}
                 </TableCell>
               )}

@@ -2,9 +2,10 @@
 
 import { ButtonDos, FormError, Honeypot } from "@/components";
 import { useAppAlert, useLocale, useTranslation } from "@/hooks";
+import { selectInputStyles } from "@/lib/constants/styles.const";
+import { formInputClassNames } from "@/lib/constants/styles.const";
 import { buildPostulationSchema } from "@/lib/schemas";
 import type { PostulationFormData, Sector } from "@/types";
-import { selectInputStyles } from "@/utils";
 import { Input, Select, SelectItem, Textarea } from "@heroui/react";
 import { useFormik } from "formik";
 import { X } from "lucide-react";
@@ -170,6 +171,7 @@ export default function Form(props: Props) {
         errorMessage={errors.name}
         isInvalid={errors.name !== undefined && touched.name}
         isRequired
+        classNames={formInputClassNames}
       />
       <Input
         id="surname"
@@ -184,6 +186,7 @@ export default function Form(props: Props) {
         errorMessage={errors.surname}
         isInvalid={errors.surname !== undefined && touched.surname}
         isRequired
+        classNames={formInputClassNames}
       />
       <Select
         {...selectInputStyles}
@@ -226,6 +229,7 @@ export default function Form(props: Props) {
         errorMessage={errors.age}
         isInvalid={errors.age !== undefined && touched.age}
         isRequired
+        classNames={formInputClassNames}
       />
       <Input
         id="email"
@@ -241,6 +245,7 @@ export default function Form(props: Props) {
         errorMessage={errors.email}
         isInvalid={errors.email !== undefined && touched.email}
         isRequired
+        classNames={formInputClassNames}
       />
       <Select
         {...selectInputStyles}
@@ -275,6 +280,7 @@ export default function Form(props: Props) {
         onBlur={handleBlur}
         errorMessage={errors.campNo}
         isInvalid={errors.campNo !== undefined && touched.campNo}
+        classNames={formInputClassNames}
       />
       <Textarea
         id="note"
@@ -288,6 +294,7 @@ export default function Form(props: Props) {
         onBlur={handleBlur}
         errorMessage={errors.note}
         isInvalid={errors.note !== undefined && touched.note}
+        classNames={formInputClassNames}
       />
       <Input
         id="resume"
@@ -296,8 +303,9 @@ export default function Form(props: Props) {
         accept=".pdf,.doc,.docx,.txt"
         ref={resumeRef}
         classNames={{
-          input: "text-foreground font-medium", // texto del archivo
-          label: "text-foreground", // label
+          ...formInputClassNames,
+          input: "text-base text-foreground font-medium", // texto del archivo
+          label: "text-base text-foreground", // label
           inputWrapper: "cursor-pointer", // mano al pasar el mouse
         }}
         endContent={
@@ -312,7 +320,7 @@ export default function Form(props: Props) {
                   resumeRef.current!.value = "";
                 }}
                 disabled={isSubmitting}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-default-300 text-xs font-bold text-danger-500 hover:bg-danger-50"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-default-300 text-base font-bold text-danger-500 hover:bg-danger-50"
                 aria-label={"Limpiar archivo seleccionado"}
               >
                 <X />

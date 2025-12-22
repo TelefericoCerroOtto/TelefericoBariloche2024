@@ -1,11 +1,11 @@
 "use client";
 
 import { buttonStyles } from "@/components/shared/ButtonDos";
-import { ADMIN_ROUTES } from "@/utils";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { Tabs as NextUITabs, Tab } from "@heroui/react";
 import { useState } from "react";
-import ActivitiesTable from "./ActivitiesTable";
-import TicketsTable from "./TicketsTable";
+import ActivitiesAdminTable from "./ActivitiesAdminTable";
+import TicketsAdminTable from "./TicketsAdminTable";
 
 export default function Tabs() {
   const [selected, setSelected] = useState<string | number>("tickets");
@@ -27,10 +27,10 @@ export default function Tabs() {
         }}
       >
         <Tab key="tickets" title={<span>Acceso</span>}>
-          <TicketsTable />
+          <TicketsAdminTable />
         </Tab>
         <Tab key="activities" title={<span>Actividades</span>}>
-          <ActivitiesTable />
+          <ActivitiesAdminTable />
         </Tab>
         <Tab
           key="create"

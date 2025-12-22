@@ -3,8 +3,9 @@
 import { TableActionsButtons, TableContainer } from "@/components";
 import { useAppAlert, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import { GetFaqsResponse } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Pagination,
   Spinner,
@@ -27,7 +28,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
 ];
 const PAGE_SIZE = 10;
 
-export default function FaqsTable() {
+export default function FaqsAdminTable() {
   const [page, setPage] = useState(1);
   const { showAlert } = useAppAlert();
 
@@ -91,9 +92,11 @@ export default function FaqsTable() {
     <TableContainer>
       <Table
         {...tableStyles}
+        className="text-base"
         bottomContent={
           <div className="flex w-full justify-center">
             <Pagination
+              className="text-base"
               isDisabled={isLoading}
               showControls
               page={page}
@@ -107,13 +110,16 @@ export default function FaqsTable() {
           {(column) => (
             <TableColumn
               key={column.key}
-              className={`${column.key === "actions" ? "text-center" : ""} text-black`}
+              className={`${
+                column.key === "actions" ? "text-center" : ""
+              } text-lg font-semibold text-black`}
             >
               {column.label}
             </TableColumn>
           )}
         </TableHeader>
         <TableBody
+          className="text-base"
           emptyContent="No se encontraron preguntas frecuentes."
           items={data?.data ?? []}
           isLoading={isLoading}
@@ -122,7 +128,7 @@ export default function FaqsTable() {
           {(item) => (
             <TableRow key={item.id}>
               {(columnKey) => (
-                <TableCell>
+                <TableCell className="text-base">
                   {renderCell(item, columnKey as ColumnKeys)}
                 </TableCell>
               )}

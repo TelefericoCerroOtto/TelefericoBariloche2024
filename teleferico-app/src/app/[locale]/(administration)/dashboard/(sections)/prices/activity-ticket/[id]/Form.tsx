@@ -6,9 +6,9 @@ import {
   InputLocaleWrapper,
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { updateActivitySchema } from "@/lib/schemas";
 import type { UpdateActivityFormData } from "@/types";
-import { ADMIN_ROUTES } from "@/utils";
 import {
   Input,
   NumberInput,
@@ -22,6 +22,10 @@ import { useState } from "react";
 import { seasonOptions } from "../data";
 import { updateActivityAction } from "./actions";
 import { descConfig, nameConfig, requirementsConfig } from "./data";
+import {
+  formInputClassNames,
+  selectInputStyles,
+} from "@/lib/constants/styles.const";
 
 interface Props {
   initialValues: UpdateActivityFormData;
@@ -125,6 +129,7 @@ export default function Form(props: Props) {
         name="price"
         id="price"
         type="number"
+        classNames={formInputClassNames}
         isRequired
         hideStepper
         value={values.price}
@@ -139,6 +144,7 @@ export default function Form(props: Props) {
         id="minAge"
         isRequired
         type="number"
+        classNames={formInputClassNames}
         hideStepper
         value={values.minAge}
         onChange={(value) => {
@@ -151,9 +157,7 @@ export default function Form(props: Props) {
         variant="flat"
         radius="full"
         className="rounded-full"
-        classNames={{
-          trigger: "bg-accent hover:bg-accent border border-custom-border",
-        }}
+        classNames={selectInputStyles.classNames}
         isRequired
         label="Temporada"
         labelPlacement="outside"

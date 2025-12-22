@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale, useProxy, useServiceState } from "@/hooks";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import LogoRecortado from "@/public/logo-recortado.svg";
 import type {
   GetSchedulesTranslationResponse,
@@ -9,7 +10,7 @@ import type {
   Locales,
   Zone,
 } from "@/types";
-import { formatStrapiTime, STRAPI_ENDPOINTS } from "@/utils";
+import { formatStrapiTime } from "@/utils";
 import { Button, Spinner, Tooltip } from "@heroui/react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
@@ -58,8 +59,8 @@ const LoadingBlock = ({
     className="flex flex-col items-center gap-4 py-16 text-center text-white/80"
   >
     <Spinner color="white" size="lg" />
-    <p className="text-base font-medium">{translations.title}</p>
-    <p className="max-w-lg text-sm text-white/60">{translations.legend}</p>
+    <p className="text-lg font-medium">{translations.title}</p>
+    <p className="max-w-lg text-base text-white/60">{translations.legend}</p>
   </div>
 );
 
@@ -74,8 +75,8 @@ const ErrorBlock = ({
     role="alert"
     className="flex flex-col items-center gap-4 py-16 text-center text-white"
   >
-    <p className="text-lg font-semibold">{translations.title}</p>
-    <p className="max-w-lg text-sm text-white/70">{translations.legend}</p>
+    <p className="text-xl font-semibold">{translations.title}</p>
+    <p className="max-w-lg text-base text-white/70">{translations.legend}</p>
     <Button
       type="button"
       onPress={onRetry}
@@ -101,8 +102,8 @@ const EmptyBlock = ({
       />
     </div>
     <div className="space-y-2">
-      <p className="text-lg font-semibold text-white">{translations.title}</p>
-      <p className="max-w-lg text-sm text-white/70">{translations.legend}</p>
+      <p className="text-xl font-semibold text-white">{translations.title}</p>
+      <p className="max-w-lg text-base text-white/70">{translations.legend}</p>
     </div>
   </div>
 );
@@ -270,12 +271,12 @@ export default function SchedulesClient(props: Props) {
 
               {/*BADGE*/}
               <span
-                className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${badgeStyles[status]}`}
+                className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-base font-semibold uppercase tracking-wide ${badgeStyles[status]}`}
               >
                 {badgeText}
               </span>
 
-              <dl className="mt-6 grid gap-4 text-sm text-slate-700">
+              <dl className="mt-6 grid gap-4 text-base text-slate-700">
                 <TimeRow
                   label={translations.components.TimeRow.opens}
                   value={open}

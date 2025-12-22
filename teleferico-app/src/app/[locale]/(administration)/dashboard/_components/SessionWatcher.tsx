@@ -1,9 +1,8 @@
 "use client";
 
-import { ADMIN_ROUTES } from "@/utils";
-import { signOut } from "next-auth/react";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import { signOut, useSession } from "next-auth/react";
 import { useEffect } from "react";
-import { useSession } from "next-auth/react";
 
 export default function SessionWatcher() {
   const { status } = useSession();
@@ -18,4 +17,3 @@ export default function SessionWatcher() {
 
   return null;
 }
-

@@ -20,7 +20,7 @@ export default function FormContainer(props: Props) {
     <div
       className={`mx-auto min-h-full border-x border-x-[#DEDFE2] bg-white px-4 py-9 ${sizeVariants[size]}`}
     >
-      <div className="mb-8 flex flex-col gap-3 md:mb-4">
+      <div className="mb-20 flex flex-col gap-3 md:mb-12">
         <h2 className="text-3xl">Completa Los Datos Del Formulario</h2>
         <p className="font-light">
           {desc ?? "Este formulario no tiene una descripcion"}

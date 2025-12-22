@@ -71,27 +71,43 @@ export function renderPostulationCell({
 
       let label: string;
       let color: "default" | "success" | "danger" | "warning";
+      let className: string;
       let Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 
       switch (status) {
         case "unreviewed":
           label = "Sin revisión";
           color = "default";
+          className =
+            "!border-default-300 !bg-default-100 !text-default-800 " +
+            "dark:!border-default-700/70 dark:!bg-default-900/30 dark:!text-default-200";
           Icon = Clock;
           break;
+
         case "hired":
           label = "Contratado";
           color = "success";
+          className =
+            "!border-success-300 !bg-success-100 !text-success-800 " +
+            "dark:!border-success-700/70 dark:!bg-success-900/30 dark:!text-success-200";
           Icon = CheckCircle2;
           break;
+
         case "discarded":
           label = "Descartado";
           color = "danger";
+          className =
+            "!border-danger-300 !bg-danger-100 !text-danger-800 " +
+            "dark:!border-danger-700/70 dark:!bg-danger-900/30 dark:!text-danger-200";
           Icon = XCircle;
           break;
+
         default:
           label = "Sin estado";
           color = "warning";
+          className =
+            "!border-warning-300 !bg-warning-100 !text-warning-900 " +
+            "dark:!border-warning-700/70 dark:!bg-warning-900/30 dark:!text-warning-200";
           Icon = OctagonAlert;
       }
 
@@ -100,8 +116,10 @@ export function renderPostulationCell({
           size="sm"
           variant="faded"
           color={color}
-          className="font-medium"
-          startContent={<Icon className="h-3.5 w-3.5" aria-hidden="true" />}
+          className={`font-medium ${className}`}
+          startContent={
+            <Icon className="h-3.5 w-3.5 text-current" aria-hidden="true" />
+          }
           aria-label={`Estado de la postulación: ${label}`}
         >
           {label}
@@ -123,14 +141,14 @@ export function renderPostulationCell({
           <PopoverTrigger>
             <button
               type="button"
-              className="max-w-[260px] truncate text-left text-sm text-default-700 hover:underline"
+              className="max-w-[260px] truncate text-left text-base text-default-700 hover:underline"
               aria-label="Ver nota completa"
               title="Ver nota completa"
             >
               {preview}
             </button>
           </PopoverTrigger>
-          <PopoverContent className="max-w-md whitespace-pre-wrap text-sm">
+          <PopoverContent className="max-w-md whitespace-pre-wrap text-base">
             {item.note}
           </PopoverContent>
         </Popover>

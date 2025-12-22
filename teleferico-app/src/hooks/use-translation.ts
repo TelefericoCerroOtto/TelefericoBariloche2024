@@ -1,9 +1,9 @@
 "use client";
 
 import { useLocale, useProxy } from "@/hooks";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { TranslateComponentsResponseTypes } from "@/lib/services";
 import type { ComponentTranslationKeys } from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils";
 
 export function useTranslation<T extends ComponentTranslationKeys>(key: T) {
   const { locale } = useLocale();

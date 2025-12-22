@@ -1,8 +1,8 @@
 "use client";
 
 import { TableContainer } from "@/components";
+import { tableStyles } from "@/lib/constants/styles.const";
 import type { UserResponse, UserRole } from "@/types";
-import { tableStyles } from "@/utils";
 import {
   Table as NextUITable,
   TableBody,
@@ -50,7 +50,7 @@ interface Props {
   users: UserResponse<{ role: UserRole }>[];
 }
 
-export default function Table(props: Props) {
+export default function UsersAdminTable(props: Props) {
   const { users } = props;
   const { filterValue, filteredItems, onSearchChange, onSearchClear } =
     useFilters<UserResponse<{ role: UserRole }>>(users);

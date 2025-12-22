@@ -1,7 +1,7 @@
 import { getSectors } from "@/lib/services";
 import { NoContentError, NoReachError } from "./_components/Errors";
 import Tabs from "./_components/Tabs";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 
 export default async function RecruitmentPage() {
   const { ok, data } = await getSectors("es-AR");

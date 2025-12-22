@@ -1,12 +1,12 @@
 import { CustomLink } from "@/components";
 import { i18n } from "@/i18n";
+import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { getComponentTranslation } from "@/lib/services";
 import fblogo from "@/public/fblogo.svg";
 import iglogo from "@/public/iglogo.svg";
 import whitelogo from "@/public/logo-blanco.svg";
 import ytlogo from "@/public/ytlogo.svg";
 import type { Locales } from "@/types";
-import { PUBLIC_ROUTES } from "@/utils";
 import Image from "next/image";
 import Link from "next/link";
 

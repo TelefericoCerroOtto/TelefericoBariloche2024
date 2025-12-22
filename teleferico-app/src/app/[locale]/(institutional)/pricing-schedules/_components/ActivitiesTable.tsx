@@ -2,8 +2,8 @@
 
 import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
+import { PUBLIC_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { Activity, GetActivitiesResponse, Locales } from "@/types";
-import { PUBLIC_ROUTES, STRAPI_ENDPOINTS } from "@/utils";
 import { type ReactNode, useCallback } from "react";
 
 type ColumnKeys =

@@ -131,14 +131,14 @@ export default function ServiceButtonClient(props: Props) {
         </span>
         <span className="flex flex-1 flex-col gap-2">
           <span
-            className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${styles.badgeBackground} ${styles.badgeText}`}
+            className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-sm font-semibold uppercase tracking-wide ${styles.badgeBackground} ${styles.badgeText}`}
           >
             {activeState?.stateLegend ?? content.button.trigger}
           </span>
           <span className="text-lg font-semibold text-slate-900 md:text-xl">
             {content.button.trigger}
           </span>
-          <span className={`text-sm md:text-base ${styles.accentText}`}>
+          <span className={`text-base md:text-lg ${styles.accentText}`}>
             {activeState?.title}
           </span>
         </span>
@@ -173,11 +173,11 @@ export default function ServiceButtonClient(props: Props) {
                     return (
                       <li key={`${item.state}-${index}`} className="space-y-1">
                         <p
-                          className={`text-sm font-semibold md:text-base ${itemStyles.accentText}`}
+                          className={`text-base font-semibold md:text-lg ${itemStyles.accentText}`}
                         >
                           {item.title}
                         </p>
-                        <p className="text-sm text-slate-600 md:text-base">
+                        <p className="text-base text-slate-600 md:text-lg">
                           {item.stateDesc}
                         </p>
                       </li>
@@ -186,7 +186,7 @@ export default function ServiceButtonClient(props: Props) {
                 </ul>
                 <BlockRendererClient
                   content={content.modal.disclaimer as BlocksContent}
-                  className="text-xs text-slate-500 md:text-sm"
+                  className="text-sm text-slate-500 md:text-base"
                 />
               </ModalBody>
               <ModalFooter className="pt-0">

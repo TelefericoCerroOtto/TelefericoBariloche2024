@@ -2,8 +2,8 @@
 
 import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { GetTicketsResponse, Locales, Ticket } from "@/types";
-import { STRAPI_ENDPOINTS } from "@/utils";
 import { useCallback, type ReactNode } from "react";
 
 type ColumnKeys = "name" | "lifting_mean" | "price";

@@ -1,7 +1,7 @@
 "use client";
 
 import { TableToolbarContainer } from "@/components";
-import { ADMIN_ROUTES } from "@/utils";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { Input, Switch } from "@heroui/react";
 import { SearchIcon } from "lucide-react";
 import type { ComponentProps } from "react";
@@ -37,7 +37,10 @@ export default function Filters(props: Props) {
   } = props;
 
   return (
-    <TableToolbarContainer linkHref={ADMIN_ROUTES.NEW_NEWS} title="Nueva noticia">
+    <TableToolbarContainer
+      linkHref={ADMIN_ROUTES.NEW_NEWS}
+      title="Nueva noticia"
+    >
       <div className="flex items-center gap-4">
         <Input
           isClearable

@@ -1,3 +1,6 @@
+import { CACHE_TAGS } from "@/lib/constants/cache-tags.const";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   ComponentTranslationKeys,
   GetFooterResponse,
@@ -9,8 +12,7 @@ import type {
   GetServiceButtonResponse,
   Locales,
 } from "@/types";
-import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { CACHE_TAGS, STRAPI_ENDPOINTS, stringifyQuery } from "@/utils";
+import { stringifyQuery } from "@/utils";
 
 export type TranslateComponentsResponseTypes = {
   policies: GetPoliciesResponse;

@@ -1,10 +1,10 @@
 import { sendPostulationAdapter } from "@/lib/adapters";
 import { ENV_KEYS } from "@/lib/constants/env.const";
+import { ROUTE_HANDLERS } from "@/lib/constants/routes.const";
 import type {
   PostulationApiResponse,
   PostulationRequestPayload,
 } from "@/types";
-import { ROUTE_HANDLERS } from "@/utils";
 import { assertEnv } from "@/utils/env";
 
 const POSTULATION_TIMEOUT_MS = 30_000;

@@ -3,8 +3,9 @@
 import { TableActionsButtons, TableContainer } from "@/components";
 import { useAppAlert, useDebouncedValue, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import type { GetNewsResponse } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Pagination,
   Spinner,
@@ -30,7 +31,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
 type ColumnKeys = "title" | "date" | "highglighted" | "updatedAt" | "actions";
 const PAGE_SIZE = 10;
 
-export default function NewsTable() {
+export default function NewsAdminTable() {
   const [page, setPage] = useState(1);
 
   const {
@@ -113,7 +114,7 @@ export default function NewsTable() {
         case "highglighted":
           return (
             <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              className={`rounded-full px-3 py-1 text-base font-semibold ${
                 item.highlighted
                   ? "bg-green-100 text-green-700"
                   : "bg-default-200 text-default-600"
@@ -165,9 +166,11 @@ export default function NewsTable() {
       <TableContainer>
         <Table
           {...tableStyles}
+          className="text-base"
           bottomContent={
             <div className="flex w-full justify-center">
               <Pagination
+                className="text-base"
                 isDisabled={isLoading}
                 showControls
                 page={page}
@@ -181,13 +184,16 @@ export default function NewsTable() {
             {(column) => (
               <TableColumn
                 key={column.key}
-                className={`${column.key === "actions" ? "text-center" : ""} text-black`}
+                className={`${
+                  column.key === "actions" ? "text-center" : ""
+                } text-lg font-semibold text-black`}
               >
                 {column.label}
               </TableColumn>
             )}
           </TableHeader>
           <TableBody
+            className="text-base"
             emptyContent={"No hay noticias para mostrar"}
             items={data?.data ?? []}
             isLoading={isLoading}
@@ -196,7 +202,7 @@ export default function NewsTable() {
             {(item) => (
               <TableRow key={item.id}>
                 {(columnKey) => (
-                  <TableCell>
+                  <TableCell className="text-base">
                     {renderCell(item, columnKey as ColumnKeys)}
                   </TableCell>
                 )}

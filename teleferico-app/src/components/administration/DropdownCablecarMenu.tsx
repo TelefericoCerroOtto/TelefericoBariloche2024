@@ -37,27 +37,28 @@ export default function DropdownCablecarMenu({
     {
       key: "normal",
       title: "Normal",
-      description: "El servicio funciona con normalidad",
+      description: "El medio de elevación funciona con normalidad",
     },
     {
       key: "conditional",
       title: "Condicional",
-      description: "El servicio funciona con posibles demoras",
+      description: "El medio de elevación funciona con posibles demoras",
     },
     {
       key: "restricted",
       title: "Condicional con restricciones",
-      description: "El servicio funciona con restricciones severas",
+      description: "El medio de elevación funciona con restricciones severas",
     },
     {
       key: "suspended",
       title: "Suspendido",
-      description: "El servicio se encuentra suspendido temporalmente",
+      description:
+        "El medio de elevación se encuentra suspendido temporalmente",
     },
     {
       key: "closed",
       title: "Cerrado",
-      description: "El servicio se encuentra cerrado por el día",
+      description: "El medio de elevación se encuentra cerrado por el día",
     },
   ];
 
@@ -114,7 +115,8 @@ export default function DropdownCablecarMenu({
 
             if (res.ok) {
               return addToast({
-                title: "Estado del servicio actualizado correctamente",
+                title:
+                  "Estado del medio de elevación actualizado correctamente",
                 color: "success",
                 timeout: 2000,
               });
@@ -127,7 +129,8 @@ export default function DropdownCablecarMenu({
             setIsLoading(false);
             showAlert({
               title: "Error",
-              message: "Ocurrio un error al actualizar el estado del servicio",
+              message:
+                "Ocurrio un error al actualizar el estado del medio de elevación",
               variant: "danger",
             });
             console.log("update state on dropdown menu error", error);

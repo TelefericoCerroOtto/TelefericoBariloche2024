@@ -3,10 +3,11 @@
 import { CustomLink } from "@/components";
 import { useLocale, useScrollDirection } from "@/hooks";
 import { i18n } from "@/i18n";
+import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import logoBlanco from "@/public/logo-negativo.svg";
 import logoNegro from "@/public/logo.svg";
 import type { Locales } from "@/types";
-import { PUBLIC_ROUTES, cn } from "@/utils";
+import { cn } from "@/utils";
 import {
   Link,
   NavbarBrand,

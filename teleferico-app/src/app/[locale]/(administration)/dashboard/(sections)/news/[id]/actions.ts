@@ -9,7 +9,7 @@ import type {
   FormSubmitServerActionResponse,
   UpdateNewFormData,
 } from "@/types";
-import { getSession } from "@/utils";
+import { getSession } from "@/lib/auth/get-session";
 import { ValidationError } from "yup";
 
 const DEFAULT_UPDATE_ERROR =

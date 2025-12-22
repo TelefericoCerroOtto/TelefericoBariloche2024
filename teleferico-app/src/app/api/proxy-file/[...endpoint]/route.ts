@@ -1,8 +1,8 @@
 import { auth } from "@/auth";
 import { ENV_KEYS } from "@/lib/constants/env.const";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { ensureTrustedOrigin } from "@/lib/http/guards";
 import { buildProxyTargetURL } from "@/lib/http/guards/proxy-target";
-import { STRAPI_ENDPOINTS } from "@/utils";
 import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";
 

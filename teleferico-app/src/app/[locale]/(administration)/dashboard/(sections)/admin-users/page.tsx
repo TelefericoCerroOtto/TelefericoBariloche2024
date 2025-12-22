@@ -1,13 +1,13 @@
 import { getUsers } from "@/lib/services";
-import { getSession } from "@/utils";
-import Table from "./_components/Table";
+import UsersAdminTable from "./_components/UsersAdminTable";
+import { getSession } from "@/lib/auth/get-session";
 
 export default async function AdminUsersPage() {
   const session = await getSession();
   const res = await getUsers(session.jwt);
 
   if (res.ok) {
-    return <Table users={res.data} />;
+    return <UsersAdminTable users={res.data} />;
   }
-  return <Table users={[]} />;
+  return <UsersAdminTable users={[]} />;
 }

@@ -2,8 +2,9 @@
 
 import { TableActionsButtons, TableContainer } from "@/components";
 import { useProxy } from "@/hooks";
+import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { tableStyles } from "@/lib/constants/styles.const";
 import type { GetTicketsResponse, Ticket } from "@/types";
-import { ADMIN_ROUTES, STRAPI_ENDPOINTS, tableStyles } from "@/utils";
 import {
   Spinner,
   Table,
@@ -23,7 +24,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
   { key: "actions", label: "Acciones" },
 ];
 
-export default function TicketsTable() {
+export default function TicketsAdminTable() {
   const renderCell = useCallback((ticket: Ticket, columnKey: ColumnKeys) => {
     switch (columnKey) {
       case "name":
@@ -64,18 +65,21 @@ export default function TicketsTable() {
 
   return (
     <TableContainer>
-      <Table {...tableStyles}>
+      <Table {...tableStyles} className="text-base">
         <TableHeader columns={columns}>
           {(column) => (
             <TableColumn
               key={column.key}
-              className={`${column.key === "actions" ? "text-center" : ""} text-black`}
+              className={`${
+                column.key === "actions" ? "text-center" : ""
+              } text-lg font-semibold text-black`}
             >
               {column.label}
             </TableColumn>
           )}
         </TableHeader>
         <TableBody
+          className="text-base"
           emptyContent={"No hay tarifas para mostrar"}
           items={data?.data || []}
           isLoading={isLoading}
@@ -84,7 +88,7 @@ export default function TicketsTable() {
           {(entry) => (
             <TableRow key={entry.id}>
               {(columnKey) => (
-                <TableCell>
+                <TableCell className="text-base">
                   {renderCell(entry, columnKey as ColumnKeys)}
                 </TableCell>
               )}

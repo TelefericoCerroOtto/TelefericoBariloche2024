@@ -1,7 +1,7 @@
 "use client";
 
 import { TableContainer } from "@/components";
-import { tableStyles } from "@/utils";
+import { tableStyles } from "@/lib/constants/styles.const";
 import {
   Spinner,
   Table,

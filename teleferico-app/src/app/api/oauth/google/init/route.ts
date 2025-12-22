@@ -21,7 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(req: NextRequest) {
   try {
     // Validate envs (client, secret, redirect, state secret)
-    assertEnv();
+    assertEnv([ENV_KEYS.INIT_TOKEN]);
 
     // Admin token check (403 if missing/invalid)
     const initToken = process.env[ENV_KEYS.INIT_TOKEN];

@@ -7,9 +7,10 @@ import {
   TimeInput,
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import { formTimeInputClassNames } from "@/lib/constants/styles.const";
 import { updateZoneSchema } from "@/lib/schemas";
 import type { ZoneFormData } from "@/types/forms";
-import { ADMIN_ROUTES } from "@/utils";
 import { Input, Switch } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";
@@ -101,6 +102,7 @@ export default function Form(props: Props) {
         id="openTime"
         label="Horario De Apertura"
         labelPlacement="outside"
+        classNames={formTimeInputClassNames}
         hourCycle={24}
         value={new Time(values.openTime.hour, values.openTime.mins)}
         onChange={(value) => {
@@ -117,6 +119,7 @@ export default function Form(props: Props) {
         id="closeTime"
         label="Horario De Cierre"
         labelPlacement="outside"
+        classNames={formTimeInputClassNames}
         hourCycle={24}
         value={new Time(values.closeTime.hour, values.closeTime.mins)}
         onChange={(value) => {

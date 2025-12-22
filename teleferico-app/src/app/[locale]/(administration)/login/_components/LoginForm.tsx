@@ -3,7 +3,8 @@
 import { ButtonDos, FormError } from "@/components";
 import { loginSchema } from "@/lib/schemas/forms";
 import type { LoginFormData, LoginUserRequest } from "@/types";
-import { ADMIN_ROUTES } from "@/utils/routes.const";
+import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import { formInputClassNames } from "@/lib/constants/styles.const";
 import { Input, Spinner } from "@heroui/react";
 import { useFormik } from "formik";
 import { Eye, EyeOff } from "lucide-react";
@@ -54,7 +55,7 @@ export default function LoginForm() {
       <Input
         id="identifier"
         name="identifier"
-        label={<p className="font-bold">Correo Electrónico</p>}
+        label={<p className="text-lg font-bold">Correo Electrónico</p>}
         errorMessage={errors.identifier}
         isInvalid={errors.identifier !== undefined && touched.identifier}
         variant="bordered"
@@ -62,6 +63,7 @@ export default function LoginForm() {
         labelPlacement="outside"
         type="text"
         className="w-full"
+        classNames={formInputClassNames}
         onChange={(evt) => {
           if (error !== "") setError("");
           handleChange(evt);
@@ -71,7 +73,7 @@ export default function LoginForm() {
       <Input
         id="password"
         name="password"
-        label={<p className="font-bold">Contraseña</p>}
+        label={<p className="text-lg font-bold">Contraseña</p>}
         errorMessage={errors.password}
         isInvalid={errors.password !== undefined && touched.password}
         variant="bordered"
@@ -83,6 +85,7 @@ export default function LoginForm() {
           handleChange(evt);
         }}
         onBlur={handleBlur}
+        classNames={formInputClassNames}
         endContent={
           <button
             className="focus:outline-none"

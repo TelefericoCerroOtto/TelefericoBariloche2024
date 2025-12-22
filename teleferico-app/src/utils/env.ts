@@ -1,6 +1,4 @@
-import { ENV_KEYS } from "@/lib/constants/env.const";
-
-export function assertEnv(required: string[] = Object.values(ENV_KEYS)) {
+export function assertEnv(required: string[]) {
   const missing = required.filter(
     (k) => !process.env[k] || process.env[k] === "",
   );
