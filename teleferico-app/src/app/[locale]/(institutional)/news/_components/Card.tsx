@@ -1,5 +1,5 @@
+import { blocksToExcerpt } from "@/lib/adapters";
 import { Locales } from "@/types";
-import { blocksToExcerpt } from "@/utils";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
 import Link from "next/link";
@@ -50,7 +50,7 @@ export default function Card(props: Props) {
     >
       <article
         aria-labelledby={headingId}
-        className="flex h-full flex-col overflow-hidden rounded-3xl border border-custom-border/60 bg-card text-card-foreground shadow transition-all duration-300 ease-out ring-1 ring-transparent motion-reduce:transition-none group-focus-visible:ring-2 group-focus-visible:ring-custom-red group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-background motion-safe:animate-in motion-safe:fade-in motion-safe:duration-500 motion-safe:group-hover:-translate-y-1 motion-safe:group-hover:shadow-lg motion-safe:group-hover:ring-custom-red/40 motion-reduce:transform-none motion-reduce:shadow-none"
+        className="border-custom-border/60 motion-safe:group-hover:ring-custom-red/40 flex h-full flex-col overflow-hidden rounded-3xl border bg-card text-card-foreground shadow ring-1 ring-transparent transition-all duration-300 ease-out group-focus-visible:ring-2 group-focus-visible:ring-custom-red group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-background motion-safe:duration-500 motion-safe:animate-in motion-safe:fade-in motion-safe:group-hover:-translate-y-1 motion-safe:group-hover:shadow-lg motion-reduce:transform-none motion-reduce:shadow-none motion-reduce:transition-none"
       >
         <figure className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
           <Image
@@ -62,7 +62,11 @@ export default function Card(props: Props) {
           />
           {highlighted ? (
             <span className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full bg-custom-red px-3 py-1 text-sm font-semibold uppercase tracking-wide text-white shadow-sm">
-              {locale === "pt" ? "Em destaque" : locale === "en" ? "Featured" : "Destacada"}
+              {locale === "pt"
+                ? "Em destaque"
+                : locale === "en"
+                  ? "Featured"
+                  : "Destacada"}
             </span>
           ) : null}
           <figcaption className="sr-only">{title}</figcaption>
@@ -89,15 +93,24 @@ export default function Card(props: Props) {
           {excerpt ? (
             <p
               id={descriptionId}
-              className="text-sm leading-relaxed text-muted-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:4]"
+              className="text-sm leading-relaxed text-muted-foreground [-webkit-box-orient:vertical] [-webkit-line-clamp:4] [display:-webkit-box]"
             >
               {excerpt}
             </p>
           ) : null}
 
           <span className="mt-auto inline-flex items-center gap-2 text-sm font-semibold text-custom-red">
-            {locale === "pt" ? "Ler notícia" : locale === "en" ? "Read article" : "Leer noticia"}
-            <span aria-hidden className="transition-transform duration-300 motion-safe:group-hover:translate-x-1">→</span>
+            {locale === "pt"
+              ? "Ler notícia"
+              : locale === "en"
+                ? "Read article"
+                : "Leer noticia"}
+            <span
+              aria-hidden
+              className="transition-transform duration-300 motion-safe:group-hover:translate-x-1"
+            >
+              →
+            </span>
           </span>
         </div>
       </article>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale, useProxy, useServiceState } from "@/hooks";
+import { strapiTimeToLocalizedTableTime } from "@/lib/adapters";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import LogoRecortado from "@/public/logo-recortado.svg";
 import type {
@@ -10,7 +11,6 @@ import type {
   Locales,
   Zone,
 } from "@/types";
-import { formatStrapiTime } from "@/utils";
 import { Button, Spinner, Tooltip } from "@heroui/react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
@@ -244,8 +244,12 @@ export default function SchedulesClient(props: Props) {
   return (
     <ul role="list" className="xl:grid-cols-3 grid gap-5 sm:grid-cols-2">
       {schedules.map((s, index) => {
-        const open = s.openTime ? formatStrapiTime(s.openTime, locale) : "-";
-        const close = s.closeTime ? formatStrapiTime(s.closeTime, locale) : "-";
+        const open = s.openTime
+          ? strapiTimeToLocalizedTableTime(s.openTime, locale)
+          : "-";
+        const close = s.closeTime
+          ? strapiTimeToLocalizedTableTime(s.closeTime, locale)
+          : "-";
         const status = getZoneStatus(s, now, serviceState!.data.state);
         const badgeText = translations.badge[status];
 

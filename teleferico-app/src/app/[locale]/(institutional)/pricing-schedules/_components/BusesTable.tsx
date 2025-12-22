@@ -3,9 +3,9 @@
 import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
-import type { BusTrip, GetBusTripsResponse, Locales, Station } from "@/types";
+import { strapiTimeToLocalizedTableTime } from "@/lib/adapters";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
-import { formatStrapiTime } from "@/utils/format-strapi-time";
+import type { BusTrip, GetBusTripsResponse, Locales, Station } from "@/types";
 import { type ReactNode, useCallback } from "react";
 
 type ColumnKeys = "depTime" | "arrTime" | "origin" | "destination";
@@ -72,9 +72,17 @@ export default function BusTable() {
           return <span>{zoneName}</span>;
         }
         case "depTime":
-          return <span>{formatStrapiTime(cellValue as string, locale)}</span>;
+          return (
+            <span>
+              {strapiTimeToLocalizedTableTime(cellValue as string, locale)}
+            </span>
+          );
         case "arrTime":
-          return <span>{formatStrapiTime(cellValue as string, locale)}</span>;
+          return (
+            <span>
+              {strapiTimeToLocalizedTableTime(cellValue as string, locale)}
+            </span>
+          );
 
         default:
           return <span>{cellValue as string}</span>;
