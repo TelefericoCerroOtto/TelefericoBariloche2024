@@ -3,9 +3,9 @@
 import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
 import { i18n } from "@/i18n";
+import { strapiTimeToLocalizedTableTime } from "@/lib/adapters";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { GetZonesResponse, Locales, Zone } from "@/types";
-import { formatStrapiTime } from "@/utils";
 import { ReactNode, useCallback } from "react";
 
 type ColumnKeys = "name" | "openTime" | "closeTime";
@@ -66,10 +66,18 @@ export default function ZonesTable() {
           );
 
         case "openTime":
-          return <span>{formatStrapiTime(zone[columnKey], locale)}</span>;
+          return (
+            <span>
+              {strapiTimeToLocalizedTableTime(zone[columnKey], locale)}
+            </span>
+          );
 
         case "closeTime":
-          return <span>{formatStrapiTime(zone[columnKey], locale)}</span>;
+          return (
+            <span>
+              {strapiTimeToLocalizedTableTime(zone[columnKey], locale)}
+            </span>
+          );
       }
     },
     [locale],

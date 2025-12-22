@@ -17,7 +17,7 @@ const NON_TEXTUAL_NODES = new Set([
   "horizontalRule",
 ]);
 
-export function getPlainTextLen(node?: TTNode): number {
+function getPlainTextLen(node?: TTNode): number {
   if (!node) return 0;
 
   if (node.type === "text") {
@@ -31,7 +31,7 @@ export function getPlainTextLen(node?: TTNode): number {
   return 0;
 }
 
-export function hasNonTextualContent(node?: TTNode): boolean {
+function hasNonTextualContent(node?: TTNode): boolean {
   if (!node) return false;
 
   if (node.type && NON_TEXTUAL_NODES.has(node.type)) return true;
