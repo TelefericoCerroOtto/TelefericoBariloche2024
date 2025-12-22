@@ -1,9 +1,11 @@
 import { Providers } from "@/app/[locale]/providers";
 import "@/app/globals.css";
 import { i18n } from "@/i18n";
+import { isLocales } from "@/lib/helpers/i18n-guards";
 import type { Locales } from "@/types";
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
+import { notFound } from "next/navigation";
 
 type Params = { params: Promise<{ locale: Locales }> };
 
@@ -43,9 +45,12 @@ export default async function RootLayout({
   params,
 }: Readonly<{
   children: React.ReactNode;
-  params: Promise<{ locale: Locales }>;
+  params: Promise<{ locale: string }>;
 }>) {
   const { locale } = await params;
+  if (!isLocales(locale)) {
+    notFound();
+  }
 
   return (
     <html lang={locale ?? i18n.defaultLocale}>
