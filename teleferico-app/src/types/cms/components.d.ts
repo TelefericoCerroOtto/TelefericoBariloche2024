@@ -31,7 +31,9 @@ export interface ServiceStateModal {
   stateList: StateTitle[];
 }
 
-export interface Hero {
+export type HeroAlign = "bottom" | "center";
+
+export type Hero = {
   __component: "page-components.hero";
   id: number;
   title?: string;
@@ -40,8 +42,8 @@ export interface Hero {
   secondLink?: Link;
   cover: { id: number } & Image;
   logo?: { id: number } & Image;
-  align: "bottom" | "center";
-}
+  align: HeroAlign;
+};
 
 export interface HoursOverview {
   __component: "page-components.hours-overview";
@@ -49,40 +51,61 @@ export interface HoursOverview {
   withTextBlock: boolean;
 }
 
-export interface TitleDescBlock {
+export type TitleDescCase = "normal" | "capitalize" | "uppercase" | "lowercase";
+
+export type TitleCaseAlgin = "center" | "start";
+
+export type TitleCaseSize = "sm" | "md" | "lg" | "full";
+
+export type TitleCaseColor = "none" | "gray";
+
+export type TitleDescBlock = {
   __component: "page-components.title-desc-block";
   title: string;
   id: number;
-  align: "center" | "start";
-  size: "sm" | "md" | "lg" | "full";
-  titleCase: "normal" | "capitalize" | "uppercase" | "lowercase";
-  bgColor: "none" | "gray";
+  align: TitleCaseAlgin;
+  size: TitleCaseSize;
+  titleCase: TitleDescCase;
+  bgColor: TitleCaseColor;
   epigraph?: string;
   desc?: BlocksContent;
   className: string;
-}
+};
 
-export interface ImageTextBlock {
+export type OneImageVariant =
+  | "default"
+  | "defaultFW"
+  | "panoramic"
+  | "panoramicFW"
+  | "spotlight";
+
+export type TwoImagesVariant = "default";
+
+export type ThreeImagesVariant = "horizontal" | "ladder" | "miniatures";
+
+export type ImageTextVariants =
+  | OneImageVariant
+  | TwoImagesVariant
+  | ThreeImagesVariant;
+
+export type ImageTextCase = "normal" | "capitalize" | "uppercase" | "lowercase";
+
+export type ImageTextColor = "none" | "gray";
+
+export type ImageTextBlock = {
   __component: "page-components.image-text-block";
   id: number;
   title: string;
-  titleCase: "normal" | "capitalize" | "uppercase" | "lowercase";
-  bgColor: "none" | "gray";
+  titleCase: ImageTextCase;
+  bgColor: ImageTextColor;
   description: BlocksContent;
   epigraph: string | null;
-  variant:
-    | "default"
-    | "defaultFW"
-    | "panoramic"
-    | "panoramicFW"
-    | "horizontal"
-    | "ladder"
-    | "miniatures";
+  variant: ImageTextVariants;
   images: Array<Image>;
   link?: Link;
   isInverted?: boolean;
   isHighlighted?: boolean;
-}
+};
 
 export interface FaqSection {
   __component: "page-components.faq-section";

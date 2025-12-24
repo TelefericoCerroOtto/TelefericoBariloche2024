@@ -75,6 +75,7 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
         'defaultFW',
         'panoramic',
         'panoramicFW',
+        'spotlight',
         'horizontal',
         'ladder',
         'miniatures',

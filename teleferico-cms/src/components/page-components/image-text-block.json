@@ -21,27 +21,28 @@
     },
     "variant": {
       "type": "enumeration",
+      "required": true,
+      "default": "default",
       "enum": [
         "default",
         "defaultFW",
         "panoramic",
         "panoramicFW",
+        "spotlight",
         "horizontal",
         "ladder",
         "miniatures"
-      ],
-      "required": true,
-      "default": "default"
+      ]
     },
     "link": {
       "type": "component",
-      "repeatable": false,
-      "component": "utils-components.link"
+      "component": "utils-components.link",
+      "repeatable": false
     },
     "images": {
       "type": "component",
-      "repeatable": true,
       "component": "utils-components.image",
+      "repeatable": true,
       "required": true
     },
     "description": {
@@ -53,23 +54,23 @@
     },
     "titleCase": {
       "type": "enumeration",
+      "required": true,
+      "default": "normal",
       "enum": [
         "normal",
         "uppercase",
         "lowercase",
         "capitalize"
-      ],
-      "required": true,
-      "default": "normal"
+      ]
     },
     "bgColor": {
       "type": "enumeration",
+      "required": true,
+      "default": "none",
       "enum": [
         "none",
         "gray"
-      ],
-      "default": "none",
-      "required": true
+      ]
     }
   }
 }
