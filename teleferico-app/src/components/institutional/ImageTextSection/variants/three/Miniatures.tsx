@@ -1,33 +1,11 @@
-import {
-  BlockRendererClient,
-  CustomLink,
-  HighlightLastWord,
-} from "@/components";
+import { HighlightLastWord } from "@/components/institutional/TitleDescBlock";
+import { BlockRendererClient, CustomLink } from "@/components/shared";
 import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
-import gondola from "@/public/gondola.svg";
-import type { ImageTextBlock } from "@/types";
-import { type BlocksContent } from "@strapi/blocks-react-renderer";
-import Image from "next/image";
-import CustomImage from "./CustomImage";
+import { ImageTextBlock } from "@/types";
+import CustomImage from "../../shared/CustomImage";
+import { LogoBadge } from "../../shared/LogoBadge";
 
-const LogoBadge = () => (
-  <span
-    aria-hidden="true"
-    className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 ring-1 ring-red-500/30"
-  >
-    <Image
-      src={gondola}
-      alt=""
-      className="h-5 w-5 text-red-600"
-      width={20}
-      height={20}
-      aria-hidden="true"
-      sizes="40px"
-    />
-  </span>
-);
-
-export function TwoImageTextBlock(props: ImageTextBlock) {
+export default function Miniatures(props: ImageTextBlock) {
   const {
     images,
     title,
@@ -44,12 +22,17 @@ export function TwoImageTextBlock(props: ImageTextBlock) {
     <div
       className={`flex flex-col gap-12 px-6 md:px-12 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center`}
     >
-      <div className="relative h-[300px] w-full overflow-x-scroll sm:h-[600px] lg:h-[700px] lg:w-1/2">
-        <div className="group absolute right-0 top-0 z-10 aspect-square w-3/5 min-w-[160px] max-w-[270px] overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15 sm:max-w-[500px] lg:max-w-full">
-          <CustomImage image={images[0]} />
-        </div>
-        <div className="group absolute bottom-0 z-0 aspect-square w-3/5 min-w-[160px] max-w-[270px] overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15 sm:max-w-[500px] lg:max-w-full">
-          <CustomImage image={images[1]} />
+      <div className="h-[360px] w-full overflow-x-scroll sm:h-[750px] lg:w-1/2">
+        <div className="relative h-full w-full min-w-[380px]">
+          <div className="group absolute left-1/2 top-1/2 z-0 aspect-square h-4/5 -translate-x-1/2 -translate-y-1/2 transform overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15">
+            <CustomImage image={images[0]} />
+          </div>
+          <div className="group absolute z-10 h-1/3 w-5/12 overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15 sm:h-1/4">
+            <CustomImage image={images[1]} />
+          </div>
+          <div className="group absolute bottom-0 right-0 z-10 h-1/3 w-5/12 overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15 sm:h-1/4">
+            <CustomImage image={images[2]} />
+          </div>
         </div>
       </div>
       <div
@@ -71,9 +54,17 @@ export function TwoImageTextBlock(props: ImageTextBlock) {
               </p>
             ) : null}
           </div>
-          <div className="mt-4 space-y-4 text-center text-base leading-relaxed text-foreground/80 md:text-left md:text-lg">
-            <BlockRendererClient content={description as BlocksContent} />
-          </div>
+          {description ? (
+            typeof description === "string" ? (
+              <p className="mt-4 text-left text-base leading-relaxed text-foreground/80 md:text-lg">
+                {description}
+              </p>
+            ) : (
+              <div className="mt-4 space-y-4 text-left text-base leading-relaxed text-foreground/80 md:text-lg">
+                <BlockRendererClient content={description} />
+              </div>
+            )
+          ) : null}
           {link ? (
             <div className="mt-6">
               <CustomLink href={link.href} withButtonStyles>
