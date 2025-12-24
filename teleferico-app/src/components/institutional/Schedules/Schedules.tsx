@@ -14,7 +14,7 @@ export default function Schedules(props: Props) {
   const zonesId = block.zones?.map((z) => z.documentId) ?? [];
 
   return (
-    <div className="mb-14">
+    <div className="my-14">
       <Suspense fallback={<Loading />}>
         <SchedulesServer locale={locale} zonesId={zonesId} />
       </Suspense>

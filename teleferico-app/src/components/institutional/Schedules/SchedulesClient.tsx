@@ -242,7 +242,7 @@ export default function SchedulesClient(props: Props) {
   }
 
   return (
-    <ul role="list" className="xl:grid-cols-3 grid gap-5 sm:grid-cols-2">
+    <ul role="list" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {schedules.map((s, index) => {
         const open = s.openTime
           ? strapiTimeToLocalizedTableTime(s.openTime, locale)
