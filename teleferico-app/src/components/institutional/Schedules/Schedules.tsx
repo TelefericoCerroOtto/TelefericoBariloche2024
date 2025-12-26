@@ -1,22 +1,19 @@
-import type { Locales, Schedules } from "@/types";
+import type { Locales } from "@/types";
 import { Suspense } from "react";
-import SchedulesServer from "./SchedulesServer";
 import Loading from "./Loading";
+import SchedulesServer from "./SchedulesServer";
 
 interface Props {
   locale: Locales;
-  block: Schedules;
 }
 
 export default function Schedules(props: Props) {
-  const { locale, block } = props;
-
-  const zonesId = block.zones?.map((z) => z.documentId) ?? [];
+  const { locale } = props;
 
   return (
-    <div className="mb-14">
+    <div className="my-14">
       <Suspense fallback={<Loading />}>
-        <SchedulesServer locale={locale} zonesId={zonesId} />
+        <SchedulesServer locale={locale} />
       </Suspense>
     </div>
   );

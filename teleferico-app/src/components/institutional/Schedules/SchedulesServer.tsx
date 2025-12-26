@@ -7,11 +7,10 @@ import SchedulesClient from "./SchedulesClient";
 
 interface Props {
   locale: Locales;
-  zonesId: string[];
 }
 
 export default async function SchedulesServer(props: Props) {
-  const { locale, zonesId } = props;
+  const { locale } = props;
   const { ok, data } = await getComponentTranslation(locale, "schedules");
 
   if (!ok || !data)
@@ -60,7 +59,7 @@ export default async function SchedulesServer(props: Props) {
       </header>
 
       <div className="relative z-10 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-        <SchedulesClient translations={translations} zonesId={zonesId} />
+        <SchedulesClient translations={translations} />
       </div>
     </section>
   );

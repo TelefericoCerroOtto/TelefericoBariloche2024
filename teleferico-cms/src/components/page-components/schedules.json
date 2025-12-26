@@ -5,11 +5,5 @@
     "icon": "clock"
   },
   "options": {},
-  "attributes": {
-    "zones": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::zone.zone"
-    }
-  }
+  "attributes": {}
 }

@@ -17,32 +17,33 @@
   },
   "attributes": {
     "name": {
+      "type": "text",
       "pluginOptions": {
         "i18n": {
           "localized": true
         }
       },
-      "type": "text",
-      "unique": true,
       "minLength": 2,
-      "required": true
+      "required": true,
+      "unique": true
     },
     "description": {
+      "type": "text",
       "pluginOptions": {
         "i18n": {
           "localized": true
         }
       },
-      "type": "text",
+      "minLength": 10,
       "maxLength": 150
     },
     "requirements": {
+      "type": "text",
       "pluginOptions": {
         "i18n": {
           "localized": true
         }
-      },
-      "type": "text"
+      }
     },
     "activity": {
       "type": "relation",

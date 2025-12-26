@@ -118,42 +118,9 @@ export default function BusesAdminTable() {
     [key],
   );
 
-  // const [departureFilter, setDepartureFilter] = useState<Selection>("all");
-  // const [arrivalFilter, setArrivalFilter] = useState<Selection>("all");
-
-  // const filteredItems = useMemo(() => {
-  //   let filteredEntries = [...(data?.data || [])];
-
-  //   if (
-  //     departureFilter !== "all" &&
-  //     Array.from(departureFilter).length !== options.length
-  //   ) {
-  //     filteredEntries = filteredEntries.filter((entry) =>
-  //       Array.from(departureFilter).includes(entry.depUid),
-  //     );
-  //   }
-
-  //   if (
-  //     arrivalFilter !== "all" &&
-  //     Array.from(arrivalFilter).length !== options.length
-  //   ) {
-  //     filteredEntries = filteredEntries.filter((entry) =>
-  //       Array.from(arrivalFilter).includes(entry.arrUid),
-  //     );
-  //   }
-
-  //   return filteredEntries;
-  // }, [departureFilter, arrivalFilter]);
-
   return (
     <>
-      <Toolbar
-      // options={options}
-      // departureFilter={departureFilter}
-      // setDepartureFilter={setDepartureFilter}
-      // arrivalFilter={arrivalFilter}
-      // setArrivalFilter={setArrivalFilter}
-      />
+      <Toolbar />
       <TableContainer>
         <NextUITable {...tableStyles} className="text-base">
           <TableHeader columns={columns}>

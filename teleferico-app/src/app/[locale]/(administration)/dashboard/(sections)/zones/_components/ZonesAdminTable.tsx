@@ -16,14 +16,23 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
+import Toolbar from "./Toolbar";
 import ZoneOpenToggle from "./ZoneOpenToggle";
+import ZoneFeaturedToggle from "./ZoneFeaturedCheckbox";
 
-type ColumnKeys = "name" | "openTime" | "closeTime" | "isOpen" | "actions";
+type ColumnKeys =
+  | "name"
+  | "openTime"
+  | "closeTime"
+  | "isOpen"
+  | "featured"
+  | "actions";
 const columns: { key: ColumnKeys; label: string }[] = [
   { key: "name", label: "Zona" },
   { key: "openTime", label: "Horario De Apertura" },
   { key: "closeTime", label: "Horario De Cierre" },
   { key: "isOpen", label: "Zona abierta" },
+  { key: "featured", label: "Horario destacado" },
   { key: "actions", label: "Acciones" },
 ];
 
@@ -43,6 +52,9 @@ export default function ZonesAdminTable() {
 
       case "isOpen":
         return <ZoneOpenToggle zone={zone} />;
+
+      case "featured":
+        return <ZoneFeaturedToggle zone={zone} />;
 
       case "actions":
         return (
@@ -79,38 +91,41 @@ export default function ZonesAdminTable() {
     );
 
   return (
-    <TableContainer>
-      <Table {...tableStyles} className="text-base">
-        <TableHeader columns={columns}>
-          {(column) => (
-            <TableColumn
-              key={column.key}
-              className={`${
-                column.key === "actions" ? "text-center" : ""
-              } text-lg font-semibold text-black`}
-            >
-              {column.label}
-            </TableColumn>
-          )}
-        </TableHeader>
-        <TableBody
-          className="text-base"
-          emptyContent={"No hay zonas para mostrar"}
-          items={data?.data || []}
-          isLoading={isLoading}
-          loadingContent={<Spinner label="Cargando zonas" />}
-        >
-          {(entry) => (
-            <TableRow key={entry.id}>
-              {(columnKey) => (
-                <TableCell className="text-base">
-                  {renderCell(entry, columnKey as ColumnKeys)}
-                </TableCell>
-              )}
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <>
+      <Toolbar />
+      <TableContainer>
+        <Table {...tableStyles} className="text-base">
+          <TableHeader columns={columns}>
+            {(column) => (
+              <TableColumn
+                key={column.key}
+                className={`${
+                  column.key === "actions" ? "text-center" : ""
+                } text-lg font-semibold text-black`}
+              >
+                {column.label}
+              </TableColumn>
+            )}
+          </TableHeader>
+          <TableBody
+            className="text-base"
+            emptyContent={"No hay zonas para mostrar"}
+            items={data?.data || []}
+            isLoading={isLoading}
+            loadingContent={<Spinner label="Cargando zonas" />}
+          >
+            {(entry) => (
+              <TableRow key={entry.id}>
+                {(columnKey) => (
+                  <TableCell className="text-base">
+                    {renderCell(entry, columnKey as ColumnKeys)}
+                  </TableCell>
+                )}
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </>
   );
 }

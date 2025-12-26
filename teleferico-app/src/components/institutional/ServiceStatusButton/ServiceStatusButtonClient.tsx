@@ -80,7 +80,7 @@ const stateStyles: Record<
   },
 };
 
-export default function ServiceButtonClient(props: Props) {
+export default function ServiceStatusButtonClient(props: Props) {
   const { content } = props;
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const { serviceState, isLoading, isError } = useServiceState();

@@ -26,13 +26,8 @@ export const getPageContent = async (locale: Locales, route: string) => {
           },
           "page-components.faq-section": "*",
           "page-components.spacer": "*",
-          "page-components.schedules": {
-            populate: {
-              zones: {
-                populate: "zone_translations",
-              },
-            },
-          },
+          "page-components.schedules": "*",
+          "page-components.service-status-button": "*",
         },
       },
     },

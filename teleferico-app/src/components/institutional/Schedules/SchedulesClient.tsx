@@ -38,7 +38,6 @@ const REFRESH_INTERVAL_MS = 60 * 1000; // 1 min
 
 interface Props {
   translations: Translations;
-  zonesId: string[];
 }
 
 const TimeRow = ({ label, value }: { label: string; value?: string | null }) =>
@@ -174,7 +173,7 @@ function getZoneStatus(
 }
 
 export default function SchedulesClient(props: Props) {
-  const { translations, zonesId } = props;
+  const { translations } = props;
 
   const { locale } = useLocale();
   const { mutate } = useSWRConfig();
@@ -191,7 +190,7 @@ export default function SchedulesClient(props: Props) {
   const query = useMemo(
     () => ({
       filters: {
-        documentId: { $in: zonesId },
+        featured: { $eq: true },
       },
       populate: {
         zone_translations: {
@@ -199,7 +198,7 @@ export default function SchedulesClient(props: Props) {
         },
       },
     }),
-    [locale, zonesId],
+    [locale],
   );
 
   const {
@@ -242,7 +241,7 @@ export default function SchedulesClient(props: Props) {
   }
 
   return (
-    <ul role="list" className="xl:grid-cols-3 grid gap-5 sm:grid-cols-2">
+    <ul role="list" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {schedules.map((s, index) => {
         const open = s.openTime
           ? strapiTimeToLocalizedTableTime(s.openTime, locale)

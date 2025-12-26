@@ -3,7 +3,7 @@ import { BlockRendererClient, CustomLink } from "@/components/shared";
 import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
 import { ImageTextBlock } from "@/types";
 import CustomImage from "../../shared/CustomImage";
-import { LogoBadge } from "../../shared/LogoBadge";
+import LogoBadge from "../../shared/LogoBadge";
 
 export default function Miniatures(props: ImageTextBlock) {
   const {

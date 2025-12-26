@@ -1,4 +1,4 @@
-import { BlocksRenderer, NoContent, ServiceButton } from "@/components";
+import { BlocksRenderer, NoContent } from "@/components";
 import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
@@ -21,16 +21,7 @@ export default async function Home({
 
   return (
     <>
-      <BlocksRenderer
-        blocks={blocks}
-        locale={locale}
-        customBlocks={[
-          {
-            position: 0,
-            component: ServiceButton,
-          },
-        ]}
-      />
+      <BlocksRenderer blocks={blocks} locale={locale} />
     </>
   );
 }
