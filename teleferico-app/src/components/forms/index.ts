@@ -7,4 +7,3 @@ export { default as InputSkeleton } from "./InputSkeleton";
 export { default as MediaSelector } from "./MediaSelector";
 export { default as Rte } from "./RichtextEditor/Rte";
 export { default as TimeInput } from "./TimeInput";
-export { default as TimeInputDeprecated } from "./TimeInputDeprecated";

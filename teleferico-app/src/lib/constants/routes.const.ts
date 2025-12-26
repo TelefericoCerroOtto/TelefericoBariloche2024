@@ -42,6 +42,7 @@ export const ADMIN_ROUTES = {
   NEW_BUS_TRIP: "/dashboard/buses/new",
   NEW_FAQ: "/dashboard/faqs/new",
   NEW_USER: "/dashboard/admin-users/new-user",
+  NEW_ZONE: "/dashboard/zones/new",
   PRICES: "/dashboard/prices",
   RECRUITMENT: "/dashboard/recruitment",
   REVALIDATE: "/dashboard/revalidate",

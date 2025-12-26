@@ -121,6 +121,8 @@ export default function ActivitiesTable() {
         //   cellValue = activity.activity_translations?.[0]?.name || ""; // TODO: Change to zone name
         //   return <span>{cellValue || zeroLabel}</span>;
 
+        // TODO: Evaluar mas opciones de precios en vez de unicamente "sin costo". Este podria pasarse a llamar "incluido en la tarifa"/"Acceso incluido". Ej.: "Consultar precio", "No disponible". Considerar estilo especial para actividad no disponible.
+
         case "price":
           cellValue = activity[columnKey];
           zeroLabel =

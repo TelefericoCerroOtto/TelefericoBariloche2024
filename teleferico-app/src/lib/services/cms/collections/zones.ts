@@ -2,6 +2,8 @@ import { i18n } from "@/i18n";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
+  CreateZoneRequest,
+  CreateZoneResponse,
   GetZoneResponse,
   GetZonesResponse,
   Locales,
@@ -34,11 +36,9 @@ export const getZone = async <T extends Locales | "all">({
     };
   }
 
-  const qs = stringifyQuery(query);
-
   const res = await strapiFetch<GetZoneResponse>({
     endpoint: `${STRAPI_ENDPOINTS.ZONES}/${documentId}`,
-    qp: qs,
+    qp: stringifyQuery(query),
   });
 
   return res;
@@ -61,6 +61,25 @@ export const getZones = async (locale: Locales) => {
     endpoint: STRAPI_ENDPOINTS.ZONES,
     qp: stringifyQuery(query),
   });
+
+  return res;
+};
+
+export const createZone = async (
+  { reqBody }: { reqBody: CreateZoneRequest },
+  jwt: string,
+) => {
+  const res = await strapiFetch<CreateZoneResponse>(
+    { endpoint: STRAPI_ENDPOINTS.ZONES },
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${jwt}`,
+      },
+      body: JSON.stringify(reqBody),
+    },
+  );
 
   return res;
 };

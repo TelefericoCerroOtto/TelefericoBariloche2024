@@ -7,12 +7,15 @@ import {
 } from "@/lib/adapters";
 import { updateZoneSchema } from "@/lib/schemas";
 import { updateZone, updateZoneTranslation } from "@/lib/services";
-import type { FormSubmitServerActionResponse, ZoneFormData } from "@/types";
+import type {
+  FormSubmitServerActionResponse,
+  UpdateZoneFormData,
+} from "@/types";
 import { getSession } from "@/lib/auth/get-session";
 import { ValidationError } from "yup";
 
 export const updateZoneAction = async (
-  values: ZoneFormData,
+  values: UpdateZoneFormData,
 ): FormSubmitServerActionResponse => {
   const { jwt } = await getSession();
   const { locales } = i18n;
@@ -21,7 +24,7 @@ export const updateZoneAction = async (
     updateZoneSchema.validateSync(values);
 
     const documentId: string = values.documentId;
-    const zoneTrasnlationDocumentId: string = values.zoneTrasnlationDocumentId;
+    const zoneTranslationDocumentId: string = values.zoneTranslationDocumentId;
 
     const adaptedZone = updateZoneAdapter(values);
     const res = await updateZone({ reqBody: adaptedZone, documentId }, jwt);
@@ -45,7 +48,7 @@ export const updateZoneAction = async (
       const res = await updateZoneTranslation(
         {
           reqBody: adaptedZoneTranslation,
-          documentId: zoneTrasnlationDocumentId,
+          documentId: zoneTranslationDocumentId,
           locale,
         },
         jwt,

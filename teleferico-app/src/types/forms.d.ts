@@ -6,6 +6,7 @@ import {
   createBusTripSchema,
   createFaqSchema,
   createNewSchema,
+  createZoneSchema,
   loginSchema,
   newUserSchema,
   timeSchema,
@@ -16,7 +17,7 @@ import {
   updateNewSchema,
   updateUserSchema,
   updateZoneSchema,
-} from "@/lib/schemas";
+} from "@/lib/schemas/forms";
 import type { InferType } from "yup";
 import type { Locales } from "./i18n";
 
@@ -29,10 +30,10 @@ export type CreateAccessTicketFormData = InferType<
 export type UpdateAccessTicketFormData = InferType<
   typeof updateAccessTicketSchema
 >;
-export type ZoneFormData = InferType<typeof updateZoneSchema>;
+export type CreateZoneFormData = InferType<typeof createZoneSchema>;
+export type UpdateZoneFormData = InferType<typeof updateZoneSchema>;
 export type CreateBusTripFormData = InferType<typeof createBusTripSchema>;
 export type UpdateBusTripFormData = InferType<typeof updateBusTripSchema>;
-export type TimeFormData = InferType<typeof timeSchema>;
 export type NewUserFormData = InferType<typeof newUserSchema>;
 export type UpdateUserFormData = InferType<typeof updateUserSchema>;
 export type PostulationFormData = InferType<

@@ -27,30 +27,30 @@
     },
     "SEO": {
       "type": "component",
-      "repeatable": false,
       "pluginOptions": {
         "i18n": {
           "localized": true
         }
       },
-      "component": "page-properties.seo"
+      "component": "page-properties.seo",
+      "repeatable": false
     },
     "blocks": {
+      "type": "dynamiczone",
       "pluginOptions": {
         "i18n": {
           "localized": true
         }
       },
-      "type": "dynamiczone",
       "components": [
-        "page-components.service-state-modal",
         "page-components.image-text-block",
         "page-components.hero",
         "page-components.hours-overview",
         "page-components.title-desc-block",
         "page-components.faq-section",
         "page-components.spacer",
-        "page-components.schedules"
+        "page-components.schedules",
+        "page-components.service-status-button"
       ]
     }
   }

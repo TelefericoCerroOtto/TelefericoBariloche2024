@@ -4,6 +4,7 @@ import { useAppAlert } from "@/hooks";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { Zone } from "@/types";
 import { addToast, Switch } from "@heroui/react";
+import { LockKeyhole, LockKeyholeOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
 import { updateZoneOpenStatusAction } from "./actions";
@@ -73,9 +74,11 @@ export default function ZoneOpenToggle({ zone }: Props) {
       isSelected={isOpen}
       onValueChange={handleToggle}
       isDisabled={isUpdating}
+      startContent={<LockKeyholeOpen />}
+      endContent={<LockKeyhole />}
       color="primary"
       aria-label="Cambiar estado de la zona"
-      size="sm"
+      size="lg"
     />
   );
 }

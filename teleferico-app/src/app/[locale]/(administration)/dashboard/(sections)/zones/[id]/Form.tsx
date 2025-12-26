@@ -8,20 +8,27 @@ import {
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
-import { formTimeInputClassNames } from "@/lib/constants/styles.const";
+import {
+  formInputClassNames,
+  formTimeInputClassNames,
+} from "@/lib/constants/styles.const";
 import { updateZoneSchema } from "@/lib/schemas";
-import type { ZoneFormData } from "@/types/forms";
-import { Input, Switch } from "@heroui/react";
+import type { UpdateZoneFormData } from "@/types/forms";
+import { Input, Switch, Textarea, Tooltip } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { updateZoneAction } from "./actions";
-import { nameConfig } from "./data";
+import { descConfig, nameConfig } from "../_components/data";
+import { Tag } from "lucide-react";
 
 interface Props {
-  initialValues: ZoneFormData;
+  initialValues: UpdateZoneFormData;
 }
+
+const LABEL_TOOLTIP_TEXT =
+  "Identificador único de la zona. Se usa para organizar y conectar información del sistema. Su valor no se puede cambiar.";
 
 export default function Form(props: Props) {
   const { initialValues } = props;
@@ -33,7 +40,7 @@ export default function Form(props: Props) {
   const router = useRouter();
   const { showAlert } = useAppAlert();
 
-  const onSubmit = async (values: ZoneFormData) => {
+  const onSubmit = async (values: UpdateZoneFormData) => {
     setIsSubmitting(true);
     try {
       const res = await updateZoneAction(values);
@@ -74,7 +81,7 @@ export default function Form(props: Props) {
     handleSubmit,
     setFieldValue,
     setFieldTouched,
-  } = useFormik<ZoneFormData>({
+  } = useFormik<UpdateZoneFormData>({
     initialValues,
     validationSchema: updateZoneSchema,
     onSubmit,
@@ -89,9 +96,31 @@ export default function Form(props: Props) {
         selectedKeys={selectedKeys}
         handleSelectionChange={handleSelectionChange}
       />
+      <Tooltip content={LABEL_TOOLTIP_TEXT} placement="top">
+        <div className="inline-block w-full cursor-not-allowed">
+          <Input
+            id="label"
+            name="label"
+            labelPlacement="outside"
+            label="Etiqueta"
+            isDisabled
+            classNames={formInputClassNames}
+            value={values.label}
+            endContent={<Tag size={18} className="text-default-400" />}
+          />
+        </div>
+      </Tooltip>
       <InputLocaleWrapper
         Input={Input}
         config={nameConfig}
+        formik={{ values, errors, touched, setFieldTouched, setFieldValue }}
+        handleChange={handleChange}
+        handleBlur={handleBlur}
+        locale={locale}
+      />
+      <InputLocaleWrapper
+        Input={Textarea}
+        config={descConfig}
         formik={{ values, errors, touched, setFieldTouched, setFieldValue }}
         handleChange={handleChange}
         handleBlur={handleBlur}

@@ -4,30 +4,12 @@ import {
   HighlightLastWord,
 } from "@/components";
 import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
-import gondola from "@/public/gondola.svg";
 import type { ImageTextBlock } from "@/types";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
-import Image from "next/image";
-import CustomImage from "./CustomImage";
+import CustomImage from "../../shared/CustomImage";
+import LogoBadge from "../../shared/LogoBadge";
 
-const LogoBadge = () => (
-  <span
-    aria-hidden="true"
-    className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10 ring-1 ring-red-500/30"
-  >
-    <Image
-      src={gondola}
-      alt=""
-      className="h-5 w-5 text-red-600"
-      width={20}
-      height={20}
-      aria-hidden="true"
-      sizes="40px"
-    />
-  </span>
-);
-
-export function TwoImageTextBlock(props: ImageTextBlock) {
+export default function Defualt(props: ImageTextBlock) {
   const {
     images,
     title,

@@ -607,7 +607,7 @@ En una nueva terminal situarse sobre el directorio raíz del proyecto y cambiar 
 
 ```bash
 git switch feat/forms
-git diff develop...HEAD
+git diff development...HEAD > ./tmp-pr-diff.txt
 ```
 
 Luego copiar en la IA el siguiente prompt y adjuntar el archivo generado.
@@ -649,7 +649,4 @@ Use the following template as reference:
 - [ ] (explain impact)
 
 Now, based ONLY on the .txt diff file attached, write the PR description
-In a new terminal go into projects directory, switch to the branch you want to compare with (the one who merges) anda execute
-`git diff <branch_name>...HEAD > ./tmp-pr-diff.txt`
-
 ```
