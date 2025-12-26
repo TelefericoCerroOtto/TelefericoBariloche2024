@@ -460,6 +460,7 @@ export interface ApiActivityTranslationActivityTranslation
       }> &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 150;
+        minLength: 10;
       }>;
     locale: Schema.Attribute.String;
     localizations: Schema.Attribute.Relation<
@@ -1147,6 +1148,10 @@ export interface ApiZoneTranslationZoneTranslation
         i18n: {
           localized: true;
         };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 200;
+        minLength: 10;
       }>;
     locale: Schema.Attribute.String;
     localizations: Schema.Attribute.Relation<
