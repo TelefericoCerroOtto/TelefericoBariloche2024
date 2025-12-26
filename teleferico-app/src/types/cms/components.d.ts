@@ -1,5 +1,5 @@
+import type { ServiceStateValues, StrapiImage } from "@/types";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
-import type { ServiceStateValues, StrapiImage, Zone } from "@/types";
 
 // UTILS
 export interface Link {
@@ -23,13 +23,10 @@ export interface Image {
 }
 
 // PAGE
-export interface ServiceStateModal {
-  __component: "page-components.service-state-modal";
+export type ServiceStatusButton = {
+  __component: "page-components.service-status-button";
   id: number;
-  help: string;
-  description: BlocksContent;
-  stateList: StateTitle[];
-}
+};
 
 export type HeroAlign = "bottom" | "center";
 
@@ -126,7 +123,7 @@ export interface Schedules {
 }
 
 export type RendereableBlocks =
-  | ServiceStateModal
+  | ServiceStatusButton
   | Hero
   | HoursOverview
   | ImageTextBlock

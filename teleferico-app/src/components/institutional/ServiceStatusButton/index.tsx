@@ -1,6 +1,6 @@
 import { getComponentTranslation } from "@/lib/services";
 import type { Locales } from "@/types";
-import ServiceButtonClient from "./ServiceButtonClient";
+import ServiceStatusButtonClient from "./ServiceStatusButtonClient";
 import { FormError } from "@/components/shared";
 import { Skeleton } from "@heroui/react";
 import { Suspense } from "react";
@@ -15,7 +15,7 @@ const ERR_MSG = {
   pt: "Não foi possível recuperar o conteúdo do componente.",
 };
 
-export default async function ServiceButton(props: Props) {
+export default async function ServiceStatusButton(props: Props) {
   const { locale } = props;
   const { ok, data } = await getComponentTranslation(locale, "servicebutton");
 
@@ -32,7 +32,7 @@ export default async function ServiceButton(props: Props) {
   return (
     <Suspense fallback={<Skeleton className="h-40 w-5/6 sm:w-3/4 lg:w-1/2" />}>
       <div className="mb-14 h-40 w-5/6 sm:w-3/4 lg:w-1/2">
-        <ServiceButtonClient content={data.data[0].jsonValue} />
+        <ServiceStatusButtonClient content={data.data[0].jsonValue} />
       </div>
     </Suspense>
   );

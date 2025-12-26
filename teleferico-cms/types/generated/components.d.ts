@@ -95,20 +95,14 @@ export interface PageComponentsSchedules extends Struct.ComponentSchema {
   attributes: {};
 }
 
-export interface PageComponentsServiceStateModal
+export interface PageComponentsServiceStatusButton
   extends Struct.ComponentSchema {
-  collectionName: 'components_page_components_service_state_modals';
+  collectionName: 'components_page_components_service_status_buttons';
   info: {
-    description: '';
-    displayName: 'ServiceStateModal';
-    icon: 'chartBubble';
+    displayName: 'ServiceStatusButton';
+    icon: 'information';
   };
-  attributes: {
-    description: Schema.Attribute.Blocks & Schema.Attribute.Required;
-    help: Schema.Attribute.Text & Schema.Attribute.Required;
-    stateList: Schema.Attribute.Component<'utils-components.title', true> &
-      Schema.Attribute.Required;
-  };
+  attributes: {};
 }
 
 export interface PageComponentsSpacer extends Struct.ComponentSchema {
@@ -274,7 +268,7 @@ declare module '@strapi/strapi' {
       'page-components.hours-overview': PageComponentsHoursOverview;
       'page-components.image-text-block': PageComponentsImageTextBlock;
       'page-components.schedules': PageComponentsSchedules;
-      'page-components.service-state-modal': PageComponentsServiceStateModal;
+      'page-components.service-status-button': PageComponentsServiceStatusButton;
       'page-components.spacer': PageComponentsSpacer;
       'page-components.title-desc-block': PageComponentsTitleDescBlock;
       'page-properties.metat-tag': PagePropertiesMetatTag;
