@@ -3,18 +3,22 @@ import type {
   Locales,
   UpdateZoneRequest,
   UpdateZoneTranslationRequest,
-  ZoneFormData,
+  UpdateZoneFormData,
+  CreateZoneFormData,
+  CreateZoneTranslationRequest,
+  CreateZoneRequest,
 } from "@/types";
 import { TimeValueToStrapiTime } from "../formats";
 
-export const getZoneAdapter = (zone: GetZoneResponse): ZoneFormData => {
-  const { openTime, closeTime, isOpen, documentId, zone_translations } =
+export const getZoneAdapter = (zone: GetZoneResponse): UpdateZoneFormData => {
+  const { openTime, closeTime, isOpen, documentId, zone_translations, label } =
     zone.data;
-  const { documentId: zoneTrasnlationDocumentId } = zone_translations[0];
+  const { documentId: zoneTranslationDocumentId } = zone_translations[0];
   const [openHour, openMins] = openTime.split(":").map(Number);
   const [closeHour, closeMins] = closeTime.split(":").map(Number);
 
-  const formData: ZoneFormData = {
+  const formData: UpdateZoneFormData = {
+    label,
     "zoneName_es-AR": "",
     zoneName_en: "",
     zoneName_pt: "",
@@ -31,7 +35,7 @@ export const getZoneAdapter = (zone: GetZoneResponse): ZoneFormData => {
     },
     isOpen,
     documentId,
-    zoneTrasnlationDocumentId,
+    zoneTranslationDocumentId,
   };
 
   const mapLocales = {
@@ -49,8 +53,23 @@ export const getZoneAdapter = (zone: GetZoneResponse): ZoneFormData => {
   return formData;
 };
 
+export const createZoneAdapter = (
+  zone: CreateZoneFormData,
+): CreateZoneRequest => {
+  const reqBody: CreateZoneRequest = {
+    data: {
+      openTime: TimeValueToStrapiTime(zone.openTime),
+      closeTime: TimeValueToStrapiTime(zone.closeTime),
+      isOpen: zone.isOpen,
+      label: zone.label,
+    },
+  };
+
+  return reqBody;
+};
+
 export const updateZoneAdapter = (
-  zone: ZoneFormData | Partial<ZoneFormData>,
+  zone: UpdateZoneFormData | Partial<UpdateZoneFormData>,
 ): UpdateZoneRequest => {
   const reqBody: { data: Record<string, unknown> } = { data: {} };
 
@@ -70,8 +89,28 @@ export const updateZoneAdapter = (
   return reqBody as UpdateZoneRequest;
 };
 
+export const createZoneTranslationAdapter = ({
+  zone,
+  relatedZoneDocumentId,
+  locale,
+}: {
+  zone: CreateZoneFormData;
+  relatedZoneDocumentId: string;
+  locale: Locales;
+}): CreateZoneTranslationRequest => {
+  const reqBody: CreateZoneTranslationRequest = {
+    data: {
+      name: zone[`zoneName_${locale}`],
+      description: zone[`zoneDescription_${locale}`] || "",
+      zone: { connect: [{ documentId: relatedZoneDocumentId }] },
+    },
+  };
+
+  return reqBody;
+};
+
 export const updateZoneTranslationAdapter = (
-  zone: ZoneFormData,
+  zone: UpdateZoneFormData,
   locale: Locales,
 ): UpdateZoneTranslationRequest => {
   const reqBody: UpdateZoneTranslationRequest = {

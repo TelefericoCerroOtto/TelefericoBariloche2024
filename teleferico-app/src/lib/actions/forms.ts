@@ -1,10 +1,15 @@
 "use server";
 
+// TODO: Encontrar una nueva distribucion de estas funciones en archivos mejor organizados
+
 import { signIn } from "@/auth";
 import { getSession } from "@/lib/auth/get-session";
+import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { getUsers } from "@/lib/services";
-import type { LoginUserRequest } from "@/types";
+import type { GetZonesResponse, LoginUserRequest } from "@/types";
+import { stringifyQuery } from "@/utils";
 import { AuthError } from "next-auth";
+import { strapiFetch } from "../http/clients/strapi-fetch";
 
 export const loginAction = async (data: LoginUserRequest) => {
   try {
@@ -45,4 +50,22 @@ export const validateEmailAvailability = async (email: string) => {
   const res = await getUsers(session.jwt, query);
   if (res.ok) return res.data.length === 0;
   return false;
+};
+
+export const validateZoneLabelAvailability = async (
+  label: string,
+): Promise<boolean> => {
+  const normalized = label.trim();
+
+  const query = { filters: { label: { $eq: normalized } } };
+  const res = await strapiFetch<GetZonesResponse>({
+    endpoint: STRAPI_ENDPOINTS.ZONES,
+    qp: stringifyQuery(query),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to validate label availability");
+  }
+
+  return res.data.data.length === 0;
 };

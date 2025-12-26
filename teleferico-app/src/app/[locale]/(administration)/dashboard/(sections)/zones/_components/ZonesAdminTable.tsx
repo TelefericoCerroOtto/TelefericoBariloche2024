@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
+import Toolbar from "./Toolbar";
 import ZoneOpenToggle from "./ZoneOpenToggle";
 
 type ColumnKeys = "name" | "openTime" | "closeTime" | "isOpen" | "actions";
@@ -79,38 +80,41 @@ export default function ZonesAdminTable() {
     );
 
   return (
-    <TableContainer>
-      <Table {...tableStyles} className="text-base">
-        <TableHeader columns={columns}>
-          {(column) => (
-            <TableColumn
-              key={column.key}
-              className={`${
-                column.key === "actions" ? "text-center" : ""
-              } text-lg font-semibold text-black`}
-            >
-              {column.label}
-            </TableColumn>
-          )}
-        </TableHeader>
-        <TableBody
-          className="text-base"
-          emptyContent={"No hay zonas para mostrar"}
-          items={data?.data || []}
-          isLoading={isLoading}
-          loadingContent={<Spinner label="Cargando zonas" />}
-        >
-          {(entry) => (
-            <TableRow key={entry.id}>
-              {(columnKey) => (
-                <TableCell className="text-base">
-                  {renderCell(entry, columnKey as ColumnKeys)}
-                </TableCell>
-              )}
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+    <>
+      <Toolbar />
+      <TableContainer>
+        <Table {...tableStyles} className="text-base">
+          <TableHeader columns={columns}>
+            {(column) => (
+              <TableColumn
+                key={column.key}
+                className={`${
+                  column.key === "actions" ? "text-center" : ""
+                } text-lg font-semibold text-black`}
+              >
+                {column.label}
+              </TableColumn>
+            )}
+          </TableHeader>
+          <TableBody
+            className="text-base"
+            emptyContent={"No hay zonas para mostrar"}
+            items={data?.data || []}
+            isLoading={isLoading}
+            loadingContent={<Spinner label="Cargando zonas" />}
+          >
+            {(entry) => (
+              <TableRow key={entry.id}>
+                {(columnKey) => (
+                  <TableCell className="text-base">
+                    {renderCell(entry, columnKey as ColumnKeys)}
+                  </TableCell>
+                )}
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </>
   );
 }

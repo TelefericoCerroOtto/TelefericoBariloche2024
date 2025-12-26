@@ -10,12 +10,32 @@ export type GetZonesResponse = {
   meta: Meta;
 };
 
+export type CreateZoneRequest = {
+  data: Pick<Zone, "label" | "openTime" | "closeTime" | "isOpen">;
+};
+
+export type CreateZoneResponse = {
+  data: Zone;
+  meta: Meta;
+};
+
 export type UpdateZoneRequest = {
   data: Partial<Pick<Zone, "openTime" | "closeTime" | "isOpen">>;
 };
 
 export type UpdateZoneResponse = {
   data: Omit<Zone, "zone_translations">;
+  meta: Meta;
+};
+
+export type CreateZoneTranslationRequest = {
+  data: Pick<ZoneTranslation, "name" | "description"> & {
+    zone: { connect: [{ documentId: string }] };
+  };
+};
+
+export type CreateZoneTranslationResponse = {
+  data: ZoneTranslation;
   meta: Meta;
 };
 
