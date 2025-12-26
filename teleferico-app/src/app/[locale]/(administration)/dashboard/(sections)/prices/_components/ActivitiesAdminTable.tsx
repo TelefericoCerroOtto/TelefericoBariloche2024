@@ -38,7 +38,7 @@ const seasonLabels: Record<string, string> = {
   autumn: "Otoño",
   winter: "Invierno",
   spring: "Primavera",
-  all: "Todo el año",
+  allSeasons: "Todo el año",
 };
 
 export default function ActivitiesAdminTable() {

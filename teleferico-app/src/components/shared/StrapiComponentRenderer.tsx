@@ -4,8 +4,9 @@ import {
   Hero,
   HoursOverview,
   ImageTextRenderer,
-  TitleDescBlock,
   Schedules,
+  ServiceStatusButton,
+  TitleDescBlock,
 } from "@/components";
 import type { Locales, RendereableBlocks } from "@/types";
 import { deepMerge } from "@/utils";
@@ -100,6 +101,10 @@ export default function StrapiComponentRenderer(props: Props) {
 
     case "page-components.schedules": {
       return <Schedules locale={locale} />;
+    }
+
+    case "page-components.service-status-button": {
+      return <ServiceStatusButton locale={locale} />;
     }
 
     default:
