@@ -11,8 +11,15 @@ import type {
 import { TimeValueToStrapiTime } from "../formats";
 
 export const getZoneAdapter = (zone: GetZoneResponse): UpdateZoneFormData => {
-  const { openTime, closeTime, isOpen, documentId, zone_translations, label } =
-    zone.data;
+  const {
+    openTime,
+    closeTime,
+    isOpen,
+    featured,
+    documentId,
+    zone_translations,
+    label,
+  } = zone.data;
   const { documentId: zoneTranslationDocumentId } = zone_translations[0];
   const [openHour, openMins] = openTime.split(":").map(Number);
   const [closeHour, closeMins] = closeTime.split(":").map(Number);
@@ -34,6 +41,7 @@ export const getZoneAdapter = (zone: GetZoneResponse): UpdateZoneFormData => {
       mins: closeMins,
     },
     isOpen,
+    featured,
     documentId,
     zoneTranslationDocumentId,
   };
@@ -62,6 +70,7 @@ export const createZoneAdapter = (
       closeTime: TimeValueToStrapiTime(zone.closeTime),
       isOpen: zone.isOpen,
       label: zone.label,
+      featured: zone.featured,
     },
   };
 
@@ -84,6 +93,10 @@ export const updateZoneAdapter = (
   // Para booleanos: no usar truthy; chequear presencia y tipo
   if ("isOpen" in zone && typeof zone.isOpen === "boolean") {
     reqBody.data.isOpen = zone.isOpen;
+  }
+
+  if ("featured" in zone && typeof zone.featured === "boolean") {
+    reqBody.data.featured = zone.featured;
   }
 
   return reqBody as UpdateZoneRequest;

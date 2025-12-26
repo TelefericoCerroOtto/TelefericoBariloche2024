@@ -92,9 +92,7 @@ export interface PageComponentsSchedules extends Struct.ComponentSchema {
     displayName: 'Schedules';
     icon: 'clock';
   };
-  attributes: {
-    zones: Schema.Attribute.Relation<'oneToMany', 'api::zone.zone'>;
-  };
+  attributes: {};
 }
 
 export interface PageComponentsServiceStateModal

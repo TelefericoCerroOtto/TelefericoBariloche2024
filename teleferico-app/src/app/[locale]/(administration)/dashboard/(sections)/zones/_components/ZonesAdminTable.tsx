@@ -18,13 +18,21 @@ import {
 import { useCallback } from "react";
 import Toolbar from "./Toolbar";
 import ZoneOpenToggle from "./ZoneOpenToggle";
+import ZoneFeaturedToggle from "./ZoneFeaturedCheckbox";
 
-type ColumnKeys = "name" | "openTime" | "closeTime" | "isOpen" | "actions";
+type ColumnKeys =
+  | "name"
+  | "openTime"
+  | "closeTime"
+  | "isOpen"
+  | "featured"
+  | "actions";
 const columns: { key: ColumnKeys; label: string }[] = [
   { key: "name", label: "Zona" },
   { key: "openTime", label: "Horario De Apertura" },
   { key: "closeTime", label: "Horario De Cierre" },
   { key: "isOpen", label: "Zona abierta" },
+  { key: "featured", label: "Horario destacado" },
   { key: "actions", label: "Acciones" },
 ];
 
@@ -44,6 +52,9 @@ export default function ZonesAdminTable() {
 
       case "isOpen":
         return <ZoneOpenToggle zone={zone} />;
+
+      case "featured":
+        return <ZoneFeaturedToggle zone={zone} />;
 
       case "actions":
         return (

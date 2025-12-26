@@ -11,7 +11,7 @@ export type GetZonesResponse = {
 };
 
 export type CreateZoneRequest = {
-  data: Pick<Zone, "label" | "openTime" | "closeTime" | "isOpen">;
+  data: Pick<Zone, "label" | "openTime" | "closeTime" | "isOpen" | "featured">;
 };
 
 export type CreateZoneResponse = {

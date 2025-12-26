@@ -123,7 +123,6 @@ export interface Spacer {
 export interface Schedules {
   __component: "page-components.schedules";
   id: number;
-  zones: Zone[];
 }
 
 export type RendereableBlocks =

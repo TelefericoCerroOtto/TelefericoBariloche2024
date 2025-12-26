@@ -33,6 +33,7 @@ export const createZoneSchema = object({
   openTime: timeSchema,
   closeTime: timeSchema,
   isOpen: boolean().required(es.string.required),
+  featured: boolean().required(es.string.required),
 });
 
 export const updateZoneSchema = createZoneSchema.shape({

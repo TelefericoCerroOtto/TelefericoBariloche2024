@@ -35,6 +35,11 @@
       "type": "boolean",
       "required": true,
       "default": false
+    },
+    "featured": {
+      "type": "boolean",
+      "required": true,
+      "default": false
     }
   }
 }

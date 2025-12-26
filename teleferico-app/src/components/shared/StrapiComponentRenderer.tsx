@@ -99,7 +99,7 @@ export default function StrapiComponentRenderer(props: Props) {
     }
 
     case "page-components.schedules": {
-      return <Schedules block={block} locale={locale} />;
+      return <Schedules locale={locale} />;
     }
 
     default:

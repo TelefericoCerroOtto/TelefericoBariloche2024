@@ -109,6 +109,7 @@ export type Zone = StrapiRecord<{
   closeTime: string; // format: hh:mm:ss
   label: string;
   isOpen: boolean;
+  featured: boolean;
   locale: null;
   zone_translations: ZoneTranslation[];
 }>;
