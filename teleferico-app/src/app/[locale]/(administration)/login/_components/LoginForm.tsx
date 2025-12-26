@@ -1,10 +1,10 @@
 "use client";
 
 import { ButtonDos, FormError } from "@/components";
-import { loginSchema } from "@/lib/schemas/forms";
-import type { LoginFormData, LoginUserRequest } from "@/types";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { formInputClassNames } from "@/lib/constants/styles.const";
+import { loginSchema } from "@/lib/schemas";
+import type { LoginFormData, LoginUserRequest } from "@/types";
 import { Input, Spinner } from "@heroui/react";
 import { useFormik } from "formik";
 import { Eye, EyeOff } from "lucide-react";
