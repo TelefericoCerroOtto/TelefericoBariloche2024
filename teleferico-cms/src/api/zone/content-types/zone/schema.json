@@ -13,12 +13,10 @@
   "pluginOptions": {},
   "attributes": {
     "openTime": {
-      "pluginOptions": {},
       "type": "time",
       "required": true
     },
     "closeTime": {
-      "pluginOptions": {},
       "type": "time",
       "required": true
     },
@@ -35,8 +33,8 @@
     },
     "isOpen": {
       "type": "boolean",
-      "default": false,
-      "required": true
+      "required": true,
+      "default": false
     }
   }
 }
