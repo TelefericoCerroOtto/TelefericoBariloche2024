@@ -9,7 +9,7 @@ export function Spotlight(props: ImageTextBlock) {
     // WRAPPER:
     // - Bloqueamos overflow SOLO en X (sin generar scroll interno en Y)
     // - En Y queda visible (si crece, que empuje la página, no que scrollee adentro)
-    <div className="relative mx-auto my-10 w-full max-w-6xl overflow-x-hidden overflow-y-visible md:my-14 md:overflow-visible">
+    <div className="relative mx-auto my-10 w-full max-w-6xl overflow-x-hidden overflow-y-visible md:my-24 md:overflow-visible">
       {/* FIGURA */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         {/* capa principal */}
@@ -83,7 +83,7 @@ export function Spotlight(props: ImageTextBlock) {
             </h2>
 
             <p className="mb-5 text-base leading-relaxed text-gray-700 md:text-lg">
-              {blocksToExcerpt(description)}
+              {blocksToExcerpt(description, { maxLength: 500 })}
             </p>
 
             {epigraph ? (
