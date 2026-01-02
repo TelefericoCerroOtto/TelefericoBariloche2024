@@ -527,7 +527,7 @@ export interface ApiActivityActivity extends Struct.CollectionTypeSchema {
         number
       > &
       Schema.Attribute.DefaultTo<0>;
-    pages: Schema.Attribute.Relation<'oneToMany', 'api::page.page'>;
+    page: Schema.Attribute.Relation<'oneToOne', 'api::page.page'>;
     price: Schema.Attribute.Integer & Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
     season: Schema.Attribute.Enumeration<
