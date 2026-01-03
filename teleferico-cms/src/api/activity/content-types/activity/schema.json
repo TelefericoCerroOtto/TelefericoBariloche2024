@@ -13,15 +13,13 @@
   "pluginOptions": {},
   "attributes": {
     "price": {
-      "pluginOptions": {},
       "type": "integer",
       "required": true
     },
     "minAge": {
-      "pluginOptions": {},
       "type": "integer",
-      "default": 0,
       "required": true,
+      "default": 0,
       "min": 0,
       "max": 99
     },
@@ -35,9 +33,9 @@
       "required": false,
       "unique": true
     },
-    "pages": {
+    "page": {
       "type": "relation",
-      "relation": "oneToMany",
+      "relation": "oneToOne",
       "target": "api::page.page"
     },
     "activity_translations": {

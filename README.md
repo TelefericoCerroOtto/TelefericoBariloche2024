@@ -319,9 +319,38 @@ Por defecto solo cuenta con un super admin que es el usuario postgres y del cual
 
 #### Cloud Storage
 
-Cuando se inicializa el servicio de App Engine se crean automaticamente 2 buckets dentro de Storage. Estos llevaran el nombre de _**staging.app_engine_id.appspot.com**_ y _**app_engine_id.appspot.com**_. No es recomendable tocarlos ni configurarlos.
+Cuando **inicializás App Engine** en un proyecto de GCP, Google crea **buckets “de sistema”** en Cloud Storage para cubrir dos necesidades distintas:
 
-Para este proyecto se crea un nuevo bucket. Tambien es recomendable hacerlo desde la interfaz de GCP ya que de alli se pueden visualizar las distintas configuraciones.
+1. **Bucket por defecto de App Engine (`<PROJECT_ID>.appspot.com`)**
+
+   - Es el **default bucket** asociado a tu app/proyecto de App Engine.
+   - Se usa como bucket “principal” ligado a App Engine (por ejemplo, para integraciones típicas con Storage desde tu app, y para que el runtime tenga un bucket predecible).
+   - En la documentación de App Engine (standard) se describe explícitamente que **se crea un bucket por defecto al crear la app**, con ese formato de nombre. ([Google Cloud Documentation][1])
+
+2. **Bucket de staging (`staging.<PROJECT_ID>.appspot.com`)**
+
+   - App Engine lo usa para **almacenamiento temporal durante los despliegues** (subida/armado de versiones nuevas).
+   - En general es un bucket “para App Engine”, no para que tu aplicación lo use como storage de negocio. ([Stack Overflow][2])
+   - En docs legacy también se menciona que al crear el bucket por defecto, aparece **un staging bucket con `staging.` prepended**, justamente con ese fin. ([Google Cloud Documentation][3])
+
+**Por qué “dos” y no “uno”**
+
+Porque separan responsabilidades:
+
+- **Bucket “estable”** (el default) para la app/proyecto.
+- **Bucket “operativo/temporal”** para el **pipeline de deploy** (staging), para no mezclar artefactos de despliegue con datos que vos puedas querer conservar/gestionar.
+
+**Recomendaciones prácticas**
+
+- **No los borres**: te podés encontrar con errores al desplegar o al usar features que esperan esos recursos (es un problema recurrente cuando se elimina el default bucket).
+- Si tu preocupación es **costos/orden**, la estrategia suele ser:
+
+  - No tocar esos buckets de sistema.
+  - Usar buckets propios para tus archivos de negocio, con lifecycle rules y ubicación optimizada.
+
+[1]: https://docs.cloud.google.com/appengine/docs/standard/using-cloud-storage?utm_source=chatgpt.com "Use Cloud Storage | App Engine standard environment"
+[2]: https://stackoverflow.com/questions/61082741/my-gcp-project-is-automatically-creating-storage-buckets?utm_source=chatgpt.com "My GCP project is automatically creating storage buckets"
+[3]: https://docs.cloud.google.com/appengine/docs/legacy/standard/go111/googlecloudstorageclient/setting-up-cloud-storage?utm_source=chatgpt.com "Setting Up Google Cloud Storage | App Engine standard ..."
 
 ### CI/CD 🔄
 
@@ -514,6 +543,175 @@ Usa gcloud para actualizar el servicio de Cloud Run. Le pasa la imagen recién s
 Como se puede observar, se definen variables de entorno en los pasos 1 y 3 del builder. Esto se debe a que las variables utilizadas en el archivo de configuración de Next.js `next.config.mjs` deben estar disponibles en tiempo de compilación (build-time), ya que dicho archivo se evalúa fuera del contexto de ejecución de Node.js. Por otro lado, las variables definidas en el paso 3 mediante `--set-env-vars` están destinadas al entorno de ejecución (runtime) de Cloud Run.
 
 Para saber que variables de entorno deben declararse en build time, se utilizará la convención de prefijo `BUILD_` para sus nombres dentro del archivo `.env.example`.
+
+# Infraestructura y flujo operativo 🏗️
+
+## Arquitectura general del monorepo
+
+- **Monorepo** con dos paquetes:
+
+  - **App**: Next.js (frontend público + dashboard/admin).
+  - **CMS**: Strapi v5 (backend CMS).
+
+- **Local**
+
+  - Next.js se ejecuta con `npm run dev` (no dockerizado).
+  - Strapi se ejecuta con `npm run develop` (no dockerizado).
+  - Postgres local en **Docker** con **volumen** persistente para desarrollo.
+
+## Entornos en Google Cloud (staging y producción)
+
+### Servicios por entorno
+
+Cada entorno tendrá su propio set (aislado) de:
+
+- **App Engine (Standard)**: Strapi
+- **Cloud Run**: Next.js
+- **Cloud SQL (Postgres)**: base de datos
+
+### Ramas y despliegue
+
+- **`staging`**: Dispara trigger de Cloud Build para el deploy de pre-producción.
+- **`main`**: Dispara el trigger de Cloud Build para el deploy producción.
+
+### Configuración y secretos
+
+- Variables en Cloud Build YAML + secretos en **Secret Manager**, inyectados en build/deploy.
+
+## Almacenamiento de media
+
+### Cloud Storage
+
+- **Buckets separados por entorno**:
+
+  - **Staging**: bucket propio (assets de staging).
+  - **Producción**: bucket propio (assets de producción).
+
+- Objetivo: aislar media por entorno y evitar que pruebas/contaminación en staging afecten a producción.
+
+> Nota: este enfoque implica que, para el go-live inicial, la migración de contenido debe incluir también la transferencia de archivos (media) hacia el bucket productivo.
+
+## Flujo de datos y migración inicial (bootstrap a producción)
+
+### Objetivo
+
+Publicar el sitio por primera vez minimizando complejidad y riesgos, sin implementar aún la tool de “merge real”.
+
+### Flujo actual (bootstrap “una única vez”)
+
+1. **Staging como entorno editorial inicial**
+
+   - Carga completa del contenido editorial en staging usando el Admin Panel de Strapi (staging).
+
+2. **Congelar escrituras en staging durante el bootstrap**
+
+   - Se define una **ventana operativa**: durante el proceso no se edita contenido en staging.
+   - Es una regla de trabajo (por ahora), para garantizar consistencia durante la transferencia.
+
+3. **Transferencia de datos y archivos (relay staging → local → producción)**
+
+   - Se utiliza **`strapi transfer`** porque el flujo soportado es **remoto → local** y **local → remoto**.
+
+   - Secuencia:
+
+     1. **Staging → Local** (pull): baja contenido y archivos a tu entorno local.
+     2. **Local → Producción** (push): sube contenido y archivos a producción.
+
+   - Implicación: producción recibe los registros y los assets, quedando alineada con su **bucket productivo**.
+
+4. **Arranque de producción**
+
+   - Se despliega Strapi y Next.js desde **`main`** (Cloud Build trigger).
+   - La instancia de Cloud SQL en producción tendrá **backups habilitados**.
+
+### Regla clave de consistencia (schema vs runtime)
+
+- El bootstrap inicial se realiza cuando:
+
+  - el contenido y el modelo están estabilizados en staging,
+  - y la versión de Strapi (código y schema) está alineada entre staging/local/producción para evitar inconsistencias.
+
+## Preparación para migraciones futuras (opcional)
+
+### `syncKey` (opcional / futuro)
+
+- **No se implementa por ahora.**
+- En caso de necesitar, en el futuro, una sincronización granular (merge real) de contenido entre entornos, se evaluará agregar un campo `syncKey` técnico en colecciones **migrables** (editoriales), con el objetivo de contar con una clave estable para upserts y resolución de relaciones.
+
+## Flujo futuro esperado (post go-live)
+
+Una vez en producción:
+
+- La edición “viva” y operativa (por ejemplo, postulaciones y cualquier dato generado por usuarios) permanecerá en producción.
+- Staging se utilizará para validar cambios de contenido y/o código sin impactar el sitio público.
+- No se recomienda repetir un “replace” completo tipo bootstrap (transferencias destructivas) sobre producción una vez que exista data viva real.
+
+## Deuda técnica (priorizada)
+
+### Prioridad alta — Protección de admin panels (Strapi y Next.js) con IAP
+
+**Problema:** hoy los admin panels están expuestos públicamente, aumentando la superficie de ataque.
+**Objetivo:** restringir acceso por identidad (Google accounts / grupos) y registrar accesos.
+
+**Implementación objetivo:**
+
+- **App Engine (Strapi):** habilitar **Identity-Aware Proxy (IAP)** sobre el servicio de administración.
+- **Cloud Run (Next.js dashboard/admin):** proteger con IAP (normalmente vía HTTPS Load Balancer o configuración equivalente).
+
+**Resultado esperado:** solo usuarios autorizados pueden acceder; el sitio público continúa accesible.
+
+### Prioridad media — `publicFiles: false` + estrategia de URLs firmadas
+
+**Problema:** el comportamiento de `publicFiles` afecta privacidad y exposición del contenido multimedia, especialmente sensible para CVs.
+**Objetivo:** definir un modelo seguro para servir archivos privados sin romper el frontend.
+
+**Acciones esperadas:**
+
+- Entender y formalizar el comportamiento de `publicFiles` en el provider de GCS.
+- Definir cómo se entregan archivos:
+
+  - URLs firmadas generadas bajo demanda (idealmente desde backend/app),
+  - o proxy de descarga autenticada,
+  - y criterios de qué media es público vs privado.
+
+**Resultado esperado:** protección efectiva de documentos sensibles sin degradar UX ni romper assets públicos.
+
+### Prioridad baja — Tool de migración/sincronización granular staging → prod (merge real)
+
+**Problema:** luego del go-live, producción tendrá data viva y no es viable “pisar” DB.
+**Objetivo:** construir una herramienta (Node/TS) que haga “merge real” por tipo de contenido, excluyendo colecciones vivas.
+
+**Lineamientos esperados:**
+
+- Herramienta en el root del repo (ej. `tools/content-sync/`).
+
+- Orquestable por Cloud Build como job manual con:
+
+  - `dry-run` (plan/diff),
+  - `apply` (upsert),
+  - allowlist explícita de content-types migrables y exclusiones (postulaciones, etc.).
+
+- En caso de implementarse `syncKey`, se usará como clave técnica para resolución estable.
+
+**Resultado esperado:** promociones controladas sin reemplazo completo de DB.
+
+## Línea de tiempo sugerida (conectando el flujo actual con las mejoras)
+
+1. **Ahora (go-live):**
+
+   - Completar contenido en staging → ventana de freeze → `transfer` staging→local → `transfer` local→prod → deploy prod desde `main`.
+
+2. **Inmediato post go-live:**
+
+   - Implementar protección IAP para ambos admin panels (alta).
+
+3. **Luego:**
+
+   - Resolver `publicFiles`/URLs firmadas con una estrategia definida (media).
+
+4. **Más adelante:**
+
+   - Construir y adoptar la tool de sincronización granular (baja), evaluando `syncKey` como soporte opcional si fuese necesario.
 
 # Flujo de Trabajo con Git 🔀
 
