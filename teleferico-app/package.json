@@ -10,8 +10,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {
-    "node": ">=18.18.0"
+    "node": "20.x",
+    "pnpm": "9.x"
   },
+  "packageManager": "pnpm@9.15.9",
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
     "@heroui/react": "^2.7.10",

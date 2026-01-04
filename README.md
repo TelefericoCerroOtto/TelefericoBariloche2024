@@ -89,7 +89,7 @@ Ubicarse con la terminal dentro del directorio "./teleferico-cms" y ejecutar el 
 2. Ejecutar desde `./teleferico-app`:
 
    ```bash
-   npm run dev
+   pnpm run dev
    ```
 
 La configuración de imágenes remotas y rewrites está en `teleferico-app/next.config.mjs`.
@@ -555,7 +555,7 @@ Para saber que variables de entorno deben declararse en build time, se utilizar�
 
 - **Local**
 
-  - Next.js se ejecuta con `npm run dev` (no dockerizado).
+  - Next.js se ejecuta con `pnpm run dev` (no dockerizado).
   - Strapi se ejecuta con `npm run develop` (no dockerizado).
   - Postgres local en **Docker** con **volumen** persistente para desarrollo.
 
