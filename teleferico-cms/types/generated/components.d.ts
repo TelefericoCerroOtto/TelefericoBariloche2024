@@ -71,18 +71,20 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
       Schema.Attribute.DefaultTo<'normal'>;
     variant: Schema.Attribute.Enumeration<
       [
-        'default',
-        'defaultFW',
+        'single',
+        'poster',
+        'card',
         'panoramic',
-        'panoramicFW',
         'spotlight',
+        'double',
+        'cascade',
         'horizontal',
+        'masonry',
         'ladder',
         'miniatures',
       ]
     > &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'default'>;
+      Schema.Attribute.Required;
   };
 }
 

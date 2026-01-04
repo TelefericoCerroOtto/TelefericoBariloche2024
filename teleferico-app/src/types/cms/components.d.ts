@@ -70,15 +70,19 @@ export type TitleDescBlock = {
 };
 
 export type OneImageVariant =
-  | "default"
-  | "defaultFW"
+  | "single"
+  | "poster"
+  | "card"
   | "panoramic"
-  | "panoramicFW"
   | "spotlight";
 
-export type TwoImagesVariant = "default";
+export type TwoImagesVariant = "double" | "cascade";
 
-export type ThreeImagesVariant = "horizontal" | "ladder" | "miniatures";
+export type ThreeImagesVariant =
+  | "horizontal"
+  | "masonry"
+  | "ladder"
+  | "miniatures";
 
 export type ImageTextVariants =
   | OneImageVariant
