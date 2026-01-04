@@ -1,9 +1,10 @@
-export { default as DefaultFW } from "./one/DefaultFW";
-export { default as DefaultOne } from "./one/DefaultOne";
 export { default as Panoramic } from "./one/Panoramic";
-export { default as PanoramicFW } from "./one/PanoramicFW";
+export { default as Single } from "./one/Single";
 export { default as Spotlight } from "./one/Spotlight";
+export { default as Poster } from "./one/Poster";
 export { default as Horizontal } from "./three/Horizontal";
 export { default as Ladder } from "./three/Ladder";
 export { default as Miniatures } from "./three/Miniatures";
-export { default as DefaultTwo } from "./two/Default";
+export { default as Masonry } from "./three/Masonry";
+export { default as Double } from "./two/Double";
+export { default as Cascade } from "./two/Cascade";

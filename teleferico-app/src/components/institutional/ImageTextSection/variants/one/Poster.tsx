@@ -1,0 +1,93 @@
+"use client";
+
+import {
+  BlockRendererClient,
+  CustomLink,
+  HighlightLastWord,
+} from "@/components";
+import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import type { ImageTextBlock } from "@/types";
+import type { BlocksContent } from "@strapi/blocks-react-renderer";
+import CustomImage from "../../shared/CustomImage";
+import LogoBadge from "../../shared/LogoBadge";
+
+export default function Poster(props: ImageTextBlock) {
+  const {
+    images,
+    title,
+    titleCase = "normal",
+    description,
+    isHighlighted = false,
+    link,
+    epigraph,
+    bgColor,
+  } = props;
+
+  const img = images?.[0];
+  if (!img) return null;
+
+  return (
+    <section className={`my-14 w-full ${bgStyles[bgColor]}`}>
+      <div className="mx-auto w-full max-w-[1536px] px-6 md:px-12">
+        <div className="relative overflow-hidden rounded-3xl shadow-2xl shadow-black/15 ring-1 ring-red-500/15">
+          {/* Background image */}
+          <div className="relative h-[620px] w-full overflow-hidden">
+            <CustomImage image={img} />
+            <div aria-hidden="true" className="absolute inset-0 bg-black/30" />
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-black/10"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 [background:radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.25)_55%,rgba(0,0,0,0.55)_100%)]"
+            />
+          </div>
+
+          {/* Center content card */}
+          <div className="absolute inset-0 flex items-center justify-center px-5 py-8">
+            <article className="w-full max-w-3xl rounded-3xl bg-background/80 px-8 py-10 text-foreground shadow-2xl shadow-black/20 ring-1 ring-red-500/25 backdrop-blur-md md:px-12 md:py-12">
+              {/* Top accent */}
+              <div
+                aria-hidden="true"
+                className="mb-6 h-1 w-16 rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500"
+              />
+
+              <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-5">
+                <LogoBadge />
+
+                <div className="w-full">
+                  <h4
+                    className={`text-center text-3xl font-bold ${caseStyles[titleCase]} text-inherit md:text-left md:text-4xl`}
+                  >
+                    {isHighlighted ? HighlightLastWord(title) : title}
+                  </h4>
+
+                  {epigraph ? (
+                    <p className="mt-2 text-center text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-left md:text-base">
+                      {epigraph}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              {description ? (
+                <div className="mt-6 space-y-4 text-center text-base leading-relaxed text-foreground/80 md:text-left md:text-lg">
+                  <BlockRendererClient content={description as BlocksContent} />
+                </div>
+              ) : null}
+
+              {link ? (
+                <div className="mt-8 flex justify-center md:justify-start">
+                  <CustomLink href={link.href} withButtonStyles>
+                    {link.label}
+                  </CustomLink>
+                </div>
+              ) : null}
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

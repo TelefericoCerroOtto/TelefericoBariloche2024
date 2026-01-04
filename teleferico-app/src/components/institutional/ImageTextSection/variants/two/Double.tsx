@@ -9,7 +9,7 @@ import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
 import LogoBadge from "../../shared/LogoBadge";
 
-export default function Defualt(props: ImageTextBlock) {
+export default function Double(props: ImageTextBlock) {
   const {
     images,
     title,
