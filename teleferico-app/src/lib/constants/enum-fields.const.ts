@@ -13,9 +13,9 @@ export const POSTULATION_STATUSES: PostulationStatus[] = [
   "unreviewed",
   "hired",
   "discarded",
-];
+] as const;
 
-export const GENDERS: Genders[] = ["male", "female", "other"];
+export const GENDERS: Genders[] = ["male", "female", "other"] as const;
 
 export const SEASONS: Season[] = [
   "summer",
@@ -23,9 +23,12 @@ export const SEASONS: Season[] = [
   "winter",
   "spring",
   "allSeasons",
-];
+] as const;
 
-export const LIFTING_MEANS: LiftingMean[] = ["cablecar", "road&funicular"];
+export const LIFTING_MEANS: LiftingMean[] = [
+  "cablecar",
+  "road&funicular",
+] as const;
 
 export const USER_ROLES: UserRoles[] = [
   "Public",
@@ -34,4 +37,4 @@ export const USER_ROLES: UserRoles[] = [
   "Media Manager",
   "Recruiter",
   "Operations Supervisor",
-];
+] as const;
