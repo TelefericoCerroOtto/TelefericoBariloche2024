@@ -104,6 +104,7 @@ export default function Form() {
       zoneName_pt: "",
       isOpen: false,
       label: "",
+      featured: false,
     },
     validationSchema: createZoneSchema,
     onSubmit,

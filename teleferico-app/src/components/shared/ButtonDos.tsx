@@ -21,7 +21,7 @@ export const buttonStyles = cva(
         disable: "bg-custom-gray text-white cursor-default active:scale-100",
       },
       size: {
-        default: "h-12 px-4 sm:text-sm",
+        default: "h-12 px-4",
         sm: "h-9 px-2",
         lg: "h-12 px-8",
       },
@@ -29,7 +29,7 @@ export const buttonStyles = cva(
         base: "text-base",
         sm: "text-sm",
         lg: "text-lg",
-        default: "text-xl",
+        default: "text-base sm:text-xl",
         "2xl": "text-2xl",
       },
       fullWidth: {
@@ -45,7 +45,8 @@ export const buttonStyles = cva(
 );
 
 interface Props
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonStyles> {
   isLoading?: boolean;
 }
