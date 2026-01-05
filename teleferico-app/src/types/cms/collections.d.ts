@@ -142,12 +142,13 @@ export type ActivityTranslation = StrapiRecord<{
 export type Season = "summer" | "autumn" | "winter" | "spring" | "allSeasons";
 
 export type Activity = StrapiRecord<{
-  // label: string;
+  label: string;
   price: number;
   minAge: number;
   season: Season;
   zone: Zone;
   activity_translations: ActivityTranslation[];
+  page: Page;
   locale: null;
 }>;
 
@@ -178,7 +179,7 @@ export type Postulation = StrapiRecord<{
   locale: null;
 }>;
 
-export type PageContent = StrapiRecord<{
+export type Page = StrapiRecord<{
   blocks: DynamicZone<RendereableBlocks>;
   createdAt: string;
   documentId: string;

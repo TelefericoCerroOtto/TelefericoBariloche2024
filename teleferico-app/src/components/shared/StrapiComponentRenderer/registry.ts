@@ -1,7 +1,7 @@
 // teleferico-app/src/components/shared/strapi-renderers/index.ts
 
+import type { RendereableBlocks } from "@/types";
 import type { ReactNode } from "react";
-import type { Locales, RendereableBlocks } from "@/types";
 
 import {
   renderFaqSection,
@@ -13,11 +13,7 @@ import {
   renderSpacer,
   renderTitleDescBlock,
 } from "./renderers";
-import type { RendererMap } from "./shared/types";
-
-export type RendererCtx = {
-  locale: Locales;
-};
+import type { RendererCtx, RendererMap } from "./shared/types";
 
 /**
  * Registry exhaustivo y tipado:
