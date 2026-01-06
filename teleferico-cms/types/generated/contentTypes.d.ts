@@ -780,6 +780,7 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
         'page-components.spacer',
         'page-components.schedules',
         'page-components.service-status-button',
+        'page-components.carrousel',
       ]
     > &
       Schema.Attribute.SetPluginOptions<{

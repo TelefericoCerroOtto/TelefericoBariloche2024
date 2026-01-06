@@ -1,5 +1,35 @@
 import type { Schema, Struct } from '@strapi/strapi';
 
+export interface PageComponentsCarrousel extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_carrousels';
+  info: {
+    displayName: 'Carrousel';
+    icon: 'medium';
+  };
+  attributes: {
+    autoplayMs: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    items: Schema.Attribute.Component<'utils-components.carrousel-item', true> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 15;
+          min: 1;
+        },
+        number
+      >;
+    pauseOnHover: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
+  };
+}
+
 export interface PageComponentsFaqSection extends Struct.ComponentSchema {
   collectionName: 'components_page_components_faq_sections';
   info: {
@@ -194,6 +224,22 @@ export interface PagePropertiesSeo extends Struct.ComponentSchema {
   };
 }
 
+export interface UtilsComponentsCarrouselItem extends Struct.ComponentSchema {
+  collectionName: 'components_utils_components_carrousel_items';
+  info: {
+    displayName: 'Carrousel Item';
+    icon: 'bulletList';
+  };
+  attributes: {
+    cover: Schema.Attribute.Component<'utils-components.image', false> &
+      Schema.Attribute.Required;
+    description: Schema.Attribute.Blocks;
+    epigraph: Schema.Attribute.Text;
+    link: Schema.Attribute.Component<'utils-components.link', false>;
+    title: Schema.Attribute.Text;
+  };
+}
+
 export interface UtilsComponentsHoursOverviewItem
   extends Struct.ComponentSchema {
   collectionName: 'components_utils_components_hours_overview_items';
@@ -265,6 +311,7 @@ export interface UtilsComponentsTitle extends Struct.ComponentSchema {
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'page-components.carrousel': PageComponentsCarrousel;
       'page-components.faq-section': PageComponentsFaqSection;
       'page-components.hero': PageComponentsHero;
       'page-components.hours-overview': PageComponentsHoursOverview;
@@ -275,6 +322,7 @@ declare module '@strapi/strapi' {
       'page-components.title-desc-block': PageComponentsTitleDescBlock;
       'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-properties.seo': PagePropertiesSeo;
+      'utils-components.carrousel-item': UtilsComponentsCarrouselItem;
       'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
       'utils-components.image': UtilsComponentsImage;
       'utils-components.link': UtilsComponentsLink;
