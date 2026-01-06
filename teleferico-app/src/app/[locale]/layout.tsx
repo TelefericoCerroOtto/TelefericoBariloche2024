@@ -6,6 +6,10 @@ import type { Locales } from "@/types";
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import { notFound } from "next/navigation";
+import "swiper/css";
+import "swiper/css/navigation";
+import "swiper/css/pagination";
+import "@/app/swiper-overrides.css";
 
 type Params = { params: Promise<{ locale: Locales }> };
 

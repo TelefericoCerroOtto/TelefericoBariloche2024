@@ -1,3 +1,4 @@
+export * from "./carrousel";
 export * from "./faq-section";
 export * from "./hero";
 export * from "./hours-overview";

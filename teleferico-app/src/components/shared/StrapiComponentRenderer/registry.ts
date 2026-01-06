@@ -4,6 +4,7 @@ import type { RendereableBlocks } from "@/types";
 import type { ReactNode } from "react";
 
 import {
+  renderCarrousel,
   renderFaqSection,
   renderHero,
   renderHoursOverview,
@@ -29,6 +30,7 @@ export const strapiRenderers = {
   "page-components.spacer": renderSpacer,
   "page-components.schedules": renderSchedules,
   "page-components.service-status-button": renderServiceStatusButton,
+  "page-components.carrousel": renderCarrousel,
 } satisfies RendererMap;
 
 /**

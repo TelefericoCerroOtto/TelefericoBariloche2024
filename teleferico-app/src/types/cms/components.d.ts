@@ -37,8 +37,8 @@ export type Hero = {
   description?: string;
   firstLink?: Link;
   secondLink?: Link;
-  cover: { id: number } & Image;
-  logo?: { id: number } & Image;
+  cover: Image;
+  logo?: Image;
   align: HeroAlign;
 };
 
@@ -126,6 +126,23 @@ export interface Schedules {
   id: number;
 }
 
+export type CarrouselItem = {
+  id: number;
+  title?: string | null;
+  epigraph?: string | null;
+  description?: BlocksContent | null;
+  link?: Link | null;
+  cover: Image;
+};
+
+export type Carrousel = {
+  __component: "page-components.carrousel";
+  id: number;
+  autoplayMs?: number | null;
+  pauseOnHover: boolean;
+  items: CarrouselItem[];
+};
+
 export type RendereableBlocks =
   | ServiceStatusButton
   | Hero
@@ -134,4 +151,5 @@ export type RendereableBlocks =
   | TitleDescBlock
   | FaqSection
   | Spacer
-  | Schedules;
+  | Schedules
+  | Carrousel;

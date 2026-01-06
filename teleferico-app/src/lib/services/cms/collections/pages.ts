@@ -28,6 +28,13 @@ export const getPageContent = async (locale: Locales, route: string) => {
           "page-components.spacer": "*",
           "page-components.schedules": "*",
           "page-components.service-status-button": "*",
+          "page-components.carrousel": {
+            populate: {
+              items: {
+                populate: ["cover.image", "link"],
+              },
+            },
+          },
         },
       },
     },
