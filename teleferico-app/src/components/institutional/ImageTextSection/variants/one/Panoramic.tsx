@@ -27,7 +27,7 @@ export default function Panoramic(props: ImageTextBlock) {
 
   return (
     <section className={`my-14 w-full ${bgStyles[bgColor]}`}>
-      <div className="relative h-[550px] w-full overflow-hidden rounded-3xl shadow-2xl shadow-black/25 ring-1 ring-red-500/15">
+      <div className="relative h-[550px] w-full overflow-hidden shadow-2xl shadow-black/25 ring-1 ring-red-500/15">
         {/* Imagen */}
         <div className="absolute inset-0">
           <CustomImage image={images[0]} />
