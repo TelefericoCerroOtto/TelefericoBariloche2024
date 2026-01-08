@@ -235,6 +235,7 @@ export interface UtilsComponentsCarrouselItem extends Struct.ComponentSchema {
       Schema.Attribute.Required;
     description: Schema.Attribute.Blocks;
     epigraph: Schema.Attribute.Text;
+    label: Schema.Attribute.String & Schema.Attribute.Private;
     link: Schema.Attribute.Component<'utils-components.link', false>;
     title: Schema.Attribute.Text;
   };

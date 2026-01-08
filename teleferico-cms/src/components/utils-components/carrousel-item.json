@@ -6,6 +6,10 @@
   },
   "options": {},
   "attributes": {
+    "label": {
+      "type": "string",
+      "private": true
+    },
     "title": {
       "type": "text"
     },
