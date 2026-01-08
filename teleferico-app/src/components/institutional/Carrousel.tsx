@@ -6,7 +6,7 @@ import {
   type BlocksContent,
 } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Swiper as SwiperInstance } from "swiper";
 import { A11y, Autoplay, Navigation, Pagination } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -92,7 +92,7 @@ export default function Carrousel({
 
   const swiperClassName = [
     "teleferico-swiper",
-    hasMultiple ? "teleferico-swiper--nav" : null, // NEW: habilita el sombreado solo si hay navegación
+    hasMultiple ? "teleferico-swiper--nav" : null,
     enableAutoplay ? "teleferico-swiper--autoplay" : null,
     className,
   ]
@@ -105,7 +105,6 @@ export default function Carrousel({
 
   const handleAutoplayTimeLeft = useCallback(
     (swiper: SwiperInstance, _timeLeftMs: number, progressLeft: number) => {
-      // Swiper suele informar “fracción restante” (0..1). Convertimos a “transcurrido”.
       const elapsed = 1 - progressLeft;
       swiper.el.style.setProperty(
         "--teleferico-autoplay-progress",
@@ -113,6 +112,45 @@ export default function Carrousel({
       );
     },
     [],
+  );
+
+  // NEW: debounce para resize (evita stop/start 200 veces mientras arrastrás la ventana)
+  const resizeTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resizeTimeoutRef.current) {
+        window.clearTimeout(resizeTimeoutRef.current);
+        resizeTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // NEW: fix de autoplay “congelado” tras resize / cambio de media queries
+  const handleResize = useCallback(
+    (swiper: SwiperInstance) => {
+      if (!enableAutoplay) return;
+
+      if (resizeTimeoutRef.current) {
+        window.clearTimeout(resizeTimeoutRef.current);
+      }
+
+      resizeTimeoutRef.current = window.setTimeout(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((swiper as any).destroyed) return;
+
+        // Asegura layout correcto
+        swiper.update();
+
+        // Resetea barra de progreso
+        resetProgress(swiper);
+
+        // Fuerza restart de autoplay (Swiper a veces queda pausado tras resize)
+        swiper.autoplay?.stop();
+        swiper.autoplay?.start();
+      }, 120);
+    },
+    [enableAutoplay, resetProgress],
   );
 
   // Early return DESPUÉS de declarar hooks, para no violar el orden.
@@ -147,6 +185,7 @@ export default function Carrousel({
         onInit={resetProgress}
         onSlideChange={resetProgress}
         onAutoplayTimeLeft={enableAutoplay ? handleAutoplayTimeLeft : undefined}
+        onResize={handleResize} // NEW
       >
         {safeItems.map((item, idx) => {
           const hasOverlay =
@@ -167,7 +206,7 @@ export default function Carrousel({
               className="h-auto"
             >
               <article className="relative overflow-hidden">
-                <div className="relative min-h-[360px] w-full sm:min-h-[440px] lg:min-h-[560px]">
+                <div className="relative min-h-[360px] w-full sm:min-h-[440px] lg:min-h-[640px]">
                   <Image
                     src={item.image.url}
                     alt={alt}

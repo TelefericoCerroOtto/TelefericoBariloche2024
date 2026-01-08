@@ -58,17 +58,7 @@ export const renderCarrousel: RendererMap["page-components.carrousel"] = (
 ) => {
   const typed = block as StrapiCarrousel;
 
-  if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.log("Carrousel block:", JSON.stringify(typed, null, 2));
-  }
-
   const slides = adaptItems(typed.items);
-
-  if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.log("Adapted slides:", slides);
-  }
 
   const autoplayMs = typed.autoplayMs ?? 0;
 
