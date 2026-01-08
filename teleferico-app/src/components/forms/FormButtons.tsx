@@ -1,7 +1,6 @@
 "use client";
 
-import { ButtonDos } from "@/components";
-import { addToast, Spinner } from "@heroui/react";
+import { addToast, Button, Spinner } from "@heroui/react";
 import { useRouter } from "next/navigation";
 
 interface Props {
@@ -26,29 +25,32 @@ export default function FormButtons(props: Props) {
     },
   } = props;
   const router = useRouter();
-  const isDisable = isSubmitting || disableSubmitButton;
+  const isDisabled = isSubmitting || disableSubmitButton;
 
   return (
     <div className="mx-auto flex flex-col-reverse justify-end gap-2 sm:flex-row">
-      <ButtonDos
-        intent="ghost"
+      <Button
+        variant="ghost"
         type="button"
-        className="w-[159px]"
-        onClick={() => router.push(cancelRedirectRoute)}
+        onPress={() => router.push(cancelRedirectRoute)}
+        size="lg"
+        radius="full"
       >
         Cancelar
-      </ButtonDos>
-      <ButtonDos
-        intent="solid"
+      </Button>
+      <Button
+        variant="solid"
+        color="primary"
+        size="lg"
+        radius="full"
         type={disableSubmitButton ? "button" : "submit"}
-        className="w-[159px]"
-        disabled={isDisable}
-        onClick={() => {
-          if (isDisable) disableAction();
+        isDisabled={isDisabled}
+        onPress={() => {
+          if (isDisabled) disableAction();
         }}
       >
         {isSubmitting ? <Spinner size="sm" color="white" /> : "Guardar"}
-      </ButtonDos>
+      </Button>
     </div>
   );
 }
