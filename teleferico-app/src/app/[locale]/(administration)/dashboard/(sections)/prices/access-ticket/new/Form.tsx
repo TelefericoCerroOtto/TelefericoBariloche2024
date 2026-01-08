@@ -43,7 +43,7 @@ export default function Form() {
           message: "Nueva tarifa creada exitosamente",
           variant: "success",
         });
-        return router.push(ADMIN_ROUTES.PRICES);
+        return router.push(`${ADMIN_ROUTES.PRICES}?selected=tickets`);
       }
       setIsSubmitting(false);
       console.log(res.message);
@@ -150,7 +150,7 @@ export default function Form() {
 
       <FormButtons
         isSubmitting={isSubmitting}
-        cancelRedirectRoute={ADMIN_ROUTES.PRICES}
+        cancelRedirectRoute={`${ADMIN_ROUTES.PRICES}?selected=tickets`}
         disableSubmitButton={
           isSubmitting ||
           Object.keys(errors).length > 0 ||

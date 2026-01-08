@@ -32,22 +32,25 @@ export default auth(async (req) => {
     //   .map(normalize)
     //   .find((v): v is Locales => Boolean(v));
     // return preferred || i18n.defaultLocale;
-    return i18n.defaultLocale;
+    return i18n.defaultLocale as Locales;
   };
 
   const segments = pathname.split("/");
   const maybeLocale = segments[1] as string | undefined;
   const hasLocalePrefix = i18n.locales.includes(maybeLocale as Locales);
+
   const adminPath =
     "/" +
     (hasLocalePrefix
       ? segments.slice(2).join("/")
       : segments.slice(1).join("/"));
+
   const adminRoots = [
     ADMIN_ROUTES.DASHBOARD,
     ADMIN_ROUTES.LOGIN,
     ADMIN_ROUTES.LOGOUT,
   ];
+
   const isAdminPath = adminRoots.some(
     (route) => adminPath === route || adminPath.startsWith(`${route}/`),
   );
@@ -58,8 +61,10 @@ export default auth(async (req) => {
     const forcedLocale = i18n.defaultLocale as Locales;
 
     // Redirect any non-prefixed or wrong-locale admin path to the default locale
+    // IMPORTANT: preserve search params by cloning nextUrl
     if (!hasLocalePrefix || maybeLocale !== forcedLocale) {
-      const redirectURL = new URL(`/${forcedLocale}${adminPath}`, url);
+      const redirectURL = req.nextUrl.clone();
+      redirectURL.pathname = `/${forcedLocale}${adminPath}`; // keeps redirectURL.search
       const res = NextResponse.redirect(redirectURL);
       res.cookies.set("NEXT_LOCALE", forcedLocale, { path: "/" });
       return res;
@@ -68,48 +73,42 @@ export default auth(async (req) => {
     // At this point, path is locale-prefixed. Proceed with auth gating.
     if (req.auth !== null) {
       const { isLogged } = await verifySession(req.auth.jwt);
+
       if (isLogged) {
         // Restrict login/logout for authenticated users
         if (
           adminPath === ADMIN_ROUTES.LOGIN ||
           adminPath === ADMIN_ROUTES.LOGOUT
         ) {
-          const newUrl = new URL(
-            `/${i18n.defaultLocale}${ADMIN_ROUTES.DASHBOARD}`,
-            url,
-          );
-          return Response.redirect(newUrl);
-        }
-        return;
-      } else {
-        // Avoid infinite redirection loop to logout page
-        if (adminPath !== ADMIN_ROUTES.LOGOUT) {
-          const newUrl = new URL(
-            `/${i18n.defaultLocale}${ADMIN_ROUTES.LOGOUT}`,
-            url,
-          );
-          const response = Response.redirect(newUrl);
-          return response;
+          const newUrl = req.nextUrl.clone();
+          newUrl.pathname = `/${i18n.defaultLocale}${ADMIN_ROUTES.DASHBOARD}`;
+          return NextResponse.redirect(newUrl);
         }
         return;
       }
+
+      // Not logged: Avoid infinite redirection loop to logout page
+      if (adminPath !== ADMIN_ROUTES.LOGOUT) {
+        const newUrl = req.nextUrl.clone();
+        newUrl.pathname = `/${i18n.defaultLocale}${ADMIN_ROUTES.LOGOUT}`;
+        return NextResponse.redirect(newUrl);
+      }
+      return;
     }
 
     // Not authenticated user wants to access a protected route
     if (adminPath !== ADMIN_ROUTES.LOGIN) {
-      const newUrl = new URL(
-        `/${i18n.defaultLocale}${ADMIN_ROUTES.LOGIN}`,
-        url,
-      );
-      return Response.redirect(newUrl);
+      const newUrl = req.nextUrl.clone();
+      newUrl.pathname = `/${i18n.defaultLocale}${ADMIN_ROUTES.LOGIN}`;
+      return NextResponse.redirect(newUrl);
     }
+
     return;
   }
 
   // 🚩 Public paths
 
-  // 1) Si la ruta NO tiene un locale válido como prefijo,
-  //    la redirigimos a un locale.
+  // 1) Si la ruta NO tiene un locale válido como prefijo, la redirigimos a un locale.
   if (!hasLocalePrefix) {
     // Si el primer segmento parece un idioma corto (es, en, pt),
     // lo normalizamos al locale completo.
@@ -122,7 +121,9 @@ export default auth(async (req) => {
     const redirectPath =
       rest && rest.length > 0 ? `/${targetLocale}/${rest}` : `/${targetLocale}`;
 
-    const redirectURL = new URL(redirectPath, url);
+    // IMPORTANT: preserve search params by cloning nextUrl
+    const redirectURL = req.nextUrl.clone();
+    redirectURL.pathname = redirectPath; // keeps redirectURL.search
     const res = NextResponse.redirect(redirectURL);
     res.cookies.set("NEXT_LOCALE", targetLocale, { path: "/" });
     return res;

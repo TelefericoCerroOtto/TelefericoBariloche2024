@@ -42,7 +42,7 @@ export default function Form(props: Props) {
           message: "Tarifa actualizada exitosamente",
           variant: "success",
         });
-        return router.push(ADMIN_ROUTES.PRICES);
+        return router.push(`${ADMIN_ROUTES.PRICES}?selected=tickets`);
       }
       setIsSubmitting(false);
       console.log(res.message);
@@ -147,7 +147,7 @@ export default function Form(props: Props) {
 
       <FormButtons
         isSubmitting={isSubmitting}
-        cancelRedirectRoute={ADMIN_ROUTES.PRICES}
+        cancelRedirectRoute={`${ADMIN_ROUTES.PRICES}?selected=tickets`}
         disableSubmitButton={
           !dirty ||
           Object.keys(errors).length > 0 ||
