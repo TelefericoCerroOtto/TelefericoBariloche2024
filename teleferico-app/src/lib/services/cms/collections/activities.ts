@@ -22,11 +22,9 @@ export const getActivity = async <T extends Locales | "all">({
 
   if (locale === "all") {
     query.populate = {
-      0: "activity_translations", // => populate[0]=activity_translations
+      activity_translations: true,
       zone: {
-        populate: {
-          1: "zone_translations", // => populate[zone][populate][1]=zone_translations
-        },
+        populate: "zone_translations",
       },
     };
   } else if (locale) {

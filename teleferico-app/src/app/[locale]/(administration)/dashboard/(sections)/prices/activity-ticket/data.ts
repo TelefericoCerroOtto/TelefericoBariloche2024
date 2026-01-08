@@ -1,6 +1,6 @@
-import type { Activity } from "@/types";
+import type { Season } from "@/types";
 
-export const seasonOptions: { key: Activity["season"]; label: string }[] = [
+export const seasonOptions: { key: Season; label: string }[] = [
   { key: "summer", label: "Verano" },
   { key: "autumn", label: "Otoño" },
   { key: "winter", label: "Invierno" },

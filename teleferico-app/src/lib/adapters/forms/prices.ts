@@ -8,8 +8,17 @@ import type {
   PostActivityTranslationRequest,
   UpdateAccessTicketFormData,
   UpdateActivityFormData,
+  UpdateActivityRequest,
   UpdateActivityTranslationRequest,
 } from "@/types";
+
+const getAccessNameKey = (locale: Locales) => `accessName_${locale}` as const;
+const getActivityNameKey = (locale: Locales) =>
+  `activityName_${locale}` as const;
+const getActivityDescriptionKey = (locale: Locales) =>
+  `description_${locale}` as const;
+const getActivityRequirementsKey = (locale: Locales) =>
+  `requirements_${locale}` as const;
 
 export const getAccessTicketAdapter = (
   ticket: ExtendLocalizations<GetTicketResponse>,
@@ -32,17 +41,11 @@ export const getAccessTicketAdapter = (
     liftingMean: lifting_mean,
   };
 
-  const mapLocales = {
-    "es-AR": "accessName_es-AR",
-    en: "accessName_en",
-    pt: "accessName_pt",
-  } as const;
-
-  formData[mapLocales[defaultLocale]] = defaultName;
+  formData[getAccessNameKey(defaultLocale)] = defaultName;
 
   localizations.map((localization) => {
     const { locale, name } = localization;
-    formData[mapLocales[locale]] = name;
+    formData[getAccessNameKey(locale)] = name;
   });
 
   return formData;
@@ -56,6 +59,7 @@ export const getActivityAdapter = (
     price,
     minAge,
     documentId,
+    available,
   } = activity.data;
 
   const { documentId: activityTranslationDocumentId } =
@@ -76,20 +80,15 @@ export const getActivityAdapter = (
     activityDocumentId: documentId,
     minAge,
     activityTranslationDocumentId,
+    available,
   };
-
-  const mapLocales = {
-    "es-AR": ["activityName_es-AR", "description_es-AR", "requirements_es-AR"],
-    en: ["activityName_en", "description_en", "requirements_en"],
-    pt: ["activityName_pt", "description_pt", "requirements_pt"],
-  } as const;
 
   activity_translations.map((atrans) => {
     const { locale, name, description, requirements } = atrans;
-    const [nameKey, descKey, reqKey] = mapLocales[locale];
-    formData[nameKey] = name;
-    formData[descKey] = description ?? "";
-    formData[reqKey] = requirements ?? "";
+
+    formData[getActivityNameKey(locale)] = name;
+    formData[getActivityDescriptionKey(locale)] = description ?? "";
+    formData[getActivityRequirementsKey(locale)] = requirements ?? "";
   });
 
   return formData;
@@ -103,13 +102,28 @@ export const createActivityAdapter = (
       price: values.price,
       minAge: values.minAge,
       season: values.season,
+      available: values.available,
     },
   };
 
   return reqBody;
 };
 
-export const updateActivityAdapter = createActivityAdapter;
+export const updateActivityAdapter = (
+  activity: Partial<UpdateActivityFormData>,
+): UpdateActivityRequest => {
+  const reqBody: UpdateActivityRequest = {
+    data: {},
+  };
+
+  if (activity.price !== undefined) reqBody.data.price = activity.price;
+  if (activity.minAge !== undefined) reqBody.data.minAge = activity.minAge;
+  if (activity.season !== undefined) reqBody.data.season = activity.season;
+  if (activity.available !== undefined)
+    reqBody.data.available = activity.available;
+
+  return reqBody;
+};
 
 export const createActivityTranslationAdapter = ({
   values,
@@ -124,21 +138,17 @@ export const createActivityTranslationAdapter = ({
     data: {
       name: "",
       description: "",
-      requirements: "",
       activity: { connect: [{ documentId: relatedActivityDocumentId }] },
     },
   };
 
-  const mapLocales = {
-    "es-AR": ["activityName_es-AR", "description_es-AR", "requirements_es-AR"],
-    en: ["activityName_en", "description_en", "requirements_en"],
-    pt: ["activityName_pt", "description_pt", "requirements_pt"],
-  } as const;
+  const nameKey = getActivityNameKey(locale);
+  const descKey = getActivityDescriptionKey(locale);
+  const reqKey = getActivityRequirementsKey(locale);
 
-  const [nameKey, descKey, reqKey] = mapLocales[locale];
   reqBody.data.name = values[nameKey];
-  reqBody.data.description = values[descKey] || "";
-  reqBody.data.requirements = values[reqKey] || "";
+  reqBody.data.description = values[descKey];
+  if (values[reqKey]) reqBody.data.requirements = values[reqKey];
 
   return reqBody;
 };
@@ -153,19 +163,14 @@ export const updateActivityTranslationAdapter = ({
   const { activityDocumentId } = values;
   const reqBody: UpdateActivityTranslationRequest = {
     data: {
-      name: "",
-      description: "",
-      requirements: "",
       activity: { connect: [{ documentId: activityDocumentId }] },
     },
   };
 
-  const mapLocales = {
-    "es-AR": ["activityName_es-AR", "description_es-AR", "requirements_es-AR"],
-    en: ["activityName_en", "description_en", "requirements_en"],
-    pt: ["activityName_pt", "description_pt", "requirements_pt"],
-  } as const;
-  const [nameKey, descKey, reqKey] = mapLocales[locale];
+  const nameKey = getActivityNameKey(locale);
+  const descKey = getActivityDescriptionKey(locale);
+  const reqKey = getActivityRequirementsKey(locale);
+
   reqBody.data.name = values[nameKey];
   reqBody.data.description = values[descKey];
   reqBody.data.requirements = values[reqKey];

@@ -18,6 +18,7 @@ import {
   NumberInput,
   Select,
   SelectItem,
+  Switch,
   Textarea,
 } from "@heroui/react";
 import { useFormik } from "formik";
@@ -44,7 +45,7 @@ export default function Form() {
           message: "Nueva actividad creada exitosamente",
           variant: "success",
         });
-        return router.push(ADMIN_ROUTES.PRICES);
+        return router.push(`${ADMIN_ROUTES.PRICES}?selected=activities`);
       }
       setIsSubmitting(false);
       console.log(res.message);
@@ -88,6 +89,7 @@ export default function Form() {
       price: 0,
       minAge: 0,
       season: "allSeasons",
+      available: true,
     },
     validationSchema: createActivitySchema,
     onSubmit,
@@ -115,6 +117,7 @@ export default function Form() {
         Input={Textarea}
         config={descConfig}
         formik={{ values, errors, touched, setFieldTouched, setFieldValue }}
+        isRequired
         handleChange={handleChange}
         handleBlur={handleBlur}
         locale={locale}
@@ -156,23 +159,35 @@ export default function Form() {
       <Select
         name="season"
         id="season"
-        variant="flat"
-        radius="full"
-        className="rounded-full"
-        classNames={selectInputStyles.classNames}
+        placeholder="Seleccione una temporada"
         label="Temporada"
         labelPlacement="outside"
-        placeholder="Seleccione una temporada"
-        value={values.season}
+        radius="full"
+        variant="flat"
+        className="rounded-full"
+        classNames={selectInputStyles.classNames}
+        defaultSelectedKeys={[values.season]}
         onChange={handleChange}
+        onBlur={handleBlur}
+        isRequired
+        disallowEmptySelection
         items={seasonOptions}
       >
         {(item) => <SelectItem key={item.key}>{item.label}</SelectItem>}
       </Select>
 
+      <Switch
+        name="available"
+        id="available"
+        isSelected={values.available}
+        onChange={handleChange}
+      >
+        {values.available ? "Actividad habilitada" : "Cerrada al público"}
+      </Switch>
+
       <FormButtons
         isSubmitting={isSubmitting}
-        cancelRedirectRoute={ADMIN_ROUTES.PRICES}
+        cancelRedirectRoute={`${ADMIN_ROUTES.PRICES}?selected=activities`}
         disableSubmitButton={
           isSubmitting ||
           Object.keys(errors).length > 0 ||

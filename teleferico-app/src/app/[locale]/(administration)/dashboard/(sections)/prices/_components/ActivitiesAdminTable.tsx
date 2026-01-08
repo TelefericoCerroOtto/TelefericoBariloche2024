@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
+import ActivityAvailableToggle from "./ActivityAvailableToggle";
 
 type ColumnKeys =
   | "name"
@@ -22,6 +23,7 @@ type ColumnKeys =
   | "minAge"
   | "season"
   | "requirements"
+  | "available"
   | "actions";
 
 const columns: { key: ColumnKeys; label: string }[] = [
@@ -30,6 +32,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
   { key: "minAge", label: "Edad mínima" },
   { key: "season", label: "Temporada" },
   { key: "requirements", label: "Requisitos" },
+  { key: "available", label: "Disponible" },
   { key: "actions", label: "Acciones" },
 ];
 
@@ -67,6 +70,9 @@ export default function ActivitiesAdminTable() {
           const req = activity.activity_translations?.[0]?.requirements ?? "";
           return <span>{req || "-"}</span>;
         }
+        case "available":
+          return <ActivityAvailableToggle activity={activity} />;
+
         case "actions":
           return (
             <TableActionsButtons

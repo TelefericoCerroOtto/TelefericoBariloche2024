@@ -135,7 +135,7 @@ export type BusTrip = StrapiRecord<{
 
 export type ActivityTranslation = StrapiRecord<{
   name: string;
-  description: string | null;
+  description: string;
   requirements: string | null;
 }>;
 
@@ -146,7 +146,7 @@ export type Activity = StrapiRecord<{
   price: number;
   minAge: number;
   season: Season;
-  zone: Zone;
+  available: boolean;
   activity_translations: ActivityTranslation[];
   page: Page;
   locale: null;
