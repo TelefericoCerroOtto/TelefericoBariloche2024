@@ -453,13 +453,14 @@ export interface ApiActivityTranslationActivityTranslation
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     description: Schema.Attribute.Text &
+      Schema.Attribute.Required &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
           localized: true;
         };
       }> &
       Schema.Attribute.SetMinMaxLength<{
-        maxLength: 150;
+        maxLength: 200;
         minLength: 10;
       }>;
     locale: Schema.Attribute.String;
@@ -484,6 +485,9 @@ export interface ApiActivityTranslationActivityTranslation
         i18n: {
           localized: true;
         };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 150;
       }>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -507,6 +511,9 @@ export interface ApiActivityActivity extends Struct.CollectionTypeSchema {
       'oneToMany',
       'api::activity-translation.activity-translation'
     >;
+    available: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;

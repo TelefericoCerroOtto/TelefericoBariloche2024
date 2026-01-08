@@ -53,6 +53,11 @@
         "spring",
         "allSeasons"
       ]
+    },
+    "available": {
+      "type": "boolean",
+      "required": true,
+      "default": true
     }
   }
 }
