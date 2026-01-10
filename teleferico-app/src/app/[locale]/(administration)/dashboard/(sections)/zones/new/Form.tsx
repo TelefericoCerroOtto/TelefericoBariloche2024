@@ -27,7 +27,7 @@ import { createZoneAction } from "./actions";
 
 type LabelStatus = "idle" | "validating" | "available" | "unavailable";
 const LABEL_TOOLTIP_TEXT =
-  "Es un nombre único para identificar esta zona. Se usa para organizar y conectar información del sistema. Una vez creada, no se puede cambiar.";
+  "Es un nombre único para identificar esta zona. Se usa para organizar y conectar información del sistema. Una vez creada, no se puede cambiar. Solo puede contener letras minúsculas. Sugerencia: Use una sola palabra en inglés que describa la zona. Ej.: restaurant, terrace, cabin.";
 
 export default function Form() {
   const [timeInputLoading, setTimeInputLoading] = useState(true);
