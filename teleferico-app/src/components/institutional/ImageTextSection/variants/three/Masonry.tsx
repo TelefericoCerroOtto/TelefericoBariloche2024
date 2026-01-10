@@ -45,7 +45,7 @@ export default function Masonry(props: ImageTextBlock) {
 
           {/* Text */}
           <div className={isInverted ? "lg:order-1" : "lg:order-2"}>
-            <div className="w-full rounded-3xl bg-background/80 px-8 py-10 text-foreground shadow-xl shadow-black/5 ring-1 ring-red-500/15 backdrop-blur">
+            <div className="w-full rounded-3xl bg-background/80 px-8 py-10 text-foreground shadow-xl shadow-black/5 ring-1 ring-red-500/80 backdrop-blur">
               <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-5">
                 <LogoBadge />
                 <h4

@@ -93,7 +93,7 @@ export default function Cascade(props: ImageTextBlock) {
 
           {/* Text */}
           <div className="flex w-full flex-col items-center lg:items-start">
-            <div className="w-full rounded-3xl bg-background/80 px-8 py-10 text-foreground shadow-xl shadow-black/5 ring-1 ring-red-500/15 backdrop-blur md:px-10 md:py-12">
+            <div className="w-full rounded-3xl bg-background/80 px-8 py-10 text-foreground shadow-xl shadow-black/5 ring-1 ring-red-500/80 backdrop-blur md:px-10 md:py-12">
               <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-5">
                 <LogoBadge />
                 <h4
