@@ -14,7 +14,7 @@
   --teleferico-autoplay-progress: 0;
 
   /* colores bullets */
-  --teleferico-bullet-inactive: rgba(72, 68, 68, 0.85);
+  --teleferico-bullet-inactive: rgb(0, 0, 0);
   --teleferico-bullet-active: var(--teleferico-swiper-accent);
 
   /* NEW: Fade lateral (alineado a flechas: 14px + 44px = 58px) */
