@@ -8,6 +8,14 @@ const DESC_MIN_CHARS = 10;
 const DESC_MAX_CHARS = 500;
 
 export const createActivitySchema = object({
+  label: string()
+    .required(es.string.required)
+    .min(2, es.string.min(2))
+    .max(20, es.string.max(20))
+    .matches(
+      /^[a-zñ]+$/,
+      "Usá solo letras minúsculas (a-z), sin espacios ni caracteres especiales.",
+    ),
   price: number().integer(es.number.integer).required(es.number.required),
   minAge: number().integer(es.number.integer).required(es.number.required),
   season: string<Season>().oneOf(SEASONS).required(es.string.required),

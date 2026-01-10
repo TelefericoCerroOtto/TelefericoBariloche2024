@@ -60,6 +60,7 @@ export const getActivityAdapter = (
     minAge,
     documentId,
     available,
+    label,
   } = activity.data;
 
   const { documentId: activityTranslationDocumentId } =
@@ -81,6 +82,7 @@ export const getActivityAdapter = (
     minAge,
     activityTranslationDocumentId,
     available,
+    label,
   };
 
   activity_translations.map((atrans) => {

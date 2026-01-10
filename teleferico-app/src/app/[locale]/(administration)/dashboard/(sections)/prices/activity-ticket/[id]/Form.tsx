@@ -16,6 +16,7 @@ import {
   SelectItem,
   Switch,
   Textarea,
+  Tooltip,
 } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
@@ -27,10 +28,14 @@ import {
   formInputClassNames,
   selectInputStyles,
 } from "@/lib/constants/styles.const";
+import { Tag } from "lucide-react";
 
 interface Props {
   initialValues: UpdateActivityFormData;
 }
+
+const LABEL_TOOLTIP_TEXT =
+  "Identificador único de la actividad. Se usa para organizar y conectar información del sistema. Su valor no se puede cambiar.";
 
 export default function Form(props: Props) {
   const { initialValues } = props;
@@ -97,6 +102,20 @@ export default function Form(props: Props) {
         selectedKeys={selectedKeys}
         handleSelectionChange={handleSelectionChange}
       />
+      <Tooltip content={LABEL_TOOLTIP_TEXT} placement="top">
+        <div className="inline-block w-full cursor-not-allowed">
+          <Input
+            id="label"
+            name="label"
+            labelPlacement="outside"
+            label="Etiqueta"
+            isDisabled
+            classNames={formInputClassNames}
+            value={values.label}
+            endContent={<Tag size={18} className="text-default-400" />}
+          />
+        </div>
+      </Tooltip>
       <InputLocaleWrapper
         Input={Input}
         config={nameConfig}

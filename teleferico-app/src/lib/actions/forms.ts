@@ -69,3 +69,21 @@ export const validateZoneLabelAvailability = async (
 
   return res.data.data.length === 0;
 };
+
+export const validateActivityLabelAvailability = async (
+  label: string,
+): Promise<boolean> => {
+  const normalized = label.trim();
+
+  const query = { filters: { label: { $eq: normalized } } };
+  const res = await strapiFetch<GetZonesResponse>({
+    endpoint: STRAPI_ENDPOINTS.ACTIVITIES,
+    qp: stringifyQuery(query),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to validate label availability");
+  }
+
+  return res.data.data.length === 0;
+};
