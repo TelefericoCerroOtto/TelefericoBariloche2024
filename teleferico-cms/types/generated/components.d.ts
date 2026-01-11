@@ -68,7 +68,7 @@ export interface PageComponentsHoursOverview extends Struct.ComponentSchema {
   info: {
     description: '';
     displayName: 'HoursOverview';
-    icon: 'clock';
+    icon: 'eye';
   };
   attributes: {
     withTextBlock: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
