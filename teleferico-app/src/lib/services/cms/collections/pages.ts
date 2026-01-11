@@ -35,6 +35,13 @@ export const getPageContent = async (locale: Locales, route: string) => {
               },
             },
           },
+          "page-components.activity-showcase": {
+            populate: {
+              activity: {
+                fields: ["documentId"],
+              },
+            },
+          },
         },
       },
     },

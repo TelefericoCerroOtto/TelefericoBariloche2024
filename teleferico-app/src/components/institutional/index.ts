@@ -1,3 +1,4 @@
+export { default as ActivityShowcase } from "./ActivityShowcase/index";
 export { default as BlocksRenderer } from "./BlocksRenderer";
 export { default as Carrousel } from "./Carrousel";
 export { default as DataTable } from "./DataTable";

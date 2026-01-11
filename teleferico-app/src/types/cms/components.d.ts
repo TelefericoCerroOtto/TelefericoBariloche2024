@@ -143,6 +143,15 @@ export type Carrousel = {
   items: CarrouselItem[];
 };
 
+export type ActivityShowcase = {
+  __component: "page-components.activity-showcase";
+  id: number;
+  activity: {
+    id: number;
+    documentId: string;
+  };
+};
+
 export type RendereableBlocks =
   | ServiceStatusButton
   | Hero
@@ -152,4 +161,5 @@ export type RendereableBlocks =
   | FaqSection
   | Spacer
   | Schedules
-  | Carrousel;
+  | Carrousel
+  | ActivityShowcase;

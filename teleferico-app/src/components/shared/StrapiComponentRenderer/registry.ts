@@ -15,6 +15,7 @@ import {
   renderTitleDescBlock,
 } from "./renderers";
 import type { RendererCtx, RendererMap } from "./shared/types";
+import { renderActivityShowcase } from "./renderers/activity-showcase";
 
 /**
  * Registry exhaustivo y tipado:
@@ -31,6 +32,7 @@ export const strapiRenderers = {
   "page-components.schedules": renderSchedules,
   "page-components.service-status-button": renderServiceStatusButton,
   "page-components.carrousel": renderCarrousel,
+  "page-components.activity-showcase": renderActivityShowcase,
 } satisfies RendererMap;
 
 /**
