@@ -793,6 +793,7 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
         'page-components.schedules',
         'page-components.service-status-button',
         'page-components.carrousel',
+        'page-components.activity-showcase',
       ]
     > &
       Schema.Attribute.SetPluginOptions<{

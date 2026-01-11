@@ -1,5 +1,16 @@
 import type { Schema, Struct } from '@strapi/strapi';
 
+export interface PageComponentsActivityShowcase extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_activity_showcases';
+  info: {
+    displayName: 'ActivityShowcase';
+    icon: 'lightbulb';
+  };
+  attributes: {
+    activity: Schema.Attribute.Relation<'oneToOne', 'api::activity.activity'>;
+  };
+}
+
 export interface PageComponentsCarrousel extends Struct.ComponentSchema {
   collectionName: 'components_page_components_carrousels';
   info: {
@@ -312,6 +323,7 @@ export interface UtilsComponentsTitle extends Struct.ComponentSchema {
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'page-components.activity-showcase': PageComponentsActivityShowcase;
       'page-components.carrousel': PageComponentsCarrousel;
       'page-components.faq-section': PageComponentsFaqSection;
       'page-components.hero': PageComponentsHero;
