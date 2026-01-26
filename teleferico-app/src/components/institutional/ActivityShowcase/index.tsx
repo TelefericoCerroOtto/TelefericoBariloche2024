@@ -12,6 +12,9 @@ import type {
 import { getI18n, seasonLabel } from "./data";
 import ErrorState from "./ErrorState";
 import Loader from "./Loader";
+import { useSWRConfig } from "swr";
+import { useMemo } from "react";
+import { createRetryGuard } from "./retry-guard";
 
 type Props = {
   documentId: string;
@@ -67,20 +70,32 @@ function getActivityRequirements(activity: Activity, locale: Locales) {
 
 export default function ActivityShowcaseBlock({ documentId, locale }: Props) {
   const t = getI18n(locale);
+  const { mutate } = useSWRConfig();
 
-  const { data, isLoading, isError, key } = useProxy<GetActivityResponse>(
-    `${STRAPI_ENDPOINTS.ACTIVITIES}/${documentId}`,
-    {
-      populate: {
-        activity_translations: true,
-        page: true,
-      },
-    },
-    {
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-    },
+  const retryGuard = useMemo(
+    () =>
+      createRetryGuard({ cooldownMs: 8000, windowMs: 60_000, maxInWindow: 5 }),
+    [],
   );
+
+  const { data, isLoading, isError, isValidating, key } =
+    useProxy<GetActivityResponse>(
+      `${STRAPI_ENDPOINTS.ACTIVITIES}/${documentId}`,
+      {
+        populate: {
+          activity_translations: true,
+          page: true,
+        },
+      },
+      {
+        revalidateOnFocus: false,
+        revalidateOnReconnect: false,
+        shouldRetryOnError: true,
+        errorRetryCount: 1,
+        errorRetryInterval: 3000, // 3 seconds
+        dedupingInterval: 8000, // 8 seconds
+      },
+    );
 
   if (isLoading) return <Loader label={t.loading} />;
 
@@ -92,7 +107,25 @@ export default function ActivityShowcaseBlock({ documentId, locale }: Props) {
       isError,
     });
 
-    return <ErrorState locale={locale} message={t.error} />;
+    return (
+      <ErrorState
+        locale={locale}
+        message={t.error}
+        retryDisabled={isValidating || !key}
+        onRetry={
+          key
+            ? async () => {
+                if (isValidating) return;
+
+                const verdict = retryGuard();
+                if (!verdict.ok) return;
+
+                await mutate(key);
+              }
+            : undefined
+        }
+      />
+    );
   }
 
   const activity = data?.data;

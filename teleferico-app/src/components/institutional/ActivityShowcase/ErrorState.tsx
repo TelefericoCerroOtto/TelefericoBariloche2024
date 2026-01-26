@@ -2,12 +2,14 @@
 
 import { Button } from "@heroui/react";
 import type { Locales } from "@/types";
+import { useState } from "react";
 
 type Props = {
   locale: Locales;
   title?: string;
   message: string;
-  onRetry?: () => void;
+  onRetry?: () => void | Promise<void>;
+  retryDisabled?: boolean;
 };
 
 function getCopy(locale: Locales) {
@@ -60,47 +62,71 @@ function ErrorIcon() {
   );
 }
 
-export default function ErrorState({ locale, title, message, onRetry }: Props) {
+export default function ErrorState({
+  locale,
+  title,
+  message,
+  onRetry,
+  retryDisabled,
+}: Props) {
   const c = getCopy(locale);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const handleRetry = async () => {
+    if (!onRetry || isRetrying) return;
+
+    try {
+      setIsRetrying(true);
+      await Promise.resolve(onRetry());
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   return (
     <section className="my-12 w-11/12 md:w-3/4 lg:w-7/12" aria-label={message}>
       <div
         role="alert"
         aria-live="polite"
-        className="relative overflow-hidden rounded-2xl border border-default-200 bg-content1 shadow-sm after:absolute after:inset-x-0 after:top-0 after:h-1 after:bg-red-600"
+        className="relative w-full overflow-hidden rounded-2xl border border-default-200 bg-content1 shadow-sm after:absolute after:inset-x-0 after:top-0 after:h-1 after:bg-red-600"
       >
+        {/* min-h para que no haya salto brusco vs Loader/Showcase */}
         <div className="p-5 sm:p-7 lg:p-10">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-600/10">
-              <ErrorIcon />
-            </div>
+          <div className="flex min-h-[420px] flex-col justify-center sm:min-h-[460px] lg:min-h-[520px]">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-start">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-red-600/10 sm:h-14 sm:w-14">
+                <ErrorIcon />
+              </div>
 
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-default-900 sm:text-base lg:text-lg">
-                {title ?? c.defaultTitle}
-              </p>
+              <div className="min-w-0 max-w-2xl">
+                <p className="text-base font-semibold text-default-900 sm:text-lg lg:text-2xl">
+                  {title ?? c.defaultTitle}
+                </p>
 
-              <p className="mt-1 text-sm text-default-600 sm:text-base">
-                {message}
-              </p>
+                <p className="mt-2 text-sm leading-relaxed text-default-600 sm:text-base lg:text-lg">
+                  {message}
+                </p>
 
-              <p className="mt-3 text-xs text-default-500 sm:text-sm">
-                {c.help}
-              </p>
+                <p className="mt-4 text-xs text-default-500 sm:text-sm lg:text-base">
+                  {c.help}
+                </p>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Button
-                  radius="full"
-                  size="sm"
-                  variant="flat"
-                  className="border border-red-600/30 bg-red-600/10 text-red-700"
-                  onPress={() =>
-                    onRetry ? onRetry() : window.location.reload()
-                  }
-                >
-                  {c.retry}
-                </Button>
+                {onRetry ? (
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    <Button
+                      radius="full"
+                      size="sm"
+                      variant="flat"
+                      className="border border-red-600/30 bg-red-600/10 text-red-700 sm:text-base"
+                      onPress={handleRetry}
+                      isLoading={isRetrying}
+                      isDisabled={retryDisabled || isRetrying}
+                      aria-busy={isRetrying}
+                    >
+                      {c.retry}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
