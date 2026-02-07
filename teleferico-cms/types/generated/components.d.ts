@@ -45,7 +45,7 @@ export interface PageComponentsFaqSection extends Struct.ComponentSchema {
   collectionName: 'components_page_components_faq_sections';
   info: {
     displayName: 'FaqSection';
-    icon: 'bulletList';
+    icon: 'question';
   };
   attributes: {
     favs: Schema.Attribute.Boolean &
