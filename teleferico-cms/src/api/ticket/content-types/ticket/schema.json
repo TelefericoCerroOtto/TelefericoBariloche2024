@@ -17,38 +17,47 @@
   },
   "attributes": {
     "name": {
+      "type": "text",
       "pluginOptions": {
         "i18n": {
           "localized": true
         }
       },
-      "type": "text",
+      "minLength": 2,
       "required": true,
-      "unique": false,
-      "minLength": 2
+      "unique": false
     },
     "price": {
+      "type": "integer",
       "pluginOptions": {
         "i18n": {
           "localized": false
         }
       },
-      "type": "integer",
       "required": true,
       "min": 0
     },
     "lifting_mean": {
+      "type": "enumeration",
       "pluginOptions": {
         "i18n": {
           "localized": false
         }
       },
-      "type": "enumeration",
+      "required": true,
       "enum": [
         "cablecar",
         "road&funicular"
-      ],
-      "required": true
+      ]
+    },
+    "description": {
+      "type": "text",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "maxLength": 500
     }
   }
 }

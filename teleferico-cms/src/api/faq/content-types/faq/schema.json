@@ -23,18 +23,16 @@
         }
       },
       "minLength": 8,
-      "maxLength": 100,
+      "maxLength": 150,
       "required": true
     },
     "answer": {
-      "type": "text",
+      "type": "blocks",
       "pluginOptions": {
         "i18n": {
           "localized": true
         }
       },
-      "minLength": 10,
-      "maxLength": 250,
       "required": true
     },
     "featured": {

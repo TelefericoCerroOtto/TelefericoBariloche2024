@@ -21,7 +21,7 @@
       "required": true,
       "default": 0,
       "min": 0,
-      "max": 99
+      "max": 80
     },
     "label": {
       "type": "string",
@@ -29,7 +29,7 @@
       "maxLength": 20,
       "required": true,
       "unique": true,
-      "regex": "/^[a-zñ]+$/"
+      "regex": "^[a-zñ]+$"
     },
     "page": {
       "type": "relation",
@@ -56,6 +56,16 @@
       "type": "boolean",
       "required": true,
       "default": true
+    },
+    "isActive": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "maxAge": {
+      "type": "integer",
+      "min": 0,
+      "max": 80
     }
   }
 }

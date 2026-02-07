@@ -460,7 +460,7 @@ export interface ApiActivityTranslationActivityTranslation
         };
       }> &
       Schema.Attribute.SetMinMaxLength<{
-        maxLength: 200;
+        maxLength: 500;
         minLength: 10;
       }>;
     locale: Schema.Attribute.String;
@@ -517,6 +517,9 @@ export interface ApiActivityActivity extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    isActive: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
     label: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique &
@@ -530,11 +533,19 @@ export interface ApiActivityActivity extends Struct.CollectionTypeSchema {
       'api::activity.activity'
     > &
       Schema.Attribute.Private;
+    maxAge: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 80;
+          min: 0;
+        },
+        number
+      >;
     minAge: Schema.Attribute.Integer &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMax<
         {
-          max: 99;
+          max: 80;
           min: 0;
         },
         number
@@ -570,6 +581,9 @@ export interface ApiBusTripBusTrip extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     depTime: Schema.Attribute.Time & Schema.Attribute.Required;
     destination: Schema.Attribute.Relation<'oneToOne', 'api::station.station'>;
+    isVisible: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -652,16 +666,12 @@ export interface ApiFaqFaq extends Struct.CollectionTypeSchema {
     };
   };
   attributes: {
-    answer: Schema.Attribute.Text &
+    answer: Schema.Attribute.Blocks &
       Schema.Attribute.Required &
       Schema.Attribute.SetPluginOptions<{
         i18n: {
           localized: true;
         };
-      }> &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 250;
-        minLength: 10;
       }>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -684,7 +694,7 @@ export interface ApiFaqFaq extends Struct.CollectionTypeSchema {
         };
       }> &
       Schema.Attribute.SetMinMaxLength<{
-        maxLength: 100;
+        maxLength: 150;
         minLength: 8;
       }>;
     updatedAt: Schema.Attribute.DateTime;
@@ -1098,6 +1108,15 @@ export interface ApiTicketTicket extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    description: Schema.Attribute.Text &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }> &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
     lifting_mean: Schema.Attribute.Enumeration<['cablecar', 'road&funicular']> &
       Schema.Attribute.Required &
       Schema.Attribute.SetPluginOptions<{
@@ -1164,7 +1183,7 @@ export interface ApiZoneTranslationZoneTranslation
         };
       }> &
       Schema.Attribute.SetMinMaxLength<{
-        maxLength: 200;
+        maxLength: 500;
         minLength: 10;
       }>;
     locale: Schema.Attribute.String;

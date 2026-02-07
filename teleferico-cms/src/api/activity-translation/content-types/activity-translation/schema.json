@@ -35,7 +35,7 @@
         }
       },
       "minLength": 10,
-      "maxLength": 200,
+      "maxLength": 500,
       "required": true
     },
     "requirements": {
