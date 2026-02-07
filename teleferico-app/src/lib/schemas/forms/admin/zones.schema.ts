@@ -2,9 +2,12 @@ import { boolean, object, string } from "yup";
 import { localeMessages } from "../i18n";
 import { timeSchema } from "../primitives";
 
-const { "es-AR": es, en, pt } = localeMessages;
+const { "es-AR": es } = localeMessages;
 
-const DESC_MAX_CHARS = 200;
+const NAME_MIN_CHARS = 2;
+const NAME_MAX_CHARS = 100;
+
+const DESC_MAX_CHARS = 500;
 const DESC_MIN_CHARS = 10;
 
 export const createZoneSchema = object({
@@ -18,18 +21,25 @@ export const createZoneSchema = object({
     ),
   "zoneName_es-AR": string()
     .required(es.string.required)
-    .min(2, es.string.min(2)),
-  zoneName_en: string().required(es.string.required).min(2, en.string.min(2)),
-  zoneName_pt: string().required(es.string.required).min(2, pt.string.min(2)),
+    .min(NAME_MIN_CHARS, es.string.min(NAME_MIN_CHARS))
+    .max(NAME_MAX_CHARS, es.string.max(NAME_MAX_CHARS)),
+  zoneName_en: string()
+    .required(es.string.required)
+    .min(NAME_MIN_CHARS, es.string.min(NAME_MIN_CHARS))
+    .max(NAME_MAX_CHARS, es.string.max(NAME_MAX_CHARS)),
+  zoneName_pt: string()
+    .required(es.string.required)
+    .min(NAME_MIN_CHARS, es.string.min(NAME_MIN_CHARS))
+    .max(NAME_MAX_CHARS, es.string.max(NAME_MAX_CHARS)),
   "zoneDescription_es-AR": string()
     .min(DESC_MIN_CHARS, es.string.min(DESC_MIN_CHARS))
     .max(DESC_MAX_CHARS, es.string.max(DESC_MAX_CHARS)),
   zoneDescription_en: string()
     .min(DESC_MIN_CHARS, es.string.min(DESC_MIN_CHARS))
-    .max(DESC_MAX_CHARS, en.string.max(DESC_MAX_CHARS)),
+    .max(DESC_MAX_CHARS, es.string.max(DESC_MAX_CHARS)),
   zoneDescription_pt: string()
     .min(DESC_MIN_CHARS, es.string.min(DESC_MIN_CHARS))
-    .max(DESC_MAX_CHARS, pt.string.max(DESC_MAX_CHARS)),
+    .max(DESC_MAX_CHARS, es.string.max(DESC_MAX_CHARS)),
   openTime: timeSchema,
   closeTime: timeSchema,
   isOpen: boolean().required(es.string.required),

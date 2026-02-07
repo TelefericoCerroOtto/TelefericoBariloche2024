@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppAlert } from "@/hooks";
-import { deleteItemAction } from "@/lib/actions/delete-item";
+import { deleteItemAction } from "./actions";
 import type {
   Activity,
   BusTrip,

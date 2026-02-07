@@ -68,6 +68,36 @@ function getActivityRequirements(activity: Activity, locale: Locales) {
   return r || null;
 }
 
+function formatAgeRangeValue(
+  minAge: number | null | undefined,
+  maxAge: number | null | undefined,
+  t: ReturnType<typeof getI18n>,
+): string {
+  const min = typeof minAge === "number" ? minAge : null;
+  const max = typeof maxAge === "number" && maxAge !== 0 ? maxAge : null; // 0 o null => sin máximo
+
+  const hasMin = typeof min === "number" && min > 0; // 0 => sin mínimo
+  const hasMax = typeof max === "number" && max > 0;
+
+  // Sin restricciones
+  if (!hasMin && !hasMax) return t.allAges;
+
+  // Solo máximo
+  if (!hasMin && hasMax) return `${t.maxAge} ${max}`;
+
+  // Solo mínimo
+  if (hasMin && !hasMax) return `${min}+`;
+
+  // Rango
+  if (hasMin && hasMax) {
+    // Guard: si viniera max < min, priorizamos mínimo para evitar un rango inválido.
+    if ((max as number) < (min as number)) return `${min}+`;
+    return `${min}–${max}`;
+  }
+
+  return "—";
+}
+
 export default function ActivityShowcaseBlock({ documentId, locale }: Props) {
   const t = getI18n(locale);
   const { mutate } = useSWRConfig();
@@ -154,13 +184,14 @@ export default function ActivityShowcaseBlock({ documentId, locale }: Props) {
   const isAvailable = Boolean(activity.available);
   const price = activity.price;
   const minAge = activity.minAge;
+  const maxAge = activity.maxAge;
   const season = activity.season;
 
   const headingId = `activity-showcase-${documentId}`;
 
   const priceValue =
     typeof price === "number" ? formatPrice(price, locale) : "—";
-  const minAgeValue = typeof minAge === "number" ? `${minAge}+` : "—";
+  const ageValue = formatAgeRangeValue(minAge, maxAge, t);
   const seasonValue = season ? seasonLabel(season, locale) : "—";
 
   return (
@@ -227,16 +258,16 @@ export default function ActivityShowcaseBlock({ documentId, locale }: Props) {
               </p>
             </div>
 
-            {/* Min age */}
+            {/* Age (general) */}
             <div className="rounded-xl border border-default-200 bg-default-50 p-4 transition-colors focus-within:border-red-600/30 focus-within:bg-red-600/5 hover:border-red-600/30 hover:bg-red-600/5">
               <dt className="text-sm font-semibold uppercase tracking-wide text-default-500 sm:text-base">
-                {t.minAge}
+                {t.age}
               </dt>
               <dd className="mt-2 text-base font-semibold text-default-900 sm:text-lg lg:text-xl">
-                {minAgeValue}
+                {ageValue}
               </dd>
               <p className="mt-1 text-xs text-default-600 sm:text-sm">
-                {t.minAgeHint}
+                {t.ageHint}
               </p>
             </div>
 

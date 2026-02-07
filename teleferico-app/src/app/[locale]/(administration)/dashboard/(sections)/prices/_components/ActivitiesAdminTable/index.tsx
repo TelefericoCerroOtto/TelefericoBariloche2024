@@ -15,7 +15,9 @@ import {
   TableRow,
 } from "@heroui/react";
 import { useCallback } from "react";
-import ActivityAvailableToggle from "./ActivityAvailableToggle";
+import AvailableToggle from "./AvailableToggle";
+import ActiveToggle from "./ActiveToggle";
+import { truncateString } from "@/utils/truncate-string";
 
 type ColumnKeys =
   | "name"
@@ -24,6 +26,7 @@ type ColumnKeys =
   | "season"
   | "requirements"
   | "available"
+  | "isActive"
   | "actions";
 
 const columns: { key: ColumnKeys; label: string }[] = [
@@ -33,6 +36,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
   { key: "season", label: "Temporada" },
   { key: "requirements", label: "Requisitos" },
   { key: "available", label: "Disponible" },
+  { key: "isActive", label: "Publicada/Oculta" },
   { key: "actions", label: "Acciones" },
 ];
 
@@ -67,19 +71,25 @@ export default function ActivitiesAdminTable() {
             <span>{seasonLabels[activity.season] || activity.season}</span>
           );
         case "requirements": {
-          const req = activity.activity_translations?.[0]?.requirements ?? "";
-          return <span>{req || "-"}</span>;
+          const requiriments =
+            activity.activity_translations?.[0]?.requirements ?? "-";
+          const MAX_CHARS = 60;
+          const preview = truncateString(requiriments, MAX_CHARS);
+
+          return <span>{preview}</span>;
         }
+
         case "available":
-          return <ActivityAvailableToggle activity={activity} />;
+          return <AvailableToggle activity={activity} />;
+
+        case "isActive":
+          return <ActiveToggle activity={activity} />;
 
         case "actions":
           return (
             <TableActionsButtons
               item={activity}
-              eraseModalTitle="Eliminar actividad"
               editPath={ADMIN_ROUTES.EDIT_ACTIVITY_TICKET}
-              erasePath={STRAPI_ENDPOINTS.ACTIVITIES}
             />
           );
       }

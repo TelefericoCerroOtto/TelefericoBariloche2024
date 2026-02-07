@@ -6,6 +6,7 @@ import {
   InputLocaleWrapper,
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
+import { validateActivityLabelAvailability } from "@/lib/actions";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import {
   formInputClassNames,
@@ -24,18 +25,20 @@ import {
   Tooltip,
 } from "@heroui/react";
 import { useFormik } from "formik";
+import debounce from "just-debounce-it";
+import { Check, Info, Tag, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { seasonOptions } from "../data";
+import {
+  LABEL_TOOLTIP_TEXT_CREATE,
+  MAX_AGE_TOOLTIP_TEXT,
+  MIN_AGE_TOOLTIP_TEXT,
+  seasonOptions,
+} from "../data";
 import { createActivityAction } from "./actions";
 import { descConfig, nameConfig, requirementsConfig } from "./data";
-import { Check, Info, Tag, X } from "lucide-react";
-import debounce from "just-debounce-it";
-import { validateActivityLabelAvailability } from "@/lib/actions";
 
 type LabelStatus = "idle" | "validating" | "available" | "unavailable";
-const LABEL_TOOLTIP_TEXT =
-  "Es un nombre único para identificar esta actividad. Se usa para organizar y conectar información del sistema. Una vez creada, no se puede cambiar. Solo puede contener letras minúsculas. Sugerencia: Use una sola palabra en inglés que describa la actividad. Ej.: sledge, circuit, hiking.";
 
 export default function Form() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,7 +70,7 @@ export default function Form() {
         return router.push(`${ADMIN_ROUTES.PRICES}?selected=activities`);
       }
       setIsSubmitting(false);
-      console.log(res.message);
+      console.log(res.message, "\n", res.data);
       showAlert({
         title: "Error",
         message: "Ocurrió un error al crear la actividad",
@@ -108,8 +111,10 @@ export default function Form() {
       requirements_pt: "",
       price: 0,
       minAge: 0,
+      maxAge: undefined,
       season: "allSeasons",
       available: true,
+      isActive: true,
     },
     validationSchema: createActivitySchema,
     onSubmit,
@@ -238,7 +243,7 @@ export default function Form() {
             <span className="font-bold text-red-600">*</span>
 
             {/* Tooltip junto al label */}
-            <Tooltip content={LABEL_TOOLTIP_TEXT} placement="right">
+            <Tooltip content={LABEL_TOOLTIP_TEXT_CREATE} placement="right">
               <span
                 className="inline-flex cursor-pointer font-bold text-blue-600"
                 aria-label="Información sobre el campo etiqueta"
@@ -309,20 +314,72 @@ export default function Form() {
         onChange={(value) => {
           if (typeof value === "number") setFieldValue("price", value);
         }}
+        onBlur={handleBlur}
       />
 
       <NumberInput
-        label="Edad mínima"
         labelPlacement="outside"
         name="minAge"
         id="minAge"
         type="number"
         classNames={formInputClassNames}
         hideStepper
+        isRequired
         value={values.minAge}
         onChange={(value) => {
           if (typeof value === "number") setFieldValue("minAge", value);
         }}
+        onBlur={handleBlur}
+        label={
+          <div className="flex items-center gap-2">
+            <span>Edad mínima</span>
+            <span className="font-bold text-red-600">*</span>
+
+            {/* Tooltip junto al label */}
+            <Tooltip content={MIN_AGE_TOOLTIP_TEXT} placement="right">
+              <span
+                className="inline-flex cursor-pointer font-bold text-blue-600"
+                aria-label="Información sobre el campo etiqueta"
+              >
+                <Info size={18} />
+              </span>
+            </Tooltip>
+          </div>
+        }
+        errorMessage={errors.minAge}
+        isInvalid={!!errors.minAge && !!touched.minAge}
+      />
+
+      <NumberInput
+        labelPlacement="outside"
+        name="maxAge"
+        id="maxAge"
+        type="number"
+        classNames={formInputClassNames}
+        hideStepper
+        value={values.maxAge}
+        placeholder="Ej.: 13"
+        onChange={(value) => {
+          if (typeof value === "number") setFieldValue("maxAge", value);
+        }}
+        onBlur={handleBlur}
+        label={
+          <div className="flex items-center gap-2">
+            <span>Edad máxima</span>
+
+            {/* Tooltip junto al label */}
+            <Tooltip content={MAX_AGE_TOOLTIP_TEXT} placement="right">
+              <span
+                className="inline-flex cursor-pointer font-bold text-blue-600"
+                aria-label="Información sobre el campo etiqueta"
+              >
+                <Info size={18} />
+              </span>
+            </Tooltip>
+          </div>
+        }
+        errorMessage={errors.maxAge}
+        isInvalid={!!errors.maxAge && !!touched.maxAge}
       />
 
       <Select
@@ -351,7 +408,7 @@ export default function Form() {
         isSelected={values.available}
         onChange={handleChange}
       >
-        {values.available ? "Actividad habilitada" : "Cerrada al público"}
+        {values.available ? "Actividad disponible" : "Cerrada al público"}
       </Switch>
 
       <FormButtons

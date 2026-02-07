@@ -9,6 +9,7 @@ import type {
 } from "@/types";
 import { getSession } from "@/lib/auth/get-session";
 import { ValidationError } from "yup";
+import { updateAccessTicketAdapter } from "@/lib/adapters/forms/prices";
 
 export const updateTicketAction = async (
   values: UpdateAccessTicketFormData,
@@ -23,19 +24,18 @@ export const updateTicketAction = async (
 
     for (let i = 0; i < locales.length; i++) {
       const locale = locales[i];
-      const data = {
-        lifting_mean: values.liftingMean,
-        price: values.price,
-        name: values[`accessName_${locale}`],
-      };
+      const reqBody = updateAccessTicketAdapter(values, locale);
 
       const res = await updateAccessTicket(
-        { reqBody: { data }, documentId, locale },
+        { reqBody, documentId, locale },
         jwt,
       );
 
       if (!res.ok) {
-        console.log(res.data);
+        console.log(
+          `updateTicketAction error. Failed to updateAccessTicket in locale ${locale}: `,
+          res.data,
+        );
         return {
           success: false,
           message: `Server action 'updateTicketAction' failed: An error occurred while updating locale ${locale} access ticket.`,

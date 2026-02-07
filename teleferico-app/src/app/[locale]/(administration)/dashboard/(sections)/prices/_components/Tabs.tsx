@@ -1,5 +1,3 @@
-// teleferico-app/src/app/[locale]/(administration)/dashboard/(sections)/prices/_components/Tabs.tsx
-
 "use client";
 
 import { Button, Tabs as HeroTabs, Tab } from "@heroui/react";

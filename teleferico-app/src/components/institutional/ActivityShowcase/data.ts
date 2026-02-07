@@ -32,7 +32,7 @@ export function getI18n(locale: Locales) {
 
     // Labels
     price: isPt ? "Preço" : isEs ? "Precio" : "Price",
-    minAge: isPt ? "Idade mínima" : isEs ? "Edad mínima" : "Minimum age",
+    age: isPt ? "Idade" : isEs ? "Edad" : "Age",
     season: isPt ? "Temporada" : isEs ? "Temporada" : "Season",
     availability: isPt
       ? "Disponibilidade"
@@ -41,17 +41,22 @@ export function getI18n(locale: Locales) {
         : "Availability",
     requirements: isPt ? "Requisitos" : isEs ? "Requisitos" : "Requirements",
 
+    // Valores “comunes”
+    allAges: isPt ? "Todas as idades" : isEs ? "Todas las edades" : "All ages",
+
+    maxAge: isPt ? "Até" : isEs ? "Hasta" : "Up to",
+
     // Microcopy “de apoyo”
     priceHint: isPt
       ? "Tarifa informativa."
       : isEs
         ? "Tarifa informativa."
         : "Informational rate.",
-    minAgeHint: isPt
-      ? "Idade mínima para participar."
+    ageHint: isPt
+      ? "Faixa etária para participar."
       : isEs
-        ? "Edad mínima para participar."
-        : "Minimum age to participate.",
+        ? "Rango de edad para participar."
+        : "Age range to participate.",
     seasonHint: isPt
       ? "Operação conforme a estação."
       : isEs

@@ -6,6 +6,7 @@ import {
   isHttpUrl,
   withLocalePrefix,
 } from "@/lib/helpers/links";
+import { StrapiBlocksPayload } from "@/types";
 import {
   BlocksRenderer,
   type BlocksContent,
@@ -18,7 +19,7 @@ export default function BlockRendererClient({
   content,
   className,
 }: {
-  readonly content: BlocksContent;
+  readonly content: BlocksContent | StrapiBlocksPayload;
   className?: string;
 }) {
   const { locale } = useLocale();
@@ -30,7 +31,7 @@ export default function BlockRendererClient({
       className={`prose max-w-none text-base text-black md:text-xl lg:text-2xl ${className}`}
     >
       <BlocksRenderer
-        content={content}
+        content={content as BlocksContent}
         blocks={{
           image: ({ image }) => (
             <Image

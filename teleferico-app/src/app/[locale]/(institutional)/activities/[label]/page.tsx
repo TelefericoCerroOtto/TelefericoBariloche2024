@@ -3,6 +3,7 @@ import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { getPageContent } from "@/lib/services";
 import { Locales } from "@/types";
 import { notFound } from "next/navigation";
+import { getActivityByLabel } from "./helper";
 
 export default async function ActivityDetailPage({
   params,
@@ -10,6 +11,12 @@ export default async function ActivityDetailPage({
   params: Promise<{ locale: Locales; label: string }>;
 }) {
   const { label, locale } = await params;
+
+  // 1) Chequeo de integridad: activity existe (y está activa si agregás isActive)
+  const activityRes = await getActivityByLabel(label);
+  if (!activityRes.ok || activityRes.data.data.length === 0) {
+    return notFound();
+  }
 
   const res = await getPageContent(
     locale,

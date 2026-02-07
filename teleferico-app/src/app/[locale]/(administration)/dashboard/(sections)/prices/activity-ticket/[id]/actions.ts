@@ -37,10 +37,10 @@ export const updateActivityAction = async (
     );
 
     if (!res.ok) {
-      console.log(res.data);
+      console.log("Activity update error at updateActivityAction: ", res.data);
       return {
         success: false,
-        message: `Server action 'updateZoneAction' failed: An error occurred while updating zone.`,
+        message: `Server action 'updateActivityAction' failed: An error occurred while updating activity.`,
         data: res.data,
       };
     }

@@ -39,10 +39,10 @@ export async function runFormGuards(
   }
 
   const ip = getClientIp(req);
-  console.log("ip: ", ip);
+
   if (rateLimited) {
     const { rateLimitStore, maxHits, windowMs } = rateLimited;
-    console.log("rateLimitStore: ", rateLimitStore);
+
     if (isRateLimited(ip, rateLimitStore, maxHits, windowMs)) {
       return {
         ok: false,

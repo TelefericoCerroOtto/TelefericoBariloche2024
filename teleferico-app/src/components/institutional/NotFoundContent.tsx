@@ -13,7 +13,6 @@ export default function NotFoundContent() {
   const dictionaries: Record<
     Locales,
     {
-      kicker: string;
       title: string;
       subtitle: string;
       body: string;
@@ -35,9 +34,8 @@ export default function NotFoundContent() {
     }
   > = {
     "es-AR": {
-      kicker: "Teleférico Cerro Otto",
       title: "Página no encontrada",
-      subtitle: "Parece que esta vista se desenganchó del cable.",
+      subtitle: "Parece que esta vista se perdió en la montaña.",
       body: "La URL puede estar mal escrita o la página fue movida. Volvé al inicio o explorá opciones útiles para planificar tu visita al Cerro Otto.",
       primaryCta: "Ir al inicio",
       primaryCtaAria: "Ir a la página de inicio",
@@ -57,9 +55,8 @@ export default function NotFoundContent() {
         "Encontrá experiencias, horarios y servicios del Teleférico Cerro Otto para tu visita.",
     },
     en: {
-      kicker: "Cerro Otto Cable Car",
       title: "Page not found",
-      subtitle: "Looks like this view slipped off the line.",
+      subtitle: "It seems this view was lost in the mountains",
       body: "The URL may be misspelled or the page was moved. Head back home or explore key links to plan your visit to Cerro Otto.",
       primaryCta: "Back to home",
       primaryCtaAria: "Go back to the homepage",
@@ -76,12 +73,11 @@ export default function NotFoundContent() {
       sideBadge: "Error 404",
       sideTitle: "Back to the mountain",
       sideBody:
-        "Find experiences, opening hours, and services from the Cerro Otto Cable Car for your Bariloche trip.",
+        "Find experiences, opening hours, and services from the Teleférico Cerro Otto for your Bariloche trip.",
     },
     pt: {
-      kicker: "Teleférico Cerro Otto",
       title: "Página não encontrada",
-      subtitle: "Parece que esta vista saiu do cabo.",
+      subtitle: "Parece que essa vista se perdeu nas montanhas.",
       body: "A URL pode estar incorreta ou a página foi movida. Volte ao início ou explore links úteis para planejar sua visita ao Cerro Otto.",
       primaryCta: "Ir para o início",
       primaryCtaAria: "Ir para a página inicial",
@@ -169,7 +165,7 @@ export default function NotFoundContent() {
                 />
                 <span className="h-6 w-px bg-border/70" aria-hidden="true" />
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-foreground/70">
-                  {t.kicker}
+                  Teleférico Cerro Otto
                 </p>
               </div>
 
@@ -337,7 +333,7 @@ export default function NotFoundContent() {
                       aria-hidden="true"
                     />
                     <div className="mt-3 flex items-center justify-between text-xs text-background/60">
-                      <span>{t.kicker}</span>
+                      <span>Teleférico Cerro Otto</span>
                       <span aria-hidden="true">·</span>
                       <span>{t.sideKicker}</span>
                     </div>

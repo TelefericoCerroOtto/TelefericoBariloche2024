@@ -6,6 +6,11 @@ export const renderActivityShowcase: RendererMap["page-components.activity-showc
     const documentId = block.activity?.documentId;
 
     if (!documentId) {
+      console.log(
+        "renderActivityShowcase - missing documentId for block: ",
+        block,
+      );
+
       // Mantener el sitio robusto ante contenido mal configurado
       return (
         <div className="my-10 rounded-2xl border border-danger/30 bg-danger/5 p-5">

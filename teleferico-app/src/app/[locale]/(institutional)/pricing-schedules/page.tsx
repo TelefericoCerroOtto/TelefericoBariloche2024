@@ -35,12 +35,14 @@ export default async function PricingSchedulesPage({
       <div className="flex w-full flex-col px-10 sm:px-20 lg:px-40">
         <StrapiComponentRenderer block={blocks[1]} locale={locale} />
         <TicketsTable />
-        <Spacer y={10} />
-        <ActivitiesTable />
         <Spacer y={16} />
         <StrapiComponentRenderer block={blocks[2]} locale={locale} />
+        <ActivitiesTable />
+        <Spacer y={16} />
+        <StrapiComponentRenderer block={blocks[3]} locale={locale} />
         <ZonesTable />
-        <Spacer y={10} />
+        <Spacer y={16} />
+        <StrapiComponentRenderer block={blocks[4]} locale={locale} />
         <BusesTable />
       </div>
     </>

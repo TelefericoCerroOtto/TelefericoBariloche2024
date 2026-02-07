@@ -75,7 +75,7 @@ export type ServiceStatus = StrapiRecord<{
 
 export type Faq = StrapiRecord<{
   question: string;
-  answer: string;
+  answer: StrapiBlocksPayload;
   featured: boolean;
 }>;
 
@@ -130,6 +130,7 @@ export type BusTrip = StrapiRecord<{
   arrTime: string;
   origin: Station;
   destination: Station;
+  isVisible: boolean;
   locale: null;
 }>;
 
@@ -145,8 +146,10 @@ export type Activity = StrapiRecord<{
   label: string;
   price: number;
   minAge: number;
+  maxAge: number | null;
   season: Season;
   available: boolean;
+  isActive: boolean;
   activity_translations: ActivityTranslation[];
   page: Page;
   locale: null;

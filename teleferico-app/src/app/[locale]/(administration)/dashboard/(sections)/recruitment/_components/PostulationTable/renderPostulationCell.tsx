@@ -7,6 +7,7 @@ import { CheckCircle2, Clock, OctagonAlert, XCircle } from "lucide-react";
 import ActionsButton from "./ActionsButton";
 import { type ColumnKeys } from "./data";
 import { type Option } from "./Filters";
+import { truncateString } from "@/utils/truncate-string";
 
 type PostulationItem = GetPostulationsResponse["data"][number];
 
@@ -131,10 +132,7 @@ export function renderPostulationCell({
       if (!item.note) return <span>-</span>;
 
       const MAX_CHARS = 80;
-      const preview =
-        item.note.length > MAX_CHARS
-          ? item.note.slice(0, MAX_CHARS) + "…"
-          : item.note;
+      const preview = truncateString(item.note, MAX_CHARS);
 
       return (
         <Popover placement="top-start" showArrow>

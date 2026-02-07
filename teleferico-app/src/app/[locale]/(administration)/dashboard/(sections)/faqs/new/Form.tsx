@@ -4,13 +4,15 @@ import {
   FormButtons,
   FormLocaleSelector,
   InputLocaleWrapper,
+  Rte,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { formCheckboxClassNames } from "@/lib/constants/styles.const";
 import { createFaqSchema } from "@/lib/schemas";
 import type { CreateFaqFormData } from "@/types";
-import { addToast, Checkbox, Input, Textarea } from "@heroui/react";
+import { createEmptyJSONContent } from "@/utils/tiptap";
+import { addToast, Checkbox, Input } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -21,9 +23,9 @@ const initialValues: CreateFaqFormData = {
   "question_es-AR": "",
   question_en: "",
   question_pt: "",
-  "answer_es-AR": "",
-  answer_en: "",
-  answer_pt: "",
+  "answer_es-AR": createEmptyJSONContent(),
+  answer_en: createEmptyJSONContent(),
+  answer_pt: createEmptyJSONContent(),
   featured: false,
 };
 
@@ -102,7 +104,7 @@ export default function FaqForm() {
         isRequired
       />
       <InputLocaleWrapper
-        Input={Textarea}
+        Input={Rte}
         config={answerConfig}
         formik={{ values, setFieldValue, setFieldTouched, errors, touched }}
         handleChange={handleChange}

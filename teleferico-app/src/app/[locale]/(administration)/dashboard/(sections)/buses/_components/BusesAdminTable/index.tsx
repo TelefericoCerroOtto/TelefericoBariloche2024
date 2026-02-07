@@ -5,7 +5,7 @@ import { useProxy } from "@/hooks";
 import { StrapiTimeToTableRecordTime } from "@/lib/adapters";
 import { ADMIN_ROUTES, STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { tableStyles } from "@/lib/constants/styles.const";
-import { BusTrip, GetBusTripsResponse } from "@/types";
+import type { BusTrip, GetBusTripsResponse } from "@/types";
 import {
   Table as NextUITable,
   Spinner,
@@ -14,23 +14,42 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
+  type SortDescriptor,
 } from "@heroui/react";
-import { useCallback } from "react";
-import Toolbar from "./Toolbar";
+import { useCallback, useMemo, useState } from "react";
+import Toolbar from "../Toolbar";
+import VisibleToggle from "./VisibleToggle";
 
-type ColumnKeys = "origin" | "destination" | "depTime" | "arrTime" | "actions";
+type ColumnKeys =
+  | "origin"
+  | "destination"
+  | "depTime"
+  | "arrTime"
+  | "isVisible"
+  | "actions";
 
 const columns: { key: ColumnKeys; label: string }[] = [
   { key: "origin", label: "Lugar De Salida" },
   { key: "destination", label: "Lugar De Llegada" },
   { key: "depTime", label: "Horario De Salida" },
   { key: "arrTime", label: "Horario De Llegada" },
+  { key: "isVisible", label: "Visible" },
   { key: "actions", label: "Acciones" },
 ];
 
 // TODO: Implement filters for departure and arrival points
 
 export default function BusesAdminTable() {
+  const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
+    column: "origin",
+    direction: "ascending",
+  });
+
+  const collator = useMemo(
+    () => new Intl.Collator("es-AR", { sensitivity: "base" }),
+    [],
+  );
+
   const query = {
     populate: {
       origin: {
@@ -68,7 +87,7 @@ export default function BusesAdminTable() {
 
   if (isError)
     console.log(
-      "Hubo un error al cargar los datos de la tabla de zonas: ",
+      "Hubo un error al cargar los datos de la tabla de viajes: ",
       "\n",
       isError,
     );
@@ -79,8 +98,8 @@ export default function BusesAdminTable() {
         case "origin":
           return (
             <span>
-              {item[columnKey].station_translations?.[0]?.name ||
-                item[columnKey].key ||
+              {item.origin.station_translations?.[0]?.name ||
+                item.origin.key ||
                 "-"}
             </span>
           );
@@ -88,17 +107,20 @@ export default function BusesAdminTable() {
         case "destination":
           return (
             <span>
-              {item[columnKey].station_translations?.[0]?.name ||
-                item[columnKey].key ||
+              {item.destination.station_translations?.[0]?.name ||
+                item.destination.key ||
                 "-"}
             </span>
           );
 
         case "depTime":
-          return <span>{StrapiTimeToTableRecordTime(item[columnKey])}</span>;
+          return <span>{StrapiTimeToTableRecordTime(item.depTime)}</span>;
 
         case "arrTime":
-          return <span>{StrapiTimeToTableRecordTime(item[columnKey])}</span>;
+          return <span>{StrapiTimeToTableRecordTime(item.arrTime)}</span>;
+
+        case "isVisible":
+          return <VisibleToggle busTrip={item} />;
 
         case "actions":
           return (
@@ -118,15 +140,64 @@ export default function BusesAdminTable() {
     [key],
   );
 
+  const sortedItems = useMemo(() => {
+    const items = data?.data ? [...data.data] : [];
+
+    const column = sortDescriptor.column as ColumnKeys;
+    const direction = sortDescriptor.direction ?? "ascending";
+    const multiplier = direction === "descending" ? -1 : 1;
+
+    const getStationLabel = (station: BusTrip["origin"]) =>
+      station.station_translations?.[0]?.name || station.key || "";
+
+    items.sort((a, b) => {
+      switch (column) {
+        case "origin":
+          return (
+            collator.compare(
+              getStationLabel(a.origin),
+              getStationLabel(b.origin),
+            ) * multiplier
+          );
+
+        case "destination":
+          return (
+            collator.compare(
+              getStationLabel(a.destination),
+              getStationLabel(b.destination),
+            ) * multiplier
+          );
+
+        case "depTime":
+          return a.depTime.localeCompare(b.depTime) * multiplier;
+
+        case "arrTime":
+          return a.arrTime.localeCompare(b.arrTime) * multiplier;
+
+        default:
+          return 0;
+      }
+    });
+
+    return items;
+  }, [collator, data?.data, sortDescriptor]);
+
   return (
     <>
       <Toolbar />
       <TableContainer>
-        <NextUITable {...tableStyles} className="text-base">
+        <NextUITable
+          {...tableStyles}
+          className="text-base"
+          selectionMode="single"
+          sortDescriptor={sortDescriptor}
+          onSortChange={setSortDescriptor}
+        >
           <TableHeader columns={columns}>
             {(column) => (
               <TableColumn
                 key={column.key}
+                allowsSorting={column.key !== "actions"}
                 className={`${
                   column.key === "actions" ? "text-center" : ""
                 } text-lg font-semibold text-black`}
@@ -135,10 +206,11 @@ export default function BusesAdminTable() {
               </TableColumn>
             )}
           </TableHeader>
+
           <TableBody
             className="text-base"
             emptyContent={"No hay viajes para mostrar"}
-            items={data?.data || []}
+            items={sortedItems}
             isLoading={isLoading}
             loadingContent={<Spinner label="Cargando viajes" />}
           >

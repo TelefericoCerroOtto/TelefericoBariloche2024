@@ -1,4 +1,4 @@
-import { object, string } from "yup";
+import { boolean, object, string } from "yup";
 import { timeSchema } from "../primitives";
 import { localeMessages } from "../i18n";
 
@@ -9,6 +9,7 @@ export const createBusTripSchema = object({
   destination: string().required(es.string.required),
   depTime: timeSchema,
   arrTime: timeSchema,
+  isVisible: boolean().required(es.string.required),
 });
 
 export const updateBusTripSchema = createBusTripSchema.shape({

@@ -7,13 +7,13 @@ import { addToast, Switch } from "@heroui/react";
 import { LockKeyhole, LockKeyholeOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
-import { updateActivityAvailableStatusAction } from "./actions";
+import { updateActivityStatusAction } from "./actions";
 
 interface Props {
   activity: Activity;
 }
 
-export default function ActivityAvailableToggle({ activity }: Props) {
+export default function AvailableToggle({ activity }: Props) {
   const [isAvailable, setIsAvailable] = useState<boolean>(
     () => activity.available ?? false,
   );
@@ -33,10 +33,9 @@ export default function ActivityAvailableToggle({ activity }: Props) {
     setIsUpdating(true);
 
     try {
-      const res = await updateActivityAvailableStatusAction(
-        activity.documentId,
-        nextValue,
-      );
+      const res = await updateActivityStatusAction(activity.documentId, {
+        available: nextValue,
+      });
 
       if (!res.success) {
         setIsAvailable(previousValue);

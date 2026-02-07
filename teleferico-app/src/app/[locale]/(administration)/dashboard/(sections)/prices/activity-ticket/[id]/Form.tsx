@@ -7,6 +7,10 @@ import {
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import {
+  formInputClassNames,
+  selectInputStyles,
+} from "@/lib/constants/styles.const";
 import { updateActivitySchema } from "@/lib/schemas";
 import type { UpdateActivityFormData } from "@/types";
 import {
@@ -19,23 +23,20 @@ import {
   Tooltip,
 } from "@heroui/react";
 import { useFormik } from "formik";
+import { Info, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { seasonOptions } from "../data";
+import {
+  LABEL_TOOLTIP_TEXT_EDIT,
+  MAX_AGE_TOOLTIP_TEXT,
+  seasonOptions,
+} from "../data";
 import { updateActivityAction } from "./actions";
 import { descConfig, nameConfig, requirementsConfig } from "./data";
-import {
-  formInputClassNames,
-  selectInputStyles,
-} from "@/lib/constants/styles.const";
-import { Tag } from "lucide-react";
 
 interface Props {
   initialValues: UpdateActivityFormData;
 }
-
-const LABEL_TOOLTIP_TEXT =
-  "Identificador único de la actividad. Se usa para organizar y conectar información del sistema. Su valor no se puede cambiar.";
 
 export default function Form(props: Props) {
   const { initialValues } = props;
@@ -59,7 +60,7 @@ export default function Form(props: Props) {
         return router.push(`${ADMIN_ROUTES.PRICES}?selected=activities`);
       }
       setIsSubmitting(false);
-      console.log(res.message);
+      console.log(res.message, "\n", res.data);
       showAlert({
         title: "Error",
         message: "Ocurrió un error al actualizar la actividad",
@@ -102,7 +103,7 @@ export default function Form(props: Props) {
         selectedKeys={selectedKeys}
         handleSelectionChange={handleSelectionChange}
       />
-      <Tooltip content={LABEL_TOOLTIP_TEXT} placement="top">
+      <Tooltip content={LABEL_TOOLTIP_TEXT_EDIT} placement="top">
         <div className="inline-block w-full cursor-not-allowed">
           <Input
             id="label"
@@ -155,6 +156,7 @@ export default function Form(props: Props) {
         onChange={(value) => {
           if (typeof value === "number") setFieldValue("price", value);
         }}
+        onBlur={handleBlur}
       />
       <NumberInput
         label="Edad mínima"
@@ -169,7 +171,43 @@ export default function Form(props: Props) {
         onChange={(value) => {
           if (typeof value === "number") setFieldValue("minAge", value);
         }}
+        onBlur={handleBlur}
+        errorMessage={errors.minAge}
+        isInvalid={!!errors.minAge && !!touched.minAge}
       />
+
+      <NumberInput
+        labelPlacement="outside"
+        name="maxAge"
+        id="maxAge"
+        type="number"
+        classNames={formInputClassNames}
+        hideStepper
+        value={values.maxAge}
+        placeholder="Ej.: 13"
+        onChange={(value) => {
+          if (typeof value === "number") setFieldValue("maxAge", value);
+        }}
+        onBlur={handleBlur}
+        label={
+          <div className="flex items-center gap-2">
+            <span>Edad máxima</span>
+
+            {/* Tooltip junto al label */}
+            <Tooltip content={MAX_AGE_TOOLTIP_TEXT} placement="right">
+              <span
+                className="inline-flex cursor-pointer font-bold text-blue-600"
+                aria-label="Información sobre el campo etiqueta"
+              >
+                <Info size={18} />
+              </span>
+            </Tooltip>
+          </div>
+        }
+        errorMessage={errors.maxAge}
+        isInvalid={!!errors.maxAge && !!touched.maxAge}
+      />
+
       <Select
         name="season"
         id="season"
@@ -196,7 +234,7 @@ export default function Form(props: Props) {
         isSelected={values.available}
         onChange={handleChange}
       >
-        {values.available ? "Actividad habilitada" : "Cerrada al público"}
+        {values.available ? "Actividad disponible" : "Cerrada al público"}
       </Switch>
 
       <FormButtons

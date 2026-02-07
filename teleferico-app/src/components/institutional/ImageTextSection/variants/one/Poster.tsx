@@ -46,7 +46,7 @@ export default function Poster(props: ImageTextBlock) {
 
           {/* Center content card */}
           <div className="absolute inset-0 flex items-center justify-center px-5 py-8">
-            <article className="w-full max-w-3xl rounded-3xl bg-background/80 px-8 py-10 text-foreground shadow-2xl shadow-black/20 ring-1 ring-red-500/25 backdrop-blur-md md:px-12 md:py-12">
+            <article className="w-full max-w-3xl rounded-3xl bg-background/50 px-8 py-10 text-foreground shadow-2xl shadow-black/20 ring-1 ring-red-500/25 backdrop-blur-md md:px-12 md:py-12">
               {/* Top accent */}
               <div
                 aria-hidden="true"

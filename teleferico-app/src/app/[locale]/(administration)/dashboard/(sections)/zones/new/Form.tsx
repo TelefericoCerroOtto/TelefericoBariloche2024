@@ -230,6 +230,7 @@ export default function Form() {
         label={
           <div className="flex items-center gap-2">
             <span>Etiqueta</span>
+            <span className="font-bold text-red-600">*</span>
 
             {/* Tooltip junto al label */}
             <Tooltip content={LABEL_TOOLTIP_TEXT} placement="right">

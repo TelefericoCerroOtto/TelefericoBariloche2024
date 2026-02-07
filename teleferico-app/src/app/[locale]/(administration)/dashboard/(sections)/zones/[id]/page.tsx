@@ -19,7 +19,6 @@ export default async function EditZonePage({
   }
 
   const initialValues = getZoneAdapter(res.data);
-  console.log("initialValues: ", initialValues);
 
   return (
     <FormContainer desc={FORM_DESC}>

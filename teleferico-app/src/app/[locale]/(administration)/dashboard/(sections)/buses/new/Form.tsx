@@ -9,9 +9,10 @@ import {
 } from "@/lib/constants/styles.const";
 import { createBusTripSchema } from "@/lib/schemas";
 import type { CreateBusTripFormData, Station } from "@/types";
-import { Select, SelectItem } from "@heroui/react";
+import { Select, SelectItem, Switch } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";
+import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createBusTripAction } from "./actions";
@@ -66,6 +67,7 @@ export default function Form(props: Props) {
         arrTime: { hour: 0, mins: 0 },
         destination: "",
         depTime: { hour: 0, mins: 0 },
+        isVisible: true,
       },
       validationSchema: createBusTripSchema,
       onSubmit,
@@ -141,6 +143,18 @@ export default function Form(props: Props) {
           if (el) setTimeInputLoading(false);
         }}
       />
+
+      <Switch
+        name="isVisible"
+        id="isVisible"
+        isSelected={values.isVisible}
+        onChange={handleChange}
+        startContent={<Eye />}
+        endContent={<EyeOff />}
+      >
+        {values.isVisible ? "Visible al público" : "Oculto al público"}
+      </Switch>
+
       <FormButtons
         isSubmitting={isSubmitting}
         cancelRedirectRoute={ADMIN_ROUTES.BUSES}

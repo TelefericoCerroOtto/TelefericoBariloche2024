@@ -2,6 +2,10 @@ import { PUBLIC_ROUTES } from "./routes.const";
 
 export const PAGE_TAG_PREFIX = "page-content";
 
+const DATA_CACHE_TAGS = {
+  ACTIVITIES: "activities",
+} as const;
+
 const PAGE_CONTENT_CACHE_TAGS = {
   ACTIVITIES_CONTENT: `${PAGE_TAG_PREFIX}${PUBLIC_ROUTES.ACTIVITIES}`,
   CONTACT_CONTENT: `${PAGE_TAG_PREFIX}${PUBLIC_ROUTES.CONTACT}`,
@@ -29,4 +33,5 @@ const COMPONENTS_CACHE_TAGS = {
 export const CACHE_TAGS = {
   ...PAGE_CONTENT_CACHE_TAGS,
   ...COMPONENTS_CACHE_TAGS,
+  ...DATA_CACHE_TAGS,
 } as const;

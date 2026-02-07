@@ -154,7 +154,7 @@ export const blockUnblockUser = async (
   blocked: boolean,
 ) => {
   const bodyContent = JSON.stringify({ blocked });
-  console.log("bodyContent", bodyContent);
+
   return await updateUser(userId, jwt, bodyContent);
 };
 
