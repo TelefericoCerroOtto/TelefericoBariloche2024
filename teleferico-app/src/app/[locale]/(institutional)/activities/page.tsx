@@ -1,6 +1,6 @@
 import { BlocksRenderer, NoContent } from "@/components";
 import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
-import { getPageContent } from "@/lib/services";
+import { getActivities, getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
 
 export default async function ActivitiesPage({
@@ -19,14 +19,29 @@ export default async function ActivitiesPage({
       "Internal server error while trying to get content for Activities page",
     );
   if (res.data.data.length === 0) return <NoContent locale={locale} />;
-
   const blocks = res.data.data[0].blocks;
+  let filteredBlocks;
 
-  return (
-    <BlocksRenderer
-      config={{ "image-text-block": { baseUrl: PUBLIC_ROUTES.ACTIVITIES } }}
-      blocks={blocks}
-      locale={locale}
-    />
-  );
+  const activitiesRes = await getActivities(locale);
+  if (!activitiesRes.ok || activitiesRes.data.data.length === 0) {
+    console.log(
+      "Error while fetching activities in Activities page: ",
+      activitiesRes.data,
+    );
+    filteredBlocks = blocks;
+  } else {
+    filteredBlocks = blocks.filter((b) => {
+      if (b.__component !== "page-components.image-text-block") return true;
+
+      const href = b.link?.href ?? "";
+      const activity = activitiesRes.data.data.find((a) =>
+        href.includes(a.label),
+      );
+
+      if (!activity) return true; // no es un link a actividad
+      return activity.isActive; // solo mostrar si está activa
+    });
+  }
+
+  return <BlocksRenderer blocks={filteredBlocks} locale={locale} />;
 }

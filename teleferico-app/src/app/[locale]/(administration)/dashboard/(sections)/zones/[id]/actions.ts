@@ -30,7 +30,7 @@ export const updateZoneAction = async (
     const res = await updateZone({ reqBody: adaptedZone, documentId }, jwt);
 
     if (!res.ok) {
-      console.log(res.data);
+      console.log("Error updating zone at updateZoneAction: ", res.data);
       return {
         success: false,
         message: `Server action 'updateZoneAction' failed: An error occurred while updating zone.`,
@@ -55,7 +55,11 @@ export const updateZoneAction = async (
       );
 
       if (!res.ok) {
-        console.log(res.data);
+        console.log(
+          `Error updating zone translation in locale ${locale}: `,
+          res.data,
+        );
+
         return {
           success: false,
           message: `Server action 'updateZoneAction' failed: An error occurred while updating locale ${locale} zone translation.`,

@@ -1,0 +1,179 @@
+.teleferico-swiper {
+  width: 100%;
+  position: relative; /* NEW: necesario para ::before/::after */
+  overflow: hidden; /* NEW: para recortar el fade dentro del contenedor */
+
+  --teleferico-swiper-accent: #ff1a1a;
+
+  --swiper-theme-color: var(--teleferico-swiper-accent);
+  --swiper-pagination-color: var(--teleferico-swiper-accent);
+  --swiper-navigation-color: var(--teleferico-swiper-accent);
+  --swiper-navigation-size: 26px;
+
+  /* progreso 0..1 (lo setea el JS con onAutoplayTimeLeft) */
+  --teleferico-autoplay-progress: 0;
+
+  /* colores bullets */
+  --teleferico-bullet-inactive: rgb(0, 0, 0);
+  --teleferico-bullet-active: var(--teleferico-swiper-accent);
+
+  /* NEW: Fade lateral (alineado a flechas: 14px + 44px = 58px) */
+  --teleferico-edgefade-width: 58px;
+  --teleferico-edgefade-opacity: 0.42;
+}
+
+/* Flechas OFF en mobile, ON desde sm */
+.teleferico-swiper .swiper-button-prev,
+.teleferico-swiper .swiper-button-next {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .teleferico-swiper .swiper-button-prev,
+  .teleferico-swiper .swiper-button-next {
+    display: flex;
+    width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+    background: transparent !important;
+    box-shadow: none !important;
+
+    /* NEW: arriba del sombreado */
+    z-index: 30;
+  }
+
+  .teleferico-swiper .swiper-button-prev::after,
+  .teleferico-swiper .swiper-button-next::after {
+    filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55));
+  }
+
+  .teleferico-swiper .swiper-button-prev {
+    left: 14px;
+  }
+  .teleferico-swiper .swiper-button-next {
+    right: 14px;
+  }
+
+  /* =========================
+     NEW: Sombreado en degrade (solo cuando hay nav y solo desktop >= 640)
+     ========================= */
+  .teleferico-swiper.teleferico-swiper--nav::before,
+  .teleferico-swiper.teleferico-swiper--nav::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--teleferico-edgefade-width);
+    pointer-events: none;
+    z-index: 10; /* debajo de flechas (30) */
+  }
+
+  /* izquierda: oscuro -> transparente hacia el centro */
+  .teleferico-swiper.teleferico-swiper--nav::before {
+    left: 0;
+    background: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--teleferico-edgefade-opacity)),
+      rgba(0, 0, 0, 0)
+    );
+  }
+
+  /* derecha: oscuro -> transparente hacia el centro */
+  .teleferico-swiper.teleferico-swiper--nav::after {
+    right: 0;
+    background: linear-gradient(
+      to left,
+      rgba(0, 0, 0, var(--teleferico-edgefade-opacity)),
+      rgba(0, 0, 0, 0)
+    );
+  }
+
+  /* opcional: leve refuerzo al hover (quedó por defecto) */
+  .teleferico-swiper.teleferico-swiper--nav:hover {
+    --teleferico-edgefade-opacity: 0.5;
+  }
+}
+
+/* Paginación */
+.teleferico-swiper .swiper-pagination {
+  bottom: 14px;
+}
+
+.teleferico-swiper .swiper-pagination-bullet {
+  /* Gris más oscuro para inactivos */
+  background: var(--teleferico-bullet-inactive);
+  opacity: 1;
+
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+
+  position: relative;
+  overflow: hidden;
+
+  /* margen default de Swiper suele ser 0 4px, lo dejamos estable */
+  transition: width 200ms ease, opacity 200ms ease;
+}
+
+/* “capa” roja que se rellena (solo se usa en autoplay) */
+.teleferico-swiper .swiper-pagination-bullet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--teleferico-bullet-active);
+
+  transform: scaleX(0);
+  transform-origin: left center;
+
+  /* suaviza updates del JS */
+  transition: transform 80ms linear;
+  will-change: transform;
+}
+
+/* el activo se estira en X */
+.teleferico-swiper .swiper-pagination-bullet-active {
+  opacity: 1;
+  width: 22px; /* alargado en X */
+}
+
+/* =========================
+   MODO MANUAL (sin autoplay)
+   ========================= */
+.teleferico-swiper:not(.teleferico-swiper--autoplay)
+  .swiper-pagination-bullet-active {
+  background: var(--teleferico-bullet-active);
+}
+
+.teleferico-swiper:not(.teleferico-swiper--autoplay)
+  .swiper-pagination-bullet-active::before {
+  transform: scaleX(0);
+}
+
+/* =========================
+   MODO AUTOPLAY (barra carga)
+   ========================= */
+.teleferico-swiper.teleferico-swiper--autoplay
+  .swiper-pagination-bullet-active {
+  /* base gris y el rojo aparece como "relleno" */
+  background: var(--teleferico-bullet-inactive);
+}
+
+.teleferico-swiper.teleferico-swiper--autoplay
+  .swiper-pagination-bullet-active::before {
+  transform: scaleX(var(--teleferico-autoplay-progress, 0));
+}
+
+/* =========================
+   DESKTOP: bullets más grandes
+   (pensado para soportar hasta 15)
+   ========================= */
+@media (min-width: 1366px) {
+  .teleferico-swiper .swiper-pagination-bullet {
+    width: 10px;
+    height: 10px;
+  }
+
+  .teleferico-swiper .swiper-pagination-bullet-active {
+    width: 30px; /* un poco más estirado en desktop */
+  }
+}

@@ -13,12 +13,20 @@ import {
 } from "@/lib/constants/styles.const";
 import { updateAccessTicketSchema } from "@/lib/schemas";
 import type { UpdateAccessTicketFormData } from "@/types/forms";
-import { Input, NumberInput, Select, SelectItem } from "@heroui/react";
+import {
+  Input,
+  NumberInput,
+  Select,
+  SelectItem,
+  Textarea,
+} from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { descriptionConfig, nameConfig } from "../data";
 import { updateTicketAction } from "./actions";
-import { nameConfig } from "./data";
+import { LIFTING_MEANS } from "@/lib/constants/enum-fields.const";
+import { LIFTING_MEANS_TRANSLATIONS } from "@/lib/constants/enum-fields-i18n.const";
 
 interface Props {
   initialValues: UpdateAccessTicketFormData;
@@ -42,10 +50,10 @@ export default function Form(props: Props) {
           message: "Tarifa actualizada exitosamente",
           variant: "success",
         });
-        return router.push(ADMIN_ROUTES.PRICES);
+        return router.push(`${ADMIN_ROUTES.PRICES}?selected=tickets`);
       }
       setIsSubmitting(false);
-      console.log(res.message);
+      console.log(res.message, "\n", res.data);
       return showAlert({
         title: "Éxito",
         message: "Ocurrió un error inesperado al actualizar la tarifa",
@@ -78,8 +86,6 @@ export default function Form(props: Props) {
     onSubmit,
   });
 
-  console.log("values: ", values);
-
   return (
     <form
       className="flex flex-col gap-5 overflow-scroll"
@@ -100,6 +106,15 @@ export default function Form(props: Props) {
         locale={locale}
       />
 
+      <InputLocaleWrapper
+        Input={Textarea}
+        config={descriptionConfig}
+        formik={{ values, errors, touched, setFieldTouched, setFieldValue }}
+        handleChange={handleChange}
+        handleBlur={handleBlur}
+        locale={locale}
+      />
+
       <Select
         name="liftingMean"
         id="liftingMean"
@@ -111,16 +126,18 @@ export default function Form(props: Props) {
         labelPlacement="outside"
         placeholder="Seleccionar"
         isRequired
-        defaultSelectedKeys={new Set([values.liftingMean])}
-        value={values.liftingMean}
+        defaultSelectedKeys={[values.liftingMean]}
         onChange={handleChange}
         onBlur={handleBlur}
         errorMessage={errors.liftingMean}
         isInvalid={!!errors.liftingMean && touched.liftingMean}
         disallowEmptySelection
       >
-        <SelectItem key="cablecar">Teleférico</SelectItem>
-        <SelectItem key="road&funicular">Camino y funicular</SelectItem>
+        {LIFTING_MEANS.map((value) => (
+          <SelectItem key={value}>
+            {LIFTING_MEANS_TRANSLATIONS["es-AR"][value]}
+          </SelectItem>
+        ))}
       </Select>
 
       <NumberInput
@@ -136,7 +153,6 @@ export default function Form(props: Props) {
         value={values.price}
         onChange={(value) => {
           if (typeof value === "number") {
-            console.log("Number input value: ", value);
             setFieldValue("price", value);
           }
         }}
@@ -147,7 +163,7 @@ export default function Form(props: Props) {
 
       <FormButtons
         isSubmitting={isSubmitting}
-        cancelRedirectRoute={ADMIN_ROUTES.PRICES}
+        cancelRedirectRoute={`${ADMIN_ROUTES.PRICES}?selected=tickets`}
         disableSubmitButton={
           !dirty ||
           Object.keys(errors).length > 0 ||

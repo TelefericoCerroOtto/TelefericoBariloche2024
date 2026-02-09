@@ -4,13 +4,14 @@ import {
   FormButtons,
   FormLocaleSelector,
   InputLocaleWrapper,
+  Rte,
 } from "@/components";
 import { useFormLocaleSelector } from "@/hooks";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { formCheckboxClassNames } from "@/lib/constants/styles.const";
 import { updateFaqSchema } from "@/lib/schemas";
 import type { UpdateFaqFormData } from "@/types";
-import { addToast, Checkbox, Input, Textarea } from "@heroui/react";
+import { addToast, Checkbox, Input } from "@heroui/react";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -93,7 +94,7 @@ export default function FaqForm(props: Props) {
         isRequired
       />
       <InputLocaleWrapper
-        Input={Textarea}
+        Input={Rte}
         config={answerConfig}
         formik={{ values, setFieldValue, setFieldTouched, errors, touched }}
         handleChange={handleChange}

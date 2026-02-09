@@ -37,8 +37,8 @@ export type Hero = {
   description?: string;
   firstLink?: Link;
   secondLink?: Link;
-  cover: { id: number } & Image;
-  logo?: { id: number } & Image;
+  cover: Image;
+  logo?: Image;
   align: HeroAlign;
 };
 
@@ -70,15 +70,19 @@ export type TitleDescBlock = {
 };
 
 export type OneImageVariant =
-  | "default"
-  | "defaultFW"
+  | "single"
+  | "poster"
+  | "card"
   | "panoramic"
-  | "panoramicFW"
   | "spotlight";
 
-export type TwoImagesVariant = "default";
+export type TwoImagesVariant = "double" | "cascade";
 
-export type ThreeImagesVariant = "horizontal" | "ladder" | "miniatures";
+export type ThreeImagesVariant =
+  | "horizontal"
+  | "masonry"
+  | "ladder"
+  | "miniatures";
 
 export type ImageTextVariants =
   | OneImageVariant
@@ -122,6 +126,32 @@ export interface Schedules {
   id: number;
 }
 
+export type CarrouselItem = {
+  id: number;
+  title?: string | null;
+  epigraph?: string | null;
+  description?: BlocksContent | null;
+  link?: Link | null;
+  cover: Image;
+};
+
+export type Carrousel = {
+  __component: "page-components.carrousel";
+  id: number;
+  autoplayMs?: number | null;
+  pauseOnHover: boolean;
+  items: CarrouselItem[];
+};
+
+export type ActivityShowcase = {
+  __component: "page-components.activity-showcase";
+  id: number;
+  activity: {
+    id: number;
+    documentId: string;
+  };
+};
+
 export type RendereableBlocks =
   | ServiceStatusButton
   | Hero
@@ -130,4 +160,6 @@ export type RendereableBlocks =
   | TitleDescBlock
   | FaqSection
   | Spacer
-  | Schedules;
+  | Schedules
+  | Carrousel
+  | ActivityShowcase;

@@ -29,6 +29,11 @@
       "type": "relation",
       "relation": "oneToOne",
       "target": "api::station.station"
+    },
+    "isVisible": {
+      "type": "boolean",
+      "required": true,
+      "default": true
     }
   }
 }

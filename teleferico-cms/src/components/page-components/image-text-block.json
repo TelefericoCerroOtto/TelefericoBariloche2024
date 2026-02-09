@@ -19,21 +19,6 @@
       "type": "boolean",
       "default": false
     },
-    "variant": {
-      "type": "enumeration",
-      "required": true,
-      "default": "default",
-      "enum": [
-        "default",
-        "defaultFW",
-        "panoramic",
-        "panoramicFW",
-        "spotlight",
-        "horizontal",
-        "ladder",
-        "miniatures"
-      ]
-    },
     "link": {
       "type": "component",
       "component": "utils-components.link",
@@ -70,6 +55,23 @@
       "enum": [
         "none",
         "gray"
+      ]
+    },
+    "variant": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "single",
+        "poster",
+        "card",
+        "panoramic",
+        "spotlight",
+        "double",
+        "cascade",
+        "horizontal",
+        "masonry",
+        "ladder",
+        "miniatures"
       ]
     }
   }

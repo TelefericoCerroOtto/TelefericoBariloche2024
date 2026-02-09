@@ -9,6 +9,10 @@ import type {
 } from "@/types";
 import { getSession } from "@/lib/auth/get-session";
 import { ValidationError } from "yup";
+import {
+  createAccessTicketAdapter,
+  updateAccessTicketAdapter,
+} from "@/lib/adapters";
 
 export const newTicketAction = async (
   values: CreateAccessTicketFormData,
@@ -23,17 +27,16 @@ export const newTicketAction = async (
 
     for (let i = 0; i < locales.length; i++) {
       const locale = locales[i];
-      const data = {
-        lifting_mean: values.liftingMean,
-        price: values.price,
-        name: values[`accessName_${locale}`],
-      };
 
       if (i === 0) {
-        const res = await createAccessTicket({ data }, jwt);
+        const reqBody = createAccessTicketAdapter(values, locale);
+        const res = await createAccessTicket(reqBody, jwt);
 
         if (!res.ok) {
-          console.log(res.data);
+          console.log(
+            `Error creating access ticket in locale ${locale}: `,
+            res.data,
+          );
           return {
             success: false,
             message:
@@ -44,13 +47,20 @@ export const newTicketAction = async (
 
         documentId = res.data.data.documentId;
       } else {
+        const reqBody = updateAccessTicketAdapter(
+          { documentId, ...values },
+          locale,
+        );
         const res = await updateAccessTicket(
-          { reqBody: { data }, documentId, locale },
+          { reqBody, documentId, locale },
           jwt,
         );
 
         if (!res.ok) {
-          console.log(res.data);
+          console.log(
+            `Error updating access ticket in locale ${locale}: `,
+            res.data,
+          );
           return {
             success: false,
             message: `Server action 'newTicketAction' failed: An error occurred while updating locale ${locale} access ticket.`,

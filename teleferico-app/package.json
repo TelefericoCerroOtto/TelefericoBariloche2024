@@ -10,8 +10,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {
-    "node": ">=18.18.0"
+    "node": "20.x",
+    "pnpm": "9.x"
   },
+  "packageManager": "pnpm@9.15.9",
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
     "@heroui/react": "^2.7.10",
@@ -26,6 +28,7 @@
     "@radix-ui/react-tooltip": "^1.1.4",
     "@strapi/blocks-react-renderer": "^1.0.1",
     "@tiptap/extension-underline": "^3.6.1",
+    "@tiptap/extensions": "^3.14.0",
     "@tiptap/pm": "^3.5.2",
     "@tiptap/react": "^3.5.2",
     "@tiptap/starter-kit": "^3.5.2",
@@ -33,6 +36,7 @@
     "clsx": "^2.1.1",
     "formik": "^2.4.6",
     "framer-motion": "^11.15.0",
+    "google-auth-library": "^10.5.0",
     "googleapis": "^148.0.0",
     "husky": "^9.1.7",
     "just-debounce-it": "^3.2.0",

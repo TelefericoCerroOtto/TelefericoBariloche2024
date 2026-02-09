@@ -50,7 +50,9 @@
         "page-components.faq-section",
         "page-components.spacer",
         "page-components.schedules",
-        "page-components.service-status-button"
+        "page-components.service-status-button",
+        "page-components.carrousel",
+        "page-components.activity-showcase"
       ]
     }
   }

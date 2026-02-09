@@ -11,7 +11,7 @@ export type GetBusTripsResponse = {
 };
 
 export type PostBusTripRequest = {
-  data: Pick<BusTrip, "depTime" | "arrTime"> & {
+  data: Pick<BusTrip, "depTime" | "arrTime" | "isVisible"> & {
     origin: {
       connect: [{ documentId: string }];
     };
@@ -28,7 +28,7 @@ export type PostBusTripResponse = {
 
 export type UpdateBusTripRequest = {
   data: Partial<
-    Pick<BusTrip, "depTime" | "arrTime"> & {
+    Pick<BusTrip, "depTime" | "arrTime" | "isVisible"> & {
       origin: {
         connect: [{ documentId: string }];
       };

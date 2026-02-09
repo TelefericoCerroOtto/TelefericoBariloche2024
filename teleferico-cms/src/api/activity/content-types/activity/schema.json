@@ -21,17 +21,15 @@
       "required": true,
       "default": 0,
       "min": 0,
-      "max": 99
-    },
-    "zone": {
-      "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::zone.zone"
+      "max": 80
     },
     "label": {
       "type": "string",
-      "required": false,
-      "unique": true
+      "minLength": 2,
+      "maxLength": 20,
+      "required": true,
+      "unique": true,
+      "regex": "^[a-zñ]+$"
     },
     "page": {
       "type": "relation",
@@ -53,6 +51,21 @@
         "spring",
         "allSeasons"
       ]
+    },
+    "available": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "isActive": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "maxAge": {
+      "type": "integer",
+      "min": 0,
+      "max": 80
     }
   }
 }

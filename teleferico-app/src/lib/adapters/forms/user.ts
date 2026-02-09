@@ -22,6 +22,6 @@ export const updateUserAdapter = (
   const adaptedUser = {
     ...cleanedData,
   };
-  console.log("adaptedUser", adaptedUser);
+
   return adaptedUser;
 };

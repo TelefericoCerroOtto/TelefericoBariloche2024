@@ -15,6 +15,7 @@ export default async function EditAccessTicketPage({
   const res = await getAccessTicket({ documentId: id, locale: "all" });
 
   if (!res.ok) {
+    console.log("get access ticket error: ", res.data);
     return <FormError message="Algo salio mal" />;
   }
 

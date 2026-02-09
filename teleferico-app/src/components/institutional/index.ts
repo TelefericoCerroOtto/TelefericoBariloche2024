@@ -1,13 +1,14 @@
+export { default as ActivityShowcase } from "./ActivityShowcase/index";
 export { default as BlocksRenderer } from "./BlocksRenderer";
-export { default as ContactInfo } from "./ContactInfo";
+export { default as Carrousel } from "./Carrousel";
 export { default as DataTable } from "./DataTable";
 export { FaqSection } from "./FaqSection";
 export { default as Hero } from "./Hero";
 export { default as HoursOverview } from "./HoursOverview";
 export { default as ImageTextRenderer } from "./ImageTextSection/ImageTextRenderer";
 export { default as NoContent } from "./NoContent";
+export { default as NotFoundContent } from "./NotFoundContent";
 export { default as PageWrapper } from "./PageWrapper";
+export { default as Schedules } from "./Schedules/Schedules";
 export { default as ServiceStatusButton } from "./ServiceStatusButton";
 export { HighlightLastWord, default as TitleDescBlock } from "./TitleDescBlock";
-export { default as Schedules } from "./Schedules/Schedules";
-export { default as NotFoundContent } from "./NotFoundContent";

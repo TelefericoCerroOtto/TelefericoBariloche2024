@@ -1,3 +1,4 @@
+import { CACHE_TAGS } from "@/lib/constants/cache-tags.const";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
@@ -22,22 +23,12 @@ export const getActivity = async <T extends Locales | "all">({
 
   if (locale === "all") {
     query.populate = {
-      0: "activity_translations", // => populate[0]=activity_translations
-      zone: {
-        populate: {
-          1: "zone_translations", // => populate[zone][populate][1]=zone_translations
-        },
-      },
+      activity_translations: true,
     };
   } else if (locale) {
     query.populate = {
       activity_translations: {
         filters: { locale: { $eq: locale } },
-      },
-      zone: {
-        populate: {
-          zone_translations: { filters: { locale: { $eq: locale } } },
-        },
       },
     };
   }
@@ -55,10 +46,7 @@ export const getActivities = async <T extends Locales | "all">(locale: T) => {
   const query: Record<string, any> = {};
 
   if (locale === "all") {
-    query.populate = [
-      "activity_translations",
-      { zone: { populate: "zone_translations" } },
-    ];
+    query.populate = ["activity_translations"];
   } else if (locale) {
     query.populate = {
       activity_translations: {
@@ -68,24 +56,21 @@ export const getActivities = async <T extends Locales | "all">(locale: T) => {
           },
         },
       },
-      zone: {
-        populate: {
-          zone_translations: {
-            filters: {
-              locale: {
-                $eq: locale,
-              },
-            },
-          },
-        },
-      },
     };
   }
 
-  const res = await strapiFetch<GetActivitiesResponse>({
-    endpoint: STRAPI_ENDPOINTS.ACTIVITIES,
-    qp: stringifyQuery(query),
-  });
+  const res = await strapiFetch<GetActivitiesResponse>(
+    {
+      endpoint: STRAPI_ENDPOINTS.ACTIVITIES,
+      qp: stringifyQuery(query),
+    },
+    {
+      cache: "force-cache",
+      next: {
+        tags: [CACHE_TAGS.ACTIVITIES],
+      },
+    },
+  );
 
   return res;
 };

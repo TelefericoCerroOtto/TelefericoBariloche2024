@@ -46,6 +46,10 @@ const titles: Record<
     path: ADMIN_ROUTES.NEW_USER,
     title: "Formulario de Usuario",
   },
+  NEW_ZONE: {
+    path: ADMIN_ROUTES.NEW_ZONE,
+    title: "Crear nueva zona",
+  },
   REVALIDATE: {
     path: ADMIN_ROUTES.REVALIDATE,
     title: "Revalidación de caché",

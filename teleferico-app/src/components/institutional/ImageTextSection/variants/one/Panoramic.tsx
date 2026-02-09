@@ -1,13 +1,11 @@
-import {
-  BlockRendererClient,
-  CustomLink,
-  HighlightLastWord,
-} from "@/components";
-import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+"use client";
+
+import { BlockRendererClient, CustomLink } from "@/components";
+import { bgStyles, fontSize } from "@/lib/constants/styles.const";
 import type { ImageTextBlock } from "@/types";
+import { Button } from "@heroui/react";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
-import LogoBadge from "../../shared/LogoBadge";
 
 export default function Panoramic(props: ImageTextBlock) {
   const {
@@ -15,45 +13,93 @@ export default function Panoramic(props: ImageTextBlock) {
     title,
     titleCase = "normal",
     description,
-    isInverted = false,
-    isHighlighted = false,
     link,
     epigraph,
     bgColor,
   } = props;
 
+  const titleCaseClass =
+    titleCase === "uppercase"
+      ? "uppercase"
+      : titleCase === "capitalize"
+        ? "capitalize"
+        : "normal-case";
+
   return (
-    <div
-      className={`flex ${isInverted ? "flex-col" : "flex-col-reverse"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center gap-10 px-6 md:px-14`}
-    >
-      <div className="group relative h-[320px] w-full overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15 md:h-[500px]">
-        <CustomImage image={images[0]} />
+    <section className={`my-14 w-full ${bgStyles[bgColor]}`}>
+      <div className="relative h-[550px] w-full overflow-hidden shadow-2xl shadow-black/25 ring-1 ring-red-500/15">
+        {/* Imagen */}
+        <div className="absolute inset-0">
+          <CustomImage image={images[0]} />
+        </div>
+
+        {/* Oscurecer fondo */}
+        <div aria-hidden="true" className="absolute inset-0 bg-black/50" />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/45 to-black/25"
+        />
+
+        {/* Contenido centrado */}
+        <div className="relative z-10 flex h-full w-full items-center justify-center px-6 py-10 sm:px-10 lg:px-16">
+          <div className="mx-auto flex w-full max-w-4xl flex-col items-center text-center">
+            {epigraph ? (
+              <p
+                className={`mb-3 font-bold uppercase tracking-wide text-red-600 ${fontSize.epigraph}`}
+              >
+                {epigraph}
+              </p>
+            ) : null}
+
+            {title ? (
+              <h2
+                className={[
+                  "font-black tracking-tight text-white sm:tracking-normal",
+                  fontSize.title,
+                  titleCaseClass,
+                ].join(" ")}
+              >
+                {title}
+              </h2>
+            ) : null}
+
+            {description ? (
+              <div className="mt-4 w-full">
+                <BlockRendererClient
+                  content={description as BlocksContent}
+                  className={[
+                    // override del renderer base (evita text-black/text-2xl)
+                    "prose-invert text-white",
+                    "text-sm sm:text-base md:text-lg",
+                    // centrado real en rich text
+                    "text-center",
+                    "prose-headings:text-center prose-p:text-center prose-li:text-center",
+                    // espaciado más prolijo en overlay
+                    "prose-headings:leading-tight prose-p:leading-relaxed",
+                    "prose-a:text-custom-red",
+                  ].join(" ")}
+                />
+              </div>
+            ) : null}
+
+            {link ? (
+              <div className="mt-6 flex justify-center">
+                <Button
+                  as={CustomLink}
+                  href={link.href}
+                  radius="full"
+                  color="primary"
+                  variant="solid"
+                  size="lg"
+                  className={`px-6 font-semibold ${fontSize.base}`}
+                >
+                  {link.label}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
-      <div className="flex w-full flex-col items-center gap-6 md:w-3/5">
-        <div className="flex flex-col items-center gap-4">
-          <LogoBadge />
-          <h4
-            className={`text-center text-3xl font-bold ${caseStyles[titleCase]} text-inherit md:text-4xl`}
-          >
-            {isHighlighted ? HighlightLastWord(title) : title}
-          </h4>
-        </div>
-        <div className="mt-2 min-h-[1.5rem] text-center">
-          {epigraph ? (
-            <p className="inline-block border-l-2 border-red-500/40 pl-4 text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-base">
-              {epigraph}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-4 text-center text-base leading-relaxed text-foreground/80 md:text-lg">
-          <BlockRendererClient content={description as BlocksContent} />
-        </div>
-        {link ? (
-          <CustomLink href={link.href} withButtonStyles>
-            {link.label}
-          </CustomLink>
-        ) : null}
-      </div>
-    </div>
+    </section>
   );
 }

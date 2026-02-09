@@ -99,7 +99,7 @@ export default async function Footer(props: Props) {
           <nav aria-label="Footer" className="text-center md:text-left">
             {/* Grouping links within nav helps screen readers announce the section as navigational. */}
             <h2 className="text-lg font-semibold uppercase tracking-wide text-white md:text-xl">
-              Menu
+              {footerIntl.title}
             </h2>
             <ul className="mt-4 flex flex-col gap-3 text-base text-white/80 md:text-lg">
               {menuItems.map((item, idx) => (

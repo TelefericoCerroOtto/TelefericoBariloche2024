@@ -4,6 +4,7 @@ import { Locales } from "@/types";
 import { Alert } from "@heroui/react";
 import { BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
+import NoFeaturedNewsFound from "./NoFeaturedNewsFound";
 
 interface Props {
   locale: Locales;
@@ -28,15 +29,7 @@ export default async function FeaturedNew(props: Props) {
     );
 
   if (data.data.length === 0)
-    return (
-      <section
-        aria-live="polite"
-        role="status"
-        className="w-full px-6 py-12 sm:px-10 lg:px-20"
-      >
-        <Alert color="warning" description="No featured new was found" />
-      </section>
-    );
+    return <NoFeaturedNewsFound locale={locale} />;
 
   const { cover, documentId, title, brief, date } = data.data[0];
   const imageSrc =

@@ -1,5 +1,5 @@
 import { BlockRendererClient } from "@/components";
-import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import { bgStyles, caseStyles, fontSize } from "@/lib/constants/styles.const";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { type ReactNode } from "react";
 
@@ -67,14 +67,16 @@ export default function TitleDescBlock(props: Props) {
     <div
       className={`flex gap-4 ${flexdirVariants[flexdir]} ${sizeVariants[size]} ${alignVariants[align]} ${bgStyles[bgColor]}`}
     >
-      {epigraph ? <p className="text-lg text-primary">{epigraph}</p> : null}
-      <h3
-        className={`${caseStyles[titleCase]} font-bold text-inherit md:text-5xl`}
-      >
+      <h3 className={`font-bold ${caseStyles[titleCase]} ${fontSize.title}`}>
         {title}
       </h3>
+      {epigraph ? (
+        <p className={`text-sm text-primary md:text-base lg:text-lg`}>
+          {epigraph}
+        </p>
+      ) : null}
       {desc && typeof desc === "string" ? (
-        <p className="text-2xl">{desc}</p>
+        <p className={fontSize.base}>{desc}</p>
       ) : (
         <BlockRendererClient content={desc as BlocksContent} />
       )}

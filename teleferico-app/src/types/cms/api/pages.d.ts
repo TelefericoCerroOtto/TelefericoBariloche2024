@@ -1,6 +1,6 @@
-import type { Meta, PageContent } from "@/types";
+import type { Meta, Page } from "@/types";
 
 export type GetPageResponse = {
-  data: PageContent[];
+  data: Page[];
   meta: Meta;
 };

@@ -9,12 +9,13 @@ import {
 } from "@/lib/constants/styles.const";
 import { updateBusTripSchema } from "@/lib/schemas";
 import type { Station, UpdateBusTripFormData } from "@/types";
-import { Select, SelectItem } from "@heroui/react";
+import { Select, SelectItem, Switch } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { updateBusTripAction } from "./actions";
+import { Eye, EyeOff } from "lucide-react";
 
 interface Props {
   stations: Station[];
@@ -139,6 +140,18 @@ export default function Form(props: Props) {
           if (el) setTimeInputLoading(false);
         }}
       />
+
+      <Switch
+        name="isVisible"
+        id="isVisible"
+        isSelected={values.isVisible}
+        onChange={handleChange}
+        startContent={<Eye />}
+        endContent={<EyeOff />}
+      >
+        {values.isVisible ? "Visible al público" : "Oculto al público"}
+      </Switch>
+
       <FormButtons
         isSubmitting={isSubmitting}
         cancelRedirectRoute={ADMIN_ROUTES.BUSES}

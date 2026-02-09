@@ -2,14 +2,14 @@
   "collectionName": "components_page_components_faq_sections",
   "info": {
     "displayName": "FaqSection",
-    "icon": "bulletList"
+    "icon": "question"
   },
   "options": {},
   "attributes": {
     "favs": {
       "type": "boolean",
-      "default": false,
-      "required": true
+      "required": true,
+      "default": false
     }
   }
 }

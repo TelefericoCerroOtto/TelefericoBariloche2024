@@ -13,7 +13,7 @@ export const selectInputStyles = {
   },
   labelPlacement: "outside" as const,
   placeholder: "Seleccionar",
-};
+} as const;
 
 export const formInputClassNames = {
   label: "text-lg font-semibold",
@@ -22,7 +22,7 @@ export const formInputClassNames = {
   helperWrapper: "text-base",
   description: "text-base",
   errorMessage: "text-base",
-};
+} as const;
 
 export const formSelectClassNames = {
   label: "text-lg font-semibold",
@@ -33,11 +33,11 @@ export const formSelectClassNames = {
   errorMessage: "text-base",
   listbox: "text-base",
   popoverContent: "text-base",
-};
+} as const;
 
 export const formCheckboxClassNames = {
   label: "text-base",
-};
+} as const;
 
 export const formTimeInputClassNames = {
   label: "text-lg font-semibold",
@@ -46,7 +46,7 @@ export const formTimeInputClassNames = {
   helperWrapper: "text-base",
   description: "text-base",
   errorMessage: "text-base",
-};
+} as const;
 
 export const tableStyles = {
   removeWrapper: true,
@@ -56,16 +56,22 @@ export const tableStyles = {
     table: "bg-white",
     th: "bg-white font-bold text-black",
   },
-};
+} as const;
 
 export const bgStyles = {
   none: "",
   gray: "bg-gray-200",
-};
+} as const;
 
 export const caseStyles = {
   normal: "normal-case",
   uppercase: "uppercase",
   lowercase: "lowercase",
   capitalize: "capitalize",
-};
+} as const;
+
+export const fontSize = {
+  title: "text-2xl md:text-3xl lg:text-5xl",
+  base: "text-base md:text-lg lg:text-2xl",
+  epigraph: "text-sm md:text-base lg:text-lg",
+} as const;

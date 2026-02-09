@@ -1,0 +1,29 @@
+{
+  "collectionName": "components_page_components_carrousels",
+  "info": {
+    "displayName": "Carrousel",
+    "icon": "medium"
+  },
+  "options": {},
+  "attributes": {
+    "autoplayMs": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "items": {
+      "type": "component",
+      "component": "utils-components.carrousel-item",
+      "repeatable": true,
+      "required": true,
+      "min": 1,
+      "max": 15
+    },
+    "pauseOnHover": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    }
+  },
+  "config": {}
+}

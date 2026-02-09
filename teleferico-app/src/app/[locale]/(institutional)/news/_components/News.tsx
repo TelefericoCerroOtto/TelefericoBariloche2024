@@ -1,4 +1,5 @@
 import Card from "./Card";
+import NoNewsFound from "./NoNewsFound";
 import { getNews } from "@/lib/services";
 import { Locales } from "@/types";
 import { Alert } from "@heroui/react";
@@ -38,16 +39,7 @@ export default async function News(props: Props) {
       </section>
     );
 
-  if (data.data.length === 0)
-    return (
-      <section
-        aria-live="polite"
-        role="status"
-        className="w-full px-6 py-12 sm:px-10 lg:px-20"
-      >
-        <Alert color="warning" description="No news were found" />
-      </section>
-    );
+  if (data.data.length === 0) return <NoNewsFound locale={locale} />;
 
   const { data: news } = data;
   const sectionId = `news-collection-${locale}`;

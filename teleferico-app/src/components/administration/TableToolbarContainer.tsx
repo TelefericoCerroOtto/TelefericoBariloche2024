@@ -1,7 +1,7 @@
 "use client";
 
-import { buttonStyles } from "@/components/shared/ButtonDos";
-import Link from "next/link";
+import { Button } from "@heroui/react";
+import { useRouter } from "next/navigation";
 import { type ReactNode } from "react";
 
 interface Props {
@@ -13,20 +13,20 @@ interface Props {
 export default function TableToolbarContainer(props: Props) {
   const { children, title, linkHref } = props;
 
+  const router = useRouter();
+
   return (
     <div className="py-auto flex h-20 w-full items-center justify-between gap-8 overflow-scroll border-b border-b-foreground-300 bg-white px-3">
       <div className="flex min-w-[600px] flex-1 items-center gap-6">
         {children}
       </div>
-      <Link
-        href={linkHref}
-        className={buttonStyles({
-          className: "min-w-[80px]",
-          intent: "solid",
-        })}
+      <Button
+        onPress={() => router.push(linkHref)}
+        variant="solid"
+        color="primary"
       >
         {title}
-      </Link>
+      </Button>
     </div>
   );
 }

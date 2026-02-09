@@ -7,6 +7,10 @@ import {
 } from "@/components";
 import { useAppAlert, useFormLocaleSelector } from "@/hooks";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import {
+  formInputClassNames,
+  selectInputStyles,
+} from "@/lib/constants/styles.const";
 import { updateActivitySchema } from "@/lib/schemas";
 import type { UpdateActivityFormData } from "@/types";
 import {
@@ -14,18 +18,21 @@ import {
   NumberInput,
   Select,
   SelectItem,
+  Switch,
   Textarea,
+  Tooltip,
 } from "@heroui/react";
 import { useFormik } from "formik";
+import { Info, Tag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { seasonOptions } from "../data";
+import {
+  LABEL_TOOLTIP_TEXT_EDIT,
+  MAX_AGE_TOOLTIP_TEXT,
+  seasonOptions,
+} from "../data";
 import { updateActivityAction } from "./actions";
 import { descConfig, nameConfig, requirementsConfig } from "./data";
-import {
-  formInputClassNames,
-  selectInputStyles,
-} from "@/lib/constants/styles.const";
 
 interface Props {
   initialValues: UpdateActivityFormData;
@@ -50,10 +57,10 @@ export default function Form(props: Props) {
           message: "Actividad actualizada exitosamente",
           variant: "success",
         });
-        return router.push(ADMIN_ROUTES.PRICES);
+        return router.push(`${ADMIN_ROUTES.PRICES}?selected=activities`);
       }
       setIsSubmitting(false);
-      console.log(res.message);
+      console.log(res.message, "\n", res.data);
       showAlert({
         title: "Error",
         message: "Ocurrió un error al actualizar la actividad",
@@ -87,8 +94,6 @@ export default function Form(props: Props) {
     onSubmit,
   });
 
-  console.log("errors: ", errors);
-
   return (
     <form
       className="flex flex-col gap-5 overflow-scroll"
@@ -98,6 +103,20 @@ export default function Form(props: Props) {
         selectedKeys={selectedKeys}
         handleSelectionChange={handleSelectionChange}
       />
+      <Tooltip content={LABEL_TOOLTIP_TEXT_EDIT} placement="top">
+        <div className="inline-block w-full cursor-not-allowed">
+          <Input
+            id="label"
+            name="label"
+            labelPlacement="outside"
+            label="Etiqueta"
+            isDisabled
+            classNames={formInputClassNames}
+            value={values.label}
+            endContent={<Tag size={18} className="text-default-400" />}
+          />
+        </div>
+      </Tooltip>
       <InputLocaleWrapper
         Input={Input}
         config={nameConfig}
@@ -114,6 +133,7 @@ export default function Form(props: Props) {
         handleChange={handleChange}
         handleBlur={handleBlur}
         locale={locale}
+        isRequired
       />
       <InputLocaleWrapper
         Input={Input}
@@ -136,6 +156,7 @@ export default function Form(props: Props) {
         onChange={(value) => {
           if (typeof value === "number") setFieldValue("price", value);
         }}
+        onBlur={handleBlur}
       />
       <NumberInput
         label="Edad mínima"
@@ -150,28 +171,75 @@ export default function Form(props: Props) {
         onChange={(value) => {
           if (typeof value === "number") setFieldValue("minAge", value);
         }}
+        onBlur={handleBlur}
+        errorMessage={errors.minAge}
+        isInvalid={!!errors.minAge && !!touched.minAge}
       />
+
+      <NumberInput
+        labelPlacement="outside"
+        name="maxAge"
+        id="maxAge"
+        type="number"
+        classNames={formInputClassNames}
+        hideStepper
+        value={values.maxAge}
+        placeholder="Ej.: 13"
+        onChange={(value) => {
+          if (typeof value === "number") setFieldValue("maxAge", value);
+        }}
+        onBlur={handleBlur}
+        label={
+          <div className="flex items-center gap-2">
+            <span>Edad máxima</span>
+
+            {/* Tooltip junto al label */}
+            <Tooltip content={MAX_AGE_TOOLTIP_TEXT} placement="right">
+              <span
+                className="inline-flex cursor-pointer font-bold text-blue-600"
+                aria-label="Información sobre el campo etiqueta"
+              >
+                <Info size={18} />
+              </span>
+            </Tooltip>
+          </div>
+        }
+        errorMessage={errors.maxAge}
+        isInvalid={!!errors.maxAge && !!touched.maxAge}
+      />
+
       <Select
         name="season"
         id="season"
-        variant="flat"
-        radius="full"
-        className="rounded-full"
-        classNames={selectInputStyles.classNames}
-        isRequired
+        placeholder="Seleccione una temporada"
         label="Temporada"
         labelPlacement="outside"
-        placeholder="Seleccione una temporada"
-        value={values.season}
+        radius="full"
+        variant="flat"
+        className="rounded-full"
+        classNames={selectInputStyles.classNames}
+        defaultSelectedKeys={[values.season]}
         onChange={handleChange}
+        onBlur={handleBlur}
+        isRequired
+        disallowEmptySelection
         items={seasonOptions}
       >
         {(item) => <SelectItem key={item.key}>{item.label}</SelectItem>}
       </Select>
 
+      <Switch
+        name="available"
+        id="available"
+        isSelected={values.available}
+        onChange={handleChange}
+      >
+        {values.available ? "Actividad disponible" : "Cerrada al público"}
+      </Switch>
+
       <FormButtons
         isSubmitting={isSubmitting}
-        cancelRedirectRoute={ADMIN_ROUTES.PRICES}
+        cancelRedirectRoute={`${ADMIN_ROUTES.PRICES}?selected=activities`}
         disableSubmitButton={
           isSubmitting || !dirty || Object.keys(errors).length > 0
         }

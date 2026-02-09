@@ -30,8 +30,12 @@ export default async function ServiceStatusButton(props: Props) {
   }
 
   return (
-    <Suspense fallback={<Skeleton className="h-40 w-5/6 sm:w-3/4 lg:w-1/2" />}>
-      <div className="mb-14 h-40 w-5/6 sm:w-3/4 lg:w-1/2">
+    <Suspense
+      fallback={
+        <Skeleton className="h-32 w-11/12 sm:h-36 sm:w-3/4 lg:h-40 lg:w-1/2" />
+      }
+    >
+      <div className="mb-10 h-32 w-11/12 sm:mb-12 sm:h-36 sm:w-3/4 lg:mb-14 lg:h-40 lg:w-1/2">
         <ServiceStatusButtonClient content={data.data[0].jsonValue} />
       </div>
     </Suspense>

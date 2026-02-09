@@ -33,7 +33,6 @@ export const buildPostulationSchema = (locale: Locales) => {
     resume: mixed<File>()
       .required(m.mixed.required)
       .test("fileType", m.mixed.resumeType, (file) => {
-        console.log("file type: ", file.type);
         return file && FILE_TYPES.includes(file.type);
       })
       .test("fileSize", m.mixed.fileSize(MAX_FILE_SIZE), (file) => {
