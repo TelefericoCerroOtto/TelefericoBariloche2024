@@ -53,7 +53,7 @@ export default function Form(props: Props) {
         return router.push(ADMIN_ROUTES.ZONES);
       }
       setIsSubmitting(false);
-      console.log(res.message);
+      console.log(res.message, "\n", res.data);
       showAlert({
         title: "Error",
         message: `Ocurrió un error inesperado al actualizar la zona ${values["zoneName_es-AR"]}`,

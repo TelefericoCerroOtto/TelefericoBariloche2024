@@ -37,10 +37,10 @@ export const updateActivityAction = async (
     );
 
     if (!res.ok) {
-      console.log(res.data);
+      console.log("Activity update error at updateActivityAction: ", res.data);
       return {
         success: false,
-        message: `Server action 'updateZoneAction' failed: An error occurred while updating zone.`,
+        message: `Server action 'updateActivityAction' failed: An error occurred while updating activity.`,
         data: res.data,
       };
     }
@@ -48,6 +48,7 @@ export const updateActivityAction = async (
     for (let i = 0; i < locales.length; i++) {
       const locale = locales[i];
       if (i == 0 && !activityTranslationDocumentId) {
+        // guard in case activityTranslationDocumentId is missing for the first locale
         const localeReqBody = createActivityTranslationAdapter({
           values,
           locale,
@@ -63,7 +64,10 @@ export const updateActivityAction = async (
         );
 
         if (!res.ok) {
-          console.log(res.data);
+          console.log(
+            "Create activity translation at updateActivityAction failed: ",
+            res.data,
+          );
           return {
             success: false,
             message: `Server action 'updateActivityAction' failed: An error occurred while updating locale ${locale} activity translation.`,
@@ -88,7 +92,10 @@ export const updateActivityAction = async (
         );
 
         if (!res.ok) {
-          console.log(res.data);
+          console.log(
+            "Update activity translation at updateActivityAction failed: ",
+            res.data,
+          );
           return {
             success: false,
             message: `Server action 'updateActivityAction' failed: An error occurred while updating locale ${locale} activity translation.`,

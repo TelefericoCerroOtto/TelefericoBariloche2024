@@ -6,10 +6,10 @@ Aplicación frontend del proyecto, implementada con Next.js (App Router). Para d
 
 ## Scripts útiles
 
-- `npm run dev`: Ejecuta el servidor de desarrollo en `http://localhost:3000`
-- `npm run build`: Compila la app
-- `npm start`: Inicia la app compilada
-- `npm run lint`: Linter
+- `pnpm run dev`: Ejecuta el servidor de desarrollo en `http://localhost:3000`
+- `pnpm run build`: Compila la app
+- `pnpm start`: Inicia la app compilada
+- `pnpm run lint`: Linter
 
 ## Variables de entorno
 
@@ -57,12 +57,11 @@ Middleware/i18n:
 
 Cómo ejecutar la autorización una vez:
 
-1. Levantar la app (`npm run dev`).
+1. Levantar la app (`pnpm run dev`).
 2. Abrir: `curl -i -H "Authorization: Bearer $INIT_TOKEN" http://localhost:3000/api/oauth/google/init`
 3. Completar el consentimiento en Google.
 4. En la redirección a `/api/oauth/google/callback` se devuelve el `refresh_token` (si es la primera vez o con `prompt=consent`).
 5. Copiar `refresh_token` y `access_token`:
-
    - Para desarrollo local pegar los valores en `.env.local`.
 
 Si Google no devuelve `refresh_token`:
@@ -112,21 +111,17 @@ Capas de seguridad principales:
 2. **Endpoints internos server-to-server (server endpoints)**
 
    Rutas:
-
    - `/api/contact`
    - `/api/postulations`
    - Otros endpoints internos que solo deberían ser llamados por Server Actions / servicios internos.
 
    Características:
-
    - No se consumen directamente desde el navegador.
    - El frontend público dispara **Server Actions**, que a su vez llaman estos endpoints desde el servidor.
    - Usan una **API key interna** (`x-internal-api-key`) que nunca se expone al cliente.
 
    Capas de seguridad principales:
-
    - `requireInternalApiKey(req)`:
-
      - Verifica que el header `x-internal-api-key` coincida con la variable de entorno `INTERNAL_API_KEY`.
      - Garantiza que solo el propio backend (Server Actions/servicios) pueda invocar el endpoint.
 
@@ -140,26 +135,21 @@ Capas de seguridad principales:
 3. **Endpoints administrativos (admin endpoints)**
 
    Rutas:
-
    - `/api/admin/postulations/[id]/favorite`
    - `/api/admin/postulations/bulk-status`
    - Cualquier endpoint que opere sobre la parte administrativa `/api/admin/*` y se consuma exclusivamente desde el dashboard.
 
    Características:
-
    - Solo accesibles para usuarios autenticados en el dashboard.
    - Exponen potencialmente operaciones **CRUD**. Actualmente los endpoint definidos solo operan con el permiso `update` de la interfaz de roles de Strapi.
    - Se consumen desde el cliente del dashboard, pero siempre con sesión Auth.js y un CSRF token.
 
    Capas de seguridad principales:
-
    - **Sesión Auth.js (`auth()`)**:
-
      - Verificación de que el usuario tenga una sesión válida.
      - Información de rol/permisos disponible en el token/session.
 
    - **CSRF token**:
-
      - Generado en el callback `jwt` de Auth.js y almacenado en el JWT.
      - Expuesto en la `session` Auth.js como `session.csrfToken`.
      - Publicado en el `<head>` de las páginas del dashboard vía `generateMetadata` como:
@@ -172,7 +162,6 @@ Capas de seguridad principales:
      - Verificado en un helper tipo `requireCsrf(req)` que compara el header con `session.csrfToken`.
 
    - `ensureTrustedOrigin`:
-
      - Para asegurarse de que las requests mutadoras vienen desde el propio dashboard y no desde sitios externos.
 
    - Rate limit (opcional) para operaciones sensibles.
@@ -182,10 +171,8 @@ Capas de seguridad principales:
    Son endpoints que no forman parte del flujo normal de la aplicación para usuarios finales, pero son necesarios para integrar servicios de autenticación y APIs externas.
 
    Ejemplos:
-
    - **Endpoint de Auth.js**  
      Ruta de Auth.js (por ejemplo, `/api/auth/[...nextauth]`), utilizada internamente por la librería para:
-
      - manejar el flujo de login/logout,
      - emitir y refrescar la cookie de sesión,
      - resolver callbacks propios de Auth.js.  
@@ -216,13 +203,11 @@ Capas de seguridad principales:
   Protege a los navegadores frente a requests cross-origin; no protege frente a scripts o backends (server-to-server).
 
 - **Clientes navegador vs no navegador**
-
   - El navegador agrega headers como `Origin`, `Referer`, `sec-fetch-site` y aplica CORS.
   - Un backend/shell (curl, Node, etc.) puede mandar cualquier header y no respeta CORS.
 
 - **Origen de la request**
   Se reconstruye con:
-
   - `Origin`,
   - `Referer`,
   - o `x-forwarded-proto` + (`x-forwarded-host` o `host`).
@@ -233,13 +218,11 @@ Capas de seguridad principales:
 
 - **ensureTrustedOrigin**
   Helper central que combina:
-
   - extracción del origin,
   - construcción de `allowedOrigins` (a partir de `NEXT_PUBLIC_BASE_URL` y orígenes extra),
   - y la decisión de permitir o rechazar la request con un `403`.
 
 - **Sesión Auth.js + CSRF token (endpoints admin)**
-
   - Auth.js gestiona la cookie de sesión httpOnly y el JWT interno.
   - En el callback `jwt` se genera un `csrfToken` aleatorio y se almacena en el token.
   - En el callback `session` ese `csrfToken` se expone como `session.csrfToken`.
@@ -267,52 +250,42 @@ Estas capas se pueden aplicar:
 Capas:
 
 - **Validación de origen** (todos los tipos donde tenga sentido)
-
   - `ensureTrustedOrigin(req, allowedOrigins?)`
   - Verifica que el origin calculado esté en el set de orígenes permitidos (por defecto incluye `NEXT_PUBLIC_BASE_URL`).
   - Se usa:
-
     - En endpoints read-only (tipo 1) para filtrar requests desde navegador.
     - En endpoints server-to-server (tipo 2) como defensa adicional.
     - En endpoints admin (tipo 3), junto al CSRF token, para reforzar la protección frente a CSRF/cross-site.
 
 - **API key interna** (solo tipo 2)
-
   - Validada con `requireInternalApiKey(req)`.
   - Marca endpoints que solo deberían ser consumidos desde Server Actions / servicios internos.
 
 - **Rate limit por IP**
-
   - `getClientIp(req)` + `isRateLimited(ip, store, maxHits, windowMs)`.
   - Evita abuso de formularios públicos desde la misma IP y puede aplicarse también en endpoints read-only y admin.
 
 - **Límite de tamaño de body**
-
   - `checkContentLength(req, maxBodyBytes)`.
   - Bloquea payloads demasiado grandes sin necesidad de parsear el body completo.
 
 - **Honeypot** (principalmente tipo 2)
-
   - Campo oculto en el formulario (`honeypot`).
   - Si viene con contenido, se asume bot y se responde “como si” fuera éxito sin revelar el truco.
 
 - **Edad del formulario (`formLoadedAt`)** (tipo 2)
-
   - `validateFormAge(formLoadedAt, { minAgeMs, maxAgeMs })`.
   - Filtra submissions demasiado rápidas (probable bot) o demasiado viejas.
 
 - **Validación de esquema (Yup)**
-
   - `buildContactSchema`, `buildPostulationSchema`, etc.
   - Aseguran tipos y rangos válidos antes de tocar servicios externos (Gmail, Strapi).
 
 - **Captcha (reCAPTCHA)**
-
   - `verifyCaptchaToken` en las Server Actions.
   - Previene automatización masiva desde bots en formularios públicos.
 
 - **CSRF token (solo endpoints admin, tipo 3)**
-
   - Verificado en el servidor comparando `x-csrf-token` con `session.csrfToken`.
   - Se complementa con `ensureTrustedOrigin`.
 
@@ -328,7 +301,6 @@ Firma simplificada:
 
 - `ensureTrustedOrigin(req: NextRequest, allowedOrigins?: Set<string>)`
   devuelve:
-
   - `{ ok: true; origin: string }` si el origen es válido.
   - `{ ok: false; res: NextResponse<{ ok: false; message: string }> }` si se debe bloquear (403).
 
@@ -350,30 +322,24 @@ Si no se pasa `allowedOrigins`, la función construye un set por defecto a parti
 Lógica interna (resumen):
 
 1. `extractOrigin(req)`:
-
    - Intenta leer `Origin`.
    - Si no hay, intenta `Referer`.
    - Si no hay, reconstruye con `x-forwarded-proto` + (`x-forwarded-host` o `host`).
 
 2. `buildAllowedOrigins()`:
-
    - Crea un `Set<string>` con:
-
      - `NEXT_PUBLIC_BASE_URL` normalizado,
      - y orígenes extra si se pasan.
 
 3. `isOriginAllowed(origin, allowedOrigins)`:
-
    - Si el set está vacío → todo permitido.
    - Si no hay `origin` → bloquea.
    - Si `origin` no está en el set → bloquea.
 
 4. Si el origen no es válido:
-
    - devuelve `{ ok: false, res: NextResponse.json({ ok: false, message: "Forbidden" }, { status: 403 }) }`.
 
 5. Si es válido:
-
    - devuelve `{ ok: true, origin }`.
 
 ### Notas de desarrollo (origins en red local)
@@ -402,20 +368,16 @@ La lógica de producción se mantiene estricta y no se ve afectada por esta rela
 Para los formularios públicos se usa un orquestador de seguridad:
 
 - `runFormGuards(req, options)`:
-
   - Valida API key interna (si está configurado).
   - Llama a `ensureTrustedOrigin(req, allowedOrigins)`.
   - Aplica límites de tamaño de body.
   - Aplica rate limit por IP.
   - Devuelve:
-
     - `{ ok: false, res: NextResponse }` si alguna validación falla.
     - `{ ok: true }` si todo está OK.
 
 - `withFormGuards(options, handler)`:
-
   - Envuelve tu handler de negocio:
-
     - Ejecuta `runFormGuards`.
     - Si algo falla devuelve el `NextResponse` de error.
     - Si todo pasa ejecuta `handler(...)`.
@@ -433,29 +395,24 @@ Ejemplo genérico (contacto / postulación):
 2. El submit llama una **Server Action** (`contactUsAction`, `sendPostulationAction`, etc.).
 
 3. La Server Action:
-
    - Verifica reCAPTCHA.
    - Arma un payload tipado (datos del form).
    - Agrega campos de seguridad (`honeypot`, `formLoadedAt`, etc.).
    - Llama a un **servicio del lado servidor** (`sendEmail`, `sendPostulation`, etc.).
 
 4. El servicio:
-
    - Construye la URL del Route Handler interno (`NEXT_PUBLIC_BASE_URL + ROUTE_HANDLERS.X`).
    - Adapta el payload a JSON o `FormData`.
    - Setea headers:
-
      - `Origin: NEXT_PUBLIC_BASE_URL` (para `ensureTrustedOrigin`).
      - `x-internal-api-key: INTERNAL_API_KEY` (para `requireInternalApiKey`).
 
    - Hace `fetch` al Route Handler con timeout.
 
 5. El Route Handler:
-
    - Está envuelto con `withFormGuards` (usa `runFormGuards` internamente).
    - Valida API key, origen, rate limit, tamaño de body, etc.
    - Si todo es válido, ejecuta el handler real del formulario:
-
      - Lee el body.
      - Valida honeypot.
      - Valida la edad del formulario.
@@ -480,10 +437,8 @@ Exponer una API interna de Next (`/api/proxy`) que:
 - El cliente **no llama directamente** a Strapi.
 - En su lugar, usa un custom hook `useProxy` (o un `fetch` a `/api/proxy/...`) para pedir recursos.
 - El Route Handler `/api/proxy`:
-
   - Se considera, en la práctica, un endpoint **read-only público (tipo 1)** cuando se limita a GET.
   - Llama a `ensureTrustedOrigin(req)` al inicio:
-
     - si la request no viene de un origen permitido, devuelve 403.
 
   - Reconstruye la URL de Strapi: `BUILD_STRAPI_BASE_URL + endpointPath + query params` a partir de `[...endpoint]` y `searchParams`.
@@ -515,5 +470,5 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 3. Ejecutar:
 
 ```bash
-npm run dev
+pnpm run dev
 ```

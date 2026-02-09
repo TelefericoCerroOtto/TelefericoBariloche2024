@@ -1,4 +1,5 @@
 import { blocksToExcerpt } from "@/lib/adapters";
+import { fontSize } from "@/lib/constants/styles.const";
 import type { ImageTextBlock } from "@/types";
 import Image from "next/image";
 
@@ -6,58 +7,36 @@ export function Spotlight(props: ImageTextBlock) {
   const { images, title, description, epigraph } = props;
 
   return (
-    // WRAPPER:
-    // - Bloqueamos overflow SOLO en X (sin generar scroll interno en Y)
-    // - En Y queda visible (si crece, que empuje la página, no que scrollee adentro)
-    <div className="relative mx-auto my-10 w-full max-w-6xl overflow-x-hidden overflow-y-visible md:my-24 md:overflow-visible">
-      {/* FIGURA */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        {/* capa principal */}
+    <div className="relative mx-auto my-10 w-full max-w-6xl px-6 md:my-24 md:px-12">
+      <article className="relative isolate z-10 flex w-full flex-col overflow-hidden rounded-[2rem] border border-red-600 bg-white shadow-xl shadow-black/10 ring-1 ring-black/5 md:flex-row md:items-stretch">
+        {/* ribbon */}
         <div
-          className={[
-            // Mobile: centrada, más grande
-            "absolute left-1/2 top-1/2 h-[122%] w-[120%] -translate-x-1/2 -translate-y-1/2",
-            "bg-red-600 opacity-95",
-            // Desktop: desplazada y un poco más grande también
-            "md:left-[-7rem] md:h-[118%] md:w-[102%] md:translate-x-0",
-            "lg:left-[-9rem] lg:w-[132%]",
-          ].join(" ")}
-          style={{
-            clipPath:
-              "polygon(0 18%, 10% 6%, 38% 0, 70% 8%, 88% 0, 100% 20%, 92% 44%, 100% 64%, 86% 92%, 58% 100%, 22% 94%, 0 78%, 6% 46%)",
-          }}
+          aria-hidden="true"
+          className="absolute left-0 top-0 h-2 w-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500"
+        />
+        {/* notch accent */}
+        <div
+          aria-hidden="true"
+          className="absolute left-0 top-0 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-600/15 blur-xl"
+        />
+        {/* micro texture */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 opacity-[0.05] [background-image:radial-gradient(#ef4444_1px,transparent_1px)] [background-size:18px_18px]"
         />
 
-        {/* capa de profundidad */}
+        {/* left rail */}
         <div
-          className={[
-            "absolute left-1/2 top-1/2 h-[120%] w-[118%] -translate-x-1/2 -translate-y-1/2",
-            "bg-red-700/35",
-            "md:left-[-5rem] md:h-[116%] md:w-[98%] md:translate-x-0",
-            "lg:left-[-7rem] lg:w-[126%]",
-          ].join(" ")}
-          style={{
-            clipPath:
-              "polygon(0 20%, 12% 8%, 40% 2%, 70% 10%, 86% 2%, 98% 22%, 90% 44%, 98% 64%, 84% 90%, 58% 98%, 24% 92%, 2% 76%, 8% 46%)",
-          }}
+          aria-hidden="true"
+          className="absolute left-0 top-0 h-full w-1.5 bg-gradient-to-b from-red-600 via-rose-500 to-red-700"
         />
 
-        {/* acento sutil */}
+        {/* top microline */}
         <div
-          className={[
-            "absolute left-1/2 top-1/2 h-[112%] w-[112%] -translate-x-1/2 -translate-y-1/2",
-            "bg-white/10",
-            "md:left-12 md:h-[110%] md:w-[90%] md:translate-x-0",
-          ].join(" ")}
-          style={{
-            clipPath:
-              "polygon(0 24%, 14% 10%, 42% 6%, 70% 14%, 84% 6%, 96% 26%, 88% 46%, 96% 64%, 82% 86%, 56% 94%, 26% 90%, 4% 74%, 10% 48%)",
-          }}
+          aria-hidden="true"
+          className="absolute left-0 top-0 h-px w-full bg-red-500/30"
         />
-      </div>
 
-      {/* CARD: más bajo en Y */}
-      <article className="relative z-10 flex w-full flex-col overflow-hidden rounded-[2rem] bg-white shadow-xl shadow-black/10 ring-1 ring-black/5 md:flex-row md:items-stretch">
         {/* Imagen */}
         <div className="relative w-full md:flex md:w-1/2 md:flex-col">
           <div className="relative h-[180px] flex-1 overflow-hidden md:min-h-[360px] lg:min-h-[400px]">
@@ -82,7 +61,9 @@ export function Spotlight(props: ImageTextBlock) {
               {title}
             </h2>
 
-            <p className="mb-5 text-base leading-relaxed text-gray-700 md:text-lg">
+            <p
+              className={`mb-5 leading-relaxed text-gray-700 ${fontSize.base}`}
+            >
               {blocksToExcerpt(description, { maxLength: 500 })}
             </p>
 

@@ -11,7 +11,7 @@ export function useProxy<T>(
   const queryParams = queryObject ? stringifyQuery(queryObject) : "";
   const key = `${ROUTE_HANDLERS.PROXY}${endpoint}${queryParams ? `?${queryParams}` : queryParams}`;
 
-  const { data, error, isLoading } = useSWR<T>(key, fetcher, {
+  const { data, error, isLoading, isValidating } = useSWR<T>(key, fetcher, {
     ...swrconfig,
     errorRetryCount: 2,
     errorRetryInterval: 5000,
@@ -20,6 +20,7 @@ export function useProxy<T>(
   return {
     data,
     isLoading,
+    isValidating,
     isError: error,
     key,
   };

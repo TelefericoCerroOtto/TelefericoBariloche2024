@@ -35,7 +35,8 @@
         }
       },
       "minLength": 10,
-      "maxLength": 150
+      "maxLength": 500,
+      "required": true
     },
     "requirements": {
       "type": "text",
@@ -43,7 +44,8 @@
         "i18n": {
           "localized": true
         }
-      }
+      },
+      "maxLength": 150
     },
     "activity": {
       "type": "relation",

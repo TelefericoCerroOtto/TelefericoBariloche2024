@@ -11,7 +11,7 @@ export default function SessionWatcher() {
     if (status === "unauthenticated") {
       // If the session expired while on dashboard, redirect to login immediately
       // signOut also clears any persisted state and lets middleware keep things in sync
-      void signOut({ redirectTo: ADMIN_ROUTES.LOGIN });
+      void signOut({ redirectTo: `${ADMIN_ROUTES.LOGIN}?expired=true` });
     }
   }, [status]);
 

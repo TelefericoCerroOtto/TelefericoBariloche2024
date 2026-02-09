@@ -27,7 +27,7 @@ import { createZoneAction } from "./actions";
 
 type LabelStatus = "idle" | "validating" | "available" | "unavailable";
 const LABEL_TOOLTIP_TEXT =
-  "Es un nombre único para identificar esta zona. Se usa para organizar y conectar información del sistema. Una vez creada, no se puede cambiar.";
+  "Es un nombre único para identificar esta zona. Se usa para organizar y conectar información del sistema. Una vez creada, no se puede cambiar. Solo puede contener letras minúsculas. Sugerencia: Use una sola palabra en inglés que describa la zona. Ej.: restaurant, terrace, cabin.";
 
 export default function Form() {
   const [timeInputLoading, setTimeInputLoading] = useState(true);
@@ -104,6 +104,7 @@ export default function Form() {
       zoneName_pt: "",
       isOpen: false,
       label: "",
+      featured: false,
     },
     validationSchema: createZoneSchema,
     onSubmit,
@@ -229,6 +230,7 @@ export default function Form() {
         label={
           <div className="flex items-center gap-2">
             <span>Etiqueta</span>
+            <span className="font-bold text-red-600">*</span>
 
             {/* Tooltip junto al label */}
             <Tooltip content={LABEL_TOOLTIP_TEXT} placement="right">

@@ -1,10 +1,51 @@
 import type { Schema, Struct } from '@strapi/strapi';
 
+export interface PageComponentsActivityShowcase extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_activity_showcases';
+  info: {
+    displayName: 'ActivityShowcase';
+    icon: 'lightbulb';
+  };
+  attributes: {
+    activity: Schema.Attribute.Relation<'oneToOne', 'api::activity.activity'>;
+  };
+}
+
+export interface PageComponentsCarrousel extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_carrousels';
+  info: {
+    displayName: 'Carrousel';
+    icon: 'medium';
+  };
+  attributes: {
+    autoplayMs: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    items: Schema.Attribute.Component<'utils-components.carrousel-item', true> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 15;
+          min: 1;
+        },
+        number
+      >;
+    pauseOnHover: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
+  };
+}
+
 export interface PageComponentsFaqSection extends Struct.ComponentSchema {
   collectionName: 'components_page_components_faq_sections';
   info: {
     displayName: 'FaqSection';
-    icon: 'bulletList';
+    icon: 'question';
   };
   attributes: {
     favs: Schema.Attribute.Boolean &
@@ -38,7 +79,7 @@ export interface PageComponentsHoursOverview extends Struct.ComponentSchema {
   info: {
     description: '';
     displayName: 'HoursOverview';
-    icon: 'clock';
+    icon: 'eye';
   };
   attributes: {
     withTextBlock: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
@@ -71,18 +112,20 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
       Schema.Attribute.DefaultTo<'normal'>;
     variant: Schema.Attribute.Enumeration<
       [
-        'default',
-        'defaultFW',
+        'single',
+        'poster',
+        'card',
         'panoramic',
-        'panoramicFW',
         'spotlight',
+        'double',
+        'cascade',
         'horizontal',
+        'masonry',
         'ladder',
         'miniatures',
       ]
     > &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'default'>;
+      Schema.Attribute.Required;
   };
 }
 
@@ -192,6 +235,23 @@ export interface PagePropertiesSeo extends Struct.ComponentSchema {
   };
 }
 
+export interface UtilsComponentsCarrouselItem extends Struct.ComponentSchema {
+  collectionName: 'components_utils_components_carrousel_items';
+  info: {
+    displayName: 'Carrousel Item';
+    icon: 'bulletList';
+  };
+  attributes: {
+    cover: Schema.Attribute.Component<'utils-components.image', false> &
+      Schema.Attribute.Required;
+    description: Schema.Attribute.Blocks;
+    epigraph: Schema.Attribute.Text;
+    label: Schema.Attribute.String & Schema.Attribute.Private;
+    link: Schema.Attribute.Component<'utils-components.link', false>;
+    title: Schema.Attribute.Text;
+  };
+}
+
 export interface UtilsComponentsHoursOverviewItem
   extends Struct.ComponentSchema {
   collectionName: 'components_utils_components_hours_overview_items';
@@ -263,6 +323,8 @@ export interface UtilsComponentsTitle extends Struct.ComponentSchema {
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'page-components.activity-showcase': PageComponentsActivityShowcase;
+      'page-components.carrousel': PageComponentsCarrousel;
       'page-components.faq-section': PageComponentsFaqSection;
       'page-components.hero': PageComponentsHero;
       'page-components.hours-overview': PageComponentsHoursOverview;
@@ -273,6 +335,7 @@ declare module '@strapi/strapi' {
       'page-components.title-desc-block': PageComponentsTitleDescBlock;
       'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-properties.seo': PagePropertiesSeo;
+      'utils-components.carrousel-item': UtilsComponentsCarrouselItem;
       'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
       'utils-components.image': UtilsComponentsImage;
       'utils-components.link': UtilsComponentsLink;

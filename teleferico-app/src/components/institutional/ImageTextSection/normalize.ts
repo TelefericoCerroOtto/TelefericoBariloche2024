@@ -31,9 +31,9 @@ const allowedVariants: Record<
   | Permutation<TwoImagesVariant>
   | Permutation<ThreeImagesVariant>
 > = {
-  1: ["default", "defaultFW", "panoramic", "panoramicFW", "spotlight"],
-  2: ["default"],
-  3: ["horizontal", "ladder", "miniatures"],
+  1: ["single", "poster", "card", "panoramic", "spotlight"],
+  2: ["double", "cascade"],
+  3: ["horizontal", "masonry", "ladder", "miniatures"],
 };
 
 const isImagesCountValid = (

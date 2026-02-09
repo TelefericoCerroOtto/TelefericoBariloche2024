@@ -5,6 +5,7 @@ export type GetFooterResponse = {
   data: [
     ComponentTranslation<{
       jsonValue: {
+        title: string;
         socialitems: {
           ig: string;
           fb: string;

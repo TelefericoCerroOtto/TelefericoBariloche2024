@@ -555,3 +555,15 @@ export const TiptapJSONContentToStrapiBlocksContent = (
 
   return blocks as StrapiBlocksPayload;
 };
+
+export const formatPrice = (price: number, locale: Locales) => {
+  try {
+    return new Intl.NumberFormat(String(locale), {
+      style: "currency",
+      currency: "ARS",
+      maximumFractionDigits: 0,
+    }).format(price);
+  } catch {
+    return `$${price}`;
+  }
+};

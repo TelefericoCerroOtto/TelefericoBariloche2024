@@ -75,7 +75,7 @@ export type ServiceStatus = StrapiRecord<{
 
 export type Faq = StrapiRecord<{
   question: string;
-  answer: string;
+  answer: StrapiBlocksPayload;
   featured: boolean;
 }>;
 
@@ -130,24 +130,28 @@ export type BusTrip = StrapiRecord<{
   arrTime: string;
   origin: Station;
   destination: Station;
+  isVisible: boolean;
   locale: null;
 }>;
 
 export type ActivityTranslation = StrapiRecord<{
   name: string;
-  description: string | null;
+  description: string;
   requirements: string | null;
 }>;
 
 export type Season = "summer" | "autumn" | "winter" | "spring" | "allSeasons";
 
 export type Activity = StrapiRecord<{
-  // label: string;
+  label: string;
   price: number;
   minAge: number;
+  maxAge: number | null;
   season: Season;
-  zone: Zone;
+  available: boolean;
+  isActive: boolean;
   activity_translations: ActivityTranslation[];
+  page: Page;
   locale: null;
 }>;
 
@@ -178,7 +182,7 @@ export type Postulation = StrapiRecord<{
   locale: null;
 }>;
 
-export type PageContent = StrapiRecord<{
+export type Page = StrapiRecord<{
   blocks: DynamicZone<RendereableBlocks>;
   createdAt: string;
   documentId: string;

@@ -3,10 +3,10 @@
 import { useLocale, useProxy, useServiceState } from "@/hooks";
 import { strapiTimeToLocalizedTableTime } from "@/lib/adapters";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { getZoneStatus, type ZoneStatus } from "@/lib/helpers/getZoneStatus";
 import LogoRecortado from "@/public/logo-recortado.svg";
 import type {
   GetSchedulesTranslationResponse,
-  GetServiceStateResponse,
   GetZonesResponse,
   Locales,
   Zone,
@@ -26,8 +26,6 @@ type ZoneSchedule = {
 };
 
 type Translations = GetSchedulesTranslationResponse["data"][0]["jsonValue"];
-
-type ZoneStatus = "open" | "closed";
 
 const badgeStyles: Record<ZoneStatus, string> = {
   open: "bg-emerald-100 text-emerald-700",
@@ -122,56 +120,6 @@ function mapZoneToSchedule(zone: Zone, locale: Locales): ZoneSchedule {
   };
 }
 
-function createDateFromStrapiTime(time: string | undefined) {
-  if (!time) {
-    return null;
-  }
-
-  const [hoursStr, minutesStr, secondsStr] = time.split(":");
-  const hours = Number(hoursStr);
-  const minutes = Number(minutesStr);
-  const seconds = Number(secondsStr ?? "0");
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes) || Number.isNaN(seconds)) {
-    return null;
-  }
-
-  const date = new Date();
-  date.setHours(hours, minutes, seconds, 0);
-  return date;
-}
-
-function getZoneStatus(
-  zone: ZoneSchedule,
-  reference: Date,
-  serviceState: GetServiceStateResponse["data"]["state"],
-): ZoneStatus {
-  const openDate = createDateFromStrapiTime(zone.openTime);
-  const closeDate = createDateFromStrapiTime(zone.closeTime);
-
-  if (serviceState === "closed" || serviceState === "suspended") {
-    return "closed";
-  }
-
-  if (!openDate || !closeDate) {
-    return zone.isOpen ? "open" : "closed";
-  }
-
-  const nowTime = reference.getTime();
-  const closeTime = closeDate.getTime();
-  const openTime = openDate.getTime();
-
-  if (nowTime >= closeTime && nowTime < openTime) {
-    return "closed";
-  }
-
-  if (nowTime >= openTime && nowTime < closeTime) {
-    return zone.isOpen ? "open" : "closed";
-  }
-
-  return "closed";
-}
-
 export default function SchedulesClient(props: Props) {
   const { translations } = props;
 
@@ -206,6 +154,7 @@ export default function SchedulesClient(props: Props) {
     isError: isErrorServiceState,
     isLoading: isLoadingServiceState,
   } = useServiceState();
+
   const { data, isError, isLoading, key } = useProxy<GetZonesResponse>(
     STRAPI_ENDPOINTS.ZONES,
     query,

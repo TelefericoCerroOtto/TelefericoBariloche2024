@@ -1,22 +1,87 @@
 "use client";
 
-import { buttonStyles } from "@/components/shared/ButtonDos";
+import { Button, Tabs as HeroTabs, Tab } from "@heroui/react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
-import { Tabs as NextUITabs, Tab } from "@heroui/react";
-import { useState } from "react";
+
+import Link from "next/link";
 import ActivitiesAdminTable from "./ActivitiesAdminTable";
 import TicketsAdminTable from "./TicketsAdminTable";
 
+const ALLOWED_SELECTED = ["tickets", "activities"] as const;
+type AllowedSelected = (typeof ALLOWED_SELECTED)[number];
+
+function isAllowedSelected(v: string | null): v is AllowedSelected {
+  return v !== null && (ALLOWED_SELECTED as readonly string[]).includes(v);
+}
+
+function safeSelected(v: string | null): AllowedSelected {
+  return isAllowedSelected(v) ? v : "tickets";
+}
+
+function replaceSelectedInUrl(pathname: string, nextSelected: AllowedSelected) {
+  // No navigation: only updates the address bar
+  const params = new URLSearchParams(window.location.search);
+  params.set("selected", nextSelected);
+  const nextUrl = `${pathname}?${params.toString()}`;
+  window.history.replaceState(null, "", nextUrl);
+}
+
 export default function Tabs() {
-  const [selected, setSelected] = useState<string | number>("tickets");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const selectedFromQuery = useMemo(
+    () => searchParams.get("selected"),
+    [searchParams],
+  );
+
+  // Local state drives the UI (instant, no navigation)
+  const [selected, setSelected] = useState<AllowedSelected>(() =>
+    safeSelected(selectedFromQuery),
+  );
+
+  // Sync local state when the URL changes due to real navigations
+  // (e.g., arriving from another page with ?selected=activities)
+  useEffect(() => {
+    const next = safeSelected(selectedFromQuery);
+    setSelected(next);
+
+    // Guard: if query is missing/invalid, normalize URL WITHOUT navigation
+    if (
+      !isAllowedSelected(selectedFromQuery) &&
+      typeof window !== "undefined"
+    ) {
+      replaceSelectedInUrl(pathname, next);
+    }
+  }, [selectedFromQuery, pathname]);
+
+  const onSelectionChange = (key: string | number) => {
+    const nextRaw = String(key);
+
+    // Ignore non-content tabs (e.g. "create") as selection
+    if (!isAllowedSelected(nextRaw)) return;
+
+    setSelected(nextRaw);
+
+    // Keep URL in sync without triggering Next navigation
+    replaceSelectedInUrl(pathname, nextRaw);
+  };
+
+  const createHref =
+    selected === "tickets"
+      ? ADMIN_ROUTES.NEW_ACCESS_TICKET
+      : ADMIN_ROUTES.NEW_ACTIVITY_TICKET;
 
   return (
     <div className="flex w-full flex-col">
-      <NextUITabs
+      <HeroTabs
         aria-label="Opciones"
         variant="underlined"
         selectedKey={selected}
-        onSelectionChange={setSelected}
+        onSelectionChange={onSelectionChange}
         classNames={{
           tabList:
             "gap-6 w-full relative rounded-none px-6 border-b border-divider",
@@ -29,24 +94,21 @@ export default function Tabs() {
         <Tab key="tickets" title={<span>Acceso</span>}>
           <TicketsAdminTable />
         </Tab>
+
         <Tab key="activities" title={<span>Actividades</span>}>
           <ActivitiesAdminTable />
         </Tab>
+
         <Tab
           key="create"
-          href={
-            selected === "tickets"
-              ? ADMIN_ROUTES.NEW_ACCESS_TICKET
-              : ADMIN_ROUTES.NEW_ACTIVITY_TICKET
-          }
           title={
-            <span className="text-white">
+            <Button as={Link} href={createHref} variant="solid" color="primary">
               {selected === "tickets" ? "Nuevo ticket" : "Nueva actividad"}
-            </span>
+            </Button>
           }
-          className={`${buttonStyles({ intent: "solid", className: "ml-auto" })}`}
+          className="ml-auto"
         />
-      </NextUITabs>
+      </HeroTabs>
     </div>
   );
 }

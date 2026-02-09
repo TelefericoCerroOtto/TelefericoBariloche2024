@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { BlockRendererClient } from "@/components";
+import type { StrapiBlocksPayload } from "@/types";
 import { cn } from "@/utils";
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 
 interface FaqItem {
   id: number;
   question: string;
-  answer: string;
+  answer: StrapiBlocksPayload;
 }
 
 interface Props {
@@ -66,9 +68,7 @@ function Faq({ id, question, answer }: FaqItem) {
             isOpen ? "pb-6 pt-4 opacity-100" : "pb-0 pt-0 opacity-0",
           )}
         >
-          <p className="whitespace-pre-line text-lg leading-8 text-foreground/80 md:text-xl md:leading-8">
-            {answer}
-          </p>
+          <BlockRendererClient content={answer} />
         </div>
       </div>
     </article>

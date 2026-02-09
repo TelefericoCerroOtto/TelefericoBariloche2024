@@ -89,7 +89,7 @@ Ubicarse con la terminal dentro del directorio "./teleferico-cms" y ejecutar el 
 2. Ejecutar desde `./teleferico-app`:
 
    ```bash
-   npm run dev
+   pnpm run dev
    ```
 
 La configuración de imágenes remotas y rewrites está en `teleferico-app/next.config.mjs`.
@@ -322,13 +322,11 @@ Por defecto solo cuenta con un super admin que es el usuario postgres y del cual
 Cuando **inicializás App Engine** en un proyecto de GCP, Google crea **buckets “de sistema”** en Cloud Storage para cubrir dos necesidades distintas:
 
 1. **Bucket por defecto de App Engine (`<PROJECT_ID>.appspot.com`)**
-
    - Es el **default bucket** asociado a tu app/proyecto de App Engine.
    - Se usa como bucket “principal” ligado a App Engine (por ejemplo, para integraciones típicas con Storage desde tu app, y para que el runtime tenga un bucket predecible).
    - En la documentación de App Engine (standard) se describe explícitamente que **se crea un bucket por defecto al crear la app**, con ese formato de nombre. ([Google Cloud Documentation][1])
 
 2. **Bucket de staging (`staging.<PROJECT_ID>.appspot.com`)**
-
    - App Engine lo usa para **almacenamiento temporal durante los despliegues** (subida/armado de versiones nuevas).
    - En general es un bucket “para App Engine”, no para que tu aplicación lo use como storage de negocio. ([Stack Overflow][2])
    - En docs legacy también se menciona que al crear el bucket por defecto, aparece **un staging bucket con `staging.` prepended**, justamente con ese fin. ([Google Cloud Documentation][3])
@@ -344,7 +342,6 @@ Porque separan responsabilidades:
 
 - **No los borres**: te podés encontrar con errores al desplegar o al usar features que esperan esos recursos (es un problema recurrente cuando se elimina el default bucket).
 - Si tu preocupación es **costos/orden**, la estrategia suele ser:
-
   - No tocar esos buckets de sistema.
   - Usar buckets propios para tus archivos de negocio, con lifecycle rules y ubicación optimizada.
 
@@ -549,13 +546,11 @@ Para saber que variables de entorno deben declararse en build time, se utilizar�
 ## Arquitectura general del monorepo
 
 - **Monorepo** con dos paquetes:
-
   - **App**: Next.js (frontend público + dashboard/admin).
   - **CMS**: Strapi v5 (backend CMS).
 
 - **Local**
-
-  - Next.js se ejecuta con `npm run dev` (no dockerizado).
+  - Next.js se ejecuta con `pnpm run dev` (no dockerizado).
   - Strapi se ejecuta con `npm run develop` (no dockerizado).
   - Postgres local en **Docker** con **volumen** persistente para desarrollo.
 
@@ -578,12 +573,27 @@ Cada entorno tendrá su propio set (aislado) de:
 
 - Variables en Cloud Build YAML + secretos en **Secret Manager**, inyectados en build/deploy.
 
+### Secret Manager
+
+Por el momento Secret Manager se utiliza para guardar valores de variables de entorno que utilizan los paquetes (app/cms) que sean sensibles. Se utilizará la siguiente convención de nombres para los secretos guardados en Secret Manager.
+
+`<SERVICE>__<ENVIRONMENT>__<KEY>`
+
+Donde:
+
+- **`<SERVICE>`**: `APP` | `CMS` Se refiere a que paquete del monorepo que pertenece/se utiliza ese secreto.
+- **`<ENVIRONMENT>`**: `STAGING` | `PRODUCTION` A que entorno pertenecen.
+- **`<KEY>`**: El nombre de la variable (en mayúscular, sin espacios y con un solo underscore \_ entre palabras), idealmente igual al env var real.
+
+Ejemplo:
+
+**`APP__STAGING__BUILD_STRAPI_BASE_URL`**
+
 ## Almacenamiento de media
 
 ### Cloud Storage
 
 - **Buckets separados por entorno**:
-
   - **Staging**: bucket propio (assets de staging).
   - **Producción**: bucket propio (assets de producción).
 
@@ -600,34 +610,28 @@ Publicar el sitio por primera vez minimizando complejidad y riesgos, sin impleme
 ### Flujo actual (bootstrap “una única vez”)
 
 1. **Staging como entorno editorial inicial**
-
    - Carga completa del contenido editorial en staging usando el Admin Panel de Strapi (staging).
 
 2. **Congelar escrituras en staging durante el bootstrap**
-
    - Se define una **ventana operativa**: durante el proceso no se edita contenido en staging.
    - Es una regla de trabajo (por ahora), para garantizar consistencia durante la transferencia.
 
 3. **Transferencia de datos y archivos (relay staging → local → producción)**
-
    - Se utiliza **`strapi transfer`** porque el flujo soportado es **remoto → local** y **local → remoto**.
 
    - Secuencia:
-
      1. **Staging → Local** (pull): baja contenido y archivos a tu entorno local.
      2. **Local → Producción** (push): sube contenido y archivos a producción.
 
    - Implicación: producción recibe los registros y los assets, quedando alineada con su **bucket productivo**.
 
 4. **Arranque de producción**
-
    - Se despliega Strapi y Next.js desde **`main`** (Cloud Build trigger).
    - La instancia de Cloud SQL en producción tendrá **backups habilitados**.
 
 ### Regla clave de consistencia (schema vs runtime)
 
 - El bootstrap inicial se realiza cuando:
-
   - el contenido y el modelo están estabilizados en staging,
   - y la versión de Strapi (código y schema) está alineada entre staging/local/producción para evitar inconsistencias.
 
@@ -669,7 +673,6 @@ Una vez en producción:
 
 - Entender y formalizar el comportamiento de `publicFiles` en el provider de GCS.
 - Definir cómo se entregan archivos:
-
   - URLs firmadas generadas bajo demanda (idealmente desde backend/app),
   - o proxy de descarga autenticada,
   - y criterios de qué media es público vs privado.
@@ -686,7 +689,6 @@ Una vez en producción:
 - Herramienta en el root del repo (ej. `tools/content-sync/`).
 
 - Orquestable por Cloud Build como job manual con:
-
   - `dry-run` (plan/diff),
   - `apply` (upsert),
   - allowlist explícita de content-types migrables y exclusiones (postulaciones, etc.).
@@ -698,19 +700,15 @@ Una vez en producción:
 ## Línea de tiempo sugerida (conectando el flujo actual con las mejoras)
 
 1. **Ahora (go-live):**
-
    - Completar contenido en staging → ventana de freeze → `transfer` staging→local → `transfer` local→prod → deploy prod desde `main`.
 
 2. **Inmediato post go-live:**
-
    - Implementar protección IAP para ambos admin panels (alta).
 
 3. **Luego:**
-
    - Resolver `publicFiles`/URLs firmadas con una estrategia definida (media).
 
 4. **Más adelante:**
-
    - Construir y adoptar la tool de sincronización granular (baja), evaluando `syncKey` como soporte opcional si fuese necesario.
 
 # Flujo de Trabajo con Git 🔀
@@ -720,28 +718,23 @@ Este flujo de trabajo utiliza tres ramas principales: `main`, `staging` y `devel
 ## Ramas
 
 - **main**:
-
   - Asociada con el entorno de **producción**.
   - Se despliega directamente en producción.
 
 - **staging**:
-
   - Asociada con el entorno de **staging**.
   - Se despliega en el entorno de staging para pruebas previas a la producción.
 
 - **development**:
-
   - Ramas de desarrollo donde se crean y mergean las distintas **features**.
   - Cuando una feature está lista, se hace un **merge** a `development`.
 
 - **docs**:
-
   - Exclusiva para modificaciones a archivos de documentacion.
   - Mergea a `main` y `development`
   - No implica que las modificaciones a archivos de documentacion se realicen unicamente en esta rama. Es decir que la documentacion puede ser actualizada en otras ramas.
 
 - **feat/FEATURE_NAME**:
-
   - Los cambios realizados tienen que estar relacionados con la feature.
   - Mergean unicamente a `development` a traves de Pull Request.
 

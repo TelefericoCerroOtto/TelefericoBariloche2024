@@ -1,7 +1,6 @@
 import { FormError, StrapiComponentRenderer } from "@/components";
 import type { Locales, RendereableBlocks } from "@/types";
 import { Fragment, type ComponentType } from "react";
-import { type StrapiComponentRendererConfig } from "../shared/StrapiComponentRenderer";
 
 interface Props {
   blocks: RendereableBlocks | RendereableBlocks[];
@@ -10,20 +9,15 @@ interface Props {
     component: ComponentType<{ locale: Locales }>;
   }[];
   locale: Locales;
-  config?: StrapiComponentRendererConfig;
 }
 
 export default function BlocksRenderer(props: Props) {
-  const { blocks, customBlocks = [], locale, config } = props;
+  const { blocks, customBlocks = [], locale } = props;
 
   if (!Array.isArray(blocks)) {
     return (
       <>
-        <StrapiComponentRenderer
-          customConfig={config}
-          block={blocks}
-          locale={locale}
-        />
+        <StrapiComponentRenderer block={blocks} locale={locale} />
         {customBlocks.map((cb, index) => (
           <cb.component key={index} locale={locale} />
         ))}
@@ -52,11 +46,7 @@ export default function BlocksRenderer(props: Props) {
 
         return (
           <Fragment key={idx}>
-            <StrapiComponentRenderer
-              customConfig={config}
-              block={block}
-              locale={locale}
-            />
+            <StrapiComponentRenderer block={block} locale={locale} />
             {selectedBlocks.map((cb, index) => (
               <cb.component key={`custom-${idx}-${index}`} locale={locale} />
             ))}

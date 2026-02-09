@@ -43,7 +43,7 @@ export async function verifyCaptchaToken(
     });
 
     const captchaData = (await res.json()) as CaptchaResponse;
-    console.log("recaptcha response:", captchaData);
+
     return captchaData;
   } catch (error) {
     console.error("Error verifying captcha:", error);

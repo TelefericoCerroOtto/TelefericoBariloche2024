@@ -113,46 +113,56 @@ export default function ServiceStatusButtonClient(props: Props) {
   );
 
   return (
-    <div className="h-full w-full space-y-6">
+    <div className="h-full w-full space-y-4 sm:space-y-5">
       <button
         type="button"
         onClick={onOpen}
         aria-expanded={isOpen}
         aria-controls={modalId}
-        className={`group flex h-full w-full items-center gap-5 rounded-3xl border px-6 py-5 text-left shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary ${styles.border} ${styles.background}`}
+        className={`group flex h-full w-full items-center gap-3 rounded-2xl border px-4 py-4 text-left shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary sm:gap-4 sm:rounded-3xl sm:px-6 sm:py-5 ${styles.border} ${styles.background}`}
       >
+        {/* Icono teleferico */}
         <span
-          className={`flex size-14 items-center justify-center rounded-2xl shadow-inner shadow-black/10 ${styles.iconBackground}`}
+          className={`flex size-11 items-center justify-center rounded-xl shadow-inner shadow-black/10 sm:size-14 sm:rounded-2xl ${styles.iconBackground}`}
         >
           <CableCar
-            className={`size-6 ${styles.iconColor}`}
+            className={`size-5 sm:size-6 ${styles.iconColor}`}
             aria-hidden="true"
           />
         </span>
-        <span className="flex flex-1 flex-col gap-2">
+
+        {/* Textos informativos */}
+        <span className="flex min-w-0 flex-1 flex-col gap-1.5 sm:gap-2">
           <span
-            className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-sm font-semibold uppercase tracking-wide ${styles.badgeBackground} ${styles.badgeText}`}
+            className={`inline-flex w-fit items-center justify-center whitespace-normal rounded-full px-2.5 py-0.5 text-center text-[11px] font-semibold uppercase leading-tight tracking-wide sm:px-3 sm:py-1 sm:text-sm sm:leading-none ${styles.badgeBackground} ${styles.badgeText}`}
           >
             {activeState?.stateLegend ?? content.button.trigger}
           </span>
-          <span className="text-lg font-semibold text-slate-900 md:text-xl">
+
+          <span className="text-base font-semibold text-slate-900 sm:text-lg md:text-xl">
             {content.button.trigger}
           </span>
-          <span className={`text-base md:text-lg ${styles.accentText}`}>
+
+          <span
+            className={`text-sm sm:text-base md:text-lg ${styles.accentText}`}
+          >
             {activeState?.title}
           </span>
         </span>
+
+        {/* Flecha  */}
         <ChevronRight
           aria-hidden="true"
-          className={`size-6 shrink-0 transition-transform duration-200 group-hover:translate-x-1 ${styles.accentText}`}
+          className={`size-5 shrink-0 transition-transform duration-200 group-hover:translate-x-1 sm:size-6 ${styles.accentText}`}
         />
       </button>
 
+      {/* Modal */}
       <Modal
         isOpen={isOpen}
         onOpenChange={onOpenChange}
         classNames={{
-          base: "rounded-3xl",
+          base: "rounded-2xl sm:rounded-3xl",
           header: "pb-0",
           body: "pt-2",
         }}
@@ -161,37 +171,40 @@ export default function ServiceStatusButtonClient(props: Props) {
           {(onClose) => (
             <>
               <ModalHeader
-                className={`flex flex-col gap-1 text-lg font-semibold md:text-xl ${styles.accentText}`}
+                className={`flex flex-col gap-1 text-base font-semibold sm:text-lg md:text-xl ${styles.accentText}`}
               >
                 {activeState?.stateLegend ?? content.button.trigger}
               </ModalHeader>
-              <ModalBody className="space-y-5">
-                <ul className="space-y-4">
+
+              <ModalBody className="space-y-4 sm:space-y-5">
+                <ul className="space-y-3 sm:space-y-4">
                   {modalStates.map((item, index) => {
                     const itemStyles = stateStyles[item.state];
 
                     return (
                       <li key={`${item.state}-${index}`} className="space-y-1">
                         <p
-                          className={`text-base font-semibold md:text-lg ${itemStyles.accentText}`}
+                          className={`text-sm font-semibold sm:text-base md:text-lg ${itemStyles.accentText}`}
                         >
                           {item.title}
                         </p>
-                        <p className="text-base text-slate-600 md:text-lg">
+                        <p className="text-sm text-slate-600 sm:text-base md:text-lg">
                           {item.stateDesc}
                         </p>
                       </li>
                     );
                   })}
                 </ul>
+
                 <BlockRendererClient
                   content={content.modal.disclaimer as BlocksContent}
-                  className="text-sm text-slate-500 md:text-base"
+                  className="text-xs text-slate-500 sm:text-sm md:text-base"
                 />
               </ModalBody>
+
               <ModalFooter className="pt-0">
                 <Button
-                  className="w-full rounded-full bg-primary text-xl text-primary-foreground transition-opacity hover:opacity-90"
+                  className="w-full rounded-full bg-primary py-2.5 text-base font-semibold text-primary-foreground transition-opacity hover:opacity-90 sm:py-3 sm:text-lg md:text-xl"
                   onPress={onClose}
                 >
                   {content.button.close}

@@ -78,7 +78,7 @@ export const createZoneAdapter = (
 };
 
 export const updateZoneAdapter = (
-  zone: UpdateZoneFormData | Partial<UpdateZoneFormData>,
+  zone: Partial<UpdateZoneFormData>,
 ): UpdateZoneRequest => {
   const reqBody: { data: Record<string, unknown> } = { data: {} };
 

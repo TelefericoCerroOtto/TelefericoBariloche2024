@@ -32,7 +32,7 @@ export const updateFaqFeaturedStatus = async (
       message: "Faq featured status successfully updated.",
     };
   } catch (error) {
-    console.log("Error updating faq featured status", error);
+    console.log("Error updating faq featured status: ", error);
     return {
       success: false,
       message: `Error updating faq featured status`,

@@ -2,16 +2,28 @@
 
 import { buttonStyles } from "@/components/shared/ButtonDos";
 import { useLocale } from "@/hooks";
+import {
+  isExternalHref,
+  isHttpUrl,
+  withLocalePrefix,
+} from "@/lib/helpers/links";
 import { VariantProps } from "class-variance-authority";
-import Link, { LinkProps } from "next/link";
-import { type ReactNode } from "react";
 import clsx from "clsx";
+import { ExternalLink as ExternalLinkIcon } from "lucide-react";
+import NextLink from "next/link";
+import type { ComponentProps, ReactNode } from "react";
 
-interface Props extends VariantProps<typeof buttonStyles>, LinkProps {
+type NextLinkComponentProps = ComponentProps<typeof NextLink>;
+
+interface Props
+  extends VariantProps<typeof buttonStyles>,
+    Omit<NextLinkComponentProps, "href" | "children"> {
+  href: NextLinkComponentProps["href"];
   children: ReactNode;
   withButtonStyles?: boolean;
   className?: string;
   disabled?: boolean;
+  showExternalIcon?: boolean;
 }
 
 export default function CustomLink(props: Props) {
@@ -24,6 +36,10 @@ export default function CustomLink(props: Props) {
     fullWidth,
     className,
     disabled = false,
+    showExternalIcon = true,
+    target,
+    rel,
+    prefetch,
     ...rest
   } = props;
 
@@ -35,6 +51,7 @@ export default function CustomLink(props: Props) {
 
   const finalClassName = clsx(
     baseClassName,
+    withButtonStyles && "inline-flex items-center gap-2",
     disabled && "pointer-events-none opacity-60 cursor-not-allowed",
   );
 
@@ -46,9 +63,32 @@ export default function CustomLink(props: Props) {
     );
   }
 
+  const hrefString = typeof href === "string" ? href : null;
+
+  const external = hrefString ? isExternalHref(hrefString) : false;
+  const opensNewTab = hrefString ? isHttpUrl(hrefString) : false;
+
+  const finalHref =
+    hrefString && !external ? withLocalePrefix(hrefString, locale) : href;
+
   return (
-    <Link href={`/${locale}${href}`} className={finalClassName} {...rest}>
-      {children}
-    </Link>
+    <NextLink
+      href={finalHref}
+      className={finalClassName}
+      {...rest}
+      target={opensNewTab ? "_blank" : target}
+      rel={opensNewTab ? "noopener noreferrer" : rel}
+      prefetch={opensNewTab ? false : prefetch}
+    >
+      {showExternalIcon && opensNewTab ? (
+        <>
+          <span>{children}</span>
+          <ExternalLinkIcon aria-hidden className="h-4 w-4" />
+          <span className="sr-only">(opens in a new tab)</span>
+        </>
+      ) : (
+        children
+      )}
+    </NextLink>
   );
 }

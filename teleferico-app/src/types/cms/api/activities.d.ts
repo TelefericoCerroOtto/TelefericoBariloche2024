@@ -11,7 +11,8 @@ export type GetActivitiesResponse = {
 };
 
 export type PostActivityRequest = {
-  data: Pick<Activity, "price" | "minAge" | "season">;
+  data: Pick<Activity, "price" | "minAge" | "season" | "available"> &
+    Partial<Pick<Activity, "maxAge" | "isActive">>;
 };
 
 export type PostActivityResponse = {
@@ -20,7 +21,12 @@ export type PostActivityResponse = {
 };
 
 export type UpdateActivityRequest = {
-  data: Partial<Pick<Activity, "price" | "minAge" | "season">>;
+  data: Partial<
+    Pick<
+      Activity,
+      "price" | "minAge" | "maxAge" | "season" | "available" | "isActive"
+    >
+  >;
 };
 
 export type UpdateActivityResponse = {
@@ -29,11 +35,12 @@ export type UpdateActivityResponse = {
 };
 
 export type PostActivityTranslationRequest = {
-  data: Pick<ActivityTranslation, "name" | "description" | "requirements"> & {
-    activity: {
-      connect: [{ documentId: string }];
+  data: Pick<ActivityTranslation, "name" | "description"> &
+    Partial<Pick<ActivityTranslation, "requirements">> & {
+      activity: {
+        connect: [{ documentId: string }];
+      };
     };
-  };
 };
 
 export type PostActivityTranslationResponse = {

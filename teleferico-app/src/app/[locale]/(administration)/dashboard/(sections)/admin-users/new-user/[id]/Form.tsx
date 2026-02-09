@@ -62,7 +62,7 @@ export default function Form(props: Props) {
     } catch (error) {
       setIsSubmitting(false);
       setError(GEN_ERR_MSG);
-      console.log("new user submit error", error);
+      console.log("new user submit error: ", error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -58,7 +58,7 @@ export default function ActionButtons({ user }: Props) {
             variant: "danger",
           });
         } catch (error) {
-          console.log("action error", error);
+          console.log("ActionButtons action error: ", error);
           setIsLoading(false);
         }
       };

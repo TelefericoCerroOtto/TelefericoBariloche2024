@@ -7,16 +7,18 @@ import type {
 import type { ComponentType } from "react";
 
 import {
-  DefaultFW,
-  DefaultOne,
-  DefaultTwo,
+  Cascade,
+  Double,
   Horizontal,
   Ladder,
+  Masonry,
   Miniatures,
   Panoramic,
-  PanoramicFW,
+  Poster,
+  Single,
   Spotlight,
 } from "./variants/index";
+import Card from "./variants/one/Card";
 
 // Keys válidas (acotadas) estructura {count}:{variant}
 export type ImageTextRegistryKey =
@@ -28,17 +30,19 @@ type BlockComponent = ComponentType<ImageTextBlock>;
 
 const IMAGE_TEXT_REGISTRY: Record<ImageTextRegistryKey, BlockComponent> = {
   // 1 imagen
-  "1:default": DefaultOne,
-  "1:defaultFW": DefaultFW,
+  "1:single": Single,
+  "1:poster": Poster,
+  "1:card": Card,
   "1:panoramic": Panoramic,
-  "1:panoramicFW": PanoramicFW,
   "1:spotlight": Spotlight,
 
   // 2 imágenes
-  "2:default": DefaultTwo,
+  "2:double": Double,
+  "2:cascade": Cascade,
 
   // 3 imágenes
   "3:horizontal": Horizontal,
+  "3:masonry": Masonry,
   "3:ladder": Ladder,
   "3:miniatures": Miniatures,
 };

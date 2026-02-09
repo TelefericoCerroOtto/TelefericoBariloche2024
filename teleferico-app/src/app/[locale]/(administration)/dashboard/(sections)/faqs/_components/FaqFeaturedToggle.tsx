@@ -66,7 +66,7 @@ export default function FaqFeaturedToggle({ faq, onUpdate }: Props) {
         message: "Ocurrió un error inesperado",
         variant: "danger",
       });
-      console.log("Unexpected error updating zone open status.", error);
+      console.log("Unexpected error updating zone open status: ", error);
     } finally {
       setIsUpdating(false);
       onUpdate?.(false);

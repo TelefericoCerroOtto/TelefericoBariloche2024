@@ -11,11 +11,7 @@ export type GetTicketsResponse = {
 };
 
 export type PostAccessTicketRequest = {
-  data: {
-    name: string;
-    price: number;
-    lifting_mean: "cablecar" | "road&funicular";
-  };
+  data: Pick<Ticket, "name" | "description" | "price" | "lifting_mean">;
 };
 
 export type PostAccessTicketResponse = {
@@ -24,11 +20,9 @@ export type PostAccessTicketResponse = {
 };
 
 export type UpdateAccessTicketRequest = {
-  data: {
-    name?: string;
-    price?: number;
-    lifting_mean?: "cablecar" | "road&funicular";
-  };
+  data: Partial<
+    Pick<Ticket, "name" | "description" | "price" | "lifting_mean">
+  >;
 };
 
 export type UpdateAccessTicketResponse = {
