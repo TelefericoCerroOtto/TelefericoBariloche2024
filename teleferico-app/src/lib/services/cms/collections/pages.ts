@@ -50,7 +50,7 @@ export const getPageContent = async (locale: Locales, route: string) => {
   const res = await strapiFetch<GetPageResponse>(
     { endpoint: STRAPI_ENDPOINTS.PAGES, qp: stringifyQuery(query) },
     {
-      cache: "force-cache",
+      // cache: "force-cache",
       next: {
         tags: [`${PAGE_TAG_PREFIX}${route}`],
       },

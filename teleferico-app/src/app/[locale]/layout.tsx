@@ -13,11 +13,11 @@ import "@/app/swiper-overrides.css";
 
 type Params = { params: Promise<{ locale: Locales }> };
 
-// export const dynamicParams = false;
+export const dynamicParams = false;
 
-export async function generateStaticParams() {
-  return i18n.locales.map((locale) => ({ locale }));
-}
+// export async function generateStaticParams() {
+//   return i18n.locales.map((locale) => ({ locale }));
+// }
 
 const SITE_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
