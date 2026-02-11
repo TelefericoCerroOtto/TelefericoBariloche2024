@@ -1,13 +1,13 @@
-import { i18n } from "@/i18n";
+// import { i18n } from "@/i18n";
 import { notFound } from "next/navigation";
 
 const PAGES_ROUTES = ["alternative-access"];
 
-export async function generateStaticParams() {
-  return i18n.locales.flatMap((locale) =>
-    PAGES_ROUTES.map((slug) => ({ locale, slug })),
-  );
-}
+// export async function generateStaticParams() {
+//   return i18n.locales.flatMap((locale) =>
+//     PAGES_ROUTES.map((slug) => ({ locale, slug })),
+//   );
+// }
 
 export default async function RootLayout({
   children,
