@@ -5,31 +5,28 @@
   "description": "A Strapi application",
   "scripts": {
     "build": "strapi build",
-    "deploy": "strapi deploy",
     "develop": "strapi develop",
     "start": "strapi start",
     "strapi": "strapi"
   },
   "dependencies": {
-    "@strapi-community/strapi-provider-upload-google-cloud-storage": "^5.0.5",
-    "@strapi/plugin-cloud": "5.29.0",
-    "@strapi/plugin-users-permissions": "5.29.0",
-    "@strapi/strapi": "^5.29.0",
-    "mysql2": "^3.11.3",
-    "pg": "^8.13.0",
-    "react": "^18.0.0",
-    "react-dom": "^18.0.0",
-    "react-router-dom": "^6.0.0",
-    "styled-components": "^6.0.0"
+    "@strapi-community/strapi-provider-upload-google-cloud-storage": "5.0.5",
+    "@strapi/plugin-users-permissions": "5.36.0",
+    "@strapi/strapi": "5.36.0",
+    "pg": "8.18.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.30.3",
+    "styled-components": "6.3.9"
   },
   "engines": {
-    "node": ">=18.0.0 <=22.x.x",
+    "node": ">=20.0.0 <25",
     "npm": ">=6.0.0"
   },
   "strapi": {
     "uuid": "227f52fc-49fd-42d2-a830-733152d3c39b"
   },
   "devDependencies": {
-    "baseline-browser-mapping": "^2.9.11"
+    "baseline-browser-mapping": "2.9.19"
   }
 }
