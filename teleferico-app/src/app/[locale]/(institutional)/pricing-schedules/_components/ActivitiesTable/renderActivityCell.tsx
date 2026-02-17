@@ -1,8 +1,9 @@
+import { Popover } from "@/components";
 import { SEASONS_TRANSLATIONS } from "@/lib/constants/enum-fields-i18n.const";
 import type { Activity, Locales } from "@/types";
-import { Chip, Tooltip } from "@heroui/react";
-import { dictionaries, type ColumnKeys } from "./data";
 import { truncateString } from "@/utils/truncate-string";
+import { Chip } from "@heroui/react";
+import { dictionaries, type ColumnKeys } from "./data";
 
 export const renderActivityCell = ({
   activity,
@@ -23,20 +24,19 @@ export const renderActivityCell = ({
       if (!desc) return <span className="text-xl font-medium">{name}</span>;
 
       return (
-        <div className="flex flex-col gap-1">
-          <span className="text-xl font-medium">{name}</span>
-
-          <Tooltip
-            content={
-              <div className="max-w-md p-2 text-xl leading-snug">{desc}</div>
-            }
-            placement="top-start"
-          >
+        <Popover
+          content={
+            <div className="max-w-md p-2 text-xl leading-snug">{desc}</div>
+          }
+          placement="top-start"
+        >
+          <div className="flex flex-col gap-1">
+            <span className="text-xl font-medium">{name}</span>
             <span className="line-clamp-2 text-xl text-default-500">
               {truncateString(desc, 100)}
             </span>
-          </Tooltip>
-        </div>
+          </div>
+        </Popover>
       );
     }
 
