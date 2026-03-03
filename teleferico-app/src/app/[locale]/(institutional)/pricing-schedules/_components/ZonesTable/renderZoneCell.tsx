@@ -1,9 +1,10 @@
+import { Popover } from "@/components";
 import { strapiTimeToLocalizedTableTime } from "@/lib/adapters";
 import { getZoneStatus } from "@/lib/helpers/getZoneStatus";
 import type { GetServiceStateResponse, Locales, Zone } from "@/types";
-import { Chip, Tooltip } from "@heroui/react";
-import { dictionaries, type ColumnKeys } from "./data";
 import { truncateString } from "@/utils/truncate-string";
+import { Chip } from "@heroui/react";
+import { dictionaries, type ColumnKeys } from "./data";
 
 export const renderZoneCell = ({
   zone,
@@ -31,7 +32,7 @@ export const renderZoneCell = ({
         <div className="flex flex-col gap-1">
           <span className="text-xl font-medium">{name}</span>
 
-          <Tooltip
+          <Popover
             content={
               <div className="max-w-md p-2 text-xl leading-snug">{desc}</div>
             }
@@ -40,7 +41,7 @@ export const renderZoneCell = ({
             <span className="line-clamp-2 text-xl text-default-500">
               {truncateString(desc, 100)}
             </span>
-          </Tooltip>
+          </Popover>
         </div>
       );
     }
