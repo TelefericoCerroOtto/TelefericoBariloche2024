@@ -1,5 +1,6 @@
 "use client";
 
+import { Popover } from "@/components/shared";
 import { useLocale, useProxy, useServiceState } from "@/hooks";
 import { strapiTimeToLocalizedTableTime } from "@/lib/adapters";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
@@ -11,7 +12,7 @@ import type {
   Locales,
   Zone,
 } from "@/types";
-import { Button, Spinner, Tooltip } from "@heroui/react";
+import { Button, Spinner } from "@heroui/react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useSWRConfig } from "swr";
@@ -213,11 +214,11 @@ export default function SchedulesClient(props: Props) {
                   {s.name}
                 </h3>
                 {s.description ? (
-                  <Tooltip content={s.description} placement="top">
+                  <Popover content={s.description} placement="top">
                     <p className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-gray-800 text-base font-bold text-white">
                       ?
                     </p>
-                  </Tooltip>
+                  </Popover>
                 ) : null}
               </div>
 

@@ -36,7 +36,7 @@ export default function Hero(props: Props) {
         fill
         className="z-0 object-cover"
       />
-      <div className="absolute inset-0 bg-black bg-opacity-65" />
+      <div className="absolute inset-0 bg-black bg-opacity-45" />
       <div
         className={`absolute z-10 flex h-full w-5/6 max-w-[1536px] gap-6 pb-16 text-white sm:w-3/4 ${align === "bottom" ? "justify-end" : "justify-center"} left-1/2 right-auto -translate-x-1/2 transform flex-col`}
       >
