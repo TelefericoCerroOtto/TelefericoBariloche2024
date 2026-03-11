@@ -1,0 +1,8 @@
+node_modules
+Dockerfile
+.gitignore
+README.md
+transfer_*
+*.transfer
+public/uploads
+.strapi
