@@ -136,3 +136,75 @@ Mientras la transferencia esté en curso, **no realizar ninguna operación de le
 Dejar que el proceso finalice completamente para evitar inconsistencias o errores en los datos.
 
 ---
+
+## Convención compacta de guía para imágenes en el campo `variant`
+
+En el Content Manager de Strapi, debajo del campo `variant` (enumeration) de los componentes `OneImageBlock`, `TwoImageBlock`, `ThreeImageBlock` mostramos una guía breve para que el editor cargue imágenes con el **recorte (aspect ratio)** y la **resolución mínima recomendada** según el layout en **mobile** y **desktop**.
+
+La guía se escribe en una sola línea (o pocas líneas) separando variantes con `-`.
+
+### Formato usado
+
+```text
+VARIANT@bp: M AR · MP | D AR · MP
+```
+
+También se acepta una versión aún más compacta:
+
+```text
+VARIANT@bp: MAR@MP | DAR@MP
+```
+
+> Ejemplo: `CARD@md: M4:3 · 1.1MP | D24:7 · 1.9MP - PANORAMIC@md: M 2:3 · 1.8MP | D 21:9 · 2.8MP`
+> o bien: `CARD@md: M4:3@1.1 | D24:7@1.9 - PANORAMIC@md: M2:3@1.8 | D21:9@2.8`
+
+### Significado de la notación
+
+- **`VARIANT`**: nombre de la variante tal como figura en el enum (ej.: `CARD`, `PANORAMIC`, `SINGLE`).
+- **`@bp`**: breakpoint a partir del cual cambia el layout.
+  - `@md` = desktop aplica en `>= md` (mobile es `< md`)
+  - `@lg` = desktop aplica en `>= lg` (mobile es `< lg`)
+- **`M` / `D`**: recomendaciones para **Mobile** y **Desktop** respectivamente.
+- **`AR`**: aspect ratio recomendado (ej.: `1:1`, `4:3`, `16:9`, `21:9`, `24:7`).
+- **`MP`**: megapíxeles mínimos recomendados.
+  - En el formato con `@`, `@1.1` equivale a `1.1MP`.
+
+### Variantes con múltiples imágenes (slots)
+
+Cuando una variante tiene más de una imagen y los slots no comparten el mismo recorte, se usa la notación de slots:
+
+- **`S0`** = slot 0
+- **`S1`** = slot 1
+- **`S1-2`** = slots 1 y 2
+
+Si se escribe **`M/D`** significa que la recomendación es la misma para mobile y desktop en ese slot.
+
+> Ejemplo: `MASONRY@lg: S0 M/D 9:16 · 2.1MP | S1-2 M/D 1:1 · 1.4MP`
+
+### Criterio de uso
+
+- La guía busca evitar imágenes demasiado chicas que se vean borrosas en pantallas modernas (incluyendo high-DPR).
+- Subir imágenes más grandes que el mínimo está perfecto; lo importante es respetar el **aspect ratio** para que el crop no arruine el encuadre.
+- La guía es editorial (Strapi). Parámetros como `quality` y `priority` se controlan en el frontend (Next.js).
+
+### Separación en la descripción del campo
+
+Como el campo es un enum y el texto debe ser fácilmente escaneable, se separan variantes con:
+
+- `-` (guion medio con espacios), en lugar de saltos de línea.
+
+### Valores actuales
+
+A continuación la guía actual para cada uno de los componentes que renderizables que cuenta con imagenes
+
+```text
+CARD@md: M4:3 · 1.1MP | D 24:7 · 1.9MP - PANORAMIC@md: M 2:3 · 1.8MP | D 21:9 · 2.8MP - POSTER@md: M 9:16 · 2.1MP | D 21:9 · 2.8MP - SINGLE@lg: M 2:3 · 2.2MP | D 1:1 · 2.0MP - SPOTLIGHT@md: M 2:1 · 1.0MP | D 4:3 · 1.5MP
+
+HORIZONTAL@md: M 4:5 · 1.2MP | D 1:1 · 2.0MP - LADDER@lg: M 3:4 · 1.2MP | D 9:16 · 2.1MP - MASONRY@lg: S0 M/D 9:16 · 2.1MP | S1-2 M/D 1:1 · 1.4MP - MINIATURES@lg: S0 M/D 1:1 · 2.0MP | S1-2 M/D 4:3 · 0.7MP
+
+CASCADE@lg: S0 M/D 4:5 · 1.8MP | S1 M/D 16:11 · 1.4MP - DOUBLE@lg: M/D 1:1 · 2.0MP
+
+HERO@md: M3:4 · 1.6MP | D21:9 · 2.8MP
+
+CARROUSEL@md: M4:5 · 1.5MP | D21:9 · 2.8MP
+```

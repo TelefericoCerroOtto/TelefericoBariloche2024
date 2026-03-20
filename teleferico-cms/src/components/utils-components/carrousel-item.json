@@ -29,6 +29,18 @@
       "type": "component",
       "component": "utils-components.link",
       "repeatable": false
+    },
+    "desktopCover": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": false,
+      "required": true
+    },
+    "mobileCover": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": false,
+      "required": true
     }
   },
   "config": {}

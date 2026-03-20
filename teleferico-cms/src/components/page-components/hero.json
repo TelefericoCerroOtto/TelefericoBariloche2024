@@ -16,32 +16,44 @@
     },
     "firstLink": {
       "type": "component",
-      "repeatable": false,
-      "component": "utils-components.link"
+      "component": "utils-components.link",
+      "repeatable": false
     },
     "secondLink": {
       "type": "component",
-      "repeatable": false,
-      "component": "utils-components.link"
+      "component": "utils-components.link",
+      "repeatable": false
     },
     "cover": {
       "type": "component",
-      "repeatable": false,
       "component": "utils-components.image",
+      "repeatable": false,
       "required": true
     },
     "align": {
       "type": "enumeration",
+      "default": "bottom",
       "enum": [
         "bottom",
         "center"
-      ],
-      "default": "bottom"
+      ]
     },
     "logo": {
       "type": "component",
+      "component": "utils-components.image",
+      "repeatable": false
+    },
+    "desktopCover": {
+      "type": "component",
+      "component": "utils-components.image",
       "repeatable": false,
-      "component": "utils-components.image"
+      "required": true
+    },
+    "mobileCover": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": false,
+      "required": true
     }
   }
 }
