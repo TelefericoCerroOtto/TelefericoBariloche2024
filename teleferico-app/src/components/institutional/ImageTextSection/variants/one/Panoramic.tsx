@@ -2,14 +2,15 @@
 
 import { BlockRendererClient, CustomLink } from "@/components";
 import { bgStyles, fontSize } from "@/lib/constants/styles.const";
-import type { ImageTextBlock } from "@/types";
 import { Button } from "@heroui/react";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
+import type { OneImageProps } from "../../shared/types";
 
-export default function Panoramic(props: ImageTextBlock) {
+export default function Panoramic(props: OneImageProps) {
   const {
-    images,
+    desktopImages,
+    mobileImages,
     title,
     titleCase = "normal",
     description,
@@ -17,6 +18,13 @@ export default function Panoramic(props: ImageTextBlock) {
     epigraph,
     bgColor,
   } = props;
+
+  const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
+  const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
+
+  // Full-bleed background => siempre 100vw
+  const sizesMobile = "100vw";
+  const sizesDesktop = "100vw";
 
   const titleCaseClass =
     titleCase === "uppercase"
@@ -30,7 +38,15 @@ export default function Panoramic(props: ImageTextBlock) {
       <div className="relative h-[550px] w-full overflow-hidden shadow-2xl shadow-black/25 ring-1 ring-red-500/15">
         {/* Imagen */}
         <div className="absolute inset-0">
-          <CustomImage image={images[0]} />
+          {/* Mobile (<md) */}
+          <div className="relative h-full w-full md:hidden">
+            <CustomImage image={mobile0} sizes={sizesMobile} quality={68} />
+          </div>
+
+          {/* Desktop (>=md) */}
+          <div className="relative hidden h-full w-full md:block">
+            <CustomImage image={desktop0} sizes={sizesDesktop} quality={68} />
+          </div>
         </div>
 
         {/* Oscurecer fondo */}
@@ -68,13 +84,10 @@ export default function Panoramic(props: ImageTextBlock) {
                 <BlockRendererClient
                   content={description as BlocksContent}
                   className={[
-                    // override del renderer base (evita text-black/text-2xl)
                     "prose-invert text-white",
                     "text-sm sm:text-base md:text-lg",
-                    // centrado real en rich text
                     "text-center",
                     "prose-headings:text-center prose-p:text-center prose-li:text-center",
-                    // espaciado más prolijo en overlay
                     "prose-headings:leading-tight prose-p:leading-relaxed",
                     "prose-a:text-custom-red",
                   ].join(" ")}

@@ -1,10 +1,17 @@
 import { blocksToExcerpt } from "@/lib/adapters";
 import { fontSize } from "@/lib/constants/styles.const";
-import type { ImageTextBlock } from "@/types";
-import Image from "next/image";
+import CustomImage from "../../shared/CustomImage";
+import type { OneImageProps } from "../../shared/types";
 
-export function Spotlight(props: ImageTextBlock) {
-  const { images, title, description, epigraph } = props;
+export function Spotlight(props: OneImageProps) {
+  const { desktopImages, mobileImages, title, description, epigraph } = props;
+
+  const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
+  const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
+
+  const sizesMobile = "calc(100vw - 3rem)";
+  // max-w-6xl (1152) + md:px-12 (6rem) => contenido cap ~1056, mitad ~528 (tu valor ya estaba perfecto)
+  const sizesDesktop = "(max-width: 1152px) calc((100vw - 6rem) / 2), 528px";
 
   return (
     <div className="relative mx-auto my-10 w-full max-w-6xl px-6 md:my-24 md:px-12">
@@ -40,14 +47,16 @@ export function Spotlight(props: ImageTextBlock) {
         {/* Imagen */}
         <div className="relative w-full md:flex md:w-1/2 md:flex-col">
           <div className="relative h-[180px] flex-1 overflow-hidden md:min-h-[360px] lg:min-h-[400px]">
-            <Image
-              src={images[0].image.url}
-              alt={images[0].alt}
-              fill
-              sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-cover"
-              priority={false}
-            />
+            {/* Mobile (<md) */}
+            <div className="relative h-full w-full md:hidden">
+              <CustomImage image={mobile0} sizes={sizesMobile} quality={78} />
+            </div>
+
+            {/* Desktop (>=md) */}
+            <div className="relative hidden h-full w-full md:block">
+              <CustomImage image={desktop0} sizes={sizesDesktop} quality={78} />
+            </div>
+
             <div className="absolute inset-0 bg-black/10" />
           </div>
         </div>
@@ -69,18 +78,7 @@ export function Spotlight(props: ImageTextBlock) {
 
             {epigraph ? (
               <div className="inline-flex items-center gap-2 rounded-full border border-red-200/70 bg-white/85 px-4 py-2 text-sm font-bold italic text-red-700 shadow-sm backdrop-blur-md md:text-base">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="h-5 w-5 flex-shrink-0"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+                {/* ...icon... */}
                 {epigraph}
               </div>
             ) : null}

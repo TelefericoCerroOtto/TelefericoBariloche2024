@@ -6,25 +6,29 @@ import {
   HighlightLastWord,
 } from "@/components";
 import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
-import type { ImageTextBlock } from "@/types";
 import type { BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
 import LogoBadge from "../../shared/LogoBadge";
+import type { OneImageProps } from "../../shared/types";
 
-export default function Poster(props: ImageTextBlock) {
+export default function Poster(props: OneImageProps) {
   const {
-    images,
+    desktopImages,
+    mobileImages,
     title,
     titleCase = "normal",
     description,
-    isHighlighted = false,
     link,
     epigraph,
     bgColor,
+    isHighlighted = false,
   } = props;
 
-  const img = images?.[0];
-  if (!img) return null;
+  const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
+  const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
+
+  const sizesMobile = "calc(100vw - 3rem)";
+  const sizesDesktop = "(max-width: 1536px) calc(100vw - 6rem), 1440px";
 
   return (
     <section className={`my-14 w-full ${bgStyles[bgColor]}`}>
@@ -32,7 +36,16 @@ export default function Poster(props: ImageTextBlock) {
         <div className="relative overflow-hidden rounded-3xl shadow-2xl shadow-black/15 ring-1 ring-red-500/15">
           {/* Background image */}
           <div className="relative h-[620px] w-full overflow-hidden">
-            <CustomImage image={img} />
+            {/* Mobile (<md) */}
+            <div className="relative h-full w-full md:hidden">
+              <CustomImage image={mobile0} sizes={sizesMobile} quality={68} />
+            </div>
+
+            {/* Desktop (>=md) */}
+            <div className="relative hidden h-full w-full md:block">
+              <CustomImage image={desktop0} sizes={sizesDesktop} quality={68} />
+            </div>
+
             <div aria-hidden="true" className="absolute inset-0 bg-black/30" />
             <div
               aria-hidden="true"
@@ -47,7 +60,6 @@ export default function Poster(props: ImageTextBlock) {
           {/* Center content card */}
           <div className="absolute inset-0 flex items-center justify-center px-5 py-8">
             <article className="w-full max-w-3xl rounded-3xl bg-background/50 px-8 py-10 text-foreground shadow-2xl shadow-black/20 ring-1 ring-red-500/25 backdrop-blur-md md:px-12 md:py-12">
-              {/* Top accent */}
               <div
                 aria-hidden="true"
                 className="mb-6 h-1 w-16 rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500"

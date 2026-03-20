@@ -1,16 +1,17 @@
 "use client";
 
+import CustomLink from "@/components/shared/CustomLink";
+import notFoundImg from "@/public/image-not-found.jpg";
 import { Button } from "@heroui/react";
 import {
   BlocksRenderer,
   type BlocksContent,
 } from "@strapi/blocks-react-renderer";
-import Image from "next/image";
+import { getImageProps } from "next/image";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Swiper as SwiperInstance } from "swiper";
 import { A11y, Autoplay, Navigation, Pagination } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/react";
-import CustomLink from "@/components/shared/CustomLink";
 
 export type CarrouselSlideLink = {
   href: string;
@@ -23,7 +24,11 @@ export type CarrouselSlide = {
   epigraph?: string | null;
   description?: BlocksContent | string | null;
   link?: CarrouselSlideLink | null;
-  image: {
+  desktopImage: {
+    url: string;
+    altText?: string | null;
+  };
+  mobileImage: {
     url: string;
     altText?: string | null;
   };
@@ -86,6 +91,9 @@ export default function Carrousel({
   className,
 }: CarrouselProps) {
   const safeItems = useMemo(() => clampItems(items), [items]);
+
+  const SLIDE_SIZES =
+    "(max-width: 640px) calc(100vw - 3rem), (max-width: 1024px) calc(100vw - 4rem), calc(100vw - 7rem)";
 
   const hasMultiple = safeItems.length > 1;
   const enableAutoplay = Boolean(autoplayMs && autoplayMs > 0 && hasMultiple);
@@ -195,29 +203,62 @@ export default function Carrousel({
             Boolean(item.link);
 
           const alt =
-            item.image.altText ??
+            item.mobileImage?.altText ??
+            item.desktopImage?.altText ??
             item.title ??
             item.epigraph ??
             "Imagen del carrusel";
 
+          // Fallbacks (por si viene algo null/undefined desde Strapi)
+          const desktopSrc =
+            item.desktopImage?.url ?? item.mobileImage?.url ?? notFoundImg.src;
+          const mobileSrc =
+            item.mobileImage?.url ?? item.desktopImage?.url ?? notFoundImg.src;
+
+          // Art direction (Next: getImageProps  picture)
+          const common = { alt, sizes: SLIDE_SIZES };
+          const {
+            props: { srcSet: desktopSrcSet },
+          } = getImageProps({
+            ...common,
+            src: desktopSrc,
+            width: 1920,
+            height: 1080,
+            quality: 72,
+          });
+
+          const {
+            props: { srcSet: mobileSrcSet, ...imgProps },
+          } = getImageProps({
+            ...common,
+            src: mobileSrc,
+            width: 1080,
+            height: 1350,
+            quality: 70,
+          });
+
           return (
             <SwiperSlide
-              key={item.id ?? `${item.image.url}-${idx}`}
+              key={item.id ?? `${item.desktopImage.url}-${idx}`}
               className="h-auto"
             >
               <article className="relative overflow-hidden">
                 <div className="relative min-h-[360px] w-full sm:min-h-[440px] lg:min-h-[640px]">
-                  <Image
-                    src={item.image.url}
-                    alt={alt}
-                    fill
-                    priority={idx === 0}
-                    sizes="100vw"
-                    className={[
-                      "object-cover transition-[filter] duration-300",
-                      hasOverlay ? "brightness-[0.6]" : "",
-                    ].join(" ")}
-                  />
+                  <picture className="absolute inset-0">
+                    {/* Desktop >= md */}
+                    <source media="(min-width: 768px)" srcSet={desktopSrcSet} />
+                    {/* Mobile < md */}
+                    <source srcSet={mobileSrcSet} />
+                    <img
+                      {...imgProps}
+                      alt={alt}
+                      fetchPriority={idx === 0 ? "high" : undefined}
+                      className={[
+                        "absolute inset-0 h-full w-full object-cover transition-[filter] duration-300",
+                        hasOverlay ? "brightness-[0.6]" : "",
+                      ].join(" ")}
+                    />
+                  </picture>
 
                   {hasOverlay ? (
                     <>

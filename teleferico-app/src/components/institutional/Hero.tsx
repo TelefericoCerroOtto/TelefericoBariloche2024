@@ -2,11 +2,12 @@ import { CustomLink } from "@/components";
 import { fontSize } from "@/lib/constants/styles.const";
 import notFoundImg from "@/public/image-not-found.jpg";
 import { Link } from "@/types";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 
 interface Props {
   content: {
-    cover: { src: string; alt: string };
+    desktopCover: { src: string; alt: string };
+    mobileCover: { src: string; alt: string };
     title?: string;
     description?: string;
     align?: "bottom" | "center";
@@ -19,7 +20,8 @@ interface Props {
 export default function Hero(props: Props) {
   const { content } = props;
   const {
-    cover,
+    desktopCover,
+    mobileCover,
     title,
     description,
     align = "bottom",
@@ -28,14 +30,45 @@ export default function Hero(props: Props) {
     logo,
   } = content;
 
+  const alt = mobileCover?.alt ?? desktopCover?.alt ?? "imagen de fondo gris";
+
+  const desktopSrc = desktopCover?.src ?? mobileCover?.src ?? notFoundImg.src;
+  const mobileSrc = mobileCover?.src ?? desktopCover?.src ?? notFoundImg.src;
+
+  const common = { alt, sizes: "100vw" };
+  const {
+    props: { srcSet: desktopSrcSet },
+  } = getImageProps({
+    ...common,
+    src: desktopSrc,
+    width: 1920,
+    height: 1080,
+    quality: 72,
+  });
+  const {
+    props: { srcSet: mobileSrcSet, ...imgProps },
+  } = getImageProps({
+    ...common,
+    src: mobileSrc,
+    width: 2560,
+    height: 1100,
+    quality: 70,
+  });
+
   return (
     <div className="relative mb-14 min-h-[600px] w-full md:h-3/4 lg:h-1/2">
-      <Image
-        src={cover?.src ?? notFoundImg.src}
-        alt={cover?.alt ?? "imagen de fondo gris"}
-        fill
-        className="z-0 object-cover"
-      />
+      <picture className="absolute inset-0 z-0">
+        {/* Desktop >= md */}
+        <source media="(min-width: 768px)" srcSet={desktopSrcSet} />
+        {/* Mobile < md */}
+        <source srcSet={mobileSrcSet} />
+        <img
+          {...imgProps}
+          alt={alt}
+          fetchPriority="high"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      </picture>
       <div className="absolute inset-0 bg-black bg-opacity-45" />
       <div
         className={`absolute z-10 flex h-full w-5/6 max-w-[1536px] gap-6 pb-16 text-white sm:w-3/4 ${align === "bottom" ? "justify-end" : "justify-center"} left-1/2 right-auto -translate-x-1/2 transform flex-col`}

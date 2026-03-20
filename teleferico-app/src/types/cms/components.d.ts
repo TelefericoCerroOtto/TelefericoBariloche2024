@@ -37,7 +37,8 @@ export type Hero = {
   description?: string;
   firstLink?: Link;
   secondLink?: Link;
-  cover: Image;
+  desktopCover: Image;
+  mobileCover: Image;
   logo?: Image;
   align: HeroAlign;
 };
@@ -84,10 +85,39 @@ export type ThreeImagesVariant =
   | "ladder"
   | "miniatures";
 
-export type ImageTextVariants =
+export type ImageVariants =
   | OneImageVariant
   | TwoImagesVariant
   | ThreeImagesVariant;
+
+export type OneImageBlock = {
+  oneImageBlock: {
+    variant: OneImageVariant;
+    desktopImages: [Image];
+    mobileImages: [Image];
+  };
+};
+
+export type TwoImagesBlock = {
+  twoImagesBlock: {
+    variant: TwoImagesVariant;
+    desktopImages: [Image, Image];
+    mobileImages: [Image, Image];
+  };
+};
+
+export type ThreeImagesBlock = {
+  threeImagesBlock: {
+    variant: ThreeImagesVariant;
+    desktopImages: [Image, Image, Image];
+    mobileImages: [Image, Image, Image];
+  };
+};
+
+export type Variants =
+  | ({ imagesAmount: "one" } & OneImageBlock)
+  | ({ imagesAmount: "two" } & TwoImagesBlock)
+  | ({ imagesAmount: "three" } & ThreeImagesBlock);
 
 export type ImageTextCase = "normal" | "capitalize" | "uppercase" | "lowercase";
 
@@ -101,12 +131,10 @@ export type ImageTextBlock = {
   bgColor: ImageTextColor;
   description: BlocksContent;
   epigraph: string | null;
-  variant: ImageTextVariants;
-  images: Array<Image>;
   link?: Link;
   isInverted?: boolean;
   isHighlighted?: boolean;
-};
+} & Variants;
 
 export interface FaqSection {
   __component: "page-components.faq-section";
@@ -132,7 +160,8 @@ export type CarrouselItem = {
   epigraph?: string | null;
   description?: BlocksContent | null;
   link?: Link | null;
-  cover: Image;
+  desktopCover: Image;
+  mobileCover: Image;
 };
 
 export type Carrousel = {

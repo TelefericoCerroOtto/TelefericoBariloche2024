@@ -1,19 +1,11 @@
-import type {
-  ImageTextBlock,
-  ImageTextVariants,
-  OneImageVariant,
-  Permutation,
-  ThreeImagesVariant,
-  TwoImagesVariant,
-} from "@/types";
+import type { ImageTextBlock } from "@/types";
 import { ImageTextRegistryKey } from "./registry";
-
-type ImageBucket = 1 | 2 | 3;
+import type { ImageTextVariantProps } from "./shared/types";
 
 interface ResolveRegistryKeyOk {
   ok: true;
   key: ImageTextRegistryKey;
-  bucket: ImageBucket;
+  props: ImageTextVariantProps;
 }
 
 interface ResolveRegistryKeyErr {
@@ -25,74 +17,114 @@ interface ResolveRegistryKeyErr {
   };
 }
 
-const allowedVariants: Record<
-  ImageBucket,
-  | Permutation<OneImageVariant>
-  | Permutation<TwoImagesVariant>
-  | Permutation<ThreeImagesVariant>
-> = {
-  1: ["single", "poster", "card", "panoramic", "spotlight"],
-  2: ["double", "cascade"],
-  3: ["horizontal", "masonry", "ladder", "miniatures"],
+type NestedImageBlock = {
+  variant?: ImageTextBlock["variant"];
+  desktopImages?: unknown;
+  mobileImages?: unknown;
 };
 
-const isImagesCountValid = (
-  imagesCount: number,
-): imagesCount is ImageBucket => {
-  if (imagesCount < 1) return false;
-
-  if (imagesCount > 3) return false;
-
-  return true;
+type RuntimeImageTextBlock = ImageTextBlock & {
+  desktopImages?: unknown;
+  mobileImages?: unknown;
+  oneImageBlock?: NestedImageBlock;
+  twoImagesBlock?: NestedImageBlock;
+  threeImagesBlock?: NestedImageBlock;
 };
 
-const isVariantValid = (variant: ImageTextVariants, count: ImageBucket) => {
-  return allowedVariants[count].find((v) => v === variant);
-};
+function resolveImages(
+  topLevelDesktopImages: unknown,
+  topLevelMobileImages: unknown,
+  nestedBlock?: NestedImageBlock,
+) {
+  const desktopImages = Array.isArray(topLevelDesktopImages)
+    ? topLevelDesktopImages
+    : Array.isArray(nestedBlock?.desktopImages)
+      ? nestedBlock.desktopImages
+      : [];
 
-export function resolveImageTextRegistryKey(
+  const mobileImages = Array.isArray(topLevelMobileImages)
+    ? topLevelMobileImages
+    : Array.isArray(nestedBlock?.mobileImages)
+      ? nestedBlock.mobileImages
+      : [];
+
+  return { desktopImages, mobileImages };
+}
+
+export function normalizeImageTextBlock(
   block: ImageTextBlock,
 ): ResolveRegistryKeyOk | ResolveRegistryKeyErr {
-  const imagesCount = Array.isArray(block.images) ? block.images.length : 0;
-  const variant = block.variant;
+  const runtimeBlock = block as RuntimeImageTextBlock;
+  const {
+    __component,
+    id,
+    desktopImages: topLevelDesktopImages,
+    mobileImages: topLevelMobileImages,
+    oneImageBlock,
+    twoImagesBlock,
+    threeImagesBlock,
+    ...baseProps
+  } = runtimeBlock;
 
-  if (!Array.isArray(block.images)) {
-    return {
-      ok: false,
-      message: `ImageTextBlock inválido: "images" no es un array.`,
-      details: { variant, imagesCount },
-    };
-  }
+  switch (block.imagesAmount) {
+    case "one": {
+      const { desktopImages, mobileImages } = resolveImages(
+        topLevelDesktopImages,
+        topLevelMobileImages,
+        oneImageBlock,
+      );
+      const variant = oneImageBlock?.variant ?? block.variant;
 
-  if (!isImagesCountValid(imagesCount)) {
-    return {
-      ok: false,
-      message: `ImageTextBlock inválido: La cantidad de imagenes recibidas no es váilda. Cantidad de imagenes enviada: ${imagesCount}`,
-      details: { variant, imagesCount },
-    };
-  }
-
-  const bucket = imagesCount;
-
-  // Resolver por bucket para que TS quede feliz y la regla quede explícita
-  if (!isVariantValid(variant, imagesCount))
-    return {
-      ok: false,
-      message: `ImageTextBlock inválido: la variante ${variant} no está definida para la cantidad de ${imagesCount} ".`,
-      details: { variant, imagesCount },
-    };
-
-  switch (bucket) {
-    case 1: {
-      return { ok: true, bucket, key: `1:${variant as OneImageVariant}` };
+      return {
+        ok: true,
+        key: `1:${variant}` as ImageTextRegistryKey,
+        props: {
+          ...baseProps,
+          variant,
+          desktopImages,
+          mobileImages,
+        } as unknown as ImageTextVariantProps,
+      };
     }
 
-    case 2: {
-      return { ok: true, bucket, key: `2:${variant as TwoImagesVariant}` };
+    case "two": {
+      const { desktopImages, mobileImages } = resolveImages(
+        topLevelDesktopImages,
+        topLevelMobileImages,
+        twoImagesBlock,
+      );
+      const variant = twoImagesBlock?.variant ?? block.variant;
+
+      return {
+        ok: true,
+        key: `2:${variant}` as ImageTextRegistryKey,
+        props: {
+          ...baseProps,
+          variant,
+          desktopImages,
+          mobileImages,
+        } as unknown as ImageTextVariantProps,
+      };
     }
 
-    case 3: {
-      return { ok: true, bucket, key: `3:${variant as ThreeImagesVariant}` };
+    case "three": {
+      const { desktopImages, mobileImages } = resolveImages(
+        topLevelDesktopImages,
+        topLevelMobileImages,
+        threeImagesBlock,
+      );
+      const variant = threeImagesBlock?.variant ?? block.variant;
+
+      return {
+        ok: true,
+        key: `3:${variant}` as ImageTextRegistryKey,
+        props: {
+          ...baseProps,
+          variant,
+          desktopImages,
+          mobileImages,
+        } as unknown as ImageTextVariantProps,
+      };
     }
   }
 }

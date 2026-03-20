@@ -15,14 +15,23 @@ function isNonEmptyString(v: unknown): v is string {
 
 function adaptItem(item: StrapiCarrouselItem): CarrouselSlide | null {
   // Shape real (según tu log): item.cover.image.url
-  const url = item.cover?.image?.url;
+  const mobileUrl = item.mobileCover?.image?.url;
+  const desktopUrl = item.desktopCover?.image?.url;
 
-  if (!isNonEmptyString(url)) return null;
+  if (!isNonEmptyString(mobileUrl)) return null;
+  if (!isNonEmptyString(desktopUrl)) return null;
 
-  const alt =
-    (isNonEmptyString(item.cover?.alt) && item.cover.alt) ||
-    (isNonEmptyString(item.cover?.image?.alternativeText) &&
-      item.cover.image.alternativeText) ||
+  const mobileAlt =
+    (isNonEmptyString(item.mobileCover?.alt) && item.mobileCover.alt) ||
+    (isNonEmptyString(item.mobileCover?.image?.alternativeText) &&
+      item.mobileCover.image.alternativeText) ||
+    (isNonEmptyString(item.title) && item.title) ||
+    "";
+
+  const desktopAlt =
+    (isNonEmptyString(item.desktopCover?.alt) && item.desktopCover.alt) ||
+    (isNonEmptyString(item.desktopCover?.image?.alternativeText) &&
+      item.desktopCover.image.alternativeText) ||
     (isNonEmptyString(item.title) && item.title) ||
     "";
 
@@ -39,10 +48,8 @@ function adaptItem(item: StrapiCarrouselItem): CarrouselSlide | null {
     epigraph: item.epigraph ?? null,
     description: item.description ?? null, // BlocksContent | null
     link,
-    image: {
-      url, // "/uploads/..." (tu rewrite lo resuelve)
-      altText: alt,
-    },
+    desktopImage: { url: desktopUrl, altText: desktopAlt },
+    mobileImage: { url: mobileUrl, altText: mobileAlt },
   };
 }
 
