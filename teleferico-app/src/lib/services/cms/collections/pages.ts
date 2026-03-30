@@ -20,7 +20,6 @@ export const getPageContent = async (locale: Locales, route: string) => {
             populate: [
               "firstLink",
               "secondLink",
-              "cover.image",
               "desktopCover.image",
               "mobileCover.image",
               "logo.image",
@@ -30,9 +29,6 @@ export const getPageContent = async (locale: Locales, route: string) => {
           "page-components.title-desc-block": "*",
           "page-components.image-text-block": {
             populate: {
-              images: {
-                populate: ["image"],
-              },
               link: true,
               oneImageBlock: {
                 populate: {
@@ -74,7 +70,6 @@ export const getPageContent = async (locale: Locales, route: string) => {
             populate: {
               items: {
                 populate: [
-                  "cover.image",
                   "desktopCover.image",
                   "mobileCover.image",
                   "link",

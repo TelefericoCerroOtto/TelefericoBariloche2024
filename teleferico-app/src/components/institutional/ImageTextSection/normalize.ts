@@ -1,4 +1,4 @@
-import type { ImageTextBlock } from "@/types";
+import type { ImageTextBlock, ImageVariants } from "@/types";
 import { ImageTextRegistryKey } from "./registry";
 import type { ImageTextVariantProps } from "./shared/types";
 
@@ -12,13 +12,13 @@ interface ResolveRegistryKeyErr {
   ok: false;
   message: string;
   details: {
-    variant?: ImageTextBlock["variant"];
+    variant?: ImageVariants;
     imagesCount?: number;
   };
 }
 
 type NestedImageBlock = {
-  variant?: ImageTextBlock["variant"];
+  variant?: ImageVariants;
   desktopImages?: unknown;
   mobileImages?: unknown;
 };
@@ -51,6 +51,19 @@ function resolveImages(
   return { desktopImages, mobileImages };
 }
 
+function createMissingVariantError(
+  block: ImageTextBlock,
+  imagesCount: number,
+): ResolveRegistryKeyErr {
+  return {
+    ok: false,
+    message: `ImageTextBlock is missing the nested variant for imagesAmount="${block.imagesAmount}".`,
+    details: {
+      imagesCount,
+    },
+  };
+}
+
 export function normalizeImageTextBlock(
   block: ImageTextBlock,
 ): ResolveRegistryKeyOk | ResolveRegistryKeyErr {
@@ -73,7 +86,11 @@ export function normalizeImageTextBlock(
         topLevelMobileImages,
         oneImageBlock,
       );
-      const variant = oneImageBlock?.variant ?? block.variant;
+      const variant = oneImageBlock?.variant;
+
+      if (!variant) {
+        return createMissingVariantError(block, desktopImages.length);
+      }
 
       return {
         ok: true,
@@ -93,7 +110,11 @@ export function normalizeImageTextBlock(
         topLevelMobileImages,
         twoImagesBlock,
       );
-      const variant = twoImagesBlock?.variant ?? block.variant;
+      const variant = twoImagesBlock?.variant;
+
+      if (!variant) {
+        return createMissingVariantError(block, desktopImages.length);
+      }
 
       return {
         ok: true,
@@ -113,7 +134,11 @@ export function normalizeImageTextBlock(
         topLevelMobileImages,
         threeImagesBlock,
       );
-      const variant = threeImagesBlock?.variant ?? block.variant;
+      const variant = threeImagesBlock?.variant;
+
+      if (!variant) {
+        return createMissingVariantError(block, desktopImages.length);
+      }
 
       return {
         ok: true,

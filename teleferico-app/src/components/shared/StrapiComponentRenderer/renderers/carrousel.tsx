@@ -14,7 +14,6 @@ function isNonEmptyString(v: unknown): v is string {
 }
 
 function adaptItem(item: StrapiCarrouselItem): CarrouselSlide | null {
-  // Shape real (según tu log): item.cover.image.url
   const mobileUrl = item.mobileCover?.image?.url;
   const desktopUrl = item.desktopCover?.image?.url;
 
@@ -76,8 +75,9 @@ export const renderCarrousel: RendererMap["page-components.carrousel"] = (
     if (process.env.NODE_ENV !== "production") {
       return (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          Carrousel: 0 slides adaptadas. Esperaba{" "}
-          <code className="font-mono">cover.image.url</code>.
+          Carrousel: 0 slides adapted. Expected both{" "}
+          <code className="font-mono">desktopCover.image.url</code> and{" "}
+          <code className="font-mono">mobileCover.image.url</code>.
         </div>
       );
     }
