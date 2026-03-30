@@ -1,9 +1,10 @@
 # Teleférico Bariloche 2024 — CMS (Strapi)
 
 Backend (CMS) del proyecto, implementado con **Strapi**.
-Para la documentación completa sobre **CI/CD** y **despliegue en GCP** (App Engine, Cloud SQL, Cloud Storage), consultar el README principal del repositorio:
 
-- `../README.md`
+- Overview del monorepo: [../README.md](../README.md)
+- Infraestructura, entornos y CI/CD: [../docs/INFRA.md](../docs/INFRA.md)
+- Este README: desarrollo local, despliegue del CMS y transferencias de datos
 
 ---
 
@@ -49,8 +50,7 @@ Strapi se inicia, por defecto, en `http://localhost:1337`.
 
 ## Deploy
 
-El despliegue se realiza en **Cloud Run** ya que, a diferencia de **App Engine Standard** (utilizado anteriormente), **soporta Web Sockets**.
-Los Web Sockets son necesarios para ejecutar el comando `transfer`, encargado de migrar datos desde la base de datos local hacia la remota.
+El despliegue se realiza en **Cloud Run**. Este runtime permite usar **Web Sockets**, necesarios para ejecutar el comando `transfer` y migrar datos desde la base local hacia la remota.
 
 El proceso de despliegue se realiza mediante **Cloud Build**, utilizando un _trigger_ definido en `cloudbuild.yaml`, que escucha cambios en la rama correspondiente al entorno de despliegue (`staging` o `production`).
 
