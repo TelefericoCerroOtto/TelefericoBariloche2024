@@ -24,12 +24,6 @@
       "component": "utils-components.link",
       "repeatable": false
     },
-    "images": {
-      "type": "component",
-      "component": "utils-components.image",
-      "repeatable": true,
-      "required": true
-    },
     "description": {
       "type": "blocks",
       "required": true
@@ -55,23 +49,6 @@
       "enum": [
         "none",
         "gray"
-      ]
-    },
-    "variant": {
-      "type": "enumeration",
-      "required": true,
-      "enum": [
-        "single",
-        "poster",
-        "card",
-        "panoramic",
-        "spotlight",
-        "double",
-        "cascade",
-        "horizontal",
-        "masonry",
-        "ladder",
-        "miniatures"
       ]
     },
     "imagesAmount": {

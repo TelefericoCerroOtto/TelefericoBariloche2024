@@ -155,8 +155,6 @@ export interface PageComponentsHero extends Struct.ComponentSchema {
   attributes: {
     align: Schema.Attribute.Enumeration<['bottom', 'center']> &
       Schema.Attribute.DefaultTo<'bottom'>;
-    cover: Schema.Attribute.Component<'utils-components.image', false> &
-      Schema.Attribute.Required;
     description: Schema.Attribute.Text;
     desktopCover: Schema.Attribute.Component<'utils-components.image', false> &
       Schema.Attribute.Required;
@@ -194,8 +192,6 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
       Schema.Attribute.DefaultTo<'none'>;
     description: Schema.Attribute.Blocks & Schema.Attribute.Required;
     epigraph: Schema.Attribute.Text;
-    images: Schema.Attribute.Component<'utils-components.image', true> &
-      Schema.Attribute.Required;
     imagesAmount: Schema.Attribute.Enumeration<['one', 'two', 'three']> &
       Schema.Attribute.Required;
     isHighlighted: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
@@ -220,22 +216,6 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
     twoImagesBlock: Schema.Attribute.Component<
       'images-blocks.two-images',
       false
-    > &
-      Schema.Attribute.Required;
-    variant: Schema.Attribute.Enumeration<
-      [
-        'single',
-        'poster',
-        'card',
-        'panoramic',
-        'spotlight',
-        'double',
-        'cascade',
-        'horizontal',
-        'masonry',
-        'ladder',
-        'miniatures',
-      ]
     > &
       Schema.Attribute.Required;
   };
@@ -354,8 +334,6 @@ export interface UtilsComponentsCarrouselItem extends Struct.ComponentSchema {
     icon: 'bulletList';
   };
   attributes: {
-    cover: Schema.Attribute.Component<'utils-components.image', false> &
-      Schema.Attribute.Required;
     description: Schema.Attribute.Blocks;
     desktopCover: Schema.Attribute.Component<'utils-components.image', false> &
       Schema.Attribute.Required;

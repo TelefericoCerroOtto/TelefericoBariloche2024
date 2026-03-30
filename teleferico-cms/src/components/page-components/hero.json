@@ -24,12 +24,6 @@
       "component": "utils-components.link",
       "repeatable": false
     },
-    "cover": {
-      "type": "component",
-      "component": "utils-components.image",
-      "repeatable": false,
-      "required": true
-    },
     "align": {
       "type": "enumeration",
       "default": "bottom",

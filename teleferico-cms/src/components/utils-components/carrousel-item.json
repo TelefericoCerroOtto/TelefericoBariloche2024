@@ -19,12 +19,6 @@
     "description": {
       "type": "blocks"
     },
-    "cover": {
-      "type": "component",
-      "component": "utils-components.image",
-      "repeatable": false,
-      "required": true
-    },
     "link": {
       "type": "component",
       "component": "utils-components.link",
