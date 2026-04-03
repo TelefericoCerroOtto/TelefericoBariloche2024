@@ -24,12 +24,6 @@
       "component": "utils-components.link",
       "repeatable": false
     },
-    "images": {
-      "type": "component",
-      "component": "utils-components.image",
-      "repeatable": true,
-      "required": true
-    },
     "description": {
       "type": "blocks",
       "required": true
@@ -57,22 +51,62 @@
         "gray"
       ]
     },
-    "variant": {
+    "imagesAmount": {
       "type": "enumeration",
       "required": true,
       "enum": [
-        "single",
-        "poster",
-        "card",
-        "panoramic",
-        "spotlight",
-        "double",
-        "cascade",
-        "horizontal",
-        "masonry",
-        "ladder",
-        "miniatures"
+        "one",
+        "two",
+        "three"
       ]
+    },
+    "oneImageBlock": {
+      "type": "component",
+      "conditions": {
+        "visible": {
+          "==": [
+            {
+              "var": "imagesAmount"
+            },
+            "one"
+          ]
+        }
+      },
+      "component": "images-blocks.one-image",
+      "repeatable": false,
+      "required": true
+    },
+    "twoImagesBlock": {
+      "type": "component",
+      "conditions": {
+        "visible": {
+          "==": [
+            {
+              "var": "imagesAmount"
+            },
+            "two"
+          ]
+        }
+      },
+      "component": "images-blocks.two-images",
+      "repeatable": false,
+      "required": true
+    },
+    "threeImagesBlock": {
+      "type": "component",
+      "conditions": {
+        "visible": {
+          "==": [
+            {
+              "var": "imagesAmount"
+            },
+            "three"
+          ]
+        }
+      },
+      "component": "images-blocks.three-images",
+      "repeatable": false,
+      "required": true
     }
   }
 }

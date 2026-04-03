@@ -1,6 +1,6 @@
 import { FormError } from "@/components";
 import type { ImageTextBlock } from "@/types";
-import { resolveImageTextRegistryKey } from "./normalize";
+import { normalizeImageTextBlock } from "./normalize";
 import { getImageTextComponentByKey } from "./registry";
 
 export interface Props {
@@ -8,7 +8,7 @@ export interface Props {
 }
 
 export default function ImageTextRenderer({ block }: Props) {
-  const res = resolveImageTextRegistryKey(block);
+  const res = normalizeImageTextBlock(block);
 
   if (!res.ok) {
     console.error("[ImageTextRenderer]", res.message, res.details);
@@ -16,5 +16,5 @@ export default function ImageTextRenderer({ block }: Props) {
   }
 
   const Component = getImageTextComponentByKey(res.key);
-  return <Component {...block} />;
+  return <Component {...res.props} />;
 }

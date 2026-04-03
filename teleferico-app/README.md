@@ -1,27 +1,22 @@
 # Teleférico Bariloche 2024 — Web (Next.js)
 
-Aplicación frontend del proyecto, implementada con Next.js (App Router). Para documentación completa de local, CI/CD y despliegues, ver el README principal del repositorio:
+Aplicación frontend del proyecto, implementada con Next.js (App Router).
 
-- ../README.md
+- Overview del monorepo: [../README.md](../README.md)
+- Infraestructura, CI/CD y despliegues GCP: [../docs/INFRA.md](../docs/INFRA.md)
+- Este README: scripts, variables y flujos propios del frontend
 
 ## Scripts útiles
 
 - `pnpm run dev`: Ejecuta el servidor de desarrollo en `http://localhost:3000`
 - `pnpm run build`: Compila la app
 - `pnpm start`: Inicia la app compilada
-- `pnpm run lint`: Linter
+- `pnpm run lint`: Lintea los archivos
+- `pnpm run typecheck`: Chequea que los archivos incluidos en el `tsconfig.json` cumplan con las reglas de typescript
 
 ## Variables de entorno
 
-Estas variables se usan en código y/o en `next.config.mjs`:
-
-- `BUILD_STRAPI_BASE_URL` (build-time)
-- `BUILD_STRAPI_BUCKET_HOSTNAME` (build-time)
-- `BUILD_STRAPI_BUCKET_PATHNAME` (build-time)
-- `NEXT_PUBLIC_BASE_URL` (runtime)
-- `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` (runtime, opcional)
-
-**Para más información sobre las variables de entorno chequear el archivo `.env.example`.**
+El archivo `.env.example` documenta cada variable de entorno del paquete.
 
 ---
 

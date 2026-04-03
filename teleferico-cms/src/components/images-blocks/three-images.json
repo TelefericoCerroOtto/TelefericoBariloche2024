@@ -1,0 +1,35 @@
+{
+  "collectionName": "components_images_blocks_three_images",
+  "info": {
+    "displayName": "ThreeImagesBlock"
+  },
+  "options": {},
+  "attributes": {
+    "variant": {
+      "type": "enumeration",
+      "enum": [
+        "horizontal",
+        "masonry",
+        "ladder",
+        "miniatures"
+      ]
+    },
+    "desktopImages": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": true,
+      "required": true,
+      "min": 3,
+      "max": 3
+    },
+    "mobileImages": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": true,
+      "required": true,
+      "min": 3,
+      "max": 3
+    }
+  },
+  "config": {}
+}
