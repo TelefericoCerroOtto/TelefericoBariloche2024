@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vercel React Best Practices"
+  short_description: "React and Next.js performance, waterfalls, rendering, and bundle optimization."
+  default_prompt: "Use $vercel-react-best-practices to review or implement React and Next.js code with Vercel performance guidance."

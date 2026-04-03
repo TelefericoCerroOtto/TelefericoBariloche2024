@@ -1,0 +1,4 @@
+interface:
+  display_name: "Commit Guard"
+  short_description: "Validate staged and working changes before commit."
+  default_prompt: "Run commit guard on the current repository and return a commit-readiness report."

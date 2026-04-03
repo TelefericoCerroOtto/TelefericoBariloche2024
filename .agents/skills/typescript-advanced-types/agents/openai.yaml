@@ -1,0 +1,4 @@
+interface:
+  display_name: "TypeScript Advanced Types"
+  short_description: "Advanced TypeScript typing patterns and utilities"
+  default_prompt: "Use $typescript-advanced-types to design or explain complex TypeScript types with safe, reusable patterns."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Next Best Practices"
+  short_description: "Next.js App Router, RSC boundaries, routing, metadata, and runtime conventions."
+  default_prompt: "Use $next-best-practices to review or implement Next.js code using current App Router, RSC, routing, metadata, and runtime best practices."

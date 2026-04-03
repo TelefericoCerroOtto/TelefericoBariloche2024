@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Design Guidelines"
+  short_description: "UI, accessibility, UX, and web interface design review guidance."
+  default_prompt: "Use $web-design-guidelines to audit UI code or routes for design, UX, and accessibility issues."
