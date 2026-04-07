@@ -1,0 +1,8 @@
+/node_modules
+/inbox
+/processed
+/.next
+/.studio
+next-env.d.ts
+.env
+jobs.json
