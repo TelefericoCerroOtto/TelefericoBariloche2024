@@ -2,74 +2,87 @@
 
 ## Purpose
 
-Backend CMS del proyecto Teleferico Bariloche, construido con Strapi.
-Centraliza modelos de contenido, permisos, componentes reutilizables y configuracion de runtime del CMS.
-Este archivo es la fuente package-local de guardrails para `teleferico-cms`: complementa `../AGENTS.md`, no lo reemplaza, y refina reglas cuando el scope toca este paquete, sus contratos o sus superficies operativas sensibles.
+CMS backend for the Teleferico Bariloche project, built with Strapi.
+Centralises content models, permissions, reusable components and CMS runtime configuration.
+This file is the package-local guardrail source for `teleferico-cms`: it complements `../AGENTS.md`, does not replace it, and narrows rules when scope touches this package, its contracts or its sensitive operational surfaces.
 
 ## Governance usage
 
-- Aplicar junto con `../AGENTS.md`.
-- Este archivo es contexto obligatorio cuando el scope toca schemas, permisos, configuracion/runtime del CMS o contratos consumidos por `teleferico-app`.
-- Sus guardrails no reducen requisitos de aprobacion, separacion entre exploracion/planificacion/escritura/finalizacion, ni limites de finalizacion definidos en el root.
+- Apply alongside `../AGENTS.md`.
+- This file is mandatory context when scope touches schemas, permissions, CMS configuration/runtime or contracts consumed by `teleferico-app`.
+- Its guardrails do not reduce approval requirements, exploration/planning/writing/finalization separation, or scope limits defined in the root.
 
 ## Repo context
 
-- Paquete: `teleferico-cms`
-- Monorepo: provee contenido y endpoints consumidos por `../teleferico-app`.
-- Runtime esperado: Node `22.x.x` y npm `>=10` segun `package.json`.
-- Stack principal: Strapi 5 + plugin `users-permissions` + PostgreSQL.
+- Package: `teleferico-cms`
+- Monorepo: provides content and endpoints consumed by `../teleferico-app`.
+- Expected runtime: Node `22.x.x` and npm `>=10` as declared in `package.json`.
+- Main stack: Strapi 5 + plugin `users-permissions` + PostgreSQL.
+- Package manager: npm (note: differs from `teleferico-app` which uses pnpm; this is intentional since Strapi scaffolding defaults to npm).
+
+## Operational model
+
+This package is primarily managed through the **Strapi Admin Panel**. There is no custom application code beyond Strapi's default scaffolding — no custom controllers, services, policies or middlewares have been implemented. Content types, components, permissions and roles are all configured via the admin UI.
+
+As a consequence, this `AGENTS.md` intentionally has less structural depth than `teleferico-app` or `tools/image-pipeline`. The guardrails below focus on protecting schema integrity and cross-package contracts rather than guiding code architecture.
 
 ## Key paths
 
-- `src/api`: dominios Strapi por coleccion/tipo.
-- `src/api/<collection>/{content-types,controllers,routes,services}`: patron esperado por dominio.
-- `src/components`: componentes reutilizables del schema (`images-blocks`, `page-components`, `page-properties`, `utils-components`).
-- `src/extensions/users-permissions`: overrides y schema sensible de auth/roles.
-- `database/migrations`: migraciones de base de datos.
-- `config`: configuracion base del CMS (`server`, `database`, `plugins`, `middlewares`, `admin`, `api`).
-- `config/env/{staging,production}`: overrides por entorno.
-- `types/generated`: tipos generados de Strapi; tratarlos como artefactos.
-- `public/uploads`: uploads persistidos del CMS.
+- `src/api`: Strapi domains per collection/type.
+- `src/api/<collection>/{content-types,controllers,routes,services}`: expected pattern per domain.
+- `src/components`: reusable schema components (`images-blocks`, `page-components`, `page-properties`, `utils-components`).
+- `src/extensions/users-permissions`: auth/roles overrides and sensitive schema.
+- `database/migrations`: database migrations.
+- `config`: base CMS configuration (`server`, `database`, `plugins`, `middlewares`, `admin`, `api`).
+- `config/env/{staging,production}`: per-environment overrides.
+- `types/generated`: Strapi-generated types; treat as artifacts.
+- `public/uploads`: persisted CMS uploads.
 
 ## Guardrails (non-negotiables)
 
 ### Schema / auth
 
-- No modificar `content-types`, `components`, `database/migrations` o `src/extensions/users-permissions` salvo tarea explicita.
-- Cambios en schemas, roles o permisos son sensibles: requieren revisar impacto funcional y contractual antes de asumir compatibilidad.
-- No introducir cambios de permisos que amplien acceso publico o administrativo sin requerimiento explicito.
+- Do not modify `content-types`, `components`, `database/migrations` or `src/extensions/users-permissions` unless it is an explicit task.
+- Schema, role and permission changes are sensitive: review functional and contractual impact before assuming compatibility.
+- Do not introduce permission changes that expand public or administrative access without explicit requirement.
 
 ### Domain pattern
 
-- Mantener el patron `src/api/<collection>/{content-types,controllers,routes,services}`.
-- Reutilizar la estructura del dominio existente antes de crear variantes ad hoc o mover archivos entre dominios.
-- Mantener controllers/services/rutas alineados con el mismo recurso; evitar mezclar logica de distintos dominios.
+- Maintain the `src/api/<collection>/{content-types,controllers,routes,services}` pattern.
+- Reuse the existing domain structure before creating ad hoc variants or moving files between domains.
+- Keep controllers/services/routes aligned with the same resource; avoid mixing logic from different domains.
 
-### Contracts CMS -> app
+### Contracts CMS → app
 
-- Si cambia schema, permisos, slugs, localizaciones o envelopes de respuesta, verificar impacto en `../teleferico-app/src/types/{cms,api}`.
-- Ante cambios contractuales, revisar tambien supuestos de renderizado y consumo en servicios/componentes del app que dependan de esos datos.
-- No asumir que un cambio interno de Strapi es transparente para el frontend: el CMS define contratos consumidos por la app.
+- If schema, permissions, slugs, localisations or response envelopes change, verify impact on `../teleferico-app/src/types/{cms,api}`.
+- On contractual changes, also review rendering assumptions and consumption in app services/components that depend on that data.
+- Do not assume that an internal Strapi change is transparent to the frontend: the CMS defines contracts consumed by the app.
 
 ### Dependencies / artifacts
 
-- No tocar dependencias o lockfiles (`package.json`, `package-lock.json`) sin aprobacion explicita del scope.
-- No editar artefactos generados (`types/generated/*`, `.strapi/`) salvo tarea explicita.
-- No modificar `public/uploads` como parte de tareas de codigo salvo requerimiento explicito.
+- Do not touch dependencies or lockfiles (`package.json`, `package-lock.json`) without explicit scope approval.
+- Do not edit generated artifacts (`types/generated/*`, `.strapi/`) unless it is an explicit task.
+- Do not modify `public/uploads` as part of code tasks unless explicitly required.
 
 ### Config / runtime
 
-- Cambios en `config/**` y `config/env/**` son sensibles porque alteran runtime, despliegue y comportamiento operativo del CMS.
-- Tratar como cambios sensibles cualquier ajuste de providers de upload/storage, `middlewares`, `database`, `admin`, `plugins`, `server` o `api`.
-- No asumir que un cambio de configuracion es local o inocuo: puede afectar entornos `staging` y `production`, accesos administrativos, storage persistente o integraciones externas.
-- Estos cambios deben quedar explicitamente dentro del scope aprobado y exigir una expectativa clara de verificacion operativa acorde al area tocada.
+- Changes in `config/**` and `config/env/**` are sensitive because they alter CMS runtime, deployment and operational behaviour.
+- Treat as sensitive any adjustment to upload/storage providers, `middlewares`, `database`, `admin`, `plugins`, `server` or `api`.
+- Do not assume a configuration change is local or harmless: it may affect `staging` and `production` environments, administrative access, persistent storage or external integrations.
+- These changes must be explicitly within approved scope and require a clear expectation of operational verification appropriate to the area touched.
+
+## Shared rules
+
+Rules from:
+
+- `../.agents/RULES/TS.md`
 
 ## Context loading guidance
 
-- Este archivo aplica cuando el scope toca `teleferico-cms`, especialmente schemas, permisos, configuracion/runtime o contratos consumidos por `teleferico-app`.
-- Las secciones de **Schema / auth**, **Contracts CMS -> app** y **Dependencies / artifacts** son contexto esencial para cualquier cambio sensible.
-- La seccion **Config / runtime** es contexto esencial cuando el scope toca `config/**`, overrides por entorno o comportamiento operativo del CMS.
-- Las secciones `Commands` y `Read if needed` son referencia de soporte; no hace falta cargarlas por defecto si el brief ya cubre el contexto causal necesario.
+- This file applies when scope touches `teleferico-cms`, especially schemas, permissions, configuration/runtime or contracts consumed by `teleferico-app`.
+- The **Schema / auth**, **Contracts CMS → app** and **Dependencies / artifacts** sections are essential context for any sensitive change.
+- The **Config / runtime** section is essential context when scope touches `config/**`, per-environment overrides or CMS operational behaviour.
+- The `Commands` and `Read if needed` sections are support references; they do not need to be loaded by default if the brief already covers the necessary causal context.
 
 ## Commands (from package.json)
 
@@ -77,9 +90,9 @@ Este archivo es la fuente package-local de guardrails para `teleferico-cms`: com
 - Build: `npm run build`
 - Start: `npm run start`
 - Strapi CLI: `npm run strapi`
-- Lint: no existe script `lint` en `package.json`.
-- Test: no existe script `test` en `package.json`.
-- Typecheck: no existe script `typecheck` en `package.json`.
+- Lint: no `lint` script exists in `package.json`.
+- Test: no `test` script exists in `package.json`.
+- Typecheck: no `typecheck` script exists in `package.json`.
 
 ## Read if needed
 
@@ -91,3 +104,7 @@ Este archivo es la fuente package-local de guardrails para `teleferico-cms`: com
 - `./src/components/*`
 - `./src/extensions/users-permissions/*`
 - `./database/migrations/*`
+
+## Output expectations (package-specific)
+
+- Flag risks/considerations around **schema compatibility**, **migration impact**, and **permission scope changes**.

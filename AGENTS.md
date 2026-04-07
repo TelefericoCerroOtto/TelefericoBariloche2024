@@ -7,8 +7,8 @@ This file defines the portable repository-wide governance for agents working in 
 - Governed packages in this migration slice:
   - `teleferico-app` (Next.js + TypeScript + Tailwind): public site plus administrative dashboard
   - `teleferico-cms` (Strapi): CMS/API backend
-- Deferred package governance:
-  - `tools/image-pipeline` is explicitly deferred from package-governance onboarding in this slice. Treat it as separately scoped root-level tooling unless a later approved change says otherwise.
+- Separately scoped tooling:
+  - `tools/image-pipeline`: local-first image authoring and batch processing. Has its own `AGENTS.md` with self-contained governance. It is NOT part of the public site runtime or the CMS; treat it as an independent tool unless a change explicitly crosses its boundary.
 - Root surfaces: `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `docs/`, `.agents/`
 
 ## Key paths
@@ -33,7 +33,7 @@ This file defines the portable repository-wide governance for agents working in 
 
 ## Package-local governance
 
-- `teleferico-app/AGENTS.md` and `teleferico-cms/AGENTS.md` remain critical package-local guardrail sources.
+- `teleferico-app/AGENTS.md`, `teleferico-cms/AGENTS.md` and `tools/image-pipeline/AGENTS.md` are critical package-local guardrail sources.
 - Package-local files refine this root guidance for their own package boundaries and sensitive flows; they must not weaken runtime instructions, user approvals, or approved slice boundaries.
 
 ## Scope-sensitive changes
@@ -50,8 +50,13 @@ The following changes are sensitive and must be explicitly called out in a propo
 - Conventional commits + scopes + PR titles: `docs/CONVENTIONS.md`
 - GCP infrastructure: `docs/INFRA.md`
 
-## Orchestrator delivery checklist
+## Documentation maintenance
 
-- [ ] Changes limited to the requested scope
-- [ ] Contracts not broken
-- [ ] References to docs (if applicable)
+Whenever code, flows, architecture, contracts or configuration change in a way that affects documented behaviour, update the relevant documentation **in the same change**. This includes but is not limited to:
+
+- Package-local `AGENTS.md` (guardrails, key paths, conventions)
+- `README.md` files at any level
+- `docs/*` (CONVENTIONS.md, INFRA.md, any domain-specific docs)
+- Shared rules under `.agents/RULES/*`
+
+Do not treat documentation as a follow-up task; outdated docs actively mislead agents and humans.
