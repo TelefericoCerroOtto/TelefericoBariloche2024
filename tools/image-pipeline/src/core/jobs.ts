@@ -461,7 +461,7 @@ export function buildOutPath(params: {
     ? path.join(outputBase, parsed.dir)
     : outputBase;
 
-  const baseName = outputName ?? `${parsed.name}-${ratioTag}`;
+  const baseName = outputName ? `${parsed.name}-${outputName}` : `${parsed.name}-${ratioTag}`;
   const fileName = `${baseName}.${ext}`;
   const outPath = path.join(outDir, fileName);
 

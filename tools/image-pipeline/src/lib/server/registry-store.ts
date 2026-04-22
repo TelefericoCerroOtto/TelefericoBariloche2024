@@ -11,7 +11,10 @@ import type { SlotProfileRegistry } from "../studio/types";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const TOOL_ROOT = path.resolve(__dirname, "../../..");
-const REGISTRY_ROOT = path.join(TOOL_ROOT, ".studio", "registry");
+const STUDIO_ROOT = process.env.IMAGE_PIPELINE_STUDIO_ROOT
+  ? path.resolve(process.env.IMAGE_PIPELINE_STUDIO_ROOT)
+  : path.join(TOOL_ROOT, ".studio");
+const REGISTRY_ROOT = path.join(STUDIO_ROOT, "registry");
 const REGISTRY_PATH = path.join(REGISTRY_ROOT, "slot-profiles.json");
 
 async function ensureRegistryFile() {

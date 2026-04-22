@@ -49,7 +49,7 @@ export function buildJobsDocument(params: {
         outputDir: "./processed",
         jobSubdir: false,
         preserveFolders: true,
-        collisionPolicy: "suffix",
+        collisionPolicy: "replace",
         defaults: STUDIO_JOB_DEFAULTS,
         images,
       },

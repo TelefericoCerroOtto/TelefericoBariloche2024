@@ -15,7 +15,9 @@ import type { JobsRoot } from "./pipeline-core";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const TOOL_ROOT = path.resolve(__dirname, "../../..");
-const STUDIO_ROOT = path.join(TOOL_ROOT, ".studio");
+const STUDIO_ROOT = process.env.IMAGE_PIPELINE_STUDIO_ROOT
+  ? path.resolve(process.env.IMAGE_PIPELINE_STUDIO_ROOT)
+  : path.join(TOOL_ROOT, ".studio");
 const WORKSPACES_ROOT = path.join(STUDIO_ROOT, "workspaces");
 
 function normalizeRelativePath(value: string) {

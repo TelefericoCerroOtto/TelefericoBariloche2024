@@ -76,7 +76,8 @@ That means preview generation and batch execution both follow the same:
 - Studio serializes each editable slot identifier into `outputs[].name`.
 - Two slots may share the same technical settings and still stay distinct because the slot ID is what gets written to `jobs.json`.
 - If `outputs[].name` resolves to an existing file, the configured `collisionPolicy` still applies exactly as in the CLI.
-- Studio workspaces default to `collisionPolicy: "suffix"` and `jobSubdir: false`, writing under each workspace `.studio/workspaces/<id>/processed` folder.
+- Studio workspaces default to `collisionPolicy: "replace"` and `jobSubdir: false`, writing under each workspace `.studio/workspaces/<id>/processed` folder.
+- That default avoids duplicate `-2`, `-3`, etc. files when you regenerate `jobs.json` after adding or editing workspace items and then process the workspace again.
 
 ---
 
@@ -211,7 +212,7 @@ Ejemplo con varios jobs (como en este repo):
 - `outputDir` (string, opcional): carpeta base de salida. Default: `./processed`.
 - `jobSubdir` (boolean, opcional): si `true`, crea una subcarpeta con el nombre del job dentro del `outputDir`. Default: `true`.
 - `preserveFolders` (boolean, opcional): si `true`, preserva subcarpetas del `file` dentro del output. Default: `true`.
-- `collisionPolicy` ("error" | "skip" | "suffix", opcional): qué hacer si el archivo de salida ya existe. Default: `error`.
+- `collisionPolicy` ("error" | "skip" | "suffix" | "replace", opcional): qué hacer si el archivo de salida ya existe. Default: `error`.
 - `defaults` (objeto, opcional): valores por defecto para todos los outputs e imágenes.
 - `images` (array, obligatorio): lista de imágenes a procesar.
 
@@ -262,7 +263,7 @@ Reglas importantes:
 - Si `name` está presente y no está vacío, el archivo de salida se llama **`<name>.<ext>`** (sin sufijos de ratio).
 - Si `name` incluye extensión, se remueve y se loguea un warning.
 - Si `name` está vacío o solo espacios, se ignora y se usa el naming default.
-- Si dos outputs resuelven al **mismo nombre final**, aplica `collisionPolicy` (`suffix`, `skip`, `error`).
+- Si dos outputs resuelven al **mismo nombre final**, aplica `collisionPolicy` (`replace`, `suffix`, `skip`, `error`).
 - Si el `ratio` es un número, el tag del archivo queda como `r1_777` (punto reemplazado por `_`).
 
 ---
@@ -341,7 +342,10 @@ Eso lo define `collisionPolicy`:
 
 - `error`: aborta con error.
 - `skip`: no genera el archivo.
+- `replace`: sobrescribe el archivo existente con la salida nueva.
 - `suffix`: agrega un sufijo `-2`, `-3`, etc. hasta encontrar un nombre libre.
+
+En Studio, el default es `replace` porque el flujo normal re-ejecuta el `jobs.json` completo del workspace. Sobrescribir evita acumular duplicados innecesarios cuando solo agregaste una imagen nueva o ajustaste asignaciones/focal points.
 
 Ejemplo con `suffix`:
 

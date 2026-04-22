@@ -148,6 +148,15 @@ test("duplicate technical settings still preserve distinct slot identifiers", ()
   expect(outputNames).toEqual(["slot-alpha", "slot-beta"]);
 });
 
+test("buildJobsDocument uses replace collision policy for Studio workspaces", () => {
+  const registry = createRegistry();
+  const workspace = createWorkspace(registry);
+  const job = resolveJobList(buildJobsDocument({ workspace, registry }).root)[0];
+
+  expect(job?.collisionPolicy).toBe("replace");
+  expect(job?.jobSubdir).toBe(false);
+});
+
 test("rehydrating edited jobs reflects slots, presets, and focal points", () => {
   const registry = createRegistry();
   const workspace = createWorkspace(registry);

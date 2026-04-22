@@ -128,8 +128,8 @@ export function createSeedProfiles(): SeedProfile[] {
   return Object.entries(COMPONENT_OUTPUTS).map(([profileId, outputs]) => ({
     id: profileId,
     label: toLabel(profileId),
-    slots: outputs.map((output, index) => ({
-      id: `${profileId}-${ratioToTag(output.ratio)}-${index + 1}`,
+    slots: outputs.map((output) => ({
+      id: `${profileId}-${ratioToTag(output.ratio)}`,
       label: `${toLabel(profileId)} ${output.ratio}`,
       ratio: output.ratio,
       mp: output.mp,
