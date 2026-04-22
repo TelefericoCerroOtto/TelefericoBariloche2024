@@ -1,6 +1,7 @@
 import { HighlightLastWord } from "@/components/institutional/TitleDescBlock";
 import { BlockRendererClient, CustomLink } from "@/components/shared";
 import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import { typography } from "@/lib/constants/typography.const";
 import CustomImage from "../../shared/CustomImage";
 import LogoBadge from "../../shared/LogoBadge";
 import type { ThreeImagesProps } from "../../shared/types";
@@ -85,7 +86,7 @@ export default function Miniatures(props: ThreeImagesProps) {
           <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-5">
             <LogoBadge />
             <h4
-              className={`text-center text-3xl font-bold ${caseStyles[titleCase]} text-inherit md:text-left md:text-4xl`}
+              className={`text-center font-bold ${caseStyles[titleCase]} text-inherit md:text-left ${typography.headings.feature}`}
             >
               {isHighlighted ? HighlightLastWord(title) : title}
             </h4>
@@ -93,7 +94,9 @@ export default function Miniatures(props: ThreeImagesProps) {
 
           <div className="mt-2 min-h-[1.5rem] text-center md:text-left">
             {epigraph ? (
-              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-base">
+              <p
+                className={`${typography.meta.featureEyebrow} font-semibold uppercase tracking-[0.35em] text-foreground/70`}
+              >
                 {epigraph}
               </p>
             ) : null}
@@ -101,12 +104,19 @@ export default function Miniatures(props: ThreeImagesProps) {
 
           {description ? (
             typeof description === "string" ? (
-              <p className="mt-4 text-left text-base leading-relaxed text-foreground/80 md:text-lg">
+              <p
+                className={`mt-4 text-left leading-relaxed text-foreground/80 ${typography.content.feature}`}
+              >
                 {description}
               </p>
             ) : (
-              <div className="mt-4 space-y-4 text-left text-base leading-relaxed text-foreground/80 md:text-lg">
-                <BlockRendererClient content={description} />
+              <div
+                className={`mt-4 space-y-4 text-left leading-relaxed text-foreground/80 ${typography.content.feature}`}
+              >
+                <BlockRendererClient
+                  content={description}
+                  prosePreset="feature"
+                />
               </div>
             )
           ) : null}

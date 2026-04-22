@@ -35,6 +35,7 @@ export default async function NewDetailPage({
       </div>
       <BlockRendererClient
         content={body as BlocksContent}
+        proseSize="xl"
         className="px-12 lg:px-32"
       />
     </>

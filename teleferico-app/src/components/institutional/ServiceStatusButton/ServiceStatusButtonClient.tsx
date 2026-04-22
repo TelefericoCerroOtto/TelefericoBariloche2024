@@ -10,6 +10,7 @@ import {
   ModalContent,
   ModalFooter,
   ModalHeader,
+  ScrollShadow,
   Skeleton,
   useDisclosure,
 } from "@heroui/react";
@@ -97,7 +98,7 @@ export default function ServiceStatusButtonClient(props: Props) {
 
   if (isError) {
     return (
-      <div className="h-full w-full rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700 shadow-md">
+      <div className="h-full w-full rounded-3xl border border-rose-200 bg-rose-50 p-5 text-base text-rose-700 shadow-md">
         <FormError
           message={
             <BlockRendererClient content={content.error as BlocksContent} />
@@ -134,17 +135,17 @@ export default function ServiceStatusButtonClient(props: Props) {
         {/* Textos informativos */}
         <span className="flex min-w-0 flex-1 flex-col gap-1.5 sm:gap-2">
           <span
-            className={`inline-flex w-fit items-center justify-center whitespace-normal rounded-full px-2.5 py-0.5 text-center text-[11px] font-semibold uppercase leading-tight tracking-wide sm:px-3 sm:py-1 sm:text-sm sm:leading-none ${styles.badgeBackground} ${styles.badgeText}`}
+            className={`inline-flex w-fit items-center justify-center whitespace-normal rounded-full px-2.5 py-0.5 text-center text-sm font-semibold uppercase leading-tight tracking-wide sm:px-3 sm:py-1 sm:text-base sm:leading-none ${styles.badgeBackground} ${styles.badgeText}`}
           >
             {activeState?.stateLegend ?? content.button.trigger}
           </span>
 
-          <span className="text-base font-semibold text-slate-900 sm:text-lg md:text-xl">
+          <span className="text-lg font-semibold text-slate-900 sm:text-xl md:text-2xl">
             {content.button.trigger}
           </span>
 
           <span
-            className={`text-sm sm:text-base md:text-lg ${styles.accentText}`}
+            className={`text-base sm:text-lg md:text-xl ${styles.accentText}`}
           >
             {activeState?.title}
           </span>
@@ -161,50 +162,54 @@ export default function ServiceStatusButtonClient(props: Props) {
       <Modal
         isOpen={isOpen}
         onOpenChange={onOpenChange}
+        scrollBehavior="inside"
         classNames={{
           base: "rounded-2xl sm:rounded-3xl",
           header: "pb-0",
-          body: "pt-2",
+          body: "px-0 pt-2",
         }}
       >
         <ModalContent id={modalId}>
           {(onClose) => (
             <>
               <ModalHeader
-                className={`flex flex-col gap-1 text-base font-semibold sm:text-lg md:text-xl ${styles.accentText}`}
+                className={`flex flex-col gap-1 text-lg font-semibold sm:text-xl md:text-2xl ${styles.accentText}`}
               >
                 {activeState?.stateLegend ?? content.button.trigger}
               </ModalHeader>
 
-              <ModalBody className="space-y-4 sm:space-y-5">
-                <ul className="space-y-3 sm:space-y-4">
-                  {modalStates.map((item, index) => {
-                    const itemStyles = stateStyles[item.state];
+              <ModalBody>
+                <ScrollShadow className="max-h-[55dvh] space-y-4 px-6 sm:space-y-5">
+                  <ul className="divide-y divide-slate-100">
+                    {modalStates.map((item, index) => {
+                      const itemStyles = stateStyles[item.state];
 
-                    return (
-                      <li key={`${item.state}-${index}`} className="space-y-1">
-                        <p
-                          className={`text-sm font-semibold sm:text-base md:text-lg ${itemStyles.accentText}`}
-                        >
-                          {item.title}
-                        </p>
-                        <p className="text-sm text-slate-600 sm:text-base md:text-lg">
-                          {item.stateDesc}
-                        </p>
-                      </li>
-                    );
-                  })}
-                </ul>
+                      return (
+                        <li key={`${item.state}-${index}`} className="py-3 first:pt-0 last:pb-0">
+                          <p
+                            className={`text-xl font-bold leading-tight sm:text-2xl ${itemStyles.accentText}`}
+                          >
+                            {item.title}
+                          </p>
+                          <p className="mt-1 text-lg leading-relaxed text-slate-700 sm:text-xl">
+                            {item.stateDesc}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ul>
 
-                <BlockRendererClient
-                  content={content.modal.disclaimer as BlocksContent}
-                  className="text-xs text-slate-500 sm:text-sm md:text-base"
-                />
+                  <BlockRendererClient
+                    content={content.modal.disclaimer as BlocksContent}
+                    proseSize="base"
+                    className="text-slate-500"
+                  />
+                </ScrollShadow>
               </ModalBody>
 
               <ModalFooter className="pt-0">
                 <Button
-                  className="w-full rounded-full bg-primary py-2.5 text-base font-semibold text-primary-foreground transition-opacity hover:opacity-90 sm:py-3 sm:text-lg md:text-xl"
+                  className="w-full rounded-full bg-primary py-2.5 text-lg font-semibold text-primary-foreground transition-opacity hover:opacity-90 sm:py-3 sm:text-xl md:text-2xl"
                   onPress={onClose}
                 >
                   {content.button.close}

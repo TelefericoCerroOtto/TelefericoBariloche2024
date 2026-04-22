@@ -100,7 +100,10 @@ export default function Masonry(props: ThreeImagesProps) {
 
               {description ? (
                 <div className="mt-4 space-y-4 text-center text-base leading-relaxed text-foreground/80 md:text-left md:text-lg">
-                  <BlockRendererClient content={description as BlocksContent} />
+                  <BlockRendererClient
+                    content={description as BlocksContent}
+                    prosePreset="feature"
+                  />
                 </div>
               ) : null}
 

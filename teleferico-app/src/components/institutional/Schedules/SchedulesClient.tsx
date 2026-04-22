@@ -57,8 +57,8 @@ const LoadingBlock = ({
     className="flex flex-col items-center gap-4 py-16 text-center text-white/80"
   >
     <Spinner color="white" size="lg" />
-    <p className="text-lg font-medium">{translations.title}</p>
-    <p className="max-w-lg text-base text-white/60">{translations.legend}</p>
+    <p className="text-xl font-medium">{translations.title}</p>
+    <p className="max-w-lg text-lg text-white/60">{translations.legend}</p>
   </div>
 );
 
@@ -73,8 +73,8 @@ const ErrorBlock = ({
     role="alert"
     className="flex flex-col items-center gap-4 py-16 text-center text-white"
   >
-    <p className="text-xl font-semibold">{translations.title}</p>
-    <p className="max-w-lg text-base text-white/70">{translations.legend}</p>
+    <p className="text-2xl font-semibold">{translations.title}</p>
+    <p className="max-w-lg text-lg text-white/70">{translations.legend}</p>
     <Button
       type="button"
       onPress={onRetry}
@@ -100,8 +100,8 @@ const EmptyBlock = ({
       />
     </div>
     <div className="space-y-2">
-      <p className="text-xl font-semibold text-white">{translations.title}</p>
-      <p className="max-w-lg text-base text-white/70">{translations.legend}</p>
+      <p className="text-2xl font-semibold text-white">{translations.title}</p>
+      <p className="max-w-lg text-lg text-white/70">{translations.legend}</p>
     </div>
   </div>
 );
@@ -210,7 +210,7 @@ export default function SchedulesClient(props: Props) {
               style={{ transitionDelay: `${index * 60}ms` }}
             >
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-xl font-semibold leading-tight">
+                <h3 className="text-2xl font-semibold leading-tight">
                   {s.name}
                 </h3>
                 {s.description ? (
@@ -224,12 +224,12 @@ export default function SchedulesClient(props: Props) {
 
               {/*BADGE*/}
               <span
-                className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-base font-semibold uppercase tracking-wide ${badgeStyles[status]}`}
+                className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-lg font-semibold uppercase tracking-wide ${badgeStyles[status]}`}
               >
                 {badgeText}
               </span>
 
-              <dl className="mt-6 grid gap-4 text-base text-slate-700">
+              <dl className="mt-6 grid gap-4 text-lg text-slate-700">
                 <TimeRow
                   label={translations.components.TimeRow.opens}
                   value={open}

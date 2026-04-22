@@ -6,6 +6,7 @@ import {
   HighlightLastWord,
 } from "@/components";
 import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import { typography } from "@/lib/constants/typography.const";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
 import LogoBadge from "../../shared/LogoBadge";
@@ -70,7 +71,7 @@ export default function Double(props: TwoImagesProps) {
           <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-5">
             <LogoBadge />
             <h4
-              className={`text-center text-3xl font-bold ${caseStyles[titleCase]} text-inherit md:text-left md:text-4xl`}
+              className={`text-center font-bold ${caseStyles[titleCase]} text-inherit md:text-left ${typography.headings.feature}`}
             >
               {isHighlighted ? HighlightLastWord(title) : title}
             </h4>
@@ -78,14 +79,21 @@ export default function Double(props: TwoImagesProps) {
 
           <div className="mt-2 min-h-[1.5rem] text-center md:text-left">
             {epigraph ? (
-              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-base">
+              <p
+                className={`${typography.meta.featureEyebrow} font-semibold uppercase tracking-[0.35em] text-foreground/70`}
+              >
                 {epigraph}
               </p>
             ) : null}
           </div>
 
-          <div className="mt-4 space-y-4 text-center text-base leading-relaxed text-foreground/80 md:text-left md:text-lg">
-            <BlockRendererClient content={description as BlocksContent} />
+          <div
+            className={`mt-4 space-y-4 text-center leading-relaxed text-foreground/80 md:text-left ${typography.content.feature}`}
+          >
+            <BlockRendererClient
+              content={description as BlocksContent}
+              prosePreset="feature"
+            />
           </div>
 
           {link ? (

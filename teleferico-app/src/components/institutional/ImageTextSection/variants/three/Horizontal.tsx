@@ -1,6 +1,7 @@
 import { HighlightLastWord } from "@/components/institutional/TitleDescBlock";
 import { BlockRendererClient, CustomLink } from "@/components/shared";
 import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import { typography } from "@/lib/constants/typography.const";
 import CustomImage from "../../shared/CustomImage";
 import LogoBadge from "../../shared/LogoBadge";
 import type { ThreeImagesProps } from "../../shared/types";
@@ -76,7 +77,7 @@ export default function Horizontal(props: ThreeImagesProps) {
         <div className="flex flex-col items-center gap-4">
           <LogoBadge />
           <h4
-            className={`text-center text-3xl font-bold ${caseStyles[titleCase]} text-inherit md:text-4xl`}
+            className={`text-center font-bold ${caseStyles[titleCase]} text-inherit ${typography.headings.feature}`}
           >
             {isHighlighted ? HighlightLastWord(title) : title}
           </h4>
@@ -84,7 +85,9 @@ export default function Horizontal(props: ThreeImagesProps) {
 
         <div className="min-h-[1.5rem] text-center">
           {epigraph ? (
-            <p className="inline-block border-l-2 border-red-500/40 pl-4 text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-base">
+            <p
+              className={`inline-block border-l-2 border-red-500/40 pl-4 font-semibold uppercase tracking-[0.35em] text-foreground/70 ${typography.meta.featureEyebrow}`}
+            >
               {epigraph}
             </p>
           ) : null}
@@ -92,12 +95,19 @@ export default function Horizontal(props: ThreeImagesProps) {
 
         {description ? (
           typeof description === "string" ? (
-            <p className="text-center text-base leading-relaxed text-foreground/80 md:text-lg">
+            <p
+              className={`text-center leading-relaxed text-foreground/80 ${typography.content.feature}`}
+            >
               {description}
             </p>
           ) : (
-            <div className="space-y-4 text-center text-base leading-relaxed text-foreground/80 md:text-lg">
-              <BlockRendererClient content={description} />
+            <div
+              className={`space-y-4 text-center leading-relaxed text-foreground/80 ${typography.content.feature}`}
+            >
+              <BlockRendererClient
+                content={description}
+                prosePreset="feature"
+              />
             </div>
           )
         ) : null}
