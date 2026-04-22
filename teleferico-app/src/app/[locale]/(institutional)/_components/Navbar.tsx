@@ -9,7 +9,6 @@ import logoNegro from "@/public/logo.svg";
 import type { Locales } from "@/types";
 import { cn } from "@/utils";
 import {
-  Link,
   NavbarBrand,
   NavbarContent,
   NavbarItem,
@@ -22,7 +21,8 @@ import {
 } from "@heroui/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import type { MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const langs: { locale: Locales; label: string }[] = [
   { locale: i18n.locales[0], label: "Español" },
@@ -39,11 +39,14 @@ const { HOME, JOBS, NEWS, POLICIES, CONTACT, FAQS } = PUBLIC_ROUTES;
 export default function Navbar(props: Props) {
   const { items } = props;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { locale, pathname } = useLocale();
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const { locale, pathname, fullPathname } = useLocale();
   const { push } = useRouter();
   const { direction, isScrolled } = useScrollDirection({ threshold: 12 });
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isCompact = direction === "down" && isScrolled;
+  const isNavigating = pendingNavigation !== null;
 
   const isPathInList = useMemo(
     () =>
@@ -53,12 +56,77 @@ export default function Navbar(props: Props) {
     [pathname],
   );
 
+  const useSolidBackground = isScrolled || isMenuOpen || isPathInList;
+
   const logo = useMemo(
     () => (isPathInList || isMenuOpen || isScrolled ? logoNegro : logoBlanco),
     [isMenuOpen, isPathInList, isScrolled],
   );
 
-  const useSolidBackground = isScrolled || isMenuOpen || isPathInList;
+  useEffect(() => {
+    if (!isNavigating) return;
+
+    setPendingNavigation(null);
+
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current);
+      navigationTimeoutRef.current = null;
+    }
+  }, [fullPathname, isNavigating]);
+
+  useEffect(
+    () => () => {
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
+  const startNavigationGuard = (target: string) => {
+    if (isNavigating) return false;
+
+    setPendingNavigation(target);
+
+    if (navigationTimeoutRef.current) {
+      clearTimeout(navigationTimeoutRef.current);
+    }
+
+    navigationTimeoutRef.current = setTimeout(() => {
+      setPendingNavigation(null);
+      navigationTimeoutRef.current = null;
+    }, 1800);
+
+    return true;
+  };
+
+  const shouldBypassGuard = (event: MouseEvent<HTMLAnchorElement>) =>
+    event.defaultPrevented ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey;
+
+  const handleLinkNavigation = (
+    target: string,
+    options?: { closeMenu?: boolean; disabled?: boolean },
+  ) => {
+    return (event: MouseEvent<HTMLAnchorElement>) => {
+      if (shouldBypassGuard(event)) return;
+
+      if (options?.closeMenu) {
+        setIsMenuOpen(false);
+      }
+
+      if (options?.disabled || isNavigating) {
+        event.preventDefault();
+        return;
+      }
+
+      startNavigationGuard(target);
+    };
+  };
 
   const itemBaseClass = useMemo(
     () =>
@@ -98,8 +166,12 @@ export default function Navbar(props: Props) {
           className="text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:hidden"
         />
         <NavbarBrand>
-          <Link
+          <CustomLink
             href={HOME}
+            aria-disabled={pathname === HOME || isNavigating}
+            onClick={handleLinkNavigation(HOME, {
+              disabled: pathname === HOME,
+            })}
             className="flex items-center gap-3 rounded-lg px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <Image
@@ -109,7 +181,7 @@ export default function Navbar(props: Props) {
               height={48}
               priority
             />
-          </Link>
+          </CustomLink>
         </NavbarBrand>
       </NavbarContent>
 
@@ -117,11 +189,14 @@ export default function Navbar(props: Props) {
         {items.map((item, index) => {
           const isActive =
             item.href === "/" ? pathname === "/" : pathname.includes(item.href);
+          const isExactMatch = pathname === item.href;
 
           return (
             <NavbarItem key={index} isActive={isActive} className="px-0">
               <CustomLink
                 href={item.href}
+                aria-disabled={isExactMatch || isNavigating}
+                onClick={handleLinkNavigation(item.href, { disabled: isExactMatch })}
                 className={cn(
                   itemBaseClass,
                   isActive &&
@@ -149,9 +224,9 @@ export default function Navbar(props: Props) {
           variant="bordered"
           aria-label="Change language"
           className="w-[160px]" // un toque más ancho para la tipografía grande
+          isDisabled={isNavigating}
           classNames={{
             trigger: [
-              // subí la altura y el tamaño de fuente
               "h-11 rounded-full border border-border/50 bg-white px-3 text-base md:text-lg leading-6 transition-colors",
               "border-black/40 focus:border-primary/80",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -168,6 +243,11 @@ export default function Navbar(props: Props) {
           defaultSelectedKeys={new Set([locale])}
           onSelectionChange={(key) => {
             const href = `/${key.currentKey}${pathname}`;
+
+            if (href === fullPathname || !startNavigationGuard(href)) {
+              return;
+            }
+
             push(href);
           }}
         >
@@ -186,14 +266,19 @@ export default function Navbar(props: Props) {
         {items.map((item, index) => {
           const isActive =
             item.href === "/" ? pathname === "/" : pathname.includes(item.href);
+          const isExactMatch = pathname === item.href;
 
           return (
             <NavbarMenuItem key={index} className="px-0">
               <CustomLink
                 href={item.href}
+                aria-disabled={isExactMatch || isNavigating}
+                onClick={handleLinkNavigation(item.href, {
+                  closeMenu: true,
+                  disabled: isExactMatch,
+                })}
                 className="block w-full rounded-xl px-4 py-2 text-lg font-medium text-foreground transition-colors hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 aria-current={isActive ? "page" : undefined}
-                onClick={() => setIsMenuOpen(false)}
               >
                 {item.label}
               </CustomLink>
