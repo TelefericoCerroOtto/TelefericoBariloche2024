@@ -1,8 +1,13 @@
-import { Popover } from "@/components";
+import { formatPrice } from "@/lib/adapters";
 import { SEASONS_TRANSLATIONS } from "@/lib/constants/enum-fields-i18n.const";
 import type { Activity, Locales } from "@/types";
-import { truncateString } from "@/utils/truncate-string";
-import { Chip } from "@heroui/react";
+import {
+  TableLeadCell,
+  TablePill,
+  TablePreviewText,
+  TableStatusPill,
+  TableValueCard,
+} from "../tableCells";
 import { dictionaries, type ColumnKeys } from "./data";
 
 export const renderActivityCell = ({
@@ -21,22 +26,22 @@ export const renderActivityCell = ({
       const name = activity.activity_translations?.[0]?.name || "-";
       const desc = activity.activity_translations?.[0]?.description || "";
 
-      if (!desc) return <span className="text-xl font-medium">{name}</span>;
-
       return (
-        <Popover
-          content={
-            <div className="max-w-md p-2 text-xl leading-snug">{desc}</div>
+        <TableLeadCell
+          eyebrow={t.eyebrow.activity}
+          title={name}
+          description={desc || undefined}
+          popoverContent={
+            desc ? (
+              <div className="space-y-2">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-primary/80">
+                  {t.eyebrow.activity}
+                </p>
+                <p>{desc}</p>
+              </div>
+            ) : undefined
           }
-          placement="top-start"
-        >
-          <div className="flex flex-col gap-1">
-            <span className="text-xl font-medium">{name}</span>
-            <span className="line-clamp-2 text-xl text-default-500">
-              {truncateString(desc, 100)}
-            </span>
-          </div>
-        </Popover>
+        />
       );
     }
 
@@ -45,64 +50,78 @@ export const renderActivityCell = ({
 
       if (price > 0) {
         return (
-          <span className="font-medium">
-            {t.price.prefix}
-            {price}
-          </span>
+          <TableValueCard
+            eyebrow={t.eyebrow.price}
+            value={formatPrice(price, locale)}
+            supportingText={t.price.valueHint}
+            tone="brand"
+            valueClassName="text-primary"
+          />
         );
       }
 
       if (price === 0) {
-        return <span className="font-medium">{t.price[0]}</span>;
+        return (
+          <TableValueCard
+            eyebrow={t.eyebrow.price}
+            value={t.price[0]}
+            supportingText={t.price.zeroHint}
+          />
+        );
       }
 
       if (price === -1) {
-        return <span className="font-medium">{t.price[-1]}</span>;
+        return (
+          <TableValueCard
+            eyebrow={t.eyebrow.price}
+            value={t.price[-1]}
+            supportingText={t.price.consultHint}
+          />
+        );
       }
 
       console.log("Unknown price value: ", price);
-      return <span className="font-medium">-</span>;
+      return <TablePill>-</TablePill>;
     }
 
     case "minAge": {
       const minAge = activity.minAge;
 
-      if (minAge === 0) return <span>{t.minAge[0]}</span>;
+      if (minAge === 0) return <TablePill>{t.minAge[0]}</TablePill>;
 
-      if (minAge > 0) {
-        return (
-          <span>
-            {minAge} {t.minAge.unit}
-          </span>
-        );
-      }
+      if (minAge > 0) return <TablePill>{`${minAge} ${t.minAge.unit}`}</TablePill>;
 
       console.log("Unknown minAge value: ", minAge);
-      return <span>-</span>;
+      return <TablePill>-</TablePill>;
     }
 
     case "season": {
-      const season = activity.season;
-
-      return <span>{SEASONS_TRANSLATIONS[locale][season]}</span>;
+      return (
+        <TablePill tone="brand">
+          {SEASONS_TRANSLATIONS[locale][activity.season]}
+        </TablePill>
+      );
     }
 
-    case "requirements":
-      const requirements = activity.activity_translations?.[0]?.requirements;
+    case "requirements": {
+      const requirements =
+        activity.activity_translations?.[0]?.requirements ?? undefined;
 
-      if (!requirements) return <span>{t.requirements.none}</span>;
-      return <span>{requirements}</span>;
+      return (
+        <TablePreviewText text={requirements} fallback={t.requirements.none} />
+      );
+    }
 
     case "status": {
       const isAvailable = Boolean(activity.available);
+
       return (
-        <Chip
-          variant="flat"
-          color={isAvailable ? "success" : "danger"}
-          className="text-base"
-        >
-          {isAvailable ? t.availability.available : t.availability.unavailable}
-        </Chip>
+        <TableStatusPill
+          label={
+            isAvailable ? t.availability.available : t.availability.unavailable
+          }
+          tone={isAvailable ? "success" : "danger"}
+        />
       );
     }
   }

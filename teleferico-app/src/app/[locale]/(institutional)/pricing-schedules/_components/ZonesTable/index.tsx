@@ -6,7 +6,7 @@ import { i18n } from "@/i18n";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { GetZonesResponse, Zone } from "@/types";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { ColumnKeys, columns } from "./data";
+import { ColumnKeys, columns, dictionaries } from "./data";
 import { renderZoneCell } from "./renderZoneCell";
 
 export default function ZonesTable() {
@@ -55,6 +55,7 @@ export default function ZonesTable() {
 
   return (
     <DataTable
+      ariaLabel={dictionaries[locale ?? i18n.defaultLocale].table.ariaLabel}
       renderCell={renderCell as () => ReactNode}
       items={items?.data ?? []}
       isLoading={isLoading || isLoadingServiceState}

@@ -5,7 +5,7 @@ import { useLocale, useProxy } from "@/hooks";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { Activity, GetActivitiesResponse } from "@/types";
 import { type ReactNode, useCallback } from "react";
-import { columns, type ColumnKeys } from "./data";
+import { columns, dictionaries, type ColumnKeys } from "./data";
 import { renderActivityCell } from "./renderActivityCell";
 
 export default function ActivitiesTable() {
@@ -43,6 +43,7 @@ export default function ActivitiesTable() {
 
   return (
     <DataTable
+      ariaLabel={dictionaries[locale].table.ariaLabel}
       renderCell={renderCell as () => ReactNode}
       items={items?.data ?? []}
       columns={columns[locale]}

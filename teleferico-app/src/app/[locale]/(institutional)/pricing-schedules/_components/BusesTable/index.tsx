@@ -6,7 +6,7 @@ import { i18n } from "@/i18n";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { BusTrip, GetBusTripsResponse } from "@/types";
 import { type ReactNode, useCallback } from "react";
-import { type ColumnKeys, columns } from "./data";
+import { type ColumnKeys, columns, dictionaries } from "./data";
 import { renderBusCell } from "./renderBusCell";
 
 export default function BusTable() {
@@ -60,6 +60,7 @@ export default function BusTable() {
 
   return (
     <DataTable
+      ariaLabel={dictionaries[locale].table.ariaLabel}
       renderCell={renderCell as () => ReactNode}
       items={items?.data ?? []}
       columns={columns[locale]}
