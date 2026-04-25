@@ -34,7 +34,7 @@ interface Props {
   items: { label: string; href: string }[];
 }
 
-const { HOME, JOBS, NEWS, POLICIES, CONTACT, FAQS } = PUBLIC_ROUTES;
+const { HOME } = PUBLIC_ROUTES;
 
 export default function Navbar(props: Props) {
   const { items } = props;
@@ -42,26 +42,12 @@ export default function Navbar(props: Props) {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const { locale, pathname, fullPathname } = useLocale();
   const { push } = useRouter();
-  const { direction, isScrolled } = useScrollDirection({ threshold: 12 });
+  const { isScrolled } = useScrollDirection({ threshold: 12 });
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isCompact = direction === "down" && isScrolled;
   const isNavigating = pendingNavigation !== null;
 
-  const isPathInList = useMemo(
-    () =>
-      [NEWS, POLICIES, JOBS, CONTACT, FAQS].some((route) =>
-        pathname.includes(route),
-      ),
-    [pathname],
-  );
-
-  const useSolidBackground = isScrolled || isMenuOpen || isPathInList;
-
-  const logo = useMemo(
-    () => (isPathInList || isMenuOpen || isScrolled ? logoNegro : logoBlanco),
-    [isMenuOpen, isPathInList, isScrolled],
-  );
+  const useSolidBackground = isScrolled || isMenuOpen;
 
   useEffect(() => {
     if (!isNavigating) return;
@@ -135,7 +121,7 @@ export default function Navbar(props: Props) {
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         useSolidBackground
           ? "text-muted-foreground hover:text-foreground"
-          : "text-white/80 hover:text-white",
+          : "text-primary-foreground/85 hover:text-primary-foreground",
       ),
     [useSolidBackground],
   );
@@ -148,15 +134,15 @@ export default function Navbar(props: Props) {
       onMenuOpenChange={setIsMenuOpen}
       isBlurred={false}
       className={cn(
-        "top-0 z-50 w-full border-b border-border/40 px-4 transition-all duration-300 ease-out md:px-6",
+        "top-0 z-50 w-full px-4 transition-colors duration-300 ease-out md:px-6",
         "supports-[backdrop-filter]:backdrop-blur-xl",
         useSolidBackground
-          ? "bg-background/90 bg-gray-100 text-foreground shadow-sm"
-          : "bg-transparent text-white",
-        isCompact ? "h-14 md:h-16" : "h-16 md:h-20",
+          ? "border-b border-border/60 bg-background/95 text-foreground shadow-sm"
+          : "border-b border-white/10 bg-primary text-primary-foreground",
+        "h-16 md:h-20",
       )}
       classNames={{
-        wrapper: ["max-w-[1600px]", "px-0"],
+        wrapper: ["max-w-[1600px]", "h-16 px-0 md:h-20"],
         item: ["data-[active=true]:text-primary"],
       }}
     >
@@ -168,19 +154,39 @@ export default function Navbar(props: Props) {
         <NavbarBrand>
           <CustomLink
             href={HOME}
+            aria-label="Teleferico Cerro Otto"
             aria-disabled={pathname === HOME || isNavigating}
             onClick={handleLinkNavigation(HOME, {
               disabled: pathname === HOME,
             })}
             className="flex items-center gap-3 rounded-lg px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <Image
-              src={logo}
-              alt="Teleferico Cerro Otto"
-              width={140}
-              height={48}
-              priority
-            />
+            <span className="relative block h-12 w-[140px] shrink-0">
+              <Image
+                src={logoBlanco}
+                alt=""
+                aria-hidden="true"
+                width={140}
+                height={48}
+                priority
+                className={cn(
+                  "absolute left-0 top-0 transition-opacity duration-200 ease-out",
+                  useSolidBackground ? "opacity-0" : "opacity-100",
+                )}
+              />
+              <Image
+                src={logoNegro}
+                alt=""
+                aria-hidden="true"
+                width={140}
+                height={48}
+                priority
+                className={cn(
+                  "absolute left-0 top-0 transition-opacity duration-200 ease-out",
+                  useSolidBackground ? "opacity-100" : "opacity-0",
+                )}
+              />
+            </span>
           </CustomLink>
         </NavbarBrand>
       </NavbarContent>
@@ -207,11 +213,12 @@ export default function Navbar(props: Props) {
                 <span>{item.label}</span>
                 <span
                   aria-hidden="true"
-                  className={cn(
-                    "pointer-events-none absolute bottom-0 left-3 right-3 h-0.5 origin-left scale-x-0 rounded-full bg-primary transition-transform duration-200",
-                    "group-hover:scale-x-100 group-focus-visible:scale-x-100",
-                    isActive && "scale-x-100",
-                  )}
+                    className={cn(
+                      "pointer-events-none absolute bottom-0 left-3 right-3 h-0.5 origin-left scale-x-0 rounded-full transition-transform duration-200",
+                      useSolidBackground ? "bg-primary" : "bg-white",
+                      "group-hover:scale-x-100 group-focus-visible:scale-x-100",
+                      isActive && "scale-x-100",
+                    )}
                 />
               </CustomLink>
             </NavbarItem>
@@ -225,15 +232,33 @@ export default function Navbar(props: Props) {
           aria-label="Change language"
           className="w-[160px]" // un toque más ancho para la tipografía grande
           isDisabled={isNavigating}
+          popoverProps={{
+            classNames: {
+              base: "z-[60]",
+              content: "z-[60]",
+            },
+          }}
           classNames={{
             trigger: [
-              "h-11 rounded-full border border-border/50 bg-white px-3 text-base md:text-lg leading-6 transition-colors",
-              "border-black/40 focus:border-primary/80",
+              "h-11 rounded-full px-3 text-base leading-6 transition-colors md:text-lg",
+              useSolidBackground
+                ? "border border-black/15 bg-white text-foreground focus:border-primary/80"
+                : "border border-white/80 bg-white text-foreground focus:border-white",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             ],
             // asegura tamaño también en el valor renderizado
-            value: ["text-base md:text-lg leading-6 text-foreground"],
-            selectorIcon: ["text-foreground scale-110"], // ícono un pelín más grande
+            value: [
+              cn(
+                "text-base leading-6 md:text-lg",
+                "text-foreground",
+              ),
+            ],
+            selectorIcon: [
+              cn(
+                "scale-110",
+                "text-foreground",
+              ),
+            ], // ícono un pelín más grande
             popoverContent: [
               "rounded-2xl border border-border/60 bg-background/95 backdrop-blur",
             ],
