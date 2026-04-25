@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 
 import { Button, Label, ListBox, Select } from "@heroui/react";
 
+import { getNonCanonicalBusyLabel } from "@/components/studio/busy-labels";
+import { LoadingIndicator } from "@/components/studio/loading-indicator";
 import { studioSelectStyles } from "@/components/studio/select-styles";
 import type { WorkspaceSummary } from "@/lib/studio/types";
 
@@ -14,8 +16,11 @@ import type { WorkspaceSummary } from "@/lib/studio/types";
 interface WorkspaceToolbarProps {
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string | undefined;
+  isBusy: boolean;
   isDeleting: boolean;
+  isImporting: boolean;
   hasWorkspace: boolean;
+  busyLabel?: string;
   onLoadWorkspace: (id: string) => void;
   onCreateWorkspace: () => void;
   onRenameWorkspace: (newTitle: string) => void;
@@ -30,14 +35,18 @@ interface WorkspaceToolbarProps {
 export function WorkspaceToolbar({
   workspaces,
   activeWorkspaceId,
+  isBusy,
   isDeleting,
+  isImporting,
   hasWorkspace,
+  busyLabel,
   onLoadWorkspace,
   onCreateWorkspace,
   onRenameWorkspace,
   onDeleteWorkspace,
   onImportFiles,
 }: WorkspaceToolbarProps) {
+  const visibleBusyLabel = getNonCanonicalBusyLabel(busyLabel);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -51,6 +60,7 @@ export function WorkspaceToolbar({
       <div className="grid gap-3 xl:grid-cols-[minmax(22rem,1fr)_auto]">
         <Select
           className="min-w-0 self-start"
+          isDisabled={isBusy || workspaces.length === 0}
           value={activeWorkspaceId ?? null}
           onChange={(key) => key && void onLoadWorkspace(String(key))}
           placeholder="Seleccionar espacio"
@@ -81,7 +91,12 @@ export function WorkspaceToolbar({
         </Select>
 
         <div className="flex flex-wrap items-end gap-2 xl:justify-end">
-          <Button size="sm" variant="secondary" onPress={() => void onCreateWorkspace()}>
+          <Button
+            size="sm"
+            variant="secondary"
+            isDisabled={isBusy}
+            onPress={() => void onCreateWorkspace()}
+          >
             Nuevo espacio
           </Button>
           {hasWorkspace ? (
@@ -89,6 +104,7 @@ export function WorkspaceToolbar({
               <Button
                 size="sm"
                 variant="secondary"
+                isDisabled={isBusy}
                 onPress={() => {
                   const active = workspaces.find((w) => w.id === activeWorkspaceId);
                   const newTitle = window.prompt("Renombrar espacio de trabajo:", active?.title);
@@ -102,21 +118,32 @@ export function WorkspaceToolbar({
               <Button
                 size="sm"
                 variant="danger-soft"
-                isDisabled={isDeleting}
+                isDisabled={isBusy}
                 onPress={() => void onDeleteWorkspace()}
               >
                 {isDeleting ? "Eliminando..." : "Eliminar espacio"}
               </Button>
             </>
           ) : null}
-          <Button size="sm" variant="secondary" onPress={() => folderInputRef.current?.click()}>
-            Importar carpeta
+          <Button
+            size="sm"
+            variant="secondary"
+            isDisabled={isBusy || !hasWorkspace}
+            onPress={() => folderInputRef.current?.click()}
+          >
+            {isImporting ? "Importando..." : "Importar carpeta"}
           </Button>
-          <Button size="sm" variant="secondary" onPress={() => fileInputRef.current?.click()}>
-            Importar archivos
+          <Button
+            size="sm"
+            variant="secondary"
+            isDisabled={isBusy || !hasWorkspace}
+            onPress={() => fileInputRef.current?.click()}
+          >
+            {isImporting ? "Importando..." : "Importar archivos"}
           </Button>
         </div>
       </div>
+      {visibleBusyLabel ? <LoadingIndicator className="mt-3" label={visibleBusyLabel} /> : null}
       <input
         hidden
         multiple

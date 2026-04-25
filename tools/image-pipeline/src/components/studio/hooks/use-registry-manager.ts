@@ -23,12 +23,18 @@ interface UseRegistryManagerOptions {
 export function useRegistryManager({ onStatus }: UseRegistryManagerOptions) {
   const [registry, setRegistry] = useState<SlotProfileRegistry | null>(null);
   const [savedRegistry, setSavedRegistry] = useState<SlotProfileRegistry | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   async function load() {
-    const data = await fetchJson<{ registry: SlotProfileRegistry }>("/api/registry/profiles");
-    setRegistry(data.registry);
-    setSavedRegistry(data.registry);
+    setIsLoading(true);
+    try {
+      const data = await fetchJson<{ registry: SlotProfileRegistry }>("/api/registry/profiles");
+      setRegistry(data.registry);
+      setSavedRegistry(data.registry);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function save() {
@@ -48,6 +54,12 @@ export function useRegistryManager({ onStatus }: UseRegistryManagerOptions) {
     }
   }
 
+  const busyLabel = isSaving
+    ? "Guardando perfiles..."
+    : isLoading
+      ? "Cargando perfiles..."
+      : undefined;
+
   const isDirty = JSON.stringify(registry) !== JSON.stringify(savedRegistry);
 
   const dirtyProfileIds = new Set<string>();
@@ -66,8 +78,10 @@ export function useRegistryManager({ onStatus }: UseRegistryManagerOptions) {
     setRegistry,
     load,
     save,
+    isLoading,
     isDirty,
     isSaving,
+    busyLabel,
     dirtyProfileIds,
   };
 }

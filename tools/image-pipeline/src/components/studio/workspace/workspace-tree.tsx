@@ -2,12 +2,16 @@
 
 import { Button, Checkbox, Chip } from "@heroui/react";
 
+import { getNonCanonicalBusyLabel } from "@/components/studio/busy-labels";
+import { LoadingIndicator } from "@/components/studio/loading-indicator";
 import type { WorkspaceItem } from "@/lib/studio/types";
 
 type WorkspaceTreeProps = {
   items: WorkspaceItem[];
   selectedItemIds: string[];
   activeItemId?: string;
+  isBusy?: boolean;
+  busyLabel?: string;
   onToggleSelected: (itemId: string) => void;
   onSetActive: (itemId: string) => void;
   onSetSelected: (itemIds: string[]) => void;
@@ -18,11 +22,14 @@ export function WorkspaceTree({
   items,
   selectedItemIds,
   activeItemId,
+  isBusy,
+  busyLabel,
   onToggleSelected,
   onSetActive,
   onSetSelected,
   onDeleteSelected,
 }: WorkspaceTreeProps) {
+  const visibleBusyLabel = getNonCanonicalBusyLabel(busyLabel);
   const groups = items.reduce<Record<string, WorkspaceItem[]>>((acc, item) => {
     const key = item.groupPath || "raíz";
     acc[key] ??= [];
@@ -40,13 +47,14 @@ export function WorkspaceTree({
           <p className="text-sm text-slate-400">
             Selecciona recursos para asignar perfiles y revisar su configuración.
           </p>
+          {visibleBusyLabel ? <LoadingIndicator className="mt-3" label={visibleBusyLabel} /> : null}
         </div>
         <div className="flex items-center gap-4">
           {onDeleteSelected ? (
             <Button
               size="sm"
               variant="danger-soft"
-              isDisabled={selectedItemIds.length === 0}
+              isDisabled={Boolean(isBusy) || selectedItemIds.length === 0}
               onPress={() => onDeleteSelected(selectedItemIds)}
             >
               Eliminar
@@ -55,6 +63,7 @@ export function WorkspaceTree({
           {items.length > 0 ? (
             <label className="flex items-center gap-2 text-sm text-slate-300 font-medium cursor-pointer">
               <Checkbox
+                isDisabled={isBusy}
                 isSelected={isAllSelected}
                 onChange={() => onSetSelected(isAllSelected ? [] : items.map((i) => i.id))}
                 aria-label="Seleccionar todos los ítems"
@@ -93,6 +102,7 @@ export function WorkspaceTree({
                     >
                       <div className="flex items-start gap-3">
                         <Checkbox
+                          isDisabled={isBusy}
                           isSelected={isSelected}
                           onChange={() => onToggleSelected(item.id)}
                           aria-label={`Seleccionar ${item.displayName}`}
@@ -106,6 +116,7 @@ export function WorkspaceTree({
                         <button
                           aria-pressed={isActive}
                           className="flex min-w-0 flex-1 cursor-pointer items-start justify-between gap-3 rounded-xl border-0 bg-transparent p-0 text-left outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30"
+                          disabled={isBusy}
                           type="button"
                           onClick={() => onSetActive(item.id)}
                         >

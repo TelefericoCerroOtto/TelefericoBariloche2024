@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { PREVIEW_REFRESH_BUSY_LABEL } from "@/components/studio/busy-labels";
 import { findSlotById } from "@/lib/studio/registry-mappers";
 import type {
   SlotProfileRegistry,
@@ -50,6 +51,8 @@ export function usePreview({
   const [activeSlotId, setActiveSlotId] = useState<string>();
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [previewMeta, setPreviewMeta] = useState<PreviewMeta>();
+  const [isLoading, setIsLoading] = useState(false);
+  const currentObjectUrlRef = useRef<string | undefined>(undefined);
 
   /* Derive available slots from registry + active item ------------- */
   const availableSlots = useMemo<StudioSlot[]>(() => {
@@ -69,15 +72,20 @@ export function usePreview({
   /* Load preview blob when item/slot change ------------------------ */
   useEffect(() => {
     if (!workspaceId || !activeItem) {
+      if (currentObjectUrlRef.current) {
+        URL.revokeObjectURL(currentObjectUrlRef.current);
+        currentObjectUrlRef.current = undefined;
+      }
       setPreviewUrl(undefined);
       setPreviewMeta(undefined);
+      setIsLoading(false);
       return;
     }
 
     let cancelled = false;
-    let objectUrl: string | undefined;
 
     const loadPreview = async () => {
+      setIsLoading(true);
       try {
         const response = await fetch(`/api/workspaces/${workspaceId}/preview`, {
           method: "POST",
@@ -89,9 +97,13 @@ export function usePreview({
           throw new Error(payload?.error ?? "No se pudo cargar la vista previa.");
         }
         const blob = await response.blob();
-        objectUrl = URL.createObjectURL(blob);
+        const newObjectUrl = URL.createObjectURL(blob);
         if (!cancelled) {
-          setPreviewUrl(objectUrl);
+          if (currentObjectUrlRef.current) {
+            URL.revokeObjectURL(currentObjectUrlRef.current);
+          }
+          currentObjectUrlRef.current = newObjectUrl;
+          setPreviewUrl(newObjectUrl);
           setPreviewMeta({
             baseW: Number(response.headers.get("x-base-width") ?? 0) || undefined,
             baseH: Number(response.headers.get("x-base-height") ?? 0) || undefined,
@@ -102,10 +114,16 @@ export function usePreview({
             outW: Number(response.headers.get("x-out-width") ?? 0) || undefined,
             outH: Number(response.headers.get("x-out-height") ?? 0) || undefined,
           });
+        } else {
+          URL.revokeObjectURL(newObjectUrl);
         }
       } catch (error) {
         if (!cancelled) {
           onStatus(error instanceof Error ? error.message : String(error));
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
         }
       }
     };
@@ -114,17 +132,27 @@ export function usePreview({
 
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
     // onStatus is stable (comes from the shell's setState); safe to omit
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, activeItem, activeSlotId]);
+
+  useEffect(() => {
+    return () => {
+      if (currentObjectUrlRef.current) {
+        URL.revokeObjectURL(currentObjectUrlRef.current);
+        currentObjectUrlRef.current = undefined;
+      }
+    };
+  }, []);
 
   return {
     activeSlotId,
     availableSlots,
     previewUrl,
     previewMeta,
+    isLoading,
+    busyLabel: isLoading ? PREVIEW_REFRESH_BUSY_LABEL : undefined,
     setActiveSlotId,
   };
 }

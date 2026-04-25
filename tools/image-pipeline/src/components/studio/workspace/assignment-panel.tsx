@@ -2,12 +2,16 @@
 
 import { Button, Chip } from "@heroui/react";
 
+import { getNonCanonicalBusyLabel } from "@/components/studio/busy-labels";
+import { LoadingIndicator } from "@/components/studio/loading-indicator";
 import type { SlotProfileRegistry, WorkspaceItem } from "@/lib/studio/types";
 
 type AssignmentPanelProps = {
   registry: SlotProfileRegistry | null;
   selectedItems: WorkspaceItem[];
   activeItem?: WorkspaceItem;
+  isBusy?: boolean;
+  busyLabel?: string;
   onBulkAssign: (profileId?: string) => Promise<void>;
   onAssignActive: (profileId?: string) => Promise<void>;
 };
@@ -16,9 +20,12 @@ export function AssignmentPanel({
   registry,
   selectedItems,
   activeItem,
+  isBusy,
+  busyLabel,
   onBulkAssign,
   onAssignActive,
 }: AssignmentPanelProps) {
+  const visibleBusyLabel = getNonCanonicalBusyLabel(busyLabel);
   const profiles = registry?.profiles ?? [];
   const selectedCount = selectedItems.length;
 
@@ -35,6 +42,7 @@ export function AssignmentPanel({
         <p className="text-sm text-slate-400">
           Aplica perfiles en bloque o ajusta el recurso activo de forma individual.
         </p>
+        {visibleBusyLabel ? <LoadingIndicator className="mt-3" label={visibleBusyLabel} /> : null}
       </div>
 
       <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
@@ -49,7 +57,7 @@ export function AssignmentPanel({
                 key={index}
                 size="sm"
                 variant={isUniformBulkProfile === profile.id ? "primary" : "secondary"}
-                isDisabled={selectedCount === 0}
+                isDisabled={Boolean(isBusy) || selectedCount === 0}
                 onPress={() => void onBulkAssign(profile.id)}
               >
                 {profile.label}
@@ -58,7 +66,7 @@ export function AssignmentPanel({
             <Button
               size="sm"
               variant="ghost"
-              isDisabled={selectedCount === 0}
+              isDisabled={Boolean(isBusy) || selectedCount === 0}
               onPress={() => void onBulkAssign()}
             >
               Limpiar
@@ -85,12 +93,13 @@ export function AssignmentPanel({
                   key={index}
                   size="sm"
                   variant={activeItem?.profileId === profile.id ? "primary" : "secondary"}
+                  isDisabled={isBusy}
                   onPress={() => void onAssignActive(profile.id)}
                 >
                   {profile.label}
                 </Button>
               ))}
-              <Button size="sm" variant="ghost" onPress={() => void onAssignActive()}>
+              <Button size="sm" variant="ghost" isDisabled={isBusy} onPress={() => void onAssignActive()}>
                 Limpiar
               </Button>
             </div>

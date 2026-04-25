@@ -1,4 +1,3 @@
-
 import { STUDIO_LOCAL_ONLY_NOTICE } from "@/lib/studio/capabilities";
 
 /* ------------------------------------------------------------------ */

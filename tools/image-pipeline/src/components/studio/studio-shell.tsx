@@ -54,6 +54,14 @@ export function StudioShell() {
     onStatus: setStatus,
   });
 
+  const workspaceBusyLabel = wsManager.busyLabel;
+  const selectionBusyLabel =
+    workspaceBusyLabel &&
+    (wsManager.pendingAction === "assign" ||
+      wsManager.pendingAction === "deleteItems" ||
+      wsManager.pendingAction === "focalPoint")
+      ? workspaceBusyLabel
+      : undefined;
   /* ---- bootstrap ------------------------------------------------- */
 
   useEffect(() => {
@@ -92,8 +100,11 @@ export function StudioShell() {
           <WorkspaceToolbar
             workspaces={wsManager.workspaces}
             activeWorkspaceId={wsManager.workspace?.id}
+            isBusy={wsManager.isBusy}
             isDeleting={wsManager.isDeleting}
+            isImporting={wsManager.isImporting}
             hasWorkspace={wsManager.workspace !== null}
+            busyLabel={workspaceBusyLabel}
             onLoadWorkspace={(id) => void wsManager.loadWorkspace(id)}
             onCreateWorkspace={() => void wsManager.createWorkspace()}
             onRenameWorkspace={(newTitle) => void wsManager.updateWorkspace({ type: "setTitle", title: newTitle })}
@@ -109,6 +120,8 @@ export function StudioShell() {
             items={items}
             selectedItemIds={selection.selectedItemIds}
             activeItemId={selection.activeItemId}
+            isBusy={wsManager.isBusy}
+            busyLabel={selectionBusyLabel}
             onToggleSelected={selection.toggleSelected}
             onSetActive={selection.setActiveItemId}
             onSetSelected={selection.setSelectedItemIds}
@@ -127,6 +140,8 @@ export function StudioShell() {
             availableSlots={preview.availableSlots}
             previewUrl={preview.previewUrl}
             previewMeta={preview.previewMeta}
+            isLoading={preview.isLoading}
+            isInteractionDisabled={!selection.activeItem || wsManager.isBusy || preview.isLoading}
             onSelectSlot={preview.setActiveSlotId}
             onFocalPointChange={async (point) => {
               if (!selection.activeItem) return;
@@ -141,6 +156,8 @@ export function StudioShell() {
             registry={regManager.registry}
             selectedItems={selectedItems}
             activeItem={selection.activeItem}
+            isBusy={wsManager.isBusy}
+            busyLabel={selectionBusyLabel}
             onBulkAssign={async (profileId) => {
               if (selection.selectedItemIds.length === 0) return;
               await wsManager.updateWorkspace({
@@ -158,9 +175,17 @@ export function StudioShell() {
               });
             }}
           />
-          <ProcessPanel logs={process.logs} outputs={process.outputs} onRun={process.runProcess} />
+          <ProcessPanel
+            logs={process.logs}
+            outputs={process.outputs}
+            isRunning={process.isRunning}
+            pendingMode={process.pendingMode}
+            onRun={process.runProcess}
+          />
           <JobsPanel
             jobsText={wsManager.jobsText}
+            isBusy={wsManager.isBusy}
+            pendingAction={wsManager.pendingJobsAction}
             onChange={wsManager.setJobsText}
             onGenerate={() => wsManager.runJobsAction("generate")}
             onValidate={() => wsManager.runJobsAction("validate")}

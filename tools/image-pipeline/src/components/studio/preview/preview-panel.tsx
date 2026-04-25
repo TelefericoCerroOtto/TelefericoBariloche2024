@@ -1,7 +1,11 @@
 "use client";
 
+import { useEffect, useState, type KeyboardEvent } from "react";
+
 import { Chip, Label, ListBox, Select, Input } from "@heroui/react";
 
+import { PREVIEW_REFRESH_BUSY_LABEL } from "@/components/studio/busy-labels";
+import { LoadingIndicator } from "@/components/studio/loading-indicator";
 import { FocalPointCanvas } from "@/components/studio/preview/focal-point-canvas";
 import { studioSelectStyles } from "@/components/studio/select-styles";
 import type { StudioSlot, WorkspaceItem } from "@/lib/studio/types";
@@ -23,9 +27,16 @@ type PreviewPanelProps = {
   availableSlots: StudioSlot[];
   previewUrl?: string;
   previewMeta?: PreviewMeta;
+  isLoading: boolean;
+  isInteractionDisabled: boolean;
   onSelectSlot: (slotId: string) => void;
   onFocalPointChange: (point: { x: number; y: number }) => Promise<void>;
 };
+
+function toDraftCoordinate(value: number | undefined, dimension: number | undefined) {
+  if (!dimension || value === undefined) return "";
+  return String(Math.round(value * dimension));
+}
 
 export function PreviewPanel({
   activeItem,
@@ -33,9 +44,77 @@ export function PreviewPanel({
   availableSlots,
   previewUrl,
   previewMeta,
+  isLoading,
+  isInteractionDisabled,
   onSelectSlot,
   onFocalPointChange,
 }: PreviewPanelProps) {
+  const [draftX, setDraftX] = useState("");
+  const [draftY, setDraftY] = useState("");
+  const nextDraftX = toDraftCoordinate(activeItem?.focalPoint?.x, previewMeta?.baseW);
+  const nextDraftY = toDraftCoordinate(activeItem?.focalPoint?.y, previewMeta?.baseH);
+  const draftSyncKey = `${activeItem?.id ?? ""}:${nextDraftX}:${nextDraftY}`;
+
+  useEffect(() => {
+    setDraftX(nextDraftX);
+    setDraftY(nextDraftY);
+  }, [draftSyncKey, nextDraftX, nextDraftY]);
+
+  const resetDraftAxis = (axis: "x" | "y") => {
+    if (axis === "x") {
+      setDraftX(toDraftCoordinate(activeItem?.focalPoint?.x, previewMeta?.baseW));
+      return;
+    }
+
+    setDraftY(toDraftCoordinate(activeItem?.focalPoint?.y, previewMeta?.baseH));
+  };
+
+  const commitDraftAxis = async (axis: "x" | "y", rawValue: string) => {
+    if (!activeItem || !previewMeta?.baseW || !previewMeta?.baseH) return;
+
+    const trimmedValue = rawValue.trim();
+    if (trimmedValue.length === 0) {
+      resetDraftAxis(axis);
+      return;
+    }
+
+    const parsedValue = Number(trimmedValue);
+    if (!Number.isFinite(parsedValue)) {
+      resetDraftAxis(axis);
+      return;
+    }
+
+    const maxValue = axis === "x" ? previewMeta.baseW : previewMeta.baseH;
+    const nextPixel = Math.max(0, Math.min(maxValue, Math.round(parsedValue)));
+    const currentPixel = Math.round(
+      (axis === "x"
+        ? (activeItem.focalPoint?.x ?? 0.5) * previewMeta.baseW
+        : (activeItem.focalPoint?.y ?? 0.5) * previewMeta.baseH),
+    );
+
+    if (axis === "x") {
+      setDraftX(String(nextPixel));
+    } else {
+      setDraftY(String(nextPixel));
+    }
+
+    if (nextPixel === currentPixel) return;
+
+    await onFocalPointChange({
+      x: axis === "x" ? nextPixel / previewMeta.baseW : (activeItem.focalPoint?.x ?? 0.5),
+      y: axis === "y" ? nextPixel / previewMeta.baseH : (activeItem.focalPoint?.y ?? 0.5),
+    });
+  };
+
+  const handleAxisKeyDown =
+    (axis: "x" | "y", rawValue: string) =>
+    async (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== "Enter") return;
+
+      event.preventDefault();
+      await commitDraftAxis(axis, rawValue);
+    };
+
   return (
     <section className="flex h-full min-h-[32rem] flex-col rounded-2xl border border-slate-800 bg-slate-950/70 p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.95)]">
       <div className="space-y-1 border-b border-slate-800 pb-4">
@@ -50,7 +129,7 @@ export function PreviewPanel({
           <span className="text-sm font-medium text-slate-300">Salida asignada</span>
           <Select
             className="min-w-[13rem] flex-1 self-start"
-            isDisabled={!activeItem || availableSlots.length === 0}
+            isDisabled={isInteractionDisabled || availableSlots.length === 0}
             value={activeSlotId ?? null}
             onChange={(key) => key && onSelectSlot(String(key))}
             placeholder={availableSlots.length > 0 ? "Seleccionar salida" : "Sin salidas asignadas"}
@@ -93,16 +172,16 @@ export function PreviewPanel({
                 <Input
                   type="number"
                   aria-label="Posición X"
+                  disabled={isInteractionDisabled}
                   min={0}
                   max={previewMeta.baseW}
                   className="w-24 bg-slate-900 border border-slate-700 text-slate-200 px-2 py-1 rounded"
-                  value={activeItem.focalPoint ? String(Math.round(activeItem.focalPoint.x * previewMeta.baseW)) : ""}
+                  value={draftX}
                   onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    if (isNaN(val)) return;
-                    const newX = Math.max(0, Math.min(1, val / previewMeta.baseW!));
-                    onFocalPointChange({ x: newX, y: activeItem.focalPoint?.y ?? 0.5 });
+                    setDraftX(e.target.value);
                   }}
+                  onBlur={() => void commitDraftAxis("x", draftX)}
+                  onKeyDown={handleAxisKeyDown("x", draftX)}
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -110,16 +189,16 @@ export function PreviewPanel({
                 <Input
                   type="number"
                   aria-label="Posición Y"
+                  disabled={isInteractionDisabled}
                   min={0}
                   max={previewMeta.baseH}
                   className="w-24 bg-slate-900 border border-slate-700 text-slate-200 px-2 py-1 rounded"
-                  value={activeItem.focalPoint ? String(Math.round(activeItem.focalPoint.y * previewMeta.baseH)) : ""}
+                  value={draftY}
                   onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    if (isNaN(val)) return;
-                    const newY = Math.max(0, Math.min(1, val / previewMeta.baseH!));
-                    onFocalPointChange({ x: activeItem.focalPoint?.x ?? 0.5, y: newY });
+                    setDraftY(e.target.value);
                   }}
+                  onBlur={() => void commitDraftAxis("y", draftY)}
+                  onKeyDown={handleAxisKeyDown("y", draftY)}
                 />
               </div>
             </div>
@@ -127,14 +206,19 @@ export function PreviewPanel({
         ) : null}
       </div>
 
-      <div className="mt-4 flex-1 overflow-hidden flex flex-col justify-center">
+      <div className="relative mt-4 flex flex-1 flex-col justify-center overflow-hidden">
         <FocalPointCanvas
           imageSrc={previewUrl}
           focalPoint={activeItem?.focalPoint}
           previewMeta={previewMeta}
-          disabled={!activeItem}
+          disabled={isInteractionDisabled}
           onChange={onFocalPointChange}
         />
+        {isLoading ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 backdrop-blur-[1px]">
+            <LoadingIndicator label={PREVIEW_REFRESH_BUSY_LABEL} />
+          </div>
+        ) : null}
       </div>
 
       {!activeItem ? (
