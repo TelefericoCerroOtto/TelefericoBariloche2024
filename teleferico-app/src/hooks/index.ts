@@ -3,6 +3,7 @@ export * from "./use-debounced-value";
 export * from "./use-form-locale-selector";
 export * from "./use-is-mobile";
 export * from "./use-locale";
+export * from "./use-pointer-reorder";
 export * from "./use-proxy";
 export * from "./use-scroll-direction";
 export * from "./use-service-state";

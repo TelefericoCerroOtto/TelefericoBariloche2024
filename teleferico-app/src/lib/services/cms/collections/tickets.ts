@@ -1,8 +1,10 @@
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { getPricingScheduleTicketsQuery } from "@/lib/helpers/pricing-schedules-queries";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   ExtendLocalizations,
   GetTicketResponse,
+  GetTicketsResponse,
   Locales,
   PostAccessTicketRequest,
   PostAccessTicketResponse,
@@ -32,6 +34,20 @@ export const getAccessTicket = async <T extends Locales | "all">({
     endpoint: `${STRAPI_ENDPOINTS.TICKETS}/${documentId}`,
     qp: stringifyQuery(query),
   });
+
+  return res;
+};
+
+export const getTickets = async (locale: Locales, init?: RequestInit) => {
+  const query = getPricingScheduleTicketsQuery(locale);
+
+  const res = await strapiFetch<GetTicketsResponse>(
+    {
+      endpoint: STRAPI_ENDPOINTS.TICKETS,
+      qp: stringifyQuery(query),
+    },
+    init,
+  );
 
   return res;
 };

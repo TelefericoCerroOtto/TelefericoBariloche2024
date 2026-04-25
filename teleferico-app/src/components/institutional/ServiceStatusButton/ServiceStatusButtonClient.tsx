@@ -2,7 +2,11 @@
 
 import { BlockRendererClient, FormError } from "@/components";
 import { useServiceState } from "@/hooks";
-import type { GetServiceButtonResponse, ServiceStateValues } from "@/types";
+import type {
+  GetServiceButtonResponse,
+  Locales,
+  ServiceStateValues,
+} from "@/types";
 import {
   Button,
   Modal,
@@ -20,7 +24,29 @@ import { useId, useMemo } from "react";
 
 interface Props {
   content: GetServiceButtonResponse["data"][0]["jsonValue"];
+  locale: Locales;
 }
+
+const uiCopy: Record<
+  Locales,
+  {
+    loading: string;
+    lastUpdated: string;
+  }
+> = {
+  "es-AR": {
+    loading: "Consultando estado actual del servicio",
+    lastUpdated: "Última actualización",
+  },
+  en: {
+    loading: "Checking current service status",
+    lastUpdated: "Last updated",
+  },
+  pt: {
+    loading: "Consultando estado atual do serviço",
+    lastUpdated: "Última atualização",
+  },
+};
 
 const stateStyles: Record<
   ServiceStateValues,
@@ -82,19 +108,53 @@ const stateStyles: Record<
 };
 
 export default function ServiceStatusButtonClient(props: Props) {
-  const { content } = props;
+  const { content, locale } = props;
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const { serviceState, isLoading, isError } = useServiceState();
 
   const modalId = useId();
+  const copy = uiCopy[locale];
   const stateKey = (serviceState?.data.state ?? "normal") as ServiceStateValues;
+  const formattedUpdatedAt = serviceState?.data.updatedAt
+    ? new Date(serviceState.data.updatedAt).toLocaleString(locale, {
+        dateStyle: "short",
+        timeStyle: "short",
+      })
+    : null;
 
   const modalStates = useMemo(
     () => [...content.modal.items].sort((a, b) => a.order - b.order),
     [content.modal.items],
   );
 
-  if (isLoading) return <Skeleton className="h-full w-full rounded-3xl" />;
+  if (isLoading) {
+    return (
+      <div className="w-full" aria-live="polite" aria-busy="true">
+        <div className="flex min-h-36 w-full items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-5 shadow-md sm:min-h-40 sm:gap-5 sm:rounded-3xl sm:px-7 sm:py-6 lg:min-h-44 lg:px-8">
+          <span className="flex size-12 items-center justify-center rounded-xl bg-slate-100 shadow-inner shadow-black/5 sm:size-16 sm:rounded-2xl lg:size-[4.5rem]">
+            <CableCar
+              className="size-6 text-slate-400 sm:size-7 lg:size-8"
+              aria-hidden="true"
+            />
+          </span>
+
+          <span className="flex min-w-0 flex-1 flex-col gap-2 sm:gap-2.5">
+            <span className="inline-flex w-fit items-center justify-center whitespace-normal rounded-full bg-slate-100 px-3 py-1 text-center text-sm font-semibold leading-tight tracking-wide text-slate-600 sm:px-3.5 sm:py-1.5 sm:text-base sm:leading-none">
+              {copy.loading}
+            </span>
+
+            <Skeleton className="h-8 w-full max-w-sm rounded-full sm:h-9" />
+            <Skeleton className="h-6 w-full max-w-56 rounded-full sm:h-7" />
+          </span>
+
+          <ChevronRight
+            aria-hidden="true"
+            className="size-6 shrink-0 text-slate-300 sm:size-7"
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (isError) {
     return (
@@ -149,6 +209,12 @@ export default function ServiceStatusButtonClient(props: Props) {
           >
             {activeState?.title}
           </span>
+
+          {formattedUpdatedAt ? (
+            <span className="text-sm text-slate-500 sm:text-base">
+              {copy.lastUpdated}: {formattedUpdatedAt}
+            </span>
+          ) : null}
         </span>
 
         {/* Flecha  */}

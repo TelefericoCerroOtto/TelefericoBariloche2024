@@ -36,7 +36,10 @@ export default async function ServiceStatusButton(props: Props) {
       }
     >
       <div className="mb-10 w-11/12 sm:mb-12 sm:w-3/4 lg:mb-14 lg:w-1/2">
-        <ServiceStatusButtonClient content={data.data[0].jsonValue} />
+        <ServiceStatusButtonClient
+          content={data.data[0].jsonValue}
+          locale={locale}
+        />
       </div>
     </Suspense>
   );

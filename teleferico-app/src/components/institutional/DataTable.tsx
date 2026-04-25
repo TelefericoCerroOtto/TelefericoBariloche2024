@@ -136,7 +136,7 @@ export default function DataTable<T extends { id: number | string }>(
             "[&>tr]:bg-gradient-to-r [&>tr]:from-red-600/[0.08] [&>tr]:via-white [&>tr]:to-red-600/[0.03] [&>tr]:shadow-[inset_0_-1px_0_rgba(127,29,29,0.08)]",
           th: [
             "rounded-none border-b border-red-500/10 bg-transparent px-4 py-5 first:pl-6 last:pr-6",
-            "text-xs font-semibold uppercase tracking-[0.24em] text-foreground/65",
+            "text-sm font-semibold uppercase tracking-[0.24em] text-foreground/65",
           ],
           tr: [
             "group/tr outline-none transition-colors duration-200",
@@ -146,7 +146,7 @@ export default function DataTable<T extends { id: number | string }>(
           tbody: "[&>[data-last=true]>td]:border-b-0",
           td: [
             "border-b border-border/60 px-4 py-5 align-middle first:pl-6 last:pr-6",
-            "text-base text-foreground/80 transition-colors",
+            "text-lg text-foreground/80 transition-colors",
             "group-data-[odd=true]/tr:bg-default-50/55",
             "group-data-[hover=true]/tr:bg-red-600/[0.04]",
           ],
@@ -164,12 +164,12 @@ export default function DataTable<T extends { id: number | string }>(
                 column.align === "end" && "text-right",
               )}
             >
-              <span
-                className={cn(
-                  "inline-flex w-fit items-center rounded-full border border-red-500/10 bg-white/85 px-3 py-1.5 shadow-sm shadow-black/5",
-                  column.align === "center" && "mx-auto",
-                  column.align === "end" && "ml-auto",
-                )}
+                <span
+                  className={cn(
+                    "inline-flex w-fit items-center rounded-full border border-red-500/10 bg-white/85 px-3.5 py-1.5 shadow-sm shadow-black/5",
+                    column.align === "center" && "mx-auto",
+                    column.align === "end" && "ml-auto",
+                  )}
               >
                 {column.label}
               </span>

@@ -2,6 +2,7 @@ import { formatPrice } from "@/lib/adapters";
 import { SEASONS_TRANSLATIONS } from "@/lib/constants/enum-fields-i18n.const";
 import type { Activity, Locales } from "@/types";
 import {
+  TableInlineText,
   TableLeadCell,
   TablePill,
   TablePreviewText,
@@ -87,9 +88,17 @@ export const renderActivityCell = ({
     case "minAge": {
       const minAge = activity.minAge;
 
-      if (minAge === 0) return <TablePill>{t.minAge[0]}</TablePill>;
+      if (minAge === 0) {
+        return (
+          <TablePill tone="neutral" className="text-foreground/65">
+            {t.minAge[0]}
+          </TablePill>
+        );
+      }
 
-      if (minAge > 0) return <TablePill>{`${minAge} ${t.minAge.unit}`}</TablePill>;
+      if (minAge > 0) {
+        return <TableInlineText>{`${minAge} ${t.minAge.unit}`}</TableInlineText>;
+      }
 
       console.log("Unknown minAge value: ", minAge);
       return <TablePill>-</TablePill>;
@@ -97,9 +106,9 @@ export const renderActivityCell = ({
 
     case "season": {
       return (
-        <TablePill tone="brand">
+        <TableInlineText className="text-center text-foreground/60">
           {SEASONS_TRANSLATIONS[locale][activity.season]}
-        </TablePill>
+        </TableInlineText>
       );
     }
 

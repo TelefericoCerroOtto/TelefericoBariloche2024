@@ -7,6 +7,7 @@ import { LIFTING_MEANS_TRANSLATIONS } from "@/lib/constants/enum-fields-i18n.con
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { GetTicketsResponse, Locales, Ticket } from "@/types";
 import { useCallback, type ReactNode } from "react";
+import { getPricingScheduleTicketsQuery } from "@/lib/helpers/pricing-schedules-queries";
 import { TableLeadCell, TablePill, TableValueCard } from "./tableCells";
 
 type ColumnKeys = "name" | "lifting_mean" | "price";
@@ -69,9 +70,14 @@ const dictionaries = {
   },
 } as const;
 
-export default function TicketsTable() {
+interface Props {
+  initialData?: GetTicketsResponse;
+}
+
+export default function TicketsTable({ initialData }: Readonly<Props>) {
   const { locale } = useLocale();
   const t = dictionaries[locale];
+  const hasInitialData = typeof initialData !== "undefined";
 
   const renderCell = useCallback(
     (ticket: Ticket, columnKey: ColumnKeys) => {
@@ -118,13 +124,21 @@ export default function TicketsTable() {
     [locale, t],
   );
 
-  const query = { locale };
+  const query = getPricingScheduleTicketsQuery(locale);
   const {
     data: items,
     isError,
     isLoading,
   } = useProxy<GetTicketsResponse>(STRAPI_ENDPOINTS.TICKETS, query, {
+    fallbackData: initialData,
     revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    ...(hasInitialData
+      ? {
+          revalidateOnMount: false,
+          revalidateIfStale: false,
+        }
+      : {}),
   });
 
   return (

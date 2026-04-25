@@ -38,17 +38,17 @@ export function TableLeadCell({
     <div className="min-w-0 flex-1">
       <div className="flex max-w-[22rem] flex-col gap-1.5">
         {eyebrow ? (
-          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-primary/80">
+          <span className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/80">
             {eyebrow}
           </span>
         ) : null}
 
-        <span className="text-base font-semibold leading-snug text-foreground sm:text-lg">
+        <span className="text-lg font-semibold leading-snug text-foreground sm:text-xl">
           {title}
         </span>
 
         {description ? (
-          <span className="line-clamp-2 text-sm leading-relaxed text-foreground/60">
+          <span className="line-clamp-2 text-base leading-relaxed text-foreground/60">
             {truncateString(description, 110)}
           </span>
         ) : null}
@@ -61,7 +61,7 @@ export function TableLeadCell({
   return (
     <Popover
       content={
-        <div className="max-w-md rounded-2xl border border-red-200/70 bg-white/95 p-4 text-sm leading-relaxed text-foreground shadow-xl">
+        <div className="max-w-md space-y-2 text-base leading-relaxed text-foreground">
           {popoverContent}
         </div>
       }
@@ -92,8 +92,29 @@ export function TablePill({
   return (
     <span
       className={cn(
-        "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold",
+        "inline-flex w-fit items-center gap-2 rounded-full border px-3.5 py-2 text-base font-semibold",
         pillToneStyles[tone],
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+interface TableInlineTextProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export function TableInlineText({
+  children,
+  className,
+}: TableInlineTextProps) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center text-base font-medium leading-relaxed text-foreground/70",
         className,
       )}
     >
@@ -127,13 +148,13 @@ export function TableValueCard({
         className,
       )}
     >
-      <span className="text-[0.65rem] font-semibold uppercase tracking-[0.26em] text-foreground/45">
+      <span className="text-xs font-semibold uppercase tracking-[0.26em] text-foreground/45">
         {eyebrow}
       </span>
 
       <span
         className={cn(
-          "mt-1 text-lg font-semibold leading-tight text-foreground sm:text-xl",
+          "mt-1 text-xl font-semibold leading-tight text-foreground sm:text-2xl",
           valueClassName,
         )}
       >
@@ -141,7 +162,7 @@ export function TableValueCard({
       </span>
 
       {supportingText ? (
-        <span className="mt-2 text-xs leading-relaxed text-foreground/55">
+        <span className="mt-2 text-sm leading-relaxed text-foreground/55 sm:text-base">
           {supportingText}
         </span>
       ) : null}
@@ -165,14 +186,14 @@ export function TablePreviewText({
   return (
     <Popover
       content={
-        <div className="max-w-md rounded-2xl border border-red-200/70 bg-white/95 p-4 text-sm leading-relaxed text-foreground shadow-xl">
+        <div className="max-w-md whitespace-pre-line text-base leading-relaxed text-foreground">
           {text}
         </div>
       }
       placement="top-start"
     >
       <div className="group flex max-w-[22rem] items-start gap-3">
-        <span className="line-clamp-2 text-sm leading-relaxed text-foreground/70">
+        <span className="line-clamp-2 text-base leading-relaxed text-foreground/70">
           {truncateString(text, 110)}
         </span>
 
@@ -191,7 +212,7 @@ interface TableStatusPillProps {
 
 export function TableStatusPill({ label, tone }: TableStatusPillProps) {
   return (
-    <TablePill tone={tone} className="px-3.5 py-2 text-sm">
+    <TablePill tone={tone} className="px-4 py-2 text-base">
       <span
         aria-hidden="true"
         className={cn(

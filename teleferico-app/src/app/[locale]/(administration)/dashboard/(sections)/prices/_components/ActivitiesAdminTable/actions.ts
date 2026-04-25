@@ -7,6 +7,12 @@ import { getSession } from "@/lib/auth/get-session";
 import { updateActivity } from "@/lib/services";
 import { i18n } from "@/i18n";
 import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
+import type { UpdateActivityRequest } from "@/types";
+
+type ActivitySortOrderUpdate = {
+  documentId: string;
+  sortOrder: number;
+};
 
 export const updateActivityStatusAction = async (
   documentId: string,
@@ -39,5 +45,45 @@ export const updateActivityStatusAction = async (
   } catch (error) {
     console.log("Error updating activity status", error);
     return { success: false, message: "Error updating activity status" };
+  }
+};
+
+export const reorderActivitiesAction = async (
+  activities: ActivitySortOrderUpdate[],
+) => {
+  try {
+    const { jwt } = await getSession();
+
+    const results = await Promise.all(
+      activities.map(({ documentId, sortOrder }) => {
+        const reqBody: UpdateActivityRequest = {
+          data: { sortOrder },
+        };
+
+        return updateActivity({ reqBody, documentId }, jwt);
+      }),
+    );
+
+    const failedResult = results.find((result) => !result.ok);
+
+    if (failedResult) {
+      console.log("Failed to reorder activities: ", failedResult.data);
+      return { success: false, message: "Failed reordering activities." };
+    }
+
+    try {
+      revalidateTag(CACHE_TAGS.ACTIVITIES);
+
+      for (const locale of i18n.locales) {
+        revalidatePath(`/${locale}${PUBLIC_ROUTES.PRICINGSCHEDULES}`);
+      }
+    } catch (error) {
+      console.log("Activities reorder revalidation failed (best-effort):", error);
+    }
+
+    return { success: true, message: "Activities reordered successfully." };
+  } catch (error) {
+    console.log("Error reordering activities", error);
+    return { success: false, message: "Error reordering activities" };
   }
 };

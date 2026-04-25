@@ -1,5 +1,6 @@
 import { i18n } from "@/i18n";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { getPricingScheduleBusTripsQuery } from "@/lib/helpers/pricing-schedules-queries";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   GetBusTripResponse,
@@ -79,6 +80,23 @@ export const getBusTrips = async (locale: Locales) => {
     endpoint: STRAPI_ENDPOINTS.BUS_TRIPS,
     qp: stringifyQuery(query),
   });
+
+  return res;
+};
+
+export const getVisibleBusTrips = async (
+  locale: Locales,
+  init?: RequestInit,
+) => {
+  const query = getPricingScheduleBusTripsQuery(locale ?? i18n.defaultLocale);
+
+  const res = await strapiFetch<GetBusTripsResponse>(
+    {
+      endpoint: STRAPI_ENDPOINTS.BUS_TRIPS,
+      qp: stringifyQuery(query),
+    },
+    init,
+  );
 
   return res;
 };

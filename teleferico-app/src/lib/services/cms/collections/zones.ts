@@ -1,5 +1,6 @@
 import { i18n } from "@/i18n";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { getPricingScheduleZonesQuery } from "@/lib/helpers/pricing-schedules-queries";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   CreateZoneRequest,
@@ -44,23 +45,19 @@ export const getZone = async <T extends Locales | "all">({
   return res;
 };
 
-export const getZones = async (locale: Locales) => {
+export const getZones = async (locale: Locales, init?: RequestInit) => {
   const query = {
-    populate: {
-      zone_translations: {
-        filters: {
-          locale: {
-            $eq: locale ?? i18n.defaultLocale,
-          },
-        },
-      },
-    },
+    ...getPricingScheduleZonesQuery(locale ?? i18n.defaultLocale),
+    sort: ["sortOrder:asc", "id:asc"]
   };
 
-  const res = await strapiFetch<GetZonesResponse>({
-    endpoint: STRAPI_ENDPOINTS.ZONES,
-    qp: stringifyQuery(query),
-  });
+  const res = await strapiFetch<GetZonesResponse>( 
+    {
+      endpoint: STRAPI_ENDPOINTS.ZONES,
+      qp: stringifyQuery(query),
+    },
+    init,
+  );
 
   return res;
 };
