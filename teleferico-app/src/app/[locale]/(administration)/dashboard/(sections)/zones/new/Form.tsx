@@ -105,6 +105,7 @@ export default function Form() {
       isOpen: false,
       label: "",
       featured: false,
+      showInSchedules: true,
     },
     validationSchema: createZoneSchema,
     onSubmit,
@@ -322,6 +323,17 @@ export default function Form() {
         onChange={handleChange}
       >
         {values.isOpen ? "Abierto al público" : "Cerrado al público"}
+      </Switch>
+
+      <Switch
+        name="showInSchedules"
+        id="showInSchedules"
+        isSelected={values.showInSchedules}
+        onChange={handleChange}
+      >
+        {values.showInSchedules
+          ? "Visible en horarios"
+          : "Oculta en horarios"}
       </Switch>
 
       <FormButtons

@@ -75,6 +75,37 @@ export const updateZoneFeaturedStatusAction = async (
   }
 };
 
+export const updateZoneSchedulesVisibilityAction = async (
+  documentId: string,
+  isVisible: boolean,
+) => {
+  try {
+    const { jwt } = await getSession();
+    const adaptedZone = updateZoneAdapter({ showInSchedules: isVisible });
+    const res = await updateZone({ reqBody: adaptedZone, documentId }, jwt);
+
+    if (!res.ok) {
+      console.log("Failed to update zone schedules visibility: ", res.data);
+      return {
+        success: false,
+        message: `Server action 'updateZoneSchedulesVisibilityAction' failed: An error occurred while updating zone visibility.`,
+        data: res.data,
+      };
+    }
+
+    return {
+      success: true,
+      message: "Zone schedules visibility successfully updated.",
+    };
+  } catch (error) {
+    console.log("Error updating zone schedules visibility", error);
+    return {
+      success: false,
+      message: `Error updating zone schedules visibility`,
+    };
+  }
+};
+
 export const reorderZonesAction = async (zones: ZoneSortOrderUpdate[]) => {
   try {
     const { jwt } = await getSession();

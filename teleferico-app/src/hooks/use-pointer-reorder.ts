@@ -8,7 +8,7 @@ import {
 
 type UsePointerReorderOptions = {
   isDisabled?: boolean;
-  onCommit: (sourceDocumentId: string, targetDocumentId: string) => void;
+  onCommit: (_sourceDocumentId: string, _targetDocumentId: string) => void;
 };
 
 type ReorderState = {

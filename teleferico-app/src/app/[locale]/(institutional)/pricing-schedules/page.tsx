@@ -37,15 +37,21 @@ export default async function PricingSchedulesPage({
   params: Promise<{ locale: Locales }>;
 }>) {
   const { locale } = await params;
-  const [pageContentResponse, ticketsResponse, activitiesResponse, zonesResponse, busesResponse, serviceStateResponse] =
-    await Promise.all([
-      getPageContent(locale, PUBLIC_ROUTES.PRICINGSCHEDULES),
-      getTickets(locale, { cache: "no-store" }),
-      getPricingScheduleActivities(locale, { cache: "no-store" }),
-      getZones(locale, { cache: "no-store" }),
-      getVisibleBusTrips(locale, { cache: "no-store" }),
-      getServiceState({ cache: "no-store" }),
-    ]);
+  const [
+    pageContentResponse,
+    ticketsResponse,
+    activitiesResponse,
+    zonesResponse,
+    busesResponse,
+    serviceStateResponse,
+  ] = await Promise.all([
+    getPageContent(locale, PUBLIC_ROUTES.PRICINGSCHEDULES),
+    getTickets(locale, { cache: "no-store" }),
+    getPricingScheduleActivities(locale, { cache: "no-store" }),
+    getZones(locale, { cache: "no-store" }),
+    getVisibleBusTrips(locale, { cache: "no-store" }),
+    getServiceState({ cache: "no-store" }),
+  ]);
 
   const { ok, data } = pageContentResponse;
   if (!ok)
@@ -99,6 +105,7 @@ export default async function PricingSchedulesPage({
           <StrapiComponentRenderer block={blocks[4]} locale={locale} />
           <BusesTable initialData={initialBusesData} />
         </section>
+        <Spacer y={28} />
       </div>
     </>
   );

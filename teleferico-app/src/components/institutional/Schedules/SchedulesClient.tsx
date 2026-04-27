@@ -140,6 +140,7 @@ export default function SchedulesClient(props: Props) {
     () => ({
       filters: {
         featured: { $eq: true },
+        showInSchedules: { $eq: true },
       },
       populate: {
         zone_translations: {

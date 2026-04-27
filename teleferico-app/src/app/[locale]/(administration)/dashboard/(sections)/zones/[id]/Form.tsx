@@ -169,6 +169,17 @@ export default function Form(props: Props) {
         {values.isOpen ? "Abierto al público" : "Cerrado al público"}
       </Switch>
 
+      <Switch
+        name="showInSchedules"
+        id="showInSchedules"
+        isSelected={values.showInSchedules}
+        onChange={handleChange}
+      >
+        {values.showInSchedules
+          ? "Visible en horarios"
+          : "Oculta en horarios"}
+      </Switch>
+
       <FormButtons
         isSubmitting={isSubmitting}
         cancelRedirectRoute={ADMIN_ROUTES.ZONES}

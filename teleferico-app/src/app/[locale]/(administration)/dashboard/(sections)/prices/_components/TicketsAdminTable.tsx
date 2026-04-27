@@ -188,8 +188,6 @@ export default function TicketsAdminTable() {
       switch (columnKey) {
         case "sortOrder": {
           const isDraggedItem = activeDocumentId === ticket.documentId;
-          const isDropTarget =
-            targetDocumentId === ticket.documentId && !isDraggedItem;
 
           return (
             <div
@@ -275,9 +273,7 @@ export default function TicketsAdminTable() {
       activeDocumentId,
       getDisplayOrder,
       getHandleProps,
-      getTargetProps,
       isPersistingOrder,
-      targetDocumentId,
     ],
   );
 

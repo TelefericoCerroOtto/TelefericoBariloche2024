@@ -23,6 +23,7 @@ import { useSWRConfig } from "swr";
 import Toolbar from "./Toolbar";
 import ZoneFeaturedToggle from "./ZoneFeaturedCheckbox";
 import ZoneOpenToggle from "./ZoneOpenToggle";
+import ZoneSchedulesVisibilityToggle from "./ZoneSchedulesVisibilityToggle";
 import { reorderZonesAction } from "./actions";
 
 type ColumnKeys =
@@ -32,6 +33,7 @@ type ColumnKeys =
   | "closeTime"
   | "isOpen"
   | "featured"
+  | "showInSchedules"
   | "actions";
 
 const columns: { key: ColumnKeys; label: string }[] = [
@@ -41,6 +43,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
   { key: "closeTime", label: "Horario de cierre" },
   { key: "isOpen", label: "Zona abierta" },
   { key: "featured", label: "Horario destacado" },
+  { key: "showInSchedules", label: "Visible en horarios" },
   { key: "actions", label: "Acciones" },
 ];
 
@@ -154,20 +157,20 @@ export default function ZonesAdminTable() {
     [isPersistingOrder, showAlert, syncZonesCache, zones],
   );
 
-  const {
-    activeDocumentId,
-    targetDocumentId,
-    getHandleProps,
-    getTargetProps,
-  } = usePointerReorder({
-    isDisabled: isPersistingOrder,
-    onCommit: (sourceDocumentId, targetDocumentId) => {
-      void handleReorder(sourceDocumentId, targetDocumentId);
-    },
-  });
+  const { activeDocumentId, targetDocumentId, getHandleProps, getTargetProps } =
+    usePointerReorder({
+      isDisabled: isPersistingOrder,
+      onCommit: (sourceDocumentId, targetDocumentId) => {
+        void handleReorder(sourceDocumentId, targetDocumentId);
+      },
+    });
 
   const previewZones = useMemo(() => {
-    if (!activeDocumentId || !targetDocumentId || activeDocumentId === targetDocumentId) {
+    if (
+      !activeDocumentId ||
+      !targetDocumentId ||
+      activeDocumentId === targetDocumentId
+    ) {
       return zones;
     }
 
@@ -185,7 +188,9 @@ export default function ZonesAdminTable() {
 
   const getDisplayOrder = useCallback(
     (documentId: string) => {
-      const index = previewZones.findIndex((zone) => zone.documentId === documentId);
+      const index = previewZones.findIndex(
+        (zone) => zone.documentId === documentId,
+      );
       return index >= 0 ? index + 1 : 0;
     },
     [previewZones],
@@ -198,8 +203,6 @@ export default function ZonesAdminTable() {
       switch (columnKey) {
         case "sortOrder": {
           const isDraggedItem = activeDocumentId === zone.documentId;
-          const isDropTarget =
-            targetDocumentId === zone.documentId && !isDraggedItem;
 
           return (
             <div
@@ -226,7 +229,9 @@ export default function ZonesAdminTable() {
                 ) : (
                   <GripVertical className="h-4 w-4" />
                 )}
-                <span className="tabular-nums">{getDisplayOrder(zone.documentId)}</span>
+                <span className="tabular-nums">
+                  {getDisplayOrder(zone.documentId)}
+                </span>
               </button>
             </div>
           );
@@ -247,17 +252,20 @@ export default function ZonesAdminTable() {
         case "featured":
           return <ZoneFeaturedToggle zone={zone} />;
 
+        case "showInSchedules":
+          return <ZoneSchedulesVisibilityToggle zone={zone} />;
+
         case "actions":
-          return <TableActionsButtons item={zone} editPath={ADMIN_ROUTES.ZONES} />;
+          return (
+            <TableActionsButtons item={zone} editPath={ADMIN_ROUTES.ZONES} />
+          );
       }
     },
     [
       activeDocumentId,
       getDisplayOrder,
       getHandleProps,
-      getTargetProps,
       isPersistingOrder,
-      targetDocumentId,
     ],
   );
 

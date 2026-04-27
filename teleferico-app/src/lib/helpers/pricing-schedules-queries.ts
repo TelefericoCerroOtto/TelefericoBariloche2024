@@ -25,6 +25,11 @@ export const getPricingScheduleActivitiesQuery = (locale: Locales) => ({
 
 export const getPricingScheduleZonesQuery = (locale: Locales) => ({
   sort: ["sortOrder:asc", "id:asc"],
+  filters: {
+    showInSchedules: {
+      $eq: true,
+    },
+  },
   populate: {
     zone_translations: {
       filters: {

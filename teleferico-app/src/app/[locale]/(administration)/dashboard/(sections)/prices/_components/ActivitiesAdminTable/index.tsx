@@ -282,9 +282,7 @@ export default function ActivitiesAdminTable() {
       activeDocumentId,
       getDisplayOrder,
       getHandleProps,
-      getTargetProps,
       isPersistingOrder,
-      targetDocumentId,
     ],
   );
 

@@ -16,6 +16,7 @@ export const getZoneAdapter = (zone: GetZoneResponse): UpdateZoneFormData => {
     closeTime,
     isOpen,
     featured,
+    showInSchedules,
     documentId,
     zone_translations,
     label,
@@ -42,6 +43,7 @@ export const getZoneAdapter = (zone: GetZoneResponse): UpdateZoneFormData => {
     },
     isOpen,
     featured,
+    showInSchedules,
     documentId,
     zoneTranslationDocumentId,
   };
@@ -71,6 +73,8 @@ export const createZoneAdapter = (
       isOpen: zone.isOpen,
       label: zone.label,
       featured: zone.featured,
+      hide: !zone.showInSchedules,
+      showInSchedules: zone.showInSchedules,
     },
   };
 
@@ -97,6 +101,14 @@ export const updateZoneAdapter = (
 
   if ("featured" in zone && typeof zone.featured === "boolean") {
     reqBody.data.featured = zone.featured;
+  }
+
+  if (
+    "showInSchedules" in zone &&
+    typeof zone.showInSchedules === "boolean"
+  ) {
+    reqBody.data.showInSchedules = zone.showInSchedules;
+    reqBody.data.hide = !zone.showInSchedules;
   }
 
   return reqBody as UpdateZoneRequest;
