@@ -81,7 +81,7 @@ export const updateZoneSchedulesVisibilityAction = async (
 ) => {
   try {
     const { jwt } = await getSession();
-    const adaptedZone = updateZoneAdapter({ showInSchedules: isVisible });
+    const adaptedZone = updateZoneAdapter({ hide: !isVisible });
     const res = await updateZone({ reqBody: adaptedZone, documentId }, jwt);
 
     if (!res.ok) {

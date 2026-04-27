@@ -51,11 +51,6 @@
       "type": "boolean",
       "required": true,
       "default": false
-    },
-    "showInSchedules": {
-      "type": "boolean",
-      "required": true,
-      "default": true
     }
   }
 }
