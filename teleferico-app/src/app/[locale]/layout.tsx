@@ -1,7 +1,7 @@
 import { Providers } from "@/app/[locale]/providers";
 import "@/app/globals.css";
 import { i18n } from "@/i18n";
-import { ENV_KEYS } from "@/lib/constants/env.const";
+// import { ENV_KEYS } from "@/lib/constants/env.const";
 import { isLocales } from "@/lib/helpers/i18n-guards";
 import type { Locales } from "@/types";
 import type { Metadata } from "next";
@@ -14,15 +14,15 @@ import "@/app/swiper-overrides.css";
 
 type Params = { params: Promise<{ locale: Locales }> };
 
-const ENABLE_STATIC_LOCALE_PARAMS =
-  process.env[ENV_KEYS.ENABLE_STATIC_LOCALE_PARAMS] === "true";
+// const ENABLE_STATIC_LOCALE_PARAMS =
+//   process.env[ENV_KEYS.ENABLE_STATIC_LOCALE_PARAMS] === "true";
 
-export const dynamicParams = true;
+// export const dynamicParams = true;
 
 export function generateStaticParams() {
-  if (!ENABLE_STATIC_LOCALE_PARAMS) {
-    return [];
-  }
+  // if (!ENABLE_STATIC_LOCALE_PARAMS) {
+  //   return [];
+  // }
 
   return i18n.locales.map((locale) => ({ locale }));
 }
