@@ -175,9 +175,7 @@ export default function Form(props: Props) {
         isSelected={values.showInSchedules}
         onChange={handleChange}
       >
-        {values.showInSchedules
-          ? "Visible en horarios"
-          : "Oculta en horarios"}
+        {values.showInSchedules ? "Visible" : "Oculta"}
       </Switch>
 
       <FormButtons

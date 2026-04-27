@@ -43,7 +43,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
   { key: "closeTime", label: "Horario de cierre" },
   { key: "isOpen", label: "Zona abierta" },
   { key: "featured", label: "Horario destacado" },
-  { key: "showInSchedules", label: "Visible en horarios" },
+  { key: "showInSchedules", label: "Ocultar zona" },
   { key: "actions", label: "Acciones" },
 ];
 
@@ -261,12 +261,7 @@ export default function ZonesAdminTable() {
           );
       }
     },
-    [
-      activeDocumentId,
-      getDisplayOrder,
-      getHandleProps,
-      isPersistingOrder,
-    ],
+    [activeDocumentId, getDisplayOrder, getHandleProps, isPersistingOrder],
   );
 
   if (isError)
