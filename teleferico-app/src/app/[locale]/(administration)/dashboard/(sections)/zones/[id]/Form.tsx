@@ -170,12 +170,12 @@ export default function Form(props: Props) {
       </Switch>
 
       <Switch
-        name="showInSchedules"
-        id="showInSchedules"
-        isSelected={values.showInSchedules}
+        name="hide"
+        id="hide"
+        isSelected={values.hide}
         onChange={handleChange}
       >
-        {values.showInSchedules ? "Visible" : "Oculta"}
+        {values.hide ? "Oculta" : "Visible"}
       </Switch>
 
       <FormButtons

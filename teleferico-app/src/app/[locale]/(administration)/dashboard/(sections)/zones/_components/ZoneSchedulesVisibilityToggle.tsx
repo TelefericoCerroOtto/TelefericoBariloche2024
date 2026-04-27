@@ -14,14 +14,14 @@ interface Props {
 }
 
 export default function ZoneSchedulesVisibilityToggle({ zone }: Props) {
-  const [isVisible, setIsVisible] = useState<boolean>(() => zone.showInSchedules ?? true);
+  const [isVisible, setIsVisible] = useState<boolean>(() => !zone.hide);
   const [isUpdating, setIsUpdating] = useState(false);
   const { mutate } = useSWRConfig();
   const { showAlert } = useAppAlert();
 
   useEffect(() => {
-    setIsVisible(zone.showInSchedules ?? true);
-  }, [zone.showInSchedules]);
+    setIsVisible(!zone.hide);
+  }, [zone.hide]);
 
   const handleToggle = async (nextValue: boolean) => {
     if (isUpdating) return;
