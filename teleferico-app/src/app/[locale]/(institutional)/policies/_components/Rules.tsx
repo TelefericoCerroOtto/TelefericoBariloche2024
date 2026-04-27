@@ -15,5 +15,5 @@ export default async function Rules(props: Props) {
       <FormError message="No se pudo recuperar la informacion del relgamento" />
     );
 
-  return <BlockRendererClient content={data.data[0].rtValue} />;
+  return <BlockRendererClient content={data.data[0].rtValue} proseSize="lg" />;
 }

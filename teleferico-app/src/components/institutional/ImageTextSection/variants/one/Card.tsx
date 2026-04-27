@@ -5,7 +5,8 @@ import {
   CustomLink,
   HighlightLastWord,
 } from "@/components";
-import { bgStyles, caseStyles, fontSize } from "@/lib/constants/styles.const";
+import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import { typography } from "@/lib/constants/typography.const";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
 import LogoBadge from "../../shared/LogoBadge";
@@ -63,13 +64,15 @@ export default function Card(props: OneImageProps) {
               <LogoBadge />
               <div className="w-full">
                 <h4
-                  className={`text-center text-3xl font-bold ${caseStyles[titleCase]} text-foreground md:text-left md:text-4xl`}
+                  className={`text-center font-bold ${caseStyles[titleCase]} text-foreground md:text-left ${typography.headings.feature}`}
                 >
                   {isHighlighted ? HighlightLastWord(title) : title}
                 </h4>
 
                 {epigraph ? (
-                  <p className="mt-2 text-center text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-left md:text-base">
+                  <p
+                    className={`mt-2 text-center font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-left ${typography.meta.featureEyebrow}`}
+                  >
                     {epigraph}
                   </p>
                 ) : null}
@@ -78,9 +81,12 @@ export default function Card(props: OneImageProps) {
 
             {description ? (
               <div
-                className={`mt-6 space-y-4 text-center leading-relaxed text-foreground/80 md:text-left ${fontSize.base}`}
+                className={`mt-6 space-y-4 text-center leading-relaxed text-foreground/80 md:text-left ${typography.content.section}`}
               >
-                <BlockRendererClient content={description as BlocksContent} />
+                <BlockRendererClient
+                  content={description as BlocksContent}
+                  prosePreset="feature"
+                />
               </div>
             ) : null}
 

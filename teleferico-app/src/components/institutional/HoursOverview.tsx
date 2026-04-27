@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BlockRendererClient, TitleDescBlock } from "@/components";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { typography } from "@/lib/constants/typography.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import { getComponentTranslation } from "@/lib/services";
 
@@ -135,8 +136,10 @@ function HoursOverviewItems({
           className="flex max-w-[450px] flex-col items-center gap-3 text-center"
         >
           <Image src={item.src} alt={item.alt} width={80} height={80} />
-          <h4 className="text-2xl font-bold">{item.title}</h4>
-          <BlockRendererClient content={item.desc} />
+          <h4 className={`font-bold ${typography.headings.feature}`}>
+            {item.title}
+          </h4>
+          <BlockRendererClient content={item.desc} prosePreset="feature" />
         </div>
       ))}
     </div>

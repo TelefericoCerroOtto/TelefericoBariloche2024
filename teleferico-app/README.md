@@ -449,6 +449,17 @@ Exponer una API interna de Next (`/api/proxy`) que:
 
 ---
 
+## Generación estática de locales
+
+El segmento `src/app/[locale]` define `generateStaticParams()` y `dynamicParams` en función de la variable de entorno `ENABLE_STATIC_LOCALE_PARAMS`.
+
+- `ENABLE_STATIC_LOCALE_PARAMS=true`: `generateStaticParams()` devuelve `i18n.locales`, `dynamicParams` queda en `false` y Next.js solo acepta los locales conocidos/pre-generados.
+- Cualquier otro valor, o variable ausente: `generateStaticParams()` devuelve `[]`, `dynamicParams` queda en `true` y las rutas de locale quedan para resolución dinámica bajo demanda.
+
+Este toggle se evalúa durante build/deploy; cambiarlo en un entorno requiere reconstruir/redeployar la aplicación para modificar el comportamiento generado.
+
+---
+
 ## Desarrollo local (rápido)
 
 1. Asegurarse de tener el CMS corriendo en `http://localhost:1337` (Strapi).
@@ -460,6 +471,7 @@ BUILD_STRAPI_BASE_URL=http://localhost:1337
 BUILD_STRAPI_BUCKET_HOSTNAME=localhost
 BUILD_STRAPI_BUCKET_PATHNAME=/uploads/*
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
+ENABLE_STATIC_LOCALE_PARAMS=false
 ```
 
 3. Ejecutar:

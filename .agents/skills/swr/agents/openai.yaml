@@ -1,0 +1,4 @@
+interface:
+  display_name: "SWR"
+  short_description: "SWR caching, revalidation, mutations, optimistic UI, and pagination patterns."
+  default_prompt: "Use $swr to design, review, or refactor SWR-based client data fetching, caching, revalidation, and mutation flows."

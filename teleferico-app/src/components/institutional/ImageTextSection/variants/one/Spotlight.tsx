@@ -1,6 +1,7 @@
 import { blocksToExcerpt } from "@/lib/adapters";
-import { fontSize } from "@/lib/constants/styles.const";
-import CustomImage from "../../shared/CustomImage";
+import { typography } from "@/lib/constants/typography.const";
+import notFoundImg from "@/public/image-not-found.jpg";
+import NextImage from "next/image";
 import type { OneImageProps } from "../../shared/types";
 
 export function Spotlight(props: OneImageProps) {
@@ -8,14 +9,18 @@ export function Spotlight(props: OneImageProps) {
 
   const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
   const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
+  const mobileSrc = mobile0?.image?.url ?? notFoundImg.src;
+  const desktopSrc = desktop0?.image?.url ?? notFoundImg.src;
+  const mobileAlt = mobile0?.alt ?? "imagen institucional";
+  const desktopAlt = desktop0?.alt ?? "imagen institucional";
 
   const sizesMobile = "calc(100vw - 3rem)";
-  // max-w-6xl (1152) + md:px-12 (6rem) => contenido cap ~1056, mitad ~528 (tu valor ya estaba perfecto)
-  const sizesDesktop = "(max-width: 1152px) calc((100vw - 6rem) / 2), 528px";
+  // max-w-[84rem] (1344) + md:px-12 (6rem) => contenido cap ~1248, mitad ~624
+  const sizesDesktop = "(max-width: 1344px) calc((100vw - 6rem) / 2), 624px";
 
   return (
-    <div className="relative mx-auto my-10 w-full max-w-6xl px-6 md:my-24 md:px-12">
-      <article className="relative isolate z-10 flex w-full flex-col overflow-hidden rounded-[2rem] border border-red-600 bg-white shadow-xl shadow-black/10 ring-1 ring-black/5 md:flex-row md:items-stretch">
+    <div className="relative mx-auto my-10 w-full max-w-[84rem] px-6 md:my-24 md:px-12">
+      <article className="relative isolate z-10 flex w-full flex-col overflow-hidden rounded-[2rem] border border-red-600 bg-white shadow-xl shadow-black/10 ring-1 ring-black/5 md:flex-row md:items-start">
         {/* ribbon */}
         <div
           aria-hidden="true"
@@ -45,16 +50,30 @@ export function Spotlight(props: OneImageProps) {
         />
 
         {/* Imagen */}
-        <div className="relative w-full md:flex md:w-1/2 md:flex-col">
-          <div className="relative h-[180px] flex-1 overflow-hidden md:min-h-[360px] lg:min-h-[400px]">
+        <div className="relative w-full md:w-1/2 md:self-start">
+          <div className="relative aspect-[2/1] overflow-hidden md:aspect-[4/3]">
             {/* Mobile (<md) */}
             <div className="relative h-full w-full md:hidden">
-              <CustomImage image={mobile0} sizes={sizesMobile} quality={78} />
+              <NextImage
+                src={mobileSrc}
+                alt={mobileAlt}
+                fill
+                sizes={sizesMobile}
+                quality={80}
+                className="object-contain"
+              />
             </div>
 
             {/* Desktop (>=md) */}
             <div className="relative hidden h-full w-full md:block">
-              <CustomImage image={desktop0} sizes={sizesDesktop} quality={78} />
+              <NextImage
+                src={desktopSrc}
+                alt={desktopAlt}
+                fill
+                sizes={sizesDesktop}
+                quality={80}
+                className="object-contain"
+              />
             </div>
 
             <div className="absolute inset-0 bg-black/10" />
@@ -62,22 +81,26 @@ export function Spotlight(props: OneImageProps) {
         </div>
 
         {/* Contenido */}
-        <div className="relative flex w-full flex-col justify-center p-5 md:w-1/2 md:p-9 lg:p-10">
+        <div className="relative flex w-full flex-col justify-center p-5 md:w-1/2 md:self-center md:p-7 lg:p-8">
           <div className="max-w-xl">
             <div className="mb-3 h-1 w-12 bg-gray-900/90 md:hidden" />
 
-            <h2 className="mb-3 text-3xl font-black uppercase leading-[0.95] tracking-tight text-gray-900 md:text-4xl lg:text-5xl">
+            <h2
+              className="mb-3 text-2xl font-bold uppercase leading-[1] tracking-tight text-gray-900 md:text-3xl lg:text-4xl"
+            >
               {title}
             </h2>
 
             <p
-              className={`mb-5 leading-relaxed text-gray-700 ${fontSize.base}`}
+              className={`mb-5 leading-relaxed text-gray-700 ${typography.content.feature}`}
             >
               {blocksToExcerpt(description, { maxLength: 500 })}
             </p>
 
             {epigraph ? (
-              <div className="inline-flex items-center gap-2 rounded-full border border-red-200/70 bg-white/85 px-4 py-2 text-sm font-bold italic text-red-700 shadow-sm backdrop-blur-md md:text-base">
+              <div
+                className={`inline-flex items-center gap-2 rounded-full border border-red-200/70 bg-white/85 px-4 py-2 font-bold italic text-red-700 shadow-sm backdrop-blur-md ${typography.meta.featureEyebrow}`}
+              >
                 {/* ...icon... */}
                 {epigraph}
               </div>

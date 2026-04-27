@@ -1,7 +1,8 @@
 "use client";
 
 import { BlockRendererClient, CustomLink } from "@/components";
-import { bgStyles, fontSize } from "@/lib/constants/styles.const";
+import { bgStyles } from "@/lib/constants/styles.const";
+import { typography } from "@/lib/constants/typography.const";
 import { Button } from "@heroui/react";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
@@ -61,7 +62,7 @@ export default function Panoramic(props: OneImageProps) {
           <div className="mx-auto flex w-full max-w-4xl flex-col items-center text-center">
             {epigraph ? (
               <p
-                className={`mb-3 font-bold uppercase tracking-wide text-red-600 ${fontSize.epigraph}`}
+                className={`mb-3 font-bold uppercase tracking-wide text-red-600 ${typography.meta.eyebrow}`}
               >
                 {epigraph}
               </p>
@@ -71,7 +72,7 @@ export default function Panoramic(props: OneImageProps) {
               <h2
                 className={[
                   "font-black tracking-tight text-white sm:tracking-normal",
-                  fontSize.title,
+                  typography.headings.hero,
                   titleCaseClass,
                 ].join(" ")}
               >
@@ -83,9 +84,9 @@ export default function Panoramic(props: OneImageProps) {
               <div className="mt-4 w-full">
                 <BlockRendererClient
                   content={description as BlocksContent}
+                  prosePreset="feature"
                   className={[
                     "prose-invert text-white",
-                    "text-sm sm:text-base md:text-lg",
                     "text-center",
                     "prose-headings:text-center prose-p:text-center prose-li:text-center",
                     "prose-headings:leading-tight prose-p:leading-relaxed",
@@ -104,7 +105,7 @@ export default function Panoramic(props: OneImageProps) {
                   color="primary"
                   variant="solid"
                   size="lg"
-                  className={`px-6 font-semibold ${fontSize.base}`}
+                  className={`px-6 font-semibold ${typography.ui.prominentAction}`}
                 >
                   {link.label}
                 </Button>

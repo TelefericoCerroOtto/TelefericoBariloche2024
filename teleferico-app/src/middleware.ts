@@ -1,6 +1,11 @@
 import { auth } from "@/auth";
 import { i18n } from "@/i18n";
-import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import {
+  ADMIN_LOGIN_QUERY_PARAMS,
+  ADMIN_LOGIN_REASONS,
+  ADMIN_ROUTES,
+  type AdminLoginReason,
+} from "@/lib/constants/routes.const";
 import { verifySession } from "@/lib/services";
 import type { Locales } from "@/types";
 import { NextResponse } from "next/server";
@@ -51,6 +56,22 @@ export default auth(async (req) => {
     ADMIN_ROUTES.LOGOUT,
   ];
 
+  const buildAdminRedirect = (
+    route: string,
+    reason?: AdminLoginReason,
+  ) => {
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = `/${i18n.defaultLocale}${route}`;
+
+    if (reason) {
+      redirectUrl.searchParams.set(ADMIN_LOGIN_QUERY_PARAMS.REASON, reason);
+    } else {
+      redirectUrl.searchParams.delete(ADMIN_LOGIN_QUERY_PARAMS.REASON);
+    }
+
+    return NextResponse.redirect(redirectUrl);
+  };
+
   const isAdminPath = adminRoots.some(
     (route) => adminPath === route || adminPath.startsWith(`${route}/`),
   );
@@ -80,27 +101,24 @@ export default auth(async (req) => {
           adminPath === ADMIN_ROUTES.LOGIN ||
           adminPath === ADMIN_ROUTES.LOGOUT
         ) {
-          const newUrl = req.nextUrl.clone();
-          newUrl.pathname = `/${i18n.defaultLocale}${ADMIN_ROUTES.DASHBOARD}`;
-          return NextResponse.redirect(newUrl);
+          return buildAdminRedirect(ADMIN_ROUTES.DASHBOARD);
         }
         return;
       }
 
       // Not logged: Avoid infinite redirection loop to logout page
       if (adminPath !== ADMIN_ROUTES.LOGOUT) {
-        const newUrl = req.nextUrl.clone();
-        newUrl.pathname = `/${i18n.defaultLocale}${ADMIN_ROUTES.LOGOUT}`;
-        return NextResponse.redirect(newUrl);
+        return buildAdminRedirect(
+          ADMIN_ROUTES.LOGOUT,
+          ADMIN_LOGIN_REASONS.SESSION_EXPIRED,
+        );
       }
       return;
     }
 
     // Not authenticated user wants to access a protected route
     if (adminPath !== ADMIN_ROUTES.LOGIN) {
-      const newUrl = req.nextUrl.clone();
-      newUrl.pathname = `/${i18n.defaultLocale}${ADMIN_ROUTES.LOGIN}`;
-      return NextResponse.redirect(newUrl);
+      return buildAdminRedirect(ADMIN_ROUTES.LOGIN);
     }
 
     return;

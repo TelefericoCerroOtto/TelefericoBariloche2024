@@ -17,7 +17,7 @@ export type ImageTextContentProps = {
   bgColor: ImageTextColor;
   description: BlocksContent;
   epigraph: string | null;
-  link?: Link;
+  link?: Link | null;
   isInverted?: boolean;
   isHighlighted?: boolean;
 };

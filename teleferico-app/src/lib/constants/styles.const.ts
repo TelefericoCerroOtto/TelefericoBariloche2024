@@ -1,3 +1,5 @@
+import { typography } from "@/lib/constants/typography.const";
+
 export const selectInputStyles = {
   variant: "flat" as const,
   radius: "full" as const,
@@ -70,8 +72,15 @@ export const caseStyles = {
   capitalize: "capitalize",
 } as const;
 
+/**
+ * @deprecated Prefer semantic tokens from `typography.const.ts` in new or migrated institutional content.
+ * Keep these legacy aliases only while untouched callers move over incrementally.
+ */
 export const fontSize = {
-  title: "text-2xl md:text-3xl lg:text-5xl",
-  base: "text-base md:text-lg lg:text-2xl",
-  epigraph: "text-sm md:text-base lg:text-lg",
+  title: typography.headings.section,
+  base: typography.content.section,
+  epigraph: typography.meta.eyebrow,
+  blockTitle: typography.headings.feature,
+  blockEpigraph: typography.meta.featureEyebrow,
+  blockBody: typography.content.feature,
 } as const;

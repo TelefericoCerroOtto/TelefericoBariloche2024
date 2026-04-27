@@ -1,5 +1,6 @@
 import { BlockRendererClient } from "@/components";
-import { bgStyles, caseStyles, fontSize } from "@/lib/constants/styles.const";
+import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import { typography } from "@/lib/constants/typography.const";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { type ReactNode } from "react";
 
@@ -67,18 +68,21 @@ export default function TitleDescBlock(props: Props) {
     <div
       className={`flex gap-4 ${flexdirVariants[flexdir]} ${sizeVariants[size]} ${alignVariants[align]} ${bgStyles[bgColor]}`}
     >
-      <h3 className={`font-bold ${caseStyles[titleCase]} ${fontSize.title}`}>
+      <h3
+        className={`font-bold ${caseStyles[titleCase]} ${typography.headings.section}`}
+      >
         {title}
       </h3>
       {epigraph ? (
-        <p className={`text-sm text-primary md:text-base lg:text-lg`}>
-          {epigraph}
-        </p>
+        <p className={`${typography.meta.eyebrow} text-primary`}>{epigraph}</p>
       ) : null}
       {desc && typeof desc === "string" ? (
-        <p className={fontSize.base}>{desc}</p>
+        <p className={typography.content.section}>{desc}</p>
       ) : (
-        <BlockRendererClient content={desc as BlocksContent} />
+        <BlockRendererClient
+          content={desc as BlocksContent}
+          prosePreset="feature"
+        />
       )}
       {children ? <div className="flex gap-4">{children}</div> : null}
     </div>

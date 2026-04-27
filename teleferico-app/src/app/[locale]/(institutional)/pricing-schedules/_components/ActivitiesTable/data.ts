@@ -11,47 +11,59 @@ export type ColumnKeys =
 export type Columns = {
   key: ColumnKeys;
   label: string;
+  align?: "start" | "center" | "end";
 }[];
 
 export const columns: Record<Locales, Columns> = {
   "es-AR": [
-    { key: "name", label: "Actividad" },
-    { key: "price", label: "Precio por persona" },
+    { key: "name", label: "Actividad", align: "start" },
+    { key: "price", label: "Precio por persona", align: "end" },
     {
       key: "minAge",
       label: "Edad mínima",
+      align: "center",
     },
-    { key: "season", label: "Temporada" },
-    { key: "status", label: "Estado" },
-    { key: "requirements", label: "Requisitos" },
+    { key: "season", label: "Temporada", align: "center" },
+    { key: "status", label: "Estado", align: "center" },
+    { key: "requirements", label: "Requisitos", align: "start" },
   ],
   en: [
-    { key: "name", label: "Activity" },
-    { key: "price", label: "Price per person" },
-    { key: "minAge", label: "Minimum age" },
-    { key: "season", label: "Season" },
-    { key: "status", label: "Status" },
-    { key: "requirements", label: "Requirements" },
+    { key: "name", label: "Activity", align: "start" },
+    { key: "price", label: "Price per person", align: "end" },
+    { key: "minAge", label: "Minimum age", align: "center" },
+    { key: "season", label: "Season", align: "center" },
+    { key: "status", label: "Status", align: "center" },
+    { key: "requirements", label: "Requirements", align: "start" },
   ],
   pt: [
-    { key: "name", label: "Atividade" },
-    { key: "price", label: "Preço por pessoa" },
+    { key: "name", label: "Atividade", align: "start" },
+    { key: "price", label: "Preço por pessoa", align: "end" },
     {
       key: "minAge",
       label: "Idade mínima",
+      align: "center",
     },
-    { key: "season", label: "Temporada" },
-    { key: "status", label: "Estado" },
-    { key: "requirements", label: "Requisitos" },
+    { key: "season", label: "Temporada", align: "center" },
+    { key: "status", label: "Estado", align: "center" },
+    { key: "requirements", label: "Requisitos", align: "start" },
   ],
 };
 
 export const dictionaries = {
   "es-AR": {
+    table: {
+      ariaLabel: "Tabla de actividades y precios",
+    },
+    eyebrow: {
+      activity: "Experiencia",
+      price: "Tarifa",
+    },
     price: {
-      prefix: "$",
       [0]: "Sin costo",
       [-1]: "Consultar precio",
+      valueHint: "valor por persona",
+      zeroHint: "actividad incluida",
+      consultHint: "precio sujeto a consulta",
     },
     minAge: {
       unit: "años",
@@ -70,10 +82,19 @@ export const dictionaries = {
     },
   },
   en: {
+    table: {
+      ariaLabel: "Activities and pricing table",
+    },
+    eyebrow: {
+      activity: "Experience",
+      price: "Rate",
+    },
     price: {
-      prefix: "$",
       [0]: "No cost",
       [-1]: "Ask for price",
+      valueHint: "price per person",
+      zeroHint: "activity included",
+      consultHint: "pricing available on request",
     },
     minAge: {
       unit: "years",
@@ -92,10 +113,19 @@ export const dictionaries = {
     },
   },
   pt: {
+    table: {
+      ariaLabel: "Tabela de atividades e preços",
+    },
+    eyebrow: {
+      activity: "Experiência",
+      price: "Tarifa",
+    },
     price: {
-      prefix: "$",
       [0]: "Sem custo",
       [-1]: "Consultar preço",
+      valueHint: "valor por pessoa",
+      zeroHint: "atividade incluída",
+      consultHint: "preço sob consulta",
     },
     minAge: {
       unit: "anos",

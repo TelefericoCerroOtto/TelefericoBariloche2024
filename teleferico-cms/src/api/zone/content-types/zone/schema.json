@@ -40,6 +40,22 @@
       "type": "boolean",
       "required": true,
       "default": false
+    },
+    "sortOrder": {
+      "type": "integer",
+      "required": true,
+      "default": 0,
+      "min": 0
+    },
+    "hide": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "showInSchedules": {
+      "type": "boolean",
+      "required": true,
+      "default": true
     }
   }
 }

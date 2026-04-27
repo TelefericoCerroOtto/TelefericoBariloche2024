@@ -49,6 +49,27 @@ export const ADMIN_ROUTES = {
   ZONES: "/dashboard/zones",
 } as const;
 
+export const ADMIN_LOGIN_QUERY_PARAMS = {
+  REASON: "reason",
+} as const;
+
+export const ADMIN_LOGIN_REASONS = {
+  SESSION_EXPIRED: "session-expired",
+} as const;
+
+export type AdminLoginReason =
+  (typeof ADMIN_LOGIN_REASONS)[keyof typeof ADMIN_LOGIN_REASONS];
+
+export const getAdminLoginUrl = (reason?: AdminLoginReason) => {
+  if (!reason) return ADMIN_ROUTES.LOGIN;
+
+  const searchParams = new URLSearchParams({
+    [ADMIN_LOGIN_QUERY_PARAMS.REASON]: reason,
+  });
+
+  return `${ADMIN_ROUTES.LOGIN}?${searchParams.toString()}`;
+};
+
 export const STRAPI_ENDPOINTS = {
   ACTIVITIES: "/api/activities",
   ACTIVITY_TRANSLATIONS: "/api/activity-translations",

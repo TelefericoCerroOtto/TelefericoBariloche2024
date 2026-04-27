@@ -4,7 +4,14 @@ import { useProxy } from "./use-proxy";
 
 const REFRESH_INTERVAL_MS = 10 * 1000; // 10 seconds
 
-export const useServiceState = () => {
+type UseServiceStateOptions = {
+  fallbackData?: GetServiceStateResponse;
+};
+
+export const useServiceState = (options: UseServiceStateOptions = {}) => {
+  const { fallbackData } = options;
+  const hasFallbackData = typeof fallbackData !== "undefined";
+
   const {
     data: serviceState,
     isError,
@@ -12,7 +19,17 @@ export const useServiceState = () => {
   } = useProxy<GetServiceStateResponse>(
     STRAPI_ENDPOINTS.SERVICE_STATE,
     {},
-    { revalidateOnFocus: true, refreshInterval: REFRESH_INTERVAL_MS },
+    {
+      fallbackData,
+      revalidateOnFocus: true,
+      refreshInterval: REFRESH_INTERVAL_MS,
+      ...(hasFallbackData
+        ? {
+            revalidateOnMount: false,
+            revalidateIfStale: false,
+          }
+        : {}),
+    },
   );
 
   return {

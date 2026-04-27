@@ -12,7 +12,7 @@ export type GetActivitiesResponse = {
 
 export type PostActivityRequest = {
   data: Pick<Activity, "price" | "minAge" | "season" | "available"> &
-    Partial<Pick<Activity, "maxAge" | "isActive">>;
+    Partial<Pick<Activity, "maxAge" | "isActive" | "sortOrder">>;
 };
 
 export type PostActivityResponse = {
@@ -24,7 +24,7 @@ export type UpdateActivityRequest = {
   data: Partial<
     Pick<
       Activity,
-      "price" | "minAge" | "maxAge" | "season" | "available" | "isActive"
+      "price" | "minAge" | "maxAge" | "season" | "available" | "isActive" | "sortOrder"
     >
   >;
 };
