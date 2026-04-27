@@ -17,7 +17,7 @@ type Params = { params: Promise<{ locale: Locales }> };
 const ENABLE_STATIC_LOCALE_PARAMS =
   process.env[ENV_KEYS.ENABLE_STATIC_LOCALE_PARAMS] === "true";
 
-export const dynamicParams = !ENABLE_STATIC_LOCALE_PARAMS;
+export const dynamicParams = true;
 
 export function generateStaticParams() {
   if (!ENABLE_STATIC_LOCALE_PARAMS) {
