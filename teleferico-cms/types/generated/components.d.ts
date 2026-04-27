@@ -1,5 +1,96 @@
 import type { Schema, Struct } from '@strapi/strapi';
 
+export interface ImagesBlocksOneImage extends Struct.ComponentSchema {
+  collectionName: 'components_images_blocks_one_images';
+  info: {
+    displayName: 'OneImageBlock';
+  };
+  attributes: {
+    desktopImages: Schema.Attribute.Component<'utils-components.image', true> &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 1;
+          min: 1;
+        },
+        number
+      >;
+    mobileImages: Schema.Attribute.Component<'utils-components.image', true> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 1;
+          min: 1;
+        },
+        number
+      >;
+    variant: Schema.Attribute.Enumeration<
+      ['single', 'poster', 'card', 'panoramic', 'spotlight']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'single'>;
+  };
+}
+
+export interface ImagesBlocksThreeImages extends Struct.ComponentSchema {
+  collectionName: 'components_images_blocks_three_images';
+  info: {
+    displayName: 'ThreeImagesBlock';
+  };
+  attributes: {
+    desktopImages: Schema.Attribute.Component<'utils-components.image', true> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 3;
+          min: 3;
+        },
+        number
+      >;
+    mobileImages: Schema.Attribute.Component<'utils-components.image', true> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 3;
+          min: 3;
+        },
+        number
+      >;
+    variant: Schema.Attribute.Enumeration<
+      ['horizontal', 'masonry', 'ladder', 'miniatures']
+    >;
+  };
+}
+
+export interface ImagesBlocksTwoImages extends Struct.ComponentSchema {
+  collectionName: 'components_images_blocks_two_images';
+  info: {
+    displayName: 'TwoImagesBlock';
+  };
+  attributes: {
+    desktopImages: Schema.Attribute.Component<'utils-components.image', true> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 2;
+          min: 2;
+        },
+        number
+      >;
+    mobileImages: Schema.Attribute.Component<'utils-components.image', true> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 2;
+          min: 2;
+        },
+        number
+      >;
+    variant: Schema.Attribute.Enumeration<['double', 'cascade']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'double'>;
+  };
+}
+
 export interface PageComponentsActivityShowcase extends Struct.ComponentSchema {
   collectionName: 'components_page_components_activity_showcases';
   info: {
@@ -64,11 +155,13 @@ export interface PageComponentsHero extends Struct.ComponentSchema {
   attributes: {
     align: Schema.Attribute.Enumeration<['bottom', 'center']> &
       Schema.Attribute.DefaultTo<'bottom'>;
-    cover: Schema.Attribute.Component<'utils-components.image', false> &
-      Schema.Attribute.Required;
     description: Schema.Attribute.Text;
+    desktopCover: Schema.Attribute.Component<'utils-components.image', false> &
+      Schema.Attribute.Required;
     firstLink: Schema.Attribute.Component<'utils-components.link', false>;
     logo: Schema.Attribute.Component<'utils-components.image', false>;
+    mobileCover: Schema.Attribute.Component<'utils-components.image', false> &
+      Schema.Attribute.Required;
     secondLink: Schema.Attribute.Component<'utils-components.link', false>;
     title: Schema.Attribute.String;
   };
@@ -99,31 +192,30 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
       Schema.Attribute.DefaultTo<'none'>;
     description: Schema.Attribute.Blocks & Schema.Attribute.Required;
     epigraph: Schema.Attribute.Text;
-    images: Schema.Attribute.Component<'utils-components.image', true> &
+    imagesAmount: Schema.Attribute.Enumeration<['one', 'two', 'three']> &
       Schema.Attribute.Required;
     isHighlighted: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isInverted: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     link: Schema.Attribute.Component<'utils-components.link', false>;
+    oneImageBlock: Schema.Attribute.Component<
+      'images-blocks.one-image',
+      false
+    > &
+      Schema.Attribute.Required;
+    threeImagesBlock: Schema.Attribute.Component<
+      'images-blocks.three-images',
+      false
+    > &
+      Schema.Attribute.Required;
     title: Schema.Attribute.String & Schema.Attribute.Required;
     titleCase: Schema.Attribute.Enumeration<
       ['normal', 'uppercase', 'lowercase', 'capitalize']
     > &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'normal'>;
-    variant: Schema.Attribute.Enumeration<
-      [
-        'single',
-        'poster',
-        'card',
-        'panoramic',
-        'spotlight',
-        'double',
-        'cascade',
-        'horizontal',
-        'masonry',
-        'ladder',
-        'miniatures',
-      ]
+    twoImagesBlock: Schema.Attribute.Component<
+      'images-blocks.two-images',
+      false
     > &
       Schema.Attribute.Required;
   };
@@ -242,12 +334,14 @@ export interface UtilsComponentsCarrouselItem extends Struct.ComponentSchema {
     icon: 'bulletList';
   };
   attributes: {
-    cover: Schema.Attribute.Component<'utils-components.image', false> &
-      Schema.Attribute.Required;
     description: Schema.Attribute.Blocks;
+    desktopCover: Schema.Attribute.Component<'utils-components.image', false> &
+      Schema.Attribute.Required;
     epigraph: Schema.Attribute.Text;
     label: Schema.Attribute.String & Schema.Attribute.Private;
     link: Schema.Attribute.Component<'utils-components.link', false>;
+    mobileCover: Schema.Attribute.Component<'utils-components.image', false> &
+      Schema.Attribute.Required;
     title: Schema.Attribute.Text;
   };
 }
@@ -292,37 +386,12 @@ export interface UtilsComponentsLink extends Struct.ComponentSchema {
   };
 }
 
-export interface UtilsComponentsServiceStates extends Struct.ComponentSchema {
-  collectionName: 'components_utils_components_service_states';
-  info: {
-    description: '';
-    displayName: 'ServiceStates';
-    icon: 'bulletList';
-  };
-  attributes: {
-    name: Schema.Attribute.Enumeration<
-      ['normal', 'conditional', 'restricted', 'suspended', 'closed']
-    > &
-      Schema.Attribute.Required;
-  };
-}
-
-export interface UtilsComponentsTitle extends Struct.ComponentSchema {
-  collectionName: 'components_utils_components_titles';
-  info: {
-    description: '';
-    displayName: 'State Title';
-    icon: 'italic';
-  };
-  attributes: {
-    state: Schema.Attribute.Component<'utils-components.service-states', false>;
-    title: Schema.Attribute.String & Schema.Attribute.Required;
-  };
-}
-
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'images-blocks.one-image': ImagesBlocksOneImage;
+      'images-blocks.three-images': ImagesBlocksThreeImages;
+      'images-blocks.two-images': ImagesBlocksTwoImages;
       'page-components.activity-showcase': PageComponentsActivityShowcase;
       'page-components.carrousel': PageComponentsCarrousel;
       'page-components.faq-section': PageComponentsFaqSection;
@@ -339,8 +408,6 @@ declare module '@strapi/strapi' {
       'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
       'utils-components.image': UtilsComponentsImage;
       'utils-components.link': UtilsComponentsLink;
-      'utils-components.service-states': UtilsComponentsServiceStates;
-      'utils-components.title': UtilsComponentsTitle;
     }
   }
 }

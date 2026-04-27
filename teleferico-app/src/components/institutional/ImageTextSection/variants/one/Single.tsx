@@ -4,31 +4,53 @@ import {
   HighlightLastWord,
 } from "@/components";
 import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
-import type { ImageTextBlock } from "@/types";
+import { typography } from "@/lib/constants/typography.const";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
 import LogoBadge from "../../shared/LogoBadge";
+import type { OneImageProps } from "../../shared/types";
 
-export default function Single(props: ImageTextBlock) {
+export default function Single(props: OneImageProps) {
   const {
-    images,
+    desktopImages,
+    mobileImages,
+    isInverted,
     title,
     titleCase = "normal",
     description,
-    isInverted = false,
-    isHighlighted = false,
     link,
     epigraph,
     bgColor,
+    isHighlighted = false,
   } = props;
+
+  const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
+  const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
+
+  // Breakpoint efectivo: lg (cuando pasa a 2 columnas)
+  // - mobile (<lg): imagen ocupa el ancho completo (restando padding)
+  // - desktop (>=lg): imagen ~1/2 del ancho, restando padding + gap (lg:gap-12 => 3rem)
+  const sizesMobile =
+    "(max-width: 768px) calc(100vw - 3rem), (max-width: 1024px) calc(100vw - 6rem), 928px";
+
+  const sizesDesktop = "(max-width: 1536px) calc((100vw - 9rem) / 2), 50vw";
 
   return (
     <div
       className={`my-14 flex flex-col gap-4 px-6 md:px-12 lg:gap-12 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} ${bgStyles[bgColor]} w-full items-center justify-center`}
     >
       <div className="group relative h-[500px] w-full overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15 lg:h-[700px] lg:w-1/2">
-        <CustomImage image={images[0]} />
+        {/* Mobile (<lg) */}
+        <div className="relative h-full w-full lg:hidden">
+          <CustomImage image={mobile0} sizes={sizesMobile} quality={76} />
+        </div>
+
+        {/* Desktop (>=lg) */}
+        <div className="relative hidden h-full w-full lg:block">
+          <CustomImage image={desktop0} sizes={sizesDesktop} quality={76} />
+        </div>
       </div>
+
       <div
         className={`flex w-full flex-col items-center md:items-start lg:w-1/2 ${isInverted ? "lg:items-center" : "lg:items-start lg:px-10"}`}
       >
@@ -38,21 +60,31 @@ export default function Single(props: ImageTextBlock) {
           <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-5">
             <LogoBadge />
             <h4
-              className={`text-center text-3xl font-bold ${caseStyles[titleCase]} text-inherit md:text-left md:text-4xl`}
+              className={`text-center font-bold ${caseStyles[titleCase]} text-inherit md:text-left ${typography.headings.feature}`}
             >
               {isHighlighted ? HighlightLastWord(title) : title}
             </h4>
           </div>
+
           <div className="mt-2 min-h-[1.5rem] text-center md:text-left">
             {epigraph ? (
-              <p className="text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-base">
+              <p
+                className={`${typography.meta.featureEyebrow} font-semibold uppercase tracking-[0.35em] text-foreground/70`}
+              >
                 {epigraph}
               </p>
             ) : null}
           </div>
-          <div className="mt-4 space-y-4 text-center text-base leading-relaxed text-foreground/80 md:text-left md:text-lg">
-            <BlockRendererClient content={description as BlocksContent} />
+
+          <div
+            className={`mt-4 space-y-4 text-center leading-relaxed text-foreground/80 md:text-left ${typography.content.feature}`}
+          >
+            <BlockRendererClient
+              content={description as BlocksContent}
+              prosePreset="feature"
+            />
           </div>
+
           {link ? (
             <div className="mt-6">
               <CustomLink href={link.href} withButtonStyles>

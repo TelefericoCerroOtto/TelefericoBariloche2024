@@ -4,13 +4,14 @@ const nextConfig = {
   experimental: {
     globalNotFound: true,
     serverActions: {
-      bodySizeLimit: "5mb"
-    }
+      bodySizeLimit: "5mb",
+    },
   },
   images: {
+    qualities: [68, 70, 72, 76, 78, 80],
     remotePatterns: [
       {
-        protocol: 'https',
+        protocol: "https",
         hostname: process.env.BUILD_STRAPI_BUCKET_HOSTNAME,
         pathname: process.env.BUILD_STRAPI_BUCKET_PATHNAME,
       },

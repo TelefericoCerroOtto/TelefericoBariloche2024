@@ -19,16 +19,22 @@
     "description": {
       "type": "blocks"
     },
-    "cover": {
+    "link": {
+      "type": "component",
+      "component": "utils-components.link",
+      "repeatable": false
+    },
+    "desktopCover": {
       "type": "component",
       "component": "utils-components.image",
       "repeatable": false,
       "required": true
     },
-    "link": {
+    "mobileCover": {
       "type": "component",
-      "component": "utils-components.link",
-      "repeatable": false
+      "component": "utils-components.image",
+      "repeatable": false,
+      "required": true
     }
   },
   "config": {}

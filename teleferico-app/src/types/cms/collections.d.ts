@@ -96,6 +96,7 @@ export type Ticket = StrapiRecord<{
   description: string | null;
   price: number;
   lifting_mean: LiftingMean;
+  sortOrder: number;
 }>;
 
 export type ZoneTranslation = StrapiRecord<{
@@ -110,6 +111,9 @@ export type Zone = StrapiRecord<{
   label: string;
   isOpen: boolean;
   featured: boolean;
+  hide: boolean;
+  showInSchedules: boolean;
+  sortOrder: number;
   locale: null;
   zone_translations: ZoneTranslation[];
 }>;
@@ -150,6 +154,7 @@ export type Activity = StrapiRecord<{
   season: Season;
   available: boolean;
   isActive: boolean;
+  sortOrder: number;
   activity_translations: ActivityTranslation[];
   page: Page;
   locale: null;

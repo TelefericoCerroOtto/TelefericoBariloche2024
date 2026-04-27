@@ -1,6 +1,7 @@
 import { BlockRendererClient, TitleDescBlock } from "@/components";
 import { getNew } from "@/lib/services";
 import type { Locales } from "@/types";
+import { Spacer } from "@heroui/react";
 import { BlocksContent } from "@strapi/blocks-react-renderer";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -35,8 +36,10 @@ export default async function NewDetailPage({
       </div>
       <BlockRendererClient
         content={body as BlocksContent}
+        proseSize="xl"
         className="px-12 lg:px-32"
       />
+      <Spacer y={28} />
     </>
   );
 }

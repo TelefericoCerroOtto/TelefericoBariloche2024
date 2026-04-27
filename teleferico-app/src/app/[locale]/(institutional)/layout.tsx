@@ -35,7 +35,7 @@ export default async function InstitutionalLayout({
   return (
     <div className="leading-8">
       <Navbar items={data.data[0].jsonValue.items} />
-      <main className="relative -top-[5rem] min-h-screen">
+      <main className="min-h-screen">
         <PageWrapper>{children}</PageWrapper>
       </main>
       <Footer locale={locale} />

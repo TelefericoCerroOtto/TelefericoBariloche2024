@@ -1,5 +1,6 @@
 import { CACHE_TAGS } from "@/lib/constants/cache-tags.const";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
+import { getPricingScheduleActivitiesQuery } from "@/lib/helpers/pricing-schedules-queries";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
   GetActivitiesResponse,
@@ -43,7 +44,9 @@ export const getActivity = async <T extends Locales | "all">({
 
 export const getActivities = async <T extends Locales | "all">(locale: T) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const query: Record<string, any> = {};
+  const query: Record<string, any> = {
+    sort: ["sortOrder:asc", "id:asc"]
+  };
 
   if (locale === "all") {
     query.populate = ["activity_translations"];
@@ -59,7 +62,7 @@ export const getActivities = async <T extends Locales | "all">(locale: T) => {
     };
   }
 
-  const res = await strapiFetch<GetActivitiesResponse>(
+  const res = await strapiFetch<GetActivitiesResponse>( 
     {
       endpoint: STRAPI_ENDPOINTS.ACTIVITIES,
       qp: stringifyQuery(query),
@@ -70,6 +73,23 @@ export const getActivities = async <T extends Locales | "all">(locale: T) => {
         tags: [CACHE_TAGS.ACTIVITIES],
       },
     },
+  );
+
+  return res;
+};
+
+export const getPricingScheduleActivities = async (
+  locale: Locales,
+  init?: RequestInit,
+) => {
+  const query = getPricingScheduleActivitiesQuery(locale);
+
+  const res = await strapiFetch<GetActivitiesResponse>(
+    {
+      endpoint: STRAPI_ENDPOINTS.ACTIVITIES,
+      qp: stringifyQuery(query),
+    },
+    init,
   );
 
   return res;

@@ -39,7 +39,7 @@ function Faq({ id, question, answer }: FaqItem) {
         aria-controls={identifiers.panel}
         aria-expanded={isOpen}
         onClick={() => setIsOpen((p) => !p)}
-        className="flex w-full items-center justify-between gap-4 px-6 py-6 text-left text-xl font-semibold text-foreground transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none md:text-2xl"
+        className="flex w-full items-center justify-between gap-4 px-6 py-6 text-left text-2xl font-semibold text-foreground transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none md:text-3xl"
       >
         <span className="flex-1 leading-snug">{question}</span>
         <ChevronDown
@@ -68,7 +68,7 @@ function Faq({ id, question, answer }: FaqItem) {
             isOpen ? "pb-6 pt-4 opacity-100" : "pb-0 pt-0 opacity-0",
           )}
         >
-          <BlockRendererClient content={answer} />
+          <BlockRendererClient content={answer} proseSize="lg" />
         </div>
       </div>
     </article>

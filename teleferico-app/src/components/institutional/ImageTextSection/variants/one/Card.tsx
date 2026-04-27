@@ -5,15 +5,17 @@ import {
   CustomLink,
   HighlightLastWord,
 } from "@/components";
-import { bgStyles, caseStyles, fontSize } from "@/lib/constants/styles.const";
-import type { ImageTextBlock } from "@/types";
+import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
+import { typography } from "@/lib/constants/typography.const";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
 import LogoBadge from "../../shared/LogoBadge";
+import type { OneImageProps } from "../../shared/types";
 
-export default function Card(props: ImageTextBlock) {
+export default function Card(props: OneImageProps) {
   const {
-    images,
+    desktopImages,
+    mobileImages,
     title,
     titleCase = "normal",
     description,
@@ -23,13 +25,32 @@ export default function Card(props: ImageTextBlock) {
     isHighlighted = false,
   } = props;
 
+  // Slot 0 fallbacks (mobile <-> desktop)
+  const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
+  const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
+
+  // sizes:
+  // - mobile: contenedor = 100vw - px-6 (3rem)
+  // - desktop (>=md): contenedor dentro de max-w[1536] con px-12 (6rem) => cap aprox 1440px
+  const sizesMobile = "calc(100vw - 3rem)";
+  const sizesDesktop = "(max-width: 1536px) calc(100vw - 6rem), 1440px";
+
   return (
     <section className={`my-14 w-full ${bgStyles[bgColor]}`}>
       <div className="mx-auto w-full max-w-[1536px] px-6 md:px-12">
         <article className="overflow-hidden rounded-3xl bg-background shadow-xl shadow-black/10 ring-1 ring-red-500/15">
           {/* Media */}
           <div className="relative h-[280px] w-full overflow-hidden md:h-[420px]">
-            <CustomImage image={images[0]} />
+            {/* Mobile (<md) */}
+            <div className="relative h-full w-full md:hidden">
+              <CustomImage image={mobile0} sizes={sizesMobile} quality={72} />
+            </div>
+
+            {/* Desktop (>=md) */}
+            <div className="relative hidden h-full w-full md:block">
+              <CustomImage image={desktop0} sizes={sizesDesktop} quality={72} />
+            </div>
+
             <div aria-hidden="true" className="absolute inset-0 bg-black/10" />
             <div
               aria-hidden="true"
@@ -43,13 +64,15 @@ export default function Card(props: ImageTextBlock) {
               <LogoBadge />
               <div className="w-full">
                 <h4
-                  className={`text-center text-3xl font-bold ${caseStyles[titleCase]} text-foreground md:text-left md:text-4xl`}
+                  className={`text-center font-bold ${caseStyles[titleCase]} text-foreground md:text-left ${typography.headings.feature}`}
                 >
                   {isHighlighted ? HighlightLastWord(title) : title}
                 </h4>
 
                 {epigraph ? (
-                  <p className="mt-2 text-center text-sm font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-left md:text-base">
+                  <p
+                    className={`mt-2 text-center font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-left ${typography.meta.featureEyebrow}`}
+                  >
                     {epigraph}
                   </p>
                 ) : null}
@@ -58,9 +81,12 @@ export default function Card(props: ImageTextBlock) {
 
             {description ? (
               <div
-                className={`mt-6 space-y-4 text-center leading-relaxed text-foreground/80 md:text-left ${fontSize.base}`}
+                className={`mt-6 space-y-4 text-center leading-relaxed text-foreground/80 md:text-left ${typography.content.section}`}
               >
-                <BlockRendererClient content={description as BlocksContent} />
+                <BlockRendererClient
+                  content={description as BlocksContent}
+                  prosePreset="feature"
+                />
               </div>
             ) : null}
 

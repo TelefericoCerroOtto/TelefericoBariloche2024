@@ -6,23 +6,41 @@ import {
   HighlightLastWord,
 } from "@/components";
 import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
-import type { ImageTextBlock } from "@/types";
-import { type BlocksContent } from "@strapi/blocks-react-renderer";
+import type { BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
 import LogoBadge from "../../shared/LogoBadge";
+import type { ThreeImagesProps } from "../../shared/types";
 
-export default function Masonry(props: ImageTextBlock) {
+export default function Masonry(props: ThreeImagesProps) {
   const {
-    images,
+    desktopImages,
+    mobileImages,
+    isInverted,
     title,
     titleCase = "normal",
     description,
-    isInverted = false,
-    isHighlighted = false,
     link,
     epigraph,
     bgColor,
+    isHighlighted = false,
   } = props;
+
+  const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
+  const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
+
+  const mobile1 = mobileImages?.[1] ?? desktopImages?.[1] ?? null;
+  const desktop1 = desktopImages?.[1] ?? mobileImages?.[1] ?? null;
+
+  const mobile2 = mobileImages?.[2] ?? desktopImages?.[2] ?? null;
+  const desktop2 = desktopImages?.[2] ?? mobileImages?.[2] ?? null;
+
+  // En <lg, el bloque de imágenes ocupa 100% y cada celda ~ 1/2 (menos gap-4=1rem)
+  const sizesMobileCell =
+    "(max-width: 768px) calc((100vw - 3rem - 1rem) / 2), (max-width: 1024px) calc((100vw - 6rem - 1rem) / 2), 360px";
+
+  // En >=lg, el bloque de imágenes es 1/2 del layout, y cada celda ~ 1/2 de esa mitad => ~ 1/4 del viewport (menos gaps)
+  const sizesDesktopCell =
+    "(max-width: 1536px) calc((100vw - 6rem - 1rem) / 4), 360px";
 
   return (
     <section className={`my-14 w-full ${bgStyles[bgColor]}`}>
@@ -32,13 +50,30 @@ export default function Masonry(props: ImageTextBlock) {
           <div className={isInverted ? "lg:order-2" : "lg:order-1"}>
             <div className="grid h-[420px] grid-cols-2 grid-rows-2 gap-4 md:h-[620px]">
               <div className="group relative row-span-2 overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15">
-                <CustomImage image={images[0]} />
+                <div className="relative h-full w-full lg:hidden">
+                  <CustomImage image={mobile0} sizes={sizesMobileCell} />
+                </div>
+                <div className="relative hidden h-full w-full lg:block">
+                  <CustomImage image={desktop0} sizes={sizesDesktopCell} />
+                </div>
               </div>
+
               <div className="group relative overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15">
-                <CustomImage image={images[1]} />
+                <div className="relative h-full w-full lg:hidden">
+                  <CustomImage image={mobile1} sizes={sizesMobileCell} />
+                </div>
+                <div className="relative hidden h-full w-full lg:block">
+                  <CustomImage image={desktop1} sizes={sizesDesktopCell} />
+                </div>
               </div>
+
               <div className="group relative overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15">
-                <CustomImage image={images[2]} />
+                <div className="relative h-full w-full lg:hidden">
+                  <CustomImage image={mobile2} sizes={sizesMobileCell} />
+                </div>
+                <div className="relative hidden h-full w-full lg:block">
+                  <CustomImage image={desktop2} sizes={sizesDesktopCell} />
+                </div>
               </div>
             </div>
           </div>
@@ -65,7 +100,10 @@ export default function Masonry(props: ImageTextBlock) {
 
               {description ? (
                 <div className="mt-4 space-y-4 text-center text-base leading-relaxed text-foreground/80 md:text-left md:text-lg">
-                  <BlockRendererClient content={description as BlocksContent} />
+                  <BlockRendererClient
+                    content={description as BlocksContent}
+                    prosePreset="feature"
+                  />
                 </div>
               ) : null}
 

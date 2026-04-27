@@ -1,15 +1,17 @@
 "use client";
 
 import { BlockRendererClient, CustomLink } from "@/components";
-import { bgStyles, fontSize } from "@/lib/constants/styles.const";
-import type { ImageTextBlock } from "@/types";
+import { bgStyles } from "@/lib/constants/styles.const";
+import { typography } from "@/lib/constants/typography.const";
 import { Button } from "@heroui/react";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
+import type { OneImageProps } from "../../shared/types";
 
-export default function Panoramic(props: ImageTextBlock) {
+export default function Panoramic(props: OneImageProps) {
   const {
-    images,
+    desktopImages,
+    mobileImages,
     title,
     titleCase = "normal",
     description,
@@ -17,6 +19,13 @@ export default function Panoramic(props: ImageTextBlock) {
     epigraph,
     bgColor,
   } = props;
+
+  const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
+  const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
+
+  // Full-bleed background => siempre 100vw
+  const sizesMobile = "100vw";
+  const sizesDesktop = "100vw";
 
   const titleCaseClass =
     titleCase === "uppercase"
@@ -30,7 +39,15 @@ export default function Panoramic(props: ImageTextBlock) {
       <div className="relative h-[550px] w-full overflow-hidden shadow-2xl shadow-black/25 ring-1 ring-red-500/15">
         {/* Imagen */}
         <div className="absolute inset-0">
-          <CustomImage image={images[0]} />
+          {/* Mobile (<md) */}
+          <div className="relative h-full w-full md:hidden">
+            <CustomImage image={mobile0} sizes={sizesMobile} quality={68} />
+          </div>
+
+          {/* Desktop (>=md) */}
+          <div className="relative hidden h-full w-full md:block">
+            <CustomImage image={desktop0} sizes={sizesDesktop} quality={68} />
+          </div>
         </div>
 
         {/* Oscurecer fondo */}
@@ -45,7 +62,7 @@ export default function Panoramic(props: ImageTextBlock) {
           <div className="mx-auto flex w-full max-w-4xl flex-col items-center text-center">
             {epigraph ? (
               <p
-                className={`mb-3 font-bold uppercase tracking-wide text-red-600 ${fontSize.epigraph}`}
+                className={`mb-3 font-bold uppercase tracking-wide text-red-600 ${typography.meta.eyebrow}`}
               >
                 {epigraph}
               </p>
@@ -55,7 +72,7 @@ export default function Panoramic(props: ImageTextBlock) {
               <h2
                 className={[
                   "font-black tracking-tight text-white sm:tracking-normal",
-                  fontSize.title,
+                  typography.headings.hero,
                   titleCaseClass,
                 ].join(" ")}
               >
@@ -67,14 +84,11 @@ export default function Panoramic(props: ImageTextBlock) {
               <div className="mt-4 w-full">
                 <BlockRendererClient
                   content={description as BlocksContent}
+                  prosePreset="feature"
                   className={[
-                    // override del renderer base (evita text-black/text-2xl)
                     "prose-invert text-white",
-                    "text-sm sm:text-base md:text-lg",
-                    // centrado real en rich text
                     "text-center",
                     "prose-headings:text-center prose-p:text-center prose-li:text-center",
-                    // espaciado más prolijo en overlay
                     "prose-headings:leading-tight prose-p:leading-relaxed",
                     "prose-a:text-custom-red",
                   ].join(" ")}
@@ -91,7 +105,7 @@ export default function Panoramic(props: ImageTextBlock) {
                   color="primary"
                   variant="solid"
                   size="lg"
-                  className={`px-6 font-semibold ${fontSize.base}`}
+                  className={`px-6 font-semibold ${typography.ui.prominentAction}`}
                 >
                   {link.label}
                 </Button>

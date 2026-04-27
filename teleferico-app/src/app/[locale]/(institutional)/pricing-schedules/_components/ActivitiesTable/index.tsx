@@ -2,14 +2,20 @@
 
 import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
+import { getPricingScheduleActivitiesQuery } from "@/lib/helpers/pricing-schedules-queries";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { Activity, GetActivitiesResponse } from "@/types";
 import { type ReactNode, useCallback } from "react";
-import { columns, type ColumnKeys } from "./data";
+import { columns, dictionaries, type ColumnKeys } from "./data";
 import { renderActivityCell } from "./renderActivityCell";
 
-export default function ActivitiesTable() {
+interface Props {
+  initialData?: GetActivitiesResponse;
+}
+
+export default function ActivitiesTable({ initialData }: Readonly<Props>) {
   const { locale } = useLocale();
+  const hasInitialData = typeof initialData !== "undefined";
 
   const renderCell = useCallback(
     (activity: Activity, columnKey: ColumnKeys) =>
@@ -17,32 +23,27 @@ export default function ActivitiesTable() {
     [locale],
   );
 
-  const query = {
-    filters: {
-      isActive: { $eq: true },
-    },
-    populate: {
-      activity_translations: {
-        filters: {
-          locale: {
-            $eq: locale,
-          },
-        },
-        fields: ["name", "description", "requirements"],
-      },
-    },
-  };
+  const query = getPricingScheduleActivitiesQuery(locale);
 
   const {
     data: items,
     isLoading,
     isError,
   } = useProxy<GetActivitiesResponse>(STRAPI_ENDPOINTS.ACTIVITIES, query, {
+    fallbackData: initialData,
     revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    ...(hasInitialData
+      ? {
+          revalidateOnMount: false,
+          revalidateIfStale: false,
+        }
+      : {}),
   });
 
   return (
     <DataTable
+      ariaLabel={dictionaries[locale].table.ariaLabel}
       renderCell={renderCell as () => ReactNode}
       items={items?.data ?? []}
       columns={columns[locale]}

@@ -1,0 +1,37 @@
+{
+  "collectionName": "components_images_blocks_one_images",
+  "info": {
+    "displayName": "OneImageBlock"
+  },
+  "options": {},
+  "attributes": {
+    "variant": {
+      "type": "enumeration",
+      "required": true,
+      "default": "single",
+      "enum": [
+        "single",
+        "poster",
+        "card",
+        "panoramic",
+        "spotlight"
+      ]
+    },
+    "desktopImages": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": true,
+      "min": 1,
+      "max": 1
+    },
+    "mobileImages": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": true,
+      "required": true,
+      "min": 1,
+      "max": 1
+    }
+  },
+  "config": {}
+}

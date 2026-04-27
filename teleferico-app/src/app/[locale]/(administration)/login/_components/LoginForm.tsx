@@ -1,25 +1,53 @@
 "use client";
 
 import { ButtonDos, FormError } from "@/components";
-import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import {
+  ADMIN_LOGIN_QUERY_PARAMS,
+  ADMIN_LOGIN_REASONS,
+  ADMIN_ROUTES,
+} from "@/lib/constants/routes.const";
 import { formInputClassNames } from "@/lib/constants/styles.const";
 import { loginSchema } from "@/lib/schemas";
 import type { LoginFormData, LoginUserRequest } from "@/types";
-import { Input, Spinner } from "@heroui/react";
+import { Alert, Input, Spinner } from "@heroui/react";
 import { useFormik } from "formik";
 import { Eye, EyeOff } from "lucide-react";
 import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function LoginForm() {
   const [isVisible, setIsVisible] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isClosingSessionAlert, setIsClosingSessionAlert] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { update } = useSession();
 
+  const reason = searchParams.get(ADMIN_LOGIN_QUERY_PARAMS.REASON);
+  const showSessionExpiredAlert =
+    reason === ADMIN_LOGIN_REASONS.SESSION_EXPIRED && !isClosingSessionAlert;
+
   const toggleVisibility = () => setIsVisible(!isVisible);
+
+  useEffect(() => {
+    setIsClosingSessionAlert(false);
+  }, [reason]);
+
+  const handleCloseSessionAlert = () => {
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+
+    nextSearchParams.delete(ADMIN_LOGIN_QUERY_PARAMS.REASON);
+    setIsClosingSessionAlert(true);
+
+    const nextUrl = nextSearchParams.toString()
+      ? `${pathname}?${nextSearchParams.toString()}`
+      : pathname;
+
+    router.replace(nextUrl, { scroll: false });
+  };
 
   const onSubmit = async (values: LoginUserRequest) => {
     setIsSubmitting(true);
@@ -52,6 +80,15 @@ export default function LoginForm() {
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      {showSessionExpiredAlert ? (
+        <Alert
+          color="warning"
+          title="Sesión expirada"
+          description="Por seguridad, tu sesión finalizó. Volvé a iniciar sesión para continuar."
+          isClosable
+          onClose={handleCloseSessionAlert}
+        />
+      ) : null}
       <Input
         id="identifier"
         name="identifier"

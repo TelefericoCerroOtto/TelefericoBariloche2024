@@ -1,27 +1,22 @@
 # Teleférico Bariloche 2024 — Web (Next.js)
 
-Aplicación frontend del proyecto, implementada con Next.js (App Router). Para documentación completa de local, CI/CD y despliegues, ver el README principal del repositorio:
+Aplicación frontend del proyecto, implementada con Next.js (App Router).
 
-- ../README.md
+- Overview del monorepo: [../README.md](../README.md)
+- Infraestructura, CI/CD y despliegues GCP: [../docs/INFRA.md](../docs/INFRA.md)
+- Este README: scripts, variables y flujos propios del frontend
 
 ## Scripts útiles
 
 - `pnpm run dev`: Ejecuta el servidor de desarrollo en `http://localhost:3000`
 - `pnpm run build`: Compila la app
 - `pnpm start`: Inicia la app compilada
-- `pnpm run lint`: Linter
+- `pnpm run lint`: Lintea los archivos
+- `pnpm run typecheck`: Chequea que los archivos incluidos en el `tsconfig.json` cumplan con las reglas de typescript
 
 ## Variables de entorno
 
-Estas variables se usan en código y/o en `next.config.mjs`:
-
-- `BUILD_STRAPI_BASE_URL` (build-time)
-- `BUILD_STRAPI_BUCKET_HOSTNAME` (build-time)
-- `BUILD_STRAPI_BUCKET_PATHNAME` (build-time)
-- `NEXT_PUBLIC_BASE_URL` (runtime)
-- `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` (runtime, opcional)
-
-**Para más información sobre las variables de entorno chequear el archivo `.env.example`.**
+El archivo `.env.example` documenta cada variable de entorno del paquete.
 
 ---
 
@@ -454,6 +449,17 @@ Exponer una API interna de Next (`/api/proxy`) que:
 
 ---
 
+## Generación estática de locales
+
+El segmento `src/app/[locale]` define `generateStaticParams()` y `dynamicParams` en función de la variable de entorno `ENABLE_STATIC_LOCALE_PARAMS`.
+
+- `ENABLE_STATIC_LOCALE_PARAMS=true`: `generateStaticParams()` devuelve `i18n.locales`, `dynamicParams` queda en `false` y Next.js solo acepta los locales conocidos/pre-generados.
+- Cualquier otro valor, o variable ausente: `generateStaticParams()` devuelve `[]`, `dynamicParams` queda en `true` y las rutas de locale quedan para resolución dinámica bajo demanda.
+
+Este toggle se evalúa durante build/deploy; cambiarlo en un entorno requiere reconstruir/redeployar la aplicación para modificar el comportamiento generado.
+
+---
+
 ## Desarrollo local (rápido)
 
 1. Asegurarse de tener el CMS corriendo en `http://localhost:1337` (Strapi).
@@ -465,6 +471,7 @@ BUILD_STRAPI_BASE_URL=http://localhost:1337
 BUILD_STRAPI_BUCKET_HOSTNAME=localhost
 BUILD_STRAPI_BUCKET_PATHNAME=/uploads/*
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
+ENABLE_STATIC_LOCALE_PARAMS=false
 ```
 
 3. Ejecutar:

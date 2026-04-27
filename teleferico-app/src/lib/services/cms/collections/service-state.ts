@@ -7,10 +7,10 @@ import type {
   UpdateServiceStateResponse,
 } from "@/types";
 
-export const getServiceState = async () => {
+export const getServiceState = async (init?: RequestInit) => {
   const res = await strapiFetch<GetServiceStateResponse>(
     { endpoint: STRAPI_ENDPOINTS.SERVICE_STATE },
-    {
+    init ?? {
       method: "GET",
       next: {
         tags: [CACHE_TAGS.SERVICE_STATE],

@@ -7,13 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "pnpm run typecheck && pnpm run lint"
   },
   "engines": {
-    "node": "20.x",
-    "pnpm": "9.x"
+    "node": "22.x",
+    "pnpm": "10.x"
   },
-  "packageManager": "pnpm@9.15.9",
+  "packageManager": "pnpm@10.33.0",
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
     "@heroui/react": "^2.7.10",

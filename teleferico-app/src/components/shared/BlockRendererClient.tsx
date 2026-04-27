@@ -6,6 +6,12 @@ import {
   isHttpUrl,
   withLocalePrefix,
 } from "@/lib/helpers/links";
+import {
+  proseSizeClassMap,
+  typography,
+  type TypographyProsePreset,
+  type TypographyProseSize,
+} from "@/lib/constants/typography.const";
 import { StrapiBlocksPayload } from "@/types";
 import {
   BlocksRenderer,
@@ -15,20 +21,32 @@ import { ExternalLink as ExternalLinkIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
+interface BlockRendererClientProps {
+  readonly content: BlocksContent | StrapiBlocksPayload;
+  className?: string;
+  /** Preferred API: semantic preset aligned with `typography.const.ts`. When both props are provided, this wins. */
+  prosePreset?: TypographyProsePreset;
+  /** Compatibility fallback for existing raw Tailwind Typography sizing. Prefer `prosePreset` for new code. */
+  proseSize?: TypographyProseSize;
+}
+
 export default function BlockRendererClient({
   content,
   className,
-}: {
-  readonly content: BlocksContent | StrapiBlocksPayload;
-  className?: string;
-}) {
+  prosePreset,
+  proseSize,
+}: BlockRendererClientProps) {
   const { locale } = useLocale();
 
   if (!content) return null;
 
+  const resolvedProseSize = prosePreset
+    ? typography.prose[prosePreset].proseSize
+    : proseSize ?? typography.prose.body.proseSize;
+
   return (
     <article
-      className={`prose max-w-none text-base text-black md:text-xl lg:text-2xl ${className}`}
+      className={`prose max-w-none text-black ${proseSizeClassMap[resolvedProseSize]} ${className ?? ""}`}
     >
       <BlocksRenderer
         content={content as BlocksContent}

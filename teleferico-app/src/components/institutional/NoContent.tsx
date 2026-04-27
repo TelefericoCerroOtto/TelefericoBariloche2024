@@ -17,7 +17,8 @@ export default function NoContent(props: Props) {
   return (
     <Hero
       content={{
-        cover: { src: redgradient.src, alt: "Gradiente rojo" },
+        desktopCover: { src: redgradient.src, alt: "Gradiente rojo" },
+        mobileCover: { src: redgradient.src, alt: "Gradiente rojo" },
         title: dictionaries[locale],
       }}
     />

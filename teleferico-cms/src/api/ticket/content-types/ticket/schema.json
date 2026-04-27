@@ -58,6 +58,17 @@
         }
       },
       "maxLength": 500
+    },
+    "sortOrder": {
+      "type": "integer",
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      },
+      "required": true,
+      "default": 0,
+      "min": 0
     }
   }
 }

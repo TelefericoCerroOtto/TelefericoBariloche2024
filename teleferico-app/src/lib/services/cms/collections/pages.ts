@@ -17,12 +17,50 @@ export const getPageContent = async (locale: Locales, route: string) => {
       blocks: {
         on: {
           "page-components.hero": {
-            populate: ["firstLink", "secondLink", "cover.image", "logo.image"],
+            populate: [
+              "firstLink",
+              "secondLink",
+              "desktopCover.image",
+              "mobileCover.image",
+              "logo.image",
+            ],
           },
           "page-components.hours-overview": "*",
           "page-components.title-desc-block": "*",
           "page-components.image-text-block": {
-            populate: ["images.image", "link"],
+            populate: {
+              link: true,
+              oneImageBlock: {
+                populate: {
+                  desktopImages: {
+                    populate: ["image"],
+                  },
+                  mobileImages: {
+                    populate: ["image"],
+                  },
+                },
+              },
+              twoImagesBlock: {
+                populate: {
+                  desktopImages: {
+                    populate: ["image"],
+                  },
+                  mobileImages: {
+                    populate: ["image"],
+                  },
+                },
+              },
+              threeImagesBlock: {
+                populate: {
+                  desktopImages: {
+                    populate: ["image"],
+                  },
+                  mobileImages: {
+                    populate: ["image"],
+                  },
+                },
+              },
+            },
           },
           "page-components.faq-section": "*",
           "page-components.spacer": "*",
@@ -31,7 +69,11 @@ export const getPageContent = async (locale: Locales, route: string) => {
           "page-components.carrousel": {
             populate: {
               items: {
-                populate: ["cover.image", "link"],
+                populate: [
+                  "desktopCover.image",
+                  "mobileCover.image",
+                  "link",
+                ],
               },
             },
           },
