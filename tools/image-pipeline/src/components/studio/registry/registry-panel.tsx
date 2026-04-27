@@ -192,7 +192,7 @@ export function RegistryPanel({ registry, isDirty, isSaving, dirtyProfileIds, on
                           <div className="group relative flex cursor-help items-center">
                             <span className="flex items-center justify-center rounded-full bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400 font-bold">?</span>
                             <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 hidden w-max max-w-xs -translate-x-1/2 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-slate-200 shadow-xl group-hover:block z-50">
-                              Nombre del grupo o perfil (ej: "Hero", "Galería").
+                              Nombre del grupo o perfil (ej: &quot;Hero&quot;, &quot;Galería&quot;).
                               <div className="absolute -bottom-1 left-1/2 -ml-1 border-4 border-transparent border-t-slate-800"></div>
                             </div>
                           </div>

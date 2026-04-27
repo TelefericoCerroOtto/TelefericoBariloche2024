@@ -16,7 +16,7 @@ type ProcessPanelProps = {
 
 export function ProcessPanel({ logs, outputs, isRunning, pendingMode, onRun }: ProcessPanelProps) {
   return (
-    <section className="flex h-full min-h-[22rem] flex-col rounded-2xl border border-slate-800 bg-slate-950/70 p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.95)]">
+    <section className="flex h-full max-h-[42rem] min-h-[22rem] flex-col rounded-2xl border border-slate-800 bg-slate-950/70 p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.95)]">
       <div className="space-y-1 border-b border-slate-800 pb-4">
         <h2 className="text-base font-semibold text-slate-100">Procesamiento</h2>
         <p className="text-sm text-slate-400">Usa el mismo pipeline de Sharp que la CLI.</p>
@@ -50,7 +50,7 @@ export function ProcessPanel({ logs, outputs, isRunning, pendingMode, onRun }: P
       <div className="mt-4 grid min-h-0 flex-1 gap-3 xl:grid-cols-2">
         <div className="flex min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
           <strong className="text-sm font-semibold text-slate-100">Salidas</strong>
-          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1">
             {outputs.length === 0 ? (
               <span className="text-sm text-slate-400">Sin salidas todavía.</span>
             ) : null}
@@ -64,7 +64,7 @@ export function ProcessPanel({ logs, outputs, isRunning, pendingMode, onRun }: P
 
         <div className="flex min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
           <strong className="text-sm font-semibold text-slate-100">Registros</strong>
-          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1">
             {logs.length === 0 ? (
               <span className="text-sm text-slate-400">Sin registros de ejecución todavía.</span>
             ) : null}
