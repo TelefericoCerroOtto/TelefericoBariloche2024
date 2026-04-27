@@ -13,13 +13,7 @@ export type GetZonesResponse = {
 export type CreateZoneRequest = {
   data: Pick<
     Zone,
-    | "label"
-    | "openTime"
-    | "closeTime"
-    | "isOpen"
-    | "featured"
-    | "hide"
-    | "showInSchedules"
+    "label" | "openTime" | "closeTime" | "isOpen" | "featured" | "hide"
   > & Partial<Pick<Zone, "sortOrder">>;
 };
 
@@ -30,16 +24,7 @@ export type CreateZoneResponse = {
 
 export type UpdateZoneRequest = {
   data: Partial<
-    Pick<
-      Zone,
-      | "openTime"
-      | "closeTime"
-      | "isOpen"
-      | "featured"
-      | "hide"
-      | "showInSchedules"
-      | "sortOrder"
-    >
+    Pick<Zone, "openTime" | "closeTime" | "isOpen" | "featured" | "hide" | "sortOrder">
   >;
 };
 

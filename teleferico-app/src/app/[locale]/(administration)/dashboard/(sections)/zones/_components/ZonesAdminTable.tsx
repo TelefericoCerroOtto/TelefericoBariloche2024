@@ -33,7 +33,7 @@ type ColumnKeys =
   | "closeTime"
   | "isOpen"
   | "featured"
-  | "showInSchedules"
+  | "hide"
   | "actions";
 
 const columns: { key: ColumnKeys; label: string }[] = [
@@ -43,7 +43,7 @@ const columns: { key: ColumnKeys; label: string }[] = [
   { key: "closeTime", label: "Horario de cierre" },
   { key: "isOpen", label: "Zona abierta" },
   { key: "featured", label: "Horario destacado" },
-  { key: "showInSchedules", label: "Ocultar zona" },
+  { key: "hide", label: "Ocultar zona" },
   { key: "actions", label: "Acciones" },
 ];
 
@@ -252,7 +252,7 @@ export default function ZonesAdminTable() {
         case "featured":
           return <ZoneFeaturedToggle zone={zone} />;
 
-        case "showInSchedules":
+        case "hide":
           return <ZoneSchedulesVisibilityToggle zone={zone} />;
 
         case "actions":

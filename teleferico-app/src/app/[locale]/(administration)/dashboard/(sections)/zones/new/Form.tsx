@@ -105,7 +105,7 @@ export default function Form() {
       isOpen: false,
       label: "",
       featured: false,
-      showInSchedules: true,
+      hide: false,
     },
     validationSchema: createZoneSchema,
     onSubmit,
@@ -326,12 +326,12 @@ export default function Form() {
       </Switch>
 
       <Switch
-        name="showInSchedules"
-        id="showInSchedules"
-        isSelected={values.showInSchedules}
+        name="hide"
+        id="hide"
+        isSelected={values.hide}
         onChange={handleChange}
       >
-        {values.showInSchedules ? "Visible" : "Oculta"}
+        {values.hide ? "Oculta" : "Visible"}
       </Switch>
 
       <FormButtons

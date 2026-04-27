@@ -112,7 +112,6 @@ export type Zone = StrapiRecord<{
   isOpen: boolean;
   featured: boolean;
   hide: boolean;
-  showInSchedules: boolean;
   sortOrder: number;
   locale: null;
   zone_translations: ZoneTranslation[];
