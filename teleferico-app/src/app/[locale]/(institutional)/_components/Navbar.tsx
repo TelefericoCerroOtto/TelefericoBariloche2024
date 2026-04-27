@@ -138,7 +138,7 @@ export default function Navbar(props: Props) {
         "supports-[backdrop-filter]:backdrop-blur-xl",
         useSolidBackground
           ? "border-b border-border/60 bg-background/95 text-foreground shadow-sm"
-          : "border-b border-white/10 bg-primary text-primary-foreground",
+          : "border-b border-white/10 bg-custom-red text-primary-foreground",
         "h-16 md:h-20",
       )}
       classNames={{
@@ -215,7 +215,7 @@ export default function Navbar(props: Props) {
                   aria-hidden="true"
                     className={cn(
                       "pointer-events-none absolute bottom-0 left-3 right-3 h-0.5 origin-left scale-x-0 rounded-full transition-transform duration-200",
-                      useSolidBackground ? "bg-primary" : "bg-white",
+                      useSolidBackground ? "bg-custom-red" : "bg-white",
                       "group-hover:scale-x-100 group-focus-visible:scale-x-100",
                       isActive && "scale-x-100",
                     )}
