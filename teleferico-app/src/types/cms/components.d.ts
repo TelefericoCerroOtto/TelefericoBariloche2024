@@ -131,7 +131,7 @@ export type ImageTextBlock = {
   bgColor: ImageTextColor;
   description: BlocksContent;
   epigraph: string | null;
-  link?: Link;
+  link?: Link | null;
   isInverted?: boolean;
   isHighlighted?: boolean;
 } & Variants;
