@@ -1,174 +1,269 @@
-# Teleférico Bariloche 2024 — Infrastructure Overview (Staging + Production)
+# Teleférico Bariloche 2024 — Infraestructura
 
-- **Fecha:** 2026-02-16
+- **Fecha:** 2026-05-04
+- **Alcance:** staging + production
 
 ---
 
-## 1) Resumen ejecutivo
+## 1) Propósito
 
-El sistema se compone de **2 servicios principales desplegados en Google Cloud Run**:
+Este documento resume la arquitectura, los entornos y las reglas operativas principales de la plataforma.
 
-- **teleferico-app (Next.js):** sitio público (institucional) + dashboard administrativo
-- **teleferico-cms (Strapi):** CMS / API backend
+No intenta reemplazar GCP ni los manifests de despliegue; solo deja lo importante para entender cómo está armada la infraestructura.
+
+---
+
+## 2) Vista general
+
+La plataforma tiene cuatro piezas principales:
+
+- **Cloud Run**:
+  - **teleferico-app**: frontend Next.js con sitio institucional y dashboard administrativo.
+  - **teleferico-cms**: CMS/API en Strapi.
+- **Cloud SQL (PostgreSQL)**: datos estructurados del CMS.
+- **Cloud Storage**: uploads/binarios servidos por Strapi.
 
 Además:
 
-- Strapi persiste datos en **Cloud SQL (PostgreSQL)** y guarda binarios (uploads) en **Cloud Storage**.
-- El build y deploy se automatiza con **Cloud Build (4 triggers)** y **Artifact Registry**.
+- **Cloud Build** construye y despliega.
+- **Artifact Registry** guarda las imágenes.
 - **Secret Manager** centraliza secretos.
-- Integraciones externas: **reCAPTCHA** y un servicio de **Gmail vía OAuth 2.0** para envío de emails (contacto).
+- Integraciones externas: **reCAPTCHA** y **Gmail OAuth 2.0**.
 
 ---
 
-## 2) Regiones / ubicación
+## 3) Entornos
 
-| Componente             | Región / Zona                                                  |
-| ---------------------- | -------------------------------------------------------------- |
-| Cloud Run (Strapi)     | `southamerica-east1`                                           |
-| Cloud Run (Next.js)    | `southamerica-east1`                                           |
-| Cloud SQL (PostgreSQL) | `southamerica-east1-c` (zonal, dentro de `southamerica-east1`) |
+Staging y production están separados en:
 
----
+- servicios Cloud Run
+- base de datos
+- buckets de uploads
+- secretos
+- pipelines de deploy
 
-## 3) Entornos (staging y production)
+### 3.1 Matriz rápida
 
-Se mantienen entornos separados para:
-
-- **Cloud SQL:** 2 instancias (staging y prod)
-- **Cloud Storage:** 2 buckets (staging y prod)
-- **Cloud Run:** servicios desplegados por entorno (al menos 1 servicio por app/cms por entorno)
-- **Cloud Build:** triggers separados por entorno
-
-### 3.1) Cloud SQL (PostgreSQL)
-
-- **Instancia STAGING:** sin requerimiento explícito de backup (por ahora)
-- **Instancia PROD:** con backups habilitados (requisito)
-
-**Conectividad desde Strapi en Cloud Run:**
-
-- Se asume el uso de **Cloud SQL connector** (integración Cloud Run ↔ Cloud SQL).
-- En el pipeline se define la instancia mediante variable tipo `INSTANCE_CONNECTION_NAME`.
-- Strapi se configura para conectarse mediante socket:
-
-`/cloudsql/<INSTANCE_CONNECTION_NAME>`
-
-### 3.2) Cloud Storage (uploads)
-
-- **Bucket STAGING:** binarios/uploads del entorno de pruebas
-- **Bucket PROD:** binarios/uploads del entorno productivo
-
-**Nota:** se evaluará protección/“backup” para bucket PROD (ej.: versioning / retención / replicación) si se considera necesario.
+| Componente        | Staging                  | Production                   |
+| ----------------- | ------------------------ | ---------------------------- |
+| Next.js           | `app-staging-teleferico` | `app-production-teleferico`  |
+| Strapi            | `cms-staging-teleferico` | `cms-production-teleferico`  |
+| Región            | `southamerica-east1`     | `southamerica-east1`         |
+| Base de datos     | Cloud SQL por connector  | Cloud SQL por IP privada/VPC |
+| Bucket de uploads | `cms_staging_bucket`     | `cms_production_bucket`      |
 
 ---
 
-## 4) Servicios (Cloud Run)
+## 4) Servicios
 
-### 4.1) teleferico-cms (Strapi)
+### 4.1 teleferico-app (Next.js)
 
-- **Rol:** CMS + API para contenido y operaciones de backend
-- **Fuente de datos:**
-  - **Cloud SQL (PostgreSQL):** datos estructurados
-  - **Cloud Storage:** binarios/uploads (provider de GCS en Strapi)
-- **Accesos:**
-  - El dashboard de Next.js realiza operaciones de **escritura** en Strapi.
-  - La sección institucional consume **lecturas** (principalmente GET) desde el server.
+- **Rol:** sitio institucional + área administrativa.
+- **Exposición:** público en Cloud Run.
+- **Acceso a Strapi:** siempre server-side.
+- **Build:** usa buildpacks.
 
-### 4.2) teleferico-app (Next.js)
+#### Patrón de tráfico hacia Strapi
 
-- **Rol:** frontend único con dos áreas:
-  - Institucional (pública)
-  - Administrativa (dashboard)
-- **Política de acceso a Strapi:**
-  - Ninguna solicitud a Strapi se hace desde componentes client.
-  - Toda solicitud a Strapi se ejecuta **server-side**.
-- **Tráfico típico:**
-  - **Institucional:** mayoritariamente **GET** a Strapi (lectura de contenido).
-    - Excepción: **POST** para postulación/solicitud de empleo.
-  - **Administrativa:** requests de **escritura** a Strapi, restringidas por permisos del rol de la sesión iniciada.
+- La sección institucional consume principalmente lecturas de contenido.
+- Las solicitudes a Strapi no deben ejecutarse desde componentes client.
+- Las operaciones administrativas se hacen desde el server y dependen de la sesión/permisos del usuario.
+- Las escrituras del dashboard deben quedar restringidas por los permisos definidos para el rol correspondiente.
+
+#### Entorno staging
+
+- `1 vCPU`
+- `1 GiB`
+- concurrency `20`
+- min instances `0`
+- max instances `2`
+- CMS base URL de staging
+- bucket/path de staging para assets
+
+#### Entorno production
+
+- `2 vCPU`
+- `2 GiB`
+- concurrency `30`
+- min instances `1`
+- max instances `10`
+- CMS base URL de production
+- bucket/path de production para assets
+
+#### Variables y secretos relevantes
+
+- URLs de base
+- reCAPTCHA
+- flags de build
+- tokens internos para hablar con Strapi
+- secretos de Auth.js y Google OAuth
 
 ---
 
-## 5) Autenticación y sesión
+### 4.2 teleferico-cms (Strapi)
 
-- **Frontend:** manejo de sesión con **Auth.js**
-- **Strapi:** autenticación devuelve **JWT** con `exp` (tiempo de vida)
+- **Rol:** CMS + API de contenido.
+- **Exposición:** público en Cloud Run; la seguridad real está en auth/permisos de Strapi.
+- **Persistencia:** PostgreSQL + Cloud Storage.
+- **Build:** imagen Docker.
 
-**Requisito funcional:**
+#### Entorno staging
 
-- Mantener sincronizado el **TTL** de la sesión de Auth.js con el JWT (`exp`) emitido por Strapi.
-- **Refresh token:** planificado pero aún no implementado.
+- `1 vCPU`
+- `1 GiB`
+- concurrency `20`
+- min instances `0`
+- max instances `2`
+- conexión a Cloud SQL mediante `INSTANCE_CONNECTION_NAME`
+- `DATABASE_HOST=/cloudsql/...`
+- bucket `cms_staging_bucket`
+- `GCS_BASE_PATH=cms`
+
+#### Entorno production
+
+- `2 vCPU`
+- `2 GiB`
+- concurrency `40`
+- min instances `1`
+- max instances `4`
+- conexión a PostgreSQL por **IP privada** + VPC
+- `DATABASE_SSL=true`
+- bucket `cms_production_bucket`
+- `GCS_BASE_PATH=cms`
+
+#### Secretos relevantes
+
+- credenciales de base de datos
+- `APP_KEYS`
+- `API_TOKEN_SALT`
+- `ADMIN_JWT_SECRET`
+- `TRANSFER_TOKEN_SALT`
+- `JWT_SECRET`
 
 ---
 
-## 6) CI/CD (Cloud Build + Artifact Registry + Cloud Run)
+## 5) Datos y almacenamiento
 
-### 6.1) Triggers (4)
+### PostgreSQL / Cloud SQL
 
-- **CMS - staging**
-- **CMS - prod**
-- **APP - staging**
-- **APP - prod**
+- Staging y production usan instancias separadas.
+- Production tiene backups y recuperación habilitados desde GCP.
+- Staging no debe asumirse como entorno con las mismas garantías de recuperación que production.
+- Los detalles finos de retención, ventanas y restauración se consultan en la consola de GCP.
 
-### 6.2) Pipeline estándar
+### Cloud Storage / uploads
 
-1. Build de imagen (pack/buildpacks)
-2. Push a Artifact Registry
-3. Deploy a Cloud Run (variables de entorno + configuración del servicio)
+- Cada entorno usa su bucket propio.
+- Strapi guarda los binarios en el bucket del entorno correspondiente.
+- Production tiene un bucket de respaldo que copia los binarios a través de "Replicación entre buckets".
 
-### 6.3) Variables sensibles
+---
 
-- Administradas vía **Secret Manager** (keys, salts, JWT/ADMIN secrets, etc.)
+## 6) Despliegue
+
+### Patrón general
+
+1. Build.
+2. Push a Artifact Registry.
+3. Deploy a Cloud Run.
+
+### Pipelines
+
+Hay cuatro pipelines separados:
+
+- app staging
+- app production
+- cms staging
+- cms production
+
+Las snapshots documentales de sus configuraciones están versionadas en [infra/cloud-build/README.md](infra/cloud-build/README.md).
+
+### 6.1 Snapshots documentales
+
+- `docs/infra/cloud-build/app-staging.yaml`
+- `docs/infra/cloud-build/app-production.yaml`
+- `docs/infra/cloud-build/cms-staging.yaml`
+- `docs/infra/cloud-build/cms-production.yaml`
+
+Estos archivos son solo de referencia. Los triggers operativos siguen definidos inline en GCP.
+
+### Secret Manager
+
+- Variables no sensibles: substitutions o env vars del servicio.
+- Variables sensibles: Secret Manager.
+- Staging y production usan secretos separados.
 
 ---
 
 ## 7) Service Accounts e IAM
 
-### Estado actual (simplificado)
+La regla objetivo es separar identidades por servicio y aplicar **least privilege**.
 
-- Se utiliza una única **Service Account** con permisos amplios (acceso a todo) para acelerar iteración.
+No se debe asumir una única service account permanente para toda la plataforma. Si durante la iteración existe una service account con permisos amplios, debe tratarse como estado transitorio y no como diseño final.
 
-### Estado futuro (objetivo)
+### Objetivo
 
-Separar por servicio/caso de uso y aplicar **least privilege**:
+Separar permisos por caso de uso:
 
-- SA para **teleferico-app** (mínimos permisos necesarios)
-- SA para **teleferico-cms** (mínimos permisos necesarios)
-- SA para **Cloud Build/deploy**
-- Permisos específicos para acceso a:
+- service account para `teleferico-app`
+- service account para `teleferico-cms`
+- service account para Cloud Build/deploy
+- permisos mínimos necesarios para:
   - Cloud SQL
   - Cloud Storage
   - Secret Manager
 
 ---
 
-## 8) Integraciones externas (independientes de Strapi)
+## 8) Sesión y autenticación
 
-- **reCAPTCHA:**
-  - Se usa desde el frontend para protección anti-bots en formularios públicos (sección institucional).
-  - No consume Strapi.
-- **Gmail (OAuth 2.0):**
-  - Servicio autorizado con OAuth 2.0 según estándares de Google.
-  - Se usa para enviar emails desde el formulario de contacto (sección institucional).
-  - No consume Strapi.
+- **Frontend:** Auth.js.
+- **Strapi:** JWT con `exp`.
+- Regla importante: el TTL de la sesión debe seguir el JWT emitido por Strapi.
+- Refresh token: todavía pendiente.
 
 ---
 
-## 9) Esquema de alto nivel
+## 9) Integraciones externas
+
+Las integraciones externas no deben confundirse con la persistencia ni con los permisos internos de Strapi.
+
+- **reCAPTCHA:** protección anti-bots en formularios públicos.
+- **Gmail OAuth 2.0:** envío de emails desde el formulario de contacto.
+
+Estas integraciones son independientes de Strapi.
+
+---
+
+## 10) Variables de deploy que sí cambian por entorno
+
+### Next.js
+
+- `BUILD_STRAPI_BASE_URL`
+- `BUILD_STRAPI_BUCKET_PATHNAME`
+- `NEXT_PUBLIC_BASE_URL`
+
+### Strapi
+
+- `NODE_ENV`
+- `DATABASE_HOST`
+- `GCS_BUCKET_NAME`
+- `GCS_BASE_PATH`
+
+---
+
+## 11) Esquema de alto nivel
 
 ```text
 Usuarios
   -> Cloud Run (teleferico-app / Next.js)
-       - Institucional (server-side GET a Strapi; POST empleo)
-       - Admin/Dashboard (writes a Strapi según permisos/rol)
-  -> Cloud Run (teleferico-cms / Strapi)
-       -> Cloud SQL (PostgreSQL) [staging / prod]
-       -> Cloud Storage (uploads) [bucket staging / prod]
+       - Institucional: lecturas server-side de contenido
+       - Dashboard: operaciones server-side según sesión/rol
+       -> Cloud Run (teleferico-cms / Strapi)
+            -> Cloud SQL (PostgreSQL)
+            -> Cloud Storage (uploads)
+
+Formularios públicos
+  -> reCAPTCHA
+  -> Gmail OAuth 2.0
 ```
-
----
-
-## 10) Notas / pendientes
-
-- Implementar refresh tokens y estrategia completa de renovación de sesión (Auth.js ↔ Strapi).
-- Endurecer IAM: separar service accounts, mínimos permisos por servicio, y revisión de acceso a secretos/buckets/SQL.
-- Definir estrategia de protección de bucket PROD (versioning/retención/replicación) si el riesgo lo amerita.
