@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { BlockRendererClient, TitleDescBlock } from "@/components";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
-import { typography } from "@/lib/constants/typography.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import { getComponentTranslation } from "@/lib/services";
 
@@ -129,17 +128,17 @@ function HoursOverviewItems({
   }[];
 }) {
   return (
-    <div className="mb-12 flex max-w-[1376px] flex-col items-center gap-10 px-8 md:px-14 lg:flex-row">
+    <div className="mb-12 flex max-w-[1376px] flex-col items-center gap-8 px-4 text-center sm:px-8 md:gap-10 md:px-14 lg:flex-row">
       {items.map((item) => (
         <div
           key={item.id}
-          className="flex max-w-[450px] flex-col items-center gap-3 text-center"
+          className="flex max-w-[450px] flex-col items-center gap-2 text-center"
         >
-          <Image src={item.src} alt={item.alt} width={80} height={80} />
-          <h4 className={`font-bold ${typography.headings.feature}`}>
+          <Image src={item.src} alt={item.alt} width={72} height={72} />
+          <h4 className="text-2xl font-bold sm:text-3xl md:text-4xl">
             {item.title}
           </h4>
-          <BlockRendererClient content={item.desc} prosePreset="feature" />
+          <BlockRendererClient content={item.desc} prosePreset="section" />
         </div>
       ))}
     </div>
@@ -216,8 +215,12 @@ export default async function HoursOverview(props: Props) {
 
   if (withTextBlock) {
     return (
-      <section className="mb-14 text-lg">
-        <TitleDescBlock title={content.title} desc={descWithTimes} />
+      <section className="mb-14 text-base sm:text-lg">
+        <TitleDescBlock
+          title={content.title}
+          desc={descWithTimes}
+          descProsePreset="section"
+        />
         <Spacer y={16} />
         <HoursOverviewItems items={itemsIntl} />
       </section>
