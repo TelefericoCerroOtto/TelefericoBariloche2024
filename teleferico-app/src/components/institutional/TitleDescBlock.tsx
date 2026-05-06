@@ -1,6 +1,9 @@
 import { BlockRendererClient } from "@/components";
 import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
-import { typography } from "@/lib/constants/typography.const";
+import {
+  typography,
+  type TypographyProsePreset,
+} from "@/lib/constants/typography.const";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import { type ReactNode } from "react";
 
@@ -14,6 +17,7 @@ interface Props {
   epigraph?: string | null;
   desc?: ReactNode | BlocksContent;
   children?: ReactNode;
+  descProsePreset?: TypographyProsePreset;
 }
 
 export function HighlightLastWord(text: string) {
@@ -45,6 +49,7 @@ export default function TitleDescBlock(props: Props) {
     flexdir = "col",
     size = "md",
     bgColor = "none",
+    descProsePreset = "feature",
   } = props;
 
   const alignVariants = {
@@ -81,7 +86,7 @@ export default function TitleDescBlock(props: Props) {
       ) : (
         <BlockRendererClient
           content={desc as BlocksContent}
-          prosePreset="feature"
+          prosePreset={descProsePreset}
         />
       )}
       {children ? <div className="flex gap-4">{children}</div> : null}

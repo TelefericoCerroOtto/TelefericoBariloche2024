@@ -69,6 +69,10 @@ export default function Navbar(props: Props) {
     [],
   );
 
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
+
   const startNavigationGuard = (target: string) => {
     if (isNavigating) return false;
 
@@ -131,10 +135,11 @@ export default function Navbar(props: Props) {
       as="nav"
       aria-label="Main"
       position="sticky"
+      isMenuOpen={isMenuOpen}
       onMenuOpenChange={setIsMenuOpen}
       isBlurred={false}
       className={cn(
-        "top-0 z-50 w-full px-4 transition-colors duration-300 ease-out md:px-6",
+        "top-0 z-50 w-full px-3 transition-colors duration-300 ease-out sm:px-4 md:px-6",
         "supports-[backdrop-filter]:backdrop-blur-xl",
         useSolidBackground
           ? "border-b border-border/60 bg-background/95 text-foreground shadow-sm"
@@ -146,7 +151,7 @@ export default function Navbar(props: Props) {
         item: ["data-[active=true]:text-primary"],
       }}
     >
-      <NavbarContent>
+      <NavbarContent className="min-w-0 gap-2">
         <NavbarMenuToggle
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           className="text-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:hidden"
@@ -157,11 +162,12 @@ export default function Navbar(props: Props) {
             aria-label="Teleferico Cerro Otto"
             aria-disabled={pathname === HOME || isNavigating}
             onClick={handleLinkNavigation(HOME, {
+              closeMenu: true,
               disabled: pathname === HOME,
             })}
             className="flex items-center gap-3 rounded-lg px-2 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <span className="relative block h-12 w-[140px] shrink-0">
+            <span className="relative block h-12 w-[120px] shrink-0 sm:w-[140px]">
               <Image
                 src={logoBlanco}
                 alt=""
@@ -226,11 +232,12 @@ export default function Navbar(props: Props) {
         })}
       </NavbarContent>
 
-      <NavbarContent justify="end">
+      <NavbarContent className="min-w-0 justify-end" justify="end">
         <Select
           variant="bordered"
+          size="sm"
           aria-label="Change language"
-          className="w-[160px]" // un toque más ancho para la tipografía grande
+          className="w-[clamp(96px,22vw,160px)]"
           isDisabled={isNavigating}
           popoverProps={{
             classNames: {
@@ -240,7 +247,7 @@ export default function Navbar(props: Props) {
           }}
           classNames={{
             trigger: [
-              "h-11 rounded-full px-3 text-base leading-6 transition-colors md:text-lg",
+              "h-10 rounded-full px-2 text-sm leading-5 transition-colors md:h-11 md:px-3 md:text-base md:leading-6",
               useSolidBackground
                 ? "border border-black/15 bg-white text-foreground focus:border-primary/80"
                 : "border border-white/80 bg-white text-foreground focus:border-white",
@@ -249,13 +256,13 @@ export default function Navbar(props: Props) {
             // asegura tamaño también en el valor renderizado
             value: [
               cn(
-                "text-base leading-6 md:text-lg",
+                "min-w-0 truncate text-sm leading-5 md:text-base md:leading-6",
                 "text-foreground",
               ),
             ],
             selectorIcon: [
               cn(
-                "scale-110",
+                "scale-90 md:scale-110",
                 "text-foreground",
               ),
             ], // ícono un pelín más grande

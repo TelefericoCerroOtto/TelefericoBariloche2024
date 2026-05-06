@@ -1,0 +1,68 @@
+# PRODUCCION STRAPI
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - "-f"
+      - teleferico-cms/Dockerfile
+      - "-t"
+      - >-
+        ${_AR_HOSTNAME}/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/${_SERVICE_NAME}:$COMMIT_SHA
+      - teleferico-cms
+    id: Build
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - >-
+        ${_AR_HOSTNAME}/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/${_SERVICE_NAME}:$COMMIT_SHA
+    id: Push
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    args:
+      - "-c"
+      - |
+        set -euo pipefail
+
+        gcloud run deploy "${_SERVICE_NAME}" \
+          --image "${_AR_HOSTNAME}/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/${_SERVICE_NAME}:$COMMIT_SHA" \
+          --region "${_DEPLOY_REGION}" \
+          --platform "${_PLATFORM}" \
+          --allow-unauthenticated \
+          --port 1337 \
+          --service-account "${_RUNTIME_SA}" \
+          --cpu "${_CPU}" \
+          --memory "${_MEMORY}" \
+          --concurrency "${_CONCURRENCY}" \
+          --min-instances "${_MIN_INSTANCES}" \
+          --max-instances "${_MAX_INSTANCES}" \
+          --cpu-boost \
+          --execution-environment gen2 \
+          --network "${_VPC_NETWORK}" \
+          --subnet "${_VPC_SUBNET}" \
+          --vpc-egress private-ranges-only \
+          --set-env-vars "HOST=0.0.0.0,NODE_ENV=${_NODE_ENV},DATABASE_CLIENT=${_DATABASE_CLIENT},DATABASE_HOST=${_DATABASE_HOST},DATABASE_PORT=5432,DATABASE_SSL=true,DATABASE_SSL_REJECT_UNAUTHORIZED=false,DATABASE_POOL_MIN=0,DATABASE_POOL_MAX=10,GCS_BUCKET_NAME=${_GCS_BUCKET_NAME},GCS_BASE_PATH=${_GCS_BASE_PATH}" \
+          --set-secrets "DATABASE_NAME=CMS__PRODUCTION__DATABASE_NAME:latest,DATABASE_USERNAME=CMS__PRODUCTION__DATABASE_USERNAME:latest,DATABASE_PASSWORD=CMS__PRODUCTION__DATABASE_PASSWORD:latest,APP_KEYS=CMS__PRODUCTION__APP_KEYS:latest,API_TOKEN_SALT=CMS__PRODUCTION__API_TOKEN_SALT:latest,ADMIN_JWT_SECRET=CMS__PRODUCTION__ADMIN_JWT_SECRET:latest,TRANSFER_TOKEN_SALT=CMS__PRODUCTION__TRANSFER_TOKEN_SALT:latest,JWT_SECRET=CMS__PRODUCTION__JWT_SECRET:latest"
+    id: Deploy
+    entrypoint: bash
+timeout: 1600s
+options:
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _SERVICE_NAME: cms-production-teleferico
+  _AR_HOSTNAME: southamerica-east1-docker.pkg.dev
+  REPO_NAME: telefericobariloche2024
+  _DEPLOY_REGION: southamerica-east1
+  _PLATFORM: managed
+  _RUNTIME_SA: teleferico-bariloche-2024@appspot.gserviceaccount.com
+  _CPU: "2"
+  _MEMORY: 2Gi
+  _CONCURRENCY: "40"
+  _MIN_INSTANCES: "1"
+  _MAX_INSTANCES: "4"
+  _VPC_NETWORK: default
+  _VPC_SUBNET: default
+  _NODE_ENV: production
+  _DATABASE_CLIENT: postgres
+  _DATABASE_HOST: 10.33.224.2
+  _GCS_BUCKET_NAME: cms_production_bucket
+  _GCS_BASE_PATH: ""
