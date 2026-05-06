@@ -2,7 +2,6 @@ import { BlocksRenderer, NoContent } from "@/components";
 import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { Spacer } from "@heroui/react";
 import Form from "./_components/Form";
 
 export default async function ContactPage({
@@ -23,15 +22,12 @@ export default async function ContactPage({
   const blocks = res.data.data[0].blocks;
 
   return (
-    <>
-      <Spacer y={28} />
-      <div className="flex w-full flex-col gap-12 px-10 lg:px-28">
-        <BlocksRenderer blocks={blocks[0]} locale={locale} />
-        <div className="flex flex-col gap-8 lg:flex-row">
-          <Form />
-          <BlocksRenderer blocks={blocks[1]} locale={locale} />
-        </div>
+    <div className="flex w-full flex-col gap-12 px-10 lg:px-28">
+      <BlocksRenderer blocks={blocks[0]} locale={locale} />
+      <div className="flex flex-col gap-8 lg:flex-row">
+        <Form />
+        <BlocksRenderer blocks={blocks[1]} locale={locale} />
       </div>
-    </>
+    </div>
   );
 }

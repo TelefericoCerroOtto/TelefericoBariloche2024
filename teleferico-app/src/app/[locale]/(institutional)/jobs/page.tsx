@@ -2,7 +2,6 @@ import { BlocksRenderer, NoContent } from "@/components";
 import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { getPageContent, getSectors } from "@/lib/services";
 import type { Locales } from "@/types";
-import { Spacer } from "@heroui/react";
 import { Form } from "./_components";
 
 export default async function JobsPage({
@@ -25,15 +24,12 @@ export default async function JobsPage({
   const blocks = res.data.data[0].blocks;
 
   return (
-    <>
-      <Spacer y={28} />
-      <div className="flex w-full flex-col gap-12 px-10 lg:px-28">
-        <BlocksRenderer blocks={blocks[0]} locale={locale} />
-        <div className="flex flex-col-reverse gap-8 lg:flex-row">
-          <Form sectors={data.data} />
-          <BlocksRenderer blocks={blocks[1]} locale={locale} />
-        </div>
+    <div className="flex w-full flex-col gap-12 px-10 lg:px-28">
+      <BlocksRenderer blocks={blocks[0]} locale={locale} />
+      <div className="flex flex-col-reverse gap-8 lg:flex-row">
+        <Form sectors={data.data} />
+        <BlocksRenderer blocks={blocks[1]} locale={locale} />
       </div>
-    </>
+    </div>
   );
 }

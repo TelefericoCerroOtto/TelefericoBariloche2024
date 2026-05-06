@@ -2,7 +2,6 @@ import { BlocksRenderer, NoContent } from "@/components";
 import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
-import { Spacer } from "@heroui/react";
 
 export default async function FAQSPage({
   params,
@@ -23,11 +22,8 @@ export default async function FAQSPage({
   const blocks = res.data.data[0].blocks;
 
   return (
-    <>
-      <Spacer y={28} />
-      <div className="flex w-full flex-col">
-        <BlocksRenderer blocks={blocks} locale={locale} />
-      </div>
-    </>
+    <div className="flex w-full flex-col">
+      <BlocksRenderer blocks={blocks} locale={locale} />
+    </div>
   );
 }
