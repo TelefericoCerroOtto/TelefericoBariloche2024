@@ -16,6 +16,10 @@ function sanitizeDownloadFilename(filename: string) {
   return filename.replace(/["\r\n]/g, "_");
 }
 
+function isPdfMimeType(mimeType: string) {
+  return mimeType.toLowerCase().startsWith("application/pdf");
+}
+
 function toWebStream(stream: ReadableStream | NodeJS.ReadableStream): BodyInit {
   if (stream instanceof ReadableStream) return stream;
   return Readable.toWeb(stream as Readable) as unknown as BodyInit;
@@ -86,9 +90,13 @@ export async function GET(
       );
     }
 
+    const disposition = isPdfMimeType(postulation.cvMimeType)
+      ? "inline"
+      : "attachment";
+
     const headers = new Headers({
       "Content-Type": postulation.cvMimeType,
-      "Content-Disposition": `attachment; filename="${sanitizeDownloadFilename(postulation.cvOriginalName)}"`,
+      "Content-Disposition": `${disposition}; filename="${sanitizeDownloadFilename(postulation.cvOriginalName)}"`,
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
     });

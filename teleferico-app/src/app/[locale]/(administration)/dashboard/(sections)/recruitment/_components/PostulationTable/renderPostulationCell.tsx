@@ -165,6 +165,7 @@ export function renderPostulationCell({
             id={item.documentId}
             name={completeName}
             hasCv={hasCv}
+            cvMimeType={item.cvMimeType}
             isFavorite={isFavForUser}
             onToggle={() => {
               // el propio ActionsButton se encarga del fetch

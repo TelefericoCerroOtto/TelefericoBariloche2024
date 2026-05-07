@@ -14,13 +14,12 @@ const DEFAULT_LOCAL_STORAGE_DIR = ".private/job-applications";
 const DEFAULT_SIGNED_URL_TTL_SECONDS = 300;
 const GCS_CLIENT = new Storage();
 
-const ALLOWED_EXTENSIONS = new Set(["pdf", "doc", "docx", "txt"]);
+const ALLOWED_EXTENSIONS = new Set(["pdf", "doc", "docx"]);
 const MIME_TO_EXTENSION: Record<string, string> = {
   "application/pdf": "pdf",
   "application/msword": "doc",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
     "docx",
-  "text/plain": "txt",
 };
 
 function normalizeBasePath(value: string) {
