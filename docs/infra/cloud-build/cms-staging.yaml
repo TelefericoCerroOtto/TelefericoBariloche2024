@@ -36,7 +36,7 @@ steps:
           --min-instances "${_MIN_INSTANCES}" \
           --max-instances "${_MAX_INSTANCES}" \
           --set-cloudsql-instances "${_INSTANCE_CONNECTION_NAME}" \
-          --set-env-vars "HOST=0.0.0.0,NODE_ENV=${_NODE_ENV},DATABASE_CLIENT=${_DATABASE_CLIENT},DATABASE_HOST=/cloudsql/${_INSTANCE_CONNECTION_NAME},DATABASE_PORT=5432,GCS_BUCKET_NAME=${_GCS_BUCKET_NAME},GCS_BASE_PATH=${_GCS_BASE_PATH}" \
+          --set-env-vars "HOST=0.0.0.0,NODE_ENV=${_NODE_ENV},DATABASE_CLIENT=${_DATABASE_CLIENT},DATABASE_HOST=/cloudsql/${_INSTANCE_CONNECTION_NAME},DATABASE_PORT=5432,GCS_BUCKET_NAME=${_GCS_BUCKET_NAME},GCS_BASE_PATH=${_GCS_BASE_PATH},GCS_BASE_URL=${_GCS_BASE_URL},GCS_PUBLIC_FILES=${_GCS_PUBLIC_FILES},GCS_UNIFORM=${_GCS_UNIFORM}" \
           --set-secrets "DATABASE_NAME=CMS__STAGING__DATABASE_NAME:latest,DATABASE_USERNAME=CMS__STAGING__DATABASE_USERNAME:latest,DATABASE_PASSWORD=CMS__STAGING__DATABASE_PASSWORD:latest,APP_KEYS=CMS__STAGING__APP_KEYS:latest,API_TOKEN_SALT=CMS__STAGING__API_TOKEN_SALT:latest,ADMIN_JWT_SECRET=CMS__STAGING__ADMIN_JWT_SECRET:latest,TRANSFER_TOKEN_SALT=CMS__STAGING__TRANSFER_TOKEN_SALT:latest,JWT_SECRET=CMS__STAGING__JWT_SECRET:latest"
     id: Deploy
     entrypoint: bash
@@ -55,7 +55,10 @@ substitutions:
   _MAX_INSTANCES: "2"
   _INSTANCE_CONNECTION_NAME: teleferico-bariloche-2024:southamerica-east1:teleferico-strapi-staging
   _GCS_BUCKET_NAME: cms_staging_bucket
-  _GCS_BASE_PATH: cms
+  _GCS_BASE_PATH: public/cms
+  _GCS_BASE_URL: https://storage.googleapis.com/cms_staging_bucket
+  _GCS_PUBLIC_FILES: "true"
+  _GCS_UNIFORM: "true"
   _DATABASE_CLIENT: postgres
   _DEPLOY_REGION: southamerica-east1
   _NODE_ENV: staging

@@ -43,13 +43,26 @@
       "type": "email",
       "required": true
     },
-    "resume": {
-      "type": "media",
-      "multiple": false,
-      "required": false,
-      "allowedTypes": [
-        "files"
-      ]
+    "cvObjectKey": {
+      "type": "string"
+    },
+    "cvOriginalName": {
+      "type": "string"
+    },
+    "cvMimeType": {
+      "type": "string"
+    },
+    "cvSize": {
+      "type": "integer"
+    },
+    "cvUploadedAt": {
+      "type": "datetime"
+    },
+    "cvStorageProvider": {
+      "type": "string"
+    },
+    "cvBucket": {
+      "type": "string"
     },
     "campNo": {
       "type": "integer"

@@ -3,6 +3,7 @@ import {
   PostulationFormData,
   PostulationRequestPayload,
 } from "@/types";
+import type { StoredCvFile } from "@/types";
 
 export function asString(value: FormDataEntryValue | null): string | undefined {
   return typeof value === "string" ? value : undefined;
@@ -68,10 +69,19 @@ export const postulationFormDataAdapter = (formData: FormData) => {
 };
 
 export const createPostulationAdapter = (
-  values: PostulationFormData & { resumeId: number },
+  values: PostulationFormData & { cv: StoredCvFile },
 ): PostPostulationRequest => {
-  const { name, surname, age, email, sector, gender, resumeId, campNo, note } =
-    values;
+  const {
+    name,
+    surname,
+    age,
+    email,
+    sector,
+    gender,
+    cv,
+    campNo,
+    note,
+  } = values;
   const reqBody: PostPostulationRequest = {
     data: {
       name,
@@ -85,11 +95,20 @@ export const createPostulationAdapter = (
       sector: {
         connect: [{ documentId: sector }],
       },
-      resume: resumeId,
+      cvObjectKey: cv.objectKey,
+      cvOriginalName: cv.originalName,
+      cvMimeType: cv.mimeType,
+      cvSize: cv.size,
+      cvUploadedAt: cv.uploadedAt,
+      cvStorageProvider: cv.storageProvider,
     },
   };
 
-  if (campNo != null || campNo !== undefined) {
+  if (cv.bucket) {
+    reqBody.data.cvBucket = cv.bucket;
+  }
+
+  if (campNo != null) {
     reqBody.data.campNo = campNo;
   }
 

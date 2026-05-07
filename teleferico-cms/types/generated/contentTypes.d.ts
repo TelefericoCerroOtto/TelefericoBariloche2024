@@ -899,7 +899,13 @@ export interface ApiPostulationPostulation extends Struct.CollectionTypeSchema {
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'unreviewed'>;
     publishedAt: Schema.Attribute.DateTime;
-    resume: Schema.Attribute.Media<'files'>;
+    cvBucket: Schema.Attribute.String;
+    cvMimeType: Schema.Attribute.String;
+    cvObjectKey: Schema.Attribute.String;
+    cvOriginalName: Schema.Attribute.String;
+    cvSize: Schema.Attribute.Integer;
+    cvStorageProvider: Schema.Attribute.String;
+    cvUploadedAt: Schema.Attribute.DateTime;
     sector: Schema.Attribute.Relation<'oneToOne', 'api::sector.sector'>;
     surname: Schema.Attribute.String &
       Schema.Attribute.Required &

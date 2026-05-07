@@ -1,6 +1,7 @@
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type {
+  GetPostulationResponse,
   PostPostulationRequest,
   PostPostulationResponse,
   UpdatePostulationRequest,
@@ -20,6 +21,23 @@ export const createPostulation = async (
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(reqBody),
+    },
+  );
+
+  return res;
+};
+
+export const getPostulationByDocumentId = async (
+  documentId: string,
+  jwt: string,
+) => {
+  const res = await strapiFetch<GetPostulationResponse>(
+    { endpoint: `${STRAPI_ENDPOINTS.POSTULATIONS}/${documentId}` },
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+      },
     },
   );
 

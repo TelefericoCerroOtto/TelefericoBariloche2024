@@ -117,7 +117,10 @@ Staging y production están separados en:
 - conexión a Cloud SQL mediante `INSTANCE_CONNECTION_NAME`
 - `DATABASE_HOST=/cloudsql/...`
 - bucket `cms_staging_bucket`
-- `GCS_BASE_PATH=cms`
+- `GCS_BASE_PATH=public/cms`
+- `GCS_BASE_URL=https://storage.googleapis.com/cms_staging_bucket`
+- `GCS_PUBLIC_FILES=true`
+- `GCS_UNIFORM=true`
 
 #### Entorno production
 
@@ -129,7 +132,10 @@ Staging y production están separados en:
 - conexión a PostgreSQL por **IP privada** + VPC
 - `DATABASE_SSL=true`
 - bucket `cms_production_bucket`
-- `GCS_BASE_PATH=cms`
+- `GCS_BASE_PATH=public/cms`
+- `GCS_BASE_URL=https://storage.googleapis.com/cms_production_bucket`
+- `GCS_PUBLIC_FILES=true`
+- `GCS_UNIFORM=true`
 
 #### Secretos relevantes
 
@@ -154,7 +160,10 @@ Staging y production están separados en:
 ### Cloud Storage / uploads
 
 - Cada entorno usa su bucket propio.
-- Strapi guarda los binarios en el bucket del entorno correspondiente.
+- Strapi guarda los assets públicos en `public/cms/`.
+- El formulario de postulaciones guarda los CVs privados en `private/job-applications/` mediante el servidor de Next.js.
+- La lectura pública de CMS sigue siendo directa; la descarga de CVs debe pasar por un endpoint autenticado.
+- Los registros antiguos con `resume` media relation requieren migración manual: copiar/mover el binario, poblar `cv*` y retirar la relación vieja.
 - Production tiene un bucket de respaldo que copia los binarios a través de "Replicación entre buckets".
 
 ---
@@ -242,6 +251,10 @@ Estas integraciones son independientes de Strapi.
 - `BUILD_STRAPI_BASE_URL`
 - `BUILD_STRAPI_BUCKET_PATHNAME`
 - `NEXT_PUBLIC_BASE_URL`
+- `CV_STORAGE_DRIVER`
+- `CV_LOCAL_STORAGE_DIR`
+- `GCS_BUCKET_NAME`
+- `GCS_PRIVATE_BASE_PATH`
 
 ### Strapi
 
@@ -249,6 +262,9 @@ Estas integraciones son independientes de Strapi.
 - `DATABASE_HOST`
 - `GCS_BUCKET_NAME`
 - `GCS_BASE_PATH`
+- `GCS_BASE_URL`
+- `GCS_PUBLIC_FILES`
+- `GCS_UNIFORM`
 
 ---
 
@@ -261,7 +277,7 @@ Usuarios
        - Dashboard: operaciones server-side según sesión/rol
        -> Cloud Run (teleferico-cms / Strapi)
             -> Cloud SQL (PostgreSQL)
-            -> Cloud Storage (uploads)
+             -> Cloud Storage (public assets + private CVs)
 
 Formularios públicos
   -> reCAPTCHA

@@ -19,14 +19,14 @@ import { useState } from "react";
 interface Props {
   id: string;
   name: string;
-  resumePath: string;
+  hasCv: boolean;
   isFavorite: boolean;
   // eslint-disable-next-line no-unused-vars
   onToggle?: (next: boolean) => void;
 }
 
 export default function ActionsButton(props: Props) {
-  const { id, name, resumePath, isFavorite, onToggle } = props;
+  const { id, name, hasCv, isFavorite, onToggle } = props;
   const [isLoading, setIsLoading] = useState(false);
   const [localFavorite, setLocalFavorite] = useState(isFavorite);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -94,7 +94,7 @@ export default function ActionsButton(props: Props) {
   const handleDownloadCv = () => {
     if (isLoading) return;
 
-    if (!resumePath) {
+    if (!hasCv) {
       showAlert({
         title: "CV no disponible",
         message: "Esta postulación no tiene un currículum cargado.",
@@ -103,7 +103,7 @@ export default function ActionsButton(props: Props) {
       return;
     }
 
-    const url = `${ROUTE_HANDLERS.PROXY_FILE}${resumePath}`;
+    const url = ROUTE_HANDLERS.POSTULATION_CV(id);
 
     window.open(url, "_blank", "noopener,noreferrer");
   };
