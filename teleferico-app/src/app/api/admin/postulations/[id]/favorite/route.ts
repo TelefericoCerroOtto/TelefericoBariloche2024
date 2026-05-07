@@ -1,5 +1,4 @@
-import { auth } from "@/auth";
-import { requireCsrf } from "@/lib/http/guards";
+import { requireCsrfSession } from "@/lib/http/guards";
 import { updatePostulation } from "@/lib/services";
 import type {
   FavPostulationRequestPayload,
@@ -12,16 +11,10 @@ export async function POST(
   ctx: RouteContext<"/api/admin/postulations/[id]/favorite">,
 ) {
   try {
-    const csrfError = await requireCsrf(req);
-    if (csrfError) return csrfError;
+    const csrf = await requireCsrfSession(req);
+    if (!csrf.ok) return csrf.res;
 
-    const session = await auth();
-    if (!session) {
-      return NextResponse.json(
-        { ok: false, message: "Unauthorized" },
-        { status: 401 },
-      );
-    }
+    const { session } = csrf;
 
     const { id: documentId } = await ctx.params;
 

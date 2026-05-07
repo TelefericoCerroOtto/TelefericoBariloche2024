@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { ENV_KEYS } from "@/lib/constants/env.const";
-import { ensureTrustedOrigin } from "@/lib/http/guards";
+import { ensureTrustedBrowserRequest } from "@/lib/http/guards";
 import {
   createCvStorage,
   getPostulationByDocumentId,
@@ -25,13 +25,8 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ documentId: string }> },
 ) {
-  const originRes = ensureTrustedOrigin(req);
-  if (!originRes.ok) return originRes.res;
-
-  const site = req.headers.get("sec-fetch-site");
-  if (site && site !== "same-origin" && site !== "same-site") {
-    return new Response("Forbidden", { status: 403 });
-  }
+  const trustedRequest = ensureTrustedBrowserRequest(req);
+  if (!trustedRequest.ok) return trustedRequest.res;
 
   try {
     assertEnv([ENV_KEYS.BUILD_STRAPI_BASE_URL]);

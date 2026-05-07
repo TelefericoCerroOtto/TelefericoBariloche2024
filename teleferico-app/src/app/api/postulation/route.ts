@@ -9,6 +9,7 @@ import {
   withFormGuards,
 } from "@/lib/http/guards";
 import { buildPostulationSchema } from "@/lib/schemas";
+import { MAX_FILE_SIZE } from "@/lib/schemas/forms/constants";
 import { createCvStorage, createPostulation } from "@/lib/services";
 import type { PostulationApiResponse, StoredCvFile } from "@/types";
 import { assertEnv } from "@/utils/env";
@@ -18,6 +19,7 @@ import { ValidationError } from "yup";
 const rateLimitStore = new Map();
 const RATE_LIMIT_MAX = 2;
 const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_BODY_BYTES = MAX_FILE_SIZE + 512 * 1024; // resume limit + multipart overhead
 const MIN_FORM_AGE_MS = 5 * 1000; // 5 seconds
 const MAX_FORM_AGE_MS = 15 * 60 * 1000; // 15 minutes
 const HONEYPOT_FIELD = "honeypot";
@@ -143,6 +145,7 @@ async function postulationHandler(
 
 export const POST = withFormGuards(
   {
+    maxBodyBytes: MAX_BODY_BYTES,
     useInternalApiKey: true,
     rateLimited: {
       rateLimitStore,
