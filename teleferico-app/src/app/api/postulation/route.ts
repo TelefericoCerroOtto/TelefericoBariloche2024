@@ -9,8 +9,10 @@ import {
   withFormGuards,
 } from "@/lib/http/guards";
 import { buildPostulationSchema } from "@/lib/schemas";
-import { createPostulation, uploadFile } from "@/lib/services";
-import type { PostulationApiResponse } from "@/types";
+import { MAX_FILE_SIZE } from "@/lib/schemas/forms/constants";
+import { createPostulation } from "@/lib/services";
+import { createCvStorage } from "@/lib/services/cv-storage";
+import type { PostulationApiResponse, StoredCvFile } from "@/types";
 import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";
 import { ValidationError } from "yup";
@@ -18,6 +20,7 @@ import { ValidationError } from "yup";
 const rateLimitStore = new Map();
 const RATE_LIMIT_MAX = 2;
 const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_BODY_BYTES = MAX_FILE_SIZE + 512 * 1024; // resume limit + multipart overhead
 const MIN_FORM_AGE_MS = 5 * 1000; // 5 seconds
 const MAX_FORM_AGE_MS = 15 * 60 * 1000; // 15 minutes
 const HONEYPOT_FIELD = "honeypot";
@@ -71,44 +74,53 @@ async function postulationHandler(
       },
     );
 
-    const uploadRes = await uploadFile(adapted.resume, strapiFormsToken);
+    const cvStorage = createCvStorage();
+    let storedCv: StoredCvFile | null = null;
 
-    if (!uploadRes.ok) {
-      console.log("upload resume file error: ", uploadRes.data);
+    try {
+      storedCv = await cvStorage.save(adapted.resume);
 
-      return NextResponse.json(
-        { ok: false, message: "Failed to upload resume file" },
-        { status: 500 },
+      const reqBody = createPostulationAdapter({
+        ...validatedValues,
+        cv: storedCv,
+      });
+      const postulationResponse = await createPostulation(
+        strapiFormsToken,
+        reqBody,
       );
-    }
 
-    const resumeId = uploadRes.data[0].id;
+      if (!postulationResponse.ok) {
+        console.log("create postulation error: ", postulationResponse.data);
 
-    const reqBody = createPostulationAdapter({ ...validatedValues, resumeId });
-    const postulationResponse = await createPostulation(
-      strapiFormsToken,
-      reqBody,
-    );
+        await cvStorage.delete(storedCv.objectKey).catch((cleanupError) => {
+          console.log("cleanup cv after postulation failure error: ", cleanupError);
+        });
 
-    if (!postulationResponse.ok) {
-      console.log("create postulation error: ", postulationResponse.data);
+        return NextResponse.json(
+          {
+            ok: false,
+            message: "Failed to create postulation",
+          },
+          { status: 500 },
+        );
+      }
 
       return NextResponse.json(
         {
-          ok: false,
-          message: "Failed to create postulation",
+          ok: true,
+          message: "Postulation created successfully",
         },
-        { status: 500 },
+        { status: 201 },
       );
-    }
+    } catch (error) {
+      if (storedCv) {
+        await cvStorage.delete(storedCv.objectKey).catch((cleanupError) => {
+          console.log("cleanup cv after route failure error: ", cleanupError);
+        });
+      }
 
-    return NextResponse.json(
-      {
-        ok: true,
-        message: "Postulation created successfully",
-      },
-      { status: 201 },
-    );
+      throw error;
+    }
   } catch (error) {
     console.log("Postulation API route handler error: ", error);
 
@@ -125,7 +137,7 @@ async function postulationHandler(
     return NextResponse.json(
       {
         ok: false,
-        message: "Unknown contact handler error",
+        message: "Unknown postulation handler error",
       },
       { status: 500 },
     );
@@ -134,6 +146,7 @@ async function postulationHandler(
 
 export const POST = withFormGuards(
   {
+    maxBodyBytes: MAX_BODY_BYTES,
     useInternalApiKey: true,
     rateLimited: {
       rateLimitStore,

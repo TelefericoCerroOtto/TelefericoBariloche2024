@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
-import { ensureTrustedOrigin } from "@/lib/http/guards";
+import { ensureTrustedBrowserRequest } from "@/lib/http/guards";
 import { buildProxyTargetURL } from "@/lib/http/guards/proxy-target";
 import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";
@@ -10,14 +10,8 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ endpoint: string[] }> },
 ) {
-  const result = ensureTrustedOrigin(req);
-  if (!result.ok) return result.res;
-
-  // (Opcional) igual que en el proxy original
-  const site = req.headers.get("sec-fetch-site");
-  if (site && site !== "same-origin" && site !== "same-site") {
-    return new Response("Forbidden", { status: 403 });
-  }
+  const trustedRequest = ensureTrustedBrowserRequest(req);
+  if (!trustedRequest.ok) return trustedRequest.res;
 
   try {
     const { endpoint } = await params;

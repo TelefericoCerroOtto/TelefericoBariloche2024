@@ -125,7 +125,6 @@ export const useQuery = (params: UsePostulationsQueryParams) => {
           },
         },
         faved_by: true,
-        resume: true,
       },
     };
   }, [

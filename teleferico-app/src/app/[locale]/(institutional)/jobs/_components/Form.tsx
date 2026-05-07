@@ -330,7 +330,7 @@ export default function Form(props: Props) {
         id="resume"
         name="resume"
         type="file"
-        accept=".pdf,.doc,.docx,.txt"
+        accept=".pdf,.doc,.docx"
         ref={resumeRef}
         classNames={{
           ...formInputClassNames,

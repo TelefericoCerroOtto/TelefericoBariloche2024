@@ -20,7 +20,7 @@ Backend (CMS) del proyecto, implementado con **Strapi**.
 
 - `DATABASE_CLIENT` (`sqlite` | `mysql` | `postgres`)
 - `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
-- `GCS_BUCKET_NAME`, `GCS_BASE_PATH` (provider de Google Cloud Storage)
+- `GCS_BUCKET_NAME`, `GCS_BASE_PATH`, `GCS_BASE_URL`, `GCS_PUBLIC_FILES`, `GCS_UNIFORM` (provider de Google Cloud Storage para assets públicos)
 - `APP_KEYS`, `API_TOKEN_SALT`, `ADMIN_JWT_SECRET`, `TRANSFER_TOKEN_SALT`, `JWT_SECRET`
 
 El provider de subida a **Google Cloud Storage** está configurado mediante:
