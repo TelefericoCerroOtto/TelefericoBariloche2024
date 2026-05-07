@@ -157,14 +157,15 @@ export function renderPostulationCell({
       const isFavForUser =
         item.faved_by?.some((u) => String(u.id) === String(userId)) ?? false;
 
-      const resumePath = item.resume?.url ?? null;
+      const hasCv = Boolean(item.cvUploadedAt);
 
       return (
         <div className="flex items-center justify-center">
           <ActionsButton
             id={item.documentId}
             name={completeName}
-            resumePath={resumePath}
+            hasCv={hasCv}
+            cvMimeType={item.cvMimeType}
             isFavorite={isFavForUser}
             onToggle={() => {
               // el propio ActionsButton se encarga del fetch

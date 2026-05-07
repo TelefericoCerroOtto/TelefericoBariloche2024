@@ -13,20 +13,21 @@ import {
   ModalHeader,
   Spinner,
 } from "@heroui/react";
-import { Eye, Heart, HeartOff } from "lucide-react";
+import { Download, Eye, Heart, HeartOff } from "lucide-react";
 import { useState } from "react";
 
 interface Props {
   id: string;
   name: string;
-  resumePath: string;
+  hasCv: boolean;
+  cvMimeType?: string | null;
   isFavorite: boolean;
   // eslint-disable-next-line no-unused-vars
   onToggle?: (next: boolean) => void;
 }
 
 export default function ActionsButton(props: Props) {
-  const { id, name, resumePath, isFavorite, onToggle } = props;
+  const { id, name, hasCv, cvMimeType, isFavorite, onToggle } = props;
   const [isLoading, setIsLoading] = useState(false);
   const [localFavorite, setLocalFavorite] = useState(isFavorite);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -94,7 +95,7 @@ export default function ActionsButton(props: Props) {
   const handleDownloadCv = () => {
     if (isLoading) return;
 
-    if (!resumePath) {
+    if (!hasCv) {
       showAlert({
         title: "CV no disponible",
         message: "Esta postulación no tiene un currículum cargado.",
@@ -103,10 +104,14 @@ export default function ActionsButton(props: Props) {
       return;
     }
 
-    const url = `${ROUTE_HANDLERS.PROXY_FILE}${resumePath}`;
+    const url = ROUTE_HANDLERS.POSTULATION_CV(id);
 
     window.open(url, "_blank", "noopener,noreferrer");
   };
+
+  const isPdfCv = cvMimeType?.toLowerCase().startsWith("application/pdf") ?? false;
+  const cvActionLabel = hasCv && !isPdfCv ? "Descargar CV" : "Ver CV";
+  const CvActionIcon = isPdfCv ? Eye : Download;
 
   return (
     <div className="flex items-center gap-2">
@@ -199,7 +204,7 @@ export default function ActionsButton(props: Props) {
         </span>
       </Button>
 
-      {/* Botón descargar CV */}
+      {/* Botón abrir/descargar CV */}
       <Button
         type="button"
         variant="ghost"
@@ -208,8 +213,8 @@ export default function ActionsButton(props: Props) {
         isDisabled={isLoading}
         onPress={handleDownloadCv}
       >
-        <Eye size={18} />
-        <span className="text-sm">Ver CV</span>
+        <CvActionIcon size={18} />
+        <span className="text-sm">{cvActionLabel}</span>
       </Button>
     </div>
   );

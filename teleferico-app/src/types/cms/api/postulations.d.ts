@@ -1,4 +1,10 @@
-import type { Meta, Postulation, StrapiRecord } from "@/types";
+import type {
+  CvStorageDriver,
+  Meta,
+  Postulation,
+  StoredCvFile,
+  StrapiRecord,
+} from "@/types";
 
 export type GetPostulationResponse = {
   data: Postulation;
@@ -25,12 +31,18 @@ export type PostPostulationRequest = {
     sector: {
       connect: [{ documentId: string }];
     };
-    resume: number;
+    cvObjectKey: StoredCvFile["objectKey"];
+    cvOriginalName: StoredCvFile["originalName"];
+    cvMimeType: StoredCvFile["mimeType"];
+    cvSize: StoredCvFile["size"];
+    cvUploadedAt: StoredCvFile["uploadedAt"];
+    cvStorageProvider: CvStorageDriver;
+    cvBucket?: string;
   };
 };
 
 export type PostPostulationResponse = {
-  data: StrapiRecord<Omit<Postulation, "faved_by" | "sector" | "resume">>;
+  data: StrapiRecord<Omit<Postulation, "faved_by" | "sector">>;
   meta: Meta;
 };
 
@@ -49,6 +61,6 @@ export type UpdatePostulationRequest = {
 };
 
 export type UpdatePostulationResponse = {
-  data: StrapiRecord<Omit<Postulation, "faved_by" | "sector" | "resume">>;
+  data: StrapiRecord<Omit<Postulation, "faved_by" | "sector">>;
   meta: Meta;
 };
