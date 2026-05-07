@@ -84,6 +84,15 @@ function createItemId(sourcePath: string) {
   return createHash("sha1").update(sourcePath).digest("hex").slice(0, 12);
 }
 
+function isMissingFileError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "ENOENT"
+  );
+}
+
 export function getWorkspacePaths(workspaceId: string) {
   const workspaceDir = path.join(WORKSPACES_ROOT, workspaceId);
 
@@ -152,6 +161,18 @@ export async function readWorkspaceManifest(workspaceId: string) {
   return JSON.parse(raw) as WorkspaceManifest;
 }
 
+async function readWorkspaceManifestIfExists(workspaceId: string) {
+  try {
+    return await readWorkspaceManifest(workspaceId);
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
   await mkdir(WORKSPACES_ROOT, { recursive: true });
   const entries = await readdir(WORKSPACES_ROOT, { withFileTypes: true });
@@ -159,7 +180,11 @@ export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
     entries
       .filter((entry) => entry.isDirectory())
       .map(async (entry) => {
-        const manifest = await readWorkspaceManifest(entry.name);
+        const manifest = await readWorkspaceManifestIfExists(entry.name);
+        if (!manifest) {
+          return null;
+        }
+
         return {
           id: manifest.id,
           title: manifest.title,
@@ -169,7 +194,9 @@ export async function listWorkspaces(): Promise<WorkspaceSummary[]> {
       }),
   );
 
-  return summaries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return summaries
+    .filter((summary): summary is WorkspaceSummary => summary !== null)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export async function updateWorkspace(
