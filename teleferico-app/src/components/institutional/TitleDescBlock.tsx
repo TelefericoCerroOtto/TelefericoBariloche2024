@@ -18,6 +18,7 @@ interface Props {
   desc?: ReactNode | BlocksContent;
   children?: ReactNode;
   descProsePreset?: TypographyProsePreset;
+  descClassName?: string;
 }
 
 export function HighlightLastWord(text: string) {
@@ -50,7 +51,10 @@ export default function TitleDescBlock(props: Props) {
     size = "md",
     bgColor = "none",
     descProsePreset = "feature",
+    descClassName,
   } = props;
+
+  const resolvedDescClassName = descClassName ?? "max-sm:prose-xl";
 
   const alignVariants = {
     center: "items-center text-center mx-auto",
@@ -74,19 +78,24 @@ export default function TitleDescBlock(props: Props) {
       className={`flex gap-4 ${flexdirVariants[flexdir]} ${sizeVariants[size]} ${alignVariants[align]} ${bgStyles[bgColor]}`}
     >
       <h3
-        className={`font-bold ${caseStyles[titleCase]} ${typography.headings.section}`}
+        className={`font-bold ${caseStyles[titleCase]} ${typography.headings.section} max-sm:text-2xl max-sm:leading-tight`}
       >
         {title}
       </h3>
       {epigraph ? (
-        <p className={`${typography.meta.eyebrow} text-primary`}>{epigraph}</p>
+        <p className={`${typography.meta.eyebrow} text-primary max-sm:text-sm`}>
+          {epigraph}
+        </p>
       ) : null}
       {desc && typeof desc === "string" ? (
-        <p className={typography.content.section}>{desc}</p>
+        <p className={`${typography.content.section} max-sm:text-lg`}>
+          {desc}
+        </p>
       ) : (
         <BlockRendererClient
           content={desc as BlocksContent}
           prosePreset={descProsePreset}
+          className={resolvedDescClassName}
         />
       )}
       {children ? <div className="flex gap-4">{children}</div> : null}

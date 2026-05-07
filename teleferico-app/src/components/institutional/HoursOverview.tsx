@@ -138,7 +138,11 @@ function HoursOverviewItems({
           <h4 className="text-2xl font-bold sm:text-3xl md:text-4xl">
             {item.title}
           </h4>
-          <BlockRendererClient content={item.desc} prosePreset="section" />
+          <BlockRendererClient
+            content={item.desc}
+            prosePreset="feature"
+            className="max-sm:prose-xl"
+          />
         </div>
       ))}
     </div>
@@ -220,6 +224,7 @@ export default async function HoursOverview(props: Props) {
           title={content.title}
           desc={descWithTimes}
           descProsePreset="section"
+          descClassName="md:prose-3xl"
         />
         <Spacer y={16} />
         <HoursOverviewItems items={itemsIntl} />

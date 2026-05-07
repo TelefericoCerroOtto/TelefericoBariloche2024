@@ -243,7 +243,7 @@ export default function Carrousel({
               className="h-auto"
             >
               <article className="relative overflow-hidden">
-                <div className="relative min-h-[360px] w-full sm:min-h-[440px] lg:min-h-[640px]">
+                <div className="relative min-h-[390px] w-full sm:min-h-[460px] lg:min-h-[680px]">
                   <picture className="absolute inset-0">
                     {/* Desktop >= md */}
                     <source media="(min-width: 768px)" srcSet={desktopSrcSet} />
@@ -268,19 +268,19 @@ export default function Carrousel({
                         <div className="w-full p-4 sm:px-16 sm:py-6 lg:px-20 lg:py-10">
                           <div className="mx-auto max-w-[62ch] text-center text-white">
                             {item.epigraph ? (
-                              <p className="text-base font-semibold tracking-wide text-white/90 sm:text-lg lg:text-xl">
+                              <p className="text-sm font-semibold tracking-wide text-white/90 sm:text-lg lg:text-xl">
                                 {item.epigraph}
                               </p>
                             ) : null}
 
                             {item.title ? (
-                              <h3 className="mt-3 text-4xl font-semibold leading-tight sm:text-5xl lg:text-7xl">
+                              <h3 className="mt-3 text-3xl font-semibold leading-tight sm:text-5xl lg:text-7xl">
                                 {item.title}
                               </h3>
                             ) : null}
 
                             {item.description ? (
-                              <div className="mt-4 text-lg leading-relaxed text-white/90 sm:text-xl lg:text-3xl">
+                              <div className="mt-4 text-base leading-relaxed text-white/90 sm:text-xl lg:text-3xl">
                                 <Description
                                   value={
                                     item.description as BlocksContent | string
@@ -298,7 +298,7 @@ export default function Carrousel({
                                   color="primary"
                                   variant="solid"
                                   size="md"
-                                  className="w-full px-6 font-semibold sm:w-auto sm:px-8 sm:text-lg lg:text-xl"
+                                  className="w-full px-5 font-semibold max-sm:text-sm sm:w-auto sm:px-8 sm:text-lg lg:text-xl"
                                 >
                                   {item.link.label}
                                 </Button>

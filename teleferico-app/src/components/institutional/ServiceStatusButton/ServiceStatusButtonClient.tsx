@@ -180,32 +180,32 @@ export default function ServiceStatusButtonClient(props: Props) {
         onClick={onOpen}
         aria-expanded={isOpen}
         aria-controls={modalId}
-        className={`group flex min-h-36 w-full items-center gap-4 rounded-2xl border px-5 py-5 text-left shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary sm:min-h-40 sm:gap-5 sm:rounded-3xl sm:px-7 sm:py-6 lg:min-h-44 lg:px-8 ${styles.border} ${styles.background}`}
+        className={`group relative flex min-h-36 w-full flex-col items-center gap-3 rounded-2xl border px-5 py-5 text-center shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary sm:min-h-40 sm:flex-row sm:items-center sm:gap-5 sm:rounded-3xl sm:px-7 sm:py-6 sm:text-left lg:min-h-44 lg:px-8 ${styles.border} ${styles.background}`}
       >
         {/* Icono teleferico */}
         <span
-          className={`flex size-12 items-center justify-center rounded-xl shadow-inner shadow-black/10 sm:size-16 sm:rounded-2xl lg:size-[4.5rem] ${styles.iconBackground}`}
+          className={`flex size-11 self-center items-center justify-center rounded-xl shadow-inner shadow-black/10 sm:size-16 sm:self-auto sm:rounded-2xl lg:size-[4.5rem] ${styles.iconBackground}`}
         >
           <CableCar
-            className={`size-6 sm:size-7 lg:size-8 ${styles.iconColor}`}
+            className={`size-5 sm:size-7 lg:size-8 ${styles.iconColor}`}
             aria-hidden="true"
           />
         </span>
 
         {/* Textos informativos */}
-        <span className="flex min-w-0 flex-1 flex-col gap-2 sm:gap-2.5">
+        <span className="flex min-w-0 w-full flex-1 flex-col items-center gap-2 text-center sm:w-auto sm:items-start sm:gap-2.5 sm:text-left">
           <span
-            className={`inline-flex w-fit items-center justify-center whitespace-normal rounded-full px-3 py-1 text-center text-base font-semibold uppercase leading-tight tracking-wide sm:px-3.5 sm:py-1.5 sm:text-lg sm:leading-none ${styles.badgeBackground} ${styles.badgeText}`}
+            className={`inline-flex w-fit items-center justify-center whitespace-normal rounded-full px-3 py-1 text-center text-sm font-semibold uppercase leading-tight tracking-wide sm:px-3.5 sm:py-1.5 sm:text-lg sm:leading-none ${styles.badgeBackground} ${styles.badgeText}`}
           >
             {activeState?.stateLegend ?? content.button.trigger}
           </span>
 
-          <span className="text-xl font-semibold text-slate-900 sm:text-2xl md:text-3xl">
+          <span className="text-lg font-semibold text-slate-900 sm:text-2xl md:text-3xl">
             {content.button.trigger}
           </span>
 
           <span
-            className={`text-lg sm:text-xl md:text-2xl ${styles.accentText}`}
+            className={`text-base sm:text-xl md:text-2xl ${styles.accentText}`}
           >
             {activeState?.title}
           </span>
@@ -218,10 +218,6 @@ export default function ServiceStatusButtonClient(props: Props) {
         </span>
 
         {/* Flecha  */}
-        <ChevronRight
-          aria-hidden="true"
-          className={`size-6 shrink-0 transition-transform duration-200 group-hover:translate-x-1 sm:size-7 ${styles.accentText}`}
-        />
       </button>
 
       {/* Modal */}

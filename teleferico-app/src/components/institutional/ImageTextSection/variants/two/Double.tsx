@@ -71,7 +71,7 @@ export default function Double(props: TwoImagesProps) {
           <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-5">
             <LogoBadge />
             <h4
-              className={`text-center font-bold ${caseStyles[titleCase]} text-inherit md:text-left ${typography.headings.feature}`}
+              className={`text-center font-bold ${caseStyles[titleCase]} text-inherit md:text-left ${typography.headings.feature} max-sm:text-3xl max-sm:leading-tight`}
             >
               {isHighlighted ? HighlightLastWord(title) : title}
             </h4>
@@ -93,6 +93,7 @@ export default function Double(props: TwoImagesProps) {
             <BlockRendererClient
               content={description as BlocksContent}
               prosePreset="feature"
+              className="max-sm:prose-lg"
             />
           </div>
 

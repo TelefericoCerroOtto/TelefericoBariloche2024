@@ -77,7 +77,7 @@ export default function Horizontal(props: ThreeImagesProps) {
         <div className="flex flex-col items-center gap-4">
           <LogoBadge />
           <h4
-            className={`text-center font-bold ${caseStyles[titleCase]} text-inherit ${typography.headings.feature}`}
+            className={`text-center font-bold ${caseStyles[titleCase]} text-inherit ${typography.headings.feature} max-sm:text-3xl max-sm:leading-tight`}
           >
             {isHighlighted ? HighlightLastWord(title) : title}
           </h4>
@@ -86,7 +86,7 @@ export default function Horizontal(props: ThreeImagesProps) {
         <div className="min-h-[1.5rem] text-center">
           {epigraph ? (
             <p
-              className={`inline-block border-l-2 border-red-500/40 pl-4 font-semibold uppercase tracking-[0.35em] text-foreground/70 ${typography.meta.featureEyebrow}`}
+              className={`inline-block border-l-2 border-red-500/40 pl-4 font-semibold uppercase tracking-[0.35em] text-foreground/70 ${typography.meta.featureEyebrow} max-sm:text-sm`}
             >
               {epigraph}
             </p>
@@ -96,7 +96,7 @@ export default function Horizontal(props: ThreeImagesProps) {
         {description ? (
           typeof description === "string" ? (
             <p
-              className={`text-center leading-relaxed text-foreground/80 ${typography.content.feature}`}
+              className={`text-center leading-relaxed text-foreground/80 ${typography.content.feature} max-sm:text-lg`}
             >
               {description}
             </p>
@@ -107,6 +107,7 @@ export default function Horizontal(props: ThreeImagesProps) {
               <BlockRendererClient
                 content={description}
                 prosePreset="feature"
+                className="max-sm:prose-lg"
               />
             </div>
           )
