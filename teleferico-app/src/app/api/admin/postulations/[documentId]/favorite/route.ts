@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   req: NextRequest,
-  ctx: RouteContext<"/api/admin/postulations/[id]/favorite">,
+  ctx: RouteContext<"/api/admin/postulations/[documentId]/favorite">,
 ) {
   try {
     const csrf = await requireCsrfSession(req);
@@ -16,7 +16,7 @@ export async function POST(
 
     const { session } = csrf;
 
-    const { id: documentId } = await ctx.params;
+    const { documentId } = await ctx.params;
 
     const body = (await req.json()) as FavPostulationRequestPayload;
 

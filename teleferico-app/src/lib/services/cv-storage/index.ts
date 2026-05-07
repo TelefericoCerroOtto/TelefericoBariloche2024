@@ -3,7 +3,7 @@ import "server-only";
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import type { CvStorage, CvStorageDriver, StoredCvFile } from "@/types";
 import { assertEnv } from "@/utils/env";
-import { GoogleAuth } from "google-auth-library";
+import { Storage } from "@google-cloud/storage";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
@@ -11,9 +11,8 @@ import path from "node:path";
 
 const DEFAULT_PRIVATE_BASE_PATH = "private/job-applications";
 const DEFAULT_LOCAL_STORAGE_DIR = ".private/job-applications";
-const GCS_UPLOAD_BASE_URL = "https://storage.googleapis.com/upload/storage/v1";
-const GCS_OBJECTS_BASE_URL = "https://storage.googleapis.com/storage/v1";
-const GCS_SCOPE = ["https://www.googleapis.com/auth/devstorage.read_write"];
+const DEFAULT_SIGNED_URL_TTL_SECONDS = 300;
+const GCS_CLIENT = new Storage();
 
 const ALLOWED_EXTENSIONS = new Set(["pdf", "doc", "docx", "txt"]);
 const MIME_TO_EXTENSION: Record<string, string> = {
@@ -24,12 +23,12 @@ const MIME_TO_EXTENSION: Record<string, string> = {
   "text/plain": "txt",
 };
 
-type GoogleClient = Awaited<ReturnType<GoogleAuth["getClient"]>>;
-
-let googleClientPromise: Promise<GoogleClient> | null = null;
-
 function normalizeBasePath(value: string) {
   return value.replace(/^\/+|\/+$/g, "");
+}
+
+function sanitizeFilename(value: string) {
+  return value.replace(/["\r\n]/g, "_");
 }
 
 function resolveRuntimeDriver(
@@ -93,33 +92,20 @@ function resolveLocalPath(rootDir: string, objectKey: string, basePath: string) 
   return path.resolve(rootDir, relativePath);
 }
 
-async function getGoogleClient(): Promise<GoogleClient> {
-  if (!googleClientPromise) {
-    const auth = new GoogleAuth({ scopes: GCS_SCOPE });
-    googleClientPromise = auth.getClient();
-  }
-
-  return googleClientPromise!;
-}
-
-async function getGoogleAccessToken() {
-  const client = await getGoogleClient();
-  const tokenRes = await client.getAccessToken();
-  const token = typeof tokenRes === "string" ? tokenRes : tokenRes?.token;
-
-  if (!token) {
-    throw new Error("Unable to resolve Google access token for CV storage");
-  }
-
-  return token;
-}
-
 async function bufferFromFile(file: File) {
   return Buffer.from(await file.arrayBuffer());
 }
 
+function getSignedUrlTtlSeconds() {
+  const raw = process.env[ENV_KEYS.GCS_SIGNED_URL_TTL_SECONDS];
+  const parsed = raw ? Number(raw) : DEFAULT_SIGNED_URL_TTL_SECONDS;
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_SIGNED_URL_TTL_SECONDS;
+}
+
 function createLocalStorage(): CvStorage {
-  assertEnv([ENV_KEYS.CV_LOCAL_STORAGE_DIR, ENV_KEYS.GCS_PRIVATE_BASE_PATH]);
+  assertEnv([ENV_KEYS.CV_LOCAL_STORAGE_DIR]);
 
   const rootDir = path.resolve(
     process.cwd(),
@@ -133,8 +119,7 @@ function createLocalStorage(): CvStorage {
     async save(file) {
       const objectKey = buildObjectKey(basePath, file);
       const filePath = resolveLocalPath(rootDir, objectKey, basePath);
-      const dir = path.dirname(filePath);
-      await mkdir(dir, { recursive: true });
+      await mkdir(path.dirname(filePath), { recursive: true });
       await writeFile(filePath, await bufferFromFile(file));
 
       return toStoredFile(objectKey, file, "local");
@@ -153,70 +138,43 @@ function createLocalStorage(): CvStorage {
 function createGcsStorage(): CvStorage {
   assertEnv([ENV_KEYS.GCS_BUCKET_NAME, ENV_KEYS.GCS_PRIVATE_BASE_PATH]);
 
-  const bucket = process.env[ENV_KEYS.GCS_BUCKET_NAME] as string;
+  const bucketName = process.env[ENV_KEYS.GCS_BUCKET_NAME] as string;
   const basePath =
     process.env[ENV_KEYS.GCS_PRIVATE_BASE_PATH] ?? DEFAULT_PRIVATE_BASE_PATH;
+  const bucket = GCS_CLIENT.bucket(bucketName);
 
   return {
     driver: "gcs",
-    bucket,
+    bucket: bucketName,
     async save(file) {
       const objectKey = buildObjectKey(basePath, file);
-      const uploadUrl = new URL(
-        `${GCS_UPLOAD_BASE_URL}/b/${encodeURIComponent(bucket)}/o`,
-      );
-      uploadUrl.searchParams.set("uploadType", "media");
-      uploadUrl.searchParams.set("name", objectKey);
+      const gcsFile = bucket.file(objectKey);
 
-      const response = await fetch(uploadUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${await getGoogleAccessToken()}`,
-          "Content-Type": file.type || "application/octet-stream",
+      await gcsFile.save(await bufferFromFile(file), {
+        resumable: false,
+        contentType: file.type || "application/octet-stream",
+        metadata: {
+          contentDisposition: `attachment; filename="${sanitizeFilename(file.name)}"`,
+          cacheControl: "private, no-store, max-age=0",
         },
-        body: await bufferFromFile(file),
       });
 
-      if (!response.ok) {
-        throw new Error(
-          `GCS upload failed with status ${response.status}: ${await response.text()}`,
-        );
-      }
-
-      return toStoredFile(objectKey, file, "gcs", bucket);
+      return toStoredFile(objectKey, file, "gcs", bucketName);
     },
     async getReadableStream(objectKey) {
-      const downloadUrl = `${GCS_OBJECTS_BASE_URL}/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(objectKey)}?alt=media`;
-      const response = await fetch(downloadUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${await getGoogleAccessToken()}`,
-        },
-        cache: "no-store",
-      });
-
-      if (!response.ok || !response.body) {
-        throw new Error(
-          `GCS download failed with status ${response.status}: ${await response.text()}`,
-        );
-      }
-
-      return response.body;
+      return bucket.file(objectKey).createReadStream();
     },
     async delete(objectKey) {
-      const deleteUrl = `${GCS_OBJECTS_BASE_URL}/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(objectKey)}`;
-      const response = await fetch(deleteUrl, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${await getGoogleAccessToken()}`,
-        },
+      await bucket.file(objectKey).delete({ ignoreNotFound: true });
+    },
+    async getDownloadUrl(objectKey) {
+      const [url] = await bucket.file(objectKey).getSignedUrl({
+        version: "v4",
+        action: "read",
+        expires: Date.now() + getSignedUrlTtlSeconds() * 1000,
       });
 
-      if (!response.ok && response.status !== 404) {
-        throw new Error(
-          `GCS delete failed with status ${response.status}: ${await response.text()}`,
-        );
-      }
+      return url;
     },
   };
 }

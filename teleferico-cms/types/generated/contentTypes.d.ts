@@ -870,6 +870,13 @@ export interface ApiPostulationPostulation extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    cvBucket: Schema.Attribute.String;
+    cvMimeType: Schema.Attribute.String;
+    cvObjectKey: Schema.Attribute.String;
+    cvOriginalName: Schema.Attribute.String;
+    cvSize: Schema.Attribute.Integer;
+    cvStorageProvider: Schema.Attribute.String;
+    cvUploadedAt: Schema.Attribute.DateTime;
     email: Schema.Attribute.Email & Schema.Attribute.Required;
     faved_by: Schema.Attribute.Relation<
       'manyToMany',
@@ -899,13 +906,6 @@ export interface ApiPostulationPostulation extends Struct.CollectionTypeSchema {
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'unreviewed'>;
     publishedAt: Schema.Attribute.DateTime;
-    cvBucket: Schema.Attribute.String;
-    cvMimeType: Schema.Attribute.String;
-    cvObjectKey: Schema.Attribute.String;
-    cvOriginalName: Schema.Attribute.String;
-    cvSize: Schema.Attribute.Integer;
-    cvStorageProvider: Schema.Attribute.String;
-    cvUploadedAt: Schema.Attribute.DateTime;
     sector: Schema.Attribute.Relation<'oneToOne', 'api::sector.sector'>;
     surname: Schema.Attribute.String &
       Schema.Attribute.Required &

@@ -162,9 +162,11 @@ Staging y production están separados en:
 - Cada entorno usa su bucket propio.
 - Strapi guarda los assets públicos en `public/cms/`.
 - El formulario de postulaciones guarda los CVs privados en `private/job-applications/` mediante el servidor de Next.js.
+- El flujo local de Strapi Media Library sigue usando `teleferico-cms/public/uploads` y no depende de `CV_STORAGE_DRIVER`.
 - La lectura pública de CMS sigue siendo directa; la descarga de CVs debe pasar por un endpoint autenticado.
 - Los registros antiguos con `resume` media relation requieren migración manual: copiar/mover el binario, poblar `cv*` y retirar la relación vieja.
 - Production tiene un bucket de respaldo que copia los binarios a través de "Replicación entre buckets".
+- **Public Access Prevention**: no puede estar `enforced` si `public/cms/` debe ser público con `allUsers`.
 
 ---
 
@@ -221,6 +223,24 @@ Separar permisos por caso de uso:
   - Cloud SQL
   - Cloud Storage
   - Secret Manager
+
+### Managed folders
+
+Si el bucket usa managed folders, la política debe colgarse de los prefijos y no de condiciones a nivel bucket.
+
+Ejemplo:
+
+```bash
+gcloud storage managed-folders add-iam-policy-binding gs://cms_staging_bucket/public/cms \
+  --member=allUsers \
+  --role=roles/storage.objectViewer
+
+gcloud storage managed-folders add-iam-policy-binding gs://cms_staging_bucket/private/job-applications \
+  --member=serviceAccount:APP_RUNTIME_SA \
+  --role=roles/storage.objectAdmin
+```
+
+Repetir el esquema para `cms_production_bucket` y la service account del CMS para `public/cms/`.
 
 ---
 

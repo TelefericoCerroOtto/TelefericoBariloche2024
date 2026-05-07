@@ -10,7 +10,8 @@ import {
 } from "@/lib/http/guards";
 import { buildPostulationSchema } from "@/lib/schemas";
 import { MAX_FILE_SIZE } from "@/lib/schemas/forms/constants";
-import { createCvStorage, createPostulation } from "@/lib/services";
+import { createPostulation } from "@/lib/services";
+import { createCvStorage } from "@/lib/services/cv-storage";
 import type { PostulationApiResponse, StoredCvFile } from "@/types";
 import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";

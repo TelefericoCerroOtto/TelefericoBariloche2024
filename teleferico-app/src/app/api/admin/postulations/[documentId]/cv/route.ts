@@ -1,16 +1,16 @@
 import { auth } from "@/auth";
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import { ensureTrustedBrowserRequest } from "@/lib/http/guards";
-import {
-  createCvStorage,
-  getPostulationByDocumentId,
-} from "@/lib/services";
+import { getPostulationByDocumentId } from "@/lib/services";
+import { createCvStorage } from "@/lib/services/cv-storage";
+import type { UserRole } from "@/types";
 import { assertEnv } from "@/utils/env";
 import { Readable } from "node:stream";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const ALLOWED_ROLES: UserRole["name"][] = ["Administrator", "Recruiter"];
 
 function sanitizeDownloadFilename(filename: string) {
   return filename.replace(/["\r\n]/g, "_");
@@ -36,6 +36,14 @@ export async function GET(
       return NextResponse.json(
         { message: "Unauthorized" },
         { status: 401 },
+      );
+    }
+
+    const roleName = session.user?.role?.name;
+    if (!roleName || !ALLOWED_ROLES.includes(roleName)) {
+      return NextResponse.json(
+        { message: "Forbidden" },
+        { status: 403 },
       );
     }
 
