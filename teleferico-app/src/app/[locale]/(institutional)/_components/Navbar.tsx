@@ -237,7 +237,7 @@ export default function Navbar(props: Props) {
           variant="bordered"
           size="sm"
           aria-label="Change language"
-          className="w-[clamp(96px,22vw,160px)]"
+          className="w-[clamp(120px,30vw,160px)]"
           isDisabled={isNavigating}
           popoverProps={{
             classNames: {
@@ -256,7 +256,7 @@ export default function Navbar(props: Props) {
             // asegura tamaño también en el valor renderizado
             value: [
               cn(
-                "min-w-0 truncate text-sm leading-5 md:text-base md:leading-6",
+                "min-w-0 text-xs leading-4 md:text-base md:leading-6",
                 "text-foreground",
               ),
             ],

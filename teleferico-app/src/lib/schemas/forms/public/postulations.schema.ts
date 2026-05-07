@@ -29,7 +29,13 @@ export const buildPostulationSchema = (locale: Locales) => {
     email: string().email(m.string.email).required(m.string.required),
     sector: string().required(m.string.required),
     note: string().max(400, m.string.max(400)),
-    campNo: number().integer(m.number.integer),
+    campNo: number()
+      .transform((value, originalValue) =>
+        originalValue === "" ? undefined : value,
+      )
+      .typeError(m.number.integer)
+      .integer(m.number.integer)
+      .notRequired(),
     resume: mixed<File>()
       .required(m.mixed.required)
       .test("fileType", m.mixed.resumeType, (file) => {

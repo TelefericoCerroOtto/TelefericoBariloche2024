@@ -114,20 +114,20 @@ export default function Poster(props: OneImageProps) {
 
           {posterState === "default" ? (
             <div className="absolute inset-0 flex items-center justify-center px-5 py-8">
-              <article className="w-full max-w-3xl rounded-3xl bg-background/50 px-8 py-10 text-foreground shadow-2xl shadow-black/20 ring-1 ring-red-500/25 backdrop-blur-md md:px-12 md:py-12">
+              <article className="w-full max-w-3xl rounded-3xl bg-background/50 px-6 py-8 text-foreground shadow-2xl shadow-black/20 ring-1 ring-red-500/25 backdrop-blur-md sm:px-8 sm:py-10 md:px-12 md:py-12">
                 <div
                   aria-hidden="true"
-                  className="mb-6 h-1 w-16 rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500"
+                  className="mb-5 h-1 w-16 rounded-full bg-gradient-to-r from-red-600 via-rose-500 to-red-500 sm:mb-6"
                 />
 
-                <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-5">
+                <div className="flex flex-col items-center gap-3 md:flex-row md:items-start md:gap-5">
                   <LogoBadge />
 
                   {hasTitle || hasEpigraph ? (
                     <div className="w-full">
                       {hasTitle ? (
                         <h4
-                          className={`text-center font-bold ${caseStyles[titleCase]} text-inherit md:text-left ${typography.headings.feature}`}
+                          className={`text-center font-bold ${caseStyles[titleCase]} text-inherit md:text-left ${typography.headings.feature} max-sm:text-3xl max-sm:leading-tight`}
                         >
                           {isHighlighted
                             ? HighlightLastWord(normalizedTitle)
@@ -137,7 +137,7 @@ export default function Poster(props: OneImageProps) {
 
                       {hasEpigraph ? (
                         <p
-                          className={`mt-2 text-center font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-left ${typography.meta.featureEyebrow}`}
+                          className={`mt-2 text-center font-semibold uppercase tracking-[0.35em] text-foreground/70 md:text-left ${typography.meta.featureEyebrow} max-sm:text-sm`}
                         >
                           {normalizedEpigraph}
                         </p>
@@ -148,17 +148,18 @@ export default function Poster(props: OneImageProps) {
 
                 {hasDescription ? (
                   <div
-                    className={`mt-6 space-y-4 text-center leading-relaxed text-foreground/80 md:text-left ${typography.content.feature}`}
+                    className={`mt-5 space-y-4 text-center leading-relaxed text-foreground/80 md:mt-6 md:text-left ${typography.content.feature} max-sm:text-lg`}
                   >
                     <BlockRendererClient
                       content={description as BlocksContent}
                       prosePreset="feature"
+                      className="max-sm:prose-lg"
                     />
                   </div>
                 ) : null}
 
                 {normalizedLink ? (
-                  <div className="mt-8 flex justify-center md:justify-start">
+                  <div className="mt-6 flex justify-center md:mt-8 md:justify-start">
                     <CustomLink href={normalizedLink.href} withButtonStyles>
                       {normalizedLink.label}
                     </CustomLink>

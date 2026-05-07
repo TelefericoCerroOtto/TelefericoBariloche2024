@@ -51,10 +51,10 @@ export default function Panoramic(props: OneImageProps) {
         </div>
 
         {/* Oscurecer fondo */}
-        <div aria-hidden="true" className="absolute inset-0 bg-black/50" />
+        <div aria-hidden="true" className="absolute inset-0 bg-black/35" />
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/45 to-black/25"
+          className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/30 to-black/15"
         />
 
         {/* Contenido centrado */}
@@ -62,7 +62,7 @@ export default function Panoramic(props: OneImageProps) {
           <div className="mx-auto flex w-full max-w-4xl flex-col items-center text-center">
             {epigraph ? (
               <p
-                className={`mb-3 font-bold uppercase tracking-wide text-red-600 ${typography.meta.eyebrow}`}
+                className={`mb-2 inline-flex items-center rounded-full bg-black/25 px-3 py-1 font-semibold uppercase tracking-[0.28em] text-red-200 shadow-sm backdrop-blur-sm ${typography.meta.eyebrow} max-sm:text-xs`}
               >
                 {epigraph}
               </p>
@@ -71,7 +71,7 @@ export default function Panoramic(props: OneImageProps) {
             {title ? (
               <h2
                 className={[
-                  "font-black tracking-tight text-white sm:tracking-normal",
+                  "font-black tracking-tight text-white sm:tracking-normal max-sm:text-2xl max-sm:leading-tight",
                   typography.headings.hero,
                   titleCaseClass,
                 ].join(" ")}
@@ -81,7 +81,7 @@ export default function Panoramic(props: OneImageProps) {
             ) : null}
 
             {description ? (
-              <div className="mt-4 w-full">
+              <div className="mt-3 w-full sm:mt-4">
                 <BlockRendererClient
                   content={description as BlocksContent}
                   prosePreset="feature"
@@ -91,13 +91,14 @@ export default function Panoramic(props: OneImageProps) {
                     "prose-headings:text-center prose-p:text-center prose-li:text-center",
                     "prose-headings:leading-tight prose-p:leading-relaxed",
                     "prose-a:text-custom-red",
+                    "max-sm:prose-xl",
                   ].join(" ")}
                 />
               </div>
             ) : null}
 
             {link ? (
-              <div className="mt-6 flex justify-center">
+              <div className="mt-4 flex justify-center sm:mt-6">
                 <Button
                   as={CustomLink}
                   href={link.href}
@@ -105,7 +106,7 @@ export default function Panoramic(props: OneImageProps) {
                   color="primary"
                   variant="solid"
                   size="lg"
-                  className={`px-6 font-semibold ${typography.ui.prominentAction}`}
+                  className={`px-5 font-semibold ${typography.ui.prominentAction} max-sm:px-4 max-sm:text-base`}
                 >
                   {link.label}
                 </Button>

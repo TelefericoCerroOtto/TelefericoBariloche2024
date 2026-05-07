@@ -127,8 +127,9 @@ export default function Form(props: Props) {
     handleChange,
     handleBlur,
     handleSubmit,
-    setFieldValue,
+    submitCount,
     setFieldTouched,
+    setFieldValue,
     resetForm,
     validateForm,
   } = useFormik<PostulationFormData>({
@@ -153,7 +154,11 @@ export default function Form(props: Props) {
   const formIntl = data!.data[0].jsonValue;
 
   return (
-    <form className="grid flex-grow grid-cols-1 gap-4" onSubmit={handleSubmit}>
+    <form
+      className="grid flex-grow grid-cols-1 gap-4"
+      noValidate
+      onSubmit={handleSubmit}
+    >
       <Honeypot
         value={honeypot}
         onChange={(e) => setHoneypot(e.target.value)}
@@ -272,14 +277,39 @@ export default function Form(props: Props) {
       <Input
         id="campNo"
         name="campNo"
-        type="number"
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        autoComplete="off"
         labelPlacement="outside"
         label={formIntl.fields.campNo.label}
         placeholder={formIntl.fields.campNo.placeholder}
+        value={values.campNo?.toString() ?? ""}
+        onKeyDown={(event) => {
+          const allowedKeys = [
+            "Backspace",
+            "Delete",
+            "Tab",
+            "Escape",
+            "Enter",
+            "ArrowLeft",
+            "ArrowRight",
+            "Home",
+            "End",
+          ];
+
+          if (allowedKeys.includes(event.key)) return;
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          if (!/^[0-9]$/.test(event.key)) {
+            event.preventDefault();
+          }
+        }}
         onChange={handleChange}
         onBlur={handleBlur}
-        errorMessage={errors.campNo}
-        isInvalid={errors.campNo !== undefined && touched.campNo}
+        errorMessage={
+          touched.campNo || submitCount > 0 ? errors.campNo : undefined
+        }
+        isInvalid={Boolean(errors.campNo) && (touched.campNo || submitCount > 0)}
         classNames={formInputClassNames}
       />
       <Textarea
@@ -287,7 +317,7 @@ export default function Form(props: Props) {
         name="note"
         type="note"
         labelPlacement="outside"
-        label={formIntl.fields.note.label}
+        label={`${formIntl.fields.note.label} (${translations[locale].optional})`}
         placeholder={formIntl.fields.note.placeholder}
         value={values.note}
         onChange={handleChange}

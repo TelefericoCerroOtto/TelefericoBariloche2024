@@ -82,11 +82,11 @@ export default function Miniatures(props: ThreeImagesProps) {
           isInverted ? "lg:items-center" : "lg:items-start lg:px-10"
         }`}
       >
-        <div className="w-full max-w-xl rounded-3xl bg-background/80 px-6 py-8 text-foreground shadow-xl shadow-black/5 ring-1 ring-red-500/80 backdrop-blur sm:px-8 sm:py-10">
-          <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-5">
+        <div className="w-full max-w-xl rounded-3xl bg-background/80 px-5 py-7 text-foreground shadow-xl shadow-black/5 ring-1 ring-red-500/80 backdrop-blur sm:px-8 sm:py-10">
+          <div className="flex flex-col items-center gap-3 md:flex-row md:items-start md:gap-5">
             <LogoBadge />
             <h4
-              className={`text-center font-bold ${caseStyles[titleCase]} text-inherit md:text-left ${typography.headings.feature}`}
+              className={`text-center font-bold ${caseStyles[titleCase]} text-inherit md:text-left ${typography.headings.feature} max-sm:text-3xl max-sm:leading-tight`}
             >
               {isHighlighted ? HighlightLastWord(title) : title}
             </h4>
@@ -95,7 +95,7 @@ export default function Miniatures(props: ThreeImagesProps) {
           <div className="mt-2 min-h-[1.5rem] text-center md:text-left">
             {epigraph ? (
               <p
-                className={`${typography.meta.featureEyebrow} font-semibold uppercase tracking-[0.35em] text-foreground/70`}
+                className={`${typography.meta.featureEyebrow} font-semibold uppercase tracking-[0.35em] text-foreground/70 max-sm:text-sm`}
               >
                 {epigraph}
               </p>
@@ -105,24 +105,25 @@ export default function Miniatures(props: ThreeImagesProps) {
           {description ? (
             typeof description === "string" ? (
               <p
-                className={`mt-4 text-left leading-relaxed text-foreground/80 ${typography.content.feature}`}
+                className={`mt-4 text-left leading-relaxed text-foreground/80 ${typography.content.feature} max-sm:text-lg`}
               >
                 {description}
               </p>
             ) : (
               <div
-                className={`mt-4 space-y-4 text-left leading-relaxed text-foreground/80 ${typography.content.feature}`}
+                className={`mt-4 space-y-4 text-left leading-relaxed text-foreground/80 ${typography.content.feature} max-sm:text-lg`}
               >
                 <BlockRendererClient
                   content={description}
                   prosePreset="feature"
+                  className="max-sm:prose-lg"
                 />
               </div>
             )
           ) : null}
 
           {link ? (
-            <div className="mt-6">
+            <div className="mt-5">
               <CustomLink href={link.href} withButtonStyles>
                 {link.label}
               </CustomLink>
