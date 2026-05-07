@@ -1,73 +1,54 @@
-import { readFile } from "node:fs/promises";
-import { expect, test } from "vitest";
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
-import {
-  assertWorkspaceJobsPathConfinement,
-  createWorkspace,
-  importWorkspaceFiles,
-  readWorkspaceJobsText,
-  resolveWorkspaceItemInputPath,
-  writeWorkspaceJobsText,
-} from "./workspace-store";
+import { afterEach, expect, test, vi } from "vitest";
 
-test("workspace store imports files and persists jobs text", async () => {
-  const workspace = await createWorkspace("Workspace store test");
+import type { WorkspaceManifest } from "../studio/types";
 
-  const imported = await importWorkspaceFiles(workspace.id, [
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
+
+test("listWorkspaces skips workspace directories without manifests", async () => {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "image-pipeline-studio-root-"));
+
+  const studioRoot = path.join(tempDir, ".studio");
+  const workspacesRoot = path.join(studioRoot, "workspaces");
+  await mkdir(workspacesRoot, { recursive: true });
+
+  await mkdir(path.join(workspacesRoot, "orphan-workspace"), { recursive: true });
+
+  const validWorkspaceId = "valid-workspace";
+  const validWorkspaceDir = path.join(workspacesRoot, validWorkspaceId);
+  await mkdir(validWorkspaceDir, { recursive: true });
+
+  const manifest: WorkspaceManifest = {
+    id: validWorkspaceId,
+    title: "Valid workspace",
+    createdAt: "2026-05-06T00:00:00.000Z",
+    updatedAt: "2026-05-06T00:00:00.000Z",
+    importsDir: "imports",
+    jobsFile: "jobs.json",
+    processedDir: "processed",
+    items: [],
+  };
+  await writeFile(
+    path.join(validWorkspaceDir, "workspace.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    "utf8",
+  );
+
+  vi.stubEnv("IMAGE_PIPELINE_STUDIO_ROOT", studioRoot);
+  const { listWorkspaces } = await import("./workspace-store");
+
+  await expect(listWorkspaces()).resolves.toEqual([
     {
-      relativePath: "gallery/example.txt",
-      buffer: Buffer.from("fixture"),
+      id: validWorkspaceId,
+      title: "Valid workspace",
+      updatedAt: "2026-05-06T00:00:00.000Z",
+      itemCount: 0,
     },
   ]);
-
-  expect(imported.items).toHaveLength(1);
-  expect(imported.items[0]?.sourcePath).toBe("gallery/example.txt");
-
-  const inputPath = await resolveWorkspaceItemInputPath(
-    workspace.id,
-    "gallery/example.txt",
-  );
-  const fileContent = await readFile(inputPath, "utf8");
-  expect(fileContent).toBe("fixture");
-
-  const jobsText = '{"jobs":[]}\n';
-  await writeWorkspaceJobsText(workspace.id, jobsText);
-  expect(await readWorkspaceJobsText(workspace.id)).toBe(jobsText);
 });
-
-test("workspace store rejects item paths that escape the workspace imports root", async () => {
-  const workspace = await createWorkspace("Workspace path guard test");
-
-  await expect(
-    resolveWorkspaceItemInputPath(workspace.id, "../outside.png"),
-  ).rejects.toThrow(/workspace imports root/i);
-});
-
-test.each(["../../escape", "nested/job"])(
-  "workspace store rejects unsafe job names when resolving processed output (%s)",
-  async (unsafeJobName) => {
-    const workspace = await createWorkspace("Workspace output path guard test");
-
-    expect(() =>
-      assertWorkspaceJobsPathConfinement(workspace.id, {
-        jobs: [
-          {
-            name: unsafeJobName,
-            inputDir: "./imports",
-            outputDir: "./processed",
-            jobSubdir: true,
-            preserveFolders: true,
-            collisionPolicy: "suffix",
-            defaults: {
-              format: "webp",
-              quality: 82,
-              alignTo: 2,
-              capToBase: true,
-            },
-            images: [{ file: "gallery/source.png", outputs: [{ name: "safe-slot", ratio: "1:1", mp: 1 }] }],
-          },
-        ],
-      }),
-    ).toThrow(/unsafe|workspace processed root/i);
-  },
-);

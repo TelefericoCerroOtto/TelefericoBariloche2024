@@ -6,6 +6,7 @@ export const translations: Record<
     success: { title: string; message: string };
     failed: { title: string; message: string };
     translationError: string;
+    optional: string;
     reload: { title: string; message: string };
     captchaFailed: { title: string; message: string };
     captchaMissing: { title: string; message: string };
@@ -16,6 +17,7 @@ export const translations: Record<
     success: { title: "Enviado", message: "Formulario enviado correctamente" },
     failed: { title: "Error", message: "Ocurrió un error inesperado" },
     translationError: "No se pudo recuperar el contenido del formulario",
+    optional: "opcional",
     reload: {
       title: "Recargar página",
       message:
@@ -45,6 +47,7 @@ export const translations: Record<
       message: "An unexpected error occurred",
     },
     translationError: "Could not retrieve form content",
+    optional: "optional",
     reload: {
       title: "Reload page",
       message:
@@ -73,6 +76,7 @@ export const translations: Record<
       message: "Ocorreu um erro inesperado",
     },
     translationError: "Não foi possível recuperar o conteúdo do formulário",
+    optional: "opcional",
     reload: {
       title: "Recarregar página",
       message:

@@ -2,6 +2,7 @@ import { BlocksRenderer, NoContent } from "@/components";
 import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
+import { Spacer } from "@heroui/react";
 import { Suspense } from "react";
 import Loader from "./_components/Loader";
 import Rules from "./_components/Rules";
@@ -26,10 +27,12 @@ export default async function PoliciesPage({
 
   return (
     <div className="flex w-full flex-col gap-14 px-10 lg:px-28">
+      <Spacer y={4} />
       <BlocksRenderer locale={locale} blocks={blocks} />
       <Suspense fallback={<Loader />}>
         <Rules locale={locale} />
       </Suspense>
+      <Spacer y={8} />
     </div>
   );
 }
