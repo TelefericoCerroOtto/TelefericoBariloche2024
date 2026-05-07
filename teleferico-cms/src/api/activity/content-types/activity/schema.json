@@ -1,0 +1,77 @@
+{
+  "kind": "collectionType",
+  "collectionName": "activities",
+  "info": {
+    "singularName": "activity",
+    "pluralName": "activities",
+    "displayName": "Activity",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "price": {
+      "type": "integer",
+      "required": true
+    },
+    "minAge": {
+      "type": "integer",
+      "required": true,
+      "default": 0,
+      "min": 0,
+      "max": 80
+    },
+    "label": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 20,
+      "required": true,
+      "unique": true,
+      "regex": "^[a-zñ]+$"
+    },
+    "page": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::page.page"
+    },
+    "activity_translations": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::activity-translation.activity-translation",
+      "mappedBy": "activity"
+    },
+    "season": {
+      "type": "enumeration",
+      "enum": [
+        "summer",
+        "autumn",
+        "winter",
+        "spring",
+        "allSeasons"
+      ]
+    },
+    "available": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "isActive": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "maxAge": {
+      "type": "integer",
+      "min": 0,
+      "max": 80
+    },
+    "sortOrder": {
+      "type": "integer",
+      "required": true,
+      "default": 0,
+      "min": 0
+    }
+  }
+}

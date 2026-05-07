@@ -1,0 +1,58 @@
+import {
+  buildContactSchema,
+  buildPostulationSchema,
+  createAccessTicketSchema,
+  createActivitySchema,
+  createBusTripSchema,
+  createFaqSchema,
+  createNewSchema,
+  createZoneSchema,
+  loginSchema,
+  newUserSchema,
+  timeSchema,
+  updateAccessTicketSchema,
+  updateActivitySchema,
+  updateBusTripSchema,
+  updateFaqSchema,
+  updateNewSchema,
+  updateUserSchema,
+  updateZoneSchema,
+} from "@/lib/schemas/forms";
+import type { InferType } from "yup";
+import type { Locales } from "./i18n";
+
+export type LoginFormData = InferType<typeof loginSchema>;
+export type CreateActivityFormData = InferType<typeof createActivitySchema>;
+export type UpdateActivityFormData = InferType<typeof updateActivitySchema>;
+export type CreateAccessTicketFormData = InferType<
+  typeof createAccessTicketSchema
+>;
+export type UpdateAccessTicketFormData = InferType<
+  typeof updateAccessTicketSchema
+>;
+export type CreateZoneFormData = InferType<typeof createZoneSchema>;
+export type UpdateZoneFormData = InferType<typeof updateZoneSchema>;
+export type CreateBusTripFormData = InferType<typeof createBusTripSchema>;
+export type UpdateBusTripFormData = InferType<typeof updateBusTripSchema>;
+export type NewUserFormData = InferType<typeof newUserSchema>;
+export type UpdateUserFormData = InferType<typeof updateUserSchema>;
+export type PostulationFormData = InferType<
+  ReturnType<typeof buildPostulationSchema>
+>;
+export type ContactFormData = InferType<ReturnType<typeof buildContactSchema>>;
+export type CreateNewFormData = InferType<typeof createNewSchema>;
+export type UpdateNewFormData = InferType<typeof updateNewSchema>;
+export type CreateFaqFormData = InferType<typeof createFaqSchema>;
+export type UpdateFaqFormData = InferType<typeof updateFaqSchema>;
+
+export type TimeValue = InferType<typeof timeSchema>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type FormSubmitServerActionResponse<T = any> = Promise<{
+  success: boolean;
+  message: string;
+  data: T | undefined;
+}>;
+export type InputLocaleConfig = Record<
+  Locales,
+  { label: string; placeholder: string; name: string }
+>;

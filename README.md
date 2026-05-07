@@ -1,471 +1,84 @@
-# Telferico Bariloche 2024
+# Teleférico Bariloche 2024
 
-Este repositorio alberga la nueva versión del sitio web de Teleférico Cerro Otto, diseñado para ofrecer una experiencia mejorada y moderna. Desarrollado con [Next.js](https://nextjs.org/) y [Strapi](https://strapi.io/), el proyecto está desplegado en Google [Cloud Platform](https://cloud.google.com/?hl=en), garantizando rendimiento y escalabilidad. Esta nueva implementación sustituirá la versión anterior una vez que esté completamente finalizada.
+Monorepo del sitio público, dashboard administrativo, CMS y tooling de imágenes del proyecto Teleférico Cerro Otto.
 
-# Configurar entorno local 🔧
+Este README funciona como puerta de entrada del repositorio: resume la estructura general, el arranque local mínimo y apunta a la documentación canónica de cada área. Los detalles operativos, de infraestructura y de flujos específicos viven en los documentos de cada paquete y en `docs/`.
 
-## STRAPI
+## Paquetes principales
 
-### Prerequisitos ✅
+| Path | Rol | Runtime / package manager | Documentación |
+| --- | --- | --- | --- |
+| `teleferico-app` | Sitio institucional + dashboard administrativo en Next.js | Node `20.x` + pnpm `9.x` | [teleferico-app/README.md](./teleferico-app/README.md) |
+| `teleferico-cms` | CMS/API backend en Strapi | Node `22.x.x` + npm `>=10` | [teleferico-cms/README.md](./teleferico-cms/README.md) |
+| `tools/image-pipeline` | Tooling para ingesta y procesamiento de imágenes | pnpm `9.x` | [tools/image-pipeline/README.md](./tools/image-pipeline/README.md) |
 
-Strapi utiliza Nodejs y alguna base de datos SQL (MySQL, PostgreSQL o SQLite). Por ello es necesario tener ambas instaladas.
+## Estructura del monorepo
 
-En este caso el entorno local contaba con [nvm](https://github.com/nvm-sh/nvm) para gestionar las versiones de NodeJS, en particular se utilizo la v20.17.0.
+- `public/`: assets compartidos del repositorio
+- `teleferico-app/`: frontend público y administración
+- `teleferico-cms/`: backend Strapi y configuración del CMS
+- `tools/image-pipeline/`: scripts y utilidades para imágenes
+- `docs/`: documentación de infraestructura y convenciones
 
-Para la base de datos se utilizo MySQL v8.0.37 gestionado a traves de MySQL Workbench. Es necesario tener el servidor de la base de datos corriendo en algun puerto y dentro generar la base de datos que utilizara Strapi. Todos estos parametros se configuran a traves de la consola cuando se selecciona la configuracion manual al ejecutar el comando `npx create-strapi-app`. Si se usa la opcion `quickstart` seran colocados valores por defecto. Tambien se pueden modificar a traves de las variables de entorno en el archivo **.env** una vez creado el proyecto. Las variables son
+## Inicio rápido local
 
-- DATABASE_CLIENT: Base de datos que se utilizara
-- DATABASE_HOST: Direccion IP del servidor
-- DATABASE_PORT: Puerto donde corre el servidor
-- DATABASE_NAME: Nombre de la base de datos
-- DATABASE_USERNAME: Usuario con permisos necesarios para operar con la DB.
-- DATABASE_PASSWORD: Contraseña del usuario.
+1. Clonar el repositorio y entrar al root:
 
-### Inicializar proyecto 📦
+   ```bash
+   git clone <repo-url>
+   cd TelefericoBariloche2024
+   ```
 
-Para la creacion del proyecto se siguieron los siguientes pasos.
+2. Levantar el CMS:
 
-Ubicarse en el directorio donde se desee crear el proyecto, y ejecutar el comando `npx create-strapi-app@latest nombre_del_proyecto` reemplazando _"nombre_del_proyecto"_ por el nombre real de tu proyecto. Este comando creara una carpeta nombrada como se le indico anteriormente con toda la aplicacion dentro.
+   ```bash
+   cd teleferico-cms
+   npm install
+   cp .env.example .env
+   npm run develop
+   ```
 
-> **Nota:** Puede lanzar un error al ejecutar el comando `npm run develop` que diga `throw new Error('Failed to load native binding', { cause: loadErrors })`. No se porque sucede esto, pero para solucionarlo simplemente ejecutar el comando `npm update` dentro del directorio del proyecto.
+   Para desarrollo local simple podés usar SQLite. Si necesitás otra base o detalles de deploy/transfer, ver [teleferico-cms/README.md](./teleferico-cms/README.md).
 
-> **Nota:** Cuando se utiliza una version de MySQL mayor a la 8._ es necesario instalar el paquete **mysql2** a traves del comando `npm i mysql2`. Si la version de strapi es 4._, hay que configurar el cliente como _mysql2_. Esto se logra cambiando el valor de la variable de entorno _DATABASE_CLIENT_ por _mysql2_ definida dentro del archivo **.env**. De lo contrario se obtendra un error al momento de lanzar el servidor de desarrollo que dira:
-> `ER_NOT_SUPPORTED_AUTH_MODE: Client does not support authentication protocol requested by server;`
+3. Levantar la app web en otra terminal:
 
-### Instalacion
+   ```bash
+   cd teleferico-app
+   pnpm install
+   cp .env.example .env.local
+   pnpm run dev
+   ```
 
-Clonar el repositorio con
+   Ajustá `.env.local` para apuntar al CMS local antes de iniciar la app. El detalle de variables y flujos específicos vive en [teleferico-app/README.md](./teleferico-app/README.md).
 
-```git
-git clone
-```
+4. URLs locales por defecto:
 
-### Iniciar app
+   - CMS: `http://localhost:1337`
+   - App: `http://localhost:3000`
 
-Ubicarse con la terminal dentro del directorio "./teleferico-cms" y ejecutar el comando `npm run develop`. Deberia desplegarse una salida por consola donde se encuentre la direccion ip y el puerto donde se esta corriendo Strapi.
+## Infraestructura y despliegue
 
-## NextJS
+La topología vigente del proyecto es:
 
-Completar...
+- `teleferico-app` desplegada en Cloud Run
+- `teleferico-cms` desplegado en Cloud Run
+- Strapi persistiendo datos en Cloud SQL (PostgreSQL)
+- Uploads servidos desde Cloud Storage
+- CI/CD resuelto con Cloud Build, Artifact Registry y Secret Manager
 
-# Pasos para el despliegue 🚀
+La referencia canónica para infraestructura, entornos y despliegue es [docs/INFRA.md](./docs/INFRA.md).
 
-## STRAPI
+## Mapa de documentación
 
-### Configuracion ⚙️
+- [teleferico-app/README.md](./teleferico-app/README.md): scripts, variables, flujos del frontend, OAuth Gmail y arquitectura de seguridad de endpoints
+- [teleferico-cms/README.md](./teleferico-cms/README.md): desarrollo local, deploy del CMS, transferencias y guías editoriales de imágenes
+- [tools/image-pipeline/README.md](./tools/image-pipeline/README.md): uso del pipeline de imágenes
+- [docs/INFRA.md](./docs/INFRA.md): infraestructura, entornos, CI/CD y topología cloud
+- [docs/CONVENTIONS.md](./docs/CONVENTIONS.md): convenciones de commits y pull requests
+- [AGENTS.md](./AGENTS.md): reglas operativas para agentes que trabajen en el repo
 
-**PostgreSQL**
+## Convenciones de trabajo
 
-Dado que la base de datos elegida para desplegar en GCP sera PostgreSQL, es necesario instalar un cliente de pg para Nodejs. Para ello nos colocamos el directorio del proyecto y ejecutamos `npm i pg`.
-
-Se creara una sola configuracion extra para el entorno de produccion y desarrollo y sera tanto para _"/config/env/production/database.ts"_ como para _"/config/env/staging/database.ts"_
-
-**TS**
-
-```typescript
-export default ({ env }) => ({
-  connection: {
-    host: `/cloudsql/${env("INSTANCE_CONNECTION_NAME")}`,
-  },
-});
-```
-
-**JS**
-
-```javascript
-module.exports = ({ env }) => ({
-  connection: {
-    host: `/cloudsql/${env("INSTANCE_CONNECTION_NAME")}`,
-  },
-});
-```
-
----
-
-**Cloud Storage**
-
-Para que Strapi funcione correctamente con los buckets de cloud sotrage es necesario instalar un paquete. Ejecutar `npm i @strapi-community/strapi-provider-upload-google-cloud-storage` dentro del directorio del proyecto y a continuacion definir el siguiente contenido para los archivos de configuracion _"/config/env/production/plugins.ts"_ y _"/config/env/staging/plugins.ts"_
-
-**TS**
-
-```typescript
-export default ({ env }) => ({
-  upload: {
-    config: {
-      provider: "@strapi-community/strapi-provider-upload-google-cloud-storage",
-      providerOptions: {
-        bucketName: env("GCS_BUCKET_NAME"),
-        basePath: env("GCS_BASE_PATH"),
-        publicFiles: true,
-        uniform: false,
-      },
-    },
-  },
-});
-```
-
-**JS**
-
-```typescript
-module.exports = ({ env }) => ({
-  upload: {
-    config: {
-      provider: "@strapi-community/strapi-provider-upload-google-cloud-storage",
-      providerOptions: {
-        bucketName: env("GCS_BUCKET_NAME"),
-        basePath: env("GCS_BASE_PATH"),
-        publicFiles: true,
-        uniform: false,
-      },
-    },
-  },
-});
-```
-
----
-
-**Definir entornos**
-
-Strapi permite definir configuraciones estaticas dependiendo del entorno en el que se este ejecutando. El entorno se define a traves de la variable de entorno _NODE_ENV_ (su valor por defecto es "development"). Para definir estas configuraciones es necesario declarar una carpeta llamada "env" dentro del directo "/config", y dentro de la cual crearemos tantas carpetas como entornos se precisen. Las configuraciones definidas dentro de estas carpetas sobreescribiran a las que se encuentren dentro de "/config". Por ejemplo, todas las opciones declaradas en el archivo _"/config/env/production/database.ts"_ sobreescribiran a las del archivo _"/config/database.ts"_ cuando la variable de entorno _NODE_ENV=production_. Para mas info ver [environment configurations](https://docs-v4.strapi.io/dev-docs/configurations/environment#environment-configurations).
-
-> **Nota:** Para que la sobreescritura de configuracion funcione, es necesario que la carpeta tenga exactamente el mismo nombre que el valor de la variable _NODE_ENV_.
-
-> **Nota:** Strapi captura automáticamente el valor de la variable de entorno _NODE_ENV_ al ejecutar los comandos "build" y "start". Este valor se define en el archivo app.yaml, lo que permite que Strapi utilice el entorno deseado por el desarrollador tanto durante la construcción(Cloud Build) como al iniciar la aplicación(App Engine).
-
----
-
-### Google Cloud API's 🔗
-
-Es necesario habilitar todas las APIs que seran utilizadas en GCP(Google Cloud Platform) para que Strapi funcione correctamente.
-
-- **IAM:** Aqui se controlan los accesos y permisos de las cuentas y [cuentas de servicios](https://cloud.google.com/iam/docs/service-account-overview?hl=es-419#service-accounts-identities)
-- **App Engine:** Entorno completamente gestionado que permite crear y ejecutar aplicaciones sin preocuparse por la infraestructura subyacente.
-- **App Engine Admin:** Conjunto de interfaces y métodos que permiten interactuar con las aplicaciones de App Engine de forma programática.
-- **Cloud Storage:** Sirve para guardar los archivos como fotos, videos y pdf. Se habilitara atuomaticamente una vez que se inicialice la aplicacion en App Engine.
-- **Cloud Build:** Permite el CI/CD del proyecto una vez se registren cambios en el repositorio.
-- **Cloud SQL Admin:**
-- **Compute Engine:** Es necesario para poder usar Cloud SQL.
-- **Secret Manager:** Aqui se guardaran todas las variables de entorno y demas informacion sensible.
-- **Cloud Logging:** Sirve para visualizar los logs del build que se hace en Cloud Build.
-
-Se pueden habilitar a traves de Cloud Shell con los siguientes comandos
-
-```bash
-gcloud services enable secretmanager.googleapis.com
-gcloud services enable cloudbuild.googleapis.com
-gcloud services enable sqladmin.googleapis.com
-gcloud services enable logging.googleapis.com
-gcloud services enable appengine.googleapis.com
-gcloud services enable iam.googleapis.com
-gcloud services enable run.googleapis.com
-```
-
----
-
-### Inicializar servicios ✨
-
-Luego de habilitar los servicios es necesario inicializar algunos de ellos
-
-- App Engine
-- Cloud SQL
-- Cloud Storage
-
----
-
-#### App Engine
-
-**Creacion**
-Se puede crear a traves de la interfaz de GCP o bien con el comando
-`gcloud app create --region=us-central` en la Cloud Shell.
-
-Este proceso de creacion creara tambien una cuenta de servicio por defecto correspondiente a App Engine (app_engine_id@appspot.gserviceaccount.com). Se usara esta cuenta para realizar las solicitudes a los demas servicios, si bien se puede crear una nueva cuenta de servicio controlando mas granularmente los permisos que posea.
-
-**Permisos**
-Sera necesario otorgarle permisos para que pueda utilizar los distintos servicios, esto se logra a traves de la asignacion de roles.
-
-Se pueden definir por consola (Cloud Shell)
-
-```bash
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
---member=serviceAccount:SERVICE_ACCOUNT \
---role=ROLE
-```
-
-o bien editando la cuenta de servicio desde [IAM & Admin](https://cloud.google.com/iam/docs/?hl=es-419).
-
-Los roles necesarios para la Service Account que utilizara App Engine son:
-
-- roles/cloudsql.client
-- roles/cloudsql.editor
-- roles/storage.objectAdmin
-- roles/appengine.deployer
-- roles/logging.admin
-
-Tambien es necesario crear el archivo _"app.yaml"_ dentro del root del proyecto. Alli se definiran las distintas configuraciones del servicio a desplegar. Mas info [aca](https://cloud.google.com/appengine/docs/standard/reference/app-yaml?tab=node.js). Este archivo sera ejecutado con el comando `gcloud` de la [gcloud CLI](https://cloud.google.com/sdk/docs/install) para el despliegue de la misma en App Engine.
-
-El archivo definido tiene la siguiente forma
-
-```yaml
-runtime: nodejs20
-instance_class: F2
-
-env_variables:
-  NODE_ENV: %NODE_ENV%
-  HOST: %HOST%
-  DATABASE_CLIENT: %DATABASE_CLIENT%
-  DATABASE_NAME: %DATABASE_NAME%
-  DATABASE_USERNAME: %DATABASE_USERNAME%
-  DATABASE_PASSWORD: %DATABASE_PASSWORD%
-  INSTANCE_CONNECTION_NAME: %INSTANCE_CONNECTION_NAME%
-  GCS_BUCKET_NAME: %GCS_BUCKET_NAME%
-  GCS_BASE_PATH: %GCS_BASE_PATH%
-  APP_KEYS: %APP_KEYS%
-  API_TOKEN_SALT: %API_TOKEN_SALT%
-  ADMIN_JWT_SECRET: %ADMIN_JWT_SECRET%
-  TRANSFER_TOKEN_SALT: %TRANSFER_TOKEN_SALT%
-  JWT_SECRET: %JWT_SECRET%
-
-build_env_variables:
-  NODE_ENV: %NODE_ENV%
-
-beta_settings:
-  cloud_sql_instances: %INSTANCE_CONNECTION_NAME%
-```
-
-Los valores de las variables de entorno se encuentran entre "%%" para ser delimitados y reemplazados durante el proceso de building. Se explica mas adelante en la seccion de CI/CD.
-
-Las variables de entorno declaradas en la opcion **env** estaran disponibles en tiempo de ejecucion.
-Mientras que las de **build_env_variables** en tiempo de construccion, es decir cuando se inicie el subproceso de `gcloud app deploy` dentro del trigger en Cloud Build. _"NODE_ENV"_ es declarado en ambas porque es necesario que strapi tenga acceso a esta variable para poder tomar la configuracion correspondiente dependiendo del entorno, tanto para el comando `"gcp-build"` como para `"start"`.
-
-**Ignorar archivos App Engine**
-
-Se define el archivo _".gcloudignore"_ para especificar los directorios que no seran subidos a App Engine durante el despliegue. Los archivos que no sean necesario iran alli. Por ejemplo la carpeta _"node_modules"_, ya que sera creada automaticamente cuando se ejecute el comando de `build` definido en el _"package.json"_. El archivo tiene la siguiente forma
-
-```
-.gcloudignore
-.git
-.gitignore
-node_modules/
-#!include:.gitignore
-!.env
-../design/*
-../frontend/*
-```
-
-**Desplegando por primera vez: ERROR: (gcloud.app.deploy) Error Response: [13]**
-
-Se puede ver el error mencionado cuando se desplega una aplicacion por primera vez en un proyecto. Esto se debe a politicas implementadas sobre como [Cloud Build utiliza las cuentas de servicio desde Junio de 2024](https://cloud.google.com/appengine/docs/flexible/troubleshooting#default-sa-permissions). Los cambios estan detallados [aqui](https://cloud.google.com/build/docs/cloud-build-service-account-updates). Para solucionar este problema, es necesario otorgar el rol de Editor del proyecto a la cuenta de servicio que utiliza Cloud Build para deployar en App Engine. Mas links de interes:
-
-- [Protege App Engine](https://cloud.google.com/iam/docs/service-accounts-actas?hl=es-419#cloud-composer)
-- [Identidad temporal](https://cloud.google.com/iam/docs/service-account-impersonation?hl=es-419)
-
----
-
-#### Cloud SQL
-
-Aqui es recomendable crearlo desde la interfaz de GCP ya que la distintas opciones van a influir en el rendimiento y costo del servicio. Este resumen sera mostrado antes de crear la base de datos.
-
-Por defecto solo cuenta con un super admin que es el usuario postgres y del cual podemos generar una clave automaticamente durante la etapa de inicilizacion. Es recomendable por razones de seguridad crear un nuevo usuario gestionando unicamente los permisos necesarios para que utilice App Engine/Strapi.
-
-> **Nota:** Dado que el servicio es bastante caro, es recomendable detener las bases de datos que no sean de produccion mientras no se esten utilizando.
-
----
-
-#### Cloud Storage
-
-Cuando se inicializa el servicio de App Engine se crean automaticamente 2 buckets dentro de Storage. Estos llevaran el nombre de _**staging.app_engine_id.appspot.com**_ y _**app_engine_id.appspot.com**_. No es recomendable tocarlos ni configurarlos.
-
-Para este proyecto se crea un nuevo bucket. Tambien es recomendable hacerlo desde la interfaz de GCP ya que de alli se pueden visualizar las distintas configuraciones.
-
-### CI/CD 🔄
-
----
-
-#### Conectar Repositorio
-
-Para implementarlo se debe utilizar [Cloud Build](https://cloud.google.com/build/docs). Lo primero es configurar una _HOST CONNECTION_ con el proveedor de tu repositorios, en este caso Github. Esto se realiza en la opcion _"Create Host Connection"_ de la pestaña _"Repositories"_. Se realizara una redireccion en una ventana emergente que solicitara acceso a la cuenta de github. Desde este punto se puede dar acceso a uno o varios repositorios que se encuentren dentro de la cuenta. Lo mas recomendable es solo dar acceso a aquel que sea necesario.
-
-> **Nota:** Se debe realizar este proceso con la opcion de **2da GEN** para los repositorios.
-
-Lo siguiente es vincular el repositorio desde la opcion _"Link Repository"_. Aqui solo hace falta seleccionar una conexion y un repositorio disponible en esa conexion.
-
----
-
-#### Variables de entorno y Trigger
-
-Las variables de entorno en App Engine se definen dentro del archivo app.yaml, ademas de otras configuraciones. El problema con declararlas alli, es que el archivo tiene que subirse al repositorio, por ende quedarian expuestas. Para solucionar esto, se colocaran los valores de las variables durante el proceso de building en Cloud Build mediante el reemplazo con el comando `sed`. Ademas, los valores a reemplazar estaran guardados en [Secret Manager](https://cloud.google.com/secret-manager/docs?hl=es-419). Los secretos estaran con las etiquetas `production` o `staging` segun correspondan.
-Para que Cloud Build pueda acceder a los valores en Secret Manager y poder realizar el despliegue en App Engine es necesario darle permisos a la cuenta de servicio que utilizara. El proceso de building se realiza a traves de los Triggers (Activadores). Las cuentas de servicio se aplican a nivel de trigger. Los roles que se aplicaran a la cuenta de servicio que utilice el Trigger para el despliegue seran
-
-- **roles/appengine.deployer**: Para poder desplegar la aplicacion
-- **roles/iam.serviceAccountUser**: Explicacion de porque hace falta este rol [aca](https://stackoverflow.com/questions/64236468/cloud-build-fails-to-deploy-to-google-app-engine-you-do-not-have-permission-to)
-- **roles/secretmanager.secretAccessor**: Acceder a los secretos y asignarlos a las varaibles de entorno
-
-Por fines practicos se utilizara una misma cuenta de servicio para Cloud Build y App Engine. Aunque actualmente esto supone potenciales riesgos de seguridad, en un futuro es probable que se modifique y se explique como trabajan las cuentas de servicio entre si.
-
-Los triggers necesitan el archivo "buildconfig.yaml" para saber que pasos ejecutar. Cada paso definido se ejecuta en un contenedor de Docker aislado. Este archivo se puede definir dentro del repositorio o a traves de la interfaz de gcp dentro de la configuracion del trigger. Se utiliza la ultima opcion. A continuacion la estructura del archivo y luego una breve explicacion
-
-```yaml
-steps:
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    args:
-      - "-c"
-      - >
-        gcloud config set app/cloud_build_timeout 1600 &&
-
-        sed -i 's/%INSTANCE_CLASS%/${_INSTANCE_CLASS}/g' ./path/to/app.yaml &&
-
-        sed -i 's/%HOST%/${_HOST}/g' ./path/to/app.yaml &&
-
-        sed -i 's/%NODE_ENV%/${_NODE_ENV}/g' ./path/to/app.yaml &&
-
-        sed -i 's/%DATABASE_CLIENT%/${_DATABASE_CLIENT}/g' ./path/to/app.yaml &&
-
-        sed -i "s/%DATABASE_NAME%/$$DATABASE_NAME_STAGING/g" ./path/to/app.yaml &&
-
-        sed -i "s/%DATABASE_USERNAME%/$$DATABASE_USERNAME_STAGING/g" ./path/to/app.yaml &&
-
-        sed -i "s/%DATABASE_PASSWORD%/$$DATABASE_PASSWORD_STAGING/g" ./path/to/app.yaml &&
-
-        sed -i "s/%INSTANCE_CONNECTION_NAME%/$$INSTANCE_CONNECTION_NAME_STAGING/g" ./path/to/app.yaml &&
-
-        sed -i 's/%GCS_BUCKET_NAME%/${_GCS_BUCKET_NAME}/g' ./path/to/app.yaml &&
-
-        sed -i 's/%GCS_BASE_PATH%/${_GCS_BASE_PATH}/g' ./path/to/app.yaml &&
-
-        sed -i "s/%APP_KEYS%/$$APP_KEYS_STAGING/g" ./path/to/app.yaml &&
-
-        sed -i "s/%API_TOKEN_SALT%/$$API_TOKEN_SALT_STAGING/g" ./path/to/app.yaml &&    
-
-        sed -i "s/%ADMIN_JWT_SECRET%/$$ADMIN_JWT_SECRET_STAGING/g" ./path/to/app.yaml &&
-
-        sed -i "s/%TRANSFER_TOKEN_SALT%/$$TRANSFER_TOKEN_SALT_STAGING/g" ./path/to/app.yaml &&
-
-        sed -i "s/%JWT_SECRET%/$$JWT_SECRET_STAGING/g" ./path/to/app.yaml &&
-
-        gcloud app deploy ./path/to/app.yaml --project
-        teleferico-bariloche-2024
-    entrypoint: bash
-    secretEnv:
-      - DATABASE_NAME_STAGING
-      - DATABASE_USERNAME_STAGING
-      - DATABASE_PASSWORD_STAGING
-      - INSTANCE_CONNECTION_NAME_STAGING
-      - APP_KEYS_STAGING
-      - API_TOKEN_SALT_STAGING
-      - ADMIN_JWT_SECRET_STAGING
-      - TRANSFER_TOKEN_SALT_STAGING
-      - JWT_SECRET_STAGING
-timeout: 1600s
-options:
-  logging: CLOUD_LOGGING_ONLY
-substitutions:
-  _HOST: 0.0.0.0
-  _GCS_BUCKET_NAME: strapi-bucket-teleferico-2024-staging
-  _DATABASE_CLIENT: postgres
-  _GCS_BASE_PATH: cms
-  _NODE_ENV: staging
-  _INSTANCE_CLASS: F2
-availableSecrets:
-  secretManager:
-    - versionName: projects/<PROJECT_ID>/secrets/DATABASE_NAME_STAGING/versions/<SECRET_VERSION>
-      env: DATABASE_NAME_STAGING
-    - versionName: projects/<PROJECT_ID>/secrets/DATABASE_USERNAME_STAGING/versions/<SECRET_VERSION>
-      env: DATABASE_USERNAME_STAGING
-    - versionName: projects/<PROJECT_ID>/secrets/DATABASE_PASSWORD_STAGING/versions/<SECRET_VERSION>
-      env: DATABASE_PASSWORD_STAGING
-    - versionName: projects/<PROJECT_ID>/secrets/INSTANCE_CONNECTION_NAME_STAGING/versions/<SECRET_VERSION>
-      env: INSTANCE_CONNECTION_NAME_STAGING
-    - versionName: projects/<PROJECT_ID>/secrets/APP_KEYS_STAGING/versions/<SECRET_VERSION>
-      env: APP_KEYS_STAGING
-    - versionName: projects/<PROJECT_ID>/secrets/API_TOKEN_SALT_STAGING/versions/<SECRET_VERSION>
-      env: API_TOKEN_SALT_STAGING
-    - versionName: projects/<PROJECT_ID>/secrets/ADMIN_JWT_SECRET_STAGING/versions/<SECRET_VERSION>
-      env: ADMIN_JWT_SECRET_STAGING
-    - versionName: projects/<PROJECT_ID>/secrets/TRANSFER_TOKEN_SALT_STAGING/versions/<SECRET_VERSION>
-      env: TRANSFER_TOKEN_SALT_STAGING
-    - versionName: projects/<PROJECT_ID>/secrets/JWT_SECRET_STAGING/versions/<SECRET_VERSION>
-      env: JWT_SECRET_STAGING
-```
-
-- **steps**: Define cada paso que se desee realizar. Los pasos se ejecutan en un contenedor de Docker aislado de los demas pasos.
-  - **name**: url de la imagen de Docker a utilizar. En este caso se utiliza la gcloud-sdk para poder acceder a todos los comandos de gcloud.
-  - **entrypoint**: La shell a utilizar.
-  - **args**: los comandos que se ejecutaran dentro del entrypoint.
-  - **secretEnv**: Variables de entorno dentro del entorno de la imagen que se esta corriendo. Para usar estas variables es necesario agregar el prefijo \$$ al nombre de la varaible. E.g.: \$$HOST. Tambien esta la opcion **env**, la diferencia es que no estan encriptadas y para utilizarlas se utiliza "\${}". E.g.: ${HOST}
-- **availableSecrets/secretManager**: Dentro se definen los secretos de Secret Manager.
-  - **versionName**: Ruta del secreto a llamar. Sigue la sintaxis "projects/PROJECT_ID/secrets/SECRET_NAME/versions/VERSION". Donde PROJECT_ID es el id del proyecto, SECRET_NAME el nombre del secreto y VERSION la version de ese secreto.
-  - **env**: El nombre de la varaible de entorno a la cual se le asignara el valor obtenido del secreto.
-
-Para mas info de como acceder a los valores de Secret Manager a traves de Cloud Build ver [aqui](https://cloud.google.com/build/docs/securing-builds/use-secrets). Para mas informacion con respecto al archivo de configuracion de Cloud BUild ver [aqui](https://cloud.google.com/build/docs/build-config-file-schema#structure_of_a_build_config_file).
-
-Dentro de la opcion **args** se puede observar la llamada al comando `sed -i` para modificar el archivo _"app.yaml"_. Esto es para reemplazar la variables de entorno definidas alli, en las cuales todos su valores estan envueltos entre %%. Estos simbolos sirven como delimitadores visuales para saber que deben ser reemplazados. Luego el comando coloca el valor de la variable de entorno correspondiente declarada dentro de secretEnv. La opcion `/g` define que el reemplazo debe ser global, es decir que todas las coincidencias deben ser cambiadas. Esta solucion fue inspirada en la siguiente [solucion](https://stackoverflow.com/questions/52840187/how-to-set-environment-variables-using-google-cloud-build-or-other-method-in-goo)
-
-## NextJS
-
-Para el despliegue del sitio se utiliza Cloud Run. Se crea un nuevo serivicio desde la interfaz de la consola de gcp. Se puede seleccionar la opcion de despliegue continuo desde el repositorio. Al seleccionar esta opcion se creara automaticamente un trigger global en Cloud Build que constriuira la imagen de Docker y la desplegara en Cloud Run. Todos los builds ejecutados subiran una copia de la imagen a Artifact Registry, esto sirve para el mantener un versionamiento de todos los builds. Para la construccion de la imagen se puede utilizar un Dockerfile personalizado o buildpacks. Se utilizaran buildpacks los cuales detectan automaticamente el lenguaje del proyecto y generan una imagen optimizada.
-
-Completada la configuracion de Cloud Run se modifica el trigger creado. Se cambia el nombre, la region, la fuente y los archivos incluidos y omitidos.
-
-# Flujo de Trabajo con Git 🔀
-
-Este flujo de trabajo utiliza tres ramas principales: `main`, `staging` y `develop`. Todos los merges se realizan a través de Pull Requests en GitHub para asegurar revisión y calidad del código.
-
-## Ramas
-
-- **main**:
-
-  - Asociada con el entorno de **producción**.
-  - Se despliega directamente en producción.
-
-- **staging**:
-
-  - Asociada con el entorno de **staging**.
-  - Se despliega en el entorno de staging para pruebas previas a la producción.
-
-- **development**:
-
-  - Ramas de desarrollo donde se crean y mergean las distintas **features**.
-  - Cuando una feature está lista, se hace un **merge** a `development`.
-
-- **docs**:
-
-  - Exclusiva para modificaciones a archivos de documentacion.
-  - Mergea a `main` y `development`
-  - No implica que las modificaciones a archivos de documentacion se realicen unicamente en esta rama. Es decir que la documentacion puede ser actualizada en otras ramas.
-
-- **feat/FEATURE_NAME**:
-
-  - Los cambios realizados tienen que estar relacionados con la feature.
-  - Mergean unicamente a `development` a traves de Pull Request.
-
-- **fix/FIX_NAME**:
-  - Contienen hotfix.
-  - Mergean a `development` y/o `staging` a traves de Pull Request
-
-## Flujo de Trabajo
-
-1.  **Desarrollo de Features**:
-
-    Crear una rama nueva desde `development` para cada nueva feature y pushearla al repo remoto:
-
-    ```
-    git switch -c feat/nueva-feature development
-    git push --set-upstream origin feat/nueva-feature
-    ```
-
-2.  **Merge de Features/Fixes**:
-
-    Una vez completada la feature, crear una Pull Request a `development`. En caso de que sea un fix, crear PR tambien a `staging`.
-    Aprobada la PR, se debe eliminar la rama asociada a la feature o fix del repositorio remoto.
-
-3.  **Despliegue en Staging**::
-
-    Cuando `development` está listo para ser probado, crear una Pull Request a `staging`:
-
-    Despliegue automático de `staging` en el entorno de staging gracias a los **triggers configurados en Cloud Build**.
-
-4.  **Despliegue en Producción**:
-
-    Una vez que todo está probado en `staging`, crear Pull Reques a `main`:
-
-    Despliegue automático de `main` en producción también gracias a los **triggers configurados en Cloud Build**.
+- No hay un flujo de instalación único a nivel root; cada paquete mantiene sus propios scripts y variables.
+- Para cambios de código o documentación, usar las convenciones definidas en [docs/CONVENTIONS.md](./docs/CONVENTIONS.md).
+- Para decisiones de infraestructura o despliegue, tomar como fuente de verdad [docs/INFRA.md](./docs/INFRA.md).

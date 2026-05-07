@@ -1,0 +1,112 @@
+{
+  "collectionName": "components_page_components_image_text_blocks",
+  "info": {
+    "displayName": "ImageTextBlock",
+    "icon": "layout",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "isInverted": {
+      "type": "boolean",
+      "default": false
+    },
+    "isHighlighted": {
+      "type": "boolean",
+      "default": false
+    },
+    "link": {
+      "type": "component",
+      "component": "utils-components.link",
+      "repeatable": false
+    },
+    "description": {
+      "type": "blocks",
+      "required": true
+    },
+    "epigraph": {
+      "type": "text"
+    },
+    "titleCase": {
+      "type": "enumeration",
+      "required": true,
+      "default": "normal",
+      "enum": [
+        "normal",
+        "uppercase",
+        "lowercase",
+        "capitalize"
+      ]
+    },
+    "bgColor": {
+      "type": "enumeration",
+      "required": true,
+      "default": "none",
+      "enum": [
+        "none",
+        "gray"
+      ]
+    },
+    "imagesAmount": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "one",
+        "two",
+        "three"
+      ]
+    },
+    "oneImageBlock": {
+      "type": "component",
+      "conditions": {
+        "visible": {
+          "==": [
+            {
+              "var": "imagesAmount"
+            },
+            "one"
+          ]
+        }
+      },
+      "component": "images-blocks.one-image",
+      "repeatable": false,
+      "required": true
+    },
+    "twoImagesBlock": {
+      "type": "component",
+      "conditions": {
+        "visible": {
+          "==": [
+            {
+              "var": "imagesAmount"
+            },
+            "two"
+          ]
+        }
+      },
+      "component": "images-blocks.two-images",
+      "repeatable": false,
+      "required": true
+    },
+    "threeImagesBlock": {
+      "type": "component",
+      "conditions": {
+        "visible": {
+          "==": [
+            {
+              "var": "imagesAmount"
+            },
+            "three"
+          ]
+        }
+      },
+      "component": "images-blocks.three-images",
+      "repeatable": false,
+      "required": true
+    }
+  }
+}

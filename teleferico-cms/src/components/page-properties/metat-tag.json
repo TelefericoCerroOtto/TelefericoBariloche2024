@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_page_properties_metat_tags",
+  "info": {
+    "displayName": "MetatTag",
+    "icon": "priceTag"
+  },
+  "options": {},
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "content": {
+      "type": "text"
+    }
+  }
+}

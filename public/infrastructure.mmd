@@ -1,0 +1,59 @@
+flowchart TB
+  %% ========== LOCAL ==========
+  subgraph L["Local (dev)"]
+    DEV_APP["Next.js (dev server)"]
+    DEV_STRAPI["Strapi v5 (strapi develop)"]
+    DEV_DB[("Postgres en Docker<br/>+ Volume")]
+    DEV_STRAPI --> DEV_DB
+    DEV_APP --> DEV_STRAPI
+  end
+
+  %% ========== GCP ==========
+  subgraph GCP["Google Cloud Platform"]
+    %% ---- STAGING ----
+    subgraph STG["Staging"]
+      STG_CR["Cloud Run<br/>Next.js (staging)"]
+      STG_AE["App Engine Standard<br/>Strapi (staging)"]
+      STG_DB[("Cloud SQL Postgres<br/>DB Staging")]
+      STG_GCS[("Cloud Storage Bucket")]
+      STG_AE --> STG_DB
+      STG_CR --> STG_AE
+      STG_AE --> STG_GCS
+    end
+
+    %% ---- PRODUCTION ----
+    subgraph PRD["Production"]
+      PRD_CR["Cloud Run<br/>Next.js (prod)"]
+      PRD_AE["App Engine Standard<br/>Strapi (prod)"]
+      PRD_DB[("Cloud SQL Postgres<br/>DB Prod<br/>+ Backups")]
+      PRD_GCS[("Cloud Storage Bucket")]
+      PRD_AE --> PRD_DB
+      PRD_CR --> PRD_AE
+      PRD_AE --> PRD_GCS
+    end
+  end
+
+  %% ========== CI/CD ==========
+  subgraph CICD["CI/CD"]
+    GH["GitHub Repo<br/>main -> prod trigger<br/>staging branch -> staging trigger"]
+    CB["Cloud Build Triggers<br/>Build + Deploy"]
+    GH --> CB
+    CB --> STG_AE
+    CB --> STG_CR
+    CB --> PRD_AE
+    CB --> PRD_CR
+  end
+
+  %% ========== DATA FLOW ==========
+  subgraph FLOW["One-time flow for go-live "]
+    LOAD["1) Cargar contenido editorial en Strapi Staging"]
+    FREEZE["2) Congelar escrituras en Staging (ventana operativa)"]
+    MIGRATE_STG["3) Trasnfer staging -> local"]
+    MIGRATE_PRD["4) Trasnfer local -> prod"]
+    GO_LIVE["5) Go-Live Prod<br/>Build de app"]
+    LOAD --> FREEZE --> MIGRATE_STG --> MIGRATE_PRD --> GO_LIVE
+  end
+
+  %% optional: local import
+  STG_AE -->|`transfer` command| DEV_STRAPI
+  DEV_STRAPI -->|`transfer` command| PRD_AE

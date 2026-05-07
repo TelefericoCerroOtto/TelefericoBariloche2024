@@ -1,9 +1,11 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "noUncheckedSideEffectImports": true,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -19,7 +21,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "target": "ES2017"
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

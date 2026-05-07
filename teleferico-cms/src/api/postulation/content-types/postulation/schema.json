@@ -1,0 +1,83 @@
+{
+  "kind": "collectionType",
+  "collectionName": "postulations",
+  "info": {
+    "singularName": "postulation",
+    "pluralName": "postulations",
+    "displayName": "Postulation",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 30,
+      "required": true
+    },
+    "surname": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 30,
+      "required": true
+    },
+    "gender": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "male",
+        "female",
+        "other"
+      ]
+    },
+    "age": {
+      "type": "integer",
+      "required": true,
+      "min": 18,
+      "max": 80
+    },
+    "email": {
+      "type": "email",
+      "required": true
+    },
+    "resume": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "files"
+      ]
+    },
+    "campNo": {
+      "type": "integer"
+    },
+    "note": {
+      "type": "text",
+      "maxLength": 400
+    },
+    "faved_by": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "faved_postulations"
+    },
+    "sector": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::sector.sector"
+    },
+    "postulation_status": {
+      "type": "enumeration",
+      "required": true,
+      "default": "unreviewed",
+      "enum": [
+        "unreviewed",
+        "discarded",
+        "hired"
+      ]
+    }
+  }
+}

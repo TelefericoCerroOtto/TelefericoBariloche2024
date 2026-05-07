@@ -1,0 +1,45 @@
+{
+  "kind": "collectionType",
+  "collectionName": "zone_translations",
+  "info": {
+    "singularName": "zone-translation",
+    "pluralName": "zone-translations",
+    "displayName": "ZoneTranslation"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {
+    "i18n": {
+      "localized": true
+    }
+  },
+  "attributes": {
+    "name": {
+      "type": "text",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "minLength": 2,
+      "required": true
+    },
+    "description": {
+      "type": "text",
+      "pluginOptions": {
+        "i18n": {
+          "localized": true
+        }
+      },
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "zone": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::zone.zone",
+      "inversedBy": "zone_translations"
+    }
+  }
+}

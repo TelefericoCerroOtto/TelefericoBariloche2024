@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_page_components_activity_showcases",
+  "info": {
+    "displayName": "ActivityShowcase",
+    "icon": "lightbulb"
+  },
+  "options": {},
+  "attributes": {
+    "activity": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::activity.activity"
+    }
+  },
+  "config": {}
+}

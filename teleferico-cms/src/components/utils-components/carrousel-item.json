@@ -1,0 +1,41 @@
+{
+  "collectionName": "components_utils_components_carrousel_items",
+  "info": {
+    "displayName": "Carrousel Item",
+    "icon": "bulletList"
+  },
+  "options": {},
+  "attributes": {
+    "label": {
+      "type": "string",
+      "private": true
+    },
+    "title": {
+      "type": "text"
+    },
+    "epigraph": {
+      "type": "text"
+    },
+    "description": {
+      "type": "blocks"
+    },
+    "link": {
+      "type": "component",
+      "component": "utils-components.link",
+      "repeatable": false
+    },
+    "desktopCover": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": false,
+      "required": true
+    },
+    "mobileCover": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": false,
+      "required": true
+    }
+  },
+  "config": {}
+}

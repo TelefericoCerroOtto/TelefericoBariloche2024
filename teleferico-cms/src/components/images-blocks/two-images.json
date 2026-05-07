@@ -1,0 +1,35 @@
+{
+  "collectionName": "components_images_blocks_two_images",
+  "info": {
+    "displayName": "TwoImagesBlock"
+  },
+  "options": {},
+  "attributes": {
+    "variant": {
+      "type": "enumeration",
+      "required": true,
+      "default": "double",
+      "enum": [
+        "double",
+        "cascade"
+      ]
+    },
+    "desktopImages": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": true,
+      "required": true,
+      "min": 2,
+      "max": 2
+    },
+    "mobileImages": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": true,
+      "required": true,
+      "min": 2,
+      "max": 2
+    }
+  },
+  "config": {}
+}

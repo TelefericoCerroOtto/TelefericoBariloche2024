@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "stations",
+  "info": {
+    "singularName": "station",
+    "pluralName": "stations",
+    "displayName": "Station",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "key": {
+      "pluginOptions": {},
+      "type": "string",
+      "required": true,
+      "unique": false,
+      "minLength": 2
+    },
+    "station_translations": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::station-translation.station-translation",
+      "mappedBy": "station"
+    }
+  }
+}

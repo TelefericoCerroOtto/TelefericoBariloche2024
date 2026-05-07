@@ -1,0 +1,56 @@
+{
+  "kind": "collectionType",
+  "collectionName": "zones",
+  "info": {
+    "singularName": "zone",
+    "pluralName": "zones",
+    "displayName": "Zone",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "openTime": {
+      "type": "time",
+      "required": true
+    },
+    "closeTime": {
+      "type": "time",
+      "required": true
+    },
+    "label": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "zone_translations": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::zone-translation.zone-translation",
+      "mappedBy": "zone"
+    },
+    "isOpen": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "featured": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "sortOrder": {
+      "type": "integer",
+      "required": true,
+      "default": 0,
+      "min": 0
+    },
+    "hide": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    }
+  }
+}

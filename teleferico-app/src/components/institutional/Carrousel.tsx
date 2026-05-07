@@ -1,0 +1,320 @@
+"use client";
+
+import CustomLink from "@/components/shared/CustomLink";
+import notFoundImg from "@/public/image-not-found.jpg";
+import { Button } from "@heroui/react";
+import {
+  BlocksRenderer,
+  type BlocksContent,
+} from "@strapi/blocks-react-renderer";
+import { getImageProps } from "next/image";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { Swiper as SwiperInstance } from "swiper";
+import { A11y, Autoplay, Navigation, Pagination } from "swiper/modules";
+import { Swiper, SwiperSlide } from "swiper/react";
+
+export type CarrouselSlideLink = {
+  href: string;
+  label: string;
+};
+
+export type CarrouselSlide = {
+  id: number;
+  title?: string | null;
+  epigraph?: string | null;
+  description?: BlocksContent | string | null;
+  link?: CarrouselSlideLink | null;
+  desktopImage: {
+    url: string;
+    altText?: string | null;
+  };
+  mobileImage: {
+    url: string;
+    altText?: string | null;
+  };
+};
+
+export interface CarrouselProps {
+  items: CarrouselSlide[];
+  autoplayMs?: number | null; // 0/undefined/null => manual
+  pauseOnHover?: boolean; // controla pauseOnMouseEnter cuando hay autoplay
+  className?: string;
+}
+
+const MAX_ITEMS = 15;
+
+function clampItems(items: CarrouselSlide[]) {
+  if (items.length <= MAX_ITEMS) return items;
+
+  if (process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[Carrousel] Se recibieron ${items.length} items. Se renderizan solo los primeros ${MAX_ITEMS}.`,
+    );
+  }
+
+  return items.slice(0, MAX_ITEMS);
+}
+
+function Description({ value }: { value: BlocksContent | string }) {
+  if (typeof value === "string")
+    return <p className="text-pretty text-center">{value}</p>;
+  if (!Array.isArray(value)) return null;
+
+  return (
+    <BlocksRenderer
+      content={value}
+      blocks={{
+        paragraph: ({ children }) => (
+          <p className="mt-3 text-pretty text-center leading-relaxed">
+            {children}
+          </p>
+        ),
+        link: ({ children, url }) => (
+          <CustomLink
+            href={url}
+            className="underline decoration-white/50 underline-offset-4 hover:decoration-white"
+            showExternalIcon={false}
+          >
+            {children}
+          </CustomLink>
+        ),
+      }}
+    />
+  );
+}
+
+export default function Carrousel({
+  items,
+  autoplayMs,
+  pauseOnHover = true,
+  className,
+}: CarrouselProps) {
+  const safeItems = useMemo(() => clampItems(items), [items]);
+
+  const SLIDE_SIZES =
+    "(max-width: 640px) calc(100vw - 3rem), (max-width: 1024px) calc(100vw - 4rem), calc(100vw - 7rem)";
+
+  const hasMultiple = safeItems.length > 1;
+  const enableAutoplay = Boolean(autoplayMs && autoplayMs > 0 && hasMultiple);
+
+  const swiperClassName = [
+    "teleferico-swiper",
+    hasMultiple ? "teleferico-swiper--nav" : null,
+    enableAutoplay ? "teleferico-swiper--autoplay" : null,
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const resetProgress = useCallback((swiper: SwiperInstance) => {
+    swiper.el.style.setProperty("--teleferico-autoplay-progress", "0");
+  }, []);
+
+  const handleAutoplayTimeLeft = useCallback(
+    (swiper: SwiperInstance, _timeLeftMs: number, progressLeft: number) => {
+      const elapsed = 1 - progressLeft;
+      swiper.el.style.setProperty(
+        "--teleferico-autoplay-progress",
+        String(elapsed),
+      );
+    },
+    [],
+  );
+
+  // NEW: debounce para resize (evita stop/start 200 veces mientras arrastrás la ventana)
+  const resizeTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resizeTimeoutRef.current) {
+        window.clearTimeout(resizeTimeoutRef.current);
+        resizeTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // NEW: fix de autoplay “congelado” tras resize / cambio de media queries
+  const handleResize = useCallback(
+    (swiper: SwiperInstance) => {
+      if (!enableAutoplay) return;
+
+      if (resizeTimeoutRef.current) {
+        window.clearTimeout(resizeTimeoutRef.current);
+      }
+
+      resizeTimeoutRef.current = window.setTimeout(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((swiper as any).destroyed) return;
+
+        // Asegura layout correcto
+        swiper.update();
+
+        // Resetea barra de progreso
+        resetProgress(swiper);
+
+        // Fuerza restart de autoplay (Swiper a veces queda pausado tras resize)
+        swiper.autoplay?.stop();
+        swiper.autoplay?.start();
+      }, 120);
+    },
+    [enableAutoplay, resetProgress],
+  );
+
+  // Early return DESPUÉS de declarar hooks, para no violar el orden.
+  if (!safeItems.length) return null;
+
+  return (
+    <section className="my-14 w-full px-6 sm:px-8 lg:px-14">
+      <Swiper
+        modules={[A11y, Navigation, Pagination, Autoplay]}
+        className={swiperClassName}
+        grabCursor
+        watchOverflow
+        loop={hasMultiple}
+        navigation={hasMultiple}
+        pagination={hasMultiple ? { clickable: true } : false}
+        autoplay={
+          enableAutoplay
+            ? {
+                delay: autoplayMs!,
+                disableOnInteraction: false,
+                pauseOnMouseEnter: Boolean(pauseOnHover),
+              }
+            : false
+        }
+        slidesPerView={1}
+        spaceBetween={0}
+        a11y={{
+          enabled: true,
+          prevSlideMessage: "Slide anterior",
+          nextSlideMessage: "Siguiente slide",
+        }}
+        onInit={resetProgress}
+        onSlideChange={resetProgress}
+        onAutoplayTimeLeft={enableAutoplay ? handleAutoplayTimeLeft : undefined}
+        onResize={handleResize} // NEW
+      >
+        {safeItems.map((item, idx) => {
+          const hasOverlay =
+            Boolean(item.epigraph) ||
+            Boolean(item.title) ||
+            Boolean(item.description) ||
+            Boolean(item.link);
+
+          const alt =
+            item.mobileImage?.altText ??
+            item.desktopImage?.altText ??
+            item.title ??
+            item.epigraph ??
+            "Imagen del carrusel";
+
+          // Fallbacks (por si viene algo null/undefined desde Strapi)
+          const desktopSrc =
+            item.desktopImage?.url ?? item.mobileImage?.url ?? notFoundImg.src;
+          const mobileSrc =
+            item.mobileImage?.url ?? item.desktopImage?.url ?? notFoundImg.src;
+
+          // Art direction (Next: getImageProps  picture)
+          const common = { alt, sizes: SLIDE_SIZES };
+          const {
+            props: { srcSet: desktopSrcSet },
+          } = getImageProps({
+            ...common,
+            src: desktopSrc,
+            width: 1920,
+            height: 1080,
+            quality: 72,
+          });
+
+          const {
+            props: { srcSet: mobileSrcSet, ...imgProps },
+          } = getImageProps({
+            ...common,
+            src: mobileSrc,
+            width: 1080,
+            height: 1350,
+            quality: 70,
+          });
+
+          return (
+            <SwiperSlide
+              key={item.id ?? `${item.desktopImage.url}-${idx}`}
+              className="h-auto"
+            >
+              <article className="relative overflow-hidden">
+                <div className="relative min-h-[390px] w-full sm:min-h-[460px] lg:min-h-[680px]">
+                  <picture className="absolute inset-0">
+                    {/* Desktop >= md */}
+                    <source media="(min-width: 768px)" srcSet={desktopSrcSet} />
+                    {/* Mobile < md */}
+                    <source srcSet={mobileSrcSet} />
+                    <img
+                      {...imgProps}
+                      alt={alt}
+                      fetchPriority={idx === 0 ? "high" : undefined}
+                      className={[
+                        "absolute inset-0 h-full w-full object-cover transition-[filter] duration-300",
+                        hasOverlay ? "brightness-[0.6]" : "",
+                      ].join(" ")}
+                    />
+                  </picture>
+
+                  {hasOverlay ? (
+                    <>
+                      <div className="pointer-events-none absolute inset-0 bg-black/25" />
+
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-full p-4 sm:px-16 sm:py-6 lg:px-20 lg:py-10">
+                          <div className="mx-auto max-w-[62ch] text-center text-white">
+                            {item.epigraph ? (
+                              <p className="text-sm font-semibold tracking-wide text-white/90 sm:text-lg lg:text-xl">
+                                {item.epigraph}
+                              </p>
+                            ) : null}
+
+                            {item.title ? (
+                              <h3 className="mt-3 text-3xl font-semibold leading-tight sm:text-5xl lg:text-7xl">
+                                {item.title}
+                              </h3>
+                            ) : null}
+
+                            {item.description ? (
+                              <div className="mt-4 text-base leading-relaxed text-white/90 sm:text-xl lg:text-3xl">
+                                <Description
+                                  value={
+                                    item.description as BlocksContent | string
+                                  }
+                                />
+                              </div>
+                            ) : null}
+
+                            {item.link ? (
+                              <div className="mt-6 flex justify-center">
+                                <Button
+                                  as={CustomLink}
+                                  href={item.link.href}
+                                  radius="full"
+                                  color="primary"
+                                  variant="solid"
+                                  size="md"
+                                  className="w-full px-5 font-semibold max-sm:text-sm sm:w-auto sm:px-8 sm:text-lg lg:text-xl"
+                                >
+                                  {item.link.label}
+                                </Button>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              </article>
+            </SwiperSlide>
+          );
+        })}
+      </Swiper>
+    </section>
+  );
+}

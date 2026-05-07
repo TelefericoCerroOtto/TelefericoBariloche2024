@@ -1,0 +1,10 @@
+{
+  "collectionName": "components_page_components_service_status_buttons",
+  "info": {
+    "displayName": "ServiceStatusButton",
+    "icon": "information"
+  },
+  "options": {},
+  "attributes": {},
+  "config": {}
+}
