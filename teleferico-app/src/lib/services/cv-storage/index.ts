@@ -88,7 +88,14 @@ function resolveLocalPath(rootDir: string, objectKey: string, basePath: string) 
   }
 
   const relativePath = objectKey.slice(normalizedBasePath.length + 1);
-  return path.resolve(rootDir, relativePath);
+  const resolvedPath = path.resolve(rootDir, relativePath);
+
+  // Prevent path traversal
+  if (!resolvedPath.startsWith(path.resolve(rootDir))) {
+    throw new Error(`Path traversal detected: ${objectKey}`);
+  }
+
+  return resolvedPath;
 }
 
 async function bufferFromFile(file: File) {
