@@ -18,5 +18,6 @@ export * from "./translations/forms";
 export * from "./translations/hoursoverview";
 export * from "./translations/navbar";
 export * from "./translations/policies";
+export * from "./translations/privacy";
 export * from "./translations/schedules";
 export * from "./translations/servicebutton";

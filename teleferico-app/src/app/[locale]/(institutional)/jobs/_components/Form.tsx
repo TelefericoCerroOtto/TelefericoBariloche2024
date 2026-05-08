@@ -1,7 +1,8 @@
 "use client";
 
-import { ButtonDos, FormError, Honeypot } from "@/components";
+import { ButtonDos, CustomLink, FormError, Honeypot } from "@/components";
 import { useAppAlert, useLocale, useTranslation } from "@/hooks";
+import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { selectInputStyles } from "@/lib/constants/styles.const";
 import { formInputClassNames } from "@/lib/constants/styles.const";
 import { buildPostulationSchema } from "@/lib/schemas";
@@ -152,6 +153,8 @@ export default function Form(props: Props) {
   if (loading) return <Fallback />;
 
   const formIntl = data!.data[0].jsonValue;
+  const privacyNotice =
+    formIntl.privacyNotice ?? translations[locale].privacyNotice;
 
   return (
     <form
@@ -371,6 +374,19 @@ export default function Form(props: Props) {
         errorMessage={errors.resume as string}
         isRequired
       />
+      <div className="rounded-2xl border border-default-200 bg-default-50 px-4 py-3 text-sm leading-6 text-foreground-600">
+        <p>
+          {privacyNotice.beforeLink}{" "}
+          <CustomLink
+            href={PUBLIC_ROUTES.POSTULATION_PRIVACY}
+            className="font-medium text-primary underline underline-offset-4"
+            showExternalIcon={false}
+          >
+            {privacyNotice.linkLabel}
+          </CustomLink>{" "}
+          {privacyNotice.afterLink}
+        </p>
+      </div>
       <ReCAPTCHA
         ref={recaptchaRef}
         sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? ""}
