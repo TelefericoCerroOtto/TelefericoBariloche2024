@@ -10,10 +10,17 @@ export default async function Rules(props: Props) {
   const { locale } = props;
   const { ok, data } = await getComponentTranslation(locale, "privacy");
 
-  if (!ok || data.data.length === 0)
+  if (!ok)
     return (
       <FormError message="No se pudo recuperar el contenido de privacidad de postulación" />
     );
 
-  return <BlockRendererClient content={data.data[0].rtValue} proseSize="lg" />;
+  const [privacy] = data.data;
+
+  if (!privacy)
+    return (
+      <FormError message="No se pudo recuperar el contenido de privacidad de postulación" />
+    );
+
+  return <BlockRendererClient content={privacy.rtValue} proseSize="lg" />;
 }
