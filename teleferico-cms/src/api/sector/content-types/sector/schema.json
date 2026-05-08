@@ -17,6 +17,10 @@
       "required": true,
       "unique": true
     },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
     "sector_names": {
       "type": "relation",
       "relation": "oneToMany",

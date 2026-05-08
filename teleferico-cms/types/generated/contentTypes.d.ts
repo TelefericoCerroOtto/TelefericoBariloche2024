@@ -906,7 +906,8 @@ export interface ApiPostulationPostulation extends Struct.CollectionTypeSchema {
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'unreviewed'>;
     publishedAt: Schema.Attribute.DateTime;
-    sector: Schema.Attribute.Relation<'oneToOne', 'api::sector.sector'>;
+    sector: Schema.Attribute.Relation<'manyToOne', 'api::sector.sector'> &
+      Schema.Attribute.Required;
     surname: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{
@@ -973,6 +974,7 @@ export interface ApiSectorSector extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
     key: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;

@@ -1,4 +1,4 @@
-import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import { getAdminLoginUrl } from "@/lib/constants/routes.const";
 import { redirect } from "next/navigation";
 
 // Dont call this function from /login route
@@ -8,7 +8,7 @@ export async function getSession() {
 
   if (!session) {
     await signOut({ redirect: false });
-    redirect(ADMIN_ROUTES.LOGIN);
+    redirect(getAdminLoginUrl());
   }
   return session;
 }

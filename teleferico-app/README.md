@@ -46,6 +46,18 @@ Notas de seguridad:
 - Se usa `state` firmado (HMAC) y cookie httpOnly para evitar CSRF en el flujo OAuth.
 - El endpoint `init` requiere `INIT_TOKEN` para evitar uso público.
 
+Decisión operativa por entornos:
+
+- Actualmente `staging` y `production` comparten la misma integración externa para Gmail OAuth y reCAPTCHA.
+- Por esa razón, los siguientes secretos pueden tener el mismo valor en ambos entornos:
+  - `RECAPTCHA_SECRET_KEY`
+  - `GOOGLE_CLIENT_ID`
+  - `GOOGLE_CLIENT_SECRET`
+  - `OAUTH_REFRESH_TOKEN`
+- Esto es válido si ambos entornos usan la misma cuenta Gmail autenticada, el mismo OAuth Client de Google y la misma configuración de reCAPTCHA.
+- Tradeoff: simplifica la operación, pero reduce el aislamiento entre `staging` y `production`.
+- Aun compartiendo esos valores, el cliente OAuth de Google debe tener autorizados los redirect URIs de ambos entornos.
+
 Middleware/i18n:
 
 - La `middleware.ts` ya excluye rutas bajo `/api` en su `matcher`, por lo que `/api/oauth/*` no será afectado por redirecciones de locales.
@@ -168,10 +180,11 @@ Capas de seguridad principales:
    Ejemplos:
    - **Endpoint de Auth.js**  
      Ruta de Auth.js (por ejemplo, `/api/auth/[...nextauth]`), utilizada internamente por la librería para:
-     - manejar el flujo de login/logout,
-     - emitir y refrescar la cookie de sesión,
-     - resolver callbacks propios de Auth.js.  
-       Características:
+      - manejar el flujo de login/logout,
+      - resolver los redirects de login/logout del dashboard con `NEXT_PUBLIC_BASE_URL` para no depender del host interno,
+      - emitir y refrescar la cookie de sesión,
+      - resolver callbacks propios de Auth.js.
+        Características:
      - No contiene lógica de negocio del proyecto.
      - Su seguridad (cookies httpOnly, firma de JWT, protección CSRF interna para sus propias rutas, etc.) está gestionada por Auth.js.
      - Se invoca como parte del flujo de autenticación, pero no se consume directamente desde el código de negocio (formularios, proxy, dashboard, etc.).
