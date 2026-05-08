@@ -61,7 +61,9 @@ export function renderPostulationCell({
 
     case "sector":
       return (
-        <span>{item.sector?.sector_names?.[0]?.name ?? "Sin sector"}</span>
+        <span>
+          {item.sector?.sector_names?.[0]?.name ?? item.sector?.key ?? "Sin sector"}
+        </span>
       );
 
     case "campNo":

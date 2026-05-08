@@ -11,6 +11,7 @@ import {
 import { LogOut } from "lucide-react";
 import { Session } from "next-auth";
 import { signOut } from "next-auth/react";
+import { getAdminLoginUrl } from "@/lib/constants/routes.const";
 
 interface Props {
   user: Session["user"];
@@ -52,7 +53,7 @@ export default function ProfileButton(props: Props) {
           key="logout"
           color="danger"
           startContent={<LogOut />}
-          onPress={() => signOut({ redirectTo: "/login" })}
+          onPress={() => signOut({ redirectTo: getAdminLoginUrl() })}
         >
           Cerrar sesión
         </DropdownItem>

@@ -13,7 +13,7 @@ export default async function JobsPage({
   const { locale } = await params;
 
   const res = await getPageContent(locale, PUBLIC_ROUTES.JOBS);
-  const { ok, data } = await getSectors(locale);
+  const { ok, data } = await getSectors(locale, { activeOnly: true });
   // TODO: COMPLETE FALLBACK DATA FROM GETTING CONTENT PAGES
   if (!res.ok || !ok)
     throw new Error(

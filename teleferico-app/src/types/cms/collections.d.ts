@@ -164,6 +164,7 @@ export type SectorName = StrapiRecord<{ name: string }>;
 
 export type Sector = StrapiRecord<{
   key: string;
+  isActive: boolean;
   sector_names: SectorName[];
   locale: null;
 }>;

@@ -3,7 +3,6 @@
 import {
   ADMIN_LOGIN_QUERY_PARAMS,
   ADMIN_LOGIN_REASONS,
-  ADMIN_ROUTES,
   getAdminLoginUrl,
 } from "@/lib/constants/routes.const";
 import { signOut } from "next-auth/react";
@@ -17,7 +16,7 @@ export default function Logout() {
   const redirectTo =
     reason === ADMIN_LOGIN_REASONS.SESSION_EXPIRED
       ? getAdminLoginUrl(ADMIN_LOGIN_REASONS.SESSION_EXPIRED)
-      : ADMIN_ROUTES.LOGIN;
+      : getAdminLoginUrl();
 
   useEffect(() => {
     void signOut({ redirectTo });
