@@ -48,7 +48,9 @@ export default function PostulationsTable({ sectors, userId }: Props) {
     () =>
       sectors.map((sector) => ({
         key: sector.documentId, // usamos documentId para filtrar en Strapi
-        label: sector.sector_names?.[0]?.name ?? sector.key,
+        label: `${sector.sector_names?.[0]?.name ?? sector.key}${
+          sector.isActive ? "" : " (inactivo)"
+        }`,
       })),
     [sectors],
   );

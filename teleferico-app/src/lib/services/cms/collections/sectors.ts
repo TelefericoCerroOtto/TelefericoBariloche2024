@@ -4,8 +4,26 @@ import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
 import type { GetSectorsResponse, Locales } from "@/types";
 import { stringifyQuery } from "@/utils";
 
-export const getSectors = async (locale: Locales) => {
+type GetSectorsOptions = {
+  activeOnly?: boolean;
+};
+
+export const getSectors = async (
+  locale: Locales,
+  options: GetSectorsOptions = {},
+) => {
+  const { activeOnly = true } = options;
+
   const query = {
+    ...(activeOnly
+      ? {
+          filters: {
+            isActive: {
+              $eq: true,
+            },
+          },
+        }
+      : {}),
     populate: {
       sector_names: {
         filters: {

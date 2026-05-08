@@ -2,6 +2,7 @@ import {
   createPostulationAdapter,
   postulationFormDataAdapter,
 } from "@/lib/adapters";
+import { i18n } from "@/i18n";
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import {
   handleHoneypot,
@@ -10,7 +11,7 @@ import {
 } from "@/lib/http/guards";
 import { buildPostulationSchema } from "@/lib/schemas";
 import { MAX_FILE_SIZE } from "@/lib/schemas/forms/constants";
-import { createPostulation } from "@/lib/services";
+import { createPostulation, getSectors } from "@/lib/services";
 import { createCvStorage } from "@/lib/services/cv-storage";
 import type { PostulationApiResponse, StoredCvFile } from "@/types";
 import { assertEnv } from "@/utils/env";
@@ -73,6 +74,35 @@ async function postulationHandler(
         stripUnknown: true,
       },
     );
+
+    const sectorsRes = await getSectors(i18n.defaultLocale, {
+      activeOnly: true,
+    });
+
+    if (!sectorsRes.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Failed to validate postulation sector",
+        },
+        { status: 500 },
+      );
+    }
+
+    const sectorIsActive =
+      sectorsRes.data?.data.some(
+        (sector) => sector.documentId === validatedValues.sector,
+      ) ?? false;
+
+    if (!sectorIsActive) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Selected sector is unavailable",
+        },
+        { status: 400 },
+      );
+    }
 
     const cvStorage = createCvStorage();
     let storedCv: StoredCvFile | null = null;

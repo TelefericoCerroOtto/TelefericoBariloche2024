@@ -6,9 +6,12 @@ import {
   ADMIN_ROUTES,
   type AdminLoginReason,
 } from "@/lib/constants/routes.const";
+import { ENV_KEYS } from "@/lib/constants/env.const";
 import { verifySession } from "@/lib/services";
 import type { Locales } from "@/types";
 import { NextResponse } from "next/server";
+
+const APP_BASE_URL = process.env[ENV_KEYS.NEXT_PUBLIC_BASE_URL]?.replace(/\/$/, "");
 
 export default auth(async (req) => {
   const url = req.nextUrl;
@@ -60,8 +63,15 @@ export default auth(async (req) => {
     route: string,
     reason?: AdminLoginReason,
   ) => {
-    const redirectUrl = req.nextUrl.clone();
-    redirectUrl.pathname = `/${i18n.defaultLocale}${route}`;
+    const pathname = `/${i18n.defaultLocale}${route}`;
+    const redirectUrl = APP_BASE_URL
+      ? new URL(pathname, APP_BASE_URL)
+      : req.nextUrl.clone();
+    redirectUrl.pathname = pathname;
+
+    req.nextUrl.searchParams.forEach((value, key) => {
+      redirectUrl.searchParams.set(key, value);
+    });
 
     if (reason) {
       redirectUrl.searchParams.set(ADMIN_LOGIN_QUERY_PARAMS.REASON, reason);
@@ -82,10 +92,18 @@ export default auth(async (req) => {
     const forcedLocale = i18n.defaultLocale as Locales;
 
     // Redirect any non-prefixed or wrong-locale admin path to the default locale
-    // IMPORTANT: preserve search params by cloning nextUrl
+    // IMPORTANT: preserve search params when rebuilding the target URL
     if (!hasLocalePrefix || maybeLocale !== forcedLocale) {
-      const redirectURL = req.nextUrl.clone();
-      redirectURL.pathname = `/${forcedLocale}${adminPath}`; // keeps redirectURL.search
+      const pathname = `/${forcedLocale}${adminPath}`;
+      const redirectURL = APP_BASE_URL
+        ? new URL(pathname, APP_BASE_URL)
+        : req.nextUrl.clone();
+      redirectURL.pathname = pathname;
+
+      req.nextUrl.searchParams.forEach((value, key) => {
+        redirectURL.searchParams.set(key, value);
+      });
+
       const res = NextResponse.redirect(redirectURL);
       res.cookies.set("NEXT_LOCALE", forcedLocale, { path: "/" });
       return res;

@@ -79,8 +79,9 @@
     },
     "sector": {
       "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::sector.sector"
+      "relation": "manyToOne",
+      "target": "api::sector.sector",
+      "required": true
     },
     "postulation_status": {
       "type": "enumeration",
