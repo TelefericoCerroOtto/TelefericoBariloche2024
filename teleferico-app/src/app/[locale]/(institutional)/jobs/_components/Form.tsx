@@ -22,6 +22,7 @@ interface Props {
 
 export default function Form(props: Props) {
   const { sectors } = props;
+  const hasActiveSectors = sectors.length > 0;
   const { data, error, loading } = useTranslation("forms");
   const { locale } = useLocale();
   const [token, setToken] = useState<string | null>(null);
@@ -142,7 +143,7 @@ export default function Form(props: Props) {
       resume: undefined as unknown as File,
       note: "",
       age: 27,
-      sector: sectors[0]?.documentId || "",
+      sector: "",
     },
     onSubmit,
     validationSchema: buildPostulationSchema(locale),
@@ -151,6 +152,10 @@ export default function Form(props: Props) {
   if (error)
     return <FormError message={translations[locale].translationError} />;
   if (loading) return <Fallback />;
+
+  if (!hasActiveSectors) {
+    return <FormError message={translations[locale].sectorEmpty} />;
+  }
 
   const formIntl = data!.data[0].jsonValue;
   const privacyNotice =
@@ -264,8 +269,18 @@ export default function Form(props: Props) {
         placeholder={formIntl.fields.sector.placeholder}
         disallowEmptySelection
         items={sectors}
-        defaultSelectedKeys={[values.sector]}
-        onChange={handleChange}
+        selectedKeys={values.sector ? new Set([values.sector]) : new Set<string>()}
+        onSelectionChange={(keys) => {
+          if (keys === "all") return;
+
+          const [selectedKey] = Array.from(keys);
+          void setFieldValue(
+            "sector",
+            selectedKey ? String(selectedKey) : "",
+            true,
+          );
+          void setFieldTouched("sector", true, false);
+        }}
         onBlur={handleBlur}
         errorMessage={errors.sector}
         isInvalid={errors.sector !== undefined && touched.sector}
@@ -273,7 +288,7 @@ export default function Form(props: Props) {
       >
         {(item) => (
           <SelectItem key={item.documentId}>
-            {item.sector_names[0].name}
+            {item.sector_names?.[0]?.name ?? item.key}
           </SelectItem>
         )}
       </Select>

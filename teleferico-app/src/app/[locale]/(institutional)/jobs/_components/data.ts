@@ -16,6 +16,7 @@ export const translations: Record<
     captchaFailed: { title: string; message: string };
     captchaMissing: { title: string; message: string };
     tooManyRequests: { title: string; message: string };
+    sectorEmpty: string;
   }
 > = {
   "es-AR": {
@@ -48,6 +49,8 @@ export const translations: Record<
       message:
         "Has enviado demasiadas solicitudes, por favor intentalo más tarde.",
     },
+    sectorEmpty:
+      "No hay sectores activos disponibles en este momento. Volvé a intentarlo más tarde.",
   },
   en: {
     success: {
@@ -84,6 +87,8 @@ export const translations: Record<
       title: "Too Many Requests",
       message: "You have sent too many requests, please try again later.",
     },
+    sectorEmpty:
+      "There are no active sectors available at the moment. Please try again later.",
   },
   pt: {
     success: {
@@ -121,5 +126,7 @@ export const translations: Record<
       message:
         "Você enviou solicitações demais, por favor tente novamente mais tarde.",
     },
+    sectorEmpty:
+      "Não há setores ativos disponíveis no momento. Tente novamente mais tarde.",
   },
 };
