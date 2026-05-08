@@ -16,6 +16,17 @@ import { signIn, useSession } from "next-auth/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+const INVALID_CREDENTIALS_MESSAGE = "Credenciales inválidas";
+const GENERIC_LOGIN_ERROR_MESSAGE = "Algo salió mal";
+
+const getLoginErrorMessage = (error?: string) => {
+  if (error?.toLowerCase().includes("credential")) {
+    return INVALID_CREDENTIALS_MESSAGE;
+  }
+
+  return GENERIC_LOGIN_ERROR_MESSAGE;
+};
+
 export default function LoginForm() {
   const [isVisible, setIsVisible] = useState(false);
   const [error, setError] = useState("");
@@ -53,9 +64,9 @@ export default function LoginForm() {
     setIsSubmitting(true);
     try {
       const res = await signIn("credentials", { ...values, redirect: false });
-      if (res?.error) {
+      if (!res || res.error) {
         setIsSubmitting(false);
-        return setError(res.error);
+        return setError(getLoginErrorMessage(res?.error));
       }
       // Ensure the session is populated on the client immediately
       await update();
@@ -63,7 +74,7 @@ export default function LoginForm() {
       router.refresh();
     } catch (error) {
       setIsSubmitting(false);
-      setError("Algo salio mal");
+      setError(GENERIC_LOGIN_ERROR_MESSAGE);
       console.log("login submit error", error);
     }
   };

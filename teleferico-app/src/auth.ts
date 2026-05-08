@@ -102,7 +102,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             );
           }
         } else if (loginRes.data !== null) {
-          throw new InvalidCredentials("Credenciales invalidas");
+          throw new InvalidCredentials("Credenciales inválidas");
         }
         throw new Error("login service error, check the console.");
       },
