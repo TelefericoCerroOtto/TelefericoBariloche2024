@@ -1,5 +1,4 @@
-import { auth } from "@/auth";
-import { requireCsrf } from "@/lib/http/guards";
+import { requireCsrfSession } from "@/lib/http/guards";
 import { updatePostulation } from "@/lib/services";
 import type {
   FavPostulationRequestPayload,
@@ -9,21 +8,22 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   req: NextRequest,
-  ctx: RouteContext<"/api/admin/postulations/[id]/favorite">,
+  ctx: RouteContext<"/api/admin/postulations/[documentId]/favorite">,
 ) {
   try {
-    const csrfError = await requireCsrf(req);
-    if (csrfError) return csrfError;
+    const csrf = await requireCsrfSession(req);
+    if (!csrf.ok) return csrf.res;
 
-    const session = await auth();
-    if (!session) {
+    const { session } = csrf;
+
+    const { documentId } = await ctx.params;
+
+    if (!/^[a-zA-Z0-9_-]{10,50}$/.test(documentId)) {
       return NextResponse.json(
-        { ok: false, message: "Unauthorized" },
-        { status: 401 },
+        { ok: false, message: "Invalid document ID" },
+        { status: 400 },
       );
     }
-
-    const { id: documentId } = await ctx.params;
 
     const body = (await req.json()) as FavPostulationRequestPayload;
 

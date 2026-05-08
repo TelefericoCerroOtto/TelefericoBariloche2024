@@ -117,7 +117,10 @@ Staging y production están separados en:
 - conexión a Cloud SQL mediante `INSTANCE_CONNECTION_NAME`
 - `DATABASE_HOST=/cloudsql/...`
 - bucket `cms_staging_bucket`
-- `GCS_BASE_PATH=cms`
+- `GCS_BASE_PATH=public/cms`
+- `GCS_BASE_URL=https://storage.googleapis.com/cms_staging_bucket`
+- `GCS_PUBLIC_FILES=true`
+- `GCS_UNIFORM=true`
 
 #### Entorno production
 
@@ -129,7 +132,10 @@ Staging y production están separados en:
 - conexión a PostgreSQL por **IP privada** + VPC
 - `DATABASE_SSL=true`
 - bucket `cms_production_bucket`
-- `GCS_BASE_PATH=cms`
+- `GCS_BASE_PATH=public/cms`
+- `GCS_BASE_URL=https://storage.googleapis.com/cms_production_bucket`
+- `GCS_PUBLIC_FILES=true`
+- `GCS_UNIFORM=true`
 
 #### Secretos relevantes
 
@@ -154,8 +160,14 @@ Staging y production están separados en:
 ### Cloud Storage / uploads
 
 - Cada entorno usa su bucket propio.
-- Strapi guarda los binarios en el bucket del entorno correspondiente.
+- Strapi guarda los assets públicos en `public/cms/`.
+- El formulario de postulaciones guarda los CVs privados en `private/job-applications/` mediante el servidor de Next.js.
+- El flujo local de Strapi Media Library sigue usando `teleferico-cms/public/uploads` y no depende de `CV_STORAGE_DRIVER`.
+- La lectura pública de CMS sigue siendo directa; la descarga de CVs debe pasar por un endpoint autenticado.
+- `GCS_SIGNED_URL_TTL_SECONDS` queda reservado para el helper opcional `getDownloadUrl()` de `teleferico-app/src/lib/services/cv-storage`; el flujo actual usa stream directo y no depende de signed URLs.
+- Los registros antiguos con `resume` media relation requieren migración manual: copiar/mover el binario, poblar `cv*` y retirar la relación vieja.
 - Production tiene un bucket de respaldo que copia los binarios a través de "Replicación entre buckets".
+- **Public Access Prevention**: no puede estar `enforced` si `public/cms/` debe ser público con `allUsers`.
 
 ---
 
@@ -213,6 +225,24 @@ Separar permisos por caso de uso:
   - Cloud Storage
   - Secret Manager
 
+### Managed folders
+
+Si el bucket usa managed folders, la política debe colgarse de los prefijos y no de condiciones a nivel bucket.
+
+Ejemplo:
+
+```bash
+gcloud storage managed-folders add-iam-policy-binding gs://cms_staging_bucket/public/cms \
+  --member=allUsers \
+  --role=roles/storage.objectViewer
+
+gcloud storage managed-folders add-iam-policy-binding gs://cms_staging_bucket/private/job-applications \
+  --member=serviceAccount:APP_RUNTIME_SA \
+  --role=roles/storage.objectAdmin
+```
+
+Repetir el esquema para `cms_production_bucket` y la service account del CMS para `public/cms/`.
+
 ---
 
 ## 8) Sesión y autenticación
@@ -242,6 +272,10 @@ Estas integraciones son independientes de Strapi.
 - `BUILD_STRAPI_BASE_URL`
 - `BUILD_STRAPI_BUCKET_PATHNAME`
 - `NEXT_PUBLIC_BASE_URL`
+- `CV_STORAGE_DRIVER`
+- `CV_LOCAL_STORAGE_DIR`
+- `GCS_BUCKET_NAME`
+- `GCS_PRIVATE_BASE_PATH`
 
 ### Strapi
 
@@ -249,6 +283,9 @@ Estas integraciones son independientes de Strapi.
 - `DATABASE_HOST`
 - `GCS_BUCKET_NAME`
 - `GCS_BASE_PATH`
+- `GCS_BASE_URL`
+- `GCS_PUBLIC_FILES`
+- `GCS_UNIFORM`
 
 ---
 
@@ -261,7 +298,7 @@ Usuarios
        - Dashboard: operaciones server-side según sesión/rol
        -> Cloud Run (teleferico-cms / Strapi)
             -> Cloud SQL (PostgreSQL)
-            -> Cloud Storage (uploads)
+             -> Cloud Storage (public assets + private CVs)
 
 Formularios públicos
   -> reCAPTCHA

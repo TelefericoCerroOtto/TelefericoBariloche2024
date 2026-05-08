@@ -9,6 +9,7 @@ export const PUBLIC_ROUTES = {
   LOCATION: "/location",
   NEWS: "/news",
   POLICIES: "/policies",
+  POSTULATION_PRIVACY: "/postulation-privacy",
   PRICINGSCHEDULES: "/pricing-schedules",
 } as const;
 
@@ -17,6 +18,8 @@ export const ROUTE_HANDLERS = {
   PROXY_FILE: "/api/proxy-file", // public endpoint
   CONTACT: "/api/contact", // server endpoint
   POSTUALTION: "/api/postulation", // server endpoint
+  POSTULATION_CV: (documentId: string) =>
+    `/api/admin/postulations/${documentId}/cv` as const,
   POSTULATIONS_FAVORITE: (documentId: string) =>
     `/api/admin/postulations/${documentId}/favorite` as const, // admin endpoint
   POSTULATIONS_BULK_STATUS: "/api/admin/postulations/bulk-status", // admin endpoint

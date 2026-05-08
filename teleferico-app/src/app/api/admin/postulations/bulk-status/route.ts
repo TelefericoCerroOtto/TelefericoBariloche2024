@@ -1,6 +1,5 @@
-import { auth } from "@/auth";
 import { POSTULATION_STATUSES } from "@/lib/constants/enum-fields.const";
-import { requireCsrf } from "@/lib/http/guards";
+import { requireCsrfSession } from "@/lib/http/guards";
 import { updatePostulation } from "@/lib/services";
 import type {
   PostulationsBulkStatusRequestPayload,
@@ -10,22 +9,23 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const csrfError = await requireCsrf(req);
-    if (csrfError) return csrfError;
+    const csrf = await requireCsrfSession(req);
+    if (!csrf.ok) return csrf.res;
 
-    const session = await auth();
-    if (!session) {
-      return NextResponse.json(
-        { ok: false, message: "Unauthorized" },
-        { status: 401 },
-      );
-    }
+    const { session } = csrf;
 
     const body = (await req.json()) as PostulationsBulkStatusRequestPayload;
 
     if (!Array.isArray(body.documentIds) || body.documentIds.length === 0) {
       return NextResponse.json(
         { ok: false, message: "Missing documentIds" },
+        { status: 400 },
+      );
+    }
+
+    if (!body.documentIds.every(id => /^[a-zA-Z0-9_-]{10,50}$/.test(id))) {
+      return NextResponse.json(
+        { ok: false, message: "Invalid document ID format" },
         { status: 400 },
       );
     }

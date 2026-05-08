@@ -4,6 +4,11 @@ export type GetFormsTranslationResponse = {
   data: [
     ComponentTranslation<{
       jsonValue: {
+        privacyNotice?: {
+          beforeLink: string;
+          linkLabel: string;
+          afterLink: string;
+        };
         fields: {
           firstName: {
             label: string;

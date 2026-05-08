@@ -17,6 +17,7 @@
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
+    "@google-cloud/storage": "^7.19.0",
     "@heroui/react": "^2.7.10",
     "@internationalized/date": "^3.8.2",
     "@radix-ui/react-dialog": "^1.1.2",

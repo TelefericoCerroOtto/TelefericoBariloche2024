@@ -3,10 +3,10 @@ import type {
   RendereableBlocks,
   ServiceStateValues,
   StrapiBlocksPayload,
-  StrapiFile,
   StrapiImage,
   StrapiLocales,
   StrapiRecord,
+  CvStorageDriver,
 } from "@/types";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 
@@ -49,6 +49,7 @@ export type User = {
 
 export type ComponentTranslationKeys =
   | "policies"
+  | "privacy"
   | "navbar"
   | "footer"
   | "hoursoverview"
@@ -177,12 +178,18 @@ export type Postulation = StrapiRecord<{
   gender: Genders;
   age: number;
   email: string;
-  resume: StrapiFile;
   sector: Sector;
   campNo: number | null;
   note: string | null;
   postulation_status: PostulationStatus;
   faved_by: User[];
+  cvObjectKey: string | null;
+  cvOriginalName: string | null;
+  cvMimeType: string | null;
+  cvSize: number | null;
+  cvUploadedAt: string | null;
+  cvStorageProvider: CvStorageDriver | null;
+  cvBucket: string | null;
   locale: null;
 }>;
 
