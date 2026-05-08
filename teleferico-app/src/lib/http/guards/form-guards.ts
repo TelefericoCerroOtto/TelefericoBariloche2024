@@ -36,7 +36,11 @@ export async function runFormGuards(
   if (maxBodyBytes) {
     const lenError = checkContentLength(req, maxBodyBytes);
     if (lenError) return { ok: false, res: lenError };
-  const ip = getClientIp(req, !!useInternalApiKey);
+
+  }
+
+  if (rateLimited) {
+    const ip = getClientIp(req, !!useInternalApiKey);
     const { rateLimitStore, maxHits, windowMs } = rateLimited;
 
     if (isRateLimited(ip, rateLimitStore, maxHits, windowMs)) {
