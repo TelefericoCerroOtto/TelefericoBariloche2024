@@ -1,3 +1,6 @@
+import { i18n } from "@/i18n";
+import { ENV_KEYS } from "@/lib/constants/env.const";
+
 export const PUBLIC_ROUTES = {
   ACTIVITIES: "/activities",
   CONTACT: "/contact",
@@ -63,14 +66,23 @@ export const ADMIN_LOGIN_REASONS = {
 export type AdminLoginReason =
   (typeof ADMIN_LOGIN_REASONS)[keyof typeof ADMIN_LOGIN_REASONS];
 
+const ADMIN_LOGIN_BASE_URL = process.env[ENV_KEYS.NEXT_PUBLIC_BASE_URL]?.replace(/\/$/, "");
+const ADMIN_LOGIN_PATH = `/${i18n.defaultLocale}${ADMIN_ROUTES.LOGIN}`;
+
 export const getAdminLoginUrl = (reason?: AdminLoginReason) => {
-  if (!reason) return ADMIN_ROUTES.LOGIN;
+  const searchParams = reason
+    ? new URLSearchParams({
+        [ADMIN_LOGIN_QUERY_PARAMS.REASON]: reason,
+      })
+    : null;
 
-  const searchParams = new URLSearchParams({
-    [ADMIN_LOGIN_QUERY_PARAMS.REASON]: reason,
-  });
+  const path = searchParams
+    ? `${ADMIN_LOGIN_PATH}?${searchParams.toString()}`
+    : ADMIN_LOGIN_PATH;
 
-  return `${ADMIN_ROUTES.LOGIN}?${searchParams.toString()}`;
+  if (!ADMIN_LOGIN_BASE_URL) return path;
+
+  return new URL(path, ADMIN_LOGIN_BASE_URL).toString();
 };
 
 export const STRAPI_ENDPOINTS = {

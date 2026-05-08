@@ -1,4 +1,5 @@
 import { getPersonalData, login, verifySession } from "@/lib/services";
+import { ENV_KEYS } from "@/lib/constants/env.const";
 import NextAuth, { CredentialsSignin, type Session } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
@@ -9,6 +10,7 @@ function generateCsrfTokenHex(byteLength = 32) {
 }
 
 const SESSION_MAX_AGE_SECONDS = 60 * 45; // 45 minutes
+const APP_BASE_URL = process.env[ENV_KEYS.NEXT_PUBLIC_BASE_URL]?.replace(/\/$/, "");
 
 // This custom class was created to avoid the general catch logger error of Auth.js.
 // This is done via logger configuration
@@ -110,6 +112,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/login",
   },
   callbacks: {
+    // Force Auth.js to resolve redirects against the public app origin so admin logout/login
+    // never leaks the internal host observed by the deployment platform.
+    redirect: async ({ url, baseUrl }) => {
+      const canonicalBaseUrl = APP_BASE_URL ?? baseUrl;
+
+      if (url.startsWith("/")) {
+        return new URL(url, canonicalBaseUrl).toString();
+      }
+
+      try {
+        if (new URL(url).origin === canonicalBaseUrl) {
+          return url;
+        }
+      } catch {
+        // Ignore invalid URLs and fall back to the canonical app origin.
+      }
+
+      return canonicalBaseUrl;
+    },
     // When a request goes through the auth middleware, it invokes the authorized function,
     // passing the auth object as a parameter.
     authorized: async ({ auth }) => {

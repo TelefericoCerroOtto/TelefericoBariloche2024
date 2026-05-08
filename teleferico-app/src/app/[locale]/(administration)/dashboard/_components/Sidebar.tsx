@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/Sidebar";
-import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
+import { ADMIN_ROUTES, getAdminLoginUrl } from "@/lib/constants/routes.const";
 import LogoRecortado from "@/public/logo-recortado.svg";
 import type { UserRole } from "@/types";
 import { Tooltip } from "@heroui/react";
@@ -200,7 +200,7 @@ export default function Sidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="text-primary hover:bg-primary/20 hover:text-primary"
-              onClick={() => signOut({ redirectTo: "/login" })}
+              onClick={() => signOut({ redirectTo: getAdminLoginUrl() })}
             >
               <Power size={16} />
               <p>Salir</p>
