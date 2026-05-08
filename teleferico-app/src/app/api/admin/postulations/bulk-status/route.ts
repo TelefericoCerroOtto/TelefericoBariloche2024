@@ -23,6 +23,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!body.documentIds.every(id => /^[a-zA-Z0-9_-]{10,50}$/.test(id))) {
+      return NextResponse.json(
+        { ok: false, message: "Invalid document ID format" },
+        { status: 400 },
+      );
+    }
+
     if (!POSTULATION_STATUSES.includes(body.postulationStatus)) {
       return NextResponse.json(
         { ok: false, message: "Invalid status" },

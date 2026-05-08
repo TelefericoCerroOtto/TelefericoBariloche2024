@@ -50,7 +50,6 @@ function isOriginAllowed(
   origin: string | null,
   allowedOrigins: Set<string>,
 ): boolean {
-  if (allowedOrigins.size === 0) return true;
   if (!origin) return false;
   return allowedOrigins.has(origin);
 }

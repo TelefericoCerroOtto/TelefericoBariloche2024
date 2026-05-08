@@ -5,7 +5,12 @@ export function checkContentLength(
   maxBytes: number,
 ): NextResponse | null {
   const h = req.headers.get("content-length");
-  if (!h) return null;
+  if (!h) {
+    return NextResponse.json(
+      { ok: false, message: "Content-Length required" },
+      { status: 411 },
+    );
+  }
 
   const len = Number(h);
   if (!Number.isFinite(len) || len > maxBytes) {
