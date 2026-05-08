@@ -8,19 +8,16 @@ export const columns: Record<
 > = {
   "es-AR": [
     { key: "depTime", label: "Horario de salida", align: "center" },
-    { key: "arrTime", label: "Horario de llegada", align: "center" },
     { key: "origin", label: "Estación de salida", align: "start" },
     { key: "destination", label: "Estación de llegada", align: "start" },
   ],
   en: [
     { key: "depTime", label: "Departure time", align: "center" },
-    { key: "arrTime", label: "Arrival time", align: "center" },
     { key: "origin", label: "Origin station", align: "start" },
     { key: "destination", label: "Destination station", align: "start" },
   ],
   pt: [
     { key: "depTime", label: "Horário de saída", align: "center" },
-    { key: "arrTime", label: "Horário de chegada", align: "center" },
     { key: "origin", label: "Estação de saída", align: "start" },
     { key: "destination", label: "Estação de chegada", align: "start" },
   ],
