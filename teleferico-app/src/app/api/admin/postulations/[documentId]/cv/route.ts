@@ -52,6 +52,14 @@ export async function GET(
     }
 
     const { documentId } = await params;
+
+    if (!/^[a-zA-Z0-9_-]{10,50}$/.test(documentId)) {
+      return NextResponse.json(
+        { message: "Invalid document ID" },
+        { status: 400 },
+      );
+    }
+
     const postulationRes = await getPostulationByDocumentId(
       documentId,
       session.jwt,
