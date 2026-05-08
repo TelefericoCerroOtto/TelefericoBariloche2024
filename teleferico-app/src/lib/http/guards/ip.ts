@@ -15,16 +15,21 @@ type HeaderLike = {
   get(name: string): string | null;
 };
 
-export function getClientIpFromHeaders(headers: HeaderLike): string {
-  // 1) Si viene enriquecida desde una Server Action, usar esa primero
-  const explicit = headers.get("x-client-ip");
-  const explicitNorm = normalizeIp(explicit);
-  if (explicitNorm) return explicitNorm;
+export function getClientIpFromHeaders(headers: HeaderLike, isInternal: boolean = false): string {
+  // 1) Si viene enriquecida desde una Server Action y es una request interna, usar esa primero
+  if (isInternal) {
+    const explicit = headers.get("x-client-ip");
+    const explicitNorm = normalizeIp(explicit);
+    if (explicitNorm) return explicitNorm;
+  }
 
   // 2) Proxy / infraestructura (client real en x-forwarded-for)
   const forwarded = headers.get("x-forwarded-for");
   if (forwarded) {
-    const raw = forwarded.split(",")[0]!.trim();
+    // Cloud Run appends the real client IP to the END of the list.
+    // If we take the first one, it can be spoofed by the user sending this header.
+    const parts = forwarded.split(",");
+    const raw = parts[parts.length - 1]!.trim();
     const norm = normalizeIp(raw);
     if (norm) return norm;
   }
@@ -39,6 +44,6 @@ export function getClientIpFromHeaders(headers: HeaderLike): string {
 }
 
 // Versión para Route Handlers (compat con lo que ya usabas)
-export function getClientIp(req: NextRequest): string {
-  return getClientIpFromHeaders(req.headers);
+export function getClientIp(req: NextRequest, isInternal: boolean = false): string {
+  return getClientIpFromHeaders(req.headers, isInternal);
 }
