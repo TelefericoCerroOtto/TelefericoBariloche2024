@@ -164,6 +164,7 @@ Staging y production están separados en:
 - El formulario de postulaciones guarda los CVs privados en `private/job-applications/` mediante el servidor de Next.js.
 - El flujo local de Strapi Media Library sigue usando `teleferico-cms/public/uploads` y no depende de `CV_STORAGE_DRIVER`.
 - La lectura pública de CMS sigue siendo directa; la descarga de CVs debe pasar por un endpoint autenticado.
+- `GCS_SIGNED_URL_TTL_SECONDS` queda reservado para el helper opcional `getDownloadUrl()` de `teleferico-app/src/lib/services/cv-storage`; el flujo actual usa stream directo y no depende de signed URLs.
 - Los registros antiguos con `resume` media relation requieren migración manual: copiar/mover el binario, poblar `cv*` y retirar la relación vieja.
 - Production tiene un bucket de respaldo que copia los binarios a través de "Replicación entre buckets".
 - **Public Access Prevention**: no puede estar `enforced` si `public/cms/` debe ser público con `allUsers`.

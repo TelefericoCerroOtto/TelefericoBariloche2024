@@ -18,6 +18,13 @@ export async function POST(
 
     const { documentId } = await ctx.params;
 
+    if (!/^[a-zA-Z0-9_-]{10,50}$/.test(documentId)) {
+      return NextResponse.json(
+        { ok: false, message: "Invalid document ID" },
+        { status: 400 },
+      );
+    }
+
     const body = (await req.json()) as FavPostulationRequestPayload;
 
     if (typeof body.favorite !== "boolean") {

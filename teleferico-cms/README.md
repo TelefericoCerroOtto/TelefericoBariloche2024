@@ -14,6 +14,8 @@ Backend (CMS) del proyecto, implementado con **Strapi**.
 - `npm run start`: inicia Strapi en modo producción (sin _auto-reload_)
 - `npm run build`: compila el panel de administración
 
+> Nota: si `npm run develop` falla con `ENOSPC`, suele ser por límite de _watchers_ del sistema (por ejemplo, VS Code/Warp abiertos). Cerrá procesos pesados o ajustá `fs.inotify.max_user_watches`.
+
 ---
 
 ## Variables de entorno (principales)

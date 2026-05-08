@@ -7,6 +7,11 @@ export const translations: Record<
     failed: { title: string; message: string };
     translationError: string;
     optional: string;
+    privacyNotice: {
+      beforeLink: string;
+      linkLabel: string;
+      afterLink: string;
+    };
     reload: { title: string; message: string };
     captchaFailed: { title: string; message: string };
     captchaMissing: { title: string; message: string };
@@ -18,6 +23,13 @@ export const translations: Record<
     failed: { title: "Error", message: "Ocurrió un error inesperado" },
     translationError: "No se pudo recuperar el contenido del formulario",
     optional: "opcional",
+    privacyNotice: {
+      beforeLink:
+        "Al enviar este formulario, autorizás al Complejo Turístico Teleférico Cerro Otto a tratar tus datos personales y tu currículum vitae para evaluar tu postulación laboral. Podés leer más en",
+      linkLabel: "la política de privacidad",
+      afterLink:
+        ". Los datos se almacenan de forma privada y solo accede personal autorizado.",
+    },
     reload: {
       title: "Recargar página",
       message:
@@ -48,6 +60,13 @@ export const translations: Record<
     },
     translationError: "Could not retrieve form content",
     optional: "optional",
+    privacyNotice: {
+      beforeLink:
+        "By submitting this form, you authorize Complejo Turístico Teleférico Cerro Otto to process your personal data and CV to evaluate your job application. You can read more in",
+      linkLabel: "the privacy policy",
+      afterLink:
+        ". The data is stored privately and only authorized staff can access it.",
+    },
     reload: {
       title: "Reload page",
       message:
@@ -77,6 +96,13 @@ export const translations: Record<
     },
     translationError: "Não foi possível recuperar o conteúdo do formulário",
     optional: "opcional",
+    privacyNotice: {
+      beforeLink:
+        "Ao enviar este formulário, você autoriza o Complejo Turístico Teleférico Cerro Otto a tratar seus dados pessoais e currículo para avaliar sua candidatura. Você pode ler mais em",
+      linkLabel: "a política de privacidade",
+      afterLink:
+        ". Os dados ficam armazenados de forma privada e apenas pessoal autorizado tem acesso.",
+    },
     reload: {
       title: "Recarregar página",
       message:
