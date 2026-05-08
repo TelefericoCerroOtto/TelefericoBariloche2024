@@ -98,6 +98,30 @@ Staging y production están separados en:
 - tokens internos para hablar con Strapi
 - secretos de Auth.js y Google OAuth
 
+#### Política para secretos generados por la aplicación
+
+Aplica a secretos definidos por nosotros y no emitidos por servicios externos, por ejemplo:
+
+- `AUTH_SECRET`
+- `INTERNAL_API_KEY`
+- `CSRF_STATE_SECRET`
+- `INIT_TOKEN`
+
+Reglas:
+
+- No deben inventarse manualmente ni reutilizar textos memorables.
+- Deben generarse con un generador criptográficamente seguro.
+- Deben tener al menos `32 bytes` de entropía real.
+- Formatos recomendados:
+  - `hex` de `64` caracteres
+  - `base64url` de `43` o más caracteres
+- Deben almacenarse únicamente en Secret Manager.
+
+Notas:
+
+- No usar reglas de contraseñas humanas del tipo “una mayúscula, un número y un símbolo”; para secretos de sistema importa la entropía, no la apariencia.
+- Si se usan símbolos, validar antes que no compliquen shell, YAML, URLs o copy/paste. Por operatividad, se prefieren `hex` o `base64url`.
+
 ---
 
 ### 4.2 teleferico-cms (Strapi)
@@ -276,6 +300,32 @@ Estas integraciones son independientes de Strapi.
 - `CV_LOCAL_STORAGE_DIR`
 - `GCS_BUCKET_NAME`
 - `GCS_PRIVATE_BASE_PATH`
+
+### Next.js — secretos que hoy pueden compartirse entre staging y production
+
+En la configuración actual, `teleferico-app` reutiliza la misma integración externa para Gmail OAuth y reCAPTCHA en ambos entornos. Por eso, estos secretos pueden tener el mismo valor en `staging` y `production`:
+
+- `RECAPTCHA_SECRET_KEY`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `OAUTH_REFRESH_TOKEN`
+
+Esto es válido si:
+
+- ambos entornos usan la misma cuenta Gmail autenticada,
+- ambos usan el mismo OAuth Client de Google,
+- y ambos usan la misma configuración de reCAPTCHA.
+
+Tradeoff: esta decisión simplifica la operación pero reduce el aislamiento entre entornos. Si se mantiene un único OAuth Client, deben estar autorizados los redirect URIs de `staging` y `production`.
+
+### Next.js — secretos que deben generarse internamente
+
+Estos secretos no provienen de Google, Strapi u otros terceros. Deben generarse siguiendo la política anterior y, salvo decisión explícita en contrario, deben ser distintos por entorno:
+
+- `AUTH_SECRET`
+- `INTERNAL_API_KEY`
+- `CSRF_STATE_SECRET`
+- `INIT_TOKEN`
 
 ### Strapi
 
