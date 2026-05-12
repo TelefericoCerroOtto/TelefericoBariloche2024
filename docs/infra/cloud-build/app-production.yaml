@@ -19,7 +19,8 @@ steps:
           --env="GCS_BUCKET_NAME=${_GCS_BUCKET_NAME}" \
           --env="GCS_PRIVATE_BASE_PATH=${_GCS_PRIVATE_BASE_PATH}" \
           --env="GCS_SIGNED_URL_TTL_SECONDS=${_GCS_SIGNED_URL_TTL_SECONDS}" \
-          --env="NEXT_PUBLIC_BASE_URL=${_BUILD_NEXT_PUBLIC_BASE_URL}" \
+          --env="NEXT_PUBLIC_SITE_URL=${_NEXT_PUBLIC_SITE_URL}" \
+          --env="APP_INTERNAL_BASE_URL=${_APP_INTERNAL_BASE_URL}" \
           --env="NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${_BUILD_NEXT_PUBLIC_RECAPTCHA_SITE_KEY}" \
           --env="ENABLE_STATIC_LOCALE_PARAMS=${_ENABLE_STATIC_LOCALE_PARAMS}" \
           --env="BUILD_STRAPI_CONTENT_TOKEN=$$APP__PRODUCTION__BUILD_STRAPI_CONTENT_TOKEN"
@@ -32,6 +33,27 @@ steps:
       - "-c"
       - |
         set -euo pipefail
+
+        # Se utiliza un archivo temporal para las variables de entorno para soportar
+        # valores que contienen comas (como ALLOWED_PUBLIC_ORIGINS) sin que el 
+        # CLI de gcloud las interprete como separadores de variables.
+        cat > /tmp/runtime-env.yaml <<EOF
+        BUILD_STRAPI_BASE_URL: "${_BUILD_STRAPI_BASE_URL}"
+        AUTH_TRUST_HOST: "${_AUTH_TRUST_HOST}"
+        NEXT_PUBLIC_RECAPTCHA_SITE_KEY: "${_BUILD_NEXT_PUBLIC_RECAPTCHA_SITE_KEY}"
+        NEXT_PUBLIC_SITE_URL: "${_NEXT_PUBLIC_SITE_URL}"
+        APP_INTERNAL_BASE_URL: "${_APP_INTERNAL_BASE_URL}"
+        ALLOWED_PUBLIC_ORIGINS: "${_ALLOWED_PUBLIC_ORIGINS}"
+        ENABLE_STATIC_LOCALE_PARAMS: "${_ENABLE_STATIC_LOCALE_PARAMS}"
+        BUILD_STRAPI_BUCKET_HOSTNAME: "${_BUILD_STRAPI_BUCKET_HOSTNAME}"
+        BUILD_STRAPI_BUCKET_PATHNAME: "${_BUILD_STRAPI_BUCKET_PATHNAME}"
+        GMAIL_SENDER: "${_GMAIL_SENDER}"
+        GMAIL_RECEIVER: "${_GMAIL_RECEIVER}"
+        CV_STORAGE_DRIVER: "${_CV_STORAGE_DRIVER}"
+        GCS_BUCKET_NAME: "${_GCS_BUCKET_NAME}"
+        GCS_PRIVATE_BASE_PATH: "${_GCS_PRIVATE_BASE_PATH}"
+        GCS_SIGNED_URL_TTL_SECONDS: "${_GCS_SIGNED_URL_TTL_SECONDS}"
+        EOF
 
         gcloud run deploy "${_SERVICE_NAME}" \
           --image "${_AR_HOSTNAME}/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/${_SERVICE_NAME}:$COMMIT_SHA" \
@@ -46,7 +68,7 @@ steps:
           --cpu-boost \
           --execution-environment gen2 \
           --allow-unauthenticated \
-          --set-env-vars "BUILD_STRAPI_BASE_URL=${_BUILD_STRAPI_BASE_URL},AUTH_TRUST_HOST=${_AUTH_TRUST_HOST},NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${_BUILD_NEXT_PUBLIC_RECAPTCHA_SITE_KEY},NEXT_PUBLIC_BASE_URL=${_BUILD_NEXT_PUBLIC_BASE_URL},ALLOWED_PUBLIC_ORIGINS=${_ALLOWED_PUBLIC_ORIGINS},ENABLE_STATIC_LOCALE_PARAMS=${_ENABLE_STATIC_LOCALE_PARAMS},BUILD_STRAPI_BUCKET_HOSTNAME=${_BUILD_STRAPI_BUCKET_HOSTNAME},BUILD_STRAPI_BUCKET_PATHNAME=${_BUILD_STRAPI_BUCKET_PATHNAME},GMAIL_SENDER=${_GMAIL_SENDER},GMAIL_RECEIVER=${_GMAIL_RECEIVER},CV_STORAGE_DRIVER=${_CV_STORAGE_DRIVER},GCS_BUCKET_NAME=${_GCS_BUCKET_NAME},GCS_PRIVATE_BASE_PATH=${_GCS_PRIVATE_BASE_PATH},GCS_SIGNED_URL_TTL_SECONDS=${_GCS_SIGNED_URL_TTL_SECONDS}" \
+          --env-vars-file /tmp/runtime-env.yaml \
           --set-secrets "INTERNAL_API_KEY=APP__PRODUCTION__INTERNAL_API_KEY:latest,STRAPI_FORMS_TOKEN=APP__PRODUCTION__STRAPI_FORMS_TOKEN:latest,BUILD_STRAPI_CONTENT_TOKEN=APP__PRODUCTION__BUILD_STRAPI_CONTENT_TOKEN:latest,AUTH_SECRET=APP__PRODUCTION__AUTH_SECRET:latest,RECAPTCHA_SECRET_KEY=APP__PRODUCTION__RECAPTCHA_SECRET_KEY:latest,GOOGLE_CLIENT_ID=APP__PRODUCTION__GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=APP__PRODUCTION__GOOGLE_CLIENT_SECRET:latest,OAUTH_REFRESH_TOKEN=APP__PRODUCTION__OAUTH_REFRESH_TOKEN:latest,CSRF_STATE_SECRET=APP__PRODUCTION__CSRF_STATE_SECRET:latest,INIT_TOKEN=APP__PRODUCTION__INIT_TOKEN:latest" \
           --quiet
     id: Deploy
@@ -69,8 +91,9 @@ substitutions:
   _BUILD_STRAPI_BASE_URL: https://cms-production-teleferico-ra2cbgog2a-rj.a.run.app
   _AUTH_TRUST_HOST: "true"
   _BUILD_NEXT_PUBLIC_RECAPTCHA_SITE_KEY: 6LfCNkArAAAAAADLLHKHAsT-wokiRhyC1cnXFfSY
-  _BUILD_NEXT_PUBLIC_BASE_URL: https://app-production-teleferico-384535443802.southamerica-east1.run.app
-  _ALLOWED_PUBLIC_ORIGINS: https://preview.telefericobariloche.com.ar,https://telefericobariloche.com,https://www.telefericobariloche.com,https://telefericobariloche.com.ar,https://www.telefericobariloche.com.ar
+  _NEXT_PUBLIC_SITE_URL: https://telefericobariloche.com.ar
+  _APP_INTERNAL_BASE_URL: https://app-production-teleferico-384535443802.southamerica-east1.run.app
+  _ALLOWED_PUBLIC_ORIGINS: https://telefericobariloche.com,https://www.telefericobariloche.com,https://telefericobariloche.com.ar,https://www.telefericobariloche.com.ar
   _ENABLE_STATIC_LOCALE_PARAMS: "false"
   _BUILD_STRAPI_BUCKET_HOSTNAME: storage.googleapis.com
   _BUILD_STRAPI_BUCKET_PATHNAME: /cms_production_bucket/public/cms/**

@@ -10,7 +10,10 @@ function generateCsrfTokenHex(byteLength = 32) {
 }
 
 const SESSION_MAX_AGE_SECONDS = 60 * 45; // 45 minutes
-const APP_BASE_URL = process.env[ENV_KEYS.NEXT_PUBLIC_BASE_URL]?.replace(/\/$/, "");
+const PUBLIC_SITE_URL = process.env[ENV_KEYS.NEXT_PUBLIC_SITE_URL]?.replace(
+  /\/$/,
+  "",
+);
 
 // This custom class was created to avoid the general catch logger error of Auth.js.
 // This is done via logger configuration
@@ -115,7 +118,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     // Force Auth.js to resolve redirects against the public app origin so admin logout/login
     // never leaks the internal host observed by the deployment platform.
     redirect: async ({ url, baseUrl }) => {
-      const canonicalBaseUrl = APP_BASE_URL ?? baseUrl;
+      const canonicalBaseUrl = PUBLIC_SITE_URL ?? baseUrl;
 
       if (url.startsWith("/")) {
         return new URL(url, canonicalBaseUrl).toString();

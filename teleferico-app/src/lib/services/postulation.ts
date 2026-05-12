@@ -13,10 +13,15 @@ export const sendPostulation = async (
   values: PostulationRequestPayload,
 ): Promise<PostulationApiResponse> => {
   try {
-    assertEnv([ENV_KEYS.INTERNAL_API_KEY, ENV_KEYS.NEXT_PUBLIC_BASE_URL]);
+    assertEnv([
+      ENV_KEYS.INTERNAL_API_KEY,
+      ENV_KEYS.APP_INTERNAL_BASE_URL,
+      ENV_KEYS.NEXT_PUBLIC_SITE_URL,
+    ]);
 
-    const baseUrl = process.env[ENV_KEYS.NEXT_PUBLIC_BASE_URL];
-    const url = `${baseUrl}${ROUTE_HANDLERS.POSTUALTION}`;
+    const internalBaseUrl = process.env[ENV_KEYS.APP_INTERNAL_BASE_URL];
+    const publicSiteUrl = process.env[ENV_KEYS.NEXT_PUBLIC_SITE_URL];
+    const url = `${internalBaseUrl}${ROUTE_HANDLERS.POSTUALTION}`;
 
     if (!values.resume) {
       throw new Error("sendPostulation: resume is missing or invalid");
@@ -25,7 +30,7 @@ export const sendPostulation = async (
     const formData = sendPostulationAdapter(values);
 
     const headers: HeadersInit = {
-      Origin: baseUrl as string,
+      Origin: publicSiteUrl as string,
       "x-internal-api-key": process.env[ENV_KEYS.INTERNAL_API_KEY] as string,
     };
 

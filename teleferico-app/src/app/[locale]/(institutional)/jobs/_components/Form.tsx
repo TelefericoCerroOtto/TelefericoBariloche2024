@@ -160,6 +160,8 @@ export default function Form(props: Props) {
   const formIntl = data!.data[0].jsonValue;
   const privacyNotice =
     formIntl.privacyNotice ?? translations[locale].privacyNotice;
+  const sectorHasError =
+    Boolean(errors.sector) && (Boolean(touched.sector) || submitCount > 0);
 
   return (
     <form
@@ -269,7 +271,7 @@ export default function Form(props: Props) {
         placeholder={formIntl.fields.sector.placeholder}
         disallowEmptySelection
         items={sectors}
-        selectedKeys={values.sector ? new Set([values.sector]) : new Set<string>()}
+        selectedKeys={values.sector ? new Set([values.sector]) : undefined}
         onSelectionChange={(keys) => {
           if (keys === "all") return;
 
@@ -282,8 +284,8 @@ export default function Form(props: Props) {
           void setFieldTouched("sector", true, false);
         }}
         onBlur={handleBlur}
-        errorMessage={errors.sector}
-        isInvalid={errors.sector !== undefined && touched.sector}
+        errorMessage={sectorHasError ? errors.sector : undefined}
+        isInvalid={sectorHasError}
         isRequired
       >
         {(item) => (

@@ -11,7 +11,10 @@ import { verifySession } from "@/lib/services";
 import type { Locales } from "@/types";
 import { NextResponse } from "next/server";
 
-const APP_BASE_URL = process.env[ENV_KEYS.NEXT_PUBLIC_BASE_URL]?.replace(/\/$/, "");
+const PUBLIC_SITE_URL = process.env[ENV_KEYS.NEXT_PUBLIC_SITE_URL]?.replace(
+  /\/$/,
+  "",
+);
 
 export default auth(async (req) => {
   const url = req.nextUrl;
@@ -64,8 +67,8 @@ export default auth(async (req) => {
     reason?: AdminLoginReason,
   ) => {
     const pathname = `/${i18n.defaultLocale}${route}`;
-    const redirectUrl = APP_BASE_URL
-      ? new URL(pathname, APP_BASE_URL)
+    const redirectUrl = PUBLIC_SITE_URL
+      ? new URL(pathname, PUBLIC_SITE_URL)
       : req.nextUrl.clone();
     redirectUrl.pathname = pathname;
 
@@ -95,8 +98,8 @@ export default auth(async (req) => {
     // IMPORTANT: preserve search params when rebuilding the target URL
     if (!hasLocalePrefix || maybeLocale !== forcedLocale) {
       const pathname = `/${forcedLocale}${adminPath}`;
-      const redirectURL = APP_BASE_URL
-        ? new URL(pathname, APP_BASE_URL)
+      const redirectURL = PUBLIC_SITE_URL
+        ? new URL(pathname, PUBLIC_SITE_URL)
         : req.nextUrl.clone();
       redirectURL.pathname = pathname;
 
