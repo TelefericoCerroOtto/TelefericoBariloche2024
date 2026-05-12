@@ -33,6 +33,9 @@ steps:
       - |
         set -euo pipefail
 
+        # Se utiliza un archivo temporal para las variables de entorno para soportar
+        # valores que contienen comas (como ALLOWED_PUBLIC_ORIGINS) sin que el 
+        # CLI de gcloud las interprete como separadores de variables.
         cat > /tmp/runtime-env.yaml <<EOF
         BUILD_STRAPI_BASE_URL: "${_BUILD_STRAPI_BASE_URL}"
         AUTH_TRUST_HOST: "${_AUTH_TRUST_HOST}"
