@@ -1,3 +1,4 @@
+import { ENV_KEYS } from "@/lib/constants/env.const";
 import { NextRequest, NextResponse } from "next/server";
 
 function extractOrigin(req: NextRequest) {
@@ -32,9 +33,17 @@ const buildAllowedOrigins = (
 ): Set<string> => {
   const merged = new Set<string>();
 
-  const base = process.env.NEXT_PUBLIC_BASE_URL;
+  const base = process.env[ENV_KEYS.NEXT_PUBLIC_BASE_URL];
   if (base) {
     merged.add(base.replace(/\/$/, ""));
+  }
+
+  const extraPublicOrigins = process.env[ENV_KEYS.ALLOWED_PUBLIC_ORIGINS];
+  if (extraPublicOrigins) {
+    for (const origin of extraPublicOrigins.split(",")) {
+      const normalized = origin.trim().replace(/\/$/, "");
+      if (normalized) merged.add(normalized);
+    }
   }
 
   if (extraAllowedOrigins) {
