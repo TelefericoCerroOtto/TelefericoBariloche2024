@@ -8,7 +8,7 @@
  * - Tokens are never logged in full. Redaction is applied if logged.
  * - Only GET is supported. Other methods return 405.
  */
-import { createOAuthClient } from "@/lib/google/oauth";
+import { createOAuthSetupClient } from "@/lib/google/oauth";
 import { verifyState } from "@/utils/csrf-state";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const oauthClient = createOAuthClient();
+    const oauthClient = createOAuthSetupClient();
     const { tokens } = await oauthClient.getToken(code);
     const rt = tokens.refresh_token; // may be undefined if already granted
     const at = tokens.access_token;

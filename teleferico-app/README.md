@@ -181,7 +181,7 @@ Capas de seguridad principales:
    - **Endpoint de Auth.js**  
      Ruta de Auth.js (por ejemplo, `/api/auth/[...nextauth]`), utilizada internamente por la librería para:
       - manejar el flujo de login/logout,
-      - resolver los redirects de login/logout del dashboard con `NEXT_PUBLIC_BASE_URL` para no depender del host interno,
+      - resolver los redirects de login/logout del dashboard con `NEXT_PUBLIC_SITE_URL` para no depender del host interno,
       - emitir y refrescar la cookie de sesión,
       - resolver callbacks propios de Auth.js.
         Características:
@@ -227,7 +227,7 @@ Capas de seguridad principales:
 - **ensureTrustedOrigin**
   Helper central que combina:
   - extracción del origin,
-  - construcción de `allowedOrigins` (a partir de `NEXT_PUBLIC_BASE_URL` y orígenes extra),
+  - construcción de `allowedOrigins` (a partir de `NEXT_PUBLIC_SITE_URL` y orígenes extra),
   - y la decisión de permitir o rechazar la request con un `403`.
 
 - **Sesión Auth.js + CSRF token (endpoints admin)**
@@ -259,7 +259,7 @@ Capas:
 
 - **Validación de origen** (todos los tipos donde tenga sentido)
   - `ensureTrustedOrigin(req, allowedOrigins?)`
-  - Verifica que el origin calculado esté en el set de orígenes permitidos (por defecto incluye `NEXT_PUBLIC_BASE_URL`).
+  - Verifica que el origin calculado esté en el set de orígenes permitidos (por defecto incluye `NEXT_PUBLIC_SITE_URL`).
   - Se usa:
     - En endpoints read-only (tipo 1) para filtrar requests desde navegador.
     - En endpoints server-to-server (tipo 2) como defensa adicional.
@@ -324,7 +324,7 @@ const origin = result.origin;
 
 Si no se pasa `allowedOrigins`, la función construye un set por defecto a partir de:
 
-- `NEXT_PUBLIC_BASE_URL` (sin `/` final),
+- `NEXT_PUBLIC_SITE_URL` (sin `/` final),
 - y opcionalmente orígenes extra que se añadan mediante `buildAllowedOrigins`.
 
 Lógica interna (resumen):
@@ -336,7 +336,7 @@ Lógica interna (resumen):
 
 2. `buildAllowedOrigins()`:
    - Crea un `Set<string>` con:
-     - `NEXT_PUBLIC_BASE_URL` normalizado,
+     - `NEXT_PUBLIC_SITE_URL` normalizado,
      - y orígenes extra si se pasan.
 
 3. `isOriginAllowed(origin, allowedOrigins)`:
@@ -359,7 +359,7 @@ En desarrollo, Next.js suele exponer dos URLs:
 
 Como `ensureTrustedOrigin` valida el `origin` contra un set de orígenes permitidos, se agregó una regla especial para evitar tener que actualizar el `.env` cada vez que cambia la IP de la red local:
 
-- En **producción**, solo se aceptan orígenes que estén en `allowedOrigins` (por ejemplo, `NEXT_PUBLIC_BASE_URL`).
+- En **producción**, solo se aceptan orígenes que estén en `allowedOrigins` (por ejemplo, `NEXT_PUBLIC_SITE_URL`).
 - En **desarrollo**, además de `allowedOrigins`, `ensureTrustedOrigin` acepta cualquier `origin` cuya hostname pertenezca a una red privada (`localhost`, `127.0.0.1`, `10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`).
 
 Esto permite:
@@ -409,10 +409,10 @@ Ejemplo genérico (contacto / postulación):
    - Llama a un **servicio del lado servidor** (`sendEmail`, `sendPostulation`, etc.).
 
 4. El servicio:
-   - Construye la URL del Route Handler interno (`NEXT_PUBLIC_BASE_URL + ROUTE_HANDLERS.X`).
+   - Construye la URL del Route Handler interno (`APP_INTERNAL_BASE_URL + ROUTE_HANDLERS.X`).
    - Adapta el payload a JSON o `FormData`.
    - Setea headers:
-     - `Origin: NEXT_PUBLIC_BASE_URL` (para `ensureTrustedOrigin`).
+      - `Origin: NEXT_PUBLIC_SITE_URL` (para `ensureTrustedOrigin`).
      - `x-internal-api-key: INTERNAL_API_KEY` (para `requireInternalApiKey`).
 
    - Hace `fetch` al Route Handler con timeout.
@@ -483,7 +483,8 @@ Este toggle se evalúa durante build/deploy; cambiarlo en un entorno requiere re
 BUILD_STRAPI_BASE_URL=http://localhost:1337
 BUILD_STRAPI_BUCKET_HOSTNAME=localhost
 BUILD_STRAPI_BUCKET_PATHNAME=/uploads/*
-NEXT_PUBLIC_BASE_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+APP_INTERNAL_BASE_URL=http://localhost:3000
 ENABLE_STATIC_LOCALE_PARAMS=false
 ```
 
