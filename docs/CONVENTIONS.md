@@ -77,7 +77,63 @@ Follow these strict rules:
 - Do NOT mention branch names.
 - Do NOT include any instruction text, only the final PR description.
 
-Use the following template as reference:
+### PR types
+
+This project distinguishes between **two PR types**. They serve different review goals and therefore must not reuse the same body blindly.
+
+#### 1. Implementation PR
+
+Use an implementation PR when proposing the original code change for review.
+
+- Typical flow: a feature/fix/refactor branch into the integration branch currently used by the team.
+- Goal: review the implementation itself.
+- The PR body should explain the problem, context, solution, and technical details of the actual code change.
+- This is the **source PR** for the change narrative.
+
+#### 2. Promotion PR
+
+Use a promotion PR when moving already-reviewed code from one environment branch to the next one.
+
+- Typical flow: integration branch to `staging`, or `staging` to `main`.
+- Goal: review and approve the **promotion/release step**, not re-review the implementation.
+- Do **not** copy the full implementation narrative verbatim unless there is a strong reason.
+- The PR body must stay concise and focus on:
+  - which previously reviewed PRs are included
+  - what environment is being promoted to
+  - what validation already happened and what still needs to be validated
+  - rollback expectations if the promotion fails
+
+### Content rules by PR type
+
+#### Implementation PR
+
+- Use the full template below.
+- Describe the net product/code change.
+- Group changes by logical area when useful.
+
+#### Promotion PR
+
+- Use the same headings and English Markdown structure.
+- Keep the content short and release-oriented.
+- Reference the already reviewed implementation PRs instead of duplicating their full explanation.
+- If the promotion contains a single implementation PR, mention that PR explicitly.
+- If the promotion contains multiple implementation PRs, present them as an included release batch.
+- State the validation target clearly (`staging` or production) and the expected rollback path.
+
+### Promotion PR guidance
+
+When a promotion PR contains **one** previously approved implementation PR, the body should summarize the promotion and link the original PR. It should not restate the full technical story.
+
+When a promotion PR contains **multiple** previously approved implementation PRs, the body should act as a release summary:
+
+- list the included PRs
+- summarize the combined scope
+- identify the main validation focus
+- state rollback expectations
+
+### Recommended examples
+
+#### Implementation PR
 
 ```
 ## Summary
@@ -94,4 +150,99 @@ Use the following template as reference:
 
 ## Breaking Changes
 - [ ] (explain impact)
+```
+
+#### Promotion PR to staging
+
+```md
+## Summary
+
+- Promote the approved change set to staging.
+
+## Context
+
+- This promotion contains the previously reviewed implementation from #123.
+- No additional code changes were introduced after the original approval.
+
+## Changes
+
+- Included PRs:
+  - #123 — Fix checkout validation for seasonal pricing
+
+## Technical Details
+
+- Validation target: staging
+- Expected checks:
+  - booking flow
+  - admin update flow
+- Rollback strategy:
+  - revert this promotion PR if staging validation fails
+
+## Breaking Changes
+
+- [ ] None
+```
+
+#### Promotion PR to main
+
+```md
+## Summary
+
+- Promote the validated release candidate to production.
+
+## Context
+
+- This promotion was previously validated in staging.
+- The implementation was originally introduced in #123.
+
+## Changes
+
+- Included PRs:
+  - #123 — Fix checkout validation for seasonal pricing
+
+## Technical Details
+
+- Staging validation completed successfully
+- Production rollout scope:
+  - booking flow
+  - admin update flow
+- Rollback strategy:
+  - revert this promotion PR if production issues are detected
+
+## Breaking Changes
+
+- [ ] None
+```
+
+#### Promotion PR with multiple included PRs
+
+```md
+## Summary
+
+- Promote the current approved release candidate to staging.
+
+## Context
+
+- This promotion groups multiple previously reviewed changes into a single validation batch.
+
+## Changes
+
+- Included PRs:
+  - #123 — Fix checkout validation for seasonal pricing
+  - #124 — Add operator note field to booking management
+  - #126 — Refactor availability cache invalidation
+
+## Technical Details
+
+- Validation target: staging
+- Focus areas:
+  - checkout
+  - booking admin
+  - availability sync
+- Rollback strategy:
+  - revert this promotion PR or exclude affected changes in the next release batch
+
+## Breaking Changes
+
+- [ ] None
 ```
