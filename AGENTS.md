@@ -45,6 +45,55 @@ The following changes are sensitive and must be explicitly called out in a propo
 - Large refactors or architecture changes
 - Infrastructure, deployment, credential, or environment-sensitive changes
 
+## GCP CLI operational rules
+
+These rules apply to **all commands** executed through Google Cloud SDK / CLI (and wrappers that ultimately operate on GCP resources for this project).
+
+| Command type | Rule |
+|---|---|
+| Safe read-only commands | Run without asking. |
+| Sensitive reads | Ask first. This includes secrets, secret metadata, IAM-sensitive inspection, or any read that could expose private information directly or indirectly. |
+| Mixed batches | Run the safe part first, then stop and ask before any sensitive part. |
+| Non-destructive but irreversible / hard-to-revert changes | Ask first. |
+| Production changes | Ask first, always. |
+| Destructive changes | Ask first, always. |
+| Ambiguous commands | Ask first. If you cannot classify a command with confidence, default to confirmation. |
+
+### Required preflight
+
+- If a command offers `dry-run`, `plan`, `preview`, or an equivalent simulation mode, run that mode **before** any real change.
+- Dry-run / plan / preview never requires confirmation because it does not apply an effective change.
+
+### Confirmation format
+
+When confirmation is required, ask once with **one consolidated list** of the exact commands to be executed.
+
+For each command, include:
+
+- the exact command
+- a brief direct summary of what it will do
+- why it needs approval
+- the affected environment (`staging`, `production`, etc.)
+- the expected result
+- the risk level
+- rollback options, if any
+
+### Small examples
+
+- `gcloud secrets versions access ...` → sensitive read, ask first.
+- `gcloud app deploy` or a production deploy script → production change, ask first.
+- `gcloud ... delete ...` / `destroy` / `purge` → destructive, ask first.
+
+## Deployment governance
+
+- Direct deployments from the console are prohibited.
+- The only operational path to deploy is through a merge of a pull request into the branch associated with the target environment.
+- The agent may prepare the pull request and supporting changes, but it must not decide, approve, or perform the merge.
+
+### Practical default
+
+When a command is not clearly safe, treat it as sensitive and ask before executing.
+
 ## Human conventions
 
 - Conventional commits + scopes + PR titles: `docs/CONVENTIONS.md`
