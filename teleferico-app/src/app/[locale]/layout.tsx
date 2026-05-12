@@ -1,7 +1,7 @@
 import { Providers } from "@/app/[locale]/providers";
 import "@/app/globals.css";
 import { i18n } from "@/i18n";
-// import { ENV_KEYS } from "@/lib/constants/env.const";
+import { ENV_KEYS } from "@/lib/constants/env.const";
 import { isLocales } from "@/lib/helpers/i18n-guards";
 import type { Locales } from "@/types";
 import type { Metadata } from "next";
@@ -27,7 +27,8 @@ export function generateStaticParams() {
   return i18n.locales.map((locale) => ({ locale }));
 }
 
-const SITE_ORIGIN = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+const SITE_ORIGIN =
+  process.env[ENV_KEYS.NEXT_PUBLIC_SITE_URL] || "http://localhost:3000";
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { locale } = await params;

@@ -96,6 +96,7 @@ Staging y production están separados en:
 
 - URLs de base
 - allowlist de orígenes públicos extra para preview/cutover (`ALLOWED_PUBLIC_ORIGINS`)
+  - **Nota técnica:** En el despliegue de producción via Cloud Build, se utiliza `--env-vars-file` en lugar de `--set-env-vars` para evitar que la sintaxis de comas (usada para separar múltiples orígenes) sea interpretada erróneamente por el CLI de `gcloud`.
 - reCAPTCHA
 - flags de build
 - tokens internos para hablar con Strapi
@@ -334,7 +335,8 @@ Regla operativa:
 
 - `BUILD_STRAPI_BASE_URL`
 - `BUILD_STRAPI_BUCKET_PATHNAME`
-- `NEXT_PUBLIC_BASE_URL`
+- `NEXT_PUBLIC_SITE_URL`
+- `APP_INTERNAL_BASE_URL`
 - `ALLOWED_PUBLIC_ORIGINS`
 - `CV_STORAGE_DRIVER`
 - `CV_LOCAL_STORAGE_DIR`

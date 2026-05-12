@@ -33,7 +33,7 @@ const buildAllowedOrigins = (
 ): Set<string> => {
   const merged = new Set<string>();
 
-  const base = process.env[ENV_KEYS.NEXT_PUBLIC_BASE_URL];
+  const base = process.env[ENV_KEYS.NEXT_PUBLIC_SITE_URL];
   if (base) {
     merged.add(base.replace(/\/$/, ""));
   }

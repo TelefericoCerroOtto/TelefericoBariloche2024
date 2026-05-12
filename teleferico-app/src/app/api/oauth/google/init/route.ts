@@ -13,7 +13,7 @@
  * commit it to source control.
  */
 import { ENV_KEYS } from "@/lib/constants/env.const";
-import { buildAuthUrl, createOAuthClient } from "@/lib/google/oauth";
+import { buildAuthUrl, createOAuthSetupClient } from "@/lib/google/oauth";
 import { generateState } from "@/utils/csrf-state";
 import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Create OAuth client and URL
-    const oauthClient = createOAuthClient();
+    const oauthClient = createOAuthSetupClient();
     const authUrl = buildAuthUrl(oauthClient);
 
     // CSRF state cookie (signed)

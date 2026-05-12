@@ -11,13 +11,13 @@
   },
   "dependencies": {
     "@strapi-community/strapi-provider-upload-google-cloud-storage": "5.0.5",
-    "@strapi/plugin-users-permissions": "5.38.0",
-    "@strapi/strapi": "5.38.0",
-    "pg": "8.18.0",
+    "@strapi/plugin-users-permissions": "5.45.1",
+    "@strapi/strapi": "5.45.1",
+    "pg": "8.20.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-router-dom": "6.30.3",
-    "styled-components": "6.3.9"
+    "styled-components": "6.4.1"
   },
   "engines": {
     "node": "22.x.x",
@@ -27,6 +27,6 @@
     "uuid": "227f52fc-49fd-42d2-a830-733152d3c39b"
   },
   "devDependencies": {
-    "baseline-browser-mapping": "2.9.19"
+    "baseline-browser-mapping": "2.10.29"
   }
 }
