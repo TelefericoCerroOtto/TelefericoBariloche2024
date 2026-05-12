@@ -17,6 +17,8 @@ No intenta reemplazar GCP ni los manifests de despliegue; solo deja lo important
 
 La plataforma tiene cuatro piezas principales:
 
+- **Global External HTTPS Load Balancer**:
+  - preparado en `teleferico-bariloche-2024` para publicar la app productiva con IP fija y certificado administrado; el cutover público depende todavía del cambio DNS.
 - **Cloud Run**:
   - **teleferico-app**: frontend Next.js con sitio institucional y dashboard administrativo.
   - **teleferico-cms**: CMS/API en Strapi.
@@ -49,7 +51,7 @@ Staging y production están separados en:
 | Next.js           | `app-staging-teleferico` | `app-production-teleferico`  |
 | Strapi            | `cms-staging-teleferico` | `cms-production-teleferico`  |
 | Región            | `southamerica-east1`     | `southamerica-east1`         |
-| Base de datos     | Cloud SQL por connector  | Cloud SQL por IP privada/VPC |
+| Base de datos     | Cloud SQL por connector  | Cloud SQL por IP privada/VPC (zonal) |
 | Bucket de uploads | `cms_staging_bucket`     | `cms_production_bucket`      |
 
 ---
@@ -93,6 +95,7 @@ Staging y production están separados en:
 #### Variables y secretos relevantes
 
 - URLs de base
+- allowlist de orígenes públicos extra para preview/cutover (`ALLOWED_PUBLIC_ORIGINS`)
 - reCAPTCHA
 - flags de build
 - tokens internos para hablar con Strapi
@@ -177,6 +180,7 @@ Notas:
 ### PostgreSQL / Cloud SQL
 
 - Staging y production usan instancias separadas.
+- Production usa Cloud SQL PostgreSQL por IP privada/VPC con sizing `db-custom-2-8192` y disponibilidad `ZONAL`.
 - Production tiene backups y recuperación habilitados desde GCP.
 - Staging no debe asumirse como entorno con las mismas garantías de recuperación que production.
 - Los detalles finos de retención, ventanas y restauración se consultan en la consola de GCP.
@@ -205,12 +209,14 @@ Notas:
 
 ### Pipelines
 
-Hay cuatro pipelines separados:
+Hay cuatro triggers activos de Cloud Build, todos regionales en `southamerica-east1` y conectados al repositorio GitHub del proyecto:
 
 - app staging
 - app production
 - cms staging
 - cms production
+
+También pueden quedar triggers legacy pausados en la consola. Se mantienen deshabilitados a propósito y no forman parte del flujo operativo.
 
 Las snapshots documentales de sus configuraciones están versionadas en [infra/cloud-build/README.md](infra/cloud-build/README.md).
 
@@ -289,13 +295,47 @@ Estas integraciones son independientes de Strapi.
 
 ---
 
-## 10) Variables de deploy que sí cambian por entorno
+## 10) Dominios y DNS
+
+La capa DNS no vive en el proyecto de este repo. Está configurada en el proyecto legacy de Google Cloud `teleferico-bariloche`.
+
+El proyecto `teleferico-bariloche-2024` ya tiene preparado el frente nuevo para production:
+
+- **IP global fija del LB**: `130.211.28.132`
+- **Load Balancer**: frontend HTTP/HTTPS con redirect HTTP→HTTPS
+- **Backend**: `app-production-teleferico` a través del serverless NEG `teleferico-app-prod-neg`
+- **Certificado administrado**: `teleferico-managed-cert` para `.com` y `.com.ar` con y sin `www`
+
+Mientras no se cambien los registros `A`/`CNAME` en la zona legacy, los dominios públicos siguen resolviendo contra el sitio anterior.
+
+El inventario leído del legacy (DNS, VM y TLS) quedó documentado en [docs/INFRA-LEGACY.md](docs/INFRA-LEGACY.md).
+
+Dominios contratados:
+
+- `telefericobariloche.com` — Don Web
+- `telefericobariloche.com.ar` — Nic.ar
+
+Ambos dominios usan Cloud DNS de Google como name servers. Cada uno tiene su zona pública independiente:
+
+| Dominio                      | Zona Cloud DNS           | Name servers                                                                                                                        |
+| ---------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `telefericobariloche.com.ar` | `telefericobariloche`    | `ns-cloud-d1.googledomains.com.` `ns-cloud-d2.googledomains.com.` `ns-cloud-d3.googledomains.com.` `ns-cloud-d4.googledomains.com.` |
+| `telefericobariloche.com`    | `telefericobarilochecom` | `ns-cloud-e1.googledomains.com.` `ns-cloud-e2.googledomains.com.` `ns-cloud-e3.googledomains.com.` `ns-cloud-e4.googledomains.com.` |
+
+Regla operativa:
+
+- Los cambios de DNS se hacen en `teleferico-bariloche`, no en el proyecto GCP asociado a este repo.
+
+---
+
+## 11) Variables de deploy que sí cambian por entorno
 
 ### Next.js
 
 - `BUILD_STRAPI_BASE_URL`
 - `BUILD_STRAPI_BUCKET_PATHNAME`
 - `NEXT_PUBLIC_BASE_URL`
+- `ALLOWED_PUBLIC_ORIGINS`
 - `CV_STORAGE_DRIVER`
 - `CV_LOCAL_STORAGE_DIR`
 - `GCS_BUCKET_NAME`
@@ -339,7 +379,7 @@ Estos secretos no provienen de Google, Strapi u otros terceros. Deben generarse 
 
 ---
 
-## 11) Esquema de alto nivel
+## 12) Esquema de alto nivel
 
 ```text
 Usuarios
