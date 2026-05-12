@@ -1,9 +1,9 @@
 import { assertEnv } from "@/utils/env";
+import { ENV_KEYS } from "@/lib/constants/env.const";
 import { type Credentials } from "google-auth-library";
 import { google } from "googleapis";
-import { ENV_KEYS } from "../constants/env.const";
 import { GOOGLE_OAUTH_SCOPES } from "./constants";
-import { createOAuthClient } from "./oauth";
+import { createOAuthRuntimeClient } from "./oauth";
 
 let gmailClient: ReturnType<typeof google.gmail> | null = null;
 
@@ -24,7 +24,7 @@ export function ensureGmail() {
     token_type: "Bearer",
   };
 
-  const oAuth2Client = createOAuthClient();
+  const oAuth2Client = createOAuthRuntimeClient();
 
   oAuth2Client.setCredentials(credentials);
   gmailClient = google.gmail({ version: "v1", auth: oAuth2Client });

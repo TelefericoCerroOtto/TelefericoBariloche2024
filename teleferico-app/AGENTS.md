@@ -94,7 +94,7 @@ This file is the package-local guardrail source for `teleferico-app`: it complem
 - Cross-cutting constants in `src/lib/constants`; avoid duplicating critical strings (routes, tags, enums).
 - Where `index.ts` barrel exports exist, maintain that pattern.
 - Recommended public form flow: component → server action → service → internal route handler → external provider.
-- In internal route handler calls, include `Origin: NEXT_PUBLIC_BASE_URL` and `x-internal-api-key` where applicable.
+- In internal route handler calls, call `APP_INTERNAL_BASE_URL + /api/...`, include `Origin: NEXT_PUBLIC_SITE_URL`, and send `x-internal-api-key` where applicable.
 - `ensureTrustedOrigin` is the entry point for origin validation; in development it accepts private network hostnames and in production it maintains strict validation.
 - CMS proxy: the client consumes `/api/proxy/[...endpoint]`; the handler resolves the Strapi URL and applies the session token on the server.
 - Respect current tokens and palette (`tailwind.config.ts`, `src/app/globals.css`).
