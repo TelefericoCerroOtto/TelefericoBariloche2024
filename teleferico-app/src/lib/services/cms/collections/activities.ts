@@ -13,6 +13,17 @@ import type {
 } from "@/types";
 import { stringifyQuery } from "@/utils";
 
+type SitemapActivityItem = {
+  label: string;
+  isActive: boolean;
+  updatedAt: string;
+};
+
+type GetActivitiesForSitemapResponse = {
+  data: SitemapActivityItem[];
+  meta: GetActivitiesResponse["meta"];
+};
+
 export const getActivity = async <T extends Locales | "all">({
   documentId,
   locale,
@@ -73,6 +84,29 @@ export const getActivities = async <T extends Locales | "all">(locale: T) => {
         tags: [CACHE_TAGS.ACTIVITIES],
       },
     },
+  );
+
+  return res;
+};
+
+export const getActivitiesForSitemap = async () => {
+  const query = {
+    filters: {
+      isActive: {
+        $eq: true,
+      },
+    },
+    fields: ["label", "isActive", "updatedAt"],
+    sort: ["sortOrder:asc", "id:asc"],
+  };
+
+  const res = await strapiFetch<GetActivitiesForSitemapResponse>(
+    {
+      endpoint: STRAPI_ENDPOINTS.ACTIVITIES,
+      qp: stringifyQuery(query),
+    },
+    { cache: "no-store" },
+    { errorMsg: "get activities for sitemap fetch error" },
   );
 
   return res;
