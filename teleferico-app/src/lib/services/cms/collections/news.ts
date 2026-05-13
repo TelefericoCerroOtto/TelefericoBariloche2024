@@ -14,6 +14,17 @@ import type {
 } from "@/types";
 import { stringifyQuery } from "@/utils";
 
+type SitemapNewsItem = {
+  documentId: string;
+  date: string;
+  updatedAt: string;
+};
+
+type GetNewsForSitemapResponse = {
+  data: SitemapNewsItem[];
+  meta: GetNewsResponse["meta"];
+};
+
 // TODO: Add pagination
 export const getNews = async ({
   locale,
@@ -39,6 +50,22 @@ export const getNews = async ({
   const res = await strapiFetch<GetNewsResponse>(
     { endpoint: STRAPI_ENDPOINTS.NEWS, qp: stringifyQuery(query) },
     { cache: "no-store" },
+  );
+
+  return res;
+};
+
+export const getNewsForSitemap = async (locale: Locales) => {
+  const query = {
+    locale: locale ?? i18n.defaultLocale,
+    fields: ["documentId", "date", "updatedAt"],
+    sort: "date:desc",
+  };
+
+  const res = await strapiFetch<GetNewsForSitemapResponse>(
+    { endpoint: STRAPI_ENDPOINTS.NEWS, qp: stringifyQuery(query) },
+    { cache: "no-store" },
+    { errorMsg: "get news for sitemap fetch error" },
   );
 
   return res;

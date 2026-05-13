@@ -2,4 +2,4 @@
 - Change contracts (props, types, interfaces) only if necessary or if the requirement explicitly demands it.
 - If typing is needed, analyze pre-existing types to determine whether reuse is possible.
 - Newly created reusable types/interfaces must be stored under the types directory of each package.
-- Files that exclusively contain types/interfaces must use the `.d.ts` extension.
+- Files that are purely declarative and have no runtime exports must use the `.d.ts` extension; use `.ts` when the file exports runtime values or executable helpers.
