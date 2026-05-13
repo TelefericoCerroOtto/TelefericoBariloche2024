@@ -1,7 +1,6 @@
+import { isAllowedExploreSlug } from "@/lib/helpers/explore-routes";
 // import { i18n } from "@/i18n";
 import { notFound } from "next/navigation";
-
-const PAGES_ROUTES = ["alternative-access"];
 
 // export async function generateStaticParams() {
 //   return i18n.locales.flatMap((locale) =>
@@ -18,7 +17,7 @@ export default async function RootLayout({
 }>) {
   const { slug } = await params;
 
-  if (!PAGES_ROUTES.includes(slug)) {
+  if (!isAllowedExploreSlug(slug)) {
     notFound();
   }
 
