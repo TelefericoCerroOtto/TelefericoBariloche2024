@@ -46,6 +46,13 @@ As a consequence, this `AGENTS.md` intentionally has less structural depth than 
 - Schema, role and permission changes are sensitive: review functional and contractual impact before assuming compatibility.
 - Do not introduce permission changes that expand public or administrative access without explicit requirement.
 
+### Permissions documentation sync
+
+- Any change that adds, removes, renames or changes the access expectations of a Strapi collection/content-type must review and update `../docs/STRAPI_PERMISSIONS.md` in the same change.
+- This includes changes to API tokens, Users & Permissions roles, admin access assumptions, or application flows that require different `find`, `findOne`, `create`, `update` or `delete` permissions.
+- Components do not need to be listed as permission targets unless they change the access expectations of a collection documented in the permissions matrix.
+- Do not treat permissions documentation as a follow-up task.
+
 ### Domain pattern
 
 - Maintain the `src/api/<collection>/{content-types,controllers,routes,services}` pattern.
