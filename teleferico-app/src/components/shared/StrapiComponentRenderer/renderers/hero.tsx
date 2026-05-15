@@ -9,15 +9,15 @@ export const renderHero: RendererMap["page-components.hero"] = (block) => {
     <Hero
       content={{
         desktopCover: {
-          src: toCmsImageProxyUrl(desktopCover?.image?.url),
+          src: toCmsImageProxyUrl(desktopCover?.image?.url) ?? "",
           alt: desktopCover?.alt,
         },
         mobileCover: {
-          src: toCmsImageProxyUrl(mobileCover?.image?.url),
+          src: toCmsImageProxyUrl(mobileCover?.image?.url) ?? "",
           alt: mobileCover?.alt,
         },
         ...(logo
-          ? { logo: { src: toCmsImageProxyUrl(logo?.image?.url), alt: logo?.alt } }
+          ? { logo: { src: toCmsImageProxyUrl(logo?.image?.url) ?? "", alt: logo?.alt } }
           : {}),
         ...rest,
       }}

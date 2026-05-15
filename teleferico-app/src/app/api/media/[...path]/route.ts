@@ -3,10 +3,22 @@ import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { buildProxyTargetURL } from "@/lib/http/guards/proxy-target";
 import { normalizeCmsBucketPathPrefix } from "@/lib/adapters";
 import { assertEnv } from "@/utils/env";
+import { Storage } from "@google-cloud/storage";
+import { Readable } from "node:stream";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const GCS_CLIENT = new Storage();
+
+function toWebStream(stream: NodeJS.ReadableStream): BodyInit {
+  return Readable.toWeb(stream as Readable) as unknown as BodyInit;
+}
+
+function isUnsafePath(path: string[]) {
+  return path.some((segment) => segment === ".." || segment === ".");
+}
 
 export async function GET(
   req: NextRequest,
@@ -17,14 +29,20 @@ export async function GET(
       ENV_KEYS.BUILD_STRAPI_BASE_URL,
       ENV_KEYS.BUILD_STRAPI_BUCKET_HOSTNAME,
       ENV_KEYS.BUILD_STRAPI_BUCKET_PATHNAME,
+      ENV_KEYS.GCS_BUCKET_NAME,
     ]);
 
     const { path } = await params;
+    if (!path.length || isUnsafePath(path)) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
     const strapiBase = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL];
     const bucketHostname = process.env[ENV_KEYS.BUILD_STRAPI_BUCKET_HOSTNAME];
     const bucketPathname = process.env[ENV_KEYS.BUILD_STRAPI_BUCKET_PATHNAME];
+    const bucketName = process.env[ENV_KEYS.GCS_BUCKET_NAME];
 
-    if (!bucketHostname || !bucketPathname) {
+    if (!strapiBase || !bucketHostname || !bucketPathname || !bucketName) {
       return NextResponse.json(
         { message: "Image bucket is not configured" },
         { status: 500 },
@@ -47,6 +65,43 @@ export async function GET(
     );
 
     if (!built.ok) return built.error;
+
+    if (!useStrapiUploads && path[0] === bucketName) {
+      const objectKey = path.slice(1).join("/");
+      const normalizedBucketPathname = normalizeCmsBucketPathPrefix(bucketPathname);
+      const bucketPathPrefix = normalizedBucketPathname.startsWith(
+        `/${bucketName}/`,
+      )
+        ? normalizedBucketPathname.slice(bucketName.length + 2)
+        : normalizedBucketPathname.replace(/^\//, "");
+
+      if (!objectKey.startsWith(bucketPathPrefix)) {
+        return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+      }
+
+      const gcsFile = GCS_CLIENT.bucket(bucketName).file(objectKey);
+      const [metadata] = await gcsFile.getMetadata();
+
+      const headers = new Headers({
+        "Content-Type": metadata.contentType ?? "application/octet-stream",
+        "Cache-Control":
+          metadata.cacheControl ?? "public, max-age=31536000, immutable",
+        "X-Content-Type-Options": "nosniff",
+      });
+
+      if (metadata.contentDisposition) {
+        headers.set("Content-Disposition", metadata.contentDisposition);
+      }
+
+      if (metadata.size) {
+        headers.set("Content-Length", String(metadata.size));
+      }
+
+      return new Response(toWebStream(gcsFile.createReadStream()), {
+        status: 200,
+        headers,
+      });
+    }
 
     const upstream = await fetch(built.url, { cache: "no-store" });
 
