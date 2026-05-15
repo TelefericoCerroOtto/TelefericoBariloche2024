@@ -19,6 +19,7 @@ export const PUBLIC_ROUTES = {
 export const ROUTE_HANDLERS = {
   PROXY: "/api/proxy", // TODO: public endpoint
   PROXY_FILE: "/api/proxy-file", // public endpoint
+  MEDIA: "/api/media", // public endpoint
   CONTACT: "/api/contact", // server endpoint
   POSTUALTION: "/api/postulation", // server endpoint
   POSTULATION_CV: (documentId: string) =>

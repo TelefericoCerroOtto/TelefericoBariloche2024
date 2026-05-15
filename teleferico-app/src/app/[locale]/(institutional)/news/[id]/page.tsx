@@ -1,4 +1,5 @@
 import { BlockRendererClient, TitleDescBlock } from "@/components";
+import { selectCmsImageUrl } from "@/lib/adapters";
 import { getNew } from "@/lib/services";
 import type { Locales } from "@/types";
 import { Spacer } from "@heroui/react";
@@ -28,7 +29,10 @@ export default async function NewDetailPage({
       />
       <div className="relative mb-14 h-[550px] w-full">
         <Image
-          src={cover.url}
+          src={
+            selectCmsImageUrl(cover, ["large", "medium", "small", "thumbnail"]) ??
+            cover.url
+          }
           alt={cover.alternativeText || "News cover image"}
           fill
           className="object-cover"
