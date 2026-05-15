@@ -6,6 +6,12 @@ import { buildProxyTargetURL } from "@/lib/http/guards/proxy-target";
 import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";
 
+function matchesEndpointPrefix(path: string, prefixes: readonly string[]) {
+  return prefixes.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  );
+}
+
 export async function GET(
   req: NextRequest,
   ctx: RouteContext<"/api/proxy/[...endpoint]">,
@@ -31,26 +37,44 @@ export async function GET(
       ZONES,
     } = STRAPI_ENDPOINTS;
 
+    const publicContentReadPrefixes = [
+      ACTIVITIES,
+      BUS_TRIPS,
+      COMPONENT_TRANSLATIONS,
+      FAQS,
+      NEWS,
+      SERVICE_STATE,
+      TICKETS,
+      ZONES,
+    ] as const;
+    const authenticatedReadPrefixes = [POSTULATIONS] as const;
+    const allowedPrefixes = [
+      ...publicContentReadPrefixes,
+      ...authenticatedReadPrefixes,
+    ] as const;
+    const endpointPath = `/${endpoint.join("/")}`;
+
     const built = buildProxyTargetURL(req, endpoint, strapiBase, {
-      allowedPrefixes: [
-        ACTIVITIES,
-        BUS_TRIPS,
-        COMPONENT_TRANSLATIONS,
-        FAQS,
-        NEWS,
-        POSTULATIONS,
-        SERVICE_STATE,
-        TICKETS,
-        ZONES,
-      ],
+      allowedPrefixes: [...allowedPrefixes],
     });
     if (!built.ok) return built.error;
 
     const session = await auth();
 
     const headers: HeadersInit = {};
-    if (session?.jwt) {
+
+    if (matchesEndpointPrefix(endpointPath, authenticatedReadPrefixes)) {
+      if (!session?.jwt) {
+        return NextResponse.json(
+          { ok: false, message: "Unauthorized" },
+          { status: 401 },
+        );
+      }
+
       headers.Authorization = `Bearer ${session.jwt}`;
+    } else if (matchesEndpointPrefix(endpointPath, publicContentReadPrefixes)) {
+      assertEnv([ENV_KEYS.BUILD_STRAPI_CONTENT_TOKEN]);
+      headers.Authorization = `Bearer ${process.env[ENV_KEYS.BUILD_STRAPI_CONTENT_TOKEN]}`;
     }
 
     const res = await fetch(built.url, {

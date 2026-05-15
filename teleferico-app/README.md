@@ -450,7 +450,10 @@ Exponer una API interna de Next (`/api/proxy`) que:
     - si la request no viene de un origen permitido, devuelve 403.
 
   - Reconstruye la URL de Strapi: `BUILD_STRAPI_BASE_URL + endpointPath + query params` a partir de `[...endpoint]` y `searchParams`.
-  - Obtiene la sesión con `auth()` y, si hay `jwt`, agrega `Authorization: Bearer <jwt>` a la request hacia Strapi.
+  - Clasifica el endpoint solicitado antes de enviar credenciales a Strapi:
+    - endpoints de lectura pública (`activities`, `bus-trips`, `component-translations`, `faqs`, `news`, `service-state`, `tickets`, `zones`) usan `BUILD_STRAPI_CONTENT_TOKEN` desde el servidor;
+    - endpoints privados (`postulations`) requieren sesión y usan `Authorization: Bearer <session.jwt>`;
+    - los endpoints privados sin sesión devuelven 401 y nunca caen al token público.
   - Hace `fetch` a Strapi desde el backend.
   - Devuelve el JSON de Strapi (y el `status` correspondiente) al cliente.
 

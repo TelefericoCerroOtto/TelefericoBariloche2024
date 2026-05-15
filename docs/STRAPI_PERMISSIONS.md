@@ -48,6 +48,17 @@ These profiles are expected to exist with the same permission shape in every run
 
 Content exposed through the public-facing application must be treated as published/public content. Draft or preview access is not part of the token model described here.
 
+## Application proxy authorization policy
+
+`teleferico-app` exposes Strapi reads to browser code through `/api/proxy`. The browser never receives Strapi credentials; the Route Handler chooses the server-side credential based on the requested endpoint.
+
+| Proxy endpoint family | Credential sent to Strapi | Rule |
+| --------------------- | ------------------------- | ---- |
+| Public content reads (`activity`, `bus-trip`, `component-translation`, `faq`, `new`, `service-state`, `ticket`, `zone`) | `BUILD_STRAPI_CONTENT_TOKEN` | Used for anonymous and authenticated browser reads so the public UI does not depend on the Strapi `Public` role. |
+| Private operational reads (`postulation`) | Authenticated session JWT | Requires a logged-in app session. Never falls back to `BUILD_STRAPI_CONTENT_TOKEN`. |
+
+The Strapi `Public` role must not be used to make the public website work. Public website reads go through the server-side content token instead.
+
 ## API tokens
 
 ### `Public Content Read (Nextjs)`

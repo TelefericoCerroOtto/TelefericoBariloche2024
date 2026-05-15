@@ -44,7 +44,9 @@ export function buildProxyTargetURL(
 
   // 4) Allowlist opcional (recomendado)
   if (opts.allowedPrefixes?.length) {
-    const allowed = opts.allowedPrefixes.some((p) => path.startsWith(p));
+    const allowed = opts.allowedPrefixes.some(
+      (p) => path === p || path.startsWith(`${p}/`),
+    );
     if (!allowed) {
       return { ok: false, error: new Response("Forbidden", { status: 403 }) };
     }
