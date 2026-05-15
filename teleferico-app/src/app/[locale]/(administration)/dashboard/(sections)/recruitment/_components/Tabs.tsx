@@ -15,7 +15,7 @@ export default function Tabs(props: Props) {
   const [selected, setSelected] = useState<string | number>("general");
 
   return (
-    <div className="flex w-full flex-col">
+    <div className="flex w-full min-w-0 flex-col overflow-x-hidden">
       <NextUITabs
         aria-label="Opciones"
         variant="underlined"
@@ -27,7 +27,7 @@ export default function Tabs(props: Props) {
           cursor: "w-full bg-custom-red",
           tab: "max-w-fit px-0 h-12",
           tabContent: "group-data-[selected=true]:text-custom-red",
-          panel: "p-0",
+          panel: "min-w-0 p-0",
         }}
       >
         <Tab key="general" title={<span>Todas</span>}>

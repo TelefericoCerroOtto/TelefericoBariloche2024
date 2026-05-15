@@ -28,13 +28,13 @@ export default function DashboardLayout({
     <SidebarProvider>
       <SessionWatcher />
       <Sidebar />
-      <main className="w-full max-w-full">
+      <main className="w-full min-w-0 max-w-full overflow-x-hidden">
         <Header />
         {/* TODO: resolver diferencia con el height del header.
           tailwind no acepta clases de manera dinamica 
           https://stackoverflow.com/questions/71791472/fontawesome-icons-not-accepting-color-props-through-react-functional-components/
           */}
-        <div className={`h-[calc(100%-75px)] w-full max-w-full bg-accent pt-5`}>
+        <div className="h-[calc(100%-75px)] w-full min-w-0 max-w-full overflow-x-hidden bg-accent pt-5">
           {children}
         </div>
       </main>
