@@ -36,6 +36,19 @@ interface Props {
   userId: number;
 }
 
+const columnWidths: Record<ColumnKeys, string> = {
+  date: "w-36 whitespace-nowrap ps-10",
+  name: "w-56",
+  email: "w-[24rem]",
+  age: "w-20 whitespace-nowrap",
+  gender: "w-28 whitespace-nowrap",
+  postulation_status: "w-44 whitespace-nowrap",
+  sector: "w-40",
+  note: "w-[22rem]",
+  campNo: "w-36 whitespace-nowrap",
+  actions: "w-[30rem] whitespace-nowrap",
+};
+
 export default function PostulationsTable({ sectors, userId }: Props) {
   const { showAlert } = useAppAlert();
   const [selectedRows, setSelectedRows] = useState<Selection>(new Set([]));
@@ -207,58 +220,69 @@ export default function PostulationsTable({ sectors, userId }: Props) {
         disabled={isLoading}
         onApplyStatus={handleApplyStatus}
       />
-      <TableContainer>
-        <Table
-          {...tableStyles}
-          className="text-base"
-          selectionMode="multiple"
-          selectedKeys={selectedRows}
-          onSelectionChange={setSelectedRows}
-          selectionBehavior="toggle"
-          bottomContent={
-            <div className="flex w-full justify-center">
-              <Pagination
-                className="text-base"
-                isDisabled={isLoading}
-                showControls
-                page={page}
-                total={totalPages}
-                onChange={setPage}
-              />
-            </div>
-          }
-        >
-          <TableHeader columns={columns}>
-            {(column) => (
-              <TableColumn
-                key={column.key}
-                className={`${
-                  column.key === "actions" ? "text-center" : ""
-                } text-lg font-semibold text-default-700`}
-              >
-                {column.label}
-              </TableColumn>
-            )}
-          </TableHeader>
-          <TableBody
+      <div className="space-y-4">
+        <TableContainer>
+          <Table
+            {...tableStyles}
             className="text-base"
-            emptyContent={"No hay postulaciones para mostrar"}
-            items={postulations}
-            isLoading={isLoading}
-            loadingContent={<Spinner label="Cargando postulaciones" />}
+            classNames={{
+              ...tableStyles.classNames,
+              table: "bg-white table-fixed min-w-[94rem]",
+              th: "bg-white font-bold text-black",
+              td: "align-middle",
+            }}
+            selectionMode="multiple"
+            selectedKeys={selectedRows}
+            onSelectionChange={setSelectedRows}
+            selectionBehavior="toggle"
           >
-            {(item) => (
-              <TableRow key={item.documentId}>
-                {(columnKey) => (
-                  <TableCell className="text-base">
-                    {renderCell(item, columnKey as ColumnKeys)}
-                  </TableCell>
-                )}
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            <TableHeader columns={columns}>
+              {(column) => (
+                <TableColumn
+                  key={column.key}
+                  className={`${columnWidths[column.key]} ${
+                    column.key === "actions" ? "text-center" : ""
+                  } text-lg font-semibold text-default-700`}
+                >
+                  {column.label}
+                </TableColumn>
+              )}
+            </TableHeader>
+            <TableBody
+              className="text-base"
+              emptyContent={"No hay postulaciones para mostrar"}
+              items={postulations}
+              isLoading={isLoading}
+              loadingContent={<Spinner label="Cargando postulaciones" />}
+            >
+              {(item) => (
+                <TableRow key={item.documentId}>
+                  {(columnKey) => (
+                    <TableCell
+                      className={`text-base ${
+                        columnKey === "date" ? "ps-10" : ""
+                      } ${columnKey === "actions" ? "overflow-visible" : ""}`}
+                    >
+                      {renderCell(item, columnKey as ColumnKeys)}
+                    </TableCell>
+                  )}
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <div className="flex w-full justify-center pb-2">
+          <Pagination
+            className="text-base"
+            isDisabled={isLoading}
+            showControls
+            page={page}
+            total={totalPages}
+            onChange={setPage}
+          />
+        </div>
+      </div>
     </>
   );
 }

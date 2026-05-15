@@ -1,4 +1,5 @@
 import { CustomLink, TitleDescBlock } from "@/components";
+import { selectCmsImageUrl } from "@/lib/adapters";
 import { getNews } from "@/lib/services";
 import { Locales } from "@/types";
 import { Alert } from "@heroui/react";
@@ -33,9 +34,7 @@ export default async function FeaturedNew(props: Props) {
 
   const { cover, documentId, title, brief, date } = data.data[0];
   const imageSrc =
-    cover.formats?.large?.url ??
-    cover.formats?.medium?.url ??
-    cover.formats?.small?.url ??
+    selectCmsImageUrl(cover, ["large", "medium", "small", "thumbnail"]) ??
     cover.url;
 
   const headingId = `featured-news-${documentId}`;

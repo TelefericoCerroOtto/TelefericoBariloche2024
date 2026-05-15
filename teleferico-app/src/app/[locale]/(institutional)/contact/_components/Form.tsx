@@ -3,6 +3,7 @@
 import { ButtonDos, FormError, Honeypot } from "@/components";
 import { useLocale, useTranslation } from "@/hooks";
 import { useAppAlert } from "@/hooks/use-app-alert";
+import { MAX_EMAIL_LENGTH } from "@/lib/schemas/forms/constants";
 import { buildContactSchema } from "@/lib/schemas";
 import { formInputClassNames } from "@/lib/constants/styles.const";
 import { ContactFormData } from "@/types";
@@ -162,6 +163,7 @@ export default function Form() {
         errorMessage={errors.email}
         isInvalid={!!errors.email && touched.email}
         type="email"
+        maxLength={MAX_EMAIL_LENGTH}
         classNames={formInputClassNames}
       />
       <Textarea

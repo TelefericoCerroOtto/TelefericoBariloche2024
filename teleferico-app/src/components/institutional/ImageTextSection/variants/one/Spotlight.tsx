@@ -1,4 +1,4 @@
-import { blocksToExcerpt } from "@/lib/adapters";
+import { blocksToExcerpt, selectCmsImageUrl } from "@/lib/adapters";
 import { typography } from "@/lib/constants/typography.const";
 import notFoundImg from "@/public/image-not-found.jpg";
 import NextImage from "next/image";
@@ -9,8 +9,8 @@ export function Spotlight(props: OneImageProps) {
 
   const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
   const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
-  const mobileSrc = mobile0?.image?.url ?? notFoundImg.src;
-  const desktopSrc = desktop0?.image?.url ?? notFoundImg.src;
+  const mobileSrc = selectCmsImageUrl(mobile0?.image) ?? notFoundImg.src;
+  const desktopSrc = selectCmsImageUrl(desktop0?.image) ?? notFoundImg.src;
   const mobileAlt = mobile0?.alt ?? "imagen institucional";
   const desktopAlt = desktop0?.alt ?? "imagen institucional";
 
