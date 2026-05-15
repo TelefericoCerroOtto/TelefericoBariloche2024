@@ -50,6 +50,9 @@ export async function GET(
     }
 
     const useStrapiUploads = path[0] === STRAPI_ENDPOINTS.UPLOAD_ASSETS.slice(1);
+    const bucketAllowedPrefix = normalizeCmsBucketPathPrefix(
+      bucketPathname,
+    ).replace(/\/$/, "");
 
     const built = buildProxyTargetURL(
       req,
@@ -59,7 +62,7 @@ export async function GET(
         allowedPrefixes: [
           useStrapiUploads
             ? STRAPI_ENDPOINTS.UPLOAD_ASSETS
-            : normalizeCmsBucketPathPrefix(bucketPathname),
+            : bucketAllowedPrefix,
         ],
       },
     );
