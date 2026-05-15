@@ -94,12 +94,12 @@ export default function Filters(props: FiltersProps) {
   //   selectedRows !== "all" && (selectedRows as Set<unknown>).size === 0;
 
   return (
-    <div className="py-auto flex h-20 w-full items-center justify-between gap-8 overflow-x-auto border-b border-b-foreground-300 bg-white px-3">
-      <div className="flex min-w-[700px] flex-1 items-center gap-6">
+    <div className="flex w-full flex-wrap items-end gap-4 border-b border-b-foreground-300 bg-white px-3 py-3">
+      <div className="flex min-w-0 flex-1 flex-wrap items-end gap-4">
         {/* Buscar por nombre */}
         <Input
           isClearable
-          className="w-full min-w-[175px]"
+          className="min-w-[175px] flex-1"
           placeholder="Buscar por nombre..."
           startContent={<SearchIcon size={16} />}
           value={searchValue}
@@ -112,7 +112,7 @@ export default function Filters(props: FiltersProps) {
         <Input
           isClearable
           type="number"
-          className="w-2/4 min-w-[140px]"
+          className="min-w-[140px] flex-1"
           placeholder="Campaña"
           startContent={<Hash size={14} />}
           value={campNoValue}
@@ -123,7 +123,7 @@ export default function Filters(props: FiltersProps) {
 
         {/* Rango de edad */}
         <Slider
-          className="min-w-[200px] max-w-md"
+          className="min-w-[200px] flex-1 max-w-md"
           label="Edad"
           aria-label="Filtrar por rango de edad"
           maxValue={70}
@@ -144,7 +144,7 @@ export default function Filters(props: FiltersProps) {
 
         {/* Género (multi) */}
         <Select
-          className="min-w-[175px]"
+          className="min-w-[175px] flex-1"
           labelPlacement="inside"
           size="sm"
           label="Género"
@@ -160,7 +160,7 @@ export default function Filters(props: FiltersProps) {
 
         {/* Sector (multi) */}
         <Select
-          className="min-w-[175px]"
+          className="min-w-[175px] flex-1"
           size="sm"
           labelPlacement="inside"
           label="Sector de Postulación"
@@ -176,7 +176,7 @@ export default function Filters(props: FiltersProps) {
 
         {/* Fecha de la postulación */}
         <Select
-          className="min-w-[160px]"
+          className="min-w-[160px] flex-1"
           size="sm"
           labelPlacement="inside"
           label="Fecha de postulación"
@@ -195,7 +195,7 @@ export default function Filters(props: FiltersProps) {
 
         {/* Estado de postulación */}
         <Select
-          className="min-w-[150px]"
+          className="min-w-[150px] flex-1"
           size="sm"
           labelPlacement="inside"
           label="Estado"
@@ -212,13 +212,13 @@ export default function Filters(props: FiltersProps) {
       </div>
 
       {/* Solo favoritas */}
-      <div className="flex flex-col items-center gap-2">
+      <div className="ml-auto flex shrink-0 flex-col items-center gap-2">
         <span className="text-base">Ver solo favoritas</span>
         <Switch
           size="sm"
           isSelected={favoritesOnly}
           onValueChange={onFavoritesChange}
-          className="min-w-[130px] justify-center"
+          className="min-w-[130px] shrink-0 justify-center"
         />
       </div>
     </div>

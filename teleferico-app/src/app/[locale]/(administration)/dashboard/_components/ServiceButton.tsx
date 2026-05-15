@@ -24,7 +24,7 @@ export default function ServiceButton() {
           aria-disabled
         >
           <Button
-            className="bg-green-100 text-green-900 outline-none hover:bg-green-300"
+            className="shrink-0 whitespace-nowrap bg-green-100 text-green-900 outline-none hover:bg-green-300"
             radius="full"
             startContent={<CableCar />}
             isDisabled
@@ -40,7 +40,7 @@ export default function ServiceButton() {
     <DropdownCablecarMenu>
       {(isLoading) => (
         <Button
-          className="bg-green-100 text-green-900 outline-none hover:bg-green-300"
+          className="shrink-0 whitespace-nowrap bg-green-100 text-green-900 outline-none hover:bg-green-300"
           radius="full"
           startContent={<CableCar />}
           isDisabled={isLoading}
