@@ -25,34 +25,41 @@ export async function GET(
   { params }: { params: Promise<{ path: string[] }> },
 ) {
   try {
-    assertEnv([
-      ENV_KEYS.BUILD_STRAPI_BASE_URL,
-      ENV_KEYS.BUILD_STRAPI_BUCKET_HOSTNAME,
-      ENV_KEYS.BUILD_STRAPI_BUCKET_PATHNAME,
-      ENV_KEYS.GCS_BUCKET_NAME,
-    ]);
-
     const { path } = await params;
     if (!path.length || isUnsafePath(path)) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
+
+    const useStrapiUploads = path[0] === STRAPI_ENDPOINTS.UPLOAD_ASSETS.slice(1);
+
+    assertEnv(
+      useStrapiUploads
+        ? [ENV_KEYS.BUILD_STRAPI_BASE_URL]
+        : [
+            ENV_KEYS.BUILD_STRAPI_BASE_URL,
+            ENV_KEYS.BUILD_STRAPI_BUCKET_HOSTNAME,
+            ENV_KEYS.BUILD_STRAPI_BUCKET_PATHNAME,
+            ENV_KEYS.GCS_BUCKET_NAME,
+          ],
+    );
 
     const strapiBase = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL];
     const bucketHostname = process.env[ENV_KEYS.BUILD_STRAPI_BUCKET_HOSTNAME];
     const bucketPathname = process.env[ENV_KEYS.BUILD_STRAPI_BUCKET_PATHNAME];
     const bucketName = process.env[ENV_KEYS.GCS_BUCKET_NAME];
 
-    if (!strapiBase || !bucketHostname || !bucketPathname || !bucketName) {
+    if (
+      !strapiBase ||
+      (!useStrapiUploads && (!bucketHostname || !bucketPathname || !bucketName))
+    ) {
       return NextResponse.json(
         { message: "Image bucket is not configured" },
         { status: 500 },
       );
     }
-
-    const useStrapiUploads = path[0] === STRAPI_ENDPOINTS.UPLOAD_ASSETS.slice(1);
-    const bucketAllowedPrefix = normalizeCmsBucketPathPrefix(
-      bucketPathname,
-    ).replace(/\/$/, "");
+    const bucketAllowedPrefix = bucketPathname
+      ? normalizeCmsBucketPathPrefix(bucketPathname).replace(/\/$/, "")
+      : "";
 
     const built = buildProxyTargetURL(
       req,
@@ -70,19 +77,23 @@ export async function GET(
     if (!built.ok) return built.error;
 
     if (!useStrapiUploads && path[0] === bucketName) {
+      const resolvedBucketName = bucketName as string;
+      const resolvedBucketPathname = bucketPathname as string;
       const objectKey = path.slice(1).join("/");
-      const normalizedBucketPathname = normalizeCmsBucketPathPrefix(bucketPathname);
+      const normalizedBucketPathname = normalizeCmsBucketPathPrefix(
+        resolvedBucketPathname,
+      );
       const bucketPathPrefix = normalizedBucketPathname.startsWith(
-        `/${bucketName}/`,
+        `/${resolvedBucketName}/`,
       )
-        ? normalizedBucketPathname.slice(bucketName.length + 2)
+        ? normalizedBucketPathname.slice(resolvedBucketName.length + 2)
         : normalizedBucketPathname.replace(/^\//, "");
 
       if (!objectKey.startsWith(bucketPathPrefix)) {
         return NextResponse.json({ message: "Forbidden" }, { status: 403 });
       }
 
-      const gcsFile = GCS_CLIENT.bucket(bucketName).file(objectKey);
+      const gcsFile = GCS_CLIENT.bucket(resolvedBucketName).file(objectKey);
       const [metadata] = await gcsFile.getMetadata();
 
       const headers = new Headers({
