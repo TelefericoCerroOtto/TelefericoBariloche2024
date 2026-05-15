@@ -5,6 +5,7 @@ import { useAppAlert, useLocale, useTranslation } from "@/hooks";
 import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { selectInputStyles } from "@/lib/constants/styles.const";
 import { formInputClassNames } from "@/lib/constants/styles.const";
+import { MAX_EMAIL_LENGTH } from "@/lib/schemas/forms/constants";
 import { buildPostulationSchema } from "@/lib/schemas";
 import type { PostulationFormData, Sector } from "@/types";
 import { Input, Select, SelectItem, Textarea } from "@heroui/react";
@@ -139,10 +140,10 @@ export default function Form(props: Props) {
       name: "",
       surname: "",
       email: "",
-      gender: "male",
+      gender: "" as PostulationFormData["gender"],
+      age: undefined as unknown as PostulationFormData["age"],
       resume: undefined as unknown as File,
       note: "",
-      age: 27,
       sector: "",
     },
     onSubmit,
@@ -209,8 +210,20 @@ export default function Form(props: Props) {
         id="gender"
         label={formIntl.fields.gender.label}
         placeholder={formIntl.fields.gender.placeholder}
-        defaultSelectedKeys={[values.gender]}
-        onChange={handleChange}
+        selectedKeys={values.gender ? new Set([values.gender]) : undefined}
+        onSelectionChange={(keys) => {
+          if (keys === "all") return;
+
+          const [selectedKey] = Array.from(keys);
+          void setFieldValue(
+            "gender",
+            selectedKey
+              ? String(selectedKey)
+              : ("" as PostulationFormData["gender"]),
+            true,
+          );
+          void setFieldTouched("gender", true, false);
+        }}
         onBlur={handleBlur}
         errorMessage={errors.gender}
         isInvalid={errors.gender !== undefined && touched.gender}
@@ -233,13 +246,33 @@ export default function Form(props: Props) {
         labelPlacement="outside"
         className="rounded-full border"
         onValueChange={(e) => {
-          let value = parseInt(e);
+          if (e.trim() === "") {
+            void setFieldValue(
+              "age",
+              undefined as unknown as PostulationFormData["age"],
+            );
+            return;
+          }
+
+          let value = parseInt(e, 10);
+          if (Number.isNaN(value)) {
+            void setFieldValue(
+              "age",
+              undefined as unknown as PostulationFormData["age"],
+            );
+            return;
+          }
+
           if (value < 0) {
             value = 0;
           }
-          setFieldValue("age", value);
+          void setFieldValue("age", value);
         }}
-        value={values.age.toString()}
+        value={
+          typeof values.age === "number" && Number.isFinite(values.age)
+            ? values.age.toString()
+            : ""
+        }
         onBlur={handleBlur}
         errorMessage={errors.age}
         isInvalid={errors.age !== undefined && touched.age}
@@ -255,6 +288,7 @@ export default function Form(props: Props) {
         placeholder={formIntl.fields.email.placeholder}
         type="email"
         value={values.email}
+        maxLength={MAX_EMAIL_LENGTH}
         onChange={handleChange}
         onBlur={handleBlur}
         errorMessage={errors.email}

@@ -1,5 +1,6 @@
 import Card from "./Card";
 import NoNewsFound from "./NoNewsFound";
+import { selectCmsImageUrl } from "@/lib/adapters";
 import { getNews } from "@/lib/services";
 import { Locales } from "@/types";
 import { Alert } from "@heroui/react";
@@ -67,11 +68,8 @@ export default async function News(props: Props) {
 
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 lg:gap-10" role="list">
           {news.map((item) => {
-            const imageFormats = item.cover.formats;
             const imageSrc =
-              imageFormats?.medium?.url ??
-              imageFormats?.small?.url ??
-              imageFormats?.thumbnail?.url ??
+              selectCmsImageUrl(item.cover, ["medium", "small", "thumbnail"]) ??
               item.cover.url;
 
             return (

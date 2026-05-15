@@ -2,16 +2,17 @@
 
 import { useLocale } from "@/hooks";
 import {
-  isExternalHref,
-  isHttpUrl,
-  withLocalePrefix,
-} from "@/lib/helpers/links";
-import {
   proseSizeClassMap,
   typography,
   type TypographyProsePreset,
   type TypographyProseSize,
 } from "@/lib/constants/typography.const";
+import { toCmsImageProxyUrl } from "@/lib/adapters";
+import {
+  isExternalHref,
+  isHttpUrl,
+  withLocalePrefix,
+} from "@/lib/helpers/links";
 import { StrapiBlocksPayload } from "@/types";
 import {
   BlocksRenderer,
@@ -53,7 +54,7 @@ export default function BlockRendererClient({
         blocks={{
           image: ({ image }) => (
             <Image
-              src={image.url}
+              src={toCmsImageProxyUrl(image.url) ?? image.url}
               width={image.width}
               height={image.height}
               alt={image.alternativeText || ""}

@@ -887,7 +887,11 @@ export interface ApiPostulationPostulation extends Struct.CollectionTypeSchema {
     cvSize: Schema.Attribute.Integer;
     cvStorageProvider: Schema.Attribute.String;
     cvUploadedAt: Schema.Attribute.DateTime;
-    email: Schema.Attribute.Email & Schema.Attribute.Required;
+    email: Schema.Attribute.Email &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 254;
+      }>;
     faved_by: Schema.Attribute.Relation<
       'manyToMany',
       'plugin::users-permissions.user'

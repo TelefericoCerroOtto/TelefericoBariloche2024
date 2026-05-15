@@ -5,3 +5,4 @@ tmp
 .private/
 
 /public/*.bkp
+.atl/

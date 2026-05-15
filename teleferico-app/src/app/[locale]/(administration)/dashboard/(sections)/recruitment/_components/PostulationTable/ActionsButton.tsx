@@ -114,7 +114,7 @@ export default function ActionsButton(props: Props) {
   const CvActionIcon = isPdfCv ? Eye : Download;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex w-max shrink-0 items-center gap-2">
       {/* Modal de confirmación para remover de favoritos */}
       <Modal
         isOpen={isConfirmOpen}

@@ -13,6 +13,7 @@ import {
   TiptapJSONContentToStrapiBlocksContent,
 } from "../formats";
 import { i18n } from "@/i18n";
+import { selectCmsImageUrl } from "../cms-images";
 
 export const getTitleKey = (locale: Locales) => `title_${locale}` as const;
 export const getBodyKey = (locale: Locales) => `body_${locale}` as const;
@@ -45,7 +46,7 @@ export const getNewsAdapter = (
       id: cover.id,
       name: cover.name,
       size: cover.size,
-      url: cover.formats.small.url,
+      url: selectCmsImageUrl(cover, ["small"]) ?? cover.url,
     },
   };
 

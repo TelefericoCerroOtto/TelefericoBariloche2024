@@ -5,7 +5,7 @@
 import { GENDERS } from "@/lib/constants/enum-fields.const";
 import type { Genders, Locales } from "@/types";
 import { mixed, number, object, string } from "yup";
-import { FILE_TYPES, MAX_FILE_SIZE } from "../constants";
+import { FILE_TYPES, MAX_EMAIL_LENGTH, MAX_FILE_SIZE } from "../constants";
 import { localeMessages } from "../i18n";
 
 export const buildPostulationSchema = (locale: Locales) => {
@@ -26,7 +26,10 @@ export const buildPostulationSchema = (locale: Locales) => {
       .required(m.number.required)
       .min(18, m.number.min(18))
       .max(80, m.number.max(80)),
-    email: string().email(m.string.email).required(m.string.required),
+    email: string()
+      .email(m.string.email)
+      .required(m.string.required)
+      .max(MAX_EMAIL_LENGTH, m.string.max(MAX_EMAIL_LENGTH)),
     sector: string().required(m.string.required),
     note: string().max(400, m.string.max(400)),
     campNo: number()

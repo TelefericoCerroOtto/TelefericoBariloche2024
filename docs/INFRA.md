@@ -192,11 +192,12 @@ Notas:
 - Strapi guarda los assets públicos en `public/cms/`.
 - El formulario de postulaciones guarda los CVs privados en `private/job-applications/` mediante el servidor de Next.js.
 - El flujo local de Strapi Media Library sigue usando `teleferico-cms/public/uploads` y no depende de `CV_STORAGE_DRIVER`.
-- La lectura pública de CMS sigue siendo directa; la descarga de CVs debe pasar por un endpoint autenticado.
+- La lectura de imágenes CMS debe pasar por el proxy same-origin de Next.js (`/api/media/...`). En la fase inicial el prefijo sigue siendo `public/cms/`, pero la intención operativa es revocar el acceso público directo (`allUsers`) y leer con la service account del runtime.
+- La descarga de CVs debe pasar por un endpoint autenticado.
 - `GCS_SIGNED_URL_TTL_SECONDS` queda reservado para el helper opcional `getDownloadUrl()` de `teleferico-app/src/lib/services/cv-storage`; el flujo actual usa stream directo y no depende de signed URLs.
 - Los registros antiguos con `resume` media relation requieren migración manual: copiar/mover el binario, poblar `cv*` y retirar la relación vieja.
 - Production tiene un bucket de respaldo que copia los binarios a través de "Replicación entre buckets".
-- **Public Access Prevention**: no puede estar `enforced` si `public/cms/` debe ser público con `allUsers`.
+- **Public Access Prevention**: no puede estar `enforced` mientras exista algún folder con acceso público directo (`allUsers`). Una vez que `public/cms/` se sirva sólo vía `/api/media`, se puede reevaluar.
 
 ---
 
@@ -264,15 +265,22 @@ Ejemplo:
 
 ```bash
 gcloud storage managed-folders add-iam-policy-binding gs://cms_staging_bucket/public/cms \
-  --member=allUsers \
-  --role=roles/storage.objectViewer
+  --member=serviceAccount:CMS_RUNTIME_SA \
+  --role=roles/storage.objectAdmin
 
 gcloud storage managed-folders add-iam-policy-binding gs://cms_staging_bucket/private/job-applications \
   --member=serviceAccount:APP_RUNTIME_SA \
   --role=roles/storage.objectAdmin
 ```
 
-Repetir el esquema para `cms_production_bucket` y la service account del CMS para `public/cms/`.
+Fase actual para imágenes CMS:
+
+- Mantener el prefijo existente `public/cms/` para evitar migraciones de objetos.
+- Mantener `roles/storage.objectAdmin` para la service account compartida actual hasta completar la separación de identidades.
+- Revocar `allUsers -> roles/storage.objectViewer` sólo después de que el proxy `/api/media` con lectura autenticada esté desplegado y verificado en el entorno.
+- Repetir en production sólo después de validar staging.
+
+Repetir el esquema final para `cms_production_bucket` cuando staging esté verificado.
 
 ---
 
