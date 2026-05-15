@@ -46,10 +46,30 @@ export function renderPostulationCell({
       );
 
     case "name":
-      return <span>{completeName}</span>;
+      return (
+        <span className="block min-w-0 max-w-full truncate" title={completeName}>
+          {completeName}
+        </span>
+      );
 
     case "email":
-      return <span>{item.email}</span>;
+      return (
+        <Popover placement="top-start" showArrow>
+          <PopoverTrigger>
+            <button
+              type="button"
+              className="block max-w-[260px] truncate text-left text-base text-default-700 hover:underline"
+              aria-label={`Ver email completo: ${item.email}`}
+              title={item.email}
+            >
+              {truncateString(item.email, 40)}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="max-w-md break-all text-base">
+            {item.email}
+          </PopoverContent>
+        </Popover>
+      );
 
     case "age":
       return <span>{item.age}</span>;

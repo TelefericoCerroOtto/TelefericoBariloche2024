@@ -41,6 +41,7 @@
     },
     "email": {
       "type": "email",
+      "maxLength": 254,
       "required": true
     },
     "cvObjectKey": {

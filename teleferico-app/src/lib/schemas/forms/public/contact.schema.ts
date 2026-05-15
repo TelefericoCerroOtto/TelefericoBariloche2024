@@ -1,5 +1,6 @@
 import type { Locales } from "@/types";
 import { object, string } from "yup";
+import { MAX_EMAIL_LENGTH } from "../constants";
 import { localeMessages } from "../i18n";
 
 export const buildContactSchema = (locale: Locales) => {
@@ -13,7 +14,7 @@ export const buildContactSchema = (locale: Locales) => {
     email: string()
       .required(m.string.required)
       .email(m.string.email)
-      .max(254, m.string.max(254)),
+      .max(MAX_EMAIL_LENGTH, m.string.max(MAX_EMAIL_LENGTH)),
     consultation: string()
       .required(m.string.required)
       .max(800, m.string.max(800)),

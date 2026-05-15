@@ -1,4 +1,5 @@
 export * from "./formats";
+export * from "./cms-images";
 export * from "./forms/bus";
 export * from "./forms/faqs";
 export * from "./forms/news";

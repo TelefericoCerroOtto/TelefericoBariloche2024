@@ -1,6 +1,7 @@
 import Carrousel, {
   type CarrouselSlide,
 } from "@/components/institutional/Carrousel";
+import { toCmsImageProxyUrl } from "@/lib/adapters";
 import type {
   Carrousel as StrapiCarrousel,
   CarrouselItem as StrapiCarrouselItem,
@@ -14,8 +15,8 @@ function isNonEmptyString(v: unknown): v is string {
 }
 
 function adaptItem(item: StrapiCarrouselItem): CarrouselSlide | null {
-  const mobileUrl = item.mobileCover?.image?.url;
-  const desktopUrl = item.desktopCover?.image?.url;
+  const mobileUrl = toCmsImageProxyUrl(item.mobileCover?.image?.url);
+  const desktopUrl = toCmsImageProxyUrl(item.desktopCover?.image?.url);
 
   if (!isNonEmptyString(mobileUrl)) return null;
   if (!isNonEmptyString(desktopUrl)) return null;

@@ -1,4 +1,5 @@
 // teleferico-app/src/components/shared/CustomImage.tsx
+import { selectCmsImageUrl } from "@/lib/adapters";
 import type { Image as StrapiImage } from "@/types";
 import NextImage from "next/image";
 import notFoundImg from "@/public/image-not-found.jpg";
@@ -39,7 +40,7 @@ export default function CustomImage({
 }: Props) {
   return (
     <NextImage
-      src={image?.image?.url ?? notFoundImg.src}
+      src={selectCmsImageUrl(image?.image) ?? notFoundImg.src}
       alt={image?.alt ?? "imagen de fondo gris"}
       fill
       sizes={sizes}
