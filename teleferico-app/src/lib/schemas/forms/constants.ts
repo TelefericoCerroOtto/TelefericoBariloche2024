@@ -9,3 +9,5 @@ export const FILE_TYPES = [
 ];
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 1MB
+// Keep in sync with teleferico-cms postulation.email maxLength.
+export const MAX_EMAIL_LENGTH = 254;
