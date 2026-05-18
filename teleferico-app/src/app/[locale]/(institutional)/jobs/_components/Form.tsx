@@ -161,6 +161,8 @@ export default function Form(props: Props) {
   const formIntl = data!.data[0].jsonValue;
   const privacyNotice =
     formIntl.privacyNotice ?? translations[locale].privacyNotice;
+  const genderHasError =
+    Boolean(errors.gender) && (Boolean(touched.gender) || submitCount > 0);
   const sectorHasError =
     Boolean(errors.sector) && (Boolean(touched.sector) || submitCount > 0);
 
@@ -206,11 +208,12 @@ export default function Form(props: Props) {
       />
       <Select
         {...selectInputStyles}
+        labelPlacement="outside-top"
         name="gender"
         id="gender"
         label={formIntl.fields.gender.label}
         placeholder={formIntl.fields.gender.placeholder}
-        selectedKeys={values.gender ? new Set([values.gender]) : undefined}
+        selectedKeys={values.gender ? [values.gender] : []}
         onSelectionChange={(keys) => {
           if (keys === "all") return;
 
@@ -225,8 +228,8 @@ export default function Form(props: Props) {
           void setFieldTouched("gender", true, false);
         }}
         onBlur={handleBlur}
-        errorMessage={errors.gender}
-        isInvalid={errors.gender !== undefined && touched.gender}
+        errorMessage={genderHasError ? errors.gender : undefined}
+        isInvalid={genderHasError}
         isRequired
       >
         <SelectItem key="male">{formIntl.fields.gender.items.male}</SelectItem>
@@ -298,14 +301,14 @@ export default function Form(props: Props) {
       />
       <Select
         {...selectInputStyles}
-        labelPlacement="outside"
+        labelPlacement="outside-top"
         name="sector"
         id="sector"
         label={formIntl.fields.sector.label}
         placeholder={formIntl.fields.sector.placeholder}
         disallowEmptySelection
         items={sectors}
-        selectedKeys={values.sector ? new Set([values.sector]) : undefined}
+        selectedKeys={values.sector ? [values.sector] : []}
         onSelectionChange={(keys) => {
           if (keys === "all") return;
 
