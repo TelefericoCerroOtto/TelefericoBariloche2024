@@ -18,9 +18,10 @@ import { assertEnv } from "@/utils/env";
 import { NextRequest, NextResponse } from "next/server";
 import { ValidationError } from "yup";
 
-const rateLimitStore = new Map();
-const RATE_LIMIT_MAX = 2;
-const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+// const rateLimitStore = new Map();
+// const RATE_LIMIT_MAX = 2;
+// const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 const MAX_BODY_BYTES = MAX_FILE_SIZE + 512 * 1024; // resume limit + multipart overhead
 const MIN_FORM_AGE_MS = 5 * 1000; // 5 seconds
 const MAX_FORM_AGE_MS = 15 * 60 * 1000; // 15 minutes
@@ -123,7 +124,10 @@ async function postulationHandler(
         console.log("create postulation error: ", postulationResponse.data);
 
         await cvStorage.delete(storedCv.objectKey).catch((cleanupError) => {
-          console.log("cleanup cv after postulation failure error: ", cleanupError);
+          console.log(
+            "cleanup cv after postulation failure error: ",
+            cleanupError,
+          );
         });
 
         return NextResponse.json(
@@ -178,11 +182,8 @@ export const POST = withFormGuards(
   {
     maxBodyBytes: MAX_BODY_BYTES,
     useInternalApiKey: true,
-    rateLimited: {
-      rateLimitStore,
-      maxHits: RATE_LIMIT_MAX,
-      windowMs: RATE_LIMIT_WINDOW_MS,
-    },
+    // TEMP hotfix: keep the rest of the form guards active while postulation
+    // rate limiting stays paused due to a production incident blocking users.
   },
   postulationHandler,
 );
