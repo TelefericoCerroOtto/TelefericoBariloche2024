@@ -274,12 +274,13 @@ export default function PostulationsTable({ sectors, userId }: Props) {
 
         <div className="flex w-full justify-center pb-2">
           <Pagination
-            className="text-base"
-            isDisabled={isLoading}
-            showControls
-            page={page}
-            total={totalPages}
-            onChange={setPage}
+             className="text-base"
+             disableCursorAnimation
+             isDisabled={isLoading}
+             showControls
+             page={page}
+             total={totalPages}
+             onChange={setPage}
           />
         </div>
       </div>
