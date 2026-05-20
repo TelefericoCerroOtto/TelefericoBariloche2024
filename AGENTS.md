@@ -99,6 +99,22 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - Conventional commits + scopes + PR titles: `docs/CONVENTIONS.md`
 - GCP infrastructure: `docs/INFRA.md`
 
+## Shared backlog governance
+
+- The pre-issue source of truth for backlog items is the Notion database **Backlog unificado** documented in `docs/todo-workflow.md`.
+- Ad-hoc Notion checklists are archival surfaces only; do **not** add new work items there.
+- Before creating a backlog item, search for duplicates in the Notion backlog and prefer updating/merging an existing row over creating a near-duplicate.
+- Use one Notion row per work unit. Keep subtasks, acceptance notes, or migration details inside the row notes unless the subtask needs independent tracking.
+- Use `Clarificar` for ambiguous items, `Listo para formalizar` when the work is clear enough to deserve a formal artifact, and `Formalizado` only after the artifact exists and the link is attached to the row.
+- Separate work maturity from artifact type: use `Canal formal` to indicate whether the formal target is a GitHub Issue, an operational change, a document/ADR, or something else.
+- Use `Work ID` as the stable backlog identifier and `Branch` as the optional active branch field.
+- When a branch is created from a backlog item, prefer the format `<type>/<dir>-<work-id>-<slug>` (example: `fix/app-tb-066-login-refresh`).
+- For **implementation PRs**, require a reliable backlog association: either the branch contains the `Work ID`, the backlog row `Branch` matches the current branch, or the user explicitly overrides the association.
+- For **promotion PRs**, do not require a direct `Work ID`/branch association; they track release movement, not a new unit of backlog work.
+- A branch should have **one primary backlog item**. Multiple items on one branch are allowed only when they form one tightly coupled reviewable outcome; otherwise split the work.
+- Promote a Notion item to GitHub only when the scope is clear, it needs engineering follow-up, and the right `Canal formal` for that row is `GitHub Issue`.
+- When a request is about adding, deduplicating, triaging, or promoting backlog items, agents should load `.agents/skills/notion-todo-governance/SKILL.md` when the client supports project skills.
+
 ## Documentation maintenance
 
 Whenever code, flows, architecture, contracts or configuration change in a way that affects documented behaviour, update the relevant documentation **in the same change**. This includes but is not limited to:

@@ -131,6 +131,38 @@ When a promotion PR contains **multiple** previously approved implementation PRs
 - identify the main validation focus
 - state rollback expectations
 
+### Issue linkage and closure policy
+
+Use GitHub Issues as the formal artifact, but distinguish between the PR that
+**implements** the change and the PR that **officially closes** the issue.
+
+#### Quick path
+
+1. Create or reference the GitHub Issue for the work item.
+2. In the **implementation PR** (`feature/fix -> development`), reference the issue as context.
+3. In the **promotion PR to `main`** (`staging -> main`), close the issue.
+
+#### Rules
+
+| PR type | Typical branch flow | How to reference the issue | Purpose |
+|---|---|---|---|
+| Implementation PR | `feat/fix -> development` | `Refs #N` or explicit mention of `#N` | Preserve the technical story of the actual code change |
+| Promotion PR to staging | `development -> staging` | Optional mention of `#N` or included implementation PRs | Track validation scope; do not close the issue here |
+| Promotion PR to main | `staging -> main` | `Closes #N` | Mark the issue as officially shipped via the default branch |
+
+#### Why
+
+- The **implementation PR** is the canonical review surface for the code change itself.
+- The **promotion PR to `main`** is the canonical release surface for GitHub issue closure.
+- GitHub only auto-closes issues from PR keywords like `Closes #N` when the PR targets the repository's **default branch**.
+
+#### Notes
+
+- If the issue is created **after** the relevant PRs were already merged, close it manually and reference:
+  - the implementation PR that introduced the change
+  - the promotion PR that shipped it to `main`
+- Do not use `Closes #N` in `development` or `staging` promotions just to force a workflow shortcut; that obscures where the change was reviewed versus where it was released.
+
 ### Recommended examples
 
 #### Implementation PR

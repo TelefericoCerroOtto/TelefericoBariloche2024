@@ -4,6 +4,11 @@
     "heroui-react": {
       "type": "local",
       "command": ["npx", "-y", "@heroui/react-mcp@latest"]
+    },
+    "notion": {
+      "type": "remote",
+      "url": "https://mcp.notion.com/mcp",
+      "enabled": true
     }
   }
 }
