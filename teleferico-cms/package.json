@@ -7,7 +7,8 @@
     "build": "strapi build",
     "develop": "strapi develop",
     "start": "strapi start",
-    "strapi": "strapi"
+    "strapi": "strapi",
+    "seed:postulations": "node scripts/seed-postulations.js"
   },
   "dependencies": {
     "@strapi-community/strapi-provider-upload-google-cloud-storage": "5.0.5",
