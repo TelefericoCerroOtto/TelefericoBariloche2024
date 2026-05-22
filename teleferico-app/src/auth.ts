@@ -1,4 +1,5 @@
-import { getPersonalData, login, verifySession } from "@/lib/services";
+import { login, verifySession } from "@/lib/services/cms/users-permissions/auth";
+import { getPersonalData } from "@/lib/services/cms/collections/user";
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import NextAuth, { CredentialsSignin, type Session } from "next-auth";
 import Credentials from "next-auth/providers/credentials";

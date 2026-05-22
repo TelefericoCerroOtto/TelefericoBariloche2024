@@ -7,7 +7,7 @@ import {
   type AdminLoginReason,
 } from "@/lib/constants/routes.const";
 import { ENV_KEYS } from "@/lib/constants/env.const";
-import { verifySession } from "@/lib/services";
+import { verifySession } from "@/lib/services/cms/users-permissions/auth";
 import type { Locales } from "@/types";
 import { NextResponse } from "next/server";
 
