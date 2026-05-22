@@ -129,5 +129,6 @@ Whenever code, flows, architecture, contracts or configuration change in a way t
 - `README.md` files at any level
 - `docs/*` (CONVENTIONS.md, INFRA.md, any domain-specific docs)
 - Shared rules under `.agents/RULES/*`
+- **Environment variables**: Every time an environment variable is added or modified, it MUST be documented in the `.env.example` file of its respective package accompanied by a brief comment explaining its purpose.
 
 Do not treat documentation as a follow-up task; outdated docs actively mislead agents and humans.
