@@ -45,6 +45,12 @@ The following changes are sensitive and must be explicitly called out in a propo
 - Large refactors or architecture changes
 - Infrastructure, deployment, credential, or environment-sensitive changes
 
+## Testing policy
+
+Automated tests are currently implemented in `teleferico-app` specifically for public forms (postulation, contact) and their security guards. 
+- **Forms and security:** If you modify public forms, rate limiters, or their security layers, you MUST maintain and expand their test coverage using the existing Vitest suite.
+- **Other areas:** The long-term goal is to gradually expand testing coverage across all packages. Introduce tests progressively as new features or critical refactors are made.
+
 ## GCP CLI operational rules
 
 These rules apply to **all commands** executed through Google Cloud SDK / CLI (and wrappers that ultimately operate on GCP resources for this project).

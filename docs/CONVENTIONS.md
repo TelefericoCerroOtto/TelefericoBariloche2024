@@ -18,7 +18,7 @@ To ensure a consistent history, we use the format of
 - `style` — formatting, UI tweaks, CSS-only, non-functional changes
 - `docs` — documentation only
 - `perf` — performance improvements
-- `test` — adding or updating tests (rare; only when requested)
+- `test` — adding or updating tests (especially required when modifying forms or security layers)
 - `revert` — revert a previous commit
 
 ### Directories (lowercase)

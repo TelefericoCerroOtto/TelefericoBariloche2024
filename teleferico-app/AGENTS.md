@@ -83,6 +83,12 @@ This file is the package-local guardrail source for `teleferico-app`: it complem
 - Do not touch dependencies or lockfiles (`package.json`, `pnpm-lock.yaml`) without explicit request.
 - Do not edit generated artifacts (`.next/`, `tsconfig.tsbuildinfo`) or heavy folders.
 
+### Testing
+
+- Automated tests exist for public forms (postulation/contact) and their guards.
+- Any change to `src/lib/http/guards`, `src/lib/services/form-protection.ts`, or the form API routes MUST be backed by passing tests.
+- Run `pnpm run test` to verify changes in these domains.
+
 ## Architecture & conventions
 
 - Main stack: Next.js 15 + React 18 + strict TypeScript + Tailwind CSS v3.
