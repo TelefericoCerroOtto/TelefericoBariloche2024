@@ -97,6 +97,17 @@ Staging y production están separados en:
 - URLs de base
 - allowlist de orígenes públicos extra para preview/cutover (`ALLOWED_PUBLIC_ORIGINS`)
   - **Nota técnica:** En el despliegue de producción via Cloud Build, se utiliza `--env-vars-file` en lugar de `--set-env-vars` para evitar que la sintaxis de comas (usada para separar múltiples orígenes) sea interpretada erróneamente por el CLI de `gcloud`.
+- flags de protección de formularios por entorno:
+  - `FORM_PROTECTION_REDIS_URL`, `FORM_PROTECTION_REDIS_NAMESPACE`, `FORM_PROTECTION_REDIS_CONNECT_TIMEOUT_MS`
+  - `CONTACT_RATE_LIMIT_ENABLED`, `CONTACT_RATE_LIMIT_MAX`, `CONTACT_RATE_LIMIT_WINDOW_MS`
+  - `CONTACT_EMAIL_LIMIT_MAX`, `CONTACT_EMAIL_LIMIT_WINDOW_MS`
+  - `POSTULATION_RATE_LIMIT_ENABLED`, `POSTULATION_RATE_LIMIT_MAX`, `POSTULATION_RATE_LIMIT_WINDOW_MS`
+  - `POSTULATION_EMAIL_LIMIT_MAX`, `POSTULATION_EMAIL_LIMIT_WINDOW_MS`
+  - default operativo seguro actual: Redis compartido para IP + colección Strapi para reglas por email
+  - origen esperado de `FORM_PROTECTION_REDIS_URL`:
+    - local: `redis://127.0.0.1:6379` desde un contenedor Redis local; no usar Memorystore administrado
+    - staging: Secret Manager `APP__STAGING__FORM_PROTECTION_REDIS_URL`
+    - production: Secret Manager `APP__PRODUCTION__FORM_PROTECTION_REDIS_URL`
 - reCAPTCHA
 - flags de build
 - tokens internos para hablar con Strapi
@@ -230,6 +241,49 @@ Las snapshots documentales de sus configuraciones están versionadas en [infra/c
 - `docs/infra/cloud-build/cms-production.yaml`
 
 Estos archivos son solo de referencia. Los triggers operativos siguen definidos inline en GCP.
+
+### 6.2 Redis administrado y alerting manual para `public_form_guard`
+
+Los cambios reales de Memorystore/Redis administrado, secretos de conexión y políticas de alertas NO deben ejecutarse desde este repo ni desde la consola. Cuando llegue ese paso operativo, debe hacerse a través del Docker MCP usando el contenedor en ejecución `google-cloud-sdk`, con preview/dry-run primero cuando exista.
+
+La protección de formularios publica eventos estructurados en Cloud Logging (`event="public_form_guard"`). La métrica basada en logs y la policy de alertas NO deben crearse desde este repo sin aprobación explícita porque implican un cambio real en GCP.
+
+Reglas operativas:
+
+- Cualquier ejecución real con `gcloud logging metrics create`, `gcloud alpha monitoring policies create` o equivalente requiere aprobación previa.
+- Cualquier cambio real de Redis/Memorystore (`gcloud redis ...`, secretos o wiring de Cloud Run) también requiere aprobación previa y debe salir por el mismo camino Docker MCP `google-cloud-sdk`.
+- Antes de cualquier alta real, correr primero el equivalente en modo preview/inspección: consulta de logs, validación del filtro, naming y destinatarios.
+- El límite manual sigue siendo claro: este repositorio documenta el procedimiento; la creación real queda fuera del alcance del change y debe hacerla un operador aprobado.
+
+Pasos sugeridos:
+
+1. Validar el filtro en Logs Explorer con una consulta como:
+
+```text
+resource.type="cloud_run_revision"
+jsonPayload.event="public_form_guard"
+jsonPayload.action=("block" OR "degraded")
+resource.labels.service_name=("app-staging-teleferico" OR "app-production-teleferico")
+```
+
+2. Crear una log-based metric separada para `block` y/o `degraded`, por ejemplo:
+   - `public_form_guard_blocks`
+   - `public_form_guard_degraded`
+
+3. Configurar una alert policy que notifique a `dev@telefericobariloche.com.ar`.
+
+4. Dejar documentado en el PR operativo:
+   - filtro final usado
+   - umbral elegido
+   - entorno afectado
+   - destinatario confirmado
+   - rollback: deshabilitar la policy o borrar la métrica/policy manualmente
+
+Ejemplos de alcance esperado:
+
+- `too_many_requests` por encima del umbral definido en una ventana corta
+- cualquier `rate_limit_degraded`
+- cualquier `missing_client_ip` en producción después de habilitar postulation rate limiting
 
 ### Secret Manager
 

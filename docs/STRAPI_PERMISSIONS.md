@@ -17,7 +17,7 @@ Anything not listed remains outside the expected permission model.
 | Access profile                  | Kind                     | Used by                      | Purpose                                                                                                                             | Duration  | Type       |
 | ------------------------------- | ------------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------- |
 | `Public Content Read (Nextjs)`  | API token                | `teleferico-app`             | Server-only access to public-facing CMS content through backend/server routes. Not for user authentication or direct browser usage. | Unlimited | Custom     |
-| `Public Forms (Next.js)`        | API token                | `teleferico-app`             | Server-only access for public form processing and form collection writes. Never exposed to the client.                              | Unlimited | Custom     |
+| `Public Forms (Next.js)`        | API token                | `teleferico-app`             | Server-only access for public form processing, Strapi business-rule reads, and form collection writes. Never exposed to the client. | Unlimited | Custom     |
 | `Local → Remote Data Migration` | Transfer token           | CMS operators                | One-time transfer token for migrating content and schemas from a local Strapi instance to a remote environment.                     | 7 days    | Push       |
 | `Public`                        | Users & Permissions role | Unauthenticated visitors     | Default role for unauthenticated users.                                                                                             | N/A       | Role       |
 | `Authenticated`                 | Users & Permissions role | Authenticated users          | Default role for authenticated users.                                                                                               | N/A       | Role       |
@@ -85,14 +85,15 @@ This token is for server-side content reads from `teleferico-app`. It must not g
 
 ### `Public Forms (Next.js)`
 
-This token is for server-side public form processing from `teleferico-app`. It can create postulation records and read sectors required by form flows.
+This token is for server-side public form processing from `teleferico-app`. It can query and create `form-protection-submission` records, create postulation records, and read sectors required by form flows.
 
 Curriculum files are not uploaded to Strapi. The Next.js route handler stores the uploaded file through the app CV storage service, then sends only CV metadata and the storage object key to Strapi when creating the postulation record.
 
-| Content type  | `find` | `findOne` | `create` | `update` | `delete` |
-| ------------- | :----: | :-------: | :------: | :------: | :------: |
-| `postulation` |   —    |     —     |    ✅    |    —     |    —     |
-| `sector`      |   ✅   |     —     |    —     |    —     |    —     |
+| Content type                   | `find` | `findOne` | `create` | `update` | `delete` |
+| ------------------------------ | :----: | :-------: | :------: | :------: | :------: |
+| `form-protection-submission`   |   ✅   |     —     |    ✅    |    —     |    —     |
+| `postulation`                  |   —    |     —     |    ✅    |    —     |    —     |
+| `sector`                       |   ✅   |     —     |    —     |    —     |    —     |
 
 No Strapi Upload API permission is required for this token.
 
@@ -146,6 +147,7 @@ Administrative role for managing CMS application features and users.
 | `bus-trip`              |   ✅   |    ✅     |    ✅    |    ✅    |    ✅    |
 | `component-translation` |   ✅   |    ✅     |    —     |    —     |    —     |
 | `faq`                   |   ✅   |    ✅     |    ✅    |    ✅    |    ✅    |
+| `form-protection-submission` | ✅ | ✅ | — | ✅ | — |
 | `new`                   |   ✅   |    ✅     |    ✅    |    ✅    |    ✅    |
 | `page`                  |   ✅   |    ✅     |    —     |    —     |    —     |
 | `postulation`           |   ✅   |    ✅     |    —     |    ✅    |    —     |
@@ -198,3 +200,9 @@ Use this checklist when creating or rebuilding a Strapi environment.
 - [ ] For migrations only, create a `Local → Remote Data Migration` transfer token with type `Push` and duration `7 days`.
 - [ ] Revoke or let the transfer token expire after the migration window.
 - [ ] Verify that no documented token value is committed to the repository.
+
+## Change review log
+
+| Change | Date | Result | Evidence |
+| --- | --- | --- | --- |
+| `tb-71-form-protection` | 2026-05-20 | Added `form-protection-submission` collection and token delta; existing `postulation` contract stays intact. | Verified `teleferico-cms/src/api/postulation/content-types/postulation/schema.json` stayed unchanged, added `teleferico-cms/src/api/form-protection-submission/**`, expanded `Public Forms (Next.js)` token to `form-protection-submission.find/create`, and kept `teleferico-app/src/lib/services/{contact,postulation}.ts` as server-only internal callers using `Origin`, `x-internal-api-key`, and optional `x-client-ip` without exposing Strapi access client-side. |

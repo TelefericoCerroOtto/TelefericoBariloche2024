@@ -119,7 +119,7 @@ Rules from:
 - Dev: `pnpm run dev`
 - Build: `pnpm run build`
 - Lint: `pnpm run lint`
-- Test: no `test` script exists in `package.json`.
+- Test: `pnpm run test`
 - Start: `pnpm start`
 - Typecheck: `pnpm run typecheck`
 
