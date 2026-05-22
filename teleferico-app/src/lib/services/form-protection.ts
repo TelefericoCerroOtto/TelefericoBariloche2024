@@ -265,8 +265,8 @@ export async function evaluateFormBusinessRules(
     return {
       ok: true,
       allowed: false,
-      code: "TOO_MANY_REQUESTS",
-      message: "Too many requests",
+      code: "EMAIL_LIMIT_EXCEEDED",
+      message: "Email limit exceeded for this form",
     };
   }
 

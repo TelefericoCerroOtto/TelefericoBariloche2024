@@ -14,6 +14,7 @@ export type PublicFormName = "contact" | "postulation";
 export type GuardErrorCodes =
   | "INVALID_FORM_AGE"
   | "TOO_MANY_REQUESTS"
+  | "EMAIL_LIMIT_EXCEEDED"
   | "DUPLICATE_SUBMISSION"
   | "FORM_PROTECTION_UNAVAILABLE";
 

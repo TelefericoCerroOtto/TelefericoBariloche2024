@@ -103,6 +103,14 @@ export default function Form(props: Props) {
             });
             break;
 
+          case "EMAIL_LIMIT_EXCEEDED":
+            showAlert({
+              variant: "warning",
+              title: translations[locale].tooManyEmails.title,
+              message: translations[locale].tooManyEmails.message,
+            });
+            break;
+
           case "DUPLICATE_SUBMISSION":
             showAlert({
               variant: "warning",

@@ -16,6 +16,7 @@ export const translations: Record<
     captchaFailed: { title: string; message: string };
     captchaMissing: { title: string; message: string };
     tooManyRequests: { title: string; message: string };
+    tooManyEmails: { title: string; message: string };
     duplicateSubmission: { title: string; message: string };
     sectorEmpty: string;
   }
@@ -48,7 +49,11 @@ export const translations: Record<
     tooManyRequests: {
       title: "Demasiadas solicitudes",
       message:
-        "Has enviado demasiadas solicitudes, por favor intentalo más tarde.",
+        "Has enviado demasiadas solicitudes desde este dispositivo. Por favor, intentá de nuevo más tarde.",
+    },
+    tooManyEmails: {
+      title: "Límite de solicitudes",
+      message: "Alcanzaste el límite de postulaciones permitidas con este correo electrónico.",
     },
     duplicateSubmission: {
       title: "Solicitud duplicada",
@@ -90,7 +95,11 @@ export const translations: Record<
     },
     tooManyRequests: {
       title: "Too Many Requests",
-      message: "You have sent too many requests, please try again later.",
+      message: "You have sent too many requests from this device. Please try again later.",
+    },
+    tooManyEmails: {
+      title: "Request Limit Reached",
+      message: "You have reached the maximum number of job applications allowed for this email address.",
     },
     duplicateSubmission: {
       title: "Duplicate Request",
@@ -133,7 +142,11 @@ export const translations: Record<
     tooManyRequests: {
       title: "Muitas solicitações",
       message:
-        "Você enviou solicitações demais, por favor tente novamente mais tarde.",
+        "Você enviou solicitações demais deste dispositivo. Por favor, tente novamente mais tarde.",
+    },
+    tooManyEmails: {
+      title: "Limite de solicitações",
+      message: "Você atingiu o limite de candidaturas permitidas com este endereço de e-mail.",
     },
     duplicateSubmission: {
       title: "Solicitação duplicada",

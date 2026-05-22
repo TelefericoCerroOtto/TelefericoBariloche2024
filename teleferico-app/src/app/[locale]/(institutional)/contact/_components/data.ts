@@ -10,6 +10,7 @@ export const translations: Record<
     captchaFailed: { title: string; message: string };
     captchaMissing: { title: string; message: string };
     tooManyRequests: { title: string; message: string };
+    tooManyEmails: { title: string; message: string };
   }
 > = {
   "es-AR": {
@@ -35,7 +36,11 @@ export const translations: Record<
     tooManyRequests: {
       title: "Demasiadas solicitudes",
       message:
-        "Has enviado demasiadas solicitudes, por favor intentalo más tarde.",
+        "Has enviado demasiadas solicitudes desde este dispositivo. Por favor, intentá de nuevo más tarde.",
+    },
+    tooManyEmails: {
+      title: "Límite de mensajes",
+      message: "Alcanzaste el límite de consultas permitidas con este correo electrónico.",
     },
   },
   en: {
@@ -66,7 +71,11 @@ export const translations: Record<
     },
     tooManyRequests: {
       title: "Too Many Requests",
-      message: "You have sent too many requests, please try again later.",
+      message: "You have sent too many requests from this device. Please try again later.",
+    },
+    tooManyEmails: {
+      title: "Message Limit Reached",
+      message: "You have reached the maximum number of inquiries allowed for this email address.",
     },
   },
   pt: {
@@ -98,7 +107,11 @@ export const translations: Record<
     tooManyRequests: {
       title: "Muitas solicitações",
       message:
-        "Você enviou solicitações demais, por favor tente novamente mais tarde.",
+        "Você enviou solicitações demais deste dispositivo. Por favor, tente novamente mais tarde.",
+    },
+    tooManyEmails: {
+      title: "Limite de mensagens",
+      message: "Você atingiu o limite de consultas permitidas com este endereço de e-mail.",
     },
   },
 };
