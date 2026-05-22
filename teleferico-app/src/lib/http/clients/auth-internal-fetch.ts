@@ -1,4 +1,4 @@
-import { getCsrfTokenFromMeta } from "@/lib/http/guards";
+import { getCsrfTokenFromMeta } from "@/lib/http/guards/csrf";
 
 export async function authenticatedInternalApiFetch(
   input: RequestInfo,

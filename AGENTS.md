@@ -45,6 +45,12 @@ The following changes are sensitive and must be explicitly called out in a propo
 - Large refactors or architecture changes
 - Infrastructure, deployment, credential, or environment-sensitive changes
 
+## Testing policy
+
+Automated tests are currently implemented in `teleferico-app` specifically for public forms (postulation, contact) and their security guards. 
+- **Forms and security:** If you modify public forms, rate limiters, or their security layers, you MUST maintain and expand their test coverage using the existing Vitest suite.
+- **Other areas:** The long-term goal is to gradually expand testing coverage across all packages. Introduce tests progressively as new features or critical refactors are made.
+
 ## GCP CLI operational rules
 
 These rules apply to **all commands** executed through Google Cloud SDK / CLI (and wrappers that ultimately operate on GCP resources for this project).
@@ -123,5 +129,6 @@ Whenever code, flows, architecture, contracts or configuration change in a way t
 - `README.md` files at any level
 - `docs/*` (CONVENTIONS.md, INFRA.md, any domain-specific docs)
 - Shared rules under `.agents/RULES/*`
+- **Environment variables**: Every time an environment variable is added or modified, it MUST be documented in the `.env.example` file of its respective package accompanied by a brief comment explaining its purpose.
 
 Do not treat documentation as a follow-up task; outdated docs actively mislead agents and humans.

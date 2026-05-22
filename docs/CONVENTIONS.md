@@ -18,7 +18,7 @@ To ensure a consistent history, we use the format of
 - `style` — formatting, UI tweaks, CSS-only, non-functional changes
 - `docs` — documentation only
 - `perf` — performance improvements
-- `test` — adding or updating tests (rare; only when requested)
+- `test` — adding or updating tests (especially required when modifying forms or security layers)
 - `revert` — revert a previous commit
 
 ### Directories (lowercase)
@@ -149,6 +149,11 @@ Use GitHub Issues as the formal artifact, but distinguish between the PR that
 | Implementation PR | `feat/fix -> development` | `Refs #N` or explicit mention of `#N` | Preserve the technical story of the actual code change |
 | Promotion PR to staging | `development -> staging` | Optional mention of `#N` or included implementation PRs | Track validation scope; do not close the issue here |
 | Promotion PR to main | `staging -> main` | `Closes #N` | Mark the issue as officially shipped via the default branch |
+
+#### Format for `#N`
+
+When referencing an issue via `#N` (e.g., `Refs #N`, `Closes #N`), you **MUST use the numeric GitHub Issue ID** (for example, `Refs #71`). 
+Do **NOT** use the Notion Work ID slug (for example, do not use `Refs #tb-71`), because GitHub's autolinking parser only recognizes pure digits. If the issue is not yet created in GitHub, either create it first to get the ID, or use a plain text reference for the Notion ID without the `#` symbol.
 
 #### Why
 

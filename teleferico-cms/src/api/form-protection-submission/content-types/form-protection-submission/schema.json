@@ -1,0 +1,77 @@
+{
+  "kind": "collectionType",
+  "collectionName": "form_protection_submissions",
+  "info": {
+    "singularName": "form-protection-submission",
+    "pluralName": "form-protection-submissions",
+    "displayName": "Form protection submission",
+    "description": "Business-rule records and audit-safe signals for public forms"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "form": {
+      "type": "enumeration",
+      "enum": ["contact", "postulation"],
+      "required": true
+    },
+    "normalizedEmailHash": {
+      "type": "string",
+      "required": true,
+      "maxLength": 128
+    },
+    "sectorDocumentId": {
+      "type": "string"
+    },
+    "positionKey": {
+      "type": "string"
+    },
+    "decision": {
+      "type": "enumeration",
+      "enum": [
+        "allowed",
+        "blocked_email_limit",
+        "blocked_duplicate",
+        "blocked_unavailable"
+      ],
+      "required": true
+    },
+    "duplicateMarker": {
+      "type": "boolean",
+      "default": false
+    },
+    "reviewStatus": {
+      "type": "enumeration",
+      "enum": ["clean", "needs_review", "banned"],
+      "default": "clean"
+    },
+    "banned": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes": {
+      "type": "text"
+    },
+    "threshold": {
+      "type": "integer"
+    },
+    "windowMs": {
+      "type": "biginteger"
+    },
+    "submittedAt": {
+      "type": "datetime",
+      "required": true
+    },
+    "metadata": {
+      "type": "json"
+    },
+    "fingerprint": {
+      "type": "json"
+    },
+    "signal": {
+      "type": "json"
+    }
+  }
+}
