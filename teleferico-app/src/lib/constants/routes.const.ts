@@ -99,6 +99,7 @@ export const STRAPI_ENDPOINTS = {
   GLOBAL_INTL: "/api/global-institutional-translation",
   NEWS: "/api/news",
   PAGES: "/api/pages",
+  FORM_PROTECTION_SUBMISSIONS: "/api/form-protection-submissions",
   POSTULATIONS: "/api/postulations",
   ROLES: "/api/users-permissions/roles",
   SECTORS: "/api/sectors",

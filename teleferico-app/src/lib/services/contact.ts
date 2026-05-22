@@ -1,3 +1,5 @@
+import "server-only";
+
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import { ROUTE_HANDLERS } from "@/lib/constants/routes.const";
 import type { ContactApiResponse, ContactRequestPayload } from "@/types";
