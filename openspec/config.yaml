@@ -1,0 +1,69 @@
+schema: spec-driven
+project: telefericobariloche2024
+artifact_store: openspec
+strict_tdd: true
+
+context: |
+  Monorepo with `teleferico-app` (Next.js 15 + React 18 + strict TypeScript + Tailwind v3),
+  `teleferico-cms` (Strapi 5 + PostgreSQL + npm), and `tools/image-pipeline`
+  (Next.js 16 + React 19 + strict TypeScript + Tailwind v4 + Vitest).
+  `teleferico-app` and `teleferico-cms` are the governed runtime packages.
+  `tools/image-pipeline` is separately scoped local tooling, not part of public runtime.
+  App has lint + typecheck + Vitest test coverage in `teleferico-app`; CMS has no
+  lint/test/typecheck scripts.
+  `tools/image-pipeline` also has Vitest, but app-facing SDD work should use the
+  `teleferico-app` runner first when the scope is in that package.
+
+testing:
+  detected: 2026-05-20
+  runner:
+    command: pnpm --dir teleferico-app run test
+    framework: Vitest 4
+  layers:
+    unit:
+      available: true
+      tool: Vitest
+    integration:
+      available: true
+      tool: Testing Library + jsdom
+    e2e:
+      available: false
+      tool: "—"
+  coverage:
+    available: false
+    command: ""
+  quality:
+    linter:
+      available: true
+      command: pnpm --dir teleferico-app run lint && pnpm --dir tools/image-pipeline run lint
+    typechecker:
+      available: true
+      command: pnpm --dir teleferico-app run typecheck && pnpm --dir tools/image-pipeline run typecheck
+    formatter:
+      available: true
+      command: pnpm --dir teleferico-app exec prettier --check .
+
+rules:
+  proposal:
+    - Name the target package(s) explicitly and call out any app/cms/tooling boundary crossings.
+    - Include rollback plans for security, schema, dependency, infra, or deployment-sensitive work.
+  specs:
+    - Use Given/When/Then scenarios and RFC 2119 keywords.
+    - Separate requirements by package boundary when a change spans app and cms.
+  design:
+    - Document cross-package contracts and operational assumptions before implementation.
+    - Call out security, i18n, Strapi permission, and deployment impact when relevant.
+  tasks:
+    - Group tasks by package and keep each task completable in one session.
+    - Update docs in the same task when behavior, contracts, or configuration change.
+  apply:
+    - Follow root and package-local AGENTS guardrails.
+    - Reuse centralized types and existing guards before adding new abstractions.
+    tdd: true
+    test_command: pnpm --dir teleferico-app run test
+  verify:
+    test_command: pnpm --dir teleferico-app run test
+    build_command: pnpm --dir teleferico-app run check && npm --prefix teleferico-cms run build && pnpm --dir tools/image-pipeline run typecheck && pnpm --dir tools/image-pipeline run lint
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive or contract-changing deltas into main specs.
