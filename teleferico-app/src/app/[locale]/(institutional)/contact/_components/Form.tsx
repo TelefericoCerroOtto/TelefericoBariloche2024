@@ -87,6 +87,14 @@ export default function Form() {
             });
             break;
 
+          case "EMAIL_LIMIT_EXCEEDED":
+            showAlert({
+              variant: "warning",
+              title: translations[locale].tooManyEmails.title,
+              message: translations[locale].tooManyEmails.message,
+            });
+            break;
+
           default:
             showAlert({
               variant: "danger",

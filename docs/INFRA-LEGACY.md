@@ -96,3 +96,33 @@ Hay un detalle importante de certificados: `telefericobariloche.com.ar` cubre ap
 > La VM corre CentOS 7 y responde como `Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips PHP/7.3.21`. HTTP redirige a HTTPS y el certificado TLS observado es de Let’s Encrypt (R13). `telefericobariloche.com.ar` tiene un certificado válido para apex y subdominios `www`, `en` y `pt`, mientras que `telefericobariloche.com` sirve un certificado para `www.telefericobariloche.com`.
 >
 > La publicación depende de una sola VM, así que la IP pública y el TLS deben tratarse como puntos críticos de migración.
+
+## 6) Plan de apagado y respaldo (Mayo 2026)
+
+Con la migración activa hacia el nuevo sitio en `teleferico-bariloche-2024`, el dominio principal `telefericobariloche.com.ar` ya resuelve hacia el nuevo Load Balancer (`130.211.28.132`). Sin embargo, la VM legacy sigue encendida generando costos diarios de Compute Engine.
+
+Para darla de baja de forma segura minimizando costos (aprox. USD 1/mes de retención) sin perder datos históricos (bases de datos y archivos locales de la VM), el plan operativo acordado es:
+
+1. **Snapshot del disco de arranque**: Crear una instantánea del disco `teleficobariloche` (20 GB) para tener un backup exacto del sistema y la base de datos.
+2. **Apagar la instancia**: Detener (Stop) la VM `teleficobariloche`.
+
+### Consecuencias esperadas
+- **Liberación de IP efímera**: Al apagar la VM, GCP liberará la IP pública `35.232.46.188`. Si a futuro se requiere volver a encender la máquina, se le asignará una nueva IP y habrá que actualizar Cloud DNS manualmente.
+- **Caída de subdominios legacy**: Los subdominios que aún apuntan a la IP del legacy (ej. `en.telefericobariloche.com.ar`, `pt.telefericobariloche.com.ar`, `dev...`) dejarán de funcionar inmediatamente.
+
+### Estrategia de recuperación (Rollback)
+
+Si en el futuro se necesita volver a poner en línea el sitio legacy o recuperar los datos operativos, existen dos escenarios:
+
+**Escenario A: La VM sigue existiendo (solo está apagada)**
+1. Encender la instancia: `gcloud compute instances start teleficobariloche --zone=us-central1-a --project=teleferico-bariloche`
+2. Consultar la nueva IP pública que GCP le asignó al encender.
+3. Ir a Cloud DNS y actualizar los registros `A` de los dominios necesarios para que apunten a la nueva IP.
+
+**Escenario B: La VM y el disco original fueron eliminados (restaurar desde backup)**
+1. Crear un disco nuevo a partir del snapshot:
+   `gcloud compute disks create disco-restaurado-legacy --source-snapshot=legacy-backup-may-2026 --zone=us-central1-a --project=teleferico-bariloche`
+2. Crear una nueva instancia adjuntando ese disco como disco de arranque.
+3. Consultar la IP pública de la nueva instancia.
+4. Actualizar Cloud DNS para apuntar el tráfico a la nueva IP.
+

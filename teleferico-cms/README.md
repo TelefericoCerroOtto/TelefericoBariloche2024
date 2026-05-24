@@ -13,6 +13,25 @@ Backend (CMS) del proyecto, implementado con **Strapi**.
 - `npm run develop`: inicia Strapi en modo desarrollo (con _auto-reload_)
 - `npm run start`: inicia Strapi en modo producción (sin _auto-reload_)
 - `npm run build`: compila el panel de administración
+- `npm run seed:postulations -- --count=24`: crea postulaciones fake para probar la paginación del admin de recruitment
+
+### Seed de postulaciones fake
+
+Usá este script cuando necesites poblar rápido el listado administrativo de recruitment sin pasar por el formulario público real.
+
+```bash
+npm run seed:postulations
+```
+
+Opciones útiles:
+
+- `npm run seed:postulations -- --count=25`: cambia la cantidad de registros a generar
+- `npm run seed:postulations -- --cleanup`: elimina solo los registros creados por este script
+
+Notas:
+
+- El script necesita que exista al menos un `sector` en la base local; reutiliza el primero activo disponible.
+- Los registros se crean publicados y con una marca interna en `note` para que el cleanup no toque postulaciones reales.
 
 > Nota: si `npm run develop` falla con `ENOSPC`, suele ser por límite de _watchers_ del sistema (por ejemplo, VS Code/Warp abiertos). Cerrá procesos pesados o ajustá `fs.inotify.max_user_watches`.
 

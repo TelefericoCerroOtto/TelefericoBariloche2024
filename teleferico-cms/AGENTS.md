@@ -98,7 +98,7 @@ Rules from:
 - Start: `npm run start`
 - Strapi CLI: `npm run strapi`
 - Lint: no `lint` script exists in `package.json`.
-- Test: no `test` script exists in `package.json`.
+- Test: Currently no automated tests are configured for the CMS, but the long-term goal is to add them gradually.
 - Typecheck: no `typecheck` script exists in `package.json`.
 
 ## Read if needed

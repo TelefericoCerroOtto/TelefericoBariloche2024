@@ -722,6 +722,67 @@ export interface ApiFaqFaq extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiFormProtectionSubmissionFormProtectionSubmission
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'form_protection_submissions';
+  info: {
+    description: 'Business-rule records and audit-safe signals for public forms';
+    displayName: 'Form protection submission';
+    pluralName: 'form-protection-submissions';
+    singularName: 'form-protection-submission';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    banned: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    decision: Schema.Attribute.Enumeration<
+      [
+        'allowed',
+        'blocked_email_limit',
+        'blocked_duplicate',
+        'blocked_unavailable',
+      ]
+    > &
+      Schema.Attribute.Required;
+    duplicateMarker: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    fingerprint: Schema.Attribute.JSON;
+    form: Schema.Attribute.Enumeration<['contact', 'postulation']> &
+      Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::form-protection-submission.form-protection-submission'
+    > &
+      Schema.Attribute.Private;
+    metadata: Schema.Attribute.JSON;
+    normalizedEmailHash: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 128;
+      }>;
+    notes: Schema.Attribute.Text;
+    positionKey: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    reviewStatus: Schema.Attribute.Enumeration<
+      ['clean', 'needs_review', 'banned']
+    > &
+      Schema.Attribute.DefaultTo<'clean'>;
+    sectorDocumentId: Schema.Attribute.String;
+    signal: Schema.Attribute.JSON;
+    submittedAt: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    threshold: Schema.Attribute.Integer;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    windowMs: Schema.Attribute.BigInteger;
+  };
+}
+
 export interface ApiNewNew extends Struct.CollectionTypeSchema {
   collectionName: 'news';
   info: {
@@ -1835,6 +1896,7 @@ declare module '@strapi/strapi' {
       'api::bus-trip.bus-trip': ApiBusTripBusTrip;
       'api::component-translation.component-translation': ApiComponentTranslationComponentTranslation;
       'api::faq.faq': ApiFaqFaq;
+      'api::form-protection-submission.form-protection-submission': ApiFormProtectionSubmissionFormProtectionSubmission;
       'api::new.new': ApiNewNew;
       'api::page.page': ApiPagePage;
       'api::postulation.postulation': ApiPostulationPostulation;

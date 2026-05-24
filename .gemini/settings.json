@@ -6,6 +6,9 @@
         "-y",
         "@heroui/react-mcp@latest"
       ]
+    },
+    "notion": {
+      "url": "https://mcp.notion.com/mcp"
     }
   }
 }

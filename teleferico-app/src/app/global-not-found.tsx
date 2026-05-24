@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale } from "@/hooks";
-import { NotFoundContent } from "@/components";
+import NotFoundContent from "@/components/institutional/NotFoundContent";
 import "./globals.css";
 
 export default function NotFound() {

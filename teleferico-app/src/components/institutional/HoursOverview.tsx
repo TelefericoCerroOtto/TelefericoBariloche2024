@@ -2,7 +2,7 @@
 import { BlockRendererClient, TitleDescBlock } from "@/components";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { strapiFetch } from "@/lib/http/clients/strapi-fetch";
-import { getComponentTranslation } from "@/lib/services";
+import { getComponentTranslation } from "@/lib/services/cms/collections/component-translations";
 
 import bus from "@/public/busInfo.png";
 import cerro from "@/public/cerroInfo.png";

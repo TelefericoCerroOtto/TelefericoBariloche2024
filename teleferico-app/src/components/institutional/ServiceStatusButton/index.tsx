@@ -1,4 +1,4 @@
-import { getComponentTranslation } from "@/lib/services";
+import { getComponentTranslation } from "@/lib/services/cms/collections/component-translations";
 import type { Locales } from "@/types";
 import ServiceStatusButtonClient from "./ServiceStatusButtonClient";
 import { FormError } from "@/components/shared";
