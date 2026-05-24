@@ -77,6 +77,7 @@ La referencia canónica para infraestructura, entornos y despliegue es [docs/INF
 - [docs/CONVENTIONS.md](./docs/CONVENTIONS.md): convenciones de commits y pull requests
 - [docs/todo-workflow.md](./docs/todo-workflow.md): gobernanza del backlog compartido entre Notion y GitHub
 - [docs/backlog-branch-pr-policy.md](./docs/backlog-branch-pr-policy.md): política de asociación entre backlog, ramas e implementation PRs
+- [docs/CI-AUTOMATION.md](./docs/CI-AUTOMATION.md): gobernanza de automatización y CI en GitHub Actions
 - [AGENTS.md](./AGENTS.md): reglas operativas para agentes que trabajen en el repo
 
 ## Convenciones de trabajo

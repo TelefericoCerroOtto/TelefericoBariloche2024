@@ -1,0 +1,113 @@
+name: Backlog governance
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Automation slice to run"
+        required: true
+        default: reconcile-ready-items
+        type: choice
+        options:
+          - reconcile-ready-items
+          - pr-governance
+      branch_name:
+        description: "Head branch name for pr-governance when running manually"
+        required: false
+        type: string
+      base_branch:
+        description: "Base branch name for pr-governance when running manually"
+        required: false
+        type: string
+      pr_body:
+        description: "PR body content for pr-governance when running manually"
+        required: false
+        type: string
+      dry_run:
+        description: "Preview changes without writing to Notion or GitHub"
+        required: false
+        default: true
+        type: boolean
+  schedule:
+    - cron: "17 * * * *"
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - edited
+      - synchronize
+      - ready_for_review
+      - closed
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: backlog-governance-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name || 'manual' }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile-ready-items:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'reconcile-ready-items')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Reconcile ready backlog items
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_BACKLOG_DATA_SOURCE_ID: ${{ secrets.NOTION_BACKLOG_DATA_SOURCE_ID }}
+          NOTION_VERSION: ${{ vars.NOTION_VERSION }}
+          NOTION_WORK_ID_PROPERTY: ${{ vars.NOTION_WORK_ID_PROPERTY }}
+          NOTION_TITLE_PROPERTY: ${{ vars.NOTION_TITLE_PROPERTY }}
+          NOTION_STATUS_PROPERTY: ${{ vars.NOTION_STATUS_PROPERTY }}
+          NOTION_FORMAL_CHANNEL_PROPERTY: ${{ vars.NOTION_FORMAL_CHANNEL_PROPERTY }}
+          NOTION_FORMAL_LINK_PROPERTY: ${{ vars.NOTION_FORMAL_LINK_PROPERTY }}
+          NOTION_NOTES_PROPERTY: ${{ vars.NOTION_NOTES_PROPERTY }}
+          NOTION_READY_STATUS: ${{ vars.NOTION_READY_STATUS }}
+          NOTION_FORMALIZED_STATUS: ${{ vars.NOTION_FORMALIZED_STATUS }}
+          NOTION_DONE_STATUS: ${{ vars.NOTION_DONE_STATUS }}
+          NOTION_GITHUB_ISSUE_CHANNEL: ${{ vars.NOTION_GITHUB_ISSUE_CHANNEL }}
+          GITHUB_ISSUE_LABELS: ${{ vars.GITHUB_ISSUE_LABELS }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: node .github/scripts/github-notion-sync.js reconcile-ready-items
+
+  pr-governance:
+    if: github.event_name == 'pull_request_target' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'pr-governance')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out trusted workflow code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.repository.default_branch || github.ref }}
+
+      - name: PR backlog governance
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_BACKLOG_DATA_SOURCE_ID: ${{ secrets.NOTION_BACKLOG_DATA_SOURCE_ID }}
+          NOTION_VERSION: ${{ vars.NOTION_VERSION }}
+          NOTION_WORK_ID_PROPERTY: ${{ vars.NOTION_WORK_ID_PROPERTY }}
+          NOTION_TITLE_PROPERTY: ${{ vars.NOTION_TITLE_PROPERTY }}
+          NOTION_STATUS_PROPERTY: ${{ vars.NOTION_STATUS_PROPERTY }}
+          NOTION_FORMAL_CHANNEL_PROPERTY: ${{ vars.NOTION_FORMAL_CHANNEL_PROPERTY }}
+          NOTION_FORMAL_LINK_PROPERTY: ${{ vars.NOTION_FORMAL_LINK_PROPERTY }}
+          NOTION_NOTES_PROPERTY: ${{ vars.NOTION_NOTES_PROPERTY }}
+          NOTION_READY_STATUS: ${{ vars.NOTION_READY_STATUS }}
+          NOTION_FORMALIZED_STATUS: ${{ vars.NOTION_FORMALIZED_STATUS }}
+          NOTION_DONE_STATUS: ${{ vars.NOTION_DONE_STATUS }}
+          NOTION_GITHUB_ISSUE_CHANNEL: ${{ vars.NOTION_GITHUB_ISSUE_CHANNEL }}
+          GITHUB_ISSUE_LABELS: ${{ vars.GITHUB_ISSUE_LABELS }}
+          PR_HEAD_BRANCH: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.ref || inputs.branch_name }}
+          PR_BASE_BRANCH: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || inputs.base_branch }}
+          PR_ACTION: ${{ github.event.action || 'opened' }}
+          PR_IS_MERGED: ${{ github.event.pull_request.merged || 'false' }}
+          PR_URL: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.html_url || '' }}
+          PR_TITLE: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.title || '' }}
+          PR_BODY: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.body || inputs.pr_body || '' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: node .github/scripts/github-notion-sync.js pr-governance

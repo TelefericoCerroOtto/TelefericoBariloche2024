@@ -148,7 +148,13 @@ Use GitHub Issues as the formal artifact, but distinguish between the PR that
 |---|---|---|---|
 | Implementation PR | `feat/fix -> development` | `Refs #N` or explicit mention of `#N` | Preserve the technical story of the actual code change |
 | Promotion PR to staging | `development -> staging` | Optional mention of `#N` or included implementation PRs | Track validation scope; do not close the issue here |
-| Promotion PR to main | `staging -> main` | `Closes #N` | Mark the issue as officially shipped via the default branch |
+| Promotion PR to main | `staging -> main` | `Closes #N` or explicit `Formal issues: none` | Mark the issue as officially shipped via the default branch |
+
+#### Strict issue closure token
+
+When promoting to `main`, the PR body **MUST** declare its closure intent to pass automation:
+- If there are issues to close, use standard `Closes #N` / `Fixes #N`.
+- If there are no issues closed in the release, include the exact line `Formal issues: none` in the PR body.
 
 #### Format for `#N`
 
@@ -237,18 +243,7 @@ Do **NOT** use the Notion Work ID slug (for example, do not use `Refs #tb-71`), 
 - Included PRs:
   - #123 — Fix checkout validation for seasonal pricing
 
-## Technical Details
-
-- Staging validation completed successfully
-- Production rollout scope:
-  - booking flow
-  - admin update flow
-- Rollback strategy:
-  - revert this promotion PR if production issues are detected
-
-## Breaking Changes
-
-- [ ] None
+Closes #123
 ```
 
 #### Promotion PR with multiple included PRs
@@ -268,6 +263,8 @@ Do **NOT** use the Notion Work ID slug (for example, do not use `Refs #tb-71`), 
   - #123 — Fix checkout validation for seasonal pricing
   - #124 — Add operator note field to booking management
   - #126 — Refactor availability cache invalidation
+
+Closes #123, Closes #124, Closes #126
 
 ## Technical Details
 

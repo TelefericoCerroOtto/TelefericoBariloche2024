@@ -59,6 +59,10 @@ Si no se cumple eso, hay que partir el trabajo.
 
 La política estricta aplica solo a **implementation PRs**.
 
+Flujo gobernado esperado:
+
+- rama de trabajo (`feat/...`, `fix/...`, `chore/...`, etc.) → `development`
+
 ### Asociación confiable requerida
 
 Una implementation PR se puede crear o regenerar solo si se cumple al menos una:
@@ -91,18 +95,20 @@ Si el ítem sigue en `Clarificar`:
 
 ## Política para promotion PRs
 
-Las promotion PRs quedan fuera de la asociación estricta branch↔`Work ID`.
+Las promotion PRs quedan fuera de la asociación estricta branch↔`Work ID`, pero **tienen reglas estrictas de closure**.
 
 Motivo:
 
 - su unidad de revisión es la **promoción del cambio ya aprobado**
-- no representan un trabajo nuevo del backlog
+- son el único vehículo permitido para cerrar issues formalmente de manera automática
 
 Por lo tanto:
 
 - no necesitan `Work ID` en la rama
 - no necesitan un `Branch` de Notion asociado
 - deben apoyarse en PRs/issues ya existentes y en la narrativa de release/promoción
+- **Promotion a staging**: no debe usar palabras clave de closure (ej. `Closes #123`).
+- **Promotion a main**: debe declarar explícitamente su intención de closure en el cuerpo de la PR (usando `Closes #123` o la línea `Formal issues: none`).
 
 ## Política para la skill de sugerencia de ramas
 
