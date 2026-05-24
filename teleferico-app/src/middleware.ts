@@ -11,7 +11,7 @@ import { verifySession } from "@/lib/services/cms/users-permissions/auth";
 import type { Locales } from "@/types";
 import { NextResponse } from "next/server";
 
-const PUBLIC_SITE_URL = process.env[ENV_KEYS.NEXT_PUBLIC_SITE_URL]?.replace(
+const PUBLIC_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(
   /\/$/,
   "",
 );
@@ -24,26 +24,24 @@ export default auth(async (req) => {
   const normalize = (lang: string | undefined): Locales | undefined => {
     if (!lang) return undefined;
     const l = lang.toLowerCase();
-    if (l.startsWith("es")) return "es-AR" as Locales;
-    if (l.startsWith("en")) return "en" as Locales;
-    if (l.startsWith("pt")) return "pt" as Locales;
+    if (l === "es" || l.startsWith("es-")) return "es-AR" as Locales;
+    if (l === "en" || l.startsWith("en-")) return "en" as Locales;
+    if (l === "pt" || l.startsWith("pt-")) return "pt" as Locales;
     return undefined;
   };
 
-  // TODO: re-implement this function to pick locale from cookie or Accept-Language header. Cookie default language was "en".
   const pickLocale = (): Locales => {
-    // const rawCookie = req.cookies.get("NEXT_LOCALE")?.value;
-    // const cookieLocale = normalize(rawCookie);
-    // if (cookieLocale) return cookieLocale;
+    const rawCookie = req.cookies.get("NEXT_LOCALE")?.value;
+    const cookieLocale = normalize(rawCookie);
+    if (cookieLocale) return cookieLocale;
 
-    // const header = req.headers.get("accept-language") || "";
-    // const preferred = header
-    //   .split(",")
-    //   .map((part) => part.split(";")[0].trim())
-    //   .map(normalize)
-    //   .find((v): v is Locales => Boolean(v));
-    // return preferred || i18n.defaultLocale;
-    return i18n.defaultLocale as Locales;
+    const header = req.headers.get("accept-language") || "";
+    const preferred = header
+      .split(",")
+      .map((part) => part.split(";")[0].trim())
+      .map(normalize)
+      .find((v): v is Locales => Boolean(v));
+    return preferred || i18n.defaultLocale;
   };
 
   const segments = pathname.split("/");
@@ -114,14 +112,17 @@ export default auth(async (req) => {
 
     // At this point, path is locale-prefixed. Proceed with auth gating.
     if (req.auth !== null) {
-      const { isLogged } = await verifySession(req.auth.jwt);
+      let isLogged = false;
+      try {
+        const session = await verifySession(req.auth.jwt);
+        isLogged = session.isLogged;
+      } catch (error) {
+        // Fallback to unauthenticated state on error
+      }
 
       if (isLogged) {
-        // Restrict login/logout for authenticated users
-        if (
-          adminPath === ADMIN_ROUTES.LOGIN ||
-          adminPath === ADMIN_ROUTES.LOGOUT
-        ) {
+        // Restrict login for authenticated users
+        if (adminPath === ADMIN_ROUTES.LOGIN) {
           return buildAdminRedirect(ADMIN_ROUTES.DASHBOARD);
         }
         return;
@@ -148,13 +149,17 @@ export default auth(async (req) => {
   // 🚩 Public paths
 
   // 0) Redirección de subdominios legacy (en. / pt.) a la nueva arquitectura de rutas
-  const host = req.headers.get("host") || "";
+  const host = req.nextUrl.host;
   if (host.startsWith("en.") || host.startsWith("pt.")) {
     const targetLocale = host.startsWith("en.") ? "en" : "pt";
     
     const redirectURL = PUBLIC_SITE_URL
       ? new URL(pathname, PUBLIC_SITE_URL)
       : req.nextUrl.clone();
+      
+    if (!PUBLIC_SITE_URL) {
+      redirectURL.hostname = redirectURL.hostname.replace(/^(en|pt)\./, "");
+    }
       
     const rest = hasLocalePrefix ? segments.slice(2).join("/") : segments.slice(1).join("/");
     redirectURL.pathname = rest && rest.length > 0 ? `/${targetLocale}/${rest}` : `/${targetLocale}`;
