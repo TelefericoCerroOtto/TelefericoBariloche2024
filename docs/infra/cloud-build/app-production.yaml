@@ -111,6 +111,9 @@ steps:
           --max-instances "${_MAX_INSTANCES}" \
           --cpu-boost \
           --execution-environment gen2 \
+          --network default \
+          --subnet default \
+          --vpc-egress private-ranges-only \
           --allow-unauthenticated \
           --env-vars-file /tmp/runtime-env.yaml \
           --set-secrets "INTERNAL_API_KEY=APP__PRODUCTION__INTERNAL_API_KEY:latest,STRAPI_FORMS_TOKEN=APP__PRODUCTION__STRAPI_FORMS_TOKEN:latest,FORM_PROTECTION_REDIS_URL=APP__PRODUCTION__FORM_PROTECTION_REDIS_URL:latest,BUILD_STRAPI_CONTENT_TOKEN=APP__PRODUCTION__BUILD_STRAPI_CONTENT_TOKEN:latest,AUTH_SECRET=APP__PRODUCTION__AUTH_SECRET:latest,RECAPTCHA_SECRET_KEY=APP__PRODUCTION__RECAPTCHA_SECRET_KEY:latest,GOOGLE_CLIENT_ID=APP__PRODUCTION__GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=APP__PRODUCTION__GOOGLE_CLIENT_SECRET:latest,OAUTH_REFRESH_TOKEN=APP__PRODUCTION__OAUTH_REFRESH_TOKEN:latest,CSRF_STATE_SECRET=APP__PRODUCTION__CSRF_STATE_SECRET:latest,INIT_TOKEN=APP__PRODUCTION__INIT_TOKEN:latest" \
