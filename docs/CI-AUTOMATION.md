@@ -144,11 +144,14 @@ These exist so the workflow can adapt if the Notion property names or option nam
 | `NOTION_FORMAL_CHANNEL_PROPERTY` | `Canal formal` |
 | `NOTION_FORMAL_LINK_PROPERTY` | `Enlace formal` |
 | `NOTION_NOTES_PROPERTY` | `Notas` |
+| `NOTION_BRANCH_PROPERTY` | `Branch` |
 | `NOTION_READY_STATUS` | `Listo para formalizar` |
 | `NOTION_FORMALIZED_STATUS` | `Formalizado` |
 | `NOTION_DONE_STATUS` | `Hecho` |
 | `NOTION_GITHUB_ISSUE_CHANNEL` | `GitHub Issue` |
 | `GITHUB_ISSUE_LABELS` | empty |
+
+`NOTION_FORMAL_LINK_PROPERTY` should remain a real Notion `url` property because the close-sync path queries it as a URL filter.
 
 ## Manual mode and dry runs
 
@@ -158,6 +161,7 @@ The workflow exposes `workflow_dispatch` inputs for:
 - `branch_name`
 - `base_branch`
 - `pr_body`
+- `pr_action`
 - `pr_merged`
 - `dry_run`
 

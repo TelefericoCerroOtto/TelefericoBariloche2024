@@ -12,6 +12,7 @@ const DEFAULTS = {
   formalizedStatus: "Formalizado",
   doneStatus: "Hecho",
   githubIssueChannel: "GitHub Issue",
+  branchProperty: "Branch",
   noFormalIssuesToken: "Formal issues: none",
   implementationBranchPattern: /^(feat|fix|chore|refactor|docs|style|test|perf|revert)\//i,
   promotionPairs: {
@@ -25,7 +26,7 @@ async function main() {
 
   if (!command) {
     throw new Error(
-      "Missing command. Use: reconcile-ready-items | validate-pr-policy | sync-main-promotion-closures"
+      "Missing command. Use: reconcile-ready-items | pr-governance | validate-pr-policy | sync-main-promotion-closures"
     );
   }
 
@@ -34,6 +35,9 @@ async function main() {
   switch (command) {
     case "reconcile-ready-items":
       await reconcileReadyItems(config);
+      return;
+    case "pr-governance":
+      await prGovernance(config);
       return;
     case "validate-pr-policy":
       await validatePrPolicy(config);
@@ -67,6 +71,7 @@ function getConfig() {
       formalChannel: process.env.NOTION_FORMAL_CHANNEL_PROPERTY || DEFAULTS.formalChannelProperty,
       formalLink: process.env.NOTION_FORMAL_LINK_PROPERTY || DEFAULTS.formalLinkProperty,
       notes: process.env.NOTION_NOTES_PROPERTY || DEFAULTS.notesProperty,
+      branch: process.env.NOTION_BRANCH_PROPERTY || DEFAULTS.branchProperty,
     },
     statuses: {
       ready: process.env.NOTION_READY_STATUS || DEFAULTS.readyStatus,
@@ -77,14 +82,24 @@ function getConfig() {
     issueLabels: splitCsv(process.env.GITHUB_ISSUE_LABELS),
     dryRun: parseBoolean(process.env.DRY_RUN),
     pullRequest: {
-      headRef: process.env.PR_BRANCH_NAME || "",
-      baseRef: process.env.PR_BASE_REF || "",
+      headRef: process.env.PR_BRANCH_NAME || process.env.PR_HEAD_BRANCH || "",
+      baseRef: process.env.PR_BASE_REF || process.env.PR_BASE_BRANCH || "",
+      action: process.env.PR_ACTION || "opened",
       url: process.env.PR_URL || "",
       title: process.env.PR_TITLE || "",
       body: process.env.PR_BODY || "",
-      merged: parseBoolean(process.env.PR_MERGED),
+      merged: parseBoolean(process.env.PR_MERGED || process.env.PR_IS_MERGED),
     },
   };
+}
+
+async function prGovernance(config) {
+  if (config.pullRequest.action === "closed") {
+    await syncMainPromotionClosures(config);
+    return;
+  }
+
+  await validatePrPolicy(config);
 }
 
 async function reconcileReadyItems(config) {
@@ -170,14 +185,22 @@ async function validatePrPolicy(config) {
 async function ensureImplementationIssue(config, pr) {
   const workId = extractWorkIdFromBranch(config.pullRequest.headRef);
 
-  if (!workId) {
-    throw new Error(`Implementation branch '${config.pullRequest.headRef}' is missing a Work ID.`);
-  }
+  let page = null;
 
-  const page = await findNotionPageByWorkId(config, workId);
+  if (workId) {
+    page = await findNotionPageByWorkId(config, workId);
 
-  if (!page) {
-    throw new Error(`No Notion backlog item found for Work ID '${workId}'.`);
+    if (!page) {
+      throw new Error(`No Notion backlog item found for Work ID '${workId}'.`);
+    }
+  } else {
+    page = await findNotionPageByBranchName(config, config.pullRequest.headRef);
+
+    if (!page) {
+      throw new Error(
+        `Implementation branch '${config.pullRequest.headRef}' is missing a Work ID and does not match the Notion '${config.properties.branch}' field.`
+      );
+    }
   }
 
   const item = mapNotionItem(config, page);
@@ -338,7 +361,10 @@ function extractClosingReferences(body) {
 }
 
 function containsNoFormalIssuesToken(body) {
-  return body.toLowerCase().includes(DEFAULTS.noFormalIssuesToken.toLowerCase());
+  return body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .some((line) => line === DEFAULTS.noFormalIssuesToken);
 }
 
 async function findNotionPageByWorkId(config, workId) {
@@ -378,6 +404,15 @@ async function findNotionPageByIssueUrl(config, issueUrl) {
   const pages = await queryNotionPages(config, {
     property: config.properties.formalLink,
     url: { equals: issueUrl },
+  });
+
+  return pages[0] || null;
+}
+
+async function findNotionPageByBranchName(config, branchName) {
+  const pages = await queryNotionPages(config, {
+    property: config.properties.branch,
+    rich_text: { equals: branchName },
   });
 
   return pages[0] || null;

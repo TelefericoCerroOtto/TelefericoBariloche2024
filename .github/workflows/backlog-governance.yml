@@ -23,6 +23,22 @@ on:
         description: "PR body content for pr-governance when running manually"
         required: false
         type: string
+      pr_action:
+        description: "PR action for pr-governance when running manually"
+        required: false
+        default: opened
+        type: choice
+        options:
+          - opened
+          - edited
+          - synchronize
+          - ready_for_review
+          - closed
+      pr_merged:
+        description: "Whether the PR was merged when simulating a closed event"
+        required: false
+        default: false
+        type: boolean
       dry_run:
         description: "Preview changes without writing to Notion or GitHub"
         required: false
@@ -102,10 +118,11 @@ jobs:
           NOTION_DONE_STATUS: ${{ vars.NOTION_DONE_STATUS }}
           NOTION_GITHUB_ISSUE_CHANNEL: ${{ vars.NOTION_GITHUB_ISSUE_CHANNEL }}
           GITHUB_ISSUE_LABELS: ${{ vars.GITHUB_ISSUE_LABELS }}
-          PR_HEAD_BRANCH: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.ref || inputs.branch_name }}
-          PR_BASE_BRANCH: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || inputs.base_branch }}
-          PR_ACTION: ${{ github.event.action || 'opened' }}
-          PR_IS_MERGED: ${{ github.event.pull_request.merged || 'false' }}
+          NOTION_BRANCH_PROPERTY: ${{ vars.NOTION_BRANCH_PROPERTY }}
+          PR_BRANCH_NAME: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.ref || inputs.branch_name }}
+          PR_BASE_REF: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || inputs.base_branch }}
+          PR_ACTION: ${{ github.event_name == 'pull_request_target' && github.event.action || inputs.pr_action || 'opened' }}
+          PR_MERGED: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merged || inputs.pr_merged || 'false' }}
           PR_URL: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.html_url || '' }}
           PR_TITLE: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.title || '' }}
           PR_BODY: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.body || inputs.pr_body || '' }}
