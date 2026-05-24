@@ -6,7 +6,6 @@ import {
   ADMIN_ROUTES,
   type AdminLoginReason,
 } from "@/lib/constants/routes.const";
-import { ENV_KEYS } from "@/lib/constants/env.const";
 import { verifySession } from "@/lib/services/cms/users-permissions/auth";
 import type { Locales } from "@/types";
 import { NextResponse } from "next/server";
@@ -69,10 +68,7 @@ export default auth(async (req) => {
       ? new URL(pathname, PUBLIC_SITE_URL)
       : req.nextUrl.clone();
     redirectUrl.pathname = pathname;
-
-    req.nextUrl.searchParams.forEach((value, key) => {
-      redirectUrl.searchParams.set(key, value);
-    });
+    redirectUrl.search = req.nextUrl.search;
 
     if (reason) {
       redirectUrl.searchParams.set(ADMIN_LOGIN_QUERY_PARAMS.REASON, reason);
@@ -100,10 +96,7 @@ export default auth(async (req) => {
         ? new URL(pathname, PUBLIC_SITE_URL)
         : req.nextUrl.clone();
       redirectURL.pathname = pathname;
-
-      req.nextUrl.searchParams.forEach((value, key) => {
-        redirectURL.searchParams.set(key, value);
-      });
+      redirectURL.search = req.nextUrl.search;
 
       const res = NextResponse.redirect(redirectURL);
       res.cookies.set("NEXT_LOCALE", forcedLocale, { path: "/" });
@@ -117,7 +110,7 @@ export default auth(async (req) => {
         const session = await verifySession(req.auth.jwt);
         isLogged = session.isLogged;
       } catch (error) {
-        // Fallback to unauthenticated state on error
+        console.error("CMS session verification failed in middleware", error);
       }
 
       if (isLogged) {
@@ -163,10 +156,7 @@ export default auth(async (req) => {
       
     const rest = hasLocalePrefix ? segments.slice(2).join("/") : segments.slice(1).join("/");
     redirectURL.pathname = rest && rest.length > 0 ? `/${targetLocale}/${rest}` : `/${targetLocale}`;
-    
-    req.nextUrl.searchParams.forEach((value, key) => {
-      redirectURL.searchParams.set(key, value);
-    });
+    redirectURL.search = req.nextUrl.search;
 
     return NextResponse.redirect(redirectURL, 301);
   }
