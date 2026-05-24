@@ -147,6 +147,25 @@ export default auth(async (req) => {
 
   // 🚩 Public paths
 
+  // 0) Redirección de subdominios legacy (en. / pt.) a la nueva arquitectura de rutas
+  const host = req.headers.get("host") || "";
+  if (host.startsWith("en.") || host.startsWith("pt.")) {
+    const targetLocale = host.startsWith("en.") ? "en" : "pt";
+    
+    const redirectURL = PUBLIC_SITE_URL
+      ? new URL(pathname, PUBLIC_SITE_URL)
+      : req.nextUrl.clone();
+      
+    const rest = hasLocalePrefix ? segments.slice(2).join("/") : segments.slice(1).join("/");
+    redirectURL.pathname = rest && rest.length > 0 ? `/${targetLocale}/${rest}` : `/${targetLocale}`;
+    
+    req.nextUrl.searchParams.forEach((value, key) => {
+      redirectURL.searchParams.set(key, value);
+    });
+
+    return NextResponse.redirect(redirectURL, 301);
+  }
+
   // 1) Si la ruta NO tiene un locale válido como prefijo, la redirigimos a un locale.
   if (!hasLocalePrefix) {
     // Si el primer segmento parece un idioma corto (es, en, pt),
