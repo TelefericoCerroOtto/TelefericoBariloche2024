@@ -1,5 +1,5 @@
 import { FormError } from "@/components/shared";
-import { getComponentTranslation } from "@/lib/services";
+import { getComponentTranslation } from "@/lib/services/cms/collections/component-translations";
 import Gondola from "@/public/gondola.svg";
 import type { Locales } from "@/types";
 import Image from "next/image";

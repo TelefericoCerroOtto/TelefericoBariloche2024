@@ -18,7 +18,7 @@ To ensure a consistent history, we use the format of
 - `style` — formatting, UI tweaks, CSS-only, non-functional changes
 - `docs` — documentation only
 - `perf` — performance improvements
-- `test` — adding or updating tests (rare; only when requested)
+- `test` — adding or updating tests (especially required when modifying forms or security layers)
 - `revert` — revert a previous commit
 
 ### Directories (lowercase)
@@ -131,6 +131,49 @@ When a promotion PR contains **multiple** previously approved implementation PRs
 - identify the main validation focus
 - state rollback expectations
 
+### Issue linkage and closure policy
+
+Use GitHub Issues as the formal artifact, but distinguish between the PR that
+**implements** the change and the PR that **officially closes** the issue.
+
+#### Quick path
+
+1. Create or reference the GitHub Issue for the work item.
+2. In the **implementation PR** (`feature/fix -> development`), reference the issue as context.
+3. In the **promotion PR to `main`** (`staging -> main`), close the issue.
+
+#### Rules
+
+| PR type | Typical branch flow | How to reference the issue | Purpose |
+|---|---|---|---|
+| Implementation PR | `feat/fix -> development` | `Refs #N` or explicit mention of `#N` | Preserve the technical story of the actual code change |
+| Promotion PR to staging | `development -> staging` | Optional mention of `#N` or included implementation PRs | Track validation scope; do not close the issue here |
+| Promotion PR to main | `staging -> main` | `Closes #N` or explicit `Formal issues: none` | Mark the issue as officially shipped via the default branch |
+
+#### Strict issue closure token
+
+When promoting to `main`, the PR body **MUST** declare its closure intent to pass automation:
+- If there are issues to close, use standard `Closes #N` / `Fixes #N`.
+- If there are no issues closed in the release, include the exact line `Formal issues: none` in the PR body.
+
+#### Format for `#N`
+
+When referencing an issue via `#N` (e.g., `Refs #N`, `Closes #N`), you **MUST use the numeric GitHub Issue ID** (for example, `Refs #71`). 
+Do **NOT** use the Notion Work ID slug (for example, do not use `Refs #tb-71`), because GitHub's autolinking parser only recognizes pure digits. If the issue is not yet created in GitHub, either create it first to get the ID, or use a plain text reference for the Notion ID without the `#` symbol.
+
+#### Why
+
+- The **implementation PR** is the canonical review surface for the code change itself.
+- The **promotion PR to `main`** is the canonical release surface for GitHub issue closure.
+- GitHub only auto-closes issues from PR keywords like `Closes #N` when the PR targets the repository's **default branch**.
+
+#### Notes
+
+- If the issue is created **after** the relevant PRs were already merged, close it manually and reference:
+  - the implementation PR that introduced the change
+  - the promotion PR that shipped it to `main`
+- Do not use `Closes #N` in `development` or `staging` promotions just to force a workflow shortcut; that obscures where the change was reviewed versus where it was released.
+
 ### Recommended examples
 
 #### Implementation PR
@@ -200,18 +243,7 @@ When a promotion PR contains **multiple** previously approved implementation PRs
 - Included PRs:
   - #123 — Fix checkout validation for seasonal pricing
 
-## Technical Details
-
-- Staging validation completed successfully
-- Production rollout scope:
-  - booking flow
-  - admin update flow
-- Rollback strategy:
-  - revert this promotion PR if production issues are detected
-
-## Breaking Changes
-
-- [ ] None
+Closes #123
 ```
 
 #### Promotion PR with multiple included PRs
@@ -231,6 +263,8 @@ When a promotion PR contains **multiple** previously approved implementation PRs
   - #123 — Fix checkout validation for seasonal pricing
   - #124 — Add operator note field to booking management
   - #126 — Refactor availability cache invalidation
+
+Closes #123, Closes #124, Closes #126
 
 ## Technical Details
 

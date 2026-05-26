@@ -1,3 +1,5 @@
+import "server-only";
+
 import { sendPostulationAdapter } from "@/lib/adapters";
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import { ROUTE_HANDLERS } from "@/lib/constants/routes.const";

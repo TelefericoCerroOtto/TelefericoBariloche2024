@@ -173,6 +173,17 @@ export type PostulationStatus = "unreviewed" | "hired" | "discarded";
 
 export type Genders = "male" | "female" | "other";
 
+export type FormProtectionDecision =
+  | "allowed"
+  | "blocked_email_limit"
+  | "blocked_duplicate"
+  | "blocked_unavailable";
+
+export type FormProtectionReviewStatus =
+  | "clean"
+  | "needs_review"
+  | "banned";
+
 export type Postulation = StrapiRecord<{
   name: string;
   surname: string;
@@ -191,6 +202,27 @@ export type Postulation = StrapiRecord<{
   cvUploadedAt: string | null;
   cvStorageProvider: CvStorageDriver | null;
   cvBucket: string | null;
+  locale: null;
+}>;
+
+export type FormProtectionSubmission = StrapiRecord<{
+  form: "contact" | "postulation";
+  normalizedEmailHash: string;
+  // In the current app flow, this is the selected postulation sector and the
+  // business duplicate key for postulations.
+  sectorDocumentId: string | null;
+  positionKey: string | null;
+  decision: FormProtectionDecision;
+  duplicateMarker: boolean;
+  reviewStatus: FormProtectionReviewStatus;
+  banned: boolean;
+  notes: string | null;
+  threshold: number | null;
+  windowMs: number | null;
+  submittedAt: string;
+  metadata: Record<string, unknown> | null;
+  fingerprint: Record<string, unknown> | null;
+  signal: Record<string, unknown> | null;
   locale: null;
 }>;
 

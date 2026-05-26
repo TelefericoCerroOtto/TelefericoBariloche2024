@@ -2,6 +2,7 @@ export * from "./activities";
 export * from "./auth";
 export * from "./bus-trips";
 export * from "./faqs";
+export * from "./form-protection-submissions";
 export * from "./news";
 export * from "./pages";
 export * from "./postulations";
