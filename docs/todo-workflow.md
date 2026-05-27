@@ -151,10 +151,32 @@ No promover todavía cuando:
 
 1. Confirmar que la fila esté en `Listo para formalizar`.
 2. Confirmar que `Canal formal = GitHub Issue`.
-3. Crear el GitHub Issue con título y descripción claros.
+3. Crear el GitHub Issue usando el contrato canónico de `docs/issue-context-contract.md`.
 4. Pegar la URL del issue en `Enlace formal`.
 5. Cambiar el `Estado` a `Formalizado`.
 6. Si el issue agrupa varias notas previas, resumir ese merge en `Notas`.
+
+### Estructura mínima requerida del issue
+
+Todo issue promocionado desde Notion debe respetar la misma columna vertebral:
+
+- `## Summary`
+- `## Problem`
+- `## Desired Outcome`
+- `## Scope`
+- `## Context`
+- `## Repo Surfaces to Inspect`
+- `## Acceptance Signals`
+- `## Related Artifacts`
+
+En `## Related Artifacts` incluir siempre:
+
+- `Work ID`
+- URL de Notion de la fila origen
+- issues relacionados cuando existan
+- PRs relacionados cuando existan (o `N/A`)
+
+Si falta información, usar placeholders explícitos (`TBD`, `Unknown`, `N/A`) y no eliminar secciones requeridas.
 
 ## Protocolo para otros canales formales
 
