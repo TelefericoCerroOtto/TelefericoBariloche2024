@@ -1,0 +1,25 @@
+# Supply-chain security baseline for tools/image-pipeline.
+# Source: https://pnpm.io/supply-chain-security
+#
+# These settings mirror the global machine config so that any environment
+# that runs this tool applies the same security posture.
+
+# Cooldown: do not resolve packages published less than 3 days ago.
+minimumReleaseAge: 4320
+
+# Fail if a package's publish-time trust level has regressed.
+trustPolicy: no-downgrade
+
+# Block git URLs and raw tarball URLs in transitive dependencies.
+blockExoticSubdeps: true
+
+# Explicit allowlist of packages permitted to run install/build scripts.
+# sharp compiles native C++ bindings and legitimately requires a build script.
+allowBuilds:
+  sharp: true
+
+# Turn unlisted build-script attempts into a hard failure.
+strictDepBuilds: true
+
+# Save exact versions for future `pnpm add` calls.
+saveExact: true
