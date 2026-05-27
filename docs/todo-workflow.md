@@ -159,12 +159,12 @@ No promover todavía cuando:
 
 ### Ejecución explícita (sin cron)
 
-La formalización a issue es **on-demand**:
+La formalización a issue es **on-demand** y se hace por flujo humano/agente (no por GitHub Actions):
 
-- vía agente (cuando se decide promover esa fila)
-- o vía `workflow_dispatch` del workflow `backlog-governance` en modo `reconcile-ready-items`
+- vía agente
+- o por una persona operando la creación formal del issue
 
-No hay promoción horaria automática desde Notion a GitHub.
+No hay promoción automática desde Notion a GitHub.
 
 ### Estructura mínima requerida del issue
 
