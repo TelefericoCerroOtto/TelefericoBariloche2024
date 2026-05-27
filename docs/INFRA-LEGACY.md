@@ -1,43 +1,43 @@
-# Teleférico Bariloche — Inventario legacy (solo lectura)
+# Teleférico Bariloche — Legacy Inventory (Read-only)
 
-- **Fecha de relevamiento:** 2026-05-11
-- **Proyecto GCP:** `teleferico-bariloche`
-- **Cuenta activa:** `dev@telefericobariloche.com.ar`
-- **Ámbito:** DNS, Compute Engine y serving público visible
+- **Survey Date:** 2026-05-11
+- **GCP Project:** `teleferico-bariloche`
+- **Active Account:** `dev@telefericobariloche.com.ar`
+- **Scope:** DNS, Compute Engine, and visible public serving
 
-## Resumen ejecutivo
+## Executive Summary
 
-El legacy visible en Google Cloud publica el sitio directamente desde una **VM única de Compute Engine** (`teleficobariloche`) con IP pública **35.232.46.188** en `us-central1-a`.
+The visible legacy in Google Cloud publishes the site directly from a **single Compute Engine VM** (`teleficobariloche`) with public IP **35.232.46.188** in `us-central1-a`.
 
-DNS en Cloud DNS apunta ambos dominios al mismo origen. El TLS termina en la propia VM: Apache/CentOS responde en 80/443 y el certificado observado es de **Let’s Encrypt (R13)**.
+DNS in Cloud DNS points both domains to the same origin. TLS terminates on the VM itself: Apache/CentOS responds on ports 80/443 and the observed certificate is from **Let's Encrypt (R13)**.
 
-Hay un detalle importante de certificados: `telefericobariloche.com.ar` cubre apex y subdominios `www`, `en` y `pt`; `telefericobariloche.com` sirve un certificado que cubre `www.telefericobariloche.com`.
+There's an important certificate detail: `telefericobariloche.com.ar` covers apex and subdomains `www`, `en`, and `pt`; `telefericobariloche.com` serves a certificate that covers `www.telefericobariloche.com`.
 
-## 1) Inventario verificado
+## 1) Verified Inventory
 
-| Componente | Evidencia | Detalle |
+| Component | Evidence | Detail |
 |---|---|---|
-| Proyecto GCP | `gcloud projects describe teleferico-bariloche` | `projectId=teleferico-bariloche`, estado `ACTIVE` |
-| Cuenta activa | `gcloud config list`, `gcloud auth list` | `dev@telefericobariloche.com.ar` |
-| Cloud DNS | `gcloud dns managed-zones list` | 2 zonas públicas: `telefericobariloche` y `telefericobarilochecom` |
-| DNS → origin | `gcloud dns record-sets list` + `gcloud compute instances describe` | Ambos dominios resuelven a `35.232.46.188` |
+| GCP Project | `gcloud projects describe teleferico-bariloche` | `projectId=teleferico-bariloche`, status `ACTIVE` |
+| Active Account | `gcloud config list`, `gcloud auth list` | `dev@telefericobariloche.com.ar` |
+| Cloud DNS | `gcloud dns managed-zones list` | 2 public zones: `telefericobariloche` and `telefericobarilochecom` |
+| DNS → origin | `gcloud dns record-sets list` + `gcloud compute instances describe` | Both domains resolve to `35.232.46.188` |
 | Compute Engine VM | `gcloud compute instances list/describe` | `teleficobariloche`, `us-central1-a`, `n1-standard-1`, `RUNNING` |
-| Red / firewall | `gcloud compute networks list`, `subnets list`, `firewall-rules list` | Red `default`, subnet `default` en `us-central1`, reglas `default-allow-http/https/ssh/icmp/internal` |
-| Disco boot | `gcloud compute disks list`, `instance describe` | 20 GB `pd-standard` asociado a la VM |
-| Service account | `gcloud iam service-accounts list`, `instance describe` | `603526357371-compute@developer.gserviceaccount.com` |
+| Network / Firewall | `gcloud compute networks list`, `subnets list`, `firewall-rules list` | Network `default`, subnet `default` in `us-central1`, rules `default-allow-http/https/ssh/icmp/internal` |
+| Boot Disk | `gcloud compute disks list`, `instance describe` | 20 GB `pd-standard` associated with the VM |
+| Service Account | `gcloud iam service-accounts list`, `instance describe` | `603526357371-compute@developer.gserviceaccount.com` |
 
-## 2) DNS público visible
+## 2) Visible Public DNS
 
-### Zona `telefericobariloche.com.ar.` (`telefericobariloche`)
+### Zone `telefericobariloche.com.ar.` (`telefericobariloche`)
 
-| Tipo | Nombre | Destino |
+| Type | Name | Destination |
 |---|---|---|
 | A | `telefericobariloche.com.ar.` | `35.232.46.188` |
 | MX | `telefericobariloche.com.ar.` | Google Workspace MX (`aspmx.l.google.com`, `alt1`, `alt2`, `aspmx2-5`) |
 | NS | `telefericobariloche.com.ar.` | `ns-cloud-d1/d2/d3/d4.googledomains.com.` |
 | SOA | `telefericobariloche.com.ar.` | `ns-cloud-d1.googledomains.com. cloud-dns-hostmaster.google.com. ...` |
 | SPF TXT | `telefericobariloche.com.ar.` | `v=spf1 include:_spf.google.com ~all` |
-| TXT | `google._domainkey.telefericobariloche.com.ar.` | DKIM publicado |
+| TXT | `google._domainkey.telefericobariloche.com.ar.` | Published DKIM |
 | A | `dev.telefericobariloche.com.ar.` | `35.232.46.188` |
 | A | `en.telefericobariloche.com.ar.` | `35.232.46.188` |
 | CNAME | `www.en.telefericobariloche.com.ar.` | `en.telefericobariloche.com.ar.` |
@@ -45,84 +45,83 @@ Hay un detalle importante de certificados: `telefericobariloche.com.ar` cubre ap
 | CNAME | `www.pt.telefericobariloche.com.ar.` | `pt.telefericobariloche.com.ar.` |
 | CNAME | `www.telefericobariloche.com.ar.` | `telefericobariloche.com.ar.` |
 
-### Zona `telefericobariloche.com.` (`telefericobarilochecom`)
+### Zone `telefericobariloche.com.` (`telefericobarilochecom`)
 
-| Tipo | Nombre | Destino |
+| Type | Name | Destination |
 |---|---|---|
 | A | `telefericobariloche.com.` | `35.232.46.188` |
 | NS | `telefericobariloche.com.` | `ns-cloud-e1/e2/e3/e4.googledomains.com.` |
 | SOA | `telefericobariloche.com.` | `ns-cloud-e1.googledomains.com. cloud-dns-hostmaster.google.com. ...` |
 | CNAME | `www.telefericobariloche.com.` | `telefericobariloche.com.` |
 
-## 3) Compute Engine / serving
+## 3) Compute Engine / Serving
 
-| Campo | Valor |
+| Field | Value |
 |---|---|
-| Nombre | `teleficobariloche` |
-| Zona | `us-central1-a` |
-| Tipo | `n1-standard-1` |
-| Estado | `RUNNING` |
-| Imagen/OS | CentOS 7 |
-| IP privada | `10.128.0.2` |
-| IP pública | `35.232.46.188` |
+| Name | `teleficobariloche` |
+| Zone | `us-central1-a` |
+| Type | `n1-standard-1` |
+| Status | `RUNNING` |
+| Image/OS | CentOS 7 |
+| Private IP | `10.128.0.2` |
+| Public IP | `35.232.46.188` |
 | Tags | `http-server`, `https-server` |
 
-### Respuesta HTTP/TLS observada
+### Observed HTTP/TLS Response
 
-- Servidor: `Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips PHP/7.3.21`
-- HTTP `80` → `301` a `https://...`
-- HTTPS responde `200 OK`
-- La app setea cookie `ci_session`
+- Server: `Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips PHP/7.3.21`
+- HTTP `80` → `301` to `https://...`
+- HTTPS responds `200 OK`
+- The app sets cookie `ci_session`
 
-### Certificados TLS observados
+### Observed TLS Certificates
 
 | Host | Issuer | Subject | SANs |
 |---|---|---|---|
-| `telefericobariloche.com` | `Let’s Encrypt / R13` | `CN=www.telefericobariloche.com` | solo `www.telefericobariloche.com` |
-| `telefericobariloche.com.ar` | `Let’s Encrypt / R13` | `CN=en.telefericobariloche.com.ar` | `en`, `pt`, `telefericobariloche.com.ar`, `www.en`, `www.pt`, `www.telefericobariloche.com.ar` |
+| `telefericobariloche.com` | `Let's Encrypt / R13` | `CN=www.telefericobariloche.com` | only `www.telefericobariloche.com` |
+| `telefericobariloche.com.ar` | `Let's Encrypt / R13` | `CN=en.telefericobariloche.com.ar` | `en`, `pt`, `telefericobariloche.com.ar`, `www.en`, `www.pt`, `www.telefericobariloche.com.ar` |
 
-## 4) Riesgos de migración o de tocar DNS/TLS
+## 4) Migration Risks and DNS/TLS Handling Risks
 
-1. **Un solo punto de falla**: una única VM concentra la publicación.
-2. **IP pública no reservada**: la IP depende del access config de la VM.
-3. **Riesgo TLS en `telefericobariloche.com`**: el certificado observado no cubre el apex.
-4. **Stack legacy EOL**: CentOS 7 + PHP 7.3.21 aumentan el riesgo operacional.
-5. **Cambio de DNS/TXT**: la zona `.com.ar` también publica MX/SPF/DKIM.
+1. **Single Point of Failure**: A single VM concentrates all publishing.
+2. **Non-reserved Public IP**: The IP depends on the VM's access config.
+3. **TLS Risk for `telefericobariloche.com`**: The observed certificate doesn't cover the apex domain.
+4. **Legacy EOL Stack**: CentOS 7 + PHP 7.3.21 increase operational risk.
+5. **DNS/TXT Changes**: The `.com.ar` zone also publishes MX/SPF/DKIM.
 
-## 5) Borrador listo para pegar en documentación
+## 5) Draft Ready for Documentation
 
-> El legacy `teleferico-bariloche` publica el sitio directamente desde una VM única de Compute Engine (`teleficobariloche`) en `us-central1-a`, con IP pública `35.232.46.188`. DNS en Cloud DNS apunta `telefericobariloche.com` y `telefericobariloche.com.ar` a esa IP, y `www` resuelve mediante CNAME al apex.
+> The `teleferico-bariloche` legacy publishes the site directly from a single Compute Engine VM (`teleficobariloche`) in `us-central1-a`, with public IP `35.232.46.188`. DNS in Cloud DNS points `telefericobariloche.com` and `telefericobariloche.com.ar` to that IP, and `www` resolves via CNAME to the apex.
 >
-> La VM corre CentOS 7 y responde como `Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips PHP/7.3.21`. HTTP redirige a HTTPS y el certificado TLS observado es de Let’s Encrypt (R13). `telefericobariloche.com.ar` tiene un certificado válido para apex y subdominios `www`, `en` y `pt`, mientras que `telefericobariloche.com` sirve un certificado para `www.telefericobariloche.com`.
+> The VM runs CentOS 7 and responds as `Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips PHP/7.3.21`. HTTP redirects to HTTPS and the observed TLS certificate is from Let's Encrypt (R13). `telefericobariloche.com.ar` has a valid certificate for apex and subdomains `www`, `en`, and `pt`, while `telefericobariloche.com` serves a certificate for `www.telefericobariloche.com`.
 >
-> La publicación depende de una sola VM, así que la IP pública y el TLS deben tratarse como puntos críticos de migración.
+> Publishing depends on a single VM, so the public IP and TLS must be treated as critical migration points.
 
-## 6) Plan de apagado y respaldo (Mayo 2026)
+## 6) Shutdown and Backup Plan (May 2026)
 
-Con la migración activa hacia el nuevo sitio en `teleferico-bariloche-2024`, el dominio principal `telefericobariloche.com.ar` ya resuelve hacia el nuevo Load Balancer (`130.211.28.132`). Sin embargo, la VM legacy sigue encendida generando costos diarios de Compute Engine.
+With active migration to the new site at `teleferico-bariloche-2024`, the main domain `telefericobariloche.com.ar` already resolves to the new Load Balancer (`130.211.28.132`). However, the legacy VM remains active, generating daily Compute Engine costs.
 
-Para darla de baja de forma segura minimizando costos (aprox. USD 1/mes de retención) sin perder datos históricos (bases de datos y archivos locales de la VM), el plan operativo acordado es:
+To safely shut it down minimizing costs (approx. USD 1/month retention) without losing historical data (VM databases and local files), the agreed operational plan is:
 
-1. **Snapshot del disco de arranque**: Crear una instantánea del disco `teleficobariloche` (20 GB) para tener un backup exacto del sistema y la base de datos.
-2. **Apagar la instancia**: Detener (Stop) la VM `teleficobariloche`.
+1. **Boot Disk Snapshot**: Create a snapshot of the `teleficobariloche` disk (20 GB) to have an exact backup of the system and database.
+2. **Shut Down Instance**: Stop the `teleficobariloche` VM.
 
-### Consecuencias esperadas
-- **Liberación de IP efímera**: Al apagar la VM, GCP liberará la IP pública `35.232.46.188`. Si a futuro se requiere volver a encender la máquina, se le asignará una nueva IP y habrá que actualizar Cloud DNS manualmente.
-- **Caída de subdominios legacy**: Los subdominios que aún apuntan a la IP del legacy (ej. `en.telefericobariloche.com.ar`, `pt.telefericobariloche.com.ar`, `dev...`) dejarán de funcionar inmediatamente.
+### Expected Consequences
+- **Ephemeral IP Release**: When shutting down the VM, GCP will release public IP `35.232.46.188`. If the machine needs to be restarted in the future, it will be assigned a new IP and Cloud DNS will need to be updated manually.
+- **Legacy Subdomain Downtime**: Subdomains still pointing to the legacy IP (e.g., `en.telefericobariloche.com.ar`, `pt.telefericobariloche.com.ar`, `dev...`) will stop working immediately.
 
-### Estrategia de recuperación (Rollback)
+### Recovery Strategy (Rollback)
 
-Si en el futuro se necesita volver a poner en línea el sitio legacy o recuperar los datos operativos, existen dos escenarios:
+If in the future the legacy site needs to be brought back online or operational data recovered, there are two scenarios:
 
-**Escenario A: La VM sigue existiendo (solo está apagada)**
-1. Encender la instancia: `gcloud compute instances start teleficobariloche --zone=us-central1-a --project=teleferico-bariloche`
-2. Consultar la nueva IP pública que GCP le asignó al encender.
-3. Ir a Cloud DNS y actualizar los registros `A` de los dominios necesarios para que apunten a la nueva IP.
+**Scenario A: The VM Still Exists (Only Stopped)**
+1. Start the instance: `gcloud compute instances start teleficobariloche --zone=us-central1-a --project=teleferico-bariloche`
+2. Check the new public IP that GCP assigns when starting.
+3. Go to Cloud DNS and update the necessary domain `A` records to point to the new IP.
 
-**Escenario B: La VM y el disco original fueron eliminados (restaurar desde backup)**
-1. Crear un disco nuevo a partir del snapshot:
+**Scenario B: The VM and Original Disk Were Deleted (Restore from Backup)**
+1. Create a new disk from the snapshot:
    `gcloud compute disks create disco-restaurado-legacy --source-snapshot=legacy-backup-may-2026 --zone=us-central1-a --project=teleferico-bariloche`
-2. Crear una nueva instancia adjuntando ese disco como disco de arranque.
-3. Consultar la IP pública de la nueva instancia.
-4. Actualizar Cloud DNS para apuntar el tráfico a la nueva IP.
-
+2. Create a new instance attaching that disk as the boot disk.
+3. Check the new instance's public IP.
+4. Update Cloud DNS to point traffic to the new IP.

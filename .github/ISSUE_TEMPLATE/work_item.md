@@ -4,7 +4,11 @@ description: Create a work item using the canonical issue-context contract.
 title: "[TB-###] "
 labels: []
 ---
-<!-- This template matches the canonical contract in docs/issue-context-contract.md. Keep the stable skeleton and fill required sections. Use placeholders (TBD, Unknown, N/A) when data is missing. -->
+<!-- 
+LANGUAGE POLICY: ALL GitHub issues MUST be written in English. This includes all sections, comments, and metadata.
+ 
+This template matches the canonical contract in docs/issue-context-contract.md. Keep the stable skeleton and fill required sections. Use placeholders (TBD, Unknown, N/A) when data is missing.
+-->
 
 ## Summary
 <!-- What outcome is needed and why? -->
@@ -37,11 +41,11 @@ labels: []
 - Related PRs: <!-- #... | N/A -->
 
 ## Metadata (optional)
-- Tipo: <!-- Bug | Feature | Refactor | Content | Infra | Docs | Security | Unknown -->
-- Área: <!-- optional -->
-- Prioridad: <!-- P1 | P2 | P3 | Unknown -->
-- Fuente: <!-- optional -->
-- Estado: <!-- optional -->
+- Type: <!-- Bug | Feature | Refactor | Content | Infra | Docs | Security | Unknown -->
+- Area: <!-- optional -->
+- Priority: <!-- P1 | P2 | P3 | Unknown -->
+- Source: <!-- optional -->
+- Status: <!-- optional -->
 - Branch: <!-- optional -->
 
 ## Out of Scope (optional)

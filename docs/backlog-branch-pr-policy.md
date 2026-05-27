@@ -1,172 +1,176 @@
-# Política de backlog, ramas e implementation PRs
+# Backlog, Branch, and Implementation PR Policy
 
-Este documento define cómo se asocian los ítems de Notion con ramas e implementation PRs para evitar relaciones implícitas o dependientes de memoria humana.
+This document defines how Notion items are associated with branches and implementation PRs to avoid implicit relationships or dependencies on human memory.
 
-## Camino corto
+## Short Path
 
-1. El trabajo nace o se consolida en Notion.
-2. Si va a tocar código o docs versionadas, puede tener rama asociada.
-3. La rama debe incluir el `Work ID` del ítem primario.
-4. Una implementation PR solo se crea o regenera si la asociación con el backlog es confiable.
+1. Work originates or is consolidated in Notion.
+2. If it will touch versioned code or docs, it may have an associated branch.
+3. The branch must include the primary item's `Work ID`.
+4. An implementation PR is only created or regenerated if the association with the backlog is reliable.
 
-## Modelo conceptual
+## Conceptual Model
 
-- **Notion** guarda la unidad de trabajo y su madurez.
-- **`Work ID`** es el identificador estable de esa unidad.
-- **`Branch`** es opcional y representa una rama activa concreta.
-- **Implementation PR** es la revisión del cambio real.
-- **Promotion PR** mueve cambios ya revisados entre ramas/entornos y no crea una unidad nueva de backlog.
+- **Notion** stores the work unit and its maturity.
+- **`Work ID`** is the stable identifier for that unit.
+- **`Branch`** is optional and represents a concrete active branch.
+- **Implementation PR** is the review of the actual change.
+- **Promotion PR** moves already reviewed changes between branches/environments and does not create a new backlog unit.
 
-## Reglas base
+## Language Policy for Artifacts
 
-### 1. `Work ID` es obligatorio para ramas gobernadas por este flujo
+**All artifacts created in GitHub Issues and Notion items MUST be written in English. Only the interactive chat can be in Spanish.**
 
-Si una rama se usa para implementar una unidad de trabajo del backlog, debe incluir el `Work ID` en el nombre.
+## Base Rules
 
-Formato recomendado:
+### 1. `Work ID` is mandatory for branches governed by this flow
+
+If a branch is used to implement a backlog work unit, it must include the `Work ID` in its name.
+
+Recommended format:
 
 ```text
 <type>/<dir>-<work-id>-<slug>
 ```
 
-Ejemplos:
+Examples:
 
 - `fix/app-tb-066-login-refresh`
 - `chore/infra-tb-067-pause-legacy-vm`
 - `docs/root-tb-073-backlog-governance`
 
-### 2. `Branch` es opcional
+### 2. `Branch` is optional
 
-No todos los ítems deben tener rama. Es normal dejar `Branch` vacío cuando el trabajo:
+Not all items must have a branch. It's normal to leave `Branch` empty when the work:
 
-- es puramente operativo en GCP
-- todavía está en decisión/ADR
-- vive en Notion o en otra herramienta sin cambios versionados
+- is purely operational in GCP
+- is still in decision/ADR phase
+- lives in Notion or another tool without versioned changes
 
-### 3. Una rama tiene un ítem primario
+### 3. A branch has one primary item
 
-Por defecto, una rama debe mapear a **un ítem primario** del backlog.
+By default, a branch should map to **one primary item** in the backlog.
 
-Se toleran varios ítems en una misma rama solo si:
+Multiple items in the same branch are only tolerated if:
 
-- son muy chicos
-- están fuertemente acoplados
-- y forman un solo outcome reviewable
+- they are very small
+- they are tightly coupled
+- and form a single reviewable outcome
 
-Si no se cumple eso, hay que partir el trabajo.
+If these conditions are not met, the work should be split.
 
-## Política para implementation PRs
+## Policy for Implementation PRs
 
-La política estricta aplica solo a **implementation PRs**.
+The strict policy only applies to **implementation PRs**.
 
-Flujo gobernado esperado:
+Expected governed flow:
 
-- rama de trabajo (`feat/...`, `fix/...`, `chore/...`, etc.) → `development`
+- work branch (`feat/...`, `fix/...`, `chore/...`, etc.) → `development`
 
-### Asociación confiable requerida
+### Reliable association required
 
-Una implementation PR se puede crear o regenerar solo si se cumple al menos una:
+An implementation PR can be created or regenerated only if at least one of the following is met:
 
-1. la rama actual incluye el `Work ID`
-2. el campo `Branch` del ítem coincide exactamente con la rama actual
-3. el usuario pasa un override explícito indicando el ítem correcto
+1. The current branch includes the `Work ID`
+2. The item's `Branch` field exactly matches the current branch
+3. The user passes an explicit override indicating the correct item
 
-Si no se cumple ninguna, el flujo debe **frenar**.
+If none of these are met, the flow must **stop**.
 
-### Qué hacer si la rama no sigue el estándar
+### What to do if the branch doesn't follow the standard
 
-Si la rama no contiene `Work ID` y no existe una asociación confiable por `Branch` u override:
+If the branch doesn't contain `Work ID` and there's no reliable association via `Branch` or override:
 
-- no crear ni regenerar la implementation PR
-- pedir corrección de la rama o vinculación explícita con el backlog
+- do not create or regenerate the implementation PR
+- request branch correction or explicit linkage with the backlog
 
-### Ítems en `Clarificar`
+### Items in `Clarify`
 
-Si el ítem sigue en `Clarificar`:
+If the item is still in `Clarify`:
 
-- se puede sugerir un nombre de rama
-- no se debería crear una implementation PR automáticamente, salvo override explícito del usuario
+- a branch name can be suggested
+- an implementation PR should not be created automatically, except with explicit user override
 
-### `Canal formal` y PRs
+### `Formal Channel` and PRs
 
-- Si `Canal formal = GitHub Issue`, la PR debe intentar usar la referencia formal del issue.
-- Si `Canal formal != GitHub Issue`, la PR no debe inventar un issue por defecto.
-- Un `Documento / ADR` puede igualmente vivir en una PR de docs. Lo importante es no forzar una semántica de issue cuando no corresponde.
+- If `Formal Channel = GitHub Issue`, the PR should attempt to use the formal issue reference.
+- If `Formal Channel != GitHub Issue`, the PR should not invent an issue by default.
+- A `Document / ADR` can still live in a docs PR. The important thing is not to force issue semantics when it's not appropriate.
 
-## Política para promotion PRs
+## Policy for Promotion PRs
 
-Las promotion PRs quedan fuera de la asociación estricta branch↔`Work ID`, pero **tienen reglas estrictas de closure**.
+Promotion PRs are exempt from the strict branch↔`Work ID` association, but **have strict closure rules**.
 
-Motivo:
+Reason:
 
-- su unidad de revisión es la **promoción del cambio ya aprobado**
-- son el único vehículo permitido para cerrar issues formalmente de manera automática
+- their review unit is the **promotion of already approved changes**
+- they are the only permitted vehicle to formally close issues automatically
 
-Por lo tanto:
+Therefore:
 
-- no necesitan `Work ID` en la rama
-- no necesitan un `Branch` de Notion asociado
-- deben apoyarse en PRs/issues ya existentes y en la narrativa de release/promoción
-- **Promotion a staging**: no debe usar palabras clave de closure (ej. `Closes #123`).
-- **Promotion a main**: debe declarar explícitamente su intención de closure en el cuerpo de la PR (usando `Closes #123` o la línea `Formal issues: none`).
+- they don't need `Work ID` in the branch
+- they don't need an associated Notion `Branch` field
+- they should rely on existing PRs/issues and the release/promotion narrative
+- **Promotion to staging**: should not use closure keywords (e.g., `Closes #123`).
+- **Promotion to main**: must explicitly declare closure intent in the PR body (using `Closes #123` or the line `Formal issues: none`).
 
-## Política para la skill de sugerencia de ramas
+## Policy for Branch Suggestion Skill
 
-La skill de ramas debe soportar dos modos:
+The branch suggestion skill should support two modes:
 
-### A. Desde working tree
+### A. From working tree
 
-Usa `git status` y `git diff` para inferir tipo, dir y slug.
+Uses `git status` and `git diff` to infer type, directory, and slug.
 
-### B. Desde ítem de Notion
+### B. From Notion item
 
-Debe poder sugerir una rama aunque no haya cambios locales, usando:
+Should be able to suggest a branch even without local changes, using:
 
 - `Work ID`
-- `Tipo`
-- `Área`
-- `Tarea`
+- `Type`
+- `Area`
+- `Task`
 
-Eso permite abrir la rama antes de tocar código.
+This allows opening the branch before touching code.
 
-## Edge cases
+## Edge Cases
 
-### Más de una rama para un mismo ítem
+### More than one branch for the same item
 
-Permitido cuando un mismo trabajo se divide en slices revisables, pero el ítem principal sigue siendo uno.
+Allowed when the same work is divided into reviewable slices, but the primary item remains one.
 
-Recomendación:
+Recommendation:
 
-- dejar la rama principal en `Branch`
-- documentar ramas adicionales en `Notas`
-- si los slices ya son autónomos, crear ítems nuevos
+- keep the main branch in `Branch`
+- document additional branches in `Notes`
+- if the slices are already autonomous, create new items
 
-### La rama existe antes que el ítem
+### The branch exists before the item
 
-No asumir match por similitud textual.
+Do not assume match by textual similarity.
 
-Opciones válidas:
+Valid options:
 
-- crear el ítem y vincularlo
-- completar `Branch` en el ítem correcto
-- pasar override explícito al flujo que crea PR
+- create the item and link it
+- complete `Branch` in the correct item
+- pass explicit override to the PR creation flow
 
-### El `Work ID` de la rama no existe en Notion
+### The branch's `Work ID` doesn't exist in Notion
 
-El flujo debe bloquearse. Una rama no puede apuntar a una unidad inexistente de la fuente de verdad.
+The flow should be blocked. A branch cannot point to a non-existent unit in the source of truth.
 
-### El `Branch` del ítem ya está ocupado por otra rama
+### The item's `Branch` is already occupied by another branch
 
-No sobreescribir silenciosamente. Hay que pedir confirmación para:
+Do not silently overwrite. Request confirmation to:
 
-- mover la asociación
-- crear una rama nueva derivada
-- o usar otro ítem
+- move the association
+- create a new derived branch
+- or use another item
 
-## Recomendación de enforcement futuro
+## Future Enforcement Recommendation
 
-Cuando exista el wrapper local de PR:
+When the local PR wrapper exists:
 
-- **implementation PRs** → fail closed si falta asociación confiable
-- **promotion PRs** → no aplicar esta validación estricta
-- si falta contexto mínimo, pedir corrección antes de crear/regenerar la PR
+- **implementation PRs** → fail closed if reliable association is missing
+- **promotion PRs** → do not apply this strict validation
+- if minimum context is missing, request correction before creating/regenerating the PR
