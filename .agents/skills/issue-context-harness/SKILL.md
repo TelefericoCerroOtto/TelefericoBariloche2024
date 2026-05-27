@@ -15,6 +15,8 @@ This skill complements `notion-todo-governance`: it resolves context for executi
 
 ## Hard Rules
 
+- **LANGUAGE POLICY: All artifacts created in GitHub Issues and Notion items MUST be written in English. Only the interactive chat with the user can be in Spanish.**
+
 - Treat `docs/issue-context-contract.md` as canonical for issue structure and artifact expectations.
 - Resolve references silently by default; do not emit unsolicited context dumps.
 - Emit a structured recap only when the user explicitly asks for summary/context snapshot/recap.

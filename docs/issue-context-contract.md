@@ -1,5 +1,7 @@
 # GitHub Issue Context Contract (Canonical)
 
+**LANGUAGE POLICY: ALL GitHub issues MUST be written in English. This includes all sections, comments, and metadata.**
+
 This document defines the canonical issue body contract for work items promoted from the Notion backlog to GitHub.
 
 The contract is **AI-ready** and **human-readable**: one stable skeleton across issue types, predictable section order, and explicit artifact links.
@@ -66,7 +68,7 @@ Never leave empty required sections.
 | `## Repo Surfaces to Inspect` | Technical starting points | Paths, modules, APIs, boundaries |
 | `## Acceptance Signals` | Verifiable completion conditions | Checklist or bullet criteria |
 | `## Related Artifacts` | Cross-system traceability | `Work ID`, Notion URL, related issues/PRs |
-| `## Metadata` (optional) | Lightweight classification | `Tipo`, `Área`, `Prioridad`, `Fuente`, `Estado`, `Branch` |
+| `## Metadata` (optional) | Lightweight classification | `Type`, `Area`, `Priority`, `Source`, `Status`, `Branch` |
 | `## Out of Scope` (optional) | Explicit non-goals | Bullets |
 | `## Risks / Constraints` (optional) | Delivery caveats | Risks, blockers, dependencies |
 | `## Automation Metadata` (optional) | Machine-origin traceability | Source workflow/mode notes |
@@ -80,18 +82,18 @@ Never leave empty required sections.
 | `Work ID` | `## Related Artifacts` | Required, stable identifier |
 | `Enlace formal` | `## Related Artifacts` | Backlink when present |
 | `Contexto` | `## Repo Surfaces to Inspect` | Candidate paths/domains to inspect |
-| `Tipo` | `## Metadata` | Keep as metadata classification, not as heading selector |
-| `Área` | `## Metadata` | Optional metadata |
-| `Prioridad` | `## Metadata` | Optional metadata |
-| `Fuente` | `## Metadata` | Optional metadata |
-| `Estado` | `## Metadata` | Optional metadata snapshot |
+| `Tipo` | `## Metadata` → `Type` | Keep as metadata classification, not as heading selector. Translate Spanish field name to English (`Type`) |
+| `Área` | `## Metadata` → `Area` | Optional metadata. Translate Spanish field name to English (`Area`) |
+| `Prioridad` | `## Metadata` → `Priority` | Optional metadata. Translate Spanish field name to English (`Priority`) |
+| `Fuente` | `## Metadata` → `Source` | Optional metadata. Translate Spanish field name to English (`Source`) |
+| `Estado` | `## Metadata` → `Status` | Optional metadata snapshot. Translate Spanish field name to English (`Status`) |
 | `Branch` | `## Metadata` or `## Related Artifacts` | Optional; include when branch exists |
 
-## Treatment of `Tipo`
+## Treatment of `Tipo` (translated to `Type` in issues)
 
-`Tipo` (Bug, Feature, Refactor, Content, Infra, Docs, Security) classifies the work item but does **not** change the body skeleton.
+The Notion field `Tipo` (Bug, Feature, Refactor, Content, Infra, Docs, Security) classifies the work item but does **not** change the body skeleton. In GitHub issues, this field must be translated to English as `Type`.
 
-All issue types share the same stable section contract. `Tipo` lives in metadata.
+All issue types share the same stable section contract. `Type` lives in metadata.
 
 ## Relation to PRs
 
@@ -148,11 +150,11 @@ Agents should emit a structured context recap only when the user explicitly requ
 - Related PRs: <#456 | N/A>
 
 ## Metadata
-- Tipo: <Bug|Feature|Refactor|Content|Infra|Docs|Security|Unknown>
-- Área: <optional>
-- Prioridad: <P1|P2|P3|Unknown>
-- Fuente: <optional>
-- Estado: <optional>
+- Type: <Bug|Feature|Refactor|Content|Infra|Docs|Security|Unknown>
+- Area: <optional>
+- Priority: <P1|P2|P3|Unknown>
+- Source: <optional>
+- Status: <optional>
 - Branch: <optional>
 
 ## Out of Scope

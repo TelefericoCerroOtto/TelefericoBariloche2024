@@ -100,6 +100,12 @@ For each command, include:
 
 When a command is not clearly safe, treat it as sensitive and ask before executing.
 
+## Language Policy
+
+- **All artifacts created in GitHub Issues and Notion items MUST be written in English.**
+- Code, documentation, PR descriptions, commit messages, and internal notes must be in English.
+- Only the interactive chat with the user can be in Spanish.
+
 ## Human conventions
 
 - Conventional commits + scopes + PR titles: `docs/CONVENTIONS.md`
