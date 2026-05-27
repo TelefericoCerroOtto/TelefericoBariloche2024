@@ -576,7 +576,7 @@ function buildIssuePayload(config, item, context) {
     "",
     "## Automation Metadata",
     `- Source: ${context.source}`,
-    "- Created automatically by the backlog governance workflow.",
+    "- Created by a backlog governance formalization run.",
   ]
     .filter(Boolean)
     .join("\n");

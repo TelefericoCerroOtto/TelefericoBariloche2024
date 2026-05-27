@@ -4,13 +4,13 @@ This document explains **what the repository automates**, **why it lives in GitH
 
 ## Goal
 
-This first slice automates the repetitive backlog steps defined in:
+This first slice keeps backlog governance executable from GitHub Actions without forcing hourly auto-formalization:
 
 - [docs/todo-workflow.md](./todo-workflow.md)
 - [docs/backlog-branch-pr-policy.md](./backlog-branch-pr-policy.md)
 - [docs/CONVENTIONS.md](./docs/CONVENTIONS.md)
 
-The goal is to reduce manual drift between Notion and GitHub while keeping **Notion as the source of truth before formalization**.
+The goal is to reduce manual drift between Notion and GitHub while keeping **Notion as the source of truth before formalization** and making formalization an explicit decision.
 
 ## Why documentation is required
 
@@ -18,7 +18,7 @@ The workflow YAML alone is **not** enough.
 
 The code can execute the automation, but the team also needs a stable explanation of:
 
-- when an issue is created automatically
+- when an issue is formalized on demand
 - when the workflow should fail
 - why Notion is never created from GitHub in this slice
 - which secrets and variables must exist
@@ -44,8 +44,7 @@ Responsibilities:
 
 Triggers:
 
-- `schedule` → reconcile Notion items ready for GitHub formalization
-- `workflow_dispatch` → run a selected slice manually, including `dry_run`
+- `workflow_dispatch` → run a selected slice on demand, including `dry_run`
 - `pull_request_target` → validate governed PRs and sync formal closure only from merged `staging -> main` promotions
 
 ### Shared script
@@ -90,7 +89,7 @@ Current state:
 
 ## Flows implemented
 
-### 1. `reconcile-ready-items`
+### 1. `reconcile-ready-items` (on demand)
 
 Use case:
 
@@ -98,6 +97,11 @@ Use case:
 - `Estado = Listo para formalizar`
 - `Canal formal = GitHub Issue`
 - no GitHub issue is linked yet
+
+How it is triggered:
+
+- manually from `workflow_dispatch`
+- explicitly by an agent/operator that decides to formalize that queue
 
 What it does:
 
@@ -180,7 +184,7 @@ These exist so the workflow can adapt if the Notion property names or option nam
 
 `NOTION_FORMAL_LINK_PROPERTY` should remain a real Notion `url` property because the close-sync path queries it as a URL filter.
 
-## Manual mode and dry runs
+## On-demand mode and dry runs
 
 The workflow exposes `workflow_dispatch` inputs for:
 
@@ -193,6 +197,12 @@ The workflow exposes `workflow_dispatch` inputs for:
 - `dry_run`
 
 Use `dry_run: true` when validating the wiring or testing against a real repository configuration without writing to Notion or creating real GitHub Issues.
+
+Recommended operating model:
+
+1. Capture and triage work in Notion.
+2. Decide explicitly what should become a formal artifact.
+3. Run `reconcile-ready-items` on demand (agent/manual dispatch) for rows that are ready for GitHub formalization.
 
 ## Security notes
 
@@ -231,4 +241,4 @@ This automation implements the current policy; it does not silently replace it.
 - `docs/backlog-branch-pr-policy.md` still defines reliable branch ↔ `Work ID` association
 - `docs/CONVENTIONS.md` still governs how implementation and promotion PRs reference and close issues
 
-In short: the action removes manual busywork, but the governance stays explicit.
+In short: PR governance stays automatic on PR events, while issue formalization from Notion is explicit and on demand.
