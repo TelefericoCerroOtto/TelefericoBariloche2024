@@ -8,8 +8,6 @@ const DEFAULTS = {
   formalChannelProperty: "Canal formal",
   formalLinkProperty: "Enlace formal",
   notesProperty: "Notas",
-  readyStatus: "Listo para formalizar",
-  formalizedStatus: "Formalizado",
   doneStatus: "Hecho",
   githubIssueChannel: "GitHub Issue",
   branchProperty: "Branch",
@@ -19,12 +17,6 @@ const DEFAULTS = {
     toStaging: { head: "development", base: "staging" },
     toMain: { head: "staging", base: "main" },
   },
-  // Metadata property names
-  typeProperty: "Tipo",
-  areaProperty: "Área",
-  priorityProperty: "Prioridad",
-  sourceProperty: "Fuente",
-  contextProperty: "Contexto",
 };
 
 async function main() {
@@ -32,16 +24,13 @@ async function main() {
 
   if (!command) {
     throw new Error(
-      "Missing command. Use: reconcile-ready-items | pr-governance | validate-pr-policy | sync-main-promotion-closures"
+      "Missing command. Use: pr-governance | validate-pr-policy | sync-main-promotion-closures"
     );
   }
 
   const config = getConfig();
 
   switch (command) {
-    case "reconcile-ready-items":
-      await reconcileReadyItems(config);
-      return;
     case "pr-governance":
       await prGovernance(config);
       return;
@@ -78,20 +67,11 @@ function getConfig() {
       formalLink: process.env.NOTION_FORMAL_LINK_PROPERTY || DEFAULTS.formalLinkProperty,
       notes: process.env.NOTION_NOTES_PROPERTY || DEFAULTS.notesProperty,
       branch: process.env.NOTION_BRANCH_PROPERTY || DEFAULTS.branchProperty,
-      // Metadata properties
-      type: process.env.NOTION_TYPE_PROPERTY || DEFAULTS.typeProperty,
-      area: process.env.NOTION_AREA_PROPERTY || DEFAULTS.areaProperty,
-      priority: process.env.NOTION_PRIORITY_PROPERTY || DEFAULTS.priorityProperty,
-      source: process.env.NOTION_SOURCE_PROPERTY || DEFAULTS.sourceProperty,
-      context: process.env.NOTION_CONTEXT_PROPERTY || DEFAULTS.contextProperty,
     },
     statuses: {
-      ready: process.env.NOTION_READY_STATUS || DEFAULTS.readyStatus,
-      formalized: process.env.NOTION_FORMALIZED_STATUS || DEFAULTS.formalizedStatus,
       done: process.env.NOTION_DONE_STATUS || DEFAULTS.doneStatus,
     },
     formalChannelName: process.env.NOTION_GITHUB_ISSUE_CHANNEL || DEFAULTS.githubIssueChannel,
-    issueLabels: splitCsv(process.env.GITHUB_ISSUE_LABELS),
     dryRun: parseBoolean(process.env.DRY_RUN),
     pullRequest: {
       headRef: process.env.PR_BRANCH_NAME || process.env.PR_HEAD_BRANCH || "",
@@ -112,30 +92,6 @@ async function prGovernance(config) {
   }
 
   await validatePrPolicy(config);
-}
-
-async function reconcileReadyItems(config) {
-  logHeader("Reconcile ready backlog items");
-
-  const pages = await queryNotionPages(config, {
-    property: config.properties.formalChannel,
-    select: { equals: config.formalChannelName },
-  });
-
-  const items = pages
-    .map((page) => mapNotionItem(config, page))
-    .filter((item) => item.status.value === config.statuses.ready && !item.formalLink.value);
-
-  if (items.length === 0) {
-    console.log("No ready backlog items found.");
-    return;
-  }
-
-  console.log(`Found ${items.length} ready backlog item(s).`);
-
-  for (const item of items) {
-    await ensureIssueForNotionItem(config, item, { source: "reconcile-ready-items" });
-  }
 }
 
 async function validatePrPolicy(config) {
@@ -220,17 +176,27 @@ async function ensureImplementationIssue(config, pr) {
 
   if (item.formalChannel.value !== config.formalChannelName) {
     console.log(
-      `Notion item ${item.workId} uses formal channel '${item.formalChannel.value || "<empty>"}'. GitHub issue creation is not required.`
+      `Notion item ${item.workId} uses formal channel '${item.formalChannel.value || "<empty>"}'. GitHub issue validation is not required.`
     );
     return;
   }
 
-  await ensureIssueForNotionItem(config, item, {
-    source: pr.type,
-    branchName: config.pullRequest.headRef,
-    prUrl: config.pullRequest.url,
-    prTitle: config.pullRequest.title,
-  });
+  if (!item.formalLink.value) {
+    throw new Error(
+      `Notion item ${item.workId} requires a GitHub issue (Canal formal = ${config.formalChannelName}) but has no '${config.properties.formalLink}' URL. Formalize it manually before opening an implementation PR.`
+    );
+  }
+
+  const linkedIssueNumber = extractIssueNumberFromUrl(item.formalLink.value);
+
+  if (!linkedIssueNumber) {
+    throw new Error(
+      `Notion item ${item.workId} has an invalid formal link '${item.formalLink.value}'. Expected a GitHub issue URL.`
+    );
+  }
+
+  const linkedIssue = await fetchGitHubIssue(config, linkedIssueNumber);
+  console.log(`Validated linked GitHub issue #${linkedIssue.number} for ${item.workId}.`);
 }
 
 async function syncMainPromotionClosures(config) {
@@ -285,60 +251,6 @@ async function syncIssueNumberToDone(config, issueNumber) {
   await updateNotionItem(config, item.pageId, {
     [config.properties.status]: notionOptionValue(item.status.type, config.statuses.done),
   });
-}
-
-async function ensureIssueForNotionItem(config, item, context) {
-  if (!item.workId) {
-    throw new Error(`Notion item '${item.title}' has no Work ID.`);
-  }
-
-  if (item.formalLink.value) {
-    const linkedIssueNumber = extractIssueNumberFromUrl(item.formalLink.value);
-
-    if (linkedIssueNumber) {
-      try {
-        const linkedIssue = await fetchGitHubIssue(config, linkedIssueNumber);
-        console.log(`Notion item ${item.workId} already links to issue #${linkedIssue.number}.`);
-        await syncFormalizedState(config, item, linkedIssue);
-        return linkedIssue;
-      } catch (error) {
-        console.warn(`Linked issue lookup failed for ${item.formalLink.value}: ${error.message}`);
-      }
-    }
-  }
-
-  const existingIssue = await findGitHubIssueByWorkId(config, item.workId);
-
-  if (existingIssue) {
-    console.log(`Found existing GitHub issue #${existingIssue.number} for ${item.workId}.`);
-    await syncFormalizedState(config, item, existingIssue);
-    return existingIssue;
-  }
-
-  const issuePayload = buildIssuePayload(config, item, context);
-  const createdIssue = await createGitHubIssue(config, issuePayload);
-  console.log(`Created GitHub issue #${createdIssue.number} for ${item.workId}.`);
-  await syncFormalizedState(config, item, createdIssue);
-  return createdIssue;
-}
-
-async function syncFormalizedState(config, item, issue) {
-  const updates = {};
-
-  if (item.formalLink.value !== issue.html_url) {
-    updates[config.properties.formalLink] = notionLinkValue(item.formalLink.type, issue.html_url);
-  }
-
-  if (item.status.value !== config.statuses.formalized) {
-    updates[config.properties.status] = notionOptionValue(item.status.type, config.statuses.formalized);
-  }
-
-  if (Object.keys(updates).length === 0) {
-    console.log(`Notion item ${item.workId} is already formalized and linked.`);
-    return;
-  }
-
-  await updateNotionItem(config, item.pageId, updates);
 }
 
 function classifyPr(headRef, baseRef) {
@@ -500,138 +412,12 @@ function mapNotionItem(config, page) {
     },
     notes: getPlainPropertyValue(properties[config.properties.notes]),
     branch: getPlainPropertyValue(branchProperty),
-    metadata: {
-      tipo: getOptionalPropertyValue(properties[config.properties.type]),
-      area: getOptionalPropertyValue(properties[config.properties.area]),
-      prioridad: getOptionalPropertyValue(properties[config.properties.priority]),
-      fuente: getOptionalPropertyValue(properties[config.properties.source]),
-      contexto: getOptionalPropertyValue(properties[config.properties.context]),
-    },
   };
-}
-
-function buildIssuePayload(config, item, context) {
-  const title = `[${item.workId}] ${item.title}`;
-
-  const relatedPrs = context.prUrl
-    ? [context.prTitle ? `${context.prTitle} (${context.prUrl})` : context.prUrl]
-    : [];
-
-  const problemText = item.notes || "TBD";
-  const desiredOutcomeLines = [
-    "- The work item outcome is implemented and reviewable.",
-    "- Backlog context is preserved in related artifacts.",
-  ];
-
-  const scopeLines = [item.metadata.contexto ? `- Primary scope context: ${item.metadata.contexto}` : "- Scope detail: TBD"];
-  const contextLines = [item.notes, item.status.value ? `Current backlog status: ${item.status.value}` : null].filter(Boolean);
-  const repoSurfacesLines = [
-    item.metadata.contexto ? `- Candidate surface from Notion Contexto: ${item.metadata.contexto}` : "- TBD",
-  ];
-
-  const body = [
-    "## Summary",
-    item.title,
-    "",
-    "## Problem",
-    problemText,
-    "",
-    "## Desired Outcome",
-    ...desiredOutcomeLines,
-    "",
-    "## Scope",
-    ...scopeLines,
-    "",
-    "## Context",
-    contextLines.length > 0 ? contextLines.join("\n") : "TBD",
-    "",
-    "## Repo Surfaces to Inspect",
-    ...repoSurfacesLines,
-    "",
-    "## Acceptance Signals",
-    "- [ ] Scope is fully defined for implementation",
-    "- [ ] Validation and verification criteria are explicit",
-    "- [ ] Related artifacts are complete and valid",
-    "",
-    "## Related Artifacts",
-    `- Work ID: ${item.workId}`,
-    `- Notion: ${item.pageUrl}`,
-    "- Related Issues: N/A",
-    `- Related PRs: ${relatedPrs.length > 0 ? relatedPrs.join(", ") : "N/A"}`,
-    item.branch ? `- Branch: ${item.branch}` : null,
-    "",
-    "## Metadata",
-    `- Tipo: ${item.metadata.tipo || "Unknown"}`,
-    `- Área: ${item.metadata.area || "Unknown"}`,
-    `- Prioridad: ${item.metadata.prioridad || "Unknown"}`,
-    `- Fuente: ${item.metadata.fuente || "Unknown"}`,
-    `- Estado: ${item.status.value || "Unknown"}`,
-    `- Branch: ${item.branch || context.branchName || "Unknown"}`,
-    "",
-    "## Out of Scope",
-    "- TBD",
-    "",
-    "## Risks / Constraints",
-    "- TBD",
-    "",
-    "## Automation Metadata",
-    `- Source: ${context.source}`,
-    "- Created automatically by the backlog governance workflow.",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  return {
-    title,
-    body,
-    labels: config.issueLabels,
-  };
-}
-
-function getOptionalPropertyValue(property) {
-  if (!property) {
-    return "";
-  }
-
-  switch (property.type) {
-    case "multi_select":
-      return (property.multi_select || [])
-        .map((option) => option?.name)
-        .filter(Boolean)
-        .join(", ");
-    default:
-      return getPlainPropertyValue(property);
-  }
-}
-
-async function findGitHubIssueByWorkId(config, workId) {
-  const query = encodeURIComponent(`repo:${config.repository.slug} is:issue \"${workId}\" in:title,body`);
-  const response = await githubRequest(config, `/search/issues?q=${query}&per_page=10`, {
-    method: "GET",
-  });
-
-  return (response.items || []).find((item) => !item.pull_request) || null;
 }
 
 async function fetchGitHubIssue(config, issueNumber) {
   return githubRequest(config, `/repos/${config.repository.owner}/${config.repository.repo}/issues/${issueNumber}`, {
     method: "GET",
-  });
-}
-
-async function createGitHubIssue(config, payload) {
-  if (config.dryRun) {
-    console.log(`[dry-run] Would create issue '${payload.title}'.`);
-    return {
-      number: 0,
-      html_url: `https://github.com/${config.repository.slug}/issues/dry-run`,
-      title: payload.title,
-    };
-  }
-
-  return githubRequest(config, `/repos/${config.repository.owner}/${config.repository.repo}/issues`, {
-    method: "POST",
-    body: payload,
   });
 }
 
@@ -815,13 +601,6 @@ function notionLinkValue(type, value) {
 function extractIssueNumberFromUrl(url) {
   const match = url.match(/\/issues\/(\d+)(?:$|[?#])/);
   return match ? Number.parseInt(match[1], 10) : null;
-}
-
-function splitCsv(value) {
-  return (value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function parseBoolean(value) {

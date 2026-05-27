@@ -4,13 +4,13 @@ This document explains **what the repository automates**, **why it lives in GitH
 
 ## Goal
 
-This first slice automates the repetitive backlog steps defined in:
+This slice keeps backlog governance executable from GitHub Actions while delegating issue formalization to explicit human/agent flow:
 
 - [docs/todo-workflow.md](./todo-workflow.md)
 - [docs/backlog-branch-pr-policy.md](./backlog-branch-pr-policy.md)
 - [docs/CONVENTIONS.md](./docs/CONVENTIONS.md)
 
-The goal is to reduce manual drift between Notion and GitHub while keeping **Notion as the source of truth before formalization**.
+The goal is to reduce manual drift between Notion and GitHub while keeping **Notion as the source of truth before formalization** and ensuring issue creation is always an explicit human/agent decision.
 
 ## Why documentation is required
 
@@ -18,9 +18,9 @@ The workflow YAML alone is **not** enough.
 
 The code can execute the automation, but the team also needs a stable explanation of:
 
-- when an issue is created automatically
+- when PR governance should fail fast
 - when the workflow should fail
-- why Notion is never created from GitHub in this slice
+- why issue formalization is intentionally outside GitHub Actions
 - which secrets and variables must exist
 - where future automation for tests, installs, or CI checks should live
 
@@ -44,8 +44,7 @@ Responsibilities:
 
 Triggers:
 
-- `schedule` → reconcile Notion items ready for GitHub formalization
-- `workflow_dispatch` → run a selected slice manually, including `dry_run`
+- `workflow_dispatch` → run a selected slice on demand, including `dry_run`
 - `pull_request_target` → validate governed PRs and sync formal closure only from merged `staging -> main` promotions
 
 ### Shared script
@@ -54,61 +53,23 @@ File: `.github/scripts/github-notion-sync.js`
 
 Responsibilities:
 
-- query Notion
-- find or create GitHub Issues
-- render issue bodies using the canonical contract in `docs/issue-context-contract.md`
-- sync the issue URL back to Notion
-- mark Notion rows as `Formalizado` or `Hecho`
+- query Notion for governed backlog linkage checks
+- validate implementation/promotion PR policy
+- sync `Hecho` status on merged `staging -> main` promotions with explicit closure intent
 
 The script uses **plain Node.js with native `fetch`** so the repository does not need a root package manager or root dependency installation just to support this automation.
 
-## Canonical issue contract target
+## Issue formalization boundary
 
-Issue creation automation must target the canonical contract in:
+Issue creation/formalization is outside this workflow.
 
-- `docs/issue-context-contract.md`
-
-This means automation-generated issues should keep the stable section skeleton and required artifact links.
-
-Required skeleton sections are:
-
-- `## Summary`
-- `## Problem`
-- `## Desired Outcome`
-- `## Scope`
-- `## Context`
-- `## Repo Surfaces to Inspect`
-- `## Acceptance Signals`
-- `## Related Artifacts`
-
-At minimum, `## Related Artifacts` must include `Work ID`, Notion URL, and related PR references when available.
-
-Current state:
-
-- The script already creates structured issue bodies.
-- The expected direction is to render the canonical contract directly from Notion backlog fields, so human-created and automation-created issues converge on the same body shape.
+- Use the human/agent flow documented in `docs/todo-workflow.md`.
+- Keep `docs/issue-context-contract.md` as the canonical body structure when an issue is created.
+- GitHub Actions in this slice only validates/governs already-linked artifacts.
 
 ## Flows implemented
 
-### 1. `reconcile-ready-items`
-
-Use case:
-
-- the backlog row already exists in Notion
-- `Estado = Listo para formalizar`
-- `Canal formal = GitHub Issue`
-- no GitHub issue is linked yet
-
-What it does:
-
-1. queries Notion for rows that use the GitHub formal channel
-2. filters the rows that are ready for formalization and still have no formal link
-3. searches GitHub for an existing issue using the `Work ID`
-4. creates the issue if it does not exist
-5. updates the Notion row with the issue URL
-6. moves the row to `Formalizado`
-
-### 2. `validate-pr-policy`
+### 1. `validate-pr-policy`
 
 Use case:
 
@@ -120,8 +81,8 @@ What it does:
 **For implementation PRs (branches like `feat/`, `fix/`, etc.):**
 1. fails if the target branch is not `development`
 2. fails if the PR body contains closing keywords (e.g., `Closes #N`)
-3. extracts the `Work ID` from the branch name and creates the missing formal issue in GitHub (if Notion expects one)
-4. syncs the issue URL back into Notion
+3. extracts the `Work ID` from the branch name (or falls back to Notion `Branch` match)
+4. if `Canal formal = GitHub Issue`, requires a valid linked GitHub Issue URL and verifies the issue exists
 
 **For promotion PRs to staging (`development` -> `staging`):**
 1. fails if the PR body contains closing keywords
@@ -129,7 +90,7 @@ What it does:
 **For promotion PRs to main (`staging` -> `main`):**
 1. fails if the PR body does not explicitly declare issue closure intent (either using `Closes #N` or the exact line `Formal issues: none`)
 
-### 3. `sync-main-promotion-closures`
+### 2. `sync-main-promotion-closures`
 
 Use case:
 
@@ -172,15 +133,12 @@ These exist so the workflow can adapt if the Notion property names or option nam
 | `NOTION_FORMAL_LINK_PROPERTY` | `Enlace formal` |
 | `NOTION_NOTES_PROPERTY` | `Notas` |
 | `NOTION_BRANCH_PROPERTY` | `Branch` |
-| `NOTION_READY_STATUS` | `Listo para formalizar` |
-| `NOTION_FORMALIZED_STATUS` | `Formalizado` |
 | `NOTION_DONE_STATUS` | `Hecho` |
 | `NOTION_GITHUB_ISSUE_CHANNEL` | `GitHub Issue` |
-| `GITHUB_ISSUE_LABELS` | empty |
 
 `NOTION_FORMAL_LINK_PROPERTY` should remain a real Notion `url` property because the close-sync path queries it as a URL filter.
 
-## Manual mode and dry runs
+## On-demand mode and dry runs
 
 The workflow exposes `workflow_dispatch` inputs for:
 
@@ -192,7 +150,13 @@ The workflow exposes `workflow_dispatch` inputs for:
 - `pr_merged`
 - `dry_run`
 
-Use `dry_run: true` when validating the wiring or testing against a real repository configuration without writing to Notion or creating real GitHub Issues.
+Use `dry_run: true` when validating the wiring or testing against a real repository configuration without writing to Notion.
+
+Recommended operating model:
+
+1. Capture and triage work in Notion.
+2. Decide explicitly what should become a formal artifact.
+3. Formalize artifacts explicitly through human/agent flow; then rely on this workflow for PR governance and promotion closure sync only.
 
 ## Security notes
 
@@ -204,12 +168,13 @@ Use `dry_run: true` when validating the wiring or testing against a real reposit
 
 This implementation does **not** yet:
 
+- create GitHub issues from Notion rows
 - create Notion backlog items from GitHub
 - infer whether something “implies repo changes” by heuristic analysis
-- synchronize the `Branch` field back into Notion
+- synchronize `Formalizado` links/status automatically
 - post comments automatically on PRs or issues
 - run tests, installs, or package validation checks
-- fully materialize every optional canonical issue-contract section from Notion fields
+- create issue body content from backlog fields
 
 Those are separate concerns and should not be mixed into the governance slice before this flow is stable.
 
@@ -231,4 +196,4 @@ This automation implements the current policy; it does not silently replace it.
 - `docs/backlog-branch-pr-policy.md` still defines reliable branch ↔ `Work ID` association
 - `docs/CONVENTIONS.md` still governs how implementation and promotion PRs reference and close issues
 
-In short: the action removes manual busywork, but the governance stays explicit.
+In short: PR governance and promotion closure sync stay automatic on PR events, while issue formalization is explicit human/agent work.

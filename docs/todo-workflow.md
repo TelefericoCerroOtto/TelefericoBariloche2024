@@ -7,7 +7,8 @@ Este documento define cómo se capturan, triagean y promueven los TODOs del proy
 1. Buscar en Notion si el trabajo ya existe.
 2. Si existe, actualizar o fusionar el ítem en lugar de duplicarlo.
 3. Si no existe, crear **una fila** en la base **Backlog unificado**.
-4. Cuando el trabajo ya esté claro y necesite un artefacto formal, definir el `Canal formal` correcto y adjuntar el enlace correspondiente en la fila.
+4. Cuando el trabajo ya esté claro y necesite un artefacto formal, definir el `Canal formal` correcto.
+5. Formalizar de manera explícita (agente o dispatch manual), adjuntar el enlace correspondiente y recién ahí mover a `Formalizado`.
 
 ## Fuente de verdad
 
@@ -156,6 +157,15 @@ No promover todavía cuando:
 5. Cambiar el `Estado` a `Formalizado`.
 6. Si el issue agrupa varias notas previas, resumir ese merge en `Notas`.
 
+### Ejecución explícita (sin cron)
+
+La formalización a issue es **on-demand** y se hace por flujo humano/agente (no por GitHub Actions):
+
+- vía agente
+- o por una persona operando la creación formal del issue
+
+No hay promoción automática desde Notion a GitHub.
+
 ### Estructura mínima requerida del issue
 
 Todo issue promocionado desde Notion debe respetar la misma columna vertebral:
@@ -197,6 +207,7 @@ Cuando un agente reciba una instrucción del tipo “agregá un TODO”, “tria
 5. no escribir nuevos items en `TODO.md` ni en checklists legacy
 6. no asumir que toda tarea clara termina en GitHub Issue; primero elegir el `Canal formal` correcto
 7. si se crea o sugiere una rama, usar `Work ID` en el nombre y guardar la rama resultante en `Branch`
+8. no disparar formalización por cron implícito: la promoción a artefacto formal se decide y ejecuta explícitamente
 
 ## Legado
 
