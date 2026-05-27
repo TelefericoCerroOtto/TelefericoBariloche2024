@@ -54,7 +54,7 @@ on:
 
 permissions:
   contents: read
-  issues: read
+  issues: write
   pull-requests: read
 
 env:
@@ -89,6 +89,7 @@ jobs:
           NOTION_DONE_STATUS: ${{ vars.NOTION_DONE_STATUS }}
           NOTION_GITHUB_ISSUE_CHANNEL: ${{ vars.NOTION_GITHUB_ISSUE_CHANNEL }}
           NOTION_BRANCH_PROPERTY: ${{ vars.NOTION_BRANCH_PROPERTY }}
+          PR_NUMBER: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.number || '' }}
           PR_BRANCH_NAME: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.ref || inputs.branch_name }}
           PR_BASE_REF: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || inputs.base_branch }}
           PR_ACTION: ${{ github.event_name == 'pull_request_target' && github.event.action || inputs.pr_action || 'opened' }}

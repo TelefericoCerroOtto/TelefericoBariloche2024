@@ -17,6 +17,11 @@ const DEFAULTS = {
     toStaging: { head: "development", base: "staging" },
     toMain: { head: "staging", base: "main" },
   },
+  managedBlock: {
+    start: "<!-- managed:related-prs:start -->",
+    end: "<!-- managed:related-prs:end -->",
+    defaultContent: "- Related PRs: N/A\n- Promotion PRs: N/A\n- Shipped by: N/A\n",
+  },
 };
 
 async function main() {
@@ -24,7 +29,7 @@ async function main() {
 
   if (!command) {
     throw new Error(
-      "Missing command. Use: pr-governance | validate-pr-policy | sync-main-promotion-closures"
+      "Missing command. Use: pr-governance | validate-pr-policy | sync-main-promotion-closures | sync-issue-pr-reference"
     );
   }
 
@@ -39,6 +44,9 @@ async function main() {
       return;
     case "sync-main-promotion-closures":
       await syncMainPromotionClosures(config);
+      return;
+    case "sync-issue-pr-reference":
+      await syncIssuePrReference(config);
       return;
     default:
       throw new Error(`Unsupported command: ${command}`);
@@ -74,6 +82,7 @@ function getConfig() {
     formalChannelName: process.env.NOTION_GITHUB_ISSUE_CHANNEL || DEFAULTS.githubIssueChannel,
     dryRun: parseBoolean(process.env.DRY_RUN),
     pullRequest: {
+      number: normalizeNumber(process.env.PR_NUMBER) || 0,
       headRef: process.env.PR_BRANCH_NAME || process.env.PR_HEAD_BRANCH || "",
       baseRef: process.env.PR_BASE_REF || process.env.PR_BASE_BRANCH || "",
       action: process.env.PR_ACTION || "opened",
@@ -88,10 +97,12 @@ function getConfig() {
 async function prGovernance(config) {
   if (config.pullRequest.action === "closed") {
     await syncMainPromotionClosures(config);
+    await syncIssuePrReference(config);
     return;
   }
 
   await validatePrPolicy(config);
+  await syncIssuePrReference(config);
 }
 
 async function validatePrPolicy(config) {
@@ -102,15 +113,23 @@ async function validatePrPolicy(config) {
   const hasNoFormalIssuesToken = containsNoFormalIssuesToken(config.pullRequest.body);
 
   switch (pr.type) {
-    case "implementation":
+    case "implementation": {
       if (closingRefs.length > 0) {
         throw new Error(
-          `Implementation PRs to development must reference issues without closing them. Replace closing keywords with 'Refs #N'. Found: ${closingRefs.join(", ")}`
+          `Implementation PRs to development must reference issues without closing them. Replace closing keywords with 'Refs #N'. Found: ${closingRefs.map((r) => `${r.keyword} #${r.issueNumber}`).join(", ")}`
+        );
+      }
+
+      const refsNumbers = extractRefsNumbers(config.pullRequest.body);
+      if (refsNumbers.length === 0) {
+        throw new Error(
+          `Implementation PRs to development must declare the linked issue with 'Refs #N' in the PR body. No issue reference found. Add 'Refs #<issue-number>' to the Context section.`
         );
       }
 
       await ensureImplementationIssue(config, pr);
       return;
+    }
 
     case "promotion-to-staging":
       if (closingRefs.length > 0) {
@@ -235,6 +254,133 @@ async function syncMainPromotionClosures(config) {
     await syncIssueNumberToDone(config, issueNumber);
   }
 }
+
+// ─── Layer C: PR → Issue managed block sync ───────────────────────────────────
+
+async function syncIssuePrReference(config) {
+  logHeader("Sync PR reference into issue managed block");
+
+  const prNumber = config.pullRequest.number;
+  if (!prNumber) {
+    console.log("PR_NUMBER not available. Skipping managed block sync.");
+    return;
+  }
+
+  const pr = classifyPr(config.pullRequest.headRef, config.pullRequest.baseRef);
+
+  let field;
+  switch (pr.type) {
+    case "implementation":
+      field = "Related PRs";
+      break;
+    case "promotion-to-staging":
+      field = "Promotion PRs";
+      break;
+    case "promotion-to-main":
+      field = "Shipped by";
+      break;
+    default:
+      console.log(`No managed block update needed for PR type '${pr.type}'.`);
+      return;
+  }
+
+  // Collect all issue numbers referenced in this PR body
+  const refsNumbers = extractRefsNumbers(config.pullRequest.body);
+  const closingNumbers = extractClosingReferences(config.pullRequest.body).map((r) => r.issueNumber);
+  const allIssueNumbers = [...new Set([...refsNumbers, ...closingNumbers])];
+
+  if (allIssueNumbers.length === 0) {
+    console.log("No issue references found in PR body. Skipping managed block sync.");
+    return;
+  }
+
+  console.log(`Updating managed block field '${field}' with #${prNumber} for issue(s): ${allIssueNumbers.join(", ")}`);
+
+  for (const issueNumber of allIssueNumbers) {
+    await updateIssueManagedBlock(config, issueNumber, field, prNumber);
+  }
+}
+
+async function updateIssueManagedBlock(config, issueNumber, field, prNumber) {
+  let issue;
+  try {
+    issue = await fetchGitHubIssue(config, issueNumber);
+  } catch (error) {
+    console.warn(`Could not fetch issue #${issueNumber}: ${error.message}. Skipping.`);
+    return;
+  }
+
+  const currentBody = issue.body || "";
+  const { start, end, defaultContent } = DEFAULTS.managedBlock;
+  const blockRegex = new RegExp(
+    `${escapeRegex(start)}([\\s\\S]*?)${escapeRegex(end)}`
+  );
+
+  let newBody;
+
+  if (blockRegex.test(currentBody)) {
+    const blockContent = currentBody.match(blockRegex)[1];
+    const updatedContent = updateBlockField(blockContent, field, prNumber);
+    newBody = currentBody.replace(blockRegex, `${start}\n${updatedContent}${end}`);
+  } else {
+    // Block doesn't exist yet — append at the end of the body
+    const updatedContent = updateBlockField(defaultContent, field, prNumber);
+    const trimmedBody = currentBody.trimEnd();
+    newBody = `${trimmedBody}\n\n${start}\n${updatedContent}${end}`;
+  }
+
+  if (config.dryRun) {
+    console.log(`[dry-run] Would update issue #${issueNumber} managed block: ${field} += #${prNumber}`);
+    return;
+  }
+
+  await githubRequest(
+    config,
+    `/repos/${config.repository.owner}/${config.repository.repo}/issues/${issueNumber}`,
+    { method: "PATCH", body: { body: newBody } }
+  );
+
+  console.log(`Updated issue #${issueNumber} managed block: ${field} now includes #${prNumber}.`);
+}
+
+function updateBlockField(blockContent, field, prNumber) {
+  const prRef = `#${prNumber}`;
+  const fieldRegex = new RegExp(`^(- ${escapeRegex(field)}:)(.*)$`, "m");
+  const match = blockContent.match(fieldRegex);
+
+  if (match) {
+    const currentValue = match[2].trim();
+
+    if (currentValue.includes(prRef)) {
+      // Already referenced — idempotent, nothing to change
+      return blockContent;
+    }
+
+    const newValue = currentValue === "N/A" || currentValue === ""
+      ? prRef
+      : `${currentValue}, ${prRef}`;
+
+    return blockContent.replace(fieldRegex, `$1 ${newValue}`);
+  }
+
+  // Field not present — append it
+  return `${blockContent}- ${field}: ${prRef}\n`;
+}
+
+function extractRefsNumbers(body) {
+  const regex = /\b(?:refs?|references?)\s+#(\d+)\b/gi;
+  const numbers = [];
+  for (const match of body.matchAll(regex)) {
+    numbers.push(Number.parseInt(match[1], 10));
+  }
+  return [...new Set(numbers)];
+}
+
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 async function syncIssueNumberToDone(config, issueNumber) {
   const issue = await fetchGitHubIssue(config, issueNumber);
