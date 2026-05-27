@@ -60,6 +60,9 @@ permissions:
   issues: write
   pull-requests: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: backlog-governance-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name || 'manual' }}
   cancel-in-progress: false
