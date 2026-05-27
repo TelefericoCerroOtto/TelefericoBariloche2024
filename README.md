@@ -1,35 +1,35 @@
 # Teleférico Bariloche 2024
 
-Monorepo del sitio público, dashboard administrativo, CMS y tooling de imágenes del proyecto Teleférico Cerro Otto.
+Monorepo for the public site, administrative dashboard, CMS, and image tooling of the Teleférico Cerro Otto project.
 
-Este README funciona como puerta de entrada del repositorio: resume la estructura general, el arranque local mínimo y apunta a la documentación canónica de cada área. Los detalles operativos, de infraestructura y de flujos específicos viven en los documentos de cada paquete y en `docs/`.
+This README serves as the repository entry point. It summarizes the general structure, minimal local startup, and points to canonical documentation for each area. Operational details, infrastructure, and specific workflows are in each package's documents and in `docs/`.
 
-## Paquetes principales
+## Main packages
 
-| Path | Rol | Runtime / package manager | Documentación |
+| Path | Role | Runtime / package manager | Documentation |
 | --- | --- | --- | --- |
-| `teleferico-app` | Sitio institucional + dashboard administrativo en Next.js | Node `20.x` + pnpm `9.x` | [teleferico-app/README.md](./teleferico-app/README.md) |
-| `teleferico-cms` | CMS/API backend en Strapi | Node `22.x.x` + npm `>=10` | [teleferico-cms/README.md](./teleferico-cms/README.md) |
-| `tools/image-pipeline` | Tooling para ingesta y procesamiento de imágenes | pnpm `9.x` | [tools/image-pipeline/README.md](./tools/image-pipeline/README.md) |
+| `teleferico-app` | Institutional site + administrative dashboard in Next.js | Node `20.x` + pnpm `9.x` | [teleferico-app/README.md](./teleferico-app/README.md) |
+| `teleferico-cms` | CMS/API backend in Strapi | Node `22.x.x` + npm `>=10` | [teleferico-cms/README.md](./teleferico-cms/README.md) |
+| `tools/image-pipeline` | Image ingestion and processing tooling | pnpm `9.x` | [tools/image-pipeline/README.md](./tools/image-pipeline/README.md) |
 
-## Estructura del monorepo
+## Monorepo structure
 
-- `public/`: assets compartidos del repositorio
-- `teleferico-app/`: frontend público y administración
-- `teleferico-cms/`: backend Strapi y configuración del CMS
-- `tools/image-pipeline/`: scripts y utilidades para imágenes
-- `docs/`: documentación de infraestructura y convenciones
+- `public/`: shared repository assets
+- `teleferico-app/`: public frontend and administration
+- `teleferico-cms/`: Strapi backend and CMS configuration
+- `tools/image-pipeline/`: image scripts and utilities
+- `docs/`: infrastructure and conventions documentation
 
-## Inicio rápido local
+## Quick local start
 
-1. Clonar el repositorio y entrar al root:
+1. Clone the repository and enter the root:
 
    ```bash
    git clone <repo-url>
    cd TelefericoBariloche2024
    ```
 
-2. Levantar el CMS:
+2. Start the CMS:
 
    ```bash
    cd teleferico-cms
@@ -38,9 +38,9 @@ Este README funciona como puerta de entrada del repositorio: resume la estructur
    npm run develop
    ```
 
-   Para desarrollo local simple podés usar SQLite. Si necesitás otra base o detalles de deploy/transfer, ver [teleferico-cms/README.md](./teleferico-cms/README.md).
+   For simple local development you can use SQLite. If you need another database or details about deployment/transfer, see [teleferico-cms/README.md](./teleferico-cms/README.md).
 
-3. Levantar la app web en otra terminal:
+3. Start the web app in another terminal:
 
    ```bash
    cd teleferico-app
@@ -49,39 +49,39 @@ Este README funciona como puerta de entrada del repositorio: resume la estructur
    pnpm run dev
    ```
 
-   Ajustá `.env.local` para apuntar al CMS local antes de iniciar la app. El detalle de variables y flujos específicos vive en [teleferico-app/README.md](./teleferico-app/README.md).
+   Adjust `.env.local` to point to the local CMS before starting the app. Details about variables and specific workflows are in [teleferico-app/README.md](./teleferico-app/README.md).
 
-4. URLs locales por defecto:
+4. Default local URLs:
 
    - CMS: `http://localhost:1337`
    - App: `http://localhost:3000`
 
-## Infraestructura y despliegue
+## Infrastructure and deployment
 
-La topología vigente del proyecto es:
+The current project topology is:
 
-- `teleferico-app` desplegada en Cloud Run
-- `teleferico-cms` desplegado en Cloud Run
-- Strapi persistiendo datos en Cloud SQL (PostgreSQL)
-- Uploads servidos desde Cloud Storage
-- CI/CD resuelto con Cloud Build, Artifact Registry y Secret Manager
+- `teleferico-app` deployed on Cloud Run
+- `teleferico-cms` deployed on Cloud Run
+- Strapi persisting data in Cloud SQL (PostgreSQL)
+- Uploads served from Cloud Storage
+- CI/CD resolved with Cloud Build, Artifact Registry and Secret Manager
 
-La referencia canónica para infraestructura, entornos y despliegue es [docs/INFRA.md](./docs/INFRA.md).
+The canonical reference for infrastructure, environments, and deployment is [docs/INFRA.md](./docs/INFRA.md).
 
-## Mapa de documentación
+## Documentation map
 
-- [teleferico-app/README.md](./teleferico-app/README.md): scripts, variables, flujos del frontend, OAuth Gmail y arquitectura de seguridad de endpoints
-- [teleferico-cms/README.md](./teleferico-cms/README.md): desarrollo local, deploy del CMS, transferencias y guías editoriales de imágenes
-- [tools/image-pipeline/README.md](./tools/image-pipeline/README.md): uso del pipeline de imágenes
-- [docs/INFRA.md](./docs/INFRA.md): infraestructura, entornos, CI/CD y topología cloud
-- [docs/CONVENTIONS.md](./docs/CONVENTIONS.md): convenciones de commits y pull requests
-- [docs/todo-workflow.md](./docs/todo-workflow.md): gobernanza del backlog compartido entre Notion y GitHub
-- [docs/backlog-branch-pr-policy.md](./docs/backlog-branch-pr-policy.md): política de asociación entre backlog, ramas e implementation PRs
-- [docs/CI-AUTOMATION.md](./docs/CI-AUTOMATION.md): gobernanza de automatización y CI en GitHub Actions
-- [AGENTS.md](./AGENTS.md): reglas operativas para agentes que trabajen en el repo
+- [teleferico-app/README.md](./teleferico-app/README.md): scripts, variables, frontend workflows, Gmail OAuth and endpoint security architecture
+- [teleferico-cms/README.md](./teleferico-cms/README.md): local development, CMS deployment, transfers and image editorial guides
+- [tools/image-pipeline/README.md](./tools/image-pipeline/README.md): image pipeline usage
+- [docs/INFRA.md](./docs/INFRA.md): infrastructure, environments, CI/CD and cloud topology
+- [docs/CONVENTIONS.md](./docs/CONVENTIONS.md): commit and pull request conventions
+- [docs/todo-workflow.md](./docs/todo-workflow.md): shared backlog governance between Notion and GitHub
+- [docs/backlog-branch-pr-policy.md](./docs/backlog-branch-pr-policy.md): backlog, branch and implementation PR association policy
+- [docs/CI-AUTOMATION.md](./docs/CI-AUTOMATION.md): automation and CI governance in GitHub Actions
+- [AGENTS.md](./AGENTS.md): operational rules for agents working in the repo
 
-## Convenciones de trabajo
+## Work conventions
 
-- No hay un flujo de instalación único a nivel root; cada paquete mantiene sus propios scripts y variables.
-- Para cambios de código o documentación, usar las convenciones definidas en [docs/CONVENTIONS.md](./docs/CONVENTIONS.md).
-- Para decisiones de infraestructura o despliegue, tomar como fuente de verdad [docs/INFRA.md](./docs/INFRA.md).
+- There is no single installation flow at root level; each package maintains its own scripts and variables.
+- For code or documentation changes, use the conventions defined in [docs/CONVENTIONS.md](./docs/CONVENTIONS.md).
+- For infrastructure or deployment decisions, take [docs/INFRA.md](./docs/INFRA.md) as the source of truth.

@@ -1,486 +1,486 @@
 # Teleférico Bariloche 2024 — Web (Next.js)
 
-Aplicación frontend del proyecto, implementada con Next.js (App Router).
+Frontend application of the project, implemented with Next.js (App Router).
 
-- Overview del monorepo: [../README.md](../README.md)
-- Infraestructura, CI/CD y despliegues GCP: [../docs/INFRA.md](../docs/INFRA.md)
-- Este README: scripts, variables y flujos propios del frontend
+- Monorepo overview: [../README.md](../README.md)
+- Infrastructure, CI/CD and GCP deployments: [../docs/INFRA.md](../docs/INFRA.md)
+- This README: scripts, variables and frontend-specific flows
 
-## Scripts útiles
+## Useful scripts
 
-- `pnpm run dev`: Ejecuta el servidor de desarrollo en `http://localhost:3000`
-- `pnpm run build`: Compila la app
-- `pnpm start`: Inicia la app compilada
-- `pnpm run lint`: Lintea los archivos
-- `pnpm run typecheck`: Chequea que los archivos incluidos en el `tsconfig.json` cumplan con las reglas de typescript
+- `pnpm run dev`: Runs the development server at `http://localhost:3000`
+- `pnpm run build`: Builds the app
+- `pnpm start`: Starts the built app
+- `pnpm run lint`: Lints the files
+- `pnpm run typecheck`: Checks that files included in `tsconfig.json` comply with TypeScript rules
 
-## Variables de entorno
+## Environment variables
 
-El archivo `.env.example` documenta cada variable de entorno del paquete.
+The `.env.example` file documents each environment variable of the package.
 
 ---
 
-## Flujos
+## Flows
 
 ### Gmail OAuth setup (Gmail API via OAuth2)
 
-Este proyecto puede enviar correos desde el formulario de contacto usando Gmail API. Para ello se realiza una autorización de una sola vez para obtener un `refresh_token` que luego se guarda como variable de entorno.
+This project can send emails from the contact form using Gmail API. For this, a one-time authorization is performed to obtain a `refresh_token` that is then saved as an environment variable.
 
-Rutas (Next.js App Router):
+Routes (Next.js App Router):
 
-- `GET /api/oauth/google/init`: genera la URL de consentimiento y redirige. Protegida con token admin.
-- `GET /api/oauth/google/callback`: callback de Google, intercambia el `code` por tokens y devuelve el `access_token` y el `refresh_token`.
+- `GET /api/oauth/google/init`: generates the consent URL and redirects. Protected with admin token.
+- `GET /api/oauth/google/callback`: Google callback, exchanges the `code` for tokens and returns the `access_token` and `refresh_token`.
 
-Flujo:
+Flow:
 
-1. Un admin ejecuta `/api/oauth/google/init` con el encabezado `Authorization: Bearer <INIT_TOKEN>` o el query parameter `?token=<INIT_TOKEN>`.
-2. Se abre la pantalla de consentimiento con `access_type=offline` y `prompt=consent` para obtener un `code`.
-3. Google redirige a `/api/oauth/google/callback?code=...&state=...`.
-4. Si es exitoso, la respuesta JSON muestra los valores `refresh_token`, `access_token` y `expiry_date`. Copiarlo a las variables de entorno `OAUTH_REFRESH_TOKEN`, `OAUTH_ACCESS_TOKEN` y `OAUTH_TOKEN_EXPIRY_DATE` respectivamente (no commitear).
+1. An admin executes `/api/oauth/google/init` with the header `Authorization: Bearer <INIT_TOKEN>` or the query parameter `?token=<INIT_TOKEN>`.
+2. The consent screen opens with `access_type=offline` and `prompt=consent` to obtain a `code`.
+3. Google redirects to `/api/oauth/google/callback?code=...&state=...`.
+4. If successful, the JSON response shows the values `refresh_token`, `access_token`, and `expiry_date`. Copy them to the environment variables `OAUTH_REFRESH_TOKEN`, `OAUTH_ACCESS_TOKEN`, and `OAUTH_TOKEN_EXPIRY_DATE` respectively (do not commit).
 
 <img src="../public/gmail-oauth-flow.svg"/>
 
-Notas de seguridad:
+Security notes:
 
-- El scope está limitado a `https://www.googleapis.com/auth/gmail.send`.
-- Se usa `state` firmado (HMAC) y cookie httpOnly para evitar CSRF en el flujo OAuth.
-- El endpoint `init` requiere `INIT_TOKEN` para evitar uso público.
+- Scope is limited to `https://www.googleapis.com/auth/gmail.send`.
+- Signed `state` (HMAC) and httpOnly cookie are used to prevent CSRF in the OAuth flow.
+- The `init` endpoint requires `INIT_TOKEN` to prevent public usage.
 
-Decisión operativa por entornos:
+Operational decision per environments:
 
-- Actualmente `staging` y `production` comparten la misma integración externa para Gmail OAuth y reCAPTCHA.
-- Por esa razón, los siguientes secretos pueden tener el mismo valor en ambos entornos:
+- Currently `staging` and `production` share the same external integration for Gmail OAuth and reCAPTCHA.
+- For this reason, the following secrets may have the same value in both environments:
   - `RECAPTCHA_SECRET_KEY`
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`
   - `OAUTH_REFRESH_TOKEN`
-- Esto es válido si ambos entornos usan la misma cuenta Gmail autenticada, el mismo OAuth Client de Google y la misma configuración de reCAPTCHA.
-- Tradeoff: simplifica la operación, pero reduce el aislamiento entre `staging` y `production`.
-- Aun compartiendo esos valores, el cliente OAuth de Google debe tener autorizados los redirect URIs de ambos entornos.
+- This is valid if both environments use the same authenticated Gmail account, the same Google OAuth Client and the same reCAPTCHA configuration.
+- Tradeoff: simplifies operation, but reduces isolation between `staging` and `production`.
+- Even sharing those values, the Google OAuth client must have authorized redirect URIs from both environments.
 
 Middleware/i18n:
 
-- La `middleware.ts` ya excluye rutas bajo `/api` en su `matcher`, por lo que `/api/oauth/*` no será afectado por redirecciones de locales.
+- The `middleware.ts` already excludes routes under `/api` in its `matcher`, so `/api/oauth/*` will not be affected by locale redirects.
 
-Cómo ejecutar la autorización una vez:
+How to execute the authorization once:
 
-1. Levantar la app (`pnpm run dev`).
-2. Abrir: `curl -i -H "Authorization: Bearer $INIT_TOKEN" http://localhost:3000/api/oauth/google/init`
-3. Completar el consentimiento en Google.
-4. En la redirección a `/api/oauth/google/callback` se devuelve el `refresh_token` (si es la primera vez o con `prompt=consent`).
-5. Copiar `refresh_token` y `access_token`:
-   - Para desarrollo local pegar los valores en `.env.local`.
+1. Start the app (`pnpm run dev`).
+2. Open: `curl -i -H "Authorization: Bearer $INIT_TOKEN" http://localhost:3000/api/oauth/google/init`
+3. Complete consent in Google.
+4. In the redirect to `/api/oauth/google/callback` the `refresh_token` is returned (if it's the first time or with `prompt=consent`).
+5. Copy `refresh_token` and `access_token`:
+   - For local development paste the values in `.env.local`.
 
-Si Google no devuelve `refresh_token`:
+If Google does not return `refresh_token`:
 
-- Asegurarse de usar `prompt=consent` y que no haya un otorgamiento previo. Revocar acceso en la cuenta de Google y reintentar.
+- Make sure to use `prompt=consent` and that there is no previous grant. Revoke access in the Google account and retry.
 
 ---
 
-## Arquitectura de seguridad de endpoints y formularios
+## Endpoint and form security architecture
 
-A continuación se describe cómo está diseñada la **arquitectura de seguridad** alrededor de:
+Below describes how the **security architecture** is designed around:
 
-- los formularios públicos (como contacto y postulaciones),
-- el **API Proxy** hacia Strapi,
-- y los **endpoints administrativos** consumidos desde el dashboard.
+- public forms (like contact and applications),
+- the **API Proxy** to Strapi,
+- and the **administrative endpoints** consumed from the dashboard.
 
-El objetivo es entender:
+The goal is to understand:
 
-- Qué tipos de endpoints existen.
-- Qué problemas intenta resolver cada capa (orígenes externos, abuso de formularios, CSRF, consumo indebido de endpoints internos, etc.).
-- Cómo se combinan: origen, API key interna, sesión Auth.js, CSRF token, rate limit, honeypot, validaciones, proxy, etc.
+- What types of endpoints exist.
+- What problems each layer tries to solve (external origins, form abuse, CSRF, unauthorized consumption of internal endpoints, etc.).
+- How they combine: origin, internal API key, Auth.js session, CSRF token, rate limit, honeypot, validations, proxy, etc.
 
-### Tipos de endpoints y modelo de seguridad
+### Endpoint types and security model
 
-A nivel conceptual, el backend de Next.js expone cuatro grandes tipos de endpoints:
+Conceptually, the Next.js backend exposes four main types of endpoints:
 
-1. **Endpoints públicos read-only (public endpoints)**
+1. **Public read-only endpoints**
 
-Rutas:
+Routes:
 
-- `GET /api/proxy/[...endpoint]` (cuando se usa solo para lectura).
-- `GET /api/proxy-files/[...endpoint]` (cuando se usa solo para lectura).
+- `GET /api/proxy/[...endpoint]` (when used only for reading).
+- `GET /api/proxy-files/[...endpoint]` (when used only for reading).
 
-Características:
+Characteristics:
 
-- Accesibles públicamente.
-- Solo realizan operaciones de lectura (GET).
-- No modifican estado en Strapi ni en otros servicios.
-- Se usan para alimentar la parte institucional.
+- Publicly accessible.
+- Only perform read operations (GET).
+- Do not modify state in Strapi or other services.
+- Used to feed the institutional part.
 
-Capas de seguridad principales:
+Main security layers:
 
-- `ensureTrustedOrigin` para limitar requests desde navegadores a orígenes confiables.
-- Rate limit suave para evitar abuso/scraping excesivo.
-- No requieren sesión ni API key interna.
+- `ensureTrustedOrigin` to limit requests from browsers to trusted origins.
+- Soft rate limit to prevent excessive abuse/scraping.
+- Do not require session or internal API key.
 
-2. **Endpoints internos server-to-server (server endpoints)**
+2. **Internal server-to-server endpoints**
 
-   Rutas:
+   Routes:
    - `/api/contact`
    - `/api/postulations`
-   - Otros endpoints internos que solo deberían ser llamados por Server Actions / servicios internos.
+   - Other internal endpoints that should only be called by Server Actions / internal services.
 
-   Características:
-   - No se consumen directamente desde el navegador.
-   - El frontend público dispara **Server Actions**, que a su vez llaman estos endpoints desde el servidor.
-   - Usan una **API key interna** (`x-internal-api-key`) que nunca se expone al cliente.
+   Characteristics:
+   - Not consumed directly from the browser.
+   - The public frontend triggers **Server Actions**, which in turn call these endpoints from the server.
+   - Use an **internal API key** (`x-internal-api-key`) that is never exposed to the client.
 
-   Capas de seguridad principales:
+   Main security layers:
    - `requireInternalApiKey(req)`:
-     - Verifica que el header `x-internal-api-key` coincida con la variable de entorno `INTERNAL_API_KEY`.
-     - Garantiza que solo el propio backend (Server Actions/servicios) pueda invocar el endpoint.
+     - Verifies that the header `x-internal-api-key` matches the environment variable `INTERNAL_API_KEY`.
+     - Ensures only the own backend (Server Actions/services) can invoke the endpoint.
 
-   - `ensureTrustedOrigin` (como defensa adicional para requests que vienen de navegador o se reutilicen patrones).
-   - Rate limit agresivo por IP.
-   - Límite de tamaño de body (para evitar payloads enormes).
-   - Honeypot, edad mínima/máxima del formulario.
-   - Validación de esquema (Yup).
-   - reCAPTCHA verificado del lado servidor.
+   - `ensureTrustedOrigin` (as additional defense for requests coming from browser or reused patterns).
+   - Aggressive rate limit by IP.
+   - Body size limit (to avoid huge payloads).
+   - Honeypot, minimum/maximum form age.
+   - Schema validation (Yup).
+   - Server-side verified reCAPTCHA.
 
-3. **Endpoints administrativos (admin endpoints)**
+3. **Administrative endpoints**
 
-   Rutas:
+   Routes:
    - `/api/admin/postulations/[id]/favorite`
    - `/api/admin/postulations/bulk-status`
-   - Cualquier endpoint que opere sobre la parte administrativa `/api/admin/*` y se consuma exclusivamente desde el dashboard.
+   - Any endpoint that operates on the administrative part `/api/admin/*` and is consumed exclusively from the dashboard.
 
-   Características:
-   - Solo accesibles para usuarios autenticados en el dashboard.
-   - Exponen potencialmente operaciones **CRUD**. Actualmente los endpoint definidos solo operan con el permiso `update` de la interfaz de roles de Strapi.
-   - Se consumen desde el cliente del dashboard, pero siempre con sesión Auth.js y un CSRF token.
+   Characteristics:
+   - Only accessible for authenticated users in the dashboard.
+   - Potentially expose **CRUD** operations. Currently defined endpoints only operate with the `update` permission of Strapi's role interface.
+   - Consumed from the dashboard client, but always with Auth.js session and a CSRF token.
 
-   Capas de seguridad principales:
-   - **Sesión Auth.js (`auth()`)**:
-     - Verificación de que el usuario tenga una sesión válida.
-     - Información de rol/permisos disponible en el token/session.
+   Main security layers:
+   - **Auth.js session (`auth()`)**:
+     - Verification that the user has a valid session.
+     - Role/permission information available in the token/session.
 
    - **CSRF token**:
-     - Generado en el callback `jwt` de Auth.js y almacenado en el JWT.
-     - Expuesto en la `session` Auth.js como `session.csrfToken`.
-     - Publicado en el `<head>` de las páginas del dashboard vía `generateMetadata` como:
+     - Generated in Auth.js's `jwt` callback and stored in the JWT.
+     - Exposed in the Auth.js `session` as `session.csrfToken`.
+     - Published in the dashboard pages' `<head>` via `generateMetadata` as:
 
        ```html
        <meta name="csrf-token" content="..." />
        ```
 
-     - Leído en el cliente y enviado en un header `x-csrf-token` en cada request mutadora del dashboard a traves de la funcion `authenticatedInternalApiFetch`.
-     - Verificado en un helper tipo `requireCsrf(req)` que compara el header con `session.csrfToken`.
+     - Read on the client and sent in a `x-csrf-token` header in each mutating request from the dashboard through the `authenticatedInternalApiFetch` function.
+     - Verified in a helper like `requireCsrf(req)` that compares the header with `session.csrfToken`.
 
    - `ensureTrustedOrigin`:
-     - Para asegurarse de que las requests mutadoras vienen desde el propio dashboard y no desde sitios externos.
+     - To ensure mutating requests come from the dashboard itself and not from external sites.
 
-   - Rate limit (opcional) para operaciones sensibles.
+   - Rate limit (optional) for sensitive operations.
 
-4. **Endpoints de infraestructura / configuración puntual**
+4. **Infrastructure / specific configuration endpoints**
 
-   Son endpoints que no forman parte del flujo normal de la aplicación para usuarios finales, pero son necesarios para integrar servicios de autenticación y APIs externas.
+   These are endpoints that are not part of the normal application flow for end users, but are necessary to integrate authentication services and external APIs.
 
-   Ejemplos:
-   - **Endpoint de Auth.js**  
-     Ruta de Auth.js (por ejemplo, `/api/auth/[...nextauth]`), utilizada internamente por la librería para:
-      - manejar el flujo de login/logout,
-      - resolver los redirects de login/logout del dashboard con `NEXT_PUBLIC_SITE_URL` para no depender del host interno,
-      - emitir y refrescar la cookie de sesión,
-      - resolver callbacks propios de Auth.js.
-        Características:
-     - No contiene lógica de negocio del proyecto.
-     - Su seguridad (cookies httpOnly, firma de JWT, protección CSRF interna para sus propias rutas, etc.) está gestionada por Auth.js.
-     - Se invoca como parte del flujo de autenticación, pero no se consume directamente desde el código de negocio (formularios, proxy, dashboard, etc.).
+   Examples:
+   - **Auth.js endpoint**  
+     Auth.js route (e.g., `/api/auth/[...nextauth]`), used internally by the library for:
+       - handling login/logout flow,
+       - resolving login/logout redirects from the dashboard with `NEXT_PUBLIC_SITE_URL` to not depend on internal host,
+       - emitting and refreshing the session cookie,
+       - resolving Auth.js own callbacks.
+       Characteristics:
+     - Does not contain project business logic.
+     - Its security (httpOnly cookies, JWT signing, internal CSRF protection for its own routes, etc.) is managed by Auth.js.
+     - It is invoked as part of the authentication flow, but not consumed directly from business code (forms, proxy, dashboard, etc.).
 
-   - **Endpoints de OAuth Gmail (one-time setup)**  
-     Rutas bajo `/api/oauth/google/*` (`/init` y `/callback`) usadas para completar **una única vez** el flujo de OAuth2 con Gmail y obtener el `refresh_token` necesario para usar `gmail.send` en el formulario de contacto.  
-     Características:
-     - Se ejecutan solo en escenarios de configuración (ej. al preparar un entorno nuevo o actualizar credenciales).
-     - Están protegidos mediante:
-       - un `INIT_TOKEN` (token de administración) para el endpoint `init`,
-       - `state` firmado y cookie httpOnly en el callback para evitar CSRF en el flujo OAuth,
-       - scope limitado a `https://www.googleapis.com/auth/gmail.send`.
-     - Una vez obtenido el `refresh_token` y guardado en las variables de entorno, estos endpoints no se usan en el flujo normal de la aplicación.
+   - **Gmail OAuth endpoints (one-time setup)**  
+     Routes under `/api/oauth/google/*` (`/init` and `/callback`) used to complete **a single time** the OAuth2 flow with Gmail and obtain the `refresh_token` needed to use `gmail.send` in the contact form.  
+     Characteristics:
+     - Executed only in configuration scenarios (e.g., when preparing a new environment or updating credentials).
+     - Protected via:
+       - an `INIT_TOKEN` (admin token) for the `init` endpoint,
+       - signed `state` and httpOnly cookie in the callback to prevent CSRF in the OAuth flow,
+       - scope limited to `https://www.googleapis.com/auth/gmail.send`.
+     - Once the `refresh_token` is obtained and saved in environment variables, these endpoints are not used in the normal application flow.
 
-- Qué endpoints deben ser accesibles de forma anónima y solo leer datos.
-- Cuáles solo deben ser accesibles “desde adentro” (server-to-server).
-- Cuáles representan acciones de administración y requieren sesión + CSRF.
+- Which endpoints should be anonymously accessible and only read data.
+- Which should only be accessible "from inside" (server-to-server).
+- Which represent administrative actions and require session + CSRF.
 
 ---
 
-## Conceptos clave
+## Key concepts
 
 - **Same-Origin Policy / CORS**
-  Protege a los navegadores frente a requests cross-origin; no protege frente a scripts o backends (server-to-server).
+  Protects browsers from cross-origin requests; does not protect against scripts or backends (server-to-server).
 
-- **Clientes navegador vs no navegador**
-  - El navegador agrega headers como `Origin`, `Referer`, `sec-fetch-site` y aplica CORS.
-  - Un backend/shell (curl, Node, etc.) puede mandar cualquier header y no respeta CORS.
+- **Browser vs non-browser clients**
+  - The browser adds headers like `Origin`, `Referer`, `sec-fetch-site` and applies CORS.
+  - A backend/shell (curl, Node, etc.) can send any header and does not respect CORS.
 
-- **Origen de la request**
-  Se reconstruye con:
+- **Request origin**
+  Reconstructed with:
   - `Origin`,
   - `Referer`,
-  - o `x-forwarded-proto` + (`x-forwarded-host` o `host`).
+  - or `x-forwarded-proto` + (`x-forwarded-host` or `host`).
 
-- **API key interna (`x-internal-api-key`)**
-  Header que se setea a través de la variable de entorno `INTERNAL_API_KEY`, y solo puede ser consumida desde el lado del servidor (Server Actions o servicios).
-  Sirve para marcar endpoints que **no deberían ser llamados directamente desde el navegador** (tipo 2: server-to-server).
+- **Internal API key (`x-internal-api-key`)**
+  Header set via the environment variable `INTERNAL_API_KEY`, and can only be consumed from the server side (Server Actions or services).
+  Used to mark endpoints that **should not be called directly from the browser** (type 2: server-to-server).
 
 - **ensureTrustedOrigin**
-  Helper central que combina:
-  - extracción del origin,
-  - construcción de `allowedOrigins` (a partir de `NEXT_PUBLIC_SITE_URL` y orígenes extra),
-  - y la decisión de permitir o rechazar la request con un `403`.
+  Central helper that combines:
+  - origin extraction,
+  - building `allowedOrigins` (from `NEXT_PUBLIC_SITE_URL` and extra origins),
+  - and the decision to allow or reject the request with a `403`.
 
-- **Sesión Auth.js + CSRF token (endpoints admin)**
-  - Auth.js gestiona la cookie de sesión httpOnly y el JWT interno.
-  - En el callback `jwt` se genera un `csrfToken` aleatorio y se almacena en el token.
-  - En el callback `session` ese `csrfToken` se expone como `session.csrfToken`.
-  - El segmento del dashboard usa `generateMetadata` para inyectar:
+- **Auth.js session + CSRF token (admin endpoints)**
+  - Auth.js manages the httpOnly session cookie and internal JWT.
+  - In the `jwt` callback a random `csrfToken` is generated and stored in the token.
+  - In the `session` callback that `csrfToken` is exposed as `session.csrfToken`.
+  - The dashboard segment uses `generateMetadata` to inject:
 
     ```ts
     other: { "csrf-token": session.csrfToken }
     ```
 
-  - Un helper de cliente (p.ej. `authenticatedInternalApiFetch`) lee `<meta name="csrf-token">` y manda `x-csrf-token`.
-  - Un helper servidor (`requireCsrf(req)`) compara `x-csrf-token` con el valor de `session.csrfToken`.
+  - A client helper (e.g. `authenticatedInternalApiFetch`) reads `<meta name="csrf-token">` and sends `x-csrf-token`.
+  - A server helper (`requireCsrf(req)`) compares `x-csrf-token` with the value of `session.csrfToken`.
 
-- **Orquestador de guards (`runFormGuards` + `withFormGuards`)**
-  Pensado principalmente para formularios públicos (tipo 2), agrupa varias validaciones antes de llegar a la lógica de negocio.
+- **Guard orchestrator (`runFormGuards` + `withFormGuards`)**
+  Primarily intended for public forms (type 2), groups several validations before reaching business logic.
 
 ---
 
-## Capas de seguridad disponibles
+## Available security layers
 
-Estas capas se pueden aplicar:
+These layers can be applied:
 
-- directamente en un Route Handler, o
-- de forma centralizada a través de `runFormGuards` / `withFormGuards` (para formularios públicos).
+- directly in a Route Handler, or
+- centrally through `runFormGuards` / `withFormGuards` (for public forms).
 
-Capas:
+Layers:
 
-- **Validación de origen** (todos los tipos donde tenga sentido)
+- **Origin validation** (all types where it makes sense)
   - `ensureTrustedOrigin(req, allowedOrigins?)`
-  - Verifica que el origin calculado esté en el set de orígenes permitidos (por defecto incluye `NEXT_PUBLIC_SITE_URL`).
-  - Se usa:
-    - En endpoints read-only (tipo 1) para filtrar requests desde navegador.
-    - En endpoints server-to-server (tipo 2) como defensa adicional.
-    - En endpoints admin (tipo 3), junto al CSRF token, para reforzar la protección frente a CSRF/cross-site.
+  - Verifies that the calculated origin is in the set of allowed origins (by default includes `NEXT_PUBLIC_SITE_URL`).
+  - Used:
+    - In read-only endpoints (type 1) to filter requests from browser.
+    - In server-to-server endpoints (type 2) as additional defense.
+    - In admin endpoints (type 3), along with CSRF token, to reinforce protection against CSRF/cross-site.
 
-- **API key interna** (solo tipo 2)
-  - Validada con `requireInternalApiKey(req)`.
-  - Marca endpoints que solo deberían ser consumidos desde Server Actions / servicios internos.
+- **Internal API key** (only type 2)
+  - Validated with `requireInternalApiKey(req)`.
+  - Marks endpoints that should only be consumed from Server Actions / internal services.
 
-- **Rate limit por IP**
+- **Rate limit by IP**
   - `getClientIp(req)` + `isRateLimited(ip, store, maxHits, windowMs)`.
-  - Evita abuso de formularios públicos desde la misma IP y puede aplicarse también en endpoints read-only y admin.
+  - Prevents abuse of public forms from the same IP and can also be applied in read-only and admin endpoints.
 
-- **Límite de tamaño de body**
+- **Body size limit**
   - `checkContentLength(req, maxBodyBytes)`.
-  - Bloquea payloads demasiado grandes sin necesidad de parsear el body completo.
+  - Blocks too large payloads without needing to parse the entire body.
 
-- **Honeypot** (principalmente tipo 2)
-  - Campo oculto en el formulario (`honeypot`).
-  - Si viene con contenido, se asume bot y se responde “como si” fuera éxito sin revelar el truco.
+- **Honeypot** (mainly type 2)
+  - Hidden field in the form (`honeypot`).
+  - If it comes with content, it's assumed to be a bot and responds "as if" it were successful without revealing the trick.
 
-- **Edad del formulario (`formLoadedAt`)** (tipo 2)
+- **Form age (`formLoadedAt`)** (type 2)
   - `validateFormAge(formLoadedAt, { minAgeMs, maxAgeMs })`.
-  - Filtra submissions demasiado rápidas (probable bot) o demasiado viejas.
+  - Filters submissions that are too fast (likely bot) or too old.
 
-- **Validación de esquema (Yup)**
+- **Schema validation (Yup)**
   - `buildContactSchema`, `buildPostulationSchema`, etc.
-  - Aseguran tipos y rangos válidos antes de tocar servicios externos (Gmail, Strapi).
+  - Ensure valid types and ranges before touching external services (Gmail, Strapi).
 
 - **Captcha (reCAPTCHA)**
-  - `verifyCaptchaToken` en las Server Actions.
-  - Previene automatización masiva desde bots en formularios públicos.
+  - `verifyCaptchaToken` in Server Actions.
+  - Prevents mass automation from bots in public forms.
 
-- **CSRF token (solo endpoints admin, tipo 3)**
-  - Verificado en el servidor comparando `x-csrf-token` con `session.csrfToken`.
-  - Se complementa con `ensureTrustedOrigin`.
+- **CSRF token (only admin endpoints, type 3)**
+  - Verified on the server comparing `x-csrf-token` with `session.csrfToken`.
+  - Complemented with `ensureTrustedOrigin`.
 
 ---
 
-## Helpers de origen: ensureTrustedOrigin
+## Origin helpers: ensureTrustedOrigin
 
-Toda la lógica de origen se centraliza en `ensureTrustedOrigin` (en `lib/http/origin.ts`).
+All origin logic is centralized in `ensureTrustedOrigin` (in `lib/http/origin.ts`).
 
 ### ensureTrustedOrigin(req, allowedOrigins?)
 
-Firma simplificada:
+Simplified signature:
 
 - `ensureTrustedOrigin(req: NextRequest, allowedOrigins?: Set<string>)`
-  devuelve:
-  - `{ ok: true; origin: string }` si el origen es válido.
-  - `{ ok: false; res: NextResponse<{ ok: false; message: string }> }` si se debe bloquear (403).
+  returns:
+  - `{ ok: true; origin: string }` if the origin is valid.
+  - `{ ok: false; res: NextResponse<{ ok: false; message: string }> }` if it should be blocked (403).
 
-Uso típico en un route handler:
+Typical usage in a route handler:
 
 ```ts
 const result = ensureTrustedOrigin(req);
 if (!result.ok) return result.res;
 
-// origin confiable disponible:
+// trusted origin available:
 const origin = result.origin;
 ```
 
-Si no se pasa `allowedOrigins`, la función construye un set por defecto a partir de:
+If `allowedOrigins` is not passed, the function builds a default set from:
 
-- `NEXT_PUBLIC_SITE_URL` (sin `/` final),
-- y opcionalmente orígenes extra que se añadan mediante `buildAllowedOrigins`.
+- `NEXT_PUBLIC_SITE_URL` (without trailing `/`),
+- and optionally extra origins added via `buildAllowedOrigins`.
 
-Lógica interna (resumen):
+Internal logic (summary):
 
 1. `extractOrigin(req)`:
-   - Intenta leer `Origin`.
-   - Si no hay, intenta `Referer`.
-   - Si no hay, reconstruye con `x-forwarded-proto` + (`x-forwarded-host` o `host`).
+   - Tries to read `Origin`.
+   - If not present, tries `Referer`.
+   - If not present, reconstructs with `x-forwarded-proto` + (`x-forwarded-host` or `host`).
 
 2. `buildAllowedOrigins()`:
-   - Crea un `Set<string>` con:
-     - `NEXT_PUBLIC_SITE_URL` normalizado,
-     - y orígenes extra si se pasan.
+   - Creates a `Set<string>` with:
+     - normalized `NEXT_PUBLIC_SITE_URL`,
+     - and extra origins if passed.
 
 3. `isOriginAllowed(origin, allowedOrigins)`:
-   - Si el set está vacío → todo permitido.
-   - Si no hay `origin` → bloquea.
-   - Si `origin` no está en el set → bloquea.
+   - If the set is empty → everything allowed.
+   - If there's no `origin` → blocks.
+   - If `origin` is not in the set → blocks.
 
-4. Si el origen no es válido:
-   - devuelve `{ ok: false, res: NextResponse.json({ ok: false, message: "Forbidden" }, { status: 403 }) }`.
+4. If the origin is not valid:
+   - returns `{ ok: false, res: NextResponse.json({ ok: false, message: "Forbidden" }, { status: 403 }) }`.
 
-5. Si es válido:
-   - devuelve `{ ok: true, origin }`.
+5. If valid:
+   - returns `{ ok: true, origin }`.
 
-### Notas de desarrollo (origins en red local)
+### Development notes (origins on local network)
 
-En desarrollo, Next.js suele exponer dos URLs:
+In development, Next.js usually exposes two URLs:
 
 - `http://localhost:3000`
-- `http://<ip-de-la-red-local>:3000` (para acceder desde otros dispositivos en la LAN, como el celular)
+- `http://<local-network-ip>:3000` (to access from other devices on the LAN, like a cell phone)
 
-Como `ensureTrustedOrigin` valida el `origin` contra un set de orígenes permitidos, se agregó una regla especial para evitar tener que actualizar el `.env` cada vez que cambia la IP de la red local:
+Since `ensureTrustedOrigin` validates the `origin` against a set of allowed origins, a special rule was added to avoid having to update the `.env` every time the local network IP changes:
 
-- En **producción**, solo se aceptan orígenes que estén en `allowedOrigins` (por ejemplo, `NEXT_PUBLIC_SITE_URL`).
-- En **desarrollo**, además de `allowedOrigins`, `ensureTrustedOrigin` acepta cualquier `origin` cuya hostname pertenezca a una red privada (`localhost`, `127.0.0.1`, `10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`).
+- In **production**, only origins that are in `allowedOrigins` are accepted (for example, `NEXT_PUBLIC_SITE_URL`).
+- In **development**, besides `allowedOrigins`, `ensureTrustedOrigin` accepts any `origin` whose hostname belongs to a private network (`localhost`, `127.0.0.1`, `10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`).
 
-Esto permite:
+This allows:
 
-- Entrar con `http://localhost:3000` desde la misma máquina.
-- Entrar con `http://192.168.x.x:3000` (o `http://10.x.x.x:3000`) desde un celular u otro dispositivo de la LAN.
+- Entering with `http://localhost:3000` from the same machine.
+- Entering with `http://192.168.x.x:3000` (or `http://10.x.x.x:3000`) from a cell phone or another device on the LAN.
 
-La lógica de producción se mantiene estricta y no se ve afectada por esta relajación para entornos de desarrollo.
+Production logic remains strict and is not affected by this relaxation for development environments.
 
 ---
 
-## runFormGuards y withFormGuards (formularios públicos – tipo 2)
+## runFormGuards and withFormGuards (public forms – type 2)
 
-Para los formularios públicos se usa un orquestador de seguridad:
+For public forms, a security orchestrator is used:
 
 - `runFormGuards(req, options)`:
-  - Valida API key interna (si está configurado).
-  - Llama a `ensureTrustedOrigin(req, allowedOrigins)`.
-  - Aplica límites de tamaño de body.
-  - Aplica rate limit por IP.
-  - Devuelve:
-    - `{ ok: false, res: NextResponse }` si alguna validación falla.
-    - `{ ok: true }` si todo está OK.
+  - Validates internal API key (if configured).
+  - Calls `ensureTrustedOrigin(req, allowedOrigins)`.
+  - Applies body size limits.
+  - Applies rate limit by IP.
+  - Returns:
+    - `{ ok: false, res: NextResponse }` if any validation fails.
+    - `{ ok: true }` if everything is OK.
 
 - `withFormGuards(options, handler)`:
-  - Envuelve tu handler de negocio:
-    - Ejecuta `runFormGuards`.
-    - Si algo falla devuelve el `NextResponse` de error.
-    - Si todo pasa ejecuta `handler(...)`.
+  - Wraps your business handler:
+    - Executes `runFormGuards`.
+    - If something fails returns the error `NextResponse`.
+    - If everything passes executes `handler(...)`.
 
-La ventaja de este enfoque es que **todas las rutas de formularios públicos comparten una misma capa de seguridad**, dejando a cada handler solo la lógica específica de su formulario.
-
----
-
-## Flujo de formularios públicos (tipo 2)
-
-Ejemplo genérico (contacto / postulación):
-
-1. El usuario completa el formulario en el navegador.
-
-2. El submit llama una **Server Action** (`contactUsAction`, `sendPostulationAction`, etc.).
-
-3. La Server Action:
-   - Verifica reCAPTCHA.
-   - Arma un payload tipado (datos del form).
-   - Agrega campos de seguridad (`honeypot`, `formLoadedAt`, etc.).
-   - Llama a un **servicio del lado servidor** (`sendEmail`, `sendPostulation`, etc.).
-
-4. El servicio:
-   - Construye la URL del Route Handler interno (`APP_INTERNAL_BASE_URL + ROUTE_HANDLERS.X`).
-   - Adapta el payload a JSON o `FormData`.
-   - Setea headers:
-      - `Origin: NEXT_PUBLIC_SITE_URL` (para `ensureTrustedOrigin`).
-     - `x-internal-api-key: INTERNAL_API_KEY` (para `requireInternalApiKey`).
-
-   - Hace `fetch` al Route Handler con timeout.
-
-5. El Route Handler:
-   - Está envuelto con `withFormGuards` (usa `runFormGuards` internamente).
-   - Valida API key, origen, rate limit, tamaño de body, etc.
-   - Si todo es válido, ejecuta el handler real del formulario:
-     - Lee el body.
-     - Valida honeypot.
-     - Valida la edad del formulario.
-     - Valida con Yup.
-     - Llama a servicios externos (Gmail, Strapi Upload, creación de registros).
-     - Devuelve un JSON consistente al frontend.
+The advantage of this approach is that **all public form routes share the same security layer**, leaving each handler only its specific form logic.
 
 ---
 
-## API Proxy hacia Strapi (`/api/proxy` + useProxy)
+## Public form flow (type 2)
 
-### Objetivo
+Generic example (contact / application):
 
-Exponer una API interna de Next (`/api/proxy`) que:
+1. The user completes the form in the browser.
 
-- sea el **único punto de acceso** hacia Strapi desde el cliente,
-- oculte la URL real de Strapi,
-- gestione el JWT de sesión en el servidor (no en el navegador).
+2. The submit calls a **Server Action** (`contactUsAction`, `sendPostulationAction`, etc.).
 
-### Arquitectura
+3. The Server Action:
+   - Verifies reCAPTCHA.
+   - Builds a typed payload (form data).
+   - Adds security fields (`honeypot`, `formLoadedAt`, etc.).
+   - Calls a **server-side service** (`sendEmail`, `sendPostulation`, etc.).
 
-- El cliente **no llama directamente** a Strapi.
-- En su lugar, usa un custom hook `useProxy` (o un `fetch` a `/api/proxy/...`) para pedir recursos.
-- El Route Handler `/api/proxy`:
-  - Se considera, en la práctica, un endpoint **read-only público (tipo 1)** cuando se limita a GET.
-  - Llama a `ensureTrustedOrigin(req)` al inicio:
-    - si la request no viene de un origen permitido, devuelve 403.
+4. The service:
+   - Builds the internal Route Handler URL (`APP_INTERNAL_BASE_URL + ROUTE_HANDLERS.X`).
+   - Adapts the payload to JSON or `FormData`.
+   - Sets headers:
+      - `Origin: NEXT_PUBLIC_SITE_URL` (for `ensureTrustedOrigin`).
+     - `x-internal-api-key: INTERNAL_API_KEY` (for `requireInternalApiKey`).
 
-  - Reconstruye la URL de Strapi: `BUILD_STRAPI_BASE_URL + endpointPath + query params` a partir de `[...endpoint]` y `searchParams`.
-  - Clasifica el endpoint solicitado antes de enviar credenciales a Strapi:
-    - endpoints de lectura pública (`activities`, `bus-trips`, `component-translations`, `faqs`, `news`, `service-state`, `tickets`, `zones`) usan `BUILD_STRAPI_CONTENT_TOKEN` desde el servidor;
-    - endpoints privados (`postulations`) requieren sesión y usan `Authorization: Bearer <session.jwt>`;
-    - los endpoints privados sin sesión devuelven 401 y nunca caen al token público.
-  - Hace `fetch` a Strapi desde el backend.
-  - Devuelve el JSON de Strapi (y el `status` correspondiente) al cliente.
+   - Makes `fetch` to the Route Handler with timeout.
 
-### Beneficios
-
-- El cliente nunca ve la **URL de Strapi** ni el **JWT**.
-- Se puede cambiar la infraestructura de Strapi (host, proxies, etc.) sin tocar el cliente.
-- Se reutiliza la misma lógica de origen confiable (`ensureTrustedOrigin`) que en los formularios públicos y endpoints admin, manteniendo criterios de seguridad consistentes en todos los Route Handlers sensibles.
-
----
-
-## Generación estática de locales
-
-El segmento `src/app/[locale]` define `generateStaticParams()` y `dynamicParams` en función de la variable de entorno `ENABLE_STATIC_LOCALE_PARAMS`.
-
-- `ENABLE_STATIC_LOCALE_PARAMS=true`: `generateStaticParams()` devuelve `i18n.locales`, `dynamicParams` queda en `false` y Next.js solo acepta los locales conocidos/pre-generados.
-- Cualquier otro valor, o variable ausente: `generateStaticParams()` devuelve `[]`, `dynamicParams` queda en `true` y las rutas de locale quedan para resolución dinámica bajo demanda.
-
-Este toggle se evalúa durante build/deploy; cambiarlo en un entorno requiere reconstruir/redeployar la aplicación para modificar el comportamiento generado.
+5. The Route Handler:
+   - Is wrapped with `withFormGuards` (uses `runFormGuards` internally).
+   - Validates API key, origin, rate limit, body size, etc.
+   - If everything is valid, executes the real form handler:
+     - Reads the body.
+     - Validates honeypot.
+     - Validates form age.
+     - Validates with Yup.
+     - Calls external services (Gmail, Strapi Upload, record creation).
+     - Returns consistent JSON to the frontend.
 
 ---
 
-## Desarrollo local (rápido)
+## API Proxy to Strapi (`/api/proxy` + useProxy)
 
-1. Asegurarse de tener el CMS corriendo en `http://localhost:1337` (Strapi).
+### Objective
 
-2. Crear `./teleferico-app/.env.local` con las variables de entorno detalladas en el archivo `./teleferico-app/.env.example`, por ejemplo:
+Expose an internal Next API (`/api/proxy`) that:
+
+- is the **only access point** to Strapi from the client,
+- hides the real Strapi URL,
+- manages the session JWT on the server (not in the browser).
+
+### Architecture
+
+- The client **does not call Strapi directly**.
+- Instead, it uses a custom hook `useProxy` (or a `fetch` to `/api/proxy/...`) to request resources.
+- The Route Handler `/api/proxy`:
+  - Is considered, in practice, a **public read-only endpoint (type 1)** when limited to GET.
+  - Calls `ensureTrustedOrigin(req)` at the start:
+    - if the request does not come from an allowed origin, returns 403.
+
+  - Reconstructs the Strapi URL: `BUILD_STRAPI_BASE_URL + endpointPath + query params` from `[...endpoint]` and `searchParams`.
+  - Classifies the requested endpoint before sending credentials to Strapi:
+    - public read endpoints (`activities`, `bus-trips`, `component-translations`, `faqs`, `news`, `service-state`, `tickets`, `zones`) use `BUILD_STRAPI_CONTENT_TOKEN` from the server;
+    - private endpoints (`postulations`) require session and use `Authorization: Bearer <session.jwt>`;
+    - private endpoints without session return 401 and never fall back to the public token.
+  - Makes `fetch` to Strapi from the backend.
+  - Returns Strapi's JSON (and the corresponding `status`) to the client.
+
+### Benefits
+
+- The client never sees the **Strapi URL** or the **JWT**.
+- Strapi infrastructure can be changed (host, proxies, etc.) without touching the client.
+- The same trusted origin logic (`ensureTrustedOrigin`) is reused as in public forms and admin endpoints, maintaining consistent security criteria across all sensitive Route Handlers.
+
+---
+
+## Static locale generation
+
+The segment `src/app/[locale]` defines `generateStaticParams()` and `dynamicParams` based on the environment variable `ENABLE_STATIC_LOCALE_PARAMS`.
+
+- `ENABLE_STATIC_LOCALE_PARAMS=true`: `generateStaticParams()` returns `i18n.locales`, `dynamicParams` is set to `false` and Next.js only accepts known/pre-generated locales.
+- Any other value, or missing variable: `generateStaticParams()` returns `[]`, `dynamicParams` is set to `true` and locale routes are resolved dynamically on demand.
+
+This toggle is evaluated during build/deploy; changing it in an environment requires rebuilding/redeploying the application to modify the generated behavior.
+
+---
+
+## Local development (quick)
+
+1. Make sure the CMS is running at `http://localhost:1337` (Strapi).
+
+2. Create `./teleferico-app/.env.local` with the environment variables detailed in the file `./teleferico-app/.env.example`, for example:
 
 ```env
 BUILD_STRAPI_BASE_URL=http://localhost:1337
@@ -491,7 +491,7 @@ APP_INTERNAL_BASE_URL=http://localhost:3000
 ENABLE_STATIC_LOCALE_PARAMS=false
 ```
 
-3. Ejecutar:
+3. Execute:
 
 ```bash
 pnpm run dev

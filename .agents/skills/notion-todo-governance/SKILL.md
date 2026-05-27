@@ -13,6 +13,8 @@ Use this skill when the request is about creating, cleaning up, deduplicating, t
 
 ## Hard Rules
 
+- **LANGUAGE POLICY: All artifacts created in GitHub Issues and Notion items MUST be written in English. Only the interactive chat with the user can be in Spanish.**
+
 - The pre-issue source of truth is the Notion database **Backlog unificado**.
 - Never add new work items to `TODO.md` or ad-hoc legacy checklists.
 - Search Notion first and prefer updating an existing row over creating a near-duplicate.
