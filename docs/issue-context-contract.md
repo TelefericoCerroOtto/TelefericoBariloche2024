@@ -97,9 +97,35 @@ All issue types share the same stable section contract. `Type` lives in metadata
 
 ## Relation to PRs
 
-- Related PRs are part of `## Related Artifacts` whenever known.
-- Do not duplicate full PR-writing conventions in the issue body.
-- Keep PR linkage minimal and explicit (for example: `- Related PRs: #123, #124` or `N/A`).
+The `## Related Artifacts` section contains a **human-authored static block** (Work ID, Notion URL, related issues) and a **machine-managed dynamic block** (`<!-- managed:related-prs:start/end -->`).
+
+### Machine-managed block
+
+The `Backlog governance` GitHub Action automatically maintains a block bounded by HTML comment markers inside `## Related Artifacts`. **Humans and agents must not manually edit this block.**
+
+```md
+<!-- managed:related-prs:start -->
+- Related PRs: N/A
+- Promotion PRs: N/A
+- Shipped by: N/A
+<!-- managed:related-prs:end -->
+```
+
+#### Block lifecycle
+
+| Trigger | Field updated | Value added |
+| --- | --- | --- |
+| Implementation PR opened / edited / synchronized to `development` | `Related PRs` | `#<pr-number>` |
+| Promotion PR opened / edited to `staging` | `Promotion PRs` | `#<pr-number>` |
+| Promotion PR merged to `main` | `Shipped by` | `#<pr-number>` |
+
+- Each field accumulates PR numbers (comma-separated). Values are never overwritten unless the same PR number is already listed (idempotent).
+- The block is created and appended automatically on first sync if not present in the issue body.
+- `N/A` is replaced on first real value; subsequent updates append.
+
+### Static PR linkage (human-authored)
+
+The human-authored line `- Related PRs: <#456 | N/A>` above the managed block is an **initial placeholder only**. Once the managed block is populated by automation, treat the managed block as the authoritative PR list. Do not duplicate entries manually.
 
 ## Agent artifact-resolution behavior
 
@@ -148,6 +174,12 @@ Agents should emit a structured context recap only when the user explicitly requ
 - Notion: <url | TBD>
 - Related Issues: <#123 | N/A>
 - Related PRs: <#456 | N/A>
+
+<!-- managed:related-prs:start -->
+- Related PRs: N/A
+- Promotion PRs: N/A
+- Shipped by: N/A
+<!-- managed:related-prs:end -->
 
 ## Metadata
 - Type: <Bug|Feature|Refactor|Content|Infra|Docs|Security|Unknown>
