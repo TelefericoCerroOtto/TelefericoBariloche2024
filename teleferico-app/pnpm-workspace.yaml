@@ -32,6 +32,5 @@ allowBuilds:
 strictDepBuilds: true
 
 # Save exact versions (no semver range prefix) for future `pnpm add` calls.
-# Note: existing ^-range entries in package.json should be migrated in a
-# dedicated follow-up task once the current lockfile is verified.
+# All existing package.json entries are pinned to exact versions.
 saveExact: true
