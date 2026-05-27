@@ -19,6 +19,12 @@ const DEFAULTS = {
     toStaging: { head: "development", base: "staging" },
     toMain: { head: "staging", base: "main" },
   },
+  // Metadata property names
+  typeProperty: "Tipo",
+  areaProperty: "Área",
+  priorityProperty: "Prioridad",
+  sourceProperty: "Fuente",
+  contextProperty: "Contexto",
 };
 
 async function main() {
@@ -72,6 +78,12 @@ function getConfig() {
       formalLink: process.env.NOTION_FORMAL_LINK_PROPERTY || DEFAULTS.formalLinkProperty,
       notes: process.env.NOTION_NOTES_PROPERTY || DEFAULTS.notesProperty,
       branch: process.env.NOTION_BRANCH_PROPERTY || DEFAULTS.branchProperty,
+      // Metadata properties
+      type: process.env.NOTION_TYPE_PROPERTY || DEFAULTS.typeProperty,
+      area: process.env.NOTION_AREA_PROPERTY || DEFAULTS.areaProperty,
+      priority: process.env.NOTION_PRIORITY_PROPERTY || DEFAULTS.priorityProperty,
+      source: process.env.NOTION_SOURCE_PROPERTY || DEFAULTS.sourceProperty,
+      context: process.env.NOTION_CONTEXT_PROPERTY || DEFAULTS.contextProperty,
     },
     statuses: {
       ready: process.env.NOTION_READY_STATUS || DEFAULTS.readyStatus,
@@ -383,19 +395,31 @@ async function findNotionPageByWorkId(config, workId) {
     }
   }
 
-  const richTextPages = await queryNotionPages(config, {
-    property: config.properties.workId,
-    rich_text: { equals: workId },
-  });
+  // Fallback 1: rich_text filter (may fail with unique_id property)
+  let richTextPages = [];
+  try {
+    richTextPages = await queryNotionPages(config, {
+      property: config.properties.workId,
+      rich_text: { equals: workId },
+    });
+  } catch (error) {
+    console.warn(`rich_text filter failed for Work ID '${workId}': ${error.message}`);
+  }
 
   if (richTextPages[0]) {
     return richTextPages[0];
   }
 
-  const titlePages = await queryNotionPages(config, {
-    property: config.properties.workId,
-    title: { equals: workId },
-  });
+  // Fallback 2: title filter (may also fail if property type is not title)
+  let titlePages = [];
+  try {
+    titlePages = await queryNotionPages(config, {
+      property: config.properties.workId,
+      title: { equals: workId },
+    });
+  } catch (error) {
+    console.warn(`title filter failed for Work ID '${workId}': ${error.message}`);
+  }
 
   return titlePages[0] || null;
 }
@@ -410,10 +434,15 @@ async function findNotionPageByIssueUrl(config, issueUrl) {
 }
 
 async function findNotionPageByBranchName(config, branchName) {
-  const pages = await queryNotionPages(config, {
-    property: config.properties.branch,
-    rich_text: { equals: branchName },
-  });
+  let pages = [];
+  try {
+    pages = await queryNotionPages(config, {
+      property: config.properties.branch,
+      rich_text: { equals: branchName },
+    });
+  } catch (error) {
+    console.warn(`rich_text filter failed for branch '${branchName}': ${error.message}`);
+  }
 
   return pages[0] || null;
 }
@@ -450,6 +479,7 @@ function mapNotionItem(config, page) {
   const statusProperty = properties[config.properties.status];
   const channelProperty = properties[config.properties.formalChannel];
   const linkProperty = properties[config.properties.formalLink];
+  const branchProperty = properties[config.properties.branch];
 
   return {
     pageId: page.id,
@@ -469,25 +499,83 @@ function mapNotionItem(config, page) {
       value: getLinkValue(linkProperty),
     },
     notes: getPlainPropertyValue(properties[config.properties.notes]),
+    branch: getPlainPropertyValue(branchProperty),
+    metadata: {
+      tipo: getOptionalPropertyValue(properties[config.properties.type]),
+      area: getOptionalPropertyValue(properties[config.properties.area]),
+      prioridad: getOptionalPropertyValue(properties[config.properties.priority]),
+      fuente: getOptionalPropertyValue(properties[config.properties.source]),
+      contexto: getOptionalPropertyValue(properties[config.properties.context]),
+    },
   };
 }
 
 function buildIssuePayload(config, item, context) {
   const title = `[${item.workId}] ${item.title}`;
+
+  const relatedPrs = context.prUrl
+    ? [context.prTitle ? `${context.prTitle} (${context.prUrl})` : context.prUrl]
+    : [];
+
+  const problemText = item.notes || "TBD";
+  const desiredOutcomeLines = [
+    "- The work item outcome is implemented and reviewable.",
+    "- Backlog context is preserved in related artifacts.",
+  ];
+
+  const scopeLines = [item.metadata.contexto ? `- Primary scope context: ${item.metadata.contexto}` : "- Scope detail: TBD"];
+  const contextLines = [item.notes, item.status.value ? `Current backlog status: ${item.status.value}` : null].filter(Boolean);
+  const repoSurfacesLines = [
+    item.metadata.contexto ? `- Candidate surface from Notion Contexto: ${item.metadata.contexto}` : "- TBD",
+  ];
+
   const body = [
-    "## Backlog item",
-    `- Work ID: ${item.workId}`,
-    `- Notion page: ${item.pageUrl}`,
-    item.status.value ? `- Current status: ${item.status.value}` : null,
+    "## Summary",
+    item.title,
+    "",
+    "## Problem",
+    problemText,
+    "",
+    "## Desired Outcome",
+    ...desiredOutcomeLines,
+    "",
+    "## Scope",
+    ...scopeLines,
     "",
     "## Context",
-    item.notes || "- No additional notes were captured in Notion.",
+    contextLines.length > 0 ? contextLines.join("\n") : "TBD",
     "",
-    "## Automation",
+    "## Repo Surfaces to Inspect",
+    ...repoSurfacesLines,
+    "",
+    "## Acceptance Signals",
+    "- [ ] Scope is fully defined for implementation",
+    "- [ ] Validation and verification criteria are explicit",
+    "- [ ] Related artifacts are complete and valid",
+    "",
+    "## Related Artifacts",
+    `- Work ID: ${item.workId}`,
+    `- Notion: ${item.pageUrl}`,
+    "- Related Issues: N/A",
+    `- Related PRs: ${relatedPrs.length > 0 ? relatedPrs.join(", ") : "N/A"}`,
+    item.branch ? `- Branch: ${item.branch}` : null,
+    "",
+    "## Metadata",
+    `- Tipo: ${item.metadata.tipo || "Unknown"}`,
+    `- Área: ${item.metadata.area || "Unknown"}`,
+    `- Prioridad: ${item.metadata.prioridad || "Unknown"}`,
+    `- Fuente: ${item.metadata.fuente || "Unknown"}`,
+    `- Estado: ${item.status.value || "Unknown"}`,
+    `- Branch: ${item.branch || context.branchName || "Unknown"}`,
+    "",
+    "## Out of Scope",
+    "- TBD",
+    "",
+    "## Risks / Constraints",
+    "- TBD",
+    "",
+    "## Automation Metadata",
     `- Source: ${context.source}`,
-    context.branchName ? `- Branch: ${context.branchName}` : null,
-    context.prTitle ? `- PR: ${context.prTitle}` : null,
-    context.prUrl ? `- PR URL: ${context.prUrl}` : null,
     "- Created automatically by the backlog governance workflow.",
   ]
     .filter(Boolean)
@@ -498,6 +586,22 @@ function buildIssuePayload(config, item, context) {
     body,
     labels: config.issueLabels,
   };
+}
+
+function getOptionalPropertyValue(property) {
+  if (!property) {
+    return "";
+  }
+
+  switch (property.type) {
+    case "multi_select":
+      return (property.multi_select || [])
+        .map((option) => option?.name)
+        .filter(Boolean)
+        .join(", ");
+    default:
+      return getPlainPropertyValue(property);
+  }
 }
 
 async function findGitHubIssueByWorkId(config, workId) {
