@@ -56,10 +56,37 @@ Responsibilities:
 
 - query Notion
 - find or create GitHub Issues
+- render issue bodies using the canonical contract in `docs/issue-context-contract.md`
 - sync the issue URL back to Notion
 - mark Notion rows as `Formalizado` or `Hecho`
 
 The script uses **plain Node.js with native `fetch`** so the repository does not need a root package manager or root dependency installation just to support this automation.
+
+## Canonical issue contract target
+
+Issue creation automation must target the canonical contract in:
+
+- `docs/issue-context-contract.md`
+
+This means automation-generated issues should keep the stable section skeleton and required artifact links.
+
+Required skeleton sections are:
+
+- `## Summary`
+- `## Problem`
+- `## Desired Outcome`
+- `## Scope`
+- `## Context`
+- `## Repo Surfaces to Inspect`
+- `## Acceptance Signals`
+- `## Related Artifacts`
+
+At minimum, `## Related Artifacts` must include `Work ID`, Notion URL, and related PR references when available.
+
+Current state:
+
+- The script already creates structured issue bodies.
+- The expected direction is to render the canonical contract directly from Notion backlog fields, so human-created and automation-created issues converge on the same body shape.
 
 ## Flows implemented
 
@@ -182,6 +209,7 @@ This implementation does **not** yet:
 - synchronize the `Branch` field back into Notion
 - post comments automatically on PRs or issues
 - run tests, installs, or package validation checks
+- fully materialize every optional canonical issue-contract section from Notion fields
 
 Those are separate concerns and should not be mixed into the governance slice before this flow is stable.
 

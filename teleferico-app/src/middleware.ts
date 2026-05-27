@@ -142,7 +142,7 @@ export default auth(async (req) => {
   // 🚩 Public paths
 
   // 0) Redirección de subdominios legacy (en. / pt.) a la nueva arquitectura de rutas
-  const host = req.nextUrl.host;
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? req.nextUrl.host;
   if (host.startsWith("en.") || host.startsWith("pt.")) {
     const targetLocale = host.startsWith("en.") ? "en" : "pt";
     

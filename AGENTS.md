@@ -121,6 +121,15 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - Promote a Notion item to GitHub only when the scope is clear, it needs engineering follow-up, and the right `Canal formal` for that row is `GitHub Issue`.
 - When a request is about adding, deduplicating, triaging, or promoting backlog items, agents should load `.agents/skills/notion-todo-governance/SKILL.md` when the client supports project skills.
 
+## Issue context resolution governance
+
+- The canonical GitHub issue contract lives in `docs/issue-context-contract.md`.
+- When a user mentions `TB-###`, `#123`, a Notion URL, a GitHub issue URL, or a governed branch containing `tb-###`, agents should resolve linked artifacts automatically.
+- Resolution should include Work ID ↔ Notion row ↔ GitHub issue and governed branch association when available.
+- This lookup is **silent by default** while the agent executes the requested task.
+- A structured recap/context snapshot should be emitted **only** when the user explicitly asks for a summary.
+- For operational resolution workflow, load `.agents/skills/issue-context-harness/SKILL.md` alongside backlog-governance rules when applicable.
+
 ## Documentation maintenance
 
 Whenever code, flows, architecture, contracts or configuration change in a way that affects documented behaviour, update the relevant documentation **in the same change**. This includes but is not limited to:
