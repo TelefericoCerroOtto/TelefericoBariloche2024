@@ -131,6 +131,9 @@ When a promotion PR contains **multiple** previously approved implementation PRs
 - identify the main validation focus
 - state rollback expectations
 
+**CRITICAL: Issue Closure Extraction**
+When creating a promotion PR to `main`, the author (human or agent) MUST scan all included implementation PRs, extract any `Refs #N` issue references from them, and explicitly convert them to `Closes #N` in the promotion PR footer. Failure to do this leaves issues open after release.
+
 ### Issue linkage and closure policy
 
 Use GitHub Issues as the formal artifact, but distinguish between the PR that
@@ -154,6 +157,7 @@ Use GitHub Issues as the formal artifact, but distinguish between the PR that
 
 When promoting to `main`, the PR body **MUST** declare its closure intent to pass automation:
 - If there are issues to close, use standard `Closes #N` / `Fixes #N`.
+  - **MANDATORY EXTRACTION RULE**: You must scan the descriptions of all implementation PRs being promoted, extract every `Refs #N` linked to them, and declare them here as `Closes #N`. Do not assume they will close themselves.
 - If there are no issues closed in the release, include the exact line `Formal issues: none` in the PR body.
 
 #### Format for `#N`
