@@ -25,8 +25,9 @@ blockExoticSubdeps: true
 allowBuilds:
   esbuild: true  # Used internally by Next.js build pipeline
   sharp: true    # Native image processing — compiles C++ bindings
-  '@heroui/shared-utils': true  # HeroUI shared utils runs esbuild postinstall
-  unrs-resolver: true  # Rust-based resolver builds native bindings used by eslint resolver
+  '@heroui/shared-utils': true  # Reviewed 2026-05-28: ASCII-only script, local fs copy + d.ts patch, no network or child_process
+  unrs-resolver: true  # Reviewed 2026-05-28: ASCII-only napi-postinstall check; pnpm 10 installs the locked Linux binding first, so current CI path resolves locally
+  msw: false  # Reviewed 2026-05-28: ASCII-only postinstall; no-op unless package.json defines msw.workerDirectory, so keep it explicitly blocked in this repo
 
 # Turn the silent block above into a hard CI failure.
 # If a new transitive dep ships a build script that is not in allowBuilds,
