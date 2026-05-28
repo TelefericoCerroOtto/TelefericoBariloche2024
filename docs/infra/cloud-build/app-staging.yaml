@@ -1,4 +1,6 @@
 # STAGING NEXTJS
+# Snapshot note (TB-74): this file documents the intended trigger configuration.
+# The live Cloud Build trigger must still be updated/applied out-of-repo.
 # Documented safe defaults for tb-71-form-protection:
 # - FORM_PROTECTION_REDIS_URL comes from Secret Manager secret APP__STAGING__FORM_PROTECTION_REDIS_URL at runtime.
 # - Local development never uses managed Redis; it stays on a local Redis container at redis://127.0.0.1:6379.
@@ -30,6 +32,11 @@ steps:
           --network=cloudbuild \
           --path=teleferico-app \
           --publish \
+          --env="NPM_CONFIG_OPTIONAL=true" \
+          --env="NPM_CONFIG_PREFER_OFFLINE=true" \
+          --env="NPM_CONFIG_CPU=x64" \
+          --env="NPM_CONFIG_OS=linux" \
+          --env="NPM_CONFIG_LIBC=glibc" \
           --env="BUILD_STRAPI_BASE_URL=${_BUILD_STRAPI_BASE_URL}" \
           --env="BUILD_STRAPI_BUCKET_HOSTNAME=${_BUILD_STRAPI_BUCKET_HOSTNAME}" \
           --env="BUILD_STRAPI_BUCKET_PATHNAME=${_BUILD_STRAPI_BUCKET_PATHNAME}" \
