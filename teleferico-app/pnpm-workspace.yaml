@@ -25,6 +25,8 @@ blockExoticSubdeps: true
 allowBuilds:
   esbuild: true  # Used internally by Next.js build pipeline
   sharp: true    # Native image processing — compiles C++ bindings
+  '@heroui/shared-utils': true  # HeroUI shared utils runs esbuild postinstall
+  unrs-resolver: true  # Rust-based resolver builds native bindings used by eslint resolver
 
 # Turn the silent block above into a hard CI failure.
 # If a new transitive dep ships a build script that is not in allowBuilds,
