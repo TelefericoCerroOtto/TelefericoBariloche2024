@@ -1,0 +1,39 @@
+# Supply-chain security baseline for teleferico-app.
+# Source: https://pnpm.io/supply-chain-security
+#
+# These settings are intentionally replicated from the global machine config
+# (~/.config/pnpm/config.yaml) so that Cloud Build and any other CI environment
+# that clones this repo applies the same security posture — without relying on
+# a developer's personal machine configuration.
+
+# Cooldown: do not resolve packages published less than 3 days ago.
+# Malicious releases are typically detected and removed within hours.
+minimumReleaseAge: 4320
+
+# Fail if a package's publish-time trust level (provenance / signatures) has
+# decreased compared to any earlier-published version of that package.
+# Helps catch compromised maintainer accounts before installation.
+trustPolicy: no-downgrade
+
+# Allow transitive dependencies only from the npm registry, local paths,
+# or workspace links. Blocks git URLs and raw tarball URLs in sub-deps.
+blockExoticSubdeps: true
+
+# Explicit allowlist of packages permitted to run install/build scripts.
+# All other packages are silently blocked (pnpm 10+ default behaviour).
+# Add entries here only after reviewing what the build script does.
+allowBuilds:
+  esbuild: true  # Used internally by Next.js build pipeline
+  sharp: true    # Native image processing — compiles C++ bindings
+  '@heroui/shared-utils': true  # Reviewed 2026-05-28: ASCII-only script, local fs copy + d.ts patch, no network or child_process
+  unrs-resolver: true  # Reviewed 2026-05-28: ASCII-only napi-postinstall check; pnpm 10 installs the locked Linux binding first, so current CI path resolves locally
+  msw: false  # Reviewed 2026-05-28: ASCII-only postinstall; no-op unless package.json defines msw.workerDirectory, so keep it explicitly blocked in this repo
+
+# Turn the silent block above into a hard CI failure.
+# If a new transitive dep ships a build script that is not in allowBuilds,
+# the install exits with a non-zero code instead of silently skipping it.
+strictDepBuilds: true
+
+# Save exact versions (no semver range prefix) for future `pnpm add` calls.
+# All existing package.json entries are pinned to exact versions.
+saveExact: true

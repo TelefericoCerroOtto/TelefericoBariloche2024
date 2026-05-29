@@ -1,6 +1,6 @@
 schema: spec-driven
 project: telefericobariloche2024
-artifact_store: openspec
+artifact_store: hybrid
 strict_tdd: true
 
 context: |

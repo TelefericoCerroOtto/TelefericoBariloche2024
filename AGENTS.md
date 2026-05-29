@@ -100,6 +100,12 @@ For each command, include:
 
 When a command is not clearly safe, treat it as sensitive and ask before executing.
 
+## Language Policy
+
+- **All artifacts created in GitHub Issues and Notion items MUST be written in English.**
+- Code, documentation, PR descriptions, commit messages, and internal notes must be in English.
+- Only the interactive chat with the user can be in Spanish.
+
 ## Human conventions
 
 - Conventional commits + scopes + PR titles: `docs/CONVENTIONS.md`
@@ -119,6 +125,7 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - For **promotion PRs**, do not require a direct `Work ID`/branch association; they track release movement, not a new unit of backlog work.
 - A branch should have **one primary backlog item**. Multiple items on one branch are allowed only when they form one tightly coupled reviewable outcome; otherwise split the work.
 - Promote a Notion item to GitHub only when the scope is clear, it needs engineering follow-up, and the right `Canal formal` for that row is `GitHub Issue`.
+- Notion → GitHub issue formalization is explicit and on-demand via agent/human flow only; GitHub Actions in this repo do not create issues from Notion.
 - When a request is about adding, deduplicating, triaging, or promoting backlog items, agents should load `.agents/skills/notion-todo-governance/SKILL.md` when the client supports project skills.
 
 ## Issue context resolution governance

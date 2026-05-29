@@ -1,5 +1,7 @@
 # GitHub Issue Context Contract (Canonical)
 
+**LANGUAGE POLICY: ALL GitHub issues MUST be written in English. This includes all sections, comments, and metadata.**
+
 This document defines the canonical issue body contract for work items promoted from the Notion backlog to GitHub.
 
 The contract is **AI-ready** and **human-readable**: one stable skeleton across issue types, predictable section order, and explicit artifact links.
@@ -66,7 +68,7 @@ Never leave empty required sections.
 | `## Repo Surfaces to Inspect` | Technical starting points | Paths, modules, APIs, boundaries |
 | `## Acceptance Signals` | Verifiable completion conditions | Checklist or bullet criteria |
 | `## Related Artifacts` | Cross-system traceability | `Work ID`, Notion URL, related issues/PRs |
-| `## Metadata` (optional) | Lightweight classification | `Tipo`, `Área`, `Prioridad`, `Fuente`, `Estado`, `Branch` |
+| `## Metadata` (optional) | Lightweight classification | `Type`, `Area`, `Priority`, `Source`, `Status`, `Branch` |
 | `## Out of Scope` (optional) | Explicit non-goals | Bullets |
 | `## Risks / Constraints` (optional) | Delivery caveats | Risks, blockers, dependencies |
 | `## Automation Metadata` (optional) | Machine-origin traceability | Source workflow/mode notes |
@@ -80,24 +82,50 @@ Never leave empty required sections.
 | `Work ID` | `## Related Artifacts` | Required, stable identifier |
 | `Enlace formal` | `## Related Artifacts` | Backlink when present |
 | `Contexto` | `## Repo Surfaces to Inspect` | Candidate paths/domains to inspect |
-| `Tipo` | `## Metadata` | Keep as metadata classification, not as heading selector |
-| `Área` | `## Metadata` | Optional metadata |
-| `Prioridad` | `## Metadata` | Optional metadata |
-| `Fuente` | `## Metadata` | Optional metadata |
-| `Estado` | `## Metadata` | Optional metadata snapshot |
+| `Tipo` | `## Metadata` → `Type` | Keep as metadata classification, not as heading selector. Translate Spanish field name to English (`Type`) |
+| `Área` | `## Metadata` → `Area` | Optional metadata. Translate Spanish field name to English (`Area`) |
+| `Prioridad` | `## Metadata` → `Priority` | Optional metadata. Translate Spanish field name to English (`Priority`) |
+| `Fuente` | `## Metadata` → `Source` | Optional metadata. Translate Spanish field name to English (`Source`) |
+| `Estado` | `## Metadata` → `Status` | Optional metadata snapshot. Translate Spanish field name to English (`Status`) |
 | `Branch` | `## Metadata` or `## Related Artifacts` | Optional; include when branch exists |
 
-## Treatment of `Tipo`
+## Treatment of `Tipo` (translated to `Type` in issues)
 
-`Tipo` (Bug, Feature, Refactor, Content, Infra, Docs, Security) classifies the work item but does **not** change the body skeleton.
+The Notion field `Tipo` (Bug, Feature, Refactor, Content, Infra, Docs, Security) classifies the work item but does **not** change the body skeleton. In GitHub issues, this field must be translated to English as `Type`.
 
-All issue types share the same stable section contract. `Tipo` lives in metadata.
+All issue types share the same stable section contract. `Type` lives in metadata.
 
 ## Relation to PRs
 
-- Related PRs are part of `## Related Artifacts` whenever known.
-- Do not duplicate full PR-writing conventions in the issue body.
-- Keep PR linkage minimal and explicit (for example: `- Related PRs: #123, #124` or `N/A`).
+The `## Related Artifacts` section contains a **human-authored static block** (Work ID, Notion URL, related issues) and a **machine-managed dynamic block** (`<!-- managed:related-prs:start/end -->`).
+
+### Machine-managed block
+
+The `Backlog governance` GitHub Action automatically maintains a block bounded by HTML comment markers inside `## Related Artifacts`. **Humans and agents must not manually edit this block.**
+
+```md
+<!-- managed:related-prs:start -->
+- Related PRs: N/A
+- Promotion PRs: N/A
+- Shipped by: N/A
+<!-- managed:related-prs:end -->
+```
+
+#### Block lifecycle
+
+| Trigger | Field updated | Value added |
+| --- | --- | --- |
+| Implementation PR opened / edited / synchronized to `development` | `Related PRs` | `#<pr-number>` |
+| Promotion PR opened / edited to `staging` | `Promotion PRs` | `#<pr-number>` |
+| Promotion PR merged to `main` | `Shipped by` | `#<pr-number>` |
+
+- Each field accumulates PR numbers (comma-separated). Values are never overwritten unless the same PR number is already listed (idempotent).
+- The block is created and appended automatically on first sync if not present in the issue body.
+- `N/A` is replaced on first real value; subsequent updates append.
+
+### Static PR linkage (human-authored)
+
+The human-authored line `- Related PRs: <#456 | N/A>` above the managed block is an **initial placeholder only**. Once the managed block is populated by automation, treat the managed block as the authoritative PR list. Do not duplicate entries manually.
 
 ## Agent artifact-resolution behavior
 
@@ -147,12 +175,18 @@ Agents should emit a structured context recap only when the user explicitly requ
 - Related Issues: <#123 | N/A>
 - Related PRs: <#456 | N/A>
 
+<!-- managed:related-prs:start -->
+- Related PRs: N/A
+- Promotion PRs: N/A
+- Shipped by: N/A
+<!-- managed:related-prs:end -->
+
 ## Metadata
-- Tipo: <Bug|Feature|Refactor|Content|Infra|Docs|Security|Unknown>
-- Área: <optional>
-- Prioridad: <P1|P2|P3|Unknown>
-- Fuente: <optional>
-- Estado: <optional>
+- Type: <Bug|Feature|Refactor|Content|Infra|Docs|Security|Unknown>
+- Area: <optional>
+- Priority: <P1|P2|P3|Unknown>
+- Source: <optional>
+- Status: <optional>
 - Branch: <optional>
 
 ## Out of Scope
