@@ -49,21 +49,21 @@ const dictionaries = {
     nameEyebrow: "Ticket",
     priceEyebrow: "Tarifa",
     priceHint: "valor por persona",
-    priceIncludedHint: "incluido en la experiencia",
+    priceIncludedHint: "incluido",
   },
   en: {
     ariaLabel: "Ticket pricing table",
     nameEyebrow: "Ticket",
     priceEyebrow: "Rate",
     priceHint: "price per person",
-    priceIncludedHint: "included with the experience",
+    priceIncludedHint: "included",
   },
   pt: {
     ariaLabel: "Tabela de preços dos bilhetes",
     nameEyebrow: "Bilhete",
     priceEyebrow: "Tarifa",
     priceHint: "valor por pessoa",
-    priceIncludedHint: "incluído na experiência",
+    priceIncludedHint: "incluído",
   },
 } as const;
 
