@@ -36,7 +36,7 @@ export function TableLeadCell({
 }: TableLeadCellProps) {
   const content = (
     <div className="min-w-0 flex-1">
-      <div className="flex max-w-[12rem] sm:max-w-[16rem] flex-col gap-1.5">
+      <div className="flex max-w-[12rem] sm:max-w-[16rem] md:max-w-[22rem] flex-col gap-1.5">
         {eyebrow ? (
           <span className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/80">
             {eyebrow}
@@ -48,7 +48,7 @@ export function TableLeadCell({
         </span>
 
         {description ? (
-          <span className="line-clamp-2 text-sm leading-relaxed text-foreground/60 sm:text-base">
+          <span className="line-clamp-2 text-sm leading-relaxed text-foreground/60 sm:text-base md:text-lg">
             {truncateString(description, 110)}
           </span>
         ) : null}
@@ -142,18 +142,18 @@ export function TableValueCard({
         className,
       )}
     >
-      <span
-        className={cn(
-          "text-lg font-semibold leading-tight sm:text-xl md:text-2xl",
-          tone === "brand" ? "text-primary" : "text-foreground",
-          valueClassName,
-        )}
-      >
+        <span
+          className={cn(
+            "text-lg font-semibold leading-tight sm:text-xl md:text-2xl",
+            tone === "brand" ? "text-primary" : "text-foreground",
+            valueClassName,
+          )}
+        >
         {value}
       </span>
 
       {supportingText ? (
-        <span className="text-xs leading-relaxed text-foreground/55 sm:text-sm">
+        <span className="text-xs leading-relaxed text-foreground/55 sm:text-sm md:text-base">
           {supportingText}
         </span>
       ) : null}
