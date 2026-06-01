@@ -30,7 +30,6 @@ export const renderZoneCell = ({
 
       return (
         <TableLeadCell
-          eyebrow={t.eyebrow.zone}
           title={name}
           description={desc || undefined}
           popoverContent={

@@ -84,7 +84,7 @@ export default function TicketsTable({ initialData }: Readonly<Props>) {
       switch (columnKey) {
         case "name":
           return (
-            <TableLeadCell eyebrow={t.nameEyebrow} title={ticket[columnKey]} />
+            <TableLeadCell title={ticket[columnKey]} />
           );
 
         case "lifting_mean":

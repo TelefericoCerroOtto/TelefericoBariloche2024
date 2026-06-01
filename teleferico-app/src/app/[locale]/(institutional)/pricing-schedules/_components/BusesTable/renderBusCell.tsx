@@ -19,7 +19,7 @@ export const renderBusCell = ({
       const station =
         bus.origin.station_translations?.[0].name || bus.origin.key || "-";
 
-      return <TableLeadCell eyebrow={t.eyebrow.station} title={station} />;
+      return <TableLeadCell title={station} />;
     }
 
     case "destination": {
@@ -28,7 +28,7 @@ export const renderBusCell = ({
         bus.destination.key ||
         "-";
 
-      return <TableLeadCell eyebrow={t.eyebrow.station} title={station} />;
+      return <TableLeadCell title={station} />;
     }
 
     case "depTime": {

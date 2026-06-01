@@ -123,15 +123,15 @@ export default function DataTable<T extends { id: number | string }>(
     <TableContainer>
       <Table
         aria-label={ariaLabel ?? dictionaries.defaultAriaLabel[locale]}
-        className="w-full border-separate border-spacing-0"
+        className="min-w-full w-max border-separate border-spacing-0"
         isStriped
         radius="none"
         selectionMode="none"
         shadow="none"
         classNames={{
-          base: "w-full overflow-visible",
+          base: "min-w-full w-max overflow-visible",
           wrapper:
-            "w-full overflow-hidden rounded-[1.75rem] border border-border/70 bg-white/90 p-0 shadow-xl shadow-black/5 ring-1 ring-red-500/10 backdrop-blur-sm",
+            "min-w-full w-max overflow-hidden rounded-[1.75rem] border border-border/70 bg-white/90 p-0 shadow-xl shadow-black/5 ring-1 ring-red-500/10 backdrop-blur-sm",
           thead:
             "[&>tr]:bg-gradient-to-r [&>tr]:from-red-600/[0.08] [&>tr]:via-white [&>tr]:to-red-600/[0.03] [&>tr]:shadow-[inset_0_-1px_0_rgba(127,29,29,0.08)]",
           th: [

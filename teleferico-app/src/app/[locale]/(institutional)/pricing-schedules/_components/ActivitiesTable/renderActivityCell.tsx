@@ -29,7 +29,6 @@ export const renderActivityCell = ({
 
       return (
         <TableLeadCell
-          eyebrow={t.eyebrow.activity}
           title={name}
           description={desc || undefined}
           popoverContent={
