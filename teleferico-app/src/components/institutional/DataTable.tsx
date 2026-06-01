@@ -135,7 +135,7 @@ export default function DataTable<T extends { id: number | string }>(
           thead:
             "[&>tr]:bg-gradient-to-r [&>tr]:from-red-600/[0.08] [&>tr]:via-white [&>tr]:to-red-600/[0.03] [&>tr]:shadow-[inset_0_-1px_0_rgba(127,29,29,0.08)]",
           th: [
-            "rounded-none border-b border-red-500/10 bg-transparent px-3 py-4 sm:px-4 sm:py-5 first:pl-4 sm:first:pl-6 last:pr-4 sm:last:pr-6",
+            "rounded-none border-b border-red-500/10 bg-transparent px-2 py-3 sm:px-4 sm:py-5 first:pl-3 sm:first:pl-6 last:pr-3 sm:last:pr-6",
             "text-xs sm:text-sm font-semibold uppercase tracking-[0.15em] sm:tracking-[0.24em] text-foreground/65",
           ],
           tr: [
@@ -145,7 +145,7 @@ export default function DataTable<T extends { id: number | string }>(
           ],
           tbody: "[&>[data-last=true]>td]:border-b-0",
           td: [
-            "border-b border-border/60 px-3 py-4 sm:px-4 sm:py-5 align-middle first:pl-4 sm:first:pl-6 last:pr-4 sm:last:pr-6",
+            "border-b border-border/60 px-2 py-3 sm:px-4 sm:py-5 align-middle first:pl-3 sm:first:pl-6 last:pr-3 sm:last:pr-6",
             "text-base sm:text-lg text-foreground/80 transition-colors",
             "group-data-[odd=true]/tr:bg-default-50/55",
             "group-data-[hover=true]/tr:bg-red-600/[0.04]",

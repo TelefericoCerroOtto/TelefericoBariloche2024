@@ -67,12 +67,8 @@ export function TableLeadCell({
       }
       placement="top-start"
     >
-      <div className="group flex w-full max-w-[14rem] sm:max-w-[18rem] items-start gap-2 sm:gap-3">
+      <div className="group flex w-full max-w-[14rem] sm:max-w-[18rem] items-start cursor-pointer">
         {content}
-
-        <span className="mt-1 inline-flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full border border-red-500/15 bg-red-500/5 text-red-700 transition-colors group-hover:border-red-500/30 group-hover:bg-red-500/10">
-          <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-        </span>
       </div>
     </Popover>
   );
