@@ -10,7 +10,7 @@ import { useCallback, type ReactNode } from "react";
 import { getPricingScheduleTicketsQuery } from "@/lib/helpers/pricing-schedules-queries";
 import { TableLeadCell, TablePill, TableValueCard } from "./tableCells";
 
-type ColumnKeys = "name" | "lifting_mean" | "price";
+type ColumnKeys = "name" | "price";
 type Columns = {
   key: ColumnKeys;
   label: string;
@@ -21,25 +21,22 @@ type Columns = {
 const columns: Record<Locales, Columns> = {
   "es-AR": [
     { key: "name", label: "Tipo de ticket", align: "start" },
-    { key: "lifting_mean", label: "Medio", align: "center" },
     {
       key: "price",
-      label: "Precio por persona",
+      label: "Precio",
       zeroLabel: "Sin cargo",
       align: "end",
     },
   ],
   en: [
     { key: "name", label: "Ticket", align: "start" },
-    { key: "lifting_mean", label: "Lifting mean", align: "center" },
     { key: "price", label: "Price", zeroLabel: "Free", align: "end" },
   ],
   pt: [
     { key: "name", label: "Tipo de bilhete", align: "start" },
-    { key: "lifting_mean", label: "Meio", align: "center" },
     {
       key: "price",
-      label: "Preço por pessoa",
+      label: "Preço",
       zeroLabel: "Grátis",
       align: "end",
     },
@@ -52,21 +49,21 @@ const dictionaries = {
     nameEyebrow: "Ticket",
     priceEyebrow: "Tarifa",
     priceHint: "valor por persona",
-    priceIncludedHint: "incluido en la experiencia",
+    priceIncludedHint: "incluido",
   },
   en: {
     ariaLabel: "Ticket pricing table",
     nameEyebrow: "Ticket",
     priceEyebrow: "Rate",
     priceHint: "price per person",
-    priceIncludedHint: "included with the experience",
+    priceIncludedHint: "included",
   },
   pt: {
     ariaLabel: "Tabela de preços dos bilhetes",
     nameEyebrow: "Bilhete",
     priceEyebrow: "Tarifa",
     priceHint: "valor por pessoa",
-    priceIncludedHint: "incluído na experiência",
+    priceIncludedHint: "incluído",
   },
 } as const;
 
@@ -84,21 +81,16 @@ export default function TicketsTable({ initialData }: Readonly<Props>) {
       switch (columnKey) {
         case "name":
           return (
-            <TableLeadCell eyebrow={t.nameEyebrow} title={ticket[columnKey]} />
-          );
-
-        case "lifting_mean":
-          return (
-            <TablePill tone="brand">
-              {LIFTING_MEANS_TRANSLATIONS[locale][ticket[columnKey]]}
-            </TablePill>
+            <TableLeadCell
+              title={ticket[columnKey]}
+              allowUnlimitedTitleWrap
+            />
           );
 
         case "price":
           if (ticket[columnKey] === 0)
             return (
               <TableValueCard
-                eyebrow={t.priceEyebrow}
                 value={
                   columns[locale].find((col) => col.key === "price")?.zeroLabel ??
                   "-"
@@ -109,11 +101,9 @@ export default function TicketsTable({ initialData }: Readonly<Props>) {
 
           return (
             <TableValueCard
-              eyebrow={t.priceEyebrow}
               value={formatPrice(ticket[columnKey], locale)}
               supportingText={t.priceHint}
               tone="brand"
-              valueClassName="text-primary"
             />
           );
 
