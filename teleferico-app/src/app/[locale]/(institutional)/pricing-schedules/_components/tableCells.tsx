@@ -33,17 +33,23 @@ export function TableLeadCell({
   eyebrow,
   description,
   popoverContent,
-}: TableLeadCellProps) {
+  allowUnlimitedTitleWrap = false,
+}: TableLeadCellProps & { allowUnlimitedTitleWrap?: boolean }) {
   const content = (
     <div className="min-w-0 flex-1">
-      <div className="flex max-w-[12rem] sm:max-w-[16rem] md:max-w-[22rem] flex-col gap-1.5">
+      <div className="flex max-w-[10rem] sm:max-w-[14rem] md:max-w-[20rem] flex-col gap-1.5">
         {eyebrow ? (
           <span className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/80">
             {eyebrow}
           </span>
         ) : null}
 
-        <span className="line-clamp-2 text-base font-semibold leading-snug text-foreground sm:text-lg md:text-xl">
+        <span
+          className={cn(
+            "text-base font-semibold leading-snug text-foreground sm:text-lg md:text-xl",
+            allowUnlimitedTitleWrap ? "" : "line-clamp-2",
+          )}
+        >
           {title}
         </span>
 

@@ -81,13 +81,9 @@ export default function TicketsTable({ initialData }: Readonly<Props>) {
       switch (columnKey) {
         case "name":
           return (
-            <TableLeadCell 
-              title={ticket[columnKey]} 
-              popoverContent={
-                <div className="space-y-1 sm:space-y-2">
-                  <p className="text-sm font-semibold text-foreground">{ticket[columnKey]}</p>
-                </div>
-              }
+            <TableLeadCell
+              title={ticket[columnKey]}
+              allowUnlimitedTitleWrap
             />
           );
 
