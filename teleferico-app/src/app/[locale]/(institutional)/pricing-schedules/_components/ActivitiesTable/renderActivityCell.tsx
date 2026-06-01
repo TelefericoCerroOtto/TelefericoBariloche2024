@@ -32,14 +32,10 @@ export const renderActivityCell = ({
           title={name}
           description={desc || undefined}
           popoverContent={
-            desc ? (
-              <div className="space-y-2">
-                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-primary/80">
-                  {t.eyebrow.activity}
-                </p>
-                <p>{desc}</p>
-              </div>
-            ) : undefined
+            <div className="space-y-1.5 sm:space-y-2">
+              <p className="text-sm font-semibold text-foreground">{name}</p>
+              {desc ? <p className="text-xs sm:text-sm text-foreground/80">{desc}</p> : null}
+            </div>
           }
         />
       );
@@ -51,11 +47,9 @@ export const renderActivityCell = ({
       if (price > 0) {
         return (
           <TableValueCard
-            eyebrow={t.eyebrow.price}
             value={formatPrice(price, locale)}
             supportingText={t.price.valueHint}
             tone="brand"
-            valueClassName="text-primary"
           />
         );
       }
@@ -63,7 +57,6 @@ export const renderActivityCell = ({
       if (price === 0) {
         return (
           <TableValueCard
-            eyebrow={t.eyebrow.price}
             value={t.price[0]}
             supportingText={t.price.zeroHint}
           />
@@ -73,7 +66,6 @@ export const renderActivityCell = ({
       if (price === -1) {
         return (
           <TableValueCard
-            eyebrow={t.eyebrow.price}
             value={t.price[-1]}
             supportingText={t.price.consultHint}
           />

@@ -84,7 +84,14 @@ export default function TicketsTable({ initialData }: Readonly<Props>) {
       switch (columnKey) {
         case "name":
           return (
-            <TableLeadCell title={ticket[columnKey]} />
+            <TableLeadCell 
+              title={ticket[columnKey]} 
+              popoverContent={
+                <div className="space-y-1 sm:space-y-2">
+                  <p className="text-sm font-semibold text-foreground">{ticket[columnKey]}</p>
+                </div>
+              }
+            />
           );
 
         case "lifting_mean":
@@ -98,7 +105,6 @@ export default function TicketsTable({ initialData }: Readonly<Props>) {
           if (ticket[columnKey] === 0)
             return (
               <TableValueCard
-                eyebrow={t.priceEyebrow}
                 value={
                   columns[locale].find((col) => col.key === "price")?.zeroLabel ??
                   "-"
@@ -109,11 +115,9 @@ export default function TicketsTable({ initialData }: Readonly<Props>) {
 
           return (
             <TableValueCard
-              eyebrow={t.priceEyebrow}
               value={formatPrice(ticket[columnKey], locale)}
               supportingText={t.priceHint}
               tone="brand"
-              valueClassName="text-primary"
             />
           );
 

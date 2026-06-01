@@ -19,7 +19,16 @@ export const renderBusCell = ({
       const station =
         bus.origin.station_translations?.[0].name || bus.origin.key || "-";
 
-      return <TableLeadCell title={station} />;
+      return (
+        <TableLeadCell 
+          title={station} 
+          popoverContent={
+            <div className="space-y-1 sm:space-y-2">
+              <p className="text-sm font-semibold text-foreground">{station}</p>
+            </div>
+          }
+        />
+      );
     }
 
     case "destination": {
@@ -28,17 +37,25 @@ export const renderBusCell = ({
         bus.destination.key ||
         "-";
 
-      return <TableLeadCell title={station} />;
+      return (
+        <TableLeadCell 
+          title={station} 
+          popoverContent={
+            <div className="space-y-1 sm:space-y-2">
+              <p className="text-sm font-semibold text-foreground">{station}</p>
+            </div>
+          }
+        />
+      );
     }
 
     case "depTime": {
       return (
         <TableValueCard
-          eyebrow={t.eyebrow.departure}
           value={strapiTimeToLocalizedTableTime(bus.depTime, locale)}
           supportingText={t.timeHint}
           tone="brand"
-          valueClassName="font-mono tabular-nums text-primary"
+          valueClassName="font-mono tabular-nums"
         />
       );
     }
@@ -46,7 +63,6 @@ export const renderBusCell = ({
     case "arrTime": {
       return (
         <TableValueCard
-          eyebrow={t.eyebrow.arrival}
           value={strapiTimeToLocalizedTableTime(bus.arrTime, locale)}
           supportingText={t.timeHint}
           valueClassName="font-mono tabular-nums"

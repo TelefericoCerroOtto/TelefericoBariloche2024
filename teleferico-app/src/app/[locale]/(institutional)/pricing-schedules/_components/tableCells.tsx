@@ -36,14 +36,14 @@ export function TableLeadCell({
 }: TableLeadCellProps) {
   const content = (
     <div className="min-w-0 flex-1">
-      <div className="flex max-w-[22rem] flex-col gap-1.5">
+      <div className="flex max-w-[12rem] sm:max-w-[16rem] flex-col gap-1.5">
         {eyebrow ? (
           <span className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/80">
             {eyebrow}
           </span>
         ) : null}
 
-        <span className="text-base font-semibold leading-snug text-foreground sm:text-lg md:text-xl">
+        <span className="line-clamp-2 text-base font-semibold leading-snug text-foreground sm:text-lg md:text-xl">
           {title}
         </span>
 
@@ -61,17 +61,17 @@ export function TableLeadCell({
   return (
     <Popover
       content={
-        <div className="max-w-md space-y-2 text-base leading-relaxed text-foreground">
+        <div className="max-w-xs sm:max-w-md space-y-2 text-sm sm:text-base leading-relaxed text-foreground">
           {popoverContent}
         </div>
       }
       placement="top-start"
     >
-      <div className="group flex w-full max-w-[24rem] items-start gap-3">
+      <div className="group flex w-full max-w-[14rem] sm:max-w-[18rem] items-start gap-2 sm:gap-3">
         {content}
 
-        <span className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-500/15 bg-red-500/5 text-red-700 transition-colors group-hover:border-red-500/30 group-hover:bg-red-500/10">
-          <Info className="h-4 w-4" />
+        <span className="mt-1 inline-flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full border border-red-500/15 bg-red-500/5 text-red-700 transition-colors group-hover:border-red-500/30 group-hover:bg-red-500/10">
+          <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </span>
       </div>
     </Popover>
@@ -124,7 +124,7 @@ export function TableInlineText({
 }
 
 interface TableValueCardProps {
-  eyebrow: string;
+  eyebrow?: string;
   value: ReactNode;
   supportingText?: string;
   tone?: Tone;
@@ -133,7 +133,6 @@ interface TableValueCardProps {
 }
 
 export function TableValueCard({
-  eyebrow,
   value,
   supportingText,
   tone = "neutral",
@@ -143,18 +142,14 @@ export function TableValueCard({
   return (
     <div
       className={cn(
-        "inline-flex min-w-[7.5rem] max-w-[13rem] flex-col rounded-2xl border px-3 py-2 sm:px-3.5 sm:py-2.5",
-        cardToneStyles[tone],
+        "inline-flex flex-col gap-0.5 sm:gap-1 py-1 sm:py-1.5",
         className,
       )}
     >
-      <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] sm:tracking-[0.26em] text-foreground/45">
-        {eyebrow}
-      </span>
-
       <span
         className={cn(
-          "mt-1 text-lg font-semibold leading-tight text-foreground sm:text-xl md:text-2xl",
+          "text-lg font-semibold leading-tight sm:text-xl md:text-2xl",
+          tone === "brand" ? "text-primary" : "text-foreground",
           valueClassName,
         )}
       >
@@ -162,7 +157,7 @@ export function TableValueCard({
       </span>
 
       {supportingText ? (
-        <span className="mt-1 text-xs leading-relaxed text-foreground/55 sm:mt-2 sm:text-sm md:text-base">
+        <span className="text-xs leading-relaxed text-foreground/55 sm:text-sm">
           {supportingText}
         </span>
       ) : null}
@@ -192,7 +187,7 @@ export function TablePreviewText({
       }
       placement="top-start"
     >
-      <div className="group flex max-w-[22rem] items-start gap-3">
+      <div className="group flex max-w-[14rem] sm:max-w-[22rem] items-start gap-3">
         <span className="line-clamp-2 text-sm leading-relaxed text-foreground/70 sm:text-base">
           {truncateString(text, 110)}
         </span>
