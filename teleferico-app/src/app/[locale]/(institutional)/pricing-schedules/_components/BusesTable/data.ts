@@ -7,17 +7,17 @@ export const columns: Record<
   { key: ColumnKeys; label: string; align?: "start" | "center" | "end" }[]
 > = {
   "es-AR": [
-    { key: "depTime", label: "Horario de salida", align: "center" },
+    { key: "depTime", label: "Salida", align: "center" },
     { key: "origin", label: "Estación de salida", align: "start" },
     { key: "destination", label: "Estación de llegada", align: "start" },
   ],
   en: [
-    { key: "depTime", label: "Departure time", align: "center" },
+    { key: "depTime", label: "Departure", align: "center" },
     { key: "origin", label: "Origin station", align: "start" },
     { key: "destination", label: "Destination station", align: "start" },
   ],
   pt: [
-    { key: "depTime", label: "Horário de saída", align: "center" },
+    { key: "depTime", label: "Saída", align: "center" },
     { key: "origin", label: "Estação de saída", align: "start" },
     { key: "destination", label: "Estação de chegada", align: "start" },
   ],
