@@ -22,11 +22,6 @@ export const renderBusCell = ({
       return (
         <TableLeadCell 
           title={station} 
-          popoverContent={
-            <div className="space-y-1 sm:space-y-2">
-              <p className="text-sm font-semibold text-foreground">{station}</p>
-            </div>
-          }
         />
       );
     }
@@ -40,11 +35,6 @@ export const renderBusCell = ({
       return (
         <TableLeadCell 
           title={station} 
-          popoverContent={
-            <div className="space-y-1 sm:space-y-2">
-              <p className="text-sm font-semibold text-foreground">{station}</p>
-            </div>
-          }
         />
       );
     }
