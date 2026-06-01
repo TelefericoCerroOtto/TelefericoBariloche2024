@@ -17,7 +17,7 @@ export type Columns = {
 export const columns: Record<Locales, Columns> = {
   "es-AR": [
     { key: "name", label: "Actividad", align: "start" },
-    { key: "price", label: "Precio por persona", align: "end" },
+    { key: "price", label: "Precio", align: "end" },
     {
       key: "minAge",
       label: "Edad mínima",
@@ -29,7 +29,7 @@ export const columns: Record<Locales, Columns> = {
   ],
   en: [
     { key: "name", label: "Activity", align: "start" },
-    { key: "price", label: "Price per person", align: "end" },
+    { key: "price", label: "Price", align: "end" },
     { key: "minAge", label: "Minimum age", align: "center" },
     { key: "season", label: "Season", align: "center" },
     { key: "status", label: "Status", align: "center" },
@@ -37,7 +37,7 @@ export const columns: Record<Locales, Columns> = {
   ],
   pt: [
     { key: "name", label: "Atividade", align: "start" },
-    { key: "price", label: "Preço por pessoa", align: "end" },
+    { key: "price", label: "Preço", align: "end" },
     {
       key: "minAge",
       label: "Idade mínima",

@@ -24,7 +24,7 @@ const columns: Record<Locales, Columns> = {
     { key: "lifting_mean", label: "Medio", align: "center" },
     {
       key: "price",
-      label: "Precio por persona",
+      label: "Precio",
       zeroLabel: "Sin cargo",
       align: "end",
     },
@@ -39,7 +39,7 @@ const columns: Record<Locales, Columns> = {
     { key: "lifting_mean", label: "Meio", align: "center" },
     {
       key: "price",
-      label: "Preço por pessoa",
+      label: "Preço",
       zeroLabel: "Grátis",
       align: "end",
     },
