@@ -82,7 +82,7 @@ export default async function PricingSchedulesPage({
   return (
     <>
       <StrapiComponentRenderer block={blocks[0]} locale={locale} />
-      <div className="flex w-full flex-col px-10 sm:px-20 lg:px-40">
+      <div className="flex w-full flex-col px-4 sm:px-10 md:px-20 lg:px-40">
         <section id={TABLE_SECTION_IDS.tickets} className="scroll-mt-32">
           <StrapiComponentRenderer block={blocks[1]} locale={locale} />
           <TicketsTable initialData={initialTicketsData} />

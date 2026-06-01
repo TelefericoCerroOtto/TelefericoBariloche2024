@@ -42,6 +42,7 @@ export const getPricingScheduleZonesQuery = (locale: Locales) => ({
 });
 
 export const getPricingScheduleBusTripsQuery = (locale: Locales) => ({
+  sort: ["depTime:asc", "id:asc"],
   filters: {
     isVisible: {
       $eq: true,

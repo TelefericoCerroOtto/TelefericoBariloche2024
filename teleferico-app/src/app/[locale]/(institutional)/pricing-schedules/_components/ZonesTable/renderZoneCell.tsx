@@ -30,18 +30,13 @@ export const renderZoneCell = ({
 
       return (
         <TableLeadCell
-          eyebrow={t.eyebrow.zone}
           title={name}
           description={desc || undefined}
           popoverContent={
-            desc ? (
-              <div className="space-y-2">
-                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-primary/80">
-                  {t.eyebrow.zone}
-                </p>
-                <p>{desc}</p>
-              </div>
-            ) : undefined
+            <div className="space-y-1.5 sm:space-y-2">
+              <p className="text-sm font-semibold text-foreground">{name}</p>
+              {desc ? <p className="text-xs sm:text-sm text-foreground/80">{desc}</p> : null}
+            </div>
           }
         />
       );
@@ -50,10 +45,9 @@ export const renderZoneCell = ({
     case "openTime": {
       return (
         <TableValueCard
-          eyebrow={t.eyebrow.open}
           value={strapiTimeToLocalizedTableTime(zone[columnKey], locale)}
           tone="brand"
-          valueClassName="font-mono tabular-nums text-primary"
+          valueClassName="font-mono tabular-nums"
         />
       );
     }
@@ -61,7 +55,6 @@ export const renderZoneCell = ({
     case "closeTime": {
       return (
         <TableValueCard
-          eyebrow={t.eyebrow.close}
           value={strapiTimeToLocalizedTableTime(zone[columnKey], locale)}
           valueClassName="font-mono tabular-nums"
         />
