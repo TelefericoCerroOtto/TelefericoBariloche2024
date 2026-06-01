@@ -43,12 +43,12 @@ export function TableLeadCell({
           </span>
         ) : null}
 
-        <span className="text-lg font-semibold leading-snug text-foreground sm:text-xl">
+        <span className="text-base font-semibold leading-snug text-foreground sm:text-lg md:text-xl">
           {title}
         </span>
 
         {description ? (
-          <span className="line-clamp-2 text-base leading-relaxed text-foreground/60">
+          <span className="line-clamp-2 text-sm leading-relaxed text-foreground/60 sm:text-base">
             {truncateString(description, 110)}
           </span>
         ) : null}
@@ -92,7 +92,7 @@ export function TablePill({
   return (
     <span
       className={cn(
-        "inline-flex w-fit items-center gap-2 rounded-full border px-3.5 py-2 text-base font-semibold",
+        "inline-flex w-fit items-center gap-1.5 sm:gap-2 rounded-full border px-3 py-1.5 sm:px-3.5 sm:py-2 text-sm sm:text-base font-semibold",
         pillToneStyles[tone],
         className,
       )}
@@ -114,7 +114,7 @@ export function TableInlineText({
   return (
     <span
       className={cn(
-        "inline-flex items-center text-base font-medium leading-relaxed text-foreground/70",
+        "inline-flex items-center text-sm sm:text-base font-medium leading-relaxed text-foreground/70",
         className,
       )}
     >
@@ -143,18 +143,18 @@ export function TableValueCard({
   return (
     <div
       className={cn(
-        "inline-flex min-w-[8.75rem] max-w-[13rem] flex-col rounded-2xl border px-3.5 py-2.5",
+        "inline-flex min-w-[7.5rem] max-w-[13rem] flex-col rounded-2xl border px-3 py-2 sm:px-3.5 sm:py-2.5",
         cardToneStyles[tone],
         className,
       )}
     >
-      <span className="text-xs font-semibold uppercase tracking-[0.26em] text-foreground/45">
+      <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] sm:tracking-[0.26em] text-foreground/45">
         {eyebrow}
       </span>
 
       <span
         className={cn(
-          "mt-1 text-xl font-semibold leading-tight text-foreground sm:text-2xl",
+          "mt-1 text-lg font-semibold leading-tight text-foreground sm:text-xl md:text-2xl",
           valueClassName,
         )}
       >
@@ -162,7 +162,7 @@ export function TableValueCard({
       </span>
 
       {supportingText ? (
-        <span className="mt-2 text-sm leading-relaxed text-foreground/55 sm:text-base">
+        <span className="mt-1 text-xs leading-relaxed text-foreground/55 sm:mt-2 sm:text-sm md:text-base">
           {supportingText}
         </span>
       ) : null}
@@ -193,7 +193,7 @@ export function TablePreviewText({
       placement="top-start"
     >
       <div className="group flex max-w-[22rem] items-start gap-3">
-        <span className="line-clamp-2 text-base leading-relaxed text-foreground/70">
+        <span className="line-clamp-2 text-sm leading-relaxed text-foreground/70 sm:text-base">
           {truncateString(text, 110)}
         </span>
 
