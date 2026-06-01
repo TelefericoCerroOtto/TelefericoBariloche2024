@@ -10,7 +10,7 @@ import { useCallback, type ReactNode } from "react";
 import { getPricingScheduleTicketsQuery } from "@/lib/helpers/pricing-schedules-queries";
 import { TableLeadCell, TablePill, TableValueCard } from "./tableCells";
 
-type ColumnKeys = "name" | "lifting_mean" | "price";
+type ColumnKeys = "name" | "price";
 type Columns = {
   key: ColumnKeys;
   label: string;
@@ -21,7 +21,6 @@ type Columns = {
 const columns: Record<Locales, Columns> = {
   "es-AR": [
     { key: "name", label: "Tipo de ticket", align: "start" },
-    { key: "lifting_mean", label: "Medio", align: "center" },
     {
       key: "price",
       label: "Precio",
@@ -31,12 +30,10 @@ const columns: Record<Locales, Columns> = {
   ],
   en: [
     { key: "name", label: "Ticket", align: "start" },
-    { key: "lifting_mean", label: "Lifting mean", align: "center" },
     { key: "price", label: "Price", zeroLabel: "Free", align: "end" },
   ],
   pt: [
     { key: "name", label: "Tipo de bilhete", align: "start" },
-    { key: "lifting_mean", label: "Meio", align: "center" },
     {
       key: "price",
       label: "Preço",
@@ -92,13 +89,6 @@ export default function TicketsTable({ initialData }: Readonly<Props>) {
                 </div>
               }
             />
-          );
-
-        case "lifting_mean":
-          return (
-            <TablePill tone="brand">
-              {LIFTING_MEANS_TRANSLATIONS[locale][ticket[columnKey]]}
-            </TablePill>
           );
 
         case "price":
