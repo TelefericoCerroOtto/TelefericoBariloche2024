@@ -148,3 +148,13 @@ Whenever code, flows, architecture, contracts or configuration change in a way t
 - **Environment variables**: Every time an environment variable is added or modified, it MUST be documented in the `.env.example` file of its respective package accompanied by a brief comment explaining its purpose.
 
 Do not treat documentation as a follow-up task; outdated docs actively mislead agents and humans.
+
+## Pull Request Validation Loop
+
+When an agent is instructed to create or update a Pull Request, it MUST NOT consider the task finished just by opening it. Because this repository enforces strict semantic checks via GitHub Actions (`backlog-governance.yml`), the agent MUST proactively ensure the PR passes CI:
+
+1. After creating/updating the PR, immediately run `gh pr checks --watch`.
+2. If the checks pass, the task is complete.
+3. If the checks fail (especially `pr-governance`), the agent MUST fetch the failed run logs using the GitHub CLI.
+4. Analyze the logs against `docs/CONVENTIONS.md` to find the exact semantic violation (e.g., missing issue linkage, wrong title format, wrong PR type).
+5. Fix the PR using `gh pr edit` and repeat the watch process until the checks pass.

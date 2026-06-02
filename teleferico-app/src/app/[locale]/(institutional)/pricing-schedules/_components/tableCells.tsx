@@ -33,22 +33,28 @@ export function TableLeadCell({
   eyebrow,
   description,
   popoverContent,
-}: TableLeadCellProps) {
+  allowUnlimitedTitleWrap = false,
+}: TableLeadCellProps & { allowUnlimitedTitleWrap?: boolean }) {
   const content = (
     <div className="min-w-0 flex-1">
-      <div className="flex max-w-[22rem] flex-col gap-1.5">
+      <div className="flex max-w-[10rem] sm:max-w-[14rem] md:max-w-[20rem] flex-col gap-1.5">
         {eyebrow ? (
           <span className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/80">
             {eyebrow}
           </span>
         ) : null}
 
-        <span className="text-lg font-semibold leading-snug text-foreground sm:text-xl">
+        <span
+          className={cn(
+            "text-base font-semibold leading-snug text-foreground sm:text-lg md:text-xl",
+            allowUnlimitedTitleWrap ? "" : "line-clamp-2",
+          )}
+        >
           {title}
         </span>
 
         {description ? (
-          <span className="line-clamp-2 text-base leading-relaxed text-foreground/60">
+          <span className="line-clamp-2 text-sm leading-relaxed text-foreground/60 sm:text-base md:text-lg">
             {truncateString(description, 110)}
           </span>
         ) : null}
@@ -61,18 +67,14 @@ export function TableLeadCell({
   return (
     <Popover
       content={
-        <div className="max-w-md space-y-2 text-base leading-relaxed text-foreground">
+        <div className="max-w-xs sm:max-w-md space-y-2 text-sm sm:text-base leading-relaxed text-foreground">
           {popoverContent}
         </div>
       }
       placement="top-start"
     >
-      <div className="group flex w-full max-w-[24rem] items-start gap-3">
+      <div className="group flex w-full max-w-[14rem] sm:max-w-[18rem] items-start cursor-pointer">
         {content}
-
-        <span className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-500/15 bg-red-500/5 text-red-700 transition-colors group-hover:border-red-500/30 group-hover:bg-red-500/10">
-          <Info className="h-4 w-4" />
-        </span>
       </div>
     </Popover>
   );
@@ -92,7 +94,7 @@ export function TablePill({
   return (
     <span
       className={cn(
-        "inline-flex w-fit items-center gap-2 rounded-full border px-3.5 py-2 text-base font-semibold",
+        "inline-flex w-fit items-center gap-1.5 sm:gap-2 rounded-full border px-3 py-1.5 sm:px-3.5 sm:py-2 text-sm sm:text-base font-semibold",
         pillToneStyles[tone],
         className,
       )}
@@ -114,7 +116,7 @@ export function TableInlineText({
   return (
     <span
       className={cn(
-        "inline-flex items-center text-base font-medium leading-relaxed text-foreground/70",
+        "inline-flex items-center text-sm sm:text-base font-medium leading-relaxed text-foreground/70",
         className,
       )}
     >
@@ -124,7 +126,7 @@ export function TableInlineText({
 }
 
 interface TableValueCardProps {
-  eyebrow: string;
+  eyebrow?: string;
   value: ReactNode;
   supportingText?: string;
   tone?: Tone;
@@ -133,7 +135,6 @@ interface TableValueCardProps {
 }
 
 export function TableValueCard({
-  eyebrow,
   value,
   supportingText,
   tone = "neutral",
@@ -143,26 +144,22 @@ export function TableValueCard({
   return (
     <div
       className={cn(
-        "inline-flex min-w-[8.75rem] max-w-[13rem] flex-col rounded-2xl border px-3.5 py-2.5",
-        cardToneStyles[tone],
+        "inline-flex flex-col gap-0.5 sm:gap-1 py-1 sm:py-1.5",
         className,
       )}
     >
-      <span className="text-xs font-semibold uppercase tracking-[0.26em] text-foreground/45">
-        {eyebrow}
-      </span>
-
-      <span
-        className={cn(
-          "mt-1 text-xl font-semibold leading-tight text-foreground sm:text-2xl",
-          valueClassName,
-        )}
-      >
+        <span
+          className={cn(
+            "text-lg font-semibold leading-tight sm:text-xl md:text-2xl",
+            tone === "brand" ? "text-primary" : "text-foreground",
+            valueClassName,
+          )}
+        >
         {value}
       </span>
 
       {supportingText ? (
-        <span className="mt-2 text-sm leading-relaxed text-foreground/55 sm:text-base">
+        <span className="text-xs leading-relaxed text-foreground/55 sm:text-sm md:text-base">
           {supportingText}
         </span>
       ) : null}
@@ -192,8 +189,8 @@ export function TablePreviewText({
       }
       placement="top-start"
     >
-      <div className="group flex max-w-[22rem] items-start gap-3">
-        <span className="line-clamp-2 text-base leading-relaxed text-foreground/70">
+      <div className="group flex max-w-[14rem] sm:max-w-[22rem] items-start gap-3">
+        <span className="line-clamp-2 text-sm leading-relaxed text-foreground/70 sm:text-base">
           {truncateString(text, 110)}
         </span>
 
