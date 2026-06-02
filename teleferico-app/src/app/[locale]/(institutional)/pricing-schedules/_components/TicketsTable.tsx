@@ -3,7 +3,6 @@
 import { DataTable } from "@/components";
 import { useLocale, useProxy } from "@/hooks";
 import { formatPrice } from "@/lib/adapters";
-import { LIFTING_MEANS_TRANSLATIONS } from "@/lib/constants/enum-fields-i18n.const";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import type { GetTicketsResponse, Locales, Ticket } from "@/types";
 import { useCallback, type ReactNode } from "react";
