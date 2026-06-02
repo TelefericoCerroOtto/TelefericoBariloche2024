@@ -13,14 +13,6 @@ const pillToneStyles: Record<Tone, string> = {
   danger: "border-danger/20 bg-danger/10 text-danger",
 };
 
-const cardToneStyles: Record<Tone, string> = {
-  brand:
-    "border-red-500/15 bg-gradient-to-br from-red-500/10 via-white to-white text-foreground shadow-sm shadow-red-900/5",
-  neutral: "border-border/70 bg-default-50/85 text-foreground",
-  success: "border-success/20 bg-success/10 text-success",
-  danger: "border-danger/20 bg-danger/10 text-danger",
-};
-
 interface TableLeadCellProps {
   title: string;
   eyebrow?: string;
