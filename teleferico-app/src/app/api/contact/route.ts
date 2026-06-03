@@ -190,7 +190,8 @@ async function contactHandler(
     const rawMessage = [
       `From: ${process.env.GMAIL_SENDER}`,
       `To: ${process.env.GMAIL_RECEIVER}`,
-      "Subject: Nuevo mensaje desde el formulario de contacto",
+      `Reply-To: ${safeName} <${safeEmail}>`,
+      `Subject: FORMULARIO DE CONTACTO: ${safeName}`,
       "Content-Type: text/plain; charset=utf-8",
       "",
       `Nombre: ${safeName}`,
