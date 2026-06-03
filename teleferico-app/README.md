@@ -62,15 +62,57 @@ Middleware/i18n:
 
 - The `middleware.ts` already excludes routes under `/api` in its `matcher`, so `/api/oauth/*` will not be affected by locale redirects.
 
-How to execute the authorization once:
+### Step-by-step Execution Guide
 
-1. Start the app (`pnpm run dev`).
-2. Open: `curl -i -H "Authorization: Bearer $INIT_TOKEN" http://localhost:3000/api/oauth/google/init`
-3. Complete consent in Google.
-4. In the redirect to `/api/oauth/google/callback` the `refresh_token` is returned (if it's the first time or with `prompt=consent`).
-5. Copy `refresh_token` and `access_token`:
-   - For local development paste the values in `.env.local`.
+**1. Initial Configuration**
+Before starting, ensure your `.env.local` has the OAuth credentials from GCP and the internal security secrets:
 
+```env
+# OAuth credentials from GCP
+GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="your-client-secret"
+OAUTH_REDIRECT_URI="http://localhost:3000/api/oauth/google/callback"
+
+# Internal flow security
+CSRF_STATE_SECRET="a-long-random-string-invented-by-you"
+INIT_TOKEN="a-temporary-token-invented-by-you-e.g.-admin123"
+
+# Emails
+GMAIL_SENDER="contact@yourdomain.com"
+GMAIL_RECEIVER="contact@yourdomain.com"
+```
+
+*Note on `INIT_TOKEN`: This is a temporary password you invent to prevent external users from launching the auth flow.*
+
+**2. Execute the Flow**
+With the app running locally (`pnpm run dev`), open your browser and navigate to:
+
+`http://localhost:3000/api/oauth/google/init?token=a-temporary-token-invented-by-you-e.g.-admin123`
+*(Ensure the `?token=` value matches your `INIT_TOKEN` exactly).*
+
+**3. Grant Permissions**
+Log in with the exact Gmail account declared in `GMAIL_SENDER` and accept the requested permissions.
+Afterward, Google will redirect you to `/api/oauth/google/callback` and you will see a JSON response in your browser:
+
+```json
+{
+  "message": "Success. Copy refresh_token...",
+  "refresh_token": "1//0xxxxxxxxx...",
+  "access_token": "ya29.a0Axxxxxxx...",
+  "expiry_date": 1690000000000
+}
+```
+
+**4. Save the Tokens**
+Copy those values into your `.env.local` (and provide them to Cloud Build/Production envs):
+
+```env
+OAUTH_REFRESH_TOKEN="1//0xxxxxxxxx..."
+OAUTH_ACCESS_TOKEN="ya29.a0Axxxxxxx..."
+OAUTH_TOKEN_EXPIRY_DATE="1690000000000"
+```
+
+**Gotcha: Missing Refresh Token**
 If Google does not return `refresh_token`:
 
 - Make sure to use `prompt=consent` and that there is no previous grant. Revoke access in the Google account and retry.
