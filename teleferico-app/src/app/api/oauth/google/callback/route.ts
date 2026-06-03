@@ -32,18 +32,14 @@ export async function GET(req: NextRequest) {
     const oauthClient = createOAuthSetupClient();
     const { tokens } = await oauthClient.getToken(code);
     const rt = tokens.refresh_token; // may be undefined if already granted
-    const at = tokens.access_token;
-    const ed = tokens.expiry_date;
 
     // Clear state cookie after use
     const res = NextResponse.json(
       {
         message: rt
-          ? "Success. Copy refresh_token, access_token and expiry_date below and store it in env as OAUTH_REFRESH_TOKEN, OAUTH_ACCESS_TOKEN and OAUTH_TOKEN_EXPIRY_DATE respectively. Do not commit these values."
+          ? "Success. Copy refresh_token below and store it in env as OAUTH_REFRESH_TOKEN. Do not commit this value."
           : "No refresh_token returned. Re-run with prompt=consent and ensure the grant wasn't previously approved. You may need to revoke access for this client in your Google Account and try again.",
         refresh_token: rt ?? null,
-        access_token: at ?? null,
-        expiry_date: ed ?? null,
       },
       { status: 200 },
     );
