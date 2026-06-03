@@ -165,6 +165,17 @@ When promoting to `main`, the PR body **MUST** declare its closure intent to pas
 When referencing an issue via `#N` (e.g., `Refs #N`, `Closes #N`), you **MUST use the numeric GitHub Issue ID** (for example, `Refs #71`). 
 Do **NOT** use the Notion Work ID slug (for example, do not use `Refs #tb-71`), because GitHub's autolinking parser only recognizes pure digits. If the issue is not yet created in GitHub, either create it first to get the ID, or use a plain text reference for the Notion ID without the `#` symbol.
 
+#### Placement of `Refs #N` in implementation PRs
+
+In implementation PRs, the `Refs #N` token **MUST appear at the end of the PR body**, under a dedicated `## Related Issues` section. This keeps the narrative (description, context, changes) clean and groups traceability metadata together — consistent with the git trailer convention.
+
+```
+## Related Issues
+Refs #N
+```
+
+Do **NOT** place `Refs #N` at the top of the body or inline within prose sections. The pr-governance automation scans the full body, so placement does not affect parsing — but the section makes the reference immediately discoverable during review and in the PR history.
+
 #### Why
 
 - The **implementation PR** is the canonical review surface for the code change itself.
@@ -197,6 +208,9 @@ Do **NOT** use the Notion Work ID slug (for example, do not use `Refs #tb-71`), 
 
 ## Breaking Changes
 - [ ] (explain impact)
+
+## Related Issues
+Refs #N
 ```
 
 #### Promotion PR to staging
