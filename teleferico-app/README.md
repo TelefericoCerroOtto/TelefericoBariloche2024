@@ -36,7 +36,7 @@ Flow:
 1. An admin executes `/api/oauth/google/init` with the header `Authorization: Bearer <INIT_TOKEN>` or the query parameter `?token=<INIT_TOKEN>`.
 2. The consent screen opens with `access_type=offline` and `prompt=consent` to obtain a `code`.
 3. Google redirects to `/api/oauth/google/callback?code=...&state=...`.
-4. If successful, the JSON response shows the values `refresh_token`, `access_token`, and `expiry_date`. Copy them to the environment variables `OAUTH_REFRESH_TOKEN`, `OAUTH_ACCESS_TOKEN`, and `OAUTH_TOKEN_EXPIRY_DATE` respectively (do not commit).
+4. If successful, the JSON response shows the `refresh_token`. Copy it to the environment variable `OAUTH_REFRESH_TOKEN` (do not commit).
 
 <img src="../public/gmail-oauth-flow.svg"/>
 
@@ -68,8 +68,8 @@ How to execute the authorization once:
 2. Open: `curl -i -H "Authorization: Bearer $INIT_TOKEN" http://localhost:3000/api/oauth/google/init`
 3. Complete consent in Google.
 4. In the redirect to `/api/oauth/google/callback` the `refresh_token` is returned (if it's the first time or with `prompt=consent`).
-5. Copy `refresh_token` and `access_token`:
-   - For local development paste the values in `.env.local`.
+5. Copy `refresh_token`:
+   - For local development paste the value in `.env.local`.
 
 If Google does not return `refresh_token`:
 
