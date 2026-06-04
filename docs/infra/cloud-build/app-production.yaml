@@ -169,8 +169,8 @@ substitutions:
   _POSTULATION_EMAIL_LIMIT_ENABLED: "true"
   _POSTULATION_EMAIL_LIMIT_MAX: "2"
   _POSTULATION_EMAIL_LIMIT_WINDOW_MS: "2592000000"
-  _GMAIL_SENDER: contacto@telefericobariloche.com.ar
-  _GMAIL_RECEIVER: contacto@telefericobariloche.com.ar
+  _GMAIL_SENDER: info@telefericobariloche.com.ar
+  _GMAIL_RECEIVER: info@telefericobariloche.com.ar
   _NODE_ENV: production
 tags:
   - gcp-cloud-build-deploy-cloud-run
