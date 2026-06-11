@@ -98,6 +98,7 @@ export default function Single(props: OneImageProps) {
           ) : null}
         </div>
       </div>
+      </div>
     </section>
   );
 }

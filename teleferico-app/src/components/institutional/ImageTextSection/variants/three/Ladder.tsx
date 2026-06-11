@@ -123,6 +123,7 @@ export default function Ladder(props: ThreeImagesProps) {
           ) : null}
         </div>
       </div>
+      </div>
     </section>
   );
 }

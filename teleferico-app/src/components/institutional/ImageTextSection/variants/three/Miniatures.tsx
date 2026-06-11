@@ -132,6 +132,7 @@ export default function Miniatures(props: ThreeImagesProps) {
           ) : null}
         </div>
       </div>
+      </div>
     </section>
   );
 }

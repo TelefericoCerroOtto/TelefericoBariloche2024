@@ -109,6 +109,7 @@ export default function Double(props: TwoImagesProps) {
           ) : null}
         </div>
       </div>
+      </div>
     </section>
   );
 }

@@ -122,6 +122,7 @@ export default function Horizontal(props: ThreeImagesProps) {
           </CustomLink>
         ) : null}
       </div>
+      </div>
     </section>
   );
 }
