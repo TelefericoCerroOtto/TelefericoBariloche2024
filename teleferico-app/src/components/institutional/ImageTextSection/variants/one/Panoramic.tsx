@@ -36,7 +36,7 @@ export default function Panoramic(props: OneImageProps) {
 
   return (
     <section className={`my-14 w-full ${bgStyles[bgColor]}`}>
-      <div className="relative h-[550px] w-full overflow-hidden shadow-2xl shadow-black/25 ring-1 ring-red-500/15">
+      <div className="relative aspect-[2/3] w-full overflow-hidden shadow-2xl shadow-black/25 ring-1 ring-red-500/15 md:aspect-[21/9]">
         {/* Imagen */}
         <div className="absolute inset-0">
           {/* Mobile (<md) */}
@@ -51,18 +51,18 @@ export default function Panoramic(props: OneImageProps) {
         </div>
 
         {/* Oscurecer fondo */}
-        <div aria-hidden="true" className="absolute inset-0 bg-black/35" />
+        <div aria-hidden="true" className="absolute inset-0 bg-black/25" />
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/30 to-black/15"
+          className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/20 to-transparent"
         />
 
         {/* Contenido centrado */}
         <div className="relative z-10 flex h-full w-full items-center justify-center px-6 py-10 sm:px-10 lg:px-16">
-          <div className="mx-auto flex w-full max-w-4xl flex-col items-center text-center">
+          <div className="mx-auto flex w-full max-w-6xl flex-col items-center text-center">
             {epigraph ? (
               <p
-                className={`mb-2 inline-flex items-center rounded-full bg-black/25 px-3 py-1 font-semibold uppercase tracking-[0.28em] text-red-200 shadow-sm backdrop-blur-sm ${typography.meta.eyebrow} max-sm:text-xs`}
+                className={`mb-6 sm:mb-10 inline-flex items-center rounded-full bg-black/25 px-3 py-1 font-semibold uppercase tracking-[0.28em] text-red-200 shadow-sm backdrop-blur-sm ${typography.meta.eyebrow} max-sm:text-xs`}
               >
                 {epigraph}
               </p>
@@ -81,12 +81,12 @@ export default function Panoramic(props: OneImageProps) {
             ) : null}
 
             {description ? (
-              <div className="mt-3 w-full sm:mt-4">
+              <div className="mt-8 w-full sm:mt-12">
                 <BlockRendererClient
                   content={description as BlocksContent}
                   prosePreset="feature"
                   className={[
-                    "prose-invert text-white",
+                    "prose-invert text-white max-w-none",
                     "text-center",
                     "prose-headings:text-center prose-p:text-center prose-li:text-center",
                     "prose-headings:leading-tight prose-p:leading-relaxed",
@@ -98,7 +98,7 @@ export default function Panoramic(props: OneImageProps) {
             ) : null}
 
             {link ? (
-              <div className="mt-4 flex justify-center sm:mt-6">
+              <div className="mt-10 flex justify-center sm:mt-14">
                 <Button
                   as={CustomLink}
                   href={link.href}
