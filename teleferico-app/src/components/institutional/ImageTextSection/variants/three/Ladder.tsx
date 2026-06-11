@@ -38,7 +38,7 @@ export default function Ladder(props: ThreeImagesProps) {
     <div
       className={`flex flex-col gap-12 px-6 md:px-12 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center`}
     >
-      <div className="h-[360px] w-full overflow-x-scroll sm:h-[700px] lg:w-1/2">
+      <div className="aspect-[4/5] w-full overflow-x-scroll lg:w-1/2">
         <div className="relative h-full w-full min-w-[420px]">
           <div className="group absolute right-0 z-20 h-3/4 w-2/5 min-w-[200px] overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15">
             <div className="relative h-full w-full lg:hidden">

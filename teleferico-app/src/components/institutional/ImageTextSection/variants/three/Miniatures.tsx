@@ -45,7 +45,7 @@ export default function Miniatures(props: ThreeImagesProps) {
       } ${bgStyles[bgColor]} my-9`}
     >
       {/* IMAGES */}
-      <div className="h-[320px] w-full min-w-0 overflow-x-hidden overflow-y-visible sm:h-[750px] lg:w-1/2">
+      <div className="aspect-[4/5] w-full min-w-0 overflow-x-hidden overflow-y-visible lg:w-1/2">
         <div className="relative mx-auto h-full w-full min-w-0 max-w-[420px] sm:min-w-[380px] sm:max-w-none">
           <div className="group absolute left-1/2 top-1/2 z-0 aspect-square h-4/5 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15">
             <div className="relative h-full w-full lg:hidden">

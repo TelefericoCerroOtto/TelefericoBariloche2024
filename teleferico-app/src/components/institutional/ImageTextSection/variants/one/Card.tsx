@@ -40,7 +40,7 @@ export default function Card(props: OneImageProps) {
       <div className="mx-auto w-full max-w-[1536px] px-6 md:px-12">
         <article className="overflow-hidden rounded-3xl bg-background shadow-xl shadow-black/10 ring-1 ring-red-500/15">
           {/* Media */}
-          <div className="relative h-[280px] w-full overflow-hidden md:h-[420px]">
+          <div className="relative aspect-[4/3] w-full overflow-hidden md:aspect-[24/7]">
             {/* Mobile (<md) */}
             <div className="relative h-full w-full md:hidden">
               <CustomImage image={mobile0} sizes={sizesMobile} quality={72} />

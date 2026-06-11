@@ -36,7 +36,7 @@ export default function Panoramic(props: OneImageProps) {
 
   return (
     <section className={`my-14 w-full ${bgStyles[bgColor]}`}>
-      <div className="relative h-[550px] w-full overflow-hidden shadow-2xl shadow-black/25 ring-1 ring-red-500/15">
+      <div className="relative aspect-[2/3] w-full overflow-hidden shadow-2xl shadow-black/25 ring-1 ring-red-500/15 md:aspect-[21/9]">
         {/* Imagen */}
         <div className="absolute inset-0">
           {/* Mobile (<md) */}
