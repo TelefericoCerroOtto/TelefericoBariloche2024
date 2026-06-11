@@ -47,7 +47,7 @@ export default function BlockRendererClient({
 
   return (
     <article
-      className={`prose max-w-none text-black ${proseSizeClassMap[resolvedProseSize]} ${className ?? ""}`}
+      className={`prose max-w-none text-black [&_li::marker]:text-black ${proseSizeClassMap[resolvedProseSize]} ${className ?? ""}`}
     >
       <BlocksRenderer
         content={content as BlocksContent}

@@ -97,6 +97,7 @@ export default async function FeaturedNew(props: Props) {
                   alt={cover.alternativeText || "Featured news cover image"}
                   fill
                   priority
+                  quality={90}
                   sizes="(min-width: 1366px) 45vw, (min-width: 820px) 60vw, 100vw"
                   className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105 motion-reduce:scale-100 motion-reduce:duration-0"
                 />

@@ -39,13 +39,14 @@ export default function Miniatures(props: ThreeImagesProps) {
   const sizesThumbDesktop = "(max-width: 1536px) 250px, 280px";
 
   return (
-    <div
-      className={`flex w-full max-w-[1536px] flex-col items-center justify-center gap-8 px-4 sm:px-6 md:gap-12 md:px-12 ${
-        isInverted ? "lg:flex-row-reverse" : "lg:flex-row"
-      } ${bgStyles[bgColor]} my-9`}
-    >
+    <section className={`my-9 w-full ${bgStyles[bgColor]}`}>
+      <div
+        className={`mx-auto flex w-full max-w-[1536px] flex-col items-center justify-center gap-8 px-4 sm:px-6 md:gap-12 md:px-12 ${
+          isInverted ? "lg:flex-row-reverse" : "lg:flex-row"
+        }`}
+      >
       {/* IMAGES */}
-      <div className="h-[320px] w-full min-w-0 overflow-x-hidden overflow-y-visible sm:h-[750px] lg:w-1/2">
+      <div className="aspect-[4/5] w-full min-w-0 overflow-x-hidden overflow-y-visible lg:w-1/2">
         <div className="relative mx-auto h-full w-full min-w-0 max-w-[420px] sm:min-w-[380px] sm:max-w-none">
           <div className="group absolute left-1/2 top-1/2 z-0 aspect-square h-4/5 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15">
             <div className="relative h-full w-full lg:hidden">
@@ -131,6 +132,7 @@ export default function Miniatures(props: ThreeImagesProps) {
           ) : null}
         </div>
       </div>
-    </div>
+      </div>
+    </section>
   );
 }

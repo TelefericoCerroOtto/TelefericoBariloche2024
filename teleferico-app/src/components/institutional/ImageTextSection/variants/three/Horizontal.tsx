@@ -37,10 +37,13 @@ export default function Horizontal(props: ThreeImagesProps) {
     "(max-width: 1024px) 250px, (max-width: 1536px) calc((100vw - 7rem - 2rem) / 3), 480px";
 
   return (
-    <div
-      className={`flex ${isInverted ? "flex-col" : "flex-col-reverse"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center gap-10 px-6 md:px-14`}
-    >
-      <div className="h-[300px] w-full overflow-x-scroll md:h-[430px]">
+    <section className={`my-9 w-full ${bgStyles[bgColor]}`}>
+      <div
+        className={`mx-auto flex w-full max-w-[1536px] items-center justify-center gap-10 px-6 md:px-14 ${
+          isInverted ? "flex-col" : "flex-col-reverse"
+        }`}
+      >
+        <div className="aspect-[24/7] w-full overflow-x-scroll max-md:aspect-[4/3]">
         <div className="flex h-full w-full min-w-[355px] gap-4">
           <div className="group relative h-full min-w-[250px] flex-grow overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15">
             {/* Mobile (<md) */}
@@ -119,6 +122,7 @@ export default function Horizontal(props: ThreeImagesProps) {
           </CustomLink>
         ) : null}
       </div>
-    </div>
+      </div>
+    </section>
   );
 }
