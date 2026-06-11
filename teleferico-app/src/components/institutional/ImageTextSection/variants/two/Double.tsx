@@ -41,10 +41,13 @@ export default function Double(props: TwoImagesProps) {
     "(max-width: 1536px) calc((100vw - 9rem) * 0.3), 460px";
 
   return (
-    <div
-      className={`flex flex-col gap-12 px-6 md:px-12 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} ${bgStyles[bgColor]} my-9 w-full max-w-[1536px] items-center justify-center`}
-    >
-      <div className="relative aspect-square w-full overflow-x-scroll lg:w-1/2">
+    <section className={`my-9 w-full ${bgStyles[bgColor]}`}>
+      <div
+        className={`mx-auto flex w-full max-w-[1536px] flex-col items-center justify-center gap-12 px-6 md:px-12 ${
+          isInverted ? "lg:flex-row-reverse" : "lg:flex-row"
+        }`}
+      >
+        <div className="relative aspect-square w-full overflow-x-scroll lg:w-1/2">
         <div className="group absolute right-0 top-0 z-10 aspect-square w-3/5 min-w-[160px] max-w-[270px] overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15 sm:max-w-[500px] lg:max-w-full">
           <div className="relative h-full w-full lg:hidden">
             <CustomImage image={mobile0} sizes={sizesSquareMobile} />
@@ -106,6 +109,6 @@ export default function Double(props: TwoImagesProps) {
           ) : null}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

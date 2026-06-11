@@ -39,11 +39,12 @@ export default function Miniatures(props: ThreeImagesProps) {
   const sizesThumbDesktop = "(max-width: 1536px) 250px, 280px";
 
   return (
-    <div
-      className={`flex w-full max-w-[1536px] flex-col items-center justify-center gap-8 px-4 sm:px-6 md:gap-12 md:px-12 ${
-        isInverted ? "lg:flex-row-reverse" : "lg:flex-row"
-      } ${bgStyles[bgColor]} my-9`}
-    >
+    <section className={`my-9 w-full ${bgStyles[bgColor]}`}>
+      <div
+        className={`mx-auto flex w-full max-w-[1536px] flex-col items-center justify-center gap-8 px-4 sm:px-6 md:gap-12 md:px-12 ${
+          isInverted ? "lg:flex-row-reverse" : "lg:flex-row"
+        }`}
+      >
       {/* IMAGES */}
       <div className="aspect-[4/5] w-full min-w-0 overflow-x-hidden overflow-y-visible lg:w-1/2">
         <div className="relative mx-auto h-full w-full min-w-0 max-w-[420px] sm:min-w-[380px] sm:max-w-none">
@@ -131,6 +132,6 @@ export default function Miniatures(props: ThreeImagesProps) {
           ) : null}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

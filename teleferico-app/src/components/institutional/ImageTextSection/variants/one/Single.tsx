@@ -36,10 +36,13 @@ export default function Single(props: OneImageProps) {
   const sizesDesktop = "(max-width: 1536px) calc((100vw - 9rem) / 2), 50vw";
 
   return (
-    <div
-      className={`my-14 flex flex-col gap-4 px-6 md:px-12 lg:gap-12 ${isInverted ? "lg:flex-row-reverse" : "lg:flex-row"} ${bgStyles[bgColor]} w-full items-center justify-center`}
-    >
-      <div className="group relative aspect-[2/3] w-full overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15 lg:aspect-square lg:w-1/2">
+    <section className={`my-14 w-full ${bgStyles[bgColor]}`}>
+      <div
+        className={`mx-auto flex w-full max-w-[1536px] flex-col items-center justify-center gap-4 px-6 md:px-12 lg:gap-12 ${
+          isInverted ? "lg:flex-row-reverse" : "lg:flex-row"
+        }`}
+      >
+        <div className="group relative aspect-[2/3] w-full overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15 lg:aspect-square lg:w-1/2">
         {/* Mobile (<lg) */}
         <div className="relative h-full w-full lg:hidden">
           <CustomImage image={mobile0} sizes={sizesMobile} quality={76} />
@@ -95,6 +98,6 @@ export default function Single(props: OneImageProps) {
           ) : null}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
