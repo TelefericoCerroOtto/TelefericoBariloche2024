@@ -40,8 +40,8 @@ export default async function NewDetailPage({
       </div>
       <BlockRendererClient
         content={body as BlocksContent}
-        proseSize="xl"
-        className="px-12 lg:px-32"
+        prosePreset="feature"
+        className="px-6 sm:px-12 lg:px-32 max-sm:prose-xl"
       />
       <Spacer y={28} />
     </>

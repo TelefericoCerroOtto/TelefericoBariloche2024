@@ -73,7 +73,7 @@ export default function Poster(props: OneImageProps) {
             .join(" ")}
         >
           {/* Background image */}
-          <div className="relative h-[620px] w-full overflow-hidden">
+          <div className="relative aspect-[9/16] w-full overflow-hidden md:aspect-[21/9]">
             {/* Mobile (<md) */}
             <div className="relative h-full w-full md:hidden">
               <CustomImage image={mobile0} sizes={sizesMobile} quality={68} />

@@ -48,7 +48,7 @@ export default function Masonry(props: ThreeImagesProps) {
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:items-center">
           {/* Images */}
           <div className={isInverted ? "lg:order-2" : "lg:order-1"}>
-            <div className="grid h-[420px] grid-cols-2 grid-rows-2 gap-4 md:h-[620px]">
+            <div className="grid aspect-square grid-cols-2 grid-rows-2 gap-4">
               <div className="group relative row-span-2 overflow-hidden rounded-3xl bg-black/5 shadow-lg shadow-black/10 ring-1 ring-red-500/15">
                 <div className="relative h-full w-full lg:hidden">
                   <CustomImage image={mobile0} sizes={sizesMobileCell} />
