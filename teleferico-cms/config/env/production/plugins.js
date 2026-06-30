@@ -1,7 +1,9 @@
+const path = require("path");
+
 module.exports = ({ env }) => ({
   upload: {
     config: {
-      provider: "@strapi-community/strapi-provider-upload-google-cloud-storage",
+      provider: path.resolve(__dirname, "../../../src/providers/gcs-upload"),
       providerOptions: {
         bucketName: env("GCS_BUCKET_NAME"),
         basePath: env("GCS_BASE_PATH", "public/cms"),
