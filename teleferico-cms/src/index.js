@@ -16,5 +16,32 @@ module.exports = {
    * This gives you an opportunity to set up your data model,
    * run jobs, or perform some special logic.
    */
-  bootstrap(/*{ strapi }*/) {},
+  bootstrap({ strapi }) {
+    /**
+     * Patch the GCS upload provider's getSignedUrl to strip query params
+     * before computing the GCS object path.
+     *
+     * Root cause: the community provider does not strip existing query
+     * params from file.url before calling bucket.file(path).getSignedUrl().
+     * When the URL is already signed (contains ?X-Goog-*), the query string
+     * gets URL-encoded into the path, producing a double-encoded URL that
+     * GCS cannot resolve (HTTP 404).
+     *
+     * This patch is applied at bootstrap instead of using a wrapper provider
+     * because Strapi's signFileUrls compares file.provider (stored in DB)
+     * against config.provider. A wrapper provider changes the config string,
+     * causing a mismatch that skips URL signing entirely.
+     */
+    const provider = strapi.plugins.upload?.provider;
+    if (provider?.getSignedUrl) {
+      const originalGetSignedUrl = provider.getSignedUrl.bind(provider);
+      provider.getSignedUrl = async (file) => {
+        if (!file?.url) {
+          return originalGetSignedUrl(file);
+        }
+        const cleanFile = { ...file, url: file.url.split('?')[0] };
+        return originalGetSignedUrl(cleanFile);
+      };
+    }
+  },
 };
