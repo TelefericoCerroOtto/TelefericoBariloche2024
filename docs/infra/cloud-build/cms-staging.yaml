@@ -57,7 +57,7 @@ substitutions:
   _GCS_BUCKET_NAME: cms_staging_bucket
   _GCS_BASE_PATH: public/cms
   _GCS_BASE_URL: https://storage.googleapis.com/cms_staging_bucket
-  _GCS_PUBLIC_FILES: "true"
+  _GCS_PUBLIC_FILES: "false"
   _GCS_UNIFORM: "true"
   _DATABASE_CLIENT: postgres
   _DEPLOY_REGION: southamerica-east1
