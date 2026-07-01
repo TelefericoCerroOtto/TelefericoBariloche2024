@@ -158,7 +158,7 @@ Notes:
 - bucket `cms_staging_bucket`
 - `GCS_BASE_PATH=public/cms`
 - `GCS_BASE_URL=https://storage.googleapis.com/cms_staging_bucket`
-- `GCS_PUBLIC_FILES=true`
+- `GCS_PUBLIC_FILES=false`
 - `GCS_UNIFORM=true`
 
 #### Production environment
@@ -173,7 +173,7 @@ Notes:
 - bucket `cms_production_bucket`
 - `GCS_BASE_PATH=public/cms`
 - `GCS_BASE_URL=https://storage.googleapis.com/cms_production_bucket`
-- `GCS_PUBLIC_FILES=true`
+- `GCS_PUBLIC_FILES=false`
 - `GCS_UNIFORM=true`
 
 #### Relevant secrets
@@ -203,12 +203,13 @@ Notes:
 - Strapi stores public assets in `public/cms/`.
 - The job application form stores private CVs in `private/job-applications/` via the Next.js server.
 - The local Strapi Media Library flow continues to use `teleferico-cms/public/uploads` and does not depend on `CV_STORAGE_DRIVER`.
-- Reading CMS images must go through the Next.js same-origin proxy (`/api/media/...`). In the initial phase, the prefix remains `public/cms/`, but the operational intent is to revoke direct public access (`allUsers`) and read with the runtime service account.
+- Reading CMS images goes through the Next.js proxy at `teleferico-app/src/app/api/media/[...path]/route.ts`. The proxy reads from GCS using the server-side service account credentials (ADC) and streams the response. Direct public access (`allUsers`) on `public/cms/` is not granted; the proxy is the only public-facing access point for CMS assets.
+- The Strapi admin panel displays images via signed GCS URLs. Strapi generates them server-side on each API response (`GCS_PUBLIC_FILES=false`). The admin browser never receives a raw private GCS URL.
 - CV downloads must go through an authenticated endpoint.
 - `GCS_SIGNED_URL_TTL_SECONDS` is reserved for the optional `getDownloadUrl()` helper in `teleferico-app/src/lib/services/cv-storage`; the current flow uses direct streaming and does not depend on signed URLs.
 - Old records with `resume` media relation require manual migration: copy/move the binary, populate `cv*`, and remove the old relation.
 - Production has a backup bucket that copies binaries through "Cross-region bucket replication".
-- **Public Access Prevention**: cannot be `enforced` while any folder with direct public access (`allUsers`) exists. Once `public/cms/` is served only via `/api/media`, it can be re-evaluated.
+- **Public Access Prevention**: `allUsers` is not granted on any path. The bucket can be evaluated for enforced public access prevention once identity separation between `teleferico-app` and `teleferico-cms` service accounts is complete.
 
 ---
 
@@ -327,14 +328,13 @@ gcloud storage managed-folders add-iam-policy-binding gs://cms_staging_bucket/pr
   --role=roles/storage.objectAdmin
 ```
 
-Current phase for CMS images:
+Current state for CMS images:
 
-- Maintain the existing prefix `public/cms/` to avoid object migrations.
-- Maintain `roles/storage.objectAdmin` for the current shared service account until identity separation is complete.
-- Revoke `allUsers -> roles/storage.objectViewer` only after the `/api/media` proxy with authenticated reading is deployed and verified in the environment.
-- Repeat in production only after validating staging.
-
-Repeat the final scheme for `cms_production_bucket` when staging is verified.
+- The `/api/media` proxy is deployed and operational in `teleferico-app`. It handles all public access to CMS assets using server-side credentials.
+- `allUsers` access is not granted on `public/cms/` or at bucket level. Direct public access to GCS objects is not allowed.
+- The CMS service account (`teleferico-bariloche-2024@appspot.gserviceaccount.com`) has `roles/iam.serviceAccountTokenCreator` on itself. This is required for Strapi to generate V4 signed GCS URLs from Cloud Run using ADC. **Reason**: the Strapi admin panel (a browser SPA) cannot use server credentials directly; signed URLs allow it to load private GCS objects. Without this role, signed URL generation fails with "Cannot sign data without a private key".
+- `GCS_PUBLIC_FILES=false` is set in both CMS environments so that Strapi's upload provider calls `isPrivate()` → `true` and generates signed URLs in every API response. The signed URLs are consumed server-side by Next.js (transformed to `/api/media/...` proxy URLs before reaching the browser) and directly by the Strapi admin panel (where 15-minute expiry is acceptable given infrequent admin usage).
+- `roles/storage.objectAdmin` on `public/cms/` is maintained for the shared service account until identity separation between `teleferico-app` and `teleferico-cms` is complete.
 
 ---
 
