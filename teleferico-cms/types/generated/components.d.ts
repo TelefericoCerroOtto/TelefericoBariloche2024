@@ -196,6 +196,7 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
       Schema.Attribute.Required;
     isHighlighted: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isInverted: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    isVisible: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
     link: Schema.Attribute.Component<'utils-components.link', false>;
     oneImageBlock: Schema.Attribute.Component<
       'images-blocks.one-image',
