@@ -2,6 +2,7 @@ import { BlocksRenderer, NoContent } from "@/components";
 import { PUBLIC_ROUTES } from "@/lib/constants/routes.const";
 import { getActivities, getPageContent } from "@/lib/services";
 import type { Locales } from "@/types";
+import { createElement } from "react";
 
 export default async function ActivitiesPage({
   params,
@@ -18,7 +19,7 @@ export default async function ActivitiesPage({
     throw new Error(
       "Internal server error while trying to get content for Activities page",
     );
-  if (res.data.data.length === 0) return <NoContent locale={locale} />;
+  if (res.data.data.length === 0) return createElement(NoContent, { locale });
   const blocks = res.data.data[0].blocks;
   let filteredBlocks;
 
@@ -43,5 +44,5 @@ export default async function ActivitiesPage({
     });
   }
 
-  return <BlocksRenderer blocks={filteredBlocks} locale={locale} />;
+  return createElement(BlocksRenderer, { blocks: filteredBlocks, locale });
 }
