@@ -78,6 +78,7 @@ The canonical reference for infrastructure, environments, and deployment is [doc
 - [docs/todo-workflow.md](./docs/todo-workflow.md): shared backlog governance between Notion and GitHub
 - [docs/backlog-branch-pr-policy.md](./docs/backlog-branch-pr-policy.md): backlog, branch and implementation PR association policy
 - [docs/CI-AUTOMATION.md](./docs/CI-AUTOMATION.md): automation and CI governance in GitHub Actions
+- [docs/cerro-otto-business-context.md](./docs/cerro-otto-business-context.md): business domain context — physical zones, facilities, organization, and operations of Teleférico Cerro Otto
 - [AGENTS.md](./AGENTS.md): operational rules for agents working in the repo
 
 ## Work conventions

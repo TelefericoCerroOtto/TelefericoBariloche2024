@@ -110,6 +110,7 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 
 - Conventional commits + scopes + PR titles: `docs/CONVENTIONS.md`
 - GCP infrastructure: `docs/INFRA.md`
+- Business domain context (zones, facilities, organization, operations): `docs/cerro-otto-business-context.md`
 
 ## Shared backlog governance
 
