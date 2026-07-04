@@ -14,6 +14,7 @@ Key terms used throughout this document and across the business domain. Read the
 - **Hall de boletería**: base station entrance lobby with ticket office and restrooms. Entry point to the excursion.
 - **Hall central**: central indoor hub at the summit. Arrival point from the upper station and navigation hub to all other summit areas. Contains the photography shop, information cabin, and souvenir shop.
 - **Confitería Giratoria**: revolving restaurant at the summit. Full-service dining.
+- **Art Gallery**: indoor gallery at the summit, accessed by descending from the hall central. Houses replica sculptures of David, La Pietà, and Moses.
 - **Patio de Comidas Panorámico**: quick-service dining area at the summit with a panoramic lake-view window.
 - **Terraza Panorámica**: open-air rooftop terrace at the summit.
 - **Cabaña de informes**: staffed customer service and information point inside the hall central.
@@ -54,6 +55,7 @@ The company's administrative offices are located in the base building and includ
 
 - Accounting (*Contaduría*)
 - Administration (*Administración*)
+- Commercial / Sales (*Comercial*)
 - Management (*Gerencia*)
 - Treasury (*Tesorería*)
 - IT / Systems (*Sistemas*)
@@ -61,7 +63,7 @@ The company's administrative offices are located in the base building and includ
 
 ### Operations department
 
-The operations department (*Operaciones*) manages the aerial tramway system. It is responsible for gondola operations at both the lower station (*estación inferior*) and upper station (*estación superior*). The **Head of Operations** (*Jefe de Estación / Operaciones*) oversees both stations and has the authority to restrict or suspend passenger ascent based on weather, technical conditions, or safety protocols.
+The operations department (*Operaciones*) manages the aerial tramway system. It is responsible for gondola operations at both the lower station (*estación inferior*) and upper station (*estación superior*). The **Head of Operations** (*Jefe de Operaciones*) oversees both stations and has the authority to restrict or suspend passenger ascent based on weather, technical conditions, or safety protocols.
 
 ### Summit sectors
 
@@ -72,13 +74,13 @@ The summit complex staff is organized into two operational sectors, each with it
 
 ### Concessionaires
 
-Four commercial operations at the summit are run by **concessionaires** — independent businesses that rent space from the foundation. They are not employees of Teleférico Cerro Otto.
+Three **concessionaires** — independent businesses that rent space from the foundation — operate a total of **five commercial spaces** across the excursion. Four are located at the summit and one is located at the base station exit. They are not employees of Teleférico Cerro Otto.
 
-| Concessionaire | Spaces operated |
-|---|---|
-| Gastronomy concessionaire | Confitería Giratoria + Patio de Comidas Panorámico (shared kitchen, single operator) |
-| Merchandise concessionaire | Souvenir shop in the hall central |
-| Photography concessionaire | Two locations: summit hall central + base station exit (see details below) |
+| Concessionaire | Commercial spaces operated | Location(s) |
+|---|---|---|
+| Gastronomy concessionaire | Confitería Giratoria + Patio de Comidas Panorámico (shared kitchen, single operator) | Summit |
+| Merchandise concessionaire | Souvenir shop in the hall central | Summit |
+| Photography concessionaire | Photography shop in the summit hall central + photography shop at the base station exit | Summit + base |
 
 ### Summit patrol staff (*Patrulleros*)
 
@@ -192,7 +194,7 @@ Accessible from two points: a door in the hall central and a door in the Patio d
 - **Climbing wall** (*palestra*): climbing wall, 7 m high. Paid activity, minimum age 6. A combined tirolesa + palestra ticket is available at a reduced price.
 - **Sled tracks** (*pistas de trineos*): three tracks total.
   - **Children's sled track**: short track (~100 m), designed for kids.
-  - **Adult sled track**: longer track (~500 m–1 km) with curves, ending at the estacionamiento de la cumbre.
+  - **Adult sled track**: longer track with curves, ending at the estacionamiento de la cumbre. Exact length pending confirmation.
   - **Former Otto Kart track**: previously used for the Otto Kart activity (inflatable tubes with a plastic base sliding down a mesh-covered track). Otto Kart has been **discontinued for several years** with no current plans to reopen. The track is occasionally repurposed as an overflow sled track during peak demand.
 - **Adult sled activity** (paid, winter): includes **3 sled descents** on the adult track + **3 funicular ascents** to return to the starting point. Pricing is listed on the website.
 - **Snowshoe walk** (*caminata con raquetas*, paid, winter only): guided walk through the forest with snowshoes and poles. Ends at the estacionamiento de la cumbre. Return ascent via the summit funicular is included. Up to ~4 sessions per day depending on demand. Additional cost beyond the base ticket.
@@ -262,6 +264,7 @@ The company operates a **free shuttle bus** service between downtown Bariloche a
 
 - Normal operations: **1–2 buses** active.
 - High-demand periods: up to **3 buses**, with additional departure times added.
+- Departure frequency varies by day and demand. Current shuttle times are published on the official website.
 
 ### Ticketing policy
 
@@ -280,9 +283,13 @@ The shuttle is technically free and open to anyone, but in practice staff encour
 ### Ticket types by entry point
 
 - **Gondola ticket** (purchased at base station, Cabaña Uno, or Cabaña Dos): includes round-trip gondola ride (ascent + descent) and access to the summit complex.
-- **Gondola ascent-only ticket** (*solo ascenso en teleférico*): includes gondola ascent and summit complex access but **no gondola descent**. The visitor must descend by their own means (walking, vehicle, etc.).
+- **Gondola ascent-only ticket** (*solo ascenso en teleférico*): includes gondola ascent and summit complex access but **no gondola descent**. It is intended for visitors who plan to descend by their own means (walking, vehicle, etc.).
 - **Complex entry ticket** (*ingreso camino vehicular turista*, purchased at Cabaña Tres): includes access to the summit complex and **one funicular round-trip** (ascent + descent). Does not include gondola descent. Visitors who drove or walked up must return the same way.
-- **Bicycle ascent ticket** (*ascenso con bicicleta*): includes gondola ascent with a bicycle. Higher price than the standard ticket.
+- **Bicycle ascent ticket** (*ascenso con bicicleta*): special ascent-only ticket for visitors bringing a bicycle. It is priced higher than the standard ticket because the bicycle is transported in a separate gondola. The bicycle must be disassembled or reduced in size enough for safe loading. Gondola descent is not included.
+
+### Groups, agencies, and special commercial arrangements
+
+Group visits, school groups, travel agencies, and other special commercial arrangements are handled case by case by the commercial sector (*Comercial*). There is currently no single formal public-facing regulation that covers all of these cases; conditions are coordinated operationally day by day.
 
 ### Liability waiver (*deslinde de responsabilidad*)
 
@@ -341,3 +348,10 @@ Preventive maintenance for both the aerial tramway system and the buildings is c
 
 - **May**: pre-winter maintenance window.
 - **November**: pre-summer maintenance window.
+
+During these maintenance windows, the excursion and summit complex close to the public. The base ticket office, **Cabaña Uno**, and **Cabaña Dos** remain open only as information points to inform visitors that the service is temporarily out of operation and to provide general assistance.
+
+## Pending Confirmation
+
+- Exact length of the adult sled track.
+- Exact scope of services of the municipal office adjacent to the base station exit.
