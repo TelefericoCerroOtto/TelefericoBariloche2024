@@ -79,6 +79,7 @@ The canonical reference for infrastructure, environments, and deployment is [doc
 - [docs/backlog-branch-pr-policy.md](./docs/backlog-branch-pr-policy.md): backlog, branch and implementation PR association policy
 - [docs/CI-AUTOMATION.md](./docs/CI-AUTOMATION.md): automation and CI governance in GitHub Actions
 - [docs/cerro-otto-business-context.md](./docs/cerro-otto-business-context.md): business domain context — physical zones, facilities, organization, and operations of Teleférico Cerro Otto
+- [docs/content-components-guide.md](./docs/content-components-guide.md): content authoring guide — renderable component catalog, tone guidelines, translation vocabulary, and content restrictions
 - [AGENTS.md](./AGENTS.md): operational rules for agents working in the repo
 
 ## Work conventions
