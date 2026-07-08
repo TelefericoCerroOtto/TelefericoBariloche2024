@@ -1,5 +1,5 @@
 import { POSTULATION_STATUSES } from "@/lib/constants/enum-fields.const";
-import { requireCsrfSession } from "@/lib/http/guards";
+import { ensureTrustedBrowserRequest, requireCsrfSession } from "@/lib/http/guards";
 import { updatePostulation } from "@/lib/services";
 import type {
   PostulationsBulkStatusRequestPayload,
@@ -7,8 +7,15 @@ import type {
 } from "@/types";
 import { NextRequest, NextResponse } from "next/server";
 
+const MAX_BULK_SIZE = 100;
+
 export async function POST(req: NextRequest) {
   try {
+    // Validate trusted origin and Sec-Fetch-Site before session checks,
+    // matching the same guard order used by the cv download route.
+    const trusted = ensureTrustedBrowserRequest(req);
+    if (!trusted.ok) return trusted.res;
+
     const csrf = await requireCsrfSession(req);
     if (!csrf.ok) return csrf.res;
 
@@ -19,6 +26,16 @@ export async function POST(req: NextRequest) {
     if (!Array.isArray(body.documentIds) || body.documentIds.length === 0) {
       return NextResponse.json(
         { ok: false, message: "Missing documentIds" },
+        { status: 400 },
+      );
+    }
+
+    if (body.documentIds.length > MAX_BULK_SIZE) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `Exceeded maximum batch size of ${MAX_BULK_SIZE}`,
+        },
         { status: 400 },
       );
     }
