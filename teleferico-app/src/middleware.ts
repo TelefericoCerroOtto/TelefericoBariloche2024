@@ -6,6 +6,7 @@ import {
   ADMIN_ROUTES,
   type AdminLoginReason,
 } from "@/lib/constants/routes.const";
+import { shouldSkipMiddleware } from "@/lib/middleware-matcher";
 import { verifySession } from "@/lib/services/cms/users-permissions/auth";
 import type { Locales } from "@/types";
 import { type NextFetchEvent, type NextMiddleware, type NextRequest, NextResponse } from "next/server";
@@ -235,13 +236,27 @@ const authMiddleware = auth(async (req) => {
 }) as unknown as NextMiddleware;
 
 export default async function middleware(req: NextRequest, event: NextFetchEvent) {
+  const pathname = req.nextUrl.pathname;
+
+  // Fast path: skip static assets, Next.js internals, and root metadata files.
+  // This also handles the dual concern raised by security + reliability reviews:
+  //   - robots.txt / sitemap.xml are excluded here so they never reach locale
+  //     redirect logic (reliability fix).
+  //   - Admin/dashboard paths ending in extension-like segments (e.g.
+  //     /es-AR/dashboard/news/foo.js) are NOT excluded and continue to receive
+  //     full middleware processing (security fix).
+  // See src/lib/middleware-matcher.ts for the classification rules.
+  if (shouldSkipMiddleware(pathname)) {
+    return;
+  }
+
   // 1. Maintenance check runs FIRST — no auth overhead, no Strapi calls.
   if (process.env.MAINTENANCE_MODE === "true") {
     return handleMaintenance(req);
   }
 
   // 2. API routes skip locale and auth logic entirely.
-  if (req.nextUrl.pathname.startsWith("/api/")) {
+  if (pathname.startsWith("/api/")) {
     return;
   }
 
@@ -250,7 +265,16 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
 }
 
 export const config = {
-  // Skip Next internals and all static assets (including favicon).
-  // API routes are intentionally included so the maintenance check can intercept them.
-  matcher: ["/((?!_next|favicon.ico|.*\\..*).*)"],
+  // The matcher keeps only the _next/ internals and favicon.ico exclusions —
+  // the minimum required to avoid infinite loops from Next.js internal requests.
+  //
+  // All other skip decisions (static extensions, root metadata files, admin
+  // paths with dotted segments) are handled at runtime by shouldSkipMiddleware()
+  // inside the middleware function body. This allows the middleware to make
+  // context-aware decisions: e.g. /es-AR/dashboard/news/foo.js is an admin path
+  // that must be processed, while /static/logo.js is a real asset to skip.
+  //
+  // API routes are intentionally not excluded so the maintenance check can
+  // intercept them (the main middleware short-circuits /api/ immediately anyway).
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico).*)"],
 };
