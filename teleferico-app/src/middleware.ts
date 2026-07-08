@@ -8,40 +8,78 @@ import {
 } from "@/lib/constants/routes.const";
 import { verifySession } from "@/lib/services/cms/users-permissions/auth";
 import type { Locales } from "@/types";
-import { NextResponse } from "next/server";
+import { type NextFetchEvent, type NextMiddleware, type NextRequest, NextResponse } from "next/server";
 
 const PUBLIC_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(
   /\/$/,
   "",
 );
 
-export default auth(async (req) => {
+// Locale helpers — module-level so they are accessible to both the outer
+// middleware function (for maintenance) and the inner auth handler.
+
+const normalize = (lang: string | undefined): Locales | undefined => {
+  if (!lang) return undefined;
+  const l = lang.toLowerCase();
+  if (l === "es" || l.startsWith("es-")) return "es-AR" as Locales;
+  if (l === "en" || l.startsWith("en-")) return "en" as Locales;
+  if (l === "pt" || l.startsWith("pt-")) return "pt" as Locales;
+  return undefined;
+};
+
+const pickLocale = (req: NextRequest): Locales => {
+  const rawCookie = req.cookies.get("NEXT_LOCALE")?.value;
+  const cookieLocale = normalize(rawCookie);
+  if (cookieLocale) return cookieLocale;
+
+  const header = req.headers.get("accept-language") || "";
+  const preferred = header
+    .split(",")
+    .map((part) => part.split(";")[0].trim())
+    .map(normalize)
+    .find((v): v is Locales => Boolean(v));
+  return preferred || i18n.defaultLocale;
+};
+
+// Handles all maintenance-mode responses. Called before any auth overhead.
+const handleMaintenance = (req: NextRequest): NextResponse => {
+  const pathname = req.nextUrl.pathname;
+
+  // API routes: return 503 JSON directly.
+  if (pathname.startsWith("/api/")) {
+    return new NextResponse(
+      JSON.stringify({ error: "Service unavailable", maintenance: true }),
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": "3600",
+        },
+      },
+    );
+  }
+
+  // All other routes: rewrite to the maintenance page.
+  // NOTE: the `status: 503` passed to NextResponse.rewrite() does NOT reach
+  // the browser — Next.js resets it to 200 during page render. Crawler
+  // protection relies on the Retry-After header and the `noindex` meta tag
+  // present on the maintenance page.
+  const maintenanceLocale = pickLocale(req);
+  const maintenanceUrl = req.nextUrl.clone();
+  maintenanceUrl.pathname = "/maintenance";
+  maintenanceUrl.searchParams.set("locale", maintenanceLocale);
+  return NextResponse.rewrite(maintenanceUrl, {
+    status: 503,
+    headers: { "Retry-After": "3600" },
+  });
+};
+
+// Auth-wrapped handler — only reached when maintenance mode is OFF and the
+// path is not an API route. Cast as NextMiddleware so TypeScript resolves the
+// correct overload when we forward (req, event) from the outer function.
+const authMiddleware = auth(async (req) => {
   const url = req.nextUrl;
   const pathname = url.pathname;
-
-  // Locale helpers
-  const normalize = (lang: string | undefined): Locales | undefined => {
-    if (!lang) return undefined;
-    const l = lang.toLowerCase();
-    if (l === "es" || l.startsWith("es-")) return "es-AR" as Locales;
-    if (l === "en" || l.startsWith("en-")) return "en" as Locales;
-    if (l === "pt" || l.startsWith("pt-")) return "pt" as Locales;
-    return undefined;
-  };
-
-  const pickLocale = (): Locales => {
-    const rawCookie = req.cookies.get("NEXT_LOCALE")?.value;
-    const cookieLocale = normalize(rawCookie);
-    if (cookieLocale) return cookieLocale;
-
-    const header = req.headers.get("accept-language") || "";
-    const preferred = header
-      .split(",")
-      .map((part) => part.split(";")[0].trim())
-      .map(normalize)
-      .find((v): v is Locales => Boolean(v));
-    return preferred || i18n.defaultLocale;
-  };
 
   const segments = pathname.split("/");
   const maybeLocale = segments[1] as string | undefined;
@@ -167,7 +205,7 @@ export default auth(async (req) => {
     // lo normalizamos al locale completo.
     const normalized = normalize(maybeLocale);
 
-    const targetLocale = normalized ?? pickLocale();
+    const targetLocale = normalized ?? pickLocale(req);
     const startIndex = normalized ? 2 : 1; // si había "es" lo sacamos, si no, usamos toda la ruta
     const rest = segments.slice(startIndex).join("/");
 
@@ -194,9 +232,25 @@ export default auth(async (req) => {
 
   // 3) Cualquier otra cosa, dejamos que Next resuelva (o 404).
   return;
-});
+}) as unknown as NextMiddleware;
+
+export default async function middleware(req: NextRequest, event: NextFetchEvent) {
+  // 1. Maintenance check runs FIRST — no auth overhead, no Strapi calls.
+  if (process.env.MAINTENANCE_MODE === "true") {
+    return handleMaintenance(req);
+  }
+
+  // 2. API routes skip locale and auth logic entirely.
+  if (req.nextUrl.pathname.startsWith("/api/")) {
+    return;
+  }
+
+  // 3. Everything else goes through the auth-wrapped handler.
+  return authMiddleware(req, event);
+}
 
 export const config = {
-  // Skip Next internals, API routes, and all static assets (including favicon)
-  matcher: ["/((?!_next|api|favicon.ico|.*\\..*).*)"],
+  // Skip Next internals and all static assets (including favicon).
+  // API routes are intentionally included so the maintenance check can intercept them.
+  matcher: ["/((?!_next|favicon.ico|.*\\..*).*)"],
 };

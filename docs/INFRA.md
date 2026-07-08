@@ -458,3 +458,46 @@ Public forms
   -> reCAPTCHA
   -> Gmail OAuth 2.0
 ```
+
+---
+
+## 13) Maintenance mode
+
+teleferico-app supports a maintenance mode that blocks all user-facing routes (institutional, admin, API) and serves a static maintenance page. It is controlled by a single environment variable.
+
+### Activation
+
+```bash
+gcloud run services update <SERVICE_NAME> \
+  --update-env-vars MAINTENANCE_MODE=true \
+  --region southamerica-east1
+```
+
+Replace `<SERVICE_NAME>` with:
+- `app-staging-teleferico` (staging)
+- `app-production-teleferico` (production)
+
+### Deactivation
+
+```bash
+gcloud run services update <SERVICE_NAME> \
+  --update-env-vars MAINTENANCE_MODE=false \
+  --region southamerica-east1
+```
+
+### Automatic reset on deploy
+
+Cloud Build deploys set `MAINTENANCE_MODE=false` explicitly. Any new deploy automatically deactivates maintenance mode.
+
+### Behavior
+
+- `MAINTENANCE_MODE=true` → all routes blocked.
+- `MAINTENANCE_MODE` absent or any other value → site runs normally.
+- HTML routes: middleware rewrites to `/maintenance` with a `Retry-After` header. Note: the `status: 503` passed to the rewrite does not reach the browser — Next.js resets it to 200 during page render. Crawler protection relies on the `Retry-After` header and the `noindex` meta tag on the maintenance page.
+- API routes: middleware returns `503` with JSON `{ "error": "Service unavailable", "maintenance": true }` + `Retry-After` header.
+- The maintenance page is fully static: no Strapi, Google, Redis, or external calls.
+- Cloud Run health checks are unaffected (TCP probe, no HTTP endpoint).
+
+### Scope of isolation
+
+This is user-layer isolation. Cloud Run service URLs remain technically accessible. The protection prevents conventional users (public visitors and admin operators) from interacting with services during infrastructure work.
