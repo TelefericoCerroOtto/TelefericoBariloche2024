@@ -107,7 +107,11 @@ export async function GET(
         headers.set("Content-Disposition", metadata.contentDisposition);
       }
 
-      if (metadata.size) {
+      // GCS reports the stored (compressed) size, while createReadStream()
+      // transparently decompresses gzip objects. Forwarding that size would
+      // truncate the decompressed response at the compressed byte count.
+      const isGzipEncoded = metadata.contentEncoding?.toLowerCase() === "gzip";
+      if (metadata.size && !isGzipEncoded) {
         headers.set("Content-Length", String(metadata.size));
       }
 
