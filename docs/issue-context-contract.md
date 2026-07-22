@@ -97,35 +97,33 @@ All issue types share the same stable section contract. `Type` lives in metadata
 
 ## Relation to PRs
 
-The `## Related Artifacts` section contains a **human-authored static block** (Work ID, Notion URL, related issues) and a **machine-managed dynamic block** (`<!-- managed:related-prs:start/end -->`).
+The `## Related Artifacts` section is human-authored. New automated PR traceability is recorded as append-only issue comments, so automation never rewrites the issue body.
 
-### Machine-managed block
+### Automation-managed comments
 
-The `Backlog governance` GitHub Action automatically maintains a block bounded by HTML comment markers inside `## Related Artifacts`. **Humans and agents must not manually edit this block.**
+The `Backlog governance` GitHub Action adds one concise English comment for each issue/PR/relation combination after its GitHub and Notion preflight succeeds. Each comment has a deterministic hidden marker containing the issue number, PR number, and one relation role:
 
 ```md
-<!-- managed:related-prs:start -->
-- Related PRs: N/A
-- Promotion PRs: N/A
-- Shipped by: N/A
-<!-- managed:related-prs:end -->
+Related PR: #456
+
+<!-- backlog-governance:issue=123:pr=456:role=Related PR -->
 ```
 
-#### Block lifecycle
+#### Comment lifecycle
 
-| Trigger | Field updated | Value added |
+| Trigger | Comment role |
 | --- | --- | --- |
-| Implementation PR opened / edited / synchronized to `development` | `Related PRs` | `#<pr-number>` |
-| Promotion PR opened / edited to `staging` | `Promotion PRs` | `#<pr-number>` |
-| Promotion PR merged to `main` | `Shipped by` | `#<pr-number>` |
+| Implementation PR opened / edited / synchronized to `development` | `Related PR` |
+| Promotion PR opened / edited | `Promotion PR` |
+| Promotion PR merged to `main` | `Shipped by` |
 
-- Each field accumulates PR numbers (comma-separated). Values are never overwritten unless the same PR number is already listed (idempotent).
-- The block is created and appended automatically on first sync if not present in the issue body.
-- `N/A` is replaced on first real value; subsequent updates append.
+- The action lists all issue-comment pages before posting and no-ops when the exact marker exists.
+- Different PRs append independent comments; automation does not modify a shared issue-body block.
+- Legacy body blocks may remain as historical content, but managed comments are the authoritative mechanism for new synchronization.
 
 ### Static PR linkage (human-authored)
 
-The human-authored line `- Related PRs: <#456 | N/A>` above the managed block is an **initial placeholder only**. Once the managed block is populated by automation, treat the managed block as the authoritative PR list. Do not duplicate entries manually.
+The human-authored line `- Related PRs: <#456 | N/A>` is optional context only. For automation-created traceability, use the managed issue comments.
 
 ## Agent artifact-resolution behavior
 
@@ -174,12 +172,6 @@ Agents should emit a structured context recap only when the user explicitly requ
 - Notion: <url | TBD>
 - Related Issues: <#123 | N/A>
 - Related PRs: <#456 | N/A>
-
-<!-- managed:related-prs:start -->
-- Related PRs: N/A
-- Promotion PRs: N/A
-- Shipped by: N/A
-<!-- managed:related-prs:end -->
 
 ## Metadata
 - Type: <Bug|Feature|Refactor|Content|Infra|Docs|Security|Unknown>
