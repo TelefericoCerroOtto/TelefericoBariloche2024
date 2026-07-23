@@ -149,7 +149,7 @@ Use GitHub Issues as the formal artifact, but distinguish between the PR that
 
 | PR type | Typical branch flow | How to reference the issue | Purpose |
 |---|---|---|---|
-| Implementation PR | `feat/fix -> development` | `Refs #N` or explicit mention of `#N` | Preserve the technical story of the actual code change |
+| Implementation PR | `feat/fix -> development` | `Refs #N` in `## Related Issues` when tracked by a GitHub Issue; optional for other tracked channels and explicitly untracked work | Preserve the technical story of the actual code change |
 | Promotion PR to staging | `development -> staging` | Optional mention of `#N` or included implementation PRs | Track validation scope; do not close the issue here |
 | Promotion PR to main | `staging -> main` | `Closes #N` or explicit `Formal issues: none` | Mark the issue as officially shipped via the default branch |
 
@@ -167,14 +167,14 @@ Do **NOT** use the Notion Work ID slug (for example, do not use `Refs #tb-71`), 
 
 #### Placement of `Refs #N` in implementation PRs
 
-In implementation PRs, the `Refs #N` token **MUST appear at the end of the PR body**, under a dedicated `## Related Issues` section. This keeps the narrative (description, context, changes) clean and groups traceability metadata together — consistent with the git trailer convention.
+In implementation PRs, every `Refs #N` token **MUST appear at the end of the PR body**, under a dedicated `## Related Issues` section. When present, `## Related Issues` must be the final visible H2 section. A tracked item whose `Canal formal` is `GitHub Issue` must include the exact issue number from `Enlace formal`; additional valid references are allowed. Other tracked channels and explicitly untracked PRs may omit references. This keeps the narrative clean and groups traceability metadata together — consistent with the git trailer convention.
 
 ```
 ## Related Issues
 Refs #N
 ```
 
-Do **NOT** place `Refs #N` at the top of the body or inline within prose sections. The pr-governance automation scans the full body, so placement does not affect parsing — but the section makes the reference immediately discoverable during review and in the PR history.
+Do **NOT** place `Refs #N` at the top of the body or inline within prose sections. GitHub-rendered code, blockquotes, details, hidden containers, and tag attributes are ignored; visible text in normal inline labels and links is eligible. The visible final section makes traceability immediately discoverable during review and in the PR history.
 
 #### Why
 
@@ -282,8 +282,6 @@ Closes #123
   - #124 — Add operator note field to booking management
   - #126 — Refactor availability cache invalidation
 
-Closes #123, Closes #124, Closes #126
-
 ## Technical Details
 
 - Validation target: staging
@@ -297,4 +295,10 @@ Closes #123, Closes #124, Closes #126
 ## Breaking Changes
 
 - [ ] None
+
+## Related Issues
+
+Refs #123
+Refs #124
+Refs #126
 ```
