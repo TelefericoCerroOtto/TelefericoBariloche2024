@@ -458,3 +458,106 @@ Public forms
   -> reCAPTCHA
   -> Gmail OAuth 2.0
 ```
+
+---
+
+## 13) Maintenance mode
+
+teleferico-app supports a maintenance mode that blocks all user-facing routes (institutional, admin, API) and serves a static maintenance page. It is controlled by a single environment variable.
+
+### Quick operational path
+
+Use `gcloud run services update` when you need Cloud Run to create a **new revision** by changing the maintenance flag on the service.
+
+> **Operational note:** this is a real Cloud Run change. It creates a new revision immediately and sits outside the normal PR → merge → Cloud Build flow. Use it only for maintenance toggles and follow the environment approval/governance rules from the repository.
+
+#### Command pattern
+
+```bash
+gcloud run services update <SERVICE_NAME> \
+  --project teleferico-bariloche-2024 \
+  --region southamerica-east1 \
+  --update-env-vars MAINTENANCE_MODE=<true|false>
+```
+
+Replace `<SERVICE_NAME>` with:
+- `app-staging-teleferico` (staging)
+- `app-production-teleferico` (production)
+
+#### Staging — enable maintenance
+
+```bash
+gcloud run services update app-staging-teleferico \
+  --project teleferico-bariloche-2024 \
+  --region southamerica-east1 \
+  --update-env-vars MAINTENANCE_MODE=true
+```
+
+#### Staging — disable maintenance
+
+```bash
+gcloud run services update app-staging-teleferico \
+  --project teleferico-bariloche-2024 \
+  --region southamerica-east1 \
+  --update-env-vars MAINTENANCE_MODE=false
+```
+
+#### Production — enable maintenance
+
+```bash
+gcloud run services update app-production-teleferico \
+  --project teleferico-bariloche-2024 \
+  --region southamerica-east1 \
+  --update-env-vars MAINTENANCE_MODE=true
+```
+
+#### Production — disable maintenance
+
+```bash
+gcloud run services update app-production-teleferico \
+  --project teleferico-bariloche-2024 \
+  --region southamerica-east1 \
+  --update-env-vars MAINTENANCE_MODE=false
+```
+
+#### Verify the current value on the service
+
+```bash
+gcloud run services describe <SERVICE_NAME> \
+  --project teleferico-bariloche-2024 \
+  --region southamerica-east1 \
+  --format='yaml(spec.template.spec.containers[0].env)'
+```
+
+#### Verify the latest created revision
+
+```bash
+gcloud run revisions list \
+  --service <SERVICE_NAME> \
+  --project teleferico-bariloche-2024 \
+  --region southamerica-east1 \
+  --sort-by='~metadata.creationTimestamp' \
+  --limit 5
+```
+
+Expected result:
+- the `services update` command creates a new Cloud Run revision
+- `MAINTENANCE_MODE=true` activates the maintenance flow on that revision
+- `MAINTENANCE_MODE=false` creates another revision that restores normal traffic behavior
+
+### Automatic reset on deploy
+
+Cloud Build deploys set `MAINTENANCE_MODE=false` explicitly. Any new deploy automatically deactivates maintenance mode.
+
+### Behavior
+
+- `MAINTENANCE_MODE=true` → all routes blocked.
+- `MAINTENANCE_MODE` absent or any other value → site runs normally.
+- HTML routes: middleware rewrites to `/maintenance` with a `Retry-After` header. Note: the `status: 503` passed to the rewrite does not reach the browser — Next.js resets it to 200 during page render. Crawler protection relies on the `Retry-After` header and the `noindex` meta tag on the maintenance page.
+- API routes: middleware returns `503` with JSON `{ "error": "Service unavailable", "maintenance": true }` + `Retry-After` header.
+- The maintenance page is fully static: no Strapi, Google, Redis, or external calls.
+- Cloud Run health checks are unaffected (TCP probe, no HTTP endpoint).
+
+### Scope of isolation
+
+This is user-layer isolation. Cloud Run service URLs remain technically accessible. The protection prevents conventional users (public visitors and admin operators) from interacting with services during infrastructure work.

@@ -2,789 +2,561 @@
 
 const DEFAULTS = {
   notionVersion: "2025-09-03",
-  titleProperty: "Tarea",
   workIdProperty: "Work ID",
   statusProperty: "Estado",
   formalChannelProperty: "Canal formal",
   formalLinkProperty: "Enlace formal",
-  notesProperty: "Notas",
+  branchProperty: "Branch",
   doneStatus: "Hecho",
   githubIssueChannel: "GitHub Issue",
-  branchProperty: "Branch",
   noFormalIssuesToken: "Formal issues: none",
+  noBacklogItemDeclaration: "Backlog item: none",
+  maxExplicitReferences: 100,
+  issueFetchConcurrency: 5,
+  commentPageSize: 100,
   implementationBranchPattern: /^(feat|fix|chore|refactor|docs|style|test|perf|revert)\//i,
-  promotionPairs: {
-    toStaging: { head: "development", base: "staging" },
-    toMain: { head: "staging", base: "main" },
-  },
-  managedBlock: {
-    start: "<!-- managed:related-prs:start -->",
-    end: "<!-- managed:related-prs:end -->",
-    defaultContent: "- Related PRs: N/A\n- Promotion PRs: N/A\n- Shipped by: N/A\n",
-  },
 };
 
 async function main() {
   const command = process.argv[2];
-
-  if (!command) {
-    throw new Error(
-      "Missing command. Use: pr-governance | validate-pr-policy | sync-main-promotion-closures | sync-issue-pr-reference"
-    );
-  }
-
   const config = getConfig();
-
-  switch (command) {
-    case "pr-governance":
-      await prGovernance(config);
-      return;
-    case "validate-pr-policy":
-      await validatePrPolicy(config);
-      return;
-    case "sync-main-promotion-closures":
-      await syncMainPromotionClosures(config);
-      return;
-    case "sync-issue-pr-reference":
-      await syncIssuePrReference(config);
-      return;
-    default:
-      throw new Error(`Unsupported command: ${command}`);
-  }
+  if (command === "validate-pr-policy") return validatePrPolicy(config);
+  if (command === "sync-pr-mutations") return syncPrMutations(config);
+  throw new Error("Missing or unsupported command. Use: validate-pr-policy | sync-pr-mutations");
 }
 
 function getConfig() {
-  const repository = process.env.GITHUB_REPOSITORY;
-  const [owner, repo] = repository ? repository.split("/") : [process.env.GITHUB_OWNER, process.env.GITHUB_REPO];
-
+  const [owner, repo] = (process.env.GITHUB_REPOSITORY || `${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}`).split("/");
+  const slug = `${owner}/${repo}`;
   return {
     githubToken: requiredEnv("GITHUB_TOKEN"),
     notionToken: requiredEnv("NOTION_TOKEN"),
     notionDataSourceId: requiredEnv("NOTION_BACKLOG_DATA_SOURCE_ID"),
     notionVersion: process.env.NOTION_VERSION || DEFAULTS.notionVersion,
-    repository: {
-      owner,
-      repo,
-      slug: repository || `${owner}/${repo}`,
-    },
+    eventName: process.env.GITHUB_EVENT_NAME || "",
+    repository: { owner, repo, slug },
     properties: {
-      title: process.env.NOTION_TITLE_PROPERTY || DEFAULTS.titleProperty,
       workId: process.env.NOTION_WORK_ID_PROPERTY || DEFAULTS.workIdProperty,
       status: process.env.NOTION_STATUS_PROPERTY || DEFAULTS.statusProperty,
       formalChannel: process.env.NOTION_FORMAL_CHANNEL_PROPERTY || DEFAULTS.formalChannelProperty,
       formalLink: process.env.NOTION_FORMAL_LINK_PROPERTY || DEFAULTS.formalLinkProperty,
-      notes: process.env.NOTION_NOTES_PROPERTY || DEFAULTS.notesProperty,
       branch: process.env.NOTION_BRANCH_PROPERTY || DEFAULTS.branchProperty,
     },
-    statuses: {
-      done: process.env.NOTION_DONE_STATUS || DEFAULTS.doneStatus,
-    },
+    statuses: { done: process.env.NOTION_DONE_STATUS || DEFAULTS.doneStatus },
     formalChannelName: process.env.NOTION_GITHUB_ISSUE_CHANNEL || DEFAULTS.githubIssueChannel,
-    dryRun: parseBoolean(process.env.DRY_RUN),
     pullRequest: {
       number: normalizeNumber(process.env.PR_NUMBER) || 0,
-      headRef: process.env.PR_BRANCH_NAME || process.env.PR_HEAD_BRANCH || "",
-      baseRef: process.env.PR_BASE_REF || process.env.PR_BASE_BRANCH || "",
+      headRef: process.env.PR_BRANCH_NAME || "",
+      baseRef: process.env.PR_BASE_REF || "",
       action: process.env.PR_ACTION || "opened",
-      url: process.env.PR_URL || "",
-      title: process.env.PR_TITLE || "",
       body: process.env.PR_BODY || "",
-      merged: parseBoolean(process.env.PR_MERGED || process.env.PR_IS_MERGED),
+      merged: parseBoolean(process.env.PR_MERGED),
+      headRepository: process.env.PR_HEAD_REPOSITORY || "",
     },
   };
 }
 
-async function prGovernance(config) {
-  if (config.pullRequest.action === "closed") {
-    await syncMainPromotionClosures(config);
-    await syncIssuePrReference(config);
+async function validatePrPolicy(config) {
+  const pr = classifyPr(config.pullRequest.headRef, config.pullRequest.baseRef);
+  const document = await renderPrBody(config, config.pullRequest.body);
+  const closingRefs = extractClosingReferences(document);
+  if (pr.type === "implementation") {
+    validateImplementationBody(document, closingRefs);
+    return ensureImplementationTracking(config, extractRefsNumbers(document), document);
+  }
+  if (pr.type === "promotion-to-staging" && closingRefs.length) {
+    throw new Error("Promotion PRs from development to staging must NOT close issues.");
+  }
+  if (pr.type === "promotion-to-main") {
+    if (!closingRefs.length && !containsNoFormalIssuesToken(document)) throw new Error(`Promotion PRs from staging to main must declare closing references or '${DEFAULTS.noFormalIssuesToken}'.`);
+    if (closingRefs.length && containsNoFormalIssuesToken(document)) throw new Error("Promotion PRs to main cannot mix closing references with Formal issues: none.");
+  }
+  if (pr.type === "unsupported-implementation-target") {
+    throw new Error(`Implementation-like branches must target development. Received '${config.pullRequest.headRef}' -> '${config.pullRequest.baseRef}'.`);
+  }
+}
+
+async function ensureImplementationTracking(config, refsNumbers, document) {
+  const markers = extractWorkIdMarkers(config.pullRequest.headRef);
+  if (markers.malformed.length) throw new Error(`Implementation branch '${config.pullRequest.headRef}' contains malformed Work ID marker(s): ${markers.malformed.join(", ")}.`);
+  if (markers.canonical.length === 0) return resolveImplementationWithoutWorkId(config, refsNumbers, document);
+  if (markers.canonical.length !== 1) throw new Error(`Implementation branch '${config.pullRequest.headRef}' must contain exactly one canonical TB-<digits> marker.`);
+  const workId = markers.canonical[0];
+  const page = await findNotionPageByWorkId(config, workId);
+  if (!page) throw new Error(`No Notion backlog item found for Work ID '${workId}'.`);
+  const item = mapNotionItem(config, page);
+  if (item.branch && item.branch !== config.pullRequest.headRef) throw new Error(`Notion item ${item.workId} branch '${item.branch}' conflicts with '${config.pullRequest.headRef}'.`);
+  return validateTrackedItem(config, item, refsNumbers);
+}
+
+async function validateTrackedItem(config, item, refsNumbers) {
+  if (!item.formalChannel.value) throw new Error(`Notion item ${item.workId} must define a non-empty '${config.properties.formalChannel}'.`);
+  if (item.formalChannel.value !== config.formalChannelName) return validateIssueNumbers(config, refsNumbers);
+  const issueNumber = parseFormalIssueUrl(item.formalLink.value, config.repository);
+  if (!issueNumber) throw new Error(`Notion item ${item.workId} has invalid formal link '${item.formalLink.value || "<empty>"}'. Expected https://github.com/${config.repository.slug}/issues/<number>.`);
+  if (!refsNumbers.includes(issueNumber)) throw new Error(`Notion item ${item.workId} requires 'Refs #${issueNumber}' in visible '## Related Issues'.`);
+  await validateIssueNumbers(config, refsNumbers);
+}
+
+async function resolveImplementationWithoutWorkId(config, refsNumbers, document) {
+  const page = await findNotionPageByBranchName(config, config.pullRequest.headRef);
+  if (page) return validateTrackedItem(config, mapNotionItem(config, page), refsNumbers);
+  validateExplicitlyUntrackedBody(document);
+  return validateIssueNumbers(config, refsNumbers);
+}
+
+async function syncPrMutations(config) {
+  if (!isTrustedMutation(config)) { console.warn("Skipping privileged synchronization for an untrusted PR head."); return; }
+  const pr = classifyPr(config.pullRequest.headRef, config.pullRequest.baseRef);
+  if (config.pullRequest.action === "closed" && pr.type === "promotion-to-main") {
+    await syncMergedMainPromotion(config);
     return;
   }
-
-  await validatePrPolicy(config);
   await syncIssuePrReference(config);
 }
 
-async function validatePrPolicy(config) {
-  logHeader("Validate PR policy");
-
-  const pr = classifyPr(config.pullRequest.headRef, config.pullRequest.baseRef);
-  const closingRefs = extractClosingReferences(config.pullRequest.body);
-  const hasNoFormalIssuesToken = containsNoFormalIssuesToken(config.pullRequest.body);
-
-  switch (pr.type) {
-    case "implementation": {
-      if (closingRefs.length > 0) {
-        throw new Error(
-          `Implementation PRs to development must reference issues without closing them. Replace closing keywords with 'Refs #N'. Found: ${closingRefs.map((r) => `${r.keyword} #${r.issueNumber}`).join(", ")}`
-        );
-      }
-
-      const refsNumbers = extractRefsNumbers(config.pullRequest.body);
-      if (refsNumbers.length === 0) {
-        throw new Error(
-          `Implementation PRs to development must declare the linked issue with 'Refs #N' in the PR body. No issue reference found. Add 'Refs #<issue-number>' to the Context section.`
-        );
-      }
-
-      await ensureImplementationIssue(config, pr);
-      return;
-    }
-
-    case "promotion-to-staging":
-      if (closingRefs.length > 0) {
-        throw new Error(
-          `Promotion PRs from development to staging must NOT close issues. Remove closing keywords and keep them for the staging->main promotion PR. Found: ${closingRefs.join(", ")}`
-        );
-      }
-
-      console.log("Validated promotion PR to staging. Work ID enforcement is intentionally skipped.");
-      return;
-
-    case "promotion-to-main":
-      if (closingRefs.length === 0 && !hasNoFormalIssuesToken) {
-        throw new Error(
-          `Promotion PRs from staging to main must declare formal closure intent with one or more closing references or the exact token '${DEFAULTS.noFormalIssuesToken}'.`
-        );
-      }
-
-      if (closingRefs.length > 0 && hasNoFormalIssuesToken) {
-        throw new Error(
-          `Promotion PRs to main cannot mix closing references with the '${DEFAULTS.noFormalIssuesToken}' token. Choose exactly one path.`
-        );
-      }
-
-      console.log("Validated promotion PR to main. Closure intent is explicit.");
-      return;
-
-    case "unsupported-implementation-target":
-      throw new Error(
-        `Implementation-like branches must target 'development'. Received '${config.pullRequest.headRef}' -> '${config.pullRequest.baseRef}'.`
-      );
-
-    default:
-      console.log(
-        `Skipping PR policy enforcement for '${config.pullRequest.headRef}' -> '${config.pullRequest.baseRef}' because it is outside the governed implementation/promotion flows.`
-      );
-  }
+function isTrustedMutation(config) {
+  return config.eventName === "pull_request_target"
+    && Boolean(config.pullRequest.headRepository)
+    && config.pullRequest.headRepository === config.repository.slug;
 }
 
-async function ensureImplementationIssue(config, pr) {
-  const workId = extractWorkIdFromBranch(config.pullRequest.headRef);
+async function syncMergedMainPromotion(config) {
+  if (!config.pullRequest.merged) return;
+  const document = await renderPrBody(config, config.pullRequest.body);
+  if (containsNoFormalIssuesToken(document)) return;
+  const closingNumbers = unique(extractClosingReferences(document).map((entry) => entry.issueNumber));
+  const referenceNumbers = extractRefsNumbers(document);
+  const issueNumbers = unique([...closingNumbers, ...referenceNumbers]);
+  const resolved = await preflightIssues(config, issueNumbers, { strict: true });
+  const pagesByIssue = new Map();
+  for (const issue of resolved) pagesByIssue.set(issue.number, await findNotionPageByIssueUrl(config, issue.html_url));
+  const comments = await prepareIssueComments(config, resolved, "Shipped by");
 
-  let page = null;
-
-  if (workId) {
-    page = await findNotionPageByWorkId(config, workId);
-
-    if (!page) {
-      throw new Error(`No Notion backlog item found for Work ID '${workId}'.`);
-    }
-  } else {
-    page = await findNotionPageByBranchName(config, config.pullRequest.headRef);
-
-    if (!page) {
-      throw new Error(
-        `Implementation branch '${config.pullRequest.headRef}' is missing a Work ID and does not match the Notion '${config.properties.branch}' field.`
-      );
-    }
+  for (const issue of resolved.filter((entry) => closingNumbers.includes(entry.number))) {
+    await syncIssueNumberToDone(config, issue, pagesByIssue.get(issue.number));
   }
-
-  const item = mapNotionItem(config, page);
-  console.log(`Matched implementation PR to Notion item '${item.title}' (${item.workId}).`);
-
-  if (item.formalChannel.value !== config.formalChannelName) {
-    console.log(
-      `Notion item ${item.workId} uses formal channel '${item.formalChannel.value || "<empty>"}'. GitHub issue validation is not required.`
-    );
-    return;
-  }
-
-  if (!item.formalLink.value) {
-    throw new Error(
-      `Notion item ${item.workId} requires a GitHub issue (Canal formal = ${config.formalChannelName}) but has no '${config.properties.formalLink}' URL. Formalize it manually before opening an implementation PR.`
-    );
-  }
-
-  const linkedIssueNumber = extractIssueNumberFromUrl(item.formalLink.value);
-
-  if (!linkedIssueNumber) {
-    throw new Error(
-      `Notion item ${item.workId} has an invalid formal link '${item.formalLink.value}'. Expected a GitHub issue URL.`
-    );
-  }
-
-  const linkedIssue = await fetchGitHubIssue(config, linkedIssueNumber);
-  console.log(`Validated linked GitHub issue #${linkedIssue.number} for ${item.workId}.`);
+  await createPreparedIssueComments(config, comments);
 }
-
-async function syncMainPromotionClosures(config) {
-  logHeader("Sync merged main promotion closures");
-
-  const pr = classifyPr(config.pullRequest.headRef, config.pullRequest.baseRef);
-
-  if (pr.type !== "promotion-to-main") {
-    console.log(`Skipping closure sync because '${config.pullRequest.headRef}' -> '${config.pullRequest.baseRef}' is not a staging->main promotion PR.`);
-    return;
-  }
-
-  if (!config.pullRequest.merged) {
-    console.log("Promotion PR was closed without merge. No closure sync is required.");
-    return;
-  }
-
-  const closingRefs = extractClosingReferences(config.pullRequest.body);
-  const hasNoFormalIssuesToken = containsNoFormalIssuesToken(config.pullRequest.body);
-
-  if (closingRefs.length === 0 && hasNoFormalIssuesToken) {
-    console.log(`Merged promotion PR declared '${DEFAULTS.noFormalIssuesToken}'. No Notion items will be closed.`);
-    return;
-  }
-
-  if (closingRefs.length === 0) {
-    throw new Error(
-      `Merged promotion PR to main is missing closing references and does not include '${DEFAULTS.noFormalIssuesToken}'.`
-    );
-  }
-
-  const uniqueIssueNumbers = [...new Set(closingRefs.map((entry) => entry.issueNumber))];
-  console.log(`Syncing ${uniqueIssueNumbers.length} closed formal issue(s) from merged promotion PR.`);
-
-  for (const issueNumber of uniqueIssueNumbers) {
-    await syncIssueNumberToDone(config, issueNumber);
-  }
-}
-
-// ─── Layer C: PR → Issue managed block sync ───────────────────────────────────
 
 async function syncIssuePrReference(config) {
-  logHeader("Sync PR reference into issue managed block");
-
-  const prNumber = config.pullRequest.number;
-  if (!prNumber) {
-    console.log("PR_NUMBER not available. Skipping managed block sync.");
-    return;
-  }
-
+  if (!isTrustedMutation(config) || !config.pullRequest.number) return;
   const pr = classifyPr(config.pullRequest.headRef, config.pullRequest.baseRef);
-
-  let field;
-  switch (pr.type) {
-    case "implementation":
-      field = "Related PRs";
-      break;
-    case "promotion-to-staging":
-      field = "Promotion PRs";
-      break;
-    case "promotion-to-main":
-      field = "Shipped by";
-      break;
-    default:
-      console.log(`No managed block update needed for PR type '${pr.type}'.`);
-      return;
-  }
-
-  // Collect all issue numbers referenced in this PR body
-  const refsNumbers = extractRefsNumbers(config.pullRequest.body);
-  const closingNumbers = extractClosingReferences(config.pullRequest.body).map((r) => r.issueNumber);
-  const allIssueNumbers = [...new Set([...refsNumbers, ...closingNumbers])];
-
-  if (allIssueNumbers.length === 0) {
-    console.log("No issue references found in PR body. Skipping managed block sync.");
-    return;
-  }
-
-  console.log(`Updating managed block field '${field}' with #${prNumber} for issue(s): ${allIssueNumbers.join(", ")}`);
-
-  for (const issueNumber of allIssueNumbers) {
-    await updateIssueManagedBlock(config, issueNumber, field, prNumber);
-  }
+  const role = relationRole(pr, config.pullRequest);
+  if (!role) return;
+  const document = await renderPrBody(config, config.pullRequest.body);
+  const refs = extractRefsNumbers(document);
+  const closing = extractClosingReferences(document).map((entry) => entry.issueNumber);
+  const issueNumbers = unique([...refs, ...closing]);
+  if (!issueNumbers.length) return;
+  const resolved = await preflightIssues(config, issueNumbers, { strict: pr.type === "implementation" });
+  if (!resolved) { console.warn("Skipping promotion comment synchronization because an optional issue reference could not be resolved."); return; }
+  await createPreparedIssueComments(config, await prepareIssueComments(config, resolved, role));
 }
 
-async function updateIssueManagedBlock(config, issueNumber, field, prNumber) {
-  let issue;
+function relationRole(pr, pullRequest) {
+  if (pr.type === "implementation") return "Related PR";
+  if (pr.type === "promotion-to-staging") return "Promotion PR";
+  if (pr.type === "promotion-to-main") {
+    return pullRequest.action === "closed" && pullRequest.merged ? "Shipped by" : "Promotion PR";
+  }
+  return null;
+}
+
+async function preflightIssues(config, issueNumbers, { strict }) {
+  if (issueNumbers.length > DEFAULTS.maxExplicitReferences) throw new Error(`PR body exceeds the maximum of ${DEFAULTS.maxExplicitReferences} explicit issue references.`);
   try {
-    issue = await fetchGitHubIssue(config, issueNumber);
+    return await mapWithConcurrency(issueNumbers, DEFAULTS.issueFetchConcurrency, (number) => fetchGitHubIssue(config, number));
   } catch (error) {
-    console.warn(`Could not fetch issue #${issueNumber}: ${error.message}. Skipping.`);
-    return;
+    if (strict || !isMissingIssueError(error)) throw error;
+    return null;
   }
-
-  const currentBody = issue.body || "";
-  const { start, end, defaultContent } = DEFAULTS.managedBlock;
-  const blockRegex = new RegExp(
-    `${escapeRegex(start)}([\\s\\S]*?)${escapeRegex(end)}`
-  );
-
-  let newBody;
-
-  if (blockRegex.test(currentBody)) {
-    const blockContent = currentBody.match(blockRegex)[1];
-    const updatedContent = updateBlockField(blockContent, field, prNumber);
-    newBody = currentBody.replace(blockRegex, `${start}\n${updatedContent}${end}`);
-  } else {
-    // Block doesn't exist yet — append at the end of the body
-    const updatedContent = updateBlockField(defaultContent, field, prNumber);
-    const trimmedBody = currentBody.trimEnd();
-    newBody = `${trimmedBody}\n\n${start}\n${updatedContent}${end}`;
-  }
-
-  if (config.dryRun) {
-    console.log(`[dry-run] Would update issue #${issueNumber} managed block: ${field} += #${prNumber}`);
-    return;
-  }
-
-  await githubRequest(
-    config,
-    `/repos/${config.repository.owner}/${config.repository.repo}/issues/${issueNumber}`,
-    { method: "PATCH", body: { body: newBody } }
-  );
-
-  console.log(`Updated issue #${issueNumber} managed block: ${field} now includes #${prNumber}.`);
 }
 
-function updateBlockField(blockContent, field, prNumber) {
-  const prRef = `#${prNumber}`;
-  const fieldRegex = new RegExp(`^(- ${escapeRegex(field)}:)(.*)$`, "m");
-  const match = blockContent.match(fieldRegex);
+function isMissingIssueError(error) { return error instanceof Error && error.message.includes("status 404"); }
 
-  if (match) {
-    const currentValue = match[2].trim();
-
-    if (currentValue.includes(prRef)) {
-      // Already referenced — idempotent, nothing to change
-      return blockContent;
+async function mapWithConcurrency(values, concurrency, mapper) {
+  const results = new Array(values.length);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+    while (cursor < values.length) {
+      const index = cursor++;
+      results[index] = await mapper(values[index]);
     }
-
-    const newValue = currentValue === "N/A" || currentValue === ""
-      ? prRef
-      : `${currentValue}, ${prRef}`;
-
-    return blockContent.replace(fieldRegex, `$1 ${newValue}`);
-  }
-
-  // Field not present — append it
-  return `${blockContent}- ${field}: ${prRef}\n`;
+  }));
+  return results;
 }
 
-function extractRefsNumbers(body) {
-  const regex = /\b(?:refs?|references?)\s+#(\d+)\b/gi;
-  const numbers = [];
-  for (const match of body.matchAll(regex)) {
-    numbers.push(Number.parseInt(match[1], 10));
-  }
-  return [...new Set(numbers)];
+async function prepareIssueComments(config, issues, role) {
+  return mapWithConcurrency(issues, DEFAULTS.issueFetchConcurrency, async (issue) => ({
+    issue,
+    role,
+    exists: await hasManagedIssueComment(config, issue.number, config.pullRequest.number, role),
+  }));
 }
 
-function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+async function createPreparedIssueComments(config, comments) {
+  for (const comment of comments) {
+    if (!comment.exists) await createManagedIssueComment(config, comment.issue.number, config.pullRequest.number, comment.role);
+  }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
+async function hasManagedIssueComment(config, issueNumber, prNumber, role) {
+  const marker = managedIssueCommentMarker(issueNumber, prNumber, role);
+  const comments = await listIssueComments(config, issueNumber);
+  return comments.some((comment) => typeof comment.body === "string" && comment.body.includes(marker));
+}
 
-async function syncIssueNumberToDone(config, issueNumber) {
-  const issue = await fetchGitHubIssue(config, issueNumber);
-  const page = await findNotionPageByIssueUrl(config, issue.html_url);
-
-  if (!page) {
-    console.warn(`No Notion backlog item found for issue ${issue.html_url}.`);
-    return;
+async function listIssueComments(config, issueNumber) {
+  const comments = [];
+  for (let page = 1; ; page += 1) {
+    const path = `/repos/${config.repository.owner}/${config.repository.repo}/issues/${issueNumber}/comments?per_page=${DEFAULTS.commentPageSize}&page=${page}`;
+    const currentPage = await githubRequest(config, path, { method: "GET" });
+    if (!Array.isArray(currentPage)) throw new Error(`GitHub comments response for issue #${issueNumber} must be an array.`);
+    comments.push(...currentPage);
+    if (currentPage.length < DEFAULTS.commentPageSize) return comments;
   }
+}
 
-  const item = mapNotionItem(config, page);
-  console.log(`Marking Notion item ${item.workId || item.title} as done because issue #${issue.number} shipped to main.`);
+async function createManagedIssueComment(config, issueNumber, prNumber, role) {
+  const path = `/repos/${config.repository.owner}/${config.repository.repo}/issues/${issueNumber}/comments`;
+  await githubRequest(config, path, { method: "POST", body: { body: managedIssueCommentBody(issueNumber, prNumber, role) } });
+}
 
-  await updateNotionItem(config, item.pageId, {
-    [config.properties.status]: notionOptionValue(item.status.type, config.statuses.done),
-  });
+function managedIssueCommentMarker(issueNumber, prNumber, role) {
+  return `<!-- backlog-governance:issue=${issueNumber}:pr=${prNumber}:role=${role} -->`;
+}
+
+function managedIssueCommentBody(issueNumber, prNumber, role) {
+  return `${role}: #${prNumber}\n\n${managedIssueCommentMarker(issueNumber, prNumber, role)}`;
+}
+
+async function validateIssueNumbers(config, issueNumbers) { await preflightIssues(config, issueNumbers, { strict: true }); }
+
+async function syncIssueNumberToDone(config, issue, page = undefined) {
+  const matchedPage = page === undefined ? await findNotionPageByIssueUrl(config, issue.html_url) : page;
+  if (!matchedPage) return;
+  const item = mapNotionItem(config, matchedPage);
+  await updateNotionItem(config, item.pageId, { [config.properties.status]: notionOptionValue(item.status.type, config.statuses.done) });
 }
 
 function classifyPr(headRef, baseRef) {
-  if (headRef === DEFAULTS.promotionPairs.toStaging.head && baseRef === DEFAULTS.promotionPairs.toStaging.base) {
-    return { type: "promotion-to-staging" };
-  }
-
-  if (headRef === DEFAULTS.promotionPairs.toMain.head && baseRef === DEFAULTS.promotionPairs.toMain.base) {
-    return { type: "promotion-to-main" };
-  }
-
-  if (DEFAULTS.implementationBranchPattern.test(headRef)) {
-    if (baseRef === "development") {
-      return { type: "implementation" };
-    }
-
-    return { type: "unsupported-implementation-target" };
-  }
-
+  if (headRef === "development" && baseRef === "staging") return { type: "promotion-to-staging" };
+  if (headRef === "staging" && baseRef === "main") return { type: "promotion-to-main" };
+  if (DEFAULTS.implementationBranchPattern.test(headRef)) return { type: baseRef === "development" ? "implementation" : "unsupported-implementation-target" };
   return { type: "other" };
 }
 
-function extractClosingReferences(body) {
-  const regex = /\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b/gi;
-  const matches = [];
-
-  for (const match of body.matchAll(regex)) {
-    matches.push({ keyword: match[1], issueNumber: Number.parseInt(match[2], 10) });
-  }
-
-  return matches;
+async function renderPrBody(config, body) {
+  const html = typeof config.renderMarkdown === "function"
+    ? await config.renderMarkdown(body)
+    : await githubRequest(config, "/markdown", {
+      method: "POST",
+      body: { text: body, mode: "gfm", context: config.repository.slug },
+      responseType: "text",
+    });
+  if (typeof html !== "string") throw new Error("GitHub Markdown renderer returned a non-text response.");
+  return parseGitHubRenderedDocument(html);
 }
 
-function containsNoFormalIssuesToken(body) {
-  return body
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .some((line) => line === DEFAULTS.noFormalIssuesToken);
+function parseGitHubRenderedDocument(html) {
+  const document = { headings: [], sections: [], visibleText: "" };
+  const stack = [];
+  let ignoredDepth = 0;
+  let activeHeading = null;
+  let activeSection = null;
+  let cursor = 0;
+
+  const appendText = (value) => {
+    if (ignoredDepth || !value) return;
+    const text = decodeHtmlEntities(value);
+    document.visibleText += text;
+    if (activeHeading) activeHeading.text += text;
+    if (activeSection && !activeHeading) activeSection.content += text;
+  };
+  const appendBoundary = () => {
+    if (ignoredDepth || document.visibleText.endsWith("\n")) return;
+    document.visibleText += "\n";
+    if (activeSection && !activeHeading && !activeSection.content.endsWith("\n")) activeSection.content += "\n";
+  };
+  const startHeading = (name) => { if (!ignoredDepth) activeHeading = { level: Number(name[1]), text: "" }; };
+  const finishHeading = () => {
+    if (!activeHeading) return;
+    const heading = { level: activeHeading.level, text: normalizeVisibleText(activeHeading.text) };
+    document.headings.push(heading);
+    if (heading.level <= 2) {
+      if (activeSection) document.sections.push(activeSection);
+      activeSection = heading.level === 2 ? { heading: heading.text, content: "" } : null;
+    } else if (activeSection) {
+      activeSection.content += `${heading.text}\n`;
+    }
+    activeHeading = null;
+    appendBoundary();
+  };
+
+  while (cursor < html.length) {
+    const tagStart = html.indexOf("<", cursor);
+    if (tagStart === -1) { appendText(html.slice(cursor)); break; }
+    appendText(html.slice(cursor, tagStart));
+    const token = readHtmlToken(html, tagStart);
+    if (!token) { appendText("<"); cursor = tagStart + 1; continue; }
+    cursor = token.end;
+    if (token.kind !== "tag") continue;
+
+    const { name, closing, selfClosing, raw } = token;
+    if (closing) {
+      const matchingIndex = stack.map((entry) => entry.name).lastIndexOf(name);
+      if (matchingIndex === -1) continue;
+      for (let index = stack.length - 1; index >= matchingIndex; index -= 1) {
+        const entry = stack.pop();
+        if (entry.name === name && /^h[1-6]$/.test(name)) finishHeading();
+        if (entry.ignored) ignoredDepth -= 1;
+        if (isBlockElement(entry.name)) appendBoundary();
+      }
+      continue;
+    }
+
+    if (name === "br") { appendBoundary(); continue; }
+    const ignored = ignoredDepth > 0 || isIgnoredElement(name) || isHiddenContainer(raw);
+    if (isBlockElement(name)) appendBoundary();
+    if (!ignored && /^h[1-6]$/.test(name)) startHeading(name);
+    const isContainer = !selfClosing && !isVoidElement(name);
+    if (isContainer) stack.push({ name, ignored });
+    if (ignored && isContainer) ignoredDepth += 1;
+  }
+  if (activeSection) document.sections.push(activeSection);
+  return document;
+}
+
+function readHtmlToken(html, start) {
+  if (html.startsWith("<!--", start)) {
+    const end = html.indexOf("-->", start + 4);
+    return { kind: "comment", end: end === -1 ? html.length : end + 3 };
+  }
+  let quote = null;
+  for (let index = start + 1; index < html.length; index += 1) {
+    const character = html[index];
+    if (quote) {
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") { quote = character; continue; }
+    if (character !== ">") continue;
+    const raw = html.slice(start, index + 1);
+    const match = raw.match(/^<\s*(\/)?\s*([A-Za-z][A-Za-z0-9-]*)\b/);
+    if (!match) return { kind: "other", end: index + 1 };
+    return { kind: "tag", end: index + 1, raw, closing: Boolean(match[1]), name: match[2].toLowerCase(), selfClosing: /\/\s*>$/.test(raw) };
+  }
+  return null;
+}
+
+function isIgnoredElement(name) { return new Set(["pre", "code", "blockquote", "details", "script", "style", "template"]).has(name); }
+function isVoidElement(name) { return new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]).has(name); }
+function isBlockElement(name) { return new Set(["address", "article", "aside", "div", "dl", "fieldset", "figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "li", "main", "nav", "ol", "p", "section", "table", "tbody", "td", "tfoot", "th", "thead", "tr", "ul"]).has(name); }
+function isHiddenContainer(raw) {
+  return /\shidden(?:\s|=|\/?>)/i.test(raw)
+    || /\saria-hidden\s*=\s*(?:(["'])true\1|true)(?:\s|\/?>)/i.test(raw)
+    || /\sstyle\s*=\s*(["'])[^"']*display\s*:\s*none[^"']*\1/i.test(raw);
+}
+
+function decodeHtmlEntities(value) {
+  return value.replace(/&(?:#(\d+)|#x([\da-f]+)|([a-z][a-z\d]+));/gi, (_match, decimal, hexadecimal, named) => {
+    if (decimal) return String.fromCodePoint(Number(decimal));
+    if (hexadecimal) return String.fromCodePoint(Number.parseInt(hexadecimal, 16));
+    return ({ amp: "&", apos: "'", gt: ">", lt: "<", nbsp: " ", quot: '"' })[named.toLowerCase()] || _match;
+  });
+}
+
+function normalizeVisibleText(value) { return value.replace(/\s+/g, " ").trim(); }
+
+function extractRefsNumbers(document) {
+  const relatedIssues = getFinalRelatedIssuesSection(document);
+  if (!relatedIssues) return [];
+  return unique([...relatedIssues.content.matchAll(/\b(?:refs?|references?)\s+#(\d+)\b/gi)].map((match) => Number(match[1])));
+}
+
+function extractClosingReferences(document) {
+  return [...document.visibleText.matchAll(/\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b/gi)]
+    .map((match) => ({ keyword: match[1], issueNumber: Number(match[2]) }));
+}
+
+function containsNoFormalIssuesToken(document) {
+  return document.visibleText.split(/\r?\n/).some((line) => line.trim() === DEFAULTS.noFormalIssuesToken);
+}
+
+function validateImplementationBody(document, closingRefs = extractClosingReferences(document)) {
+  if (closingRefs.length) throw new Error("Implementation PRs to development must reference issues without closing them.");
+  return extractRefsNumbers(document);
+}
+
+function extractWorkIdMarkers(branchName) {
+  const canonical = [];
+  const malformed = [];
+  for (const match of branchName.matchAll(/tb/gi)) {
+    const index = match.index;
+    if (index > 0 && isUnicodeLetterOrNumber(branchName[index - 1])) continue;
+    const suffix = branchName.slice(index);
+    const canonicalMatch = suffix.match(/^tb-(\d{1,6})(?=$|[^\p{L}\p{N}])/iu);
+    if (canonicalMatch) { canonical.push(`TB-${canonicalMatch[1]}`); continue; }
+    malformed.push(getMalformedWorkIdToken(suffix));
+  }
+  return { canonical, malformed };
+}
+
+function isUnicodeLetterOrNumber(value) { return Boolean(value && /[\p{L}\p{N}]/u.test(value)); }
+function getMalformedWorkIdToken(value) { return value.match(/^tb[^/\s]*/i)?.[0] || "tb"; }
+
+function validateExplicitlyUntrackedBody(document) {
+  const section = getH2Section(document, "Tracking");
+  if (!section) throw new Error("Explicitly untracked implementation PRs require a visible ## Tracking section.");
+  const lines = section.content.split(/\r?\n/).map((line) => line.trim());
+  if (!lines.includes(DEFAULTS.noBacklogItemDeclaration) || !lines.some((line) => /^Reason:\s+\S.*$/.test(line))) {
+    throw new Error("Explicitly untracked implementation PRs require 'Backlog item: none' and a non-empty 'Reason: ...' line.");
+  }
+}
+
+function getH2Section(document, heading) { return document.sections.find((section) => section.heading === heading) || null; }
+function getFinalRelatedIssuesSection(document) {
+  const structuralHeadings = document.headings.filter((heading) => heading.level <= 2);
+  const finalHeading = structuralHeadings.at(-1);
+  if (!finalHeading || finalHeading.level !== 2 || finalHeading.text !== "Related Issues") return null;
+  return document.sections.filter((section) => section.heading === "Related Issues").at(-1) || null;
 }
 
 async function findNotionPageByWorkId(config, workId) {
-  const parsed = parseWorkId(workId);
-
-  if (parsed) {
-    const pages = await queryNotionPages(config, {
-      property: config.properties.workId,
-      unique_id: { equals: parsed.number },
-    });
-
-    const exactPage = pages.find((page) => workIdMatches(page.properties[config.properties.workId], parsed));
-
-    if (exactPage) {
-      return exactPage;
-    }
-  }
-
-  // Fallback 1: rich_text filter (may fail with unique_id property)
-  let richTextPages = [];
-  try {
-    richTextPages = await queryNotionPages(config, {
-      property: config.properties.workId,
-      rich_text: { equals: workId },
-    });
-  } catch (error) {
-    console.warn(`rich_text filter failed for Work ID '${workId}': ${error.message}`);
-  }
-
-  if (richTextPages[0]) {
-    return richTextPages[0];
-  }
-
-  // Fallback 2: title filter (may also fail if property type is not title)
-  let titlePages = [];
-  try {
-    titlePages = await queryNotionPages(config, {
-      property: config.properties.workId,
-      title: { equals: workId },
-    });
-  } catch (error) {
-    console.warn(`title filter failed for Work ID '${workId}': ${error.message}`);
-  }
-
-  return titlePages[0] || null;
-}
-
-async function findNotionPageByIssueUrl(config, issueUrl) {
-  const pages = await queryNotionPages(config, {
-    property: config.properties.formalLink,
-    url: { equals: issueUrl },
-  });
-
-  return pages[0] || null;
+  const pages = await queryNotionPages(config, { property: config.properties.workId, unique_id: { equals: Number(workId.split("-")[1]) } });
+  const matchingPages = pages.filter((page) => workIdMatches(page.properties?.[config.properties.workId], workId));
+  return selectSingleNotionPage(matchingPages, `Work ID '${workId}'`);
 }
 
 async function findNotionPageByBranchName(config, branchName) {
-  let pages = [];
-  try {
-    pages = await queryNotionPages(config, {
-      property: config.properties.branch,
-      rich_text: { equals: branchName },
-    });
-  } catch (error) {
-    console.warn(`rich_text filter failed for branch '${branchName}': ${error.message}`);
-  }
+  const pages = await queryNotionPages(config, { property: config.properties.branch, rich_text: { equals: branchName } });
+  return selectSingleNotionPage(pages, `branch '${branchName}'`);
+}
 
-  return pages[0] || null;
+async function findNotionPageByIssueUrl(config, url) {
+  const pages = await queryNotionPages(config, { property: config.properties.formalLink, url: { equals: url } });
+  return selectSingleNotionPage(pages, `formal link '${url}'`);
+}
+
+function selectSingleNotionPage(pages, description) {
+  const uniquePages = [...new Map(pages.map((page) => [page.id, page])).values()];
+  if (uniquePages.length > 1) throw new Error(`Multiple Notion backlog items match ${description}.`);
+  return uniquePages[0] || null;
 }
 
 async function queryNotionPages(config, filter) {
   const pages = [];
   let startCursor;
-
   do {
-    const body = {
-      page_size: 100,
-      result_type: "page",
-      filter,
-    };
-
-    if (startCursor) {
-      body.start_cursor = startCursor;
-    }
-
-    const response = await notionRequest(config, `/data_sources/${config.notionDataSourceId}/query`, {
-      method: "POST",
-      body,
-    });
-
+    const body = { page_size: 100, result_type: "page", filter, ...(startCursor ? { start_cursor: startCursor } : {}) };
+    const response = await notionRequest(config, `/data_sources/${config.notionDataSourceId}/query`, { method: "POST", body });
     pages.push(...response.results.filter((entry) => entry.object === "page"));
     startCursor = response.has_more ? response.next_cursor : null;
   } while (startCursor);
-
   return pages;
 }
 
 function mapNotionItem(config, page) {
   const properties = page.properties || {};
-  const statusProperty = properties[config.properties.status];
-  const channelProperty = properties[config.properties.formalChannel];
-  const linkProperty = properties[config.properties.formalLink];
-  const branchProperty = properties[config.properties.branch];
-
   return {
     pageId: page.id,
-    pageUrl: page.url,
-    title: getPlainPropertyValue(properties[config.properties.title]),
     workId: getWorkIdValue(properties[config.properties.workId]),
-    status: {
-      type: statusProperty?.type || "select",
-      value: getOptionLikeValue(statusProperty),
-    },
-    formalChannel: {
-      type: channelProperty?.type || "select",
-      value: getOptionLikeValue(channelProperty),
-    },
-    formalLink: {
-      type: linkProperty?.type || "url",
-      value: getLinkValue(linkProperty),
-    },
-    notes: getPlainPropertyValue(properties[config.properties.notes]),
-    branch: getPlainPropertyValue(branchProperty),
+    status: { type: properties[config.properties.status]?.type || "select" },
+    formalChannel: { value: getOptionLikeValue(properties[config.properties.formalChannel]) },
+    formalLink: { value: getLinkValue(properties[config.properties.formalLink]) },
+    branch: getPlainPropertyValue(properties[config.properties.branch]),
   };
 }
 
-async function fetchGitHubIssue(config, issueNumber) {
-  return githubRequest(config, `/repos/${config.repository.owner}/${config.repository.repo}/issues/${issueNumber}`, {
-    method: "GET",
-  });
+function getWorkIdValue(property) {
+  if (property?.type === "unique_id") return `${property.unique_id.prefix || ""}-${property.unique_id.number}`.replace(/^-/, "");
+  return getPlainPropertyValue(property);
+}
+function workIdMatches(property, workId) { return getWorkIdValue(property).toUpperCase() === workId.toUpperCase(); }
+function getPlainPropertyValue(property) {
+  if (!property) return "";
+  if (property.type === "rich_text" || property.type === "title") return (property[property.type] || []).map((entry) => entry.plain_text || "").join("").trim();
+  if (property.type === "url") return property.url || "";
+  return property.select?.name || property.status?.name || "";
+}
+function getOptionLikeValue(property) { return property?.select?.name || property?.status?.name || ""; }
+function getLinkValue(property) { return getPlainPropertyValue(property); }
+
+function parseFormalIssueUrl(value, repository) {
+  try {
+    const url = new URL(value);
+    const match = url.pathname.match(/^\/([^/]+)\/([^/]+)\/issues\/(\d+)\/?$/);
+    if (url.hostname !== "github.com" || !match) return null;
+    return `${match[1]}/${match[2]}`.toLowerCase() === repository.slug.toLowerCase() ? Number(match[3]) : null;
+  } catch { return null; }
 }
 
-async function updateNotionItem(config, pageId, properties) {
-  if (config.dryRun) {
-    console.log(`[dry-run] Would update Notion page ${pageId} with properties: ${JSON.stringify(properties)}`);
-    return;
-  }
-
-  await notionRequest(config, `/pages/${pageId}`, {
-    method: "PATCH",
-    body: { properties },
-  });
+async function fetchGitHubIssue(config, number) {
+  const issue = await githubRequest(config, `/repos/${config.repository.owner}/${config.repository.repo}/issues/${number}`, { method: "GET" });
+  if (issue.pull_request) throw new Error(`#${number} is a pull request, not a GitHub issue.`);
+  return issue;
 }
+
+async function updateNotionItem(config, pageId, properties) { await notionRequest(config, `/pages/${pageId}`, { method: "PATCH", body: { properties } }); }
 
 async function notionRequest(config, path, options) {
   const response = await fetch(`https://api.notion.com/v1${path}`, {
     method: options.method,
-    headers: {
-      Authorization: `Bearer ${config.notionToken}`,
-      "Notion-Version": config.notionVersion,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${config.notionToken}`, "Notion-Version": config.notionVersion, "Content-Type": "application/json" },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
-
-  if (!response.ok) {
-    const errorBody = await safeJson(response);
-    throw new Error(`Notion API ${response.status}: ${JSON.stringify(errorBody)}`);
-  }
-
+  if (!response.ok) throw await requestError("Notion", options.method, path, response);
   return response.status === 204 ? null : response.json();
 }
 
 async function githubRequest(config, path, options) {
   const response = await fetch(`https://api.github.com${path}`, {
     method: options.method,
-    headers: {
-      Authorization: `Bearer ${config.githubToken}`,
-      Accept: "application/vnd.github+json",
-      "User-Agent": "teleferico-backlog-governance",
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-    },
+    headers: { Authorization: `Bearer ${config.githubToken}`, Accept: "application/vnd.github+json", ...(options.body ? { "Content-Type": "application/json" } : {}) },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
-
-  if (!response.ok) {
-    const errorBody = await safeJson(response);
-    throw new Error(`GitHub API ${response.status}: ${JSON.stringify(errorBody)}`);
-  }
-
-  return response.status === 204 ? null : response.json();
+  if (!response.ok) throw await requestError("GitHub", options.method, path, response);
+  return options.responseType === "text" ? response.text() : response.status === 204 ? null : response.json();
 }
 
-function extractWorkIdFromBranch(branchName) {
-  const match = branchName.match(/(?:^|[-/])([a-z]{1,10}-\d{1,6})(?=-|$)/i);
-  return match ? match[1].toUpperCase() : null;
+async function requestError(service, method, path, response) {
+  let details = "";
+  try { const body = await response.json(); details = body?.message ? `: ${String(body.message).slice(0, 200)}` : ""; } catch { /* Error response JSON is optional. */ }
+  return new Error(`${service} ${method} ${path} failed with status ${response.status}${details}`);
 }
 
-function parseWorkId(workId) {
-  const match = workId.match(/^([A-Z]{1,10})-(\d{1,6})$/i);
+function notionOptionValue(type, name) { return type === "status" ? { status: { name } } : { select: { name } }; }
+function unique(values) { return [...new Set(values)]; }
+function parseBoolean(value) { return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase()); }
+function normalizeNumber(value) { const parsed = Number(value); return Number.isInteger(parsed) && parsed > 0 ? parsed : null; }
+function requiredEnv(name) { if (!process.env[name]) throw new Error(`Missing required environment variable: ${name}`); return process.env[name]; }
 
-  if (!match) {
-    return null;
-  }
-
-  return {
-    prefix: match[1].toUpperCase(),
-    number: Number.parseInt(match[2], 10),
-    raw: workId.toUpperCase(),
-  };
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.stack || error.message);
+    process.exitCode = 1;
+  });
 }
 
-function workIdMatches(property, parsedWorkId) {
-  if (!property) {
-    return false;
-  }
-
-  if (property.type === "unique_id" && property.unique_id) {
-    const prefix = (property.unique_id.prefix || "").toUpperCase();
-    return prefix === parsedWorkId.prefix && property.unique_id.number === parsedWorkId.number;
-  }
-
-  const rawValue = getPlainPropertyValue(property)?.toUpperCase();
-  return rawValue === parsedWorkId.raw;
-}
-
-function getWorkIdValue(property) {
-  if (!property) {
-    return "";
-  }
-
-  if (property.type === "unique_id" && property.unique_id) {
-    const prefix = property.unique_id.prefix ? `${property.unique_id.prefix.toUpperCase()}-` : "";
-    return `${prefix}${property.unique_id.number}`;
-  }
-
-  return getPlainPropertyValue(property);
-}
-
-function getPlainPropertyValue(property) {
-  if (!property) {
-    return "";
-  }
-
-  switch (property.type) {
-    case "title":
-      return joinPlainText(property.title);
-    case "rich_text":
-      return joinPlainText(property.rich_text);
-    case "select":
-      return property.select?.name || "";
-    case "status":
-      return property.status?.name || "";
-    case "url":
-      return property.url || "";
-    case "unique_id":
-      return getWorkIdValue(property);
-    default:
-      return "";
-  }
-}
-
-function getOptionLikeValue(property) {
-  if (!property) {
-    return "";
-  }
-
-  if (property.type === "status") {
-    return property.status?.name || "";
-  }
-
-  return property.select?.name || "";
-}
-
-function getLinkValue(property) {
-  if (!property) {
-    return "";
-  }
-
-  if (property.type === "url") {
-    return property.url || "";
-  }
-
-  if (property.type === "rich_text") {
-    return joinPlainText(property.rich_text);
-  }
-
-  return "";
-}
-
-function joinPlainText(items = []) {
-  return items.map((item) => item.plain_text || item.text?.content || "").join("").trim();
-}
-
-function notionOptionValue(type, name) {
-  if (type === "status") {
-    return {
-      status: { name },
-    };
-  }
-
-  return {
-    select: { name },
-  };
-}
-
-function notionLinkValue(type, value) {
-  if (type === "rich_text") {
-    return {
-      rich_text: [{ type: "text", text: { content: value } }],
-    };
-  }
-
-  return {
-    url: value,
-  };
-}
-
-function extractIssueNumberFromUrl(url) {
-  const match = url.match(/\/issues\/(\d+)(?:$|[?#])/);
-  return match ? Number.parseInt(match[1], 10) : null;
-}
-
-function parseBoolean(value) {
-  return ["1", "true", "yes", "on"].includes(String(value || "").toLowerCase());
-}
-
-function requiredEnv(name) {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-
-  return value;
-}
-
-async function safeJson(response) {
-  try {
-    return await response.json();
-  } catch {
-    return { message: response.statusText };
-  }
-}
-
-function normalizeNumber(value) {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(String(value), 10);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-function logHeader(title) {
-  console.log(`\n=== ${title} ===`);
-}
-
-main().catch((error) => {
-  console.error(error instanceof Error ? error.stack || error.message : error);
-  process.exitCode = 1;
-});
+module.exports = {
+  DEFAULTS,
+  extractWorkIdMarkers,
+  extractRefsNumbers,
+  extractClosingReferences,
+  parseGitHubRenderedDocument,
+  renderPrBody,
+  validateExplicitlyUntrackedBody,
+  validateImplementationBody,
+  parseFormalIssueUrl,
+  findNotionPageByBranchName,
+  findNotionPageByIssueUrl,
+  validatePrPolicy,
+  syncPrMutations,
+  syncIssuePrReference,
+  isTrustedMutation,
+  selectSingleNotionPage,
+  listIssueComments,
+  managedIssueCommentMarker,
+  managedIssueCommentBody,
+};

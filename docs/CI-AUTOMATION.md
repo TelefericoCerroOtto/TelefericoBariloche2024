@@ -44,8 +44,9 @@ Responsibilities:
 
 Triggers:
 
-- `workflow_dispatch` → run a selected slice on demand, including `dry_run`
-- `pull_request_target` → validate governed PRs and sync formal closure only from merged `staging -> main` promotions
+- `workflow_dispatch` → run validation-only preview checks on demand using operator-supplied PR metadata; it never performs GitHub or Notion mutations and always executes the trusted default-branch workflow/script code
+- `pull_request` → runs the dependency-free Node governance tests against PR code with read-only permissions and no secrets
+- `pull_request_target` → runs validation from trusted default-branch workflow code; the live governance change takes effect only after it reaches the default branch
 
 ### Shared script
 
@@ -56,6 +57,10 @@ Responsibilities:
 - query Notion for governed backlog linkage checks
 - validate implementation/promotion PR policy
 - sync `Hecho` status on merged `staging -> main` promotions with explicit closure intent
+
+Commands are separated by responsibility: `validate-pr-policy` renders the PR body with GitHub GFM and performs read-only policy checks; `sync-pr-mutations` performs the trusted write phase; and the `trusted-pr-sync` workflow job invokes that write command only after validation. Issue-reference synchronization is part of the write phase.
+
+The workflow separates read-only validation from privileged synchronization. Validation has read-only issue permissions. Append-only issue comments and Notion closure updates run only after the governance test job and validation job both succeed, only for same-repository `pull_request_target` events, and only in the dedicated job with `issues: write`. Fork metadata and manual dispatch inputs can never trigger a mutation. Every secret-bearing job checks out the repository default branch before executing `.github/scripts/github-notion-sync.js`, so the workflow never executes selected-ref or PR-head code with secrets.
 
 The script uses **plain Node.js with native `fetch`** so the repository does not need a root package manager or root dependency installation just to support this automation.
 
@@ -80,9 +85,16 @@ What it does:
 
 **For implementation PRs (branches like `feat/`, `fix/`, etc.):**
 1. fails if the target branch is not `development`
-2. fails if the PR body contains closing keywords (e.g., `Closes #N`)
-3. extracts the `Work ID` from the branch name (or falls back to Notion `Branch` match)
-4. if `Canal formal = GitHub Issue`, requires a valid linked GitHub Issue URL and verifies the issue exists
+2. fails if GitHub-rendered visible PR text contains closing keywords (e.g., `Closes #N`)
+3. resolves exactly one tracked Notion item through one valid branch `Work ID`, or an exact Notion `Branch` match for legacy branches; malformed, unknown, and ambiguous associations fail
+4. permits an explicitly untracked PR only when no association exists and `## Tracking` contains `Backlog item: none` plus a non-empty `Reason:` line
+5. requires a non-empty `Canal formal` for tracked items
+6. if `Canal formal = GitHub Issue`, requires a valid linked GitHub Issue URL, verifies it exists, and requires its exact `Refs #N` reference inside a visible final `## Related Issues` section
+7. permits optional `Refs #N` for non-issue and explicitly untracked PRs, but verifies every visible explicit reference from the final `## Related Issues` section before comment synchronization
+
+Policy semantics come from GitHub's GFM renderer, not from handwritten Markdown parsing. The script reads only visible headings and text from GitHub-sanitized HTML; rendered code, blockquotes, details, hidden containers, and tag attributes do not count. Rendering failures fail closed.
+
+Promotion references remain optional. No references are a silent no-op. A supplied reference that is definitively missing skips all comment writes for that PR with a warning; transient, rate-limit, authentication, malformed-response, and server failures fail so the run can be retried safely. Governance accepts at most 100 distinct explicit issue references per PR and fetches them with bounded concurrency of five.
 
 **For promotion PRs to staging (`development` -> `staging`):**
 1. fails if the PR body contains closing keywords
@@ -90,7 +102,7 @@ What it does:
 **For promotion PRs to main (`staging` -> `main`):**
 1. fails if the PR body does not explicitly declare issue closure intent (either using `Closes #N` or the exact line `Formal issues: none`)
 
-### 2. `sync-main-promotion-closures`
+### 2. `sync-pr-mutations`
 
 Use case:
 
@@ -100,8 +112,9 @@ What it does:
 
 1. ignores the PR if it was closed without merge
 2. parses closing references from the merged promotion PR body
-3. marks the linked Notion rows as `Hecho`
-4. does nothing when the PR explicitly declares `Formal issues: none`
+3. preflights every referenced GitHub issue, issue-comment page, and unique Notion formal-link match before any GitHub or Notion write
+4. marks the uniquely linked Notion rows as `Hecho`; duplicate formal-link matches fail closed before any mutation
+5. does nothing when the PR explicitly declares `Formal issues: none`
 
 Conservative behavior:
 
@@ -126,31 +139,35 @@ These exist so the workflow can adapt if the Notion property names or option nam
 | Variable | Default |
 | --- | --- |
 | `NOTION_VERSION` | `2025-09-03` |
-| `NOTION_TITLE_PROPERTY` | `Tarea` |
 | `NOTION_WORK_ID_PROPERTY` | `Work ID` |
 | `NOTION_STATUS_PROPERTY` | `Estado` |
 | `NOTION_FORMAL_CHANNEL_PROPERTY` | `Canal formal` |
 | `NOTION_FORMAL_LINK_PROPERTY` | `Enlace formal` |
-| `NOTION_NOTES_PROPERTY` | `Notas` |
 | `NOTION_BRANCH_PROPERTY` | `Branch` |
 | `NOTION_DONE_STATUS` | `Hecho` |
 | `NOTION_GITHUB_ISSUE_CHANNEL` | `GitHub Issue` |
 
 `NOTION_FORMAL_LINK_PROPERTY` should remain a real Notion `url` property because the close-sync path queries it as a URL filter.
 
-## On-demand mode and dry runs
+## Test execution and activation
+
+The workflow exposes these checks: `Governance tests`, `validate-pr-policy`, and `trusted-pr-sync`. `Governance tests` runs `node --test .github/scripts/github-notion-sync.test.js` for pull requests without secrets or write permissions. Secret-bearing jobs deliberately check out the default branch, not PR code or manually selected refs; this protects privileged validation but means workflow/script fixes become live only after they are promoted to the default branch.
+
+Only trusted-sync runs for the same PR are serialized. Each issue relation is an append-only comment with a deterministic marker, so unrelated PRs never share mutable issue-body state. The action lists paginated comments before posting, making retries idempotent without rewriting issue bodies. Legacy managed body blocks remain untouched and are not used for new synchronization.
+
+## On-demand validation
 
 The workflow exposes `workflow_dispatch` inputs for:
 
-- `mode`
 - `branch_name`
 - `base_branch`
 - `pr_body`
 - `pr_action`
 - `pr_merged`
-- `dry_run`
 
-Use `dry_run: true` when validating the wiring or testing against a real repository configuration without writing to Notion.
+Manual dispatch is validation-only. It is the safe preview surface for checking policy decisions against real repository configuration without writing to GitHub or Notion.
+
+`workflow_dispatch` preview also checks out the trusted default branch before running the privileged validation script. Operator-supplied metadata influences validation inputs only; it never selects which repository code runs with secrets.
 
 Recommended operating model:
 
@@ -161,7 +178,9 @@ Recommended operating model:
 ## Security notes
 
 - The PR validation path uses `pull_request_target` so it can access repository secrets.
-- That job checks out the **trusted base repository branch**, not arbitrary PR code.
+- Secret-bearing jobs check out the **trusted default branch**, not arbitrary PR code, PR-head code, or manually selected refs.
+- Privileged mutation requires an actual same-repository `pull_request_target` event; `workflow_dispatch` never synthesizes trust from operator-provided inputs.
+- Manual validation never executes selected-ref or PR-head code with secrets.
 - Sensitive sync logic stays in one reviewed script instead of being spread across opaque inline YAML snippets.
 
 ## Intentional limits of this first slice
@@ -172,8 +191,6 @@ This implementation does **not** yet:
 - create Notion backlog items from GitHub
 - infer whether something “implies repo changes” by heuristic analysis
 - synchronize `Formalizado` links/status automatically
-- post comments automatically on PRs or issues
-- run tests, installs, or package validation checks
 - create issue body content from backlog fields
 
 Those are separate concerns and should not be mixed into the governance slice before this flow is stable.

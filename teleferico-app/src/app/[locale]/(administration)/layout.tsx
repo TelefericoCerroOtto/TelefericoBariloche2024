@@ -8,6 +8,10 @@ export const metadata: Metadata = {
     "Panel de administración para ver y gestionar el contenido del sitio",
 };
 
+// Provides the NextAuth SessionProvider for all administration routes,
+// including login and logout, which need client-side session access.
+// Auth enforcement (fail-closed guard) lives in dashboard/layout.tsx,
+// scoped to the protected subtree only.
 export default async function AdministrationLayout({
   children,
 }: Readonly<{
@@ -17,7 +21,7 @@ export default async function AdministrationLayout({
 
   return (
     <SessionProvider
-      session={session ?? undefined}
+      session={session}
       refetchOnWindowFocus
       refetchInterval={60}
     >

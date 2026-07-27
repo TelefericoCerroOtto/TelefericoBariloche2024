@@ -3,99 +3,119 @@ name: Backlog governance
 on:
   workflow_dispatch:
     inputs:
-      mode:
-        description: "Automation slice to run"
-        required: true
-        default: pr-governance
-        type: choice
-        options:
-          - pr-governance
       branch_name:
-        description: "Head branch name for pr-governance when running manually"
-        required: false
+        description: Head branch name
+        required: true
         type: string
       base_branch:
-        description: "Base branch name for pr-governance when running manually"
-        required: false
+        description: Base branch name
+        required: true
         type: string
       pr_body:
-        description: "PR body content for pr-governance when running manually"
+        description: PR body content
         required: false
         type: string
       pr_action:
-        description: "PR action for pr-governance when running manually"
+        description: PR action
         required: false
         default: opened
         type: choice
-        options:
-          - opened
-          - edited
-          - synchronize
-          - ready_for_review
-          - closed
+        options: [opened, edited, synchronize, ready_for_review, closed]
       pr_merged:
-        description: "Whether the PR was merged when simulating a closed event"
+        description: Whether a closed PR was merged
         required: false
         default: false
         type: boolean
-      dry_run:
-        description: "Preview changes without writing to Notion or GitHub"
-        required: false
-        default: true
-        type: boolean
+  pull_request:
+    paths:
+      - .github/scripts/github-notion-sync.js
+      - .github/scripts/github-notion-sync.test.js
+      - .github/workflows/backlog-governance.yml
+      - docs/CI-AUTOMATION.md
   pull_request_target:
-    types:
-      - opened
-      - reopened
-      - edited
-      - synchronize
-      - ready_for_review
-      - closed
-
-permissions:
-  contents: read
-  issues: write
-  pull-requests: read
+    types: [opened, reopened, edited, synchronize, ready_for_review, closed]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-concurrency:
-  group: backlog-governance-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name || 'manual' }}
-  cancel-in-progress: false
-
 jobs:
-  pr-governance:
-    if: github.event_name == 'pull_request_target' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'pr-governance')
+  governance-tests:
+    name: Governance tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --test .github/scripts/github-notion-sync.test.js
+
+  validate-pr-policy:
+    if: github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     steps:
       - name: Check out trusted workflow code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.repository.default_branch || github.ref }}
-
-      - name: PR backlog governance
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Validate PR backlog policy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_BACKLOG_DATA_SOURCE_ID: ${{ secrets.NOTION_BACKLOG_DATA_SOURCE_ID }}
           NOTION_VERSION: ${{ vars.NOTION_VERSION }}
           NOTION_WORK_ID_PROPERTY: ${{ vars.NOTION_WORK_ID_PROPERTY }}
-          NOTION_TITLE_PROPERTY: ${{ vars.NOTION_TITLE_PROPERTY }}
           NOTION_STATUS_PROPERTY: ${{ vars.NOTION_STATUS_PROPERTY }}
           NOTION_FORMAL_CHANNEL_PROPERTY: ${{ vars.NOTION_FORMAL_CHANNEL_PROPERTY }}
           NOTION_FORMAL_LINK_PROPERTY: ${{ vars.NOTION_FORMAL_LINK_PROPERTY }}
-          NOTION_NOTES_PROPERTY: ${{ vars.NOTION_NOTES_PROPERTY }}
+          NOTION_BRANCH_PROPERTY: ${{ vars.NOTION_BRANCH_PROPERTY }}
           NOTION_DONE_STATUS: ${{ vars.NOTION_DONE_STATUS }}
           NOTION_GITHUB_ISSUE_CHANNEL: ${{ vars.NOTION_GITHUB_ISSUE_CHANNEL }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          PR_BRANCH_NAME: ${{ github.event.pull_request.head.ref || inputs.branch_name }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref || inputs.base_branch }}
+          PR_ACTION: ${{ github.event.action || inputs.pr_action }}
+          PR_MERGED: ${{ github.event.pull_request.merged || inputs.pr_merged }}
+          PR_BODY: ${{ github.event.pull_request.body || inputs.pr_body }}
+          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || '' }}
+        run: node .github/scripts/github-notion-sync.js validate-pr-policy
+
+  trusted-pr-sync:
+    needs: [governance-tests, validate-pr-policy]
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    concurrency:
+      group: backlog-governance-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Check out trusted workflow code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Synchronize trusted PR references
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_BACKLOG_DATA_SOURCE_ID: ${{ secrets.NOTION_BACKLOG_DATA_SOURCE_ID }}
+          NOTION_VERSION: ${{ vars.NOTION_VERSION }}
+          NOTION_WORK_ID_PROPERTY: ${{ vars.NOTION_WORK_ID_PROPERTY }}
+          NOTION_STATUS_PROPERTY: ${{ vars.NOTION_STATUS_PROPERTY }}
+          NOTION_FORMAL_CHANNEL_PROPERTY: ${{ vars.NOTION_FORMAL_CHANNEL_PROPERTY }}
+          NOTION_FORMAL_LINK_PROPERTY: ${{ vars.NOTION_FORMAL_LINK_PROPERTY }}
           NOTION_BRANCH_PROPERTY: ${{ vars.NOTION_BRANCH_PROPERTY }}
-          PR_NUMBER: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.number || '' }}
-          PR_BRANCH_NAME: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.ref || inputs.branch_name }}
-          PR_BASE_REF: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || inputs.base_branch }}
-          PR_ACTION: ${{ github.event_name == 'pull_request_target' && github.event.action || inputs.pr_action || 'opened' }}
-          PR_MERGED: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.merged || inputs.pr_merged || 'false' }}
-          PR_URL: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.html_url || '' }}
-          PR_TITLE: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.title || '' }}
-          PR_BODY: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.body || inputs.pr_body || '' }}
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
-        run: node .github/scripts/github-notion-sync.js pr-governance
+          NOTION_DONE_STATUS: ${{ vars.NOTION_DONE_STATUS }}
+          NOTION_GITHUB_ISSUE_CHANNEL: ${{ vars.NOTION_GITHUB_ISSUE_CHANNEL }}
+          PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          PR_BRANCH_NAME: ${{ github.event.pull_request.head.ref || inputs.branch_name }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref || inputs.base_branch }}
+          PR_ACTION: ${{ github.event.action || inputs.pr_action }}
+          PR_MERGED: ${{ github.event.pull_request.merged || inputs.pr_merged }}
+          PR_BODY: ${{ github.event.pull_request.body || inputs.pr_body }}
+          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || '' }}
+        run: node .github/scripts/github-notion-sync.js sync-pr-mutations

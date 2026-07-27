@@ -3,7 +3,12 @@ import { Header } from "./_components/Header";
 import Sidebar from "./_components/Sidebar";
 import SessionWatcher from "./_components/SessionWatcher";
 import { auth } from "@/auth";
+import {
+  ADMIN_LOGIN_REASONS,
+  getAdminLoginUrl,
+} from "@/lib/constants/routes.const";
 import { type Metadata } from "next";
+import { redirect } from "next/navigation";
 
 export async function generateMetadata(): Promise<Metadata> {
   const session = await auth();
@@ -19,11 +24,22 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function DashboardLayout({
+// Defense-in-depth: enforce auth at the dashboard layout boundary so all
+// dashboard pages fail closed even if middleware is bypassed (e.g. via a
+// dotted path that slips through the matcher, or a future matcher
+// misconfiguration). Login/logout pages are siblings of dashboard — not
+// children — so they are NOT affected by this guard.
+export default async function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+
+  if (!session) {
+    redirect(getAdminLoginUrl(ADMIN_LOGIN_REASONS.SESSION_EXPIRED));
+  }
+
   return (
     <SidebarProvider>
       <SessionWatcher />

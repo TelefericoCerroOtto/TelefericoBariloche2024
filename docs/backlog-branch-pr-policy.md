@@ -6,8 +6,8 @@ This document defines how Notion items are associated with branches and implemen
 
 1. Work originates or is consolidated in Notion.
 2. If it will touch versioned code or docs, it may have an associated branch.
-3. The branch must include the primary item's `Work ID`.
-4. An implementation PR is only created or regenerated if the association with the backlog is reliable.
+3. A tracked branch includes one valid primary `Work ID`; legacy branches may instead exactly match the Notion `Branch` field.
+4. An implementation PR is tracked when that association resolves uniquely, or explicitly untracked when no Work ID marker and no exact `Branch` association exist.
 
 ## Conceptual Model
 
@@ -67,34 +67,30 @@ Expected governed flow:
 
 - work branch (`feat/...`, `fix/...`, `chore/...`, etc.) → `development`
 
-### Reliable association required
+### Deterministic tracking modes
 
-An implementation PR can be created or regenerated only if at least one of the following is met:
+An implementation PR has exactly one mode:
 
-1. The current branch includes the `Work ID`
-2. The item's `Branch` field exactly matches the current branch
-3. The user passes an explicit override indicating the correct item
+1. **Tracked:** its branch has exactly one complete canonical `TB-<digits>` marker, or—only for a branch without a Work ID marker—it has one exact Notion `Branch` match. Marker boundaries use Unicode letters and numbers, so `tb` embedded in a Unicode word is not a Work ID. Unknown, malformed, repeated, multiple, or ambiguously matched IDs fail. A non-empty Notion `Branch` must match a Work-ID-resolved branch exactly.
+2. **Explicitly untracked:** only when there is no Work ID marker and no exact Notion `Branch` match. The body must contain a `## Tracking` section with the exact line `Backlog item: none` and a non-empty `Reason: ...` line.
 
-If none of these are met, the flow must **stop**.
+A tracked item must define `Canal formal`. If it is `GitHub Issue`, `Enlace formal` must be a same-repository `github.com/<owner>/<repo>/issues/<number>` URL and the GitHub-rendered visible body must include `Refs #<that exact issue number>` in final `## Related Issues`. Other channels and explicitly untracked PRs may omit `Refs #N`.
 
 ### What to do if the branch doesn't follow the standard
 
-If the branch doesn't contain `Work ID` and there's no reliable association via `Branch` or override:
-
-- do not create or regenerate the implementation PR
-- request branch correction or explicit linkage with the backlog
+If a branch has no Work ID marker and no exact `Branch` match, use the explicitly untracked declaration above. Do not use it to bypass a malformed, unknown, or ambiguous Work ID.
 
 ### Items in `Clarify`
 
 If the item is still in `Clarify`:
 
 - a branch name can be suggested
-- an implementation PR should not be created automatically, except with explicit user override
+- an implementation PR must still satisfy the tracked or explicitly untracked mode
 
 ### `Formal Channel` and PRs
 
-- If `Formal Channel = GitHub Issue`, the PR should attempt to use the formal issue reference.
-- If `Formal Channel != GitHub Issue`, the PR should not invent an issue by default.
+- If `Formal Channel = GitHub Issue`, the PR must use `Refs #N` for the exact issue in `Enlace formal`.
+- If `Formal Channel != GitHub Issue`, the PR should not invent an issue by default; any optional `Refs #N` must still reference an existing issue.
 - A `Document / ADR` can still live in a docs PR. The important thing is not to force issue semantics when it's not appropriate.
 
 ## Policy for Promotion PRs
@@ -153,7 +149,7 @@ Valid options:
 
 - create the item and link it
 - complete `Branch` in the correct item
-- pass explicit override to the PR creation flow
+- use the explicit untracked declaration only when the branch has no Work ID marker and no exact `Branch` association
 
 ### The branch's `Work ID` doesn't exist in Notion
 
