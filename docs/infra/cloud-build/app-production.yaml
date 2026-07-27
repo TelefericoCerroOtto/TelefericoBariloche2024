@@ -104,6 +104,7 @@ steps:
         POSTULATION_EMAIL_LIMIT_ENABLED: "${_POSTULATION_EMAIL_LIMIT_ENABLED}"
         POSTULATION_EMAIL_LIMIT_MAX: "${_POSTULATION_EMAIL_LIMIT_MAX}"
         POSTULATION_EMAIL_LIMIT_WINDOW_MS: "${_POSTULATION_EMAIL_LIMIT_WINDOW_MS}"
+        MAINTENANCE_MODE: "${_MAINTENANCE_MODE}"
         EOF
 
         gcloud run deploy "${_SERVICE_NAME}" \
@@ -172,6 +173,7 @@ substitutions:
   _GMAIL_SENDER: info@telefericobariloche.com.ar
   _GMAIL_RECEIVER: info@telefericobariloche.com.ar
   _NODE_ENV: production
+  _MAINTENANCE_MODE: "false"
 tags:
   - gcp-cloud-build-deploy-cloud-run
   - gcp-cloud-build-deploy-cloud-run-managed

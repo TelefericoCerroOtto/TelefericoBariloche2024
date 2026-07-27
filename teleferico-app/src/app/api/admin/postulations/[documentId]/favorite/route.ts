@@ -1,4 +1,4 @@
-import { requireCsrfSession } from "@/lib/http/guards";
+import { ensureTrustedBrowserRequest, requireCsrfSession } from "@/lib/http/guards";
 import { updatePostulation } from "@/lib/services";
 import type {
   FavPostulationRequestPayload,
@@ -11,6 +11,11 @@ export async function POST(
   ctx: RouteContext<"/api/admin/postulations/[documentId]/favorite">,
 ) {
   try {
+    // Validate trusted origin and Sec-Fetch-Site before session checks,
+    // matching the same guard order used by the cv download route.
+    const trusted = ensureTrustedBrowserRequest(req);
+    if (!trusted.ok) return trusted.res;
+
     const csrf = await requireCsrfSession(req);
     if (!csrf.ok) return csrf.res;
 

@@ -110,6 +110,8 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 
 - Conventional commits + scopes + PR titles: `docs/CONVENTIONS.md`
 - GCP infrastructure: `docs/INFRA.md`
+- Business domain context (zones, facilities, organization, operations): `docs/cerro-otto-business-context.md`
+- Content authoring guide (component catalog, tone, translation vocabulary, content restrictions): `docs/content-components-guide.md`
 
 ## Shared backlog governance
 
@@ -121,7 +123,8 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - Separate work maturity from artifact type: use `Canal formal` to indicate whether the formal target is a GitHub Issue, an operational change, a document/ADR, or something else.
 - Use `Work ID` as the stable backlog identifier and `Branch` as the optional active branch field.
 - When a branch is created from a backlog item, prefer the format `<type>/<dir>-<work-id>-<slug>` (example: `fix/app-tb-066-login-refresh`).
-- For **implementation PRs**, require a reliable backlog association: either the branch contains the `Work ID`, the backlog row `Branch` matches the current branch, or the user explicitly overrides the association.
+- For **implementation PRs**, use one deterministic mode: tracked through exactly one canonical `TB-<digits>` marker or, only without a Work ID marker, an exact Notion `Branch` match; otherwise use explicitly untracked mode. Explicitly untracked PRs require a visible `## Tracking` section with `Backlog item: none` and a non-empty `Reason:` line. Malformed, unknown, duplicate, and ambiguous Work IDs or Notion matches fail closed.
+- Governance validation is read-only and uses GitHub-rendered visible GFM semantics. Append-only managed issue comments and Notion closure writes run only after complete preflight for same-repository trusted PR heads; fork metadata must never initiate a mutation. Legacy issue-body blocks are not updated.
 - For **promotion PRs**, do not require a direct `Work ID`/branch association; they track release movement, not a new unit of backlog work.
 - A branch should have **one primary backlog item**. Multiple items on one branch are allowed only when they form one tightly coupled reviewable outcome; otherwise split the work.
 - Promote a Notion item to GitHub only when the scope is clear, it needs engineering follow-up, and the right `Canal formal` for that row is `GitHub Issue`.
@@ -155,6 +158,6 @@ When an agent is instructed to create or update a Pull Request, it MUST NOT cons
 
 1. After creating/updating the PR, immediately run `gh pr checks --watch`.
 2. If the checks pass, the task is complete.
-3. If the checks fail (especially `pr-governance`), the agent MUST fetch the failed run logs using the GitHub CLI.
+3. If the checks fail—especially `Governance tests`, `validate-pr-policy`, or `trusted-pr-sync`—the agent MUST fetch the failed run logs using the GitHub CLI.
 4. Analyze the logs against `docs/CONVENTIONS.md` to find the exact semantic violation (e.g., missing issue linkage, wrong title format, wrong PR type).
 5. Fix the PR using `gh pr edit` and repeat the watch process until the checks pass.
