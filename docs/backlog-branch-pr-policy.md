@@ -13,7 +13,7 @@ This document defines how Notion items are associated with branches and implemen
 
 - **Notion** stores the work unit and its maturity.
 - **`Work ID`** is the stable identifier for that unit.
-- **`Branch`** is optional and represents a concrete active branch.
+- **`Branch`** is optional metadata for one concrete active or representative branch. It is not the stable identity of the work unit.
 - **Implementation PR** is the review of the actual change.
 - **Promotion PR** moves already reviewed changes between branches/environments and does not create a new backlog unit.
 
@@ -71,8 +71,10 @@ Expected governed flow:
 
 An implementation PR has exactly one mode:
 
-1. **Tracked:** its branch has exactly one complete canonical `TB-<digits>` marker, or—only for a branch without a Work ID marker—it has one exact Notion `Branch` match. Marker boundaries use Unicode letters and numbers, so `tb` embedded in a Unicode word is not a Work ID. Unknown, malformed, repeated, multiple, or ambiguously matched IDs fail. A non-empty Notion `Branch` must match a Work-ID-resolved branch exactly.
+1. **Tracked:** its branch has exactly one complete canonical `TB-<digits>` marker, or—only for a branch without a Work ID marker—it has one exact Notion `Branch` match. A canonical marker is the primary identity: once it resolves exactly one Notion item, that item's `Branch` value cannot veto the association. Marker boundaries use Unicode letters and numbers, so `tb` embedded in a Unicode word is not a Work ID. Unknown, malformed, repeated, multiple, or ambiguously matched IDs fail closed without falling back to `Branch` or explicitly untracked mode.
 2. **Explicitly untracked:** only when there is no Work ID marker and no exact Notion `Branch` match. The body must contain a `## Tracking` section with the exact line `Backlog item: none` and a non-empty `Reason: ...` line.
+
+Validation establishes deterministic syntax and identity only. It does not infer whether a branch slug is semantically appropriate. The preferred full branch format remains `<type>/<dir>-<work-id>-<slug>`.
 
 A tracked item must define `Canal formal`. If it is `GitHub Issue`, `Enlace formal` must be a same-repository `github.com/<owner>/<repo>/issues/<number>` URL and the GitHub-rendered visible body must include `Refs #<that exact issue number>` in final `## Related Issues`. Other channels and explicitly untracked PRs may omit `Refs #N`.
 
@@ -137,7 +139,7 @@ Allowed when the same work is divided into reviewable slices, but the primary it
 
 Recommendation:
 
-- keep the main branch in `Branch`
+- keep one active or representative branch in `Branch`
 - document additional branches in `Notes`
 - if the slices are already autonomous, create new items
 
@@ -155,13 +157,9 @@ Valid options:
 
 The flow should be blocked. A branch cannot point to a non-existent unit in the source of truth.
 
-### The item's `Branch` is already occupied by another branch
+### The item's `Branch` names another branch
 
-Do not silently overwrite. Request confirmation to:
-
-- move the association
-- create a new derived branch
-- or use another item
+A different non-empty `Branch` does not block a branch whose unique canonical `Work ID` resolves that item. For sequential slices, keep one representative branch in `Branch` and document additional branches in `Notes`; do not overwrite the field merely to satisfy CI.
 
 ## Future Enforcement Recommendation
 

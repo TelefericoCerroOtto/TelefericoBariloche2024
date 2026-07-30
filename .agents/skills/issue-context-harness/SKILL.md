@@ -21,6 +21,7 @@ This skill complements `notion-todo-governance`: it resolves context for executi
 - Resolve references silently by default; do not emit unsolicited context dumps.
 - Emit a structured recap only when the user explicitly asks for summary/context snapshot/recap.
 - Prefer deterministic links: `Work ID` ↔ Notion row ↔ GitHub issue ↔ governed branch.
+- Treat a unique valid `Work ID` as primary identity. A different or empty Notion `Branch` is metadata, not a linkage conflict.
 - If evidence conflicts, report the conflict and continue with the most reliable linked artifact.
 
 ## Decision Gates
@@ -39,7 +40,7 @@ This skill complements `notion-todo-governance`: it resolves context for executi
 1. Detect references in the user request (`TB-###`, `#123`, Notion URL, issue URL, governed branch).
 2. Resolve the first reliable anchor artifact.
 3. Traverse related artifacts to complete linkage graph.
-4. Validate consistency (`Work ID`, URLs, branch association).
+4. Validate consistency (`Work ID`, URLs, and branch metadata) without allowing `Branch` to veto a unique Work ID association.
 5. Use resolved context during task execution without additional chatter.
 6. Only if explicitly requested, return a concise structured snapshot with: Work ID, Notion URL, issue URL, branch, status, and open gaps.
 
