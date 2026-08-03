@@ -25,6 +25,7 @@ const COMPONENTS_CACHE_TAGS = {
   FORMS: "forms",
   HOURS_OVERVIEW: "hours-overview",
   NAVITEMS: "navitems",
+  POLICIES_CALLOUT: "policies-callout",
   SCHEDULES: "schedules",
   SERVICE_BUTTON: "service-button",
   SERVICE_STATE: "service-state",

@@ -1,0 +1,10 @@
+{
+  "collectionName": "components_page_components_policies_callouts",
+  "info": {
+    "displayName": "PoliciesCallout",
+    "icon": "information",
+    "description": "Add at most once per page localization"
+  },
+  "options": {},
+  "attributes": {}
+}

@@ -9,6 +9,7 @@ import {
   renderHero,
   renderHoursOverview,
   renderImageTextBlock,
+  renderPoliciesCallout,
   renderSchedules,
   renderServiceStatusButton,
   renderSpacer,
@@ -25,6 +26,7 @@ import { renderActivityShowcase } from "./renderers/activity-showcase";
 export const strapiRenderers = {
   "page-components.hero": renderHero,
   "page-components.hours-overview": renderHoursOverview,
+  "page-components.policies-callout": renderPoliciesCallout,
   "page-components.title-desc-block": renderTitleDescBlock,
   "page-components.image-text-block": renderImageTextBlock,
   "page-components.faq-section": renderFaqSection,

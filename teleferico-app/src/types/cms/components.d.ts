@@ -70,6 +70,11 @@ export type TitleDescBlock = {
   className: string;
 };
 
+export type PoliciesCallout = {
+  __component: "page-components.policies-callout";
+  id: number;
+};
+
 export type OneImageVariant =
   | "single"
   | "poster"
@@ -186,6 +191,7 @@ export type RendereableBlocks =
   | ServiceStatusButton
   | Hero
   | HoursOverview
+  | PoliciesCallout
   | ImageTextBlock
   | TitleDescBlock
   | FaqSection
