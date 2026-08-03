@@ -25,6 +25,12 @@ Key terms used throughout this document and across the business domain. Read the
 - **Funicular de la cumbre**: short-distance lift operating within the summit area only. Connects the estacionamiento de la cumbre to the sled/activity start point.
 - **Patrulleros**: summit patrol staff for visitor assistance, safety, and hiker retrieval.
 - **Jefe de Operaciones**: Head of Operations — manages both stations (lower and upper).
+- **Jefe de Cajas**: Head of Cashiers — centralizes sales-point closings and coordinates public-facing operational changes involving ticket sales, the website, and transport.
+- **Mantenimiento Técnico**: Technical Maintenance — maintains the aerial tramway, its machinery, electronics, and monitoring equipment. It is separate from lift operation and general building maintenance.
+- **Coordinación Técnica**: Technical Coordination — coordinates suppliers, specialized equipment, machinery, and technical projects across internal and external parties.
+- **Tecnología de la Información (IT)**: informal function responsible for software systems, digital infrastructure, institutional accounts, and internal technology support.
+- **Maestranza**: housekeeping and general-services staff responsible primarily for cleaning offices, public areas, and restrooms.
+- **Transporte**: operational sector responsible for the shuttle bus service, drivers, and fleet availability.
 - **Interiores / Exteriores**: indoor and outdoor operational sectors at the summit, each with its own supervisor.
 - **Concesionario**: independent concessionaire renting commercial space at the complex. Not a company employee.
 - **Otto Kart**: discontinued inflatable tube sliding activity. No plans to reopen.
@@ -43,27 +49,187 @@ Key terms used throughout this document and across the business domain. Read the
 
 Teleférico Cerro Otto is owned and operated by **Fundación Sara María Furman**, a non-profit foundation established by Boris Furman. The foundation is governed by a board of directors (*consejo directivo*) composed of a president, a vice-president, and additional members. All board members serve on an honorary basis (unpaid).
 
-The board appoints the **General Manager** (*Gerente General*) of the company through an internal vote. The General Manager is responsible for the day-to-day management and strategic direction of Teleférico Cerro Otto.
+The board appoints the **General Manager** (*Gerente General*) of the company through an internal vote.
 
 ### Property boundaries
 
 The foundation's property is limited to specific areas: the base station grounds, the downtown cabins, and a demarcated section at the summit. **The foundation does not own the entire Cerro Otto.** This is a common misconception among visitors. The rest of the mountain (roads, trails, surrounding land) is outside the foundation's jurisdiction.
 
-### Administrative departments
+### Administrative and support functions
 
-The company's administrative offices are located in the base building and include:
+The functions below describe the company's day-to-day operating model. They do not necessarily represent a formal organizational chart or exclusive responsibility boundaries. Responsibilities frequently overlap, and cross-area tasks may be assigned or resolved case by case.
 
-- Accounting (*Contaduría*)
-- Administration (*Administración*)
-- Commercial / Sales (*Comercial*)
-- Management (*Gerencia*)
-- Treasury (*Tesorería*)
-- IT / Systems (*Sistemas*)
-- Press / Communications (*Prensa*)
+Role descriptions refer to functions rather than current employees so that this document remains useful when personnel changes.
+
+#### General Management
+
+General Management (*Gerencia General*) provides company-wide direction and maintains direct communication with the foundation and all major administrative and operational areas. It provides final approval for major commercial and organizational decisions, coordinates matters that cross area boundaries, and resolves issues that exceed the usual authority of individual functions.
+
+#### Management Secretariat
+
+Management Secretariat (*Secretaría de Gerencia*) acts as the first reception and filtering point for matters directed to General Management. Its usual responsibilities include:
+
+- Answering public and institutional telephone calls.
+- Reviewing general inquiry email.
+- Receiving external visitors.
+- Receiving requests from schools, tourism groups, public agencies, emergency services, and other organizations.
+- Filtering and routing relevant matters to General Management.
+
+Management Secretariat does not usually decide these matters; its primary function is reception, classification, and referral.
+
+#### Commercial
+
+Commercial (*Comercial*) combines conventional commercial work with broad cross-area involvement in the company's current day-to-day operation. Its responsibilities commonly include:
+
+- Proposing commercial changes and communicating decisions approved by General Management.
+- Coordinating changes to prices, schedules, and commercial conditions.
+- Managing the company's public image and relationships with external media.
+- Defining or influencing building presentation, including paint, lighting, furniture, and decoration.
+- Providing day-to-day direction to public-facing areas, summit sectors, and stations.
+- Coordinating matters across areas when no narrower responsibility boundary exists.
+
+This broad influence reflects the company's present operating arrangement and should not be interpreted as permanent authority inherent to the Commercial role. Commercial may coordinate daily activity involving the stations, but technical authority over aerial tramway operation and safety remains with the Head of Operations.
+
+For planned changes to prices, schedules, or commercial conditions, General Management provides the decision or final approval. Commercial communicates the approved change, the Head of Cashiers updates the website and sales points, and the social-media role updates the relevant social channels.
+
+#### Administration
+
+Administration (*Administración*) manages the company's internal documentation and general administrative circulation. Its usual responsibilities include:
+
+- Receiving and distributing correspondence.
+- Managing employee records and employment-related paperwork.
+- Preparing and distributing internal notices and letters.
+- Handling documentation related to personnel changes.
+- Processing general administrative paperwork.
+- Coordinating documentation with Treasury and Accounting.
+- Managing the one-way internal WhatsApp group used for company-wide administrative announcements.
+
+Some banking, accounting-support, and cash-related responsibilities may overlap with Treasury according to day-to-day staffing and operational needs.
+
+#### Accounting
+
+Accounting (*Contaduría*) manages the company's accounting, tax, and fiscal responsibilities. Its responsibilities include:
+
+- Managing tax and fiscal obligations, including ARCA procedures.
+- Preparing monthly balances.
+- Recording ticket revenue, company income, purchases, and expenses.
+- Reviewing the accounting and fiscal implications of company purchases.
+- Coordinating directly with Administration, Treasury, and General Management.
+- Maintaining the financial records required for company and foundation oversight.
+
+#### Cash Operations
+
+Cash Operations centralizes the activity of the company's sales points, including the base ticket office, downtown cabins, and summit activity ticket office.
+
+The Head of Cashiers (*Jefe de Cajas*) is responsible for:
+
+- Receiving and consolidating sales-point closings.
+- Controlling and reconciling collections.
+- Transferring consolidated funds and supporting records to Treasury.
+- Receiving concessionaire rent payments.
+- Maintaining current prices and schedules at sales points.
+- Updating prices, schedules, and service status on the website through the administrative panel.
+- Coordinating sales suspension and passenger-flow changes when aerial tramway service is restricted.
+- Coordinating bus quantity and timing with the Head of Transport.
+
+Because of the role's direct contact with ticket sales, public service, transport, and operating-status changes, the Head of Cashiers is also an important source of operational information.
+
+#### Treasury
+
+Treasury (*Tesorería*) receives the consolidated financial flow from Cash Operations and performs the company's practical banking and fund-management activities. Its usual responsibilities include:
+
+- Receiving sales-point settlements and supporting documentation.
+- Managing deposits, withdrawals, and other banking operations.
+- Coordinating financial documentation with Administration.
+- Coordinating with Accounting on tax, fiscal, and record-keeping requirements.
+
+The exact boundary among Cash Operations, Treasury, and Administration is not always formalized. Some responsibilities may overlap or be performed by the same person.
+
+#### Information Technology
+
+Information Technology (*IT*) is an informal operational function rather than a formally established department. Its responsibilities include:
+
+- Developing and maintaining the institutional website, CMS, and administrative applications.
+- Maintaining software infrastructure, deployments, domains, credentials, and technical integrations.
+- Implementing and publishing website content coordinated with other areas.
+- Administering Google Workspace users and institutional accounts.
+- Managing technical access to domains and external digital platforms.
+- Providing basic internal support for computers, accounts, and digital tools.
+- Recovering and securing institutional digital assets when company access has been lost.
+
+IT provides the technical means for operating digital channels but does not own communication strategy or routine social-media activity. Once access to the existing social-media accounts is recovered, IT is expected to configure institutional administration and the delegated-access options available through Meta and TikTok.
+
+#### Technical Coordination
+
+Technical Coordination (*Coordinación Técnica*) is a separate cross-area function focused on suppliers, equipment, machinery, and technical projects. Its responsibilities include:
+
+- Coordinating technical initiatives and equipment requirements.
+- Researching machinery, vehicles, and specialized equipment.
+- Identifying and communicating with suppliers.
+- Coordinating visits, proposals, and technical evaluations.
+- Connecting suppliers with General Management, Accounting, Aerial Tramway Operations, and Technical Maintenance.
+- Working closely with Aerial Tramway Operations and Technical Maintenance on equipment, supplier, and infrastructure needs.
+
+Technical Coordination is documented according to its practical function and is not treated as an operational Submanagement role. It does not routinely coordinate major building projects.
+
+#### Press / Communications
+
+Press / Communications (*Prensa / Comunicaciones*) covers two distinct functions: audiovisual production and social-media management.
+
+The audiovisual role is responsible for:
+
+- Producing institutional photography and video.
+- Covering company activities and external events.
+- Installing and operating cameras, microphones, and event equipment.
+- Coordinating audiovisual material used on the website with IT.
+- Supporting the installation of selected televisions, audio equipment, routers, and related electronic devices.
+
+These installation tasks are complementary to the role's main audiovisual function and may overlap with other technical responsibilities.
+
+The social-media role is responsible for:
+
+- Managing the company's Facebook, Instagram, and TikTok presence.
+- Creating and publishing routine social-media content.
+- Publishing service-status announcements on social channels.
+- Responding directly to most comments and private messages.
+- Obtaining information informally from knowledgeable internal staff when an answer is not already known.
+
+The role has practical day-to-day editorial autonomy. There is no mandatory pre-publication approval process. Commercial may review published content and request changes afterward on a case-by-case basis.
+
+Public inquiries are usually answered directly rather than routed through a formal referral process. Commercial and the Head of Cashiers are frequent information sources because of their operational and public-service knowledge. A possible future reactivation of the institutional YouTube channel remains pending.
+
+#### Housekeeping / General Services
+
+Housekeeping / General Services (*Maestranza*) is responsible primarily for cleaning offices, public-access spaces, and restrooms. Housekeeping staff and public-attention personnel may also perform low-complexity general upkeep, such as painting walls, replacing light bulbs, and completing minor repairs.
+
+#### Building projects and external specialists
+
+Major building work at the base station or summit complex—such as extensions, roof modifications, remodels, or other significant structural changes—is normally assigned to the company's regular external engineer and specialized contractors. General Management and Commercial coordinate these projects directly; Technical Coordination does not routinely participate in this process.
 
 ### Operations department
 
 The operations department (*Operaciones*) manages the aerial tramway system. It is responsible for gondola operations at both the lower station (*estación inferior*) and upper station (*estación superior*). The **Head of Operations** (*Jefe de Operaciones*) oversees both stations and has the authority to restrict or suspend passenger ascent based on weather, technical conditions, or safety protocols.
+
+Aerial Tramway Operations is separate from Technical Maintenance, and each sector has its own head. Operations determines whether the lift can safely operate. Its service-status decisions drive the corresponding ticket-sales, transport, website, and public-attention updates. Technical Maintenance is responsible for the lift system's technical condition.
+
+### Technical Maintenance
+
+Technical Maintenance (*Mantenimiento Técnico*) maintains the aerial tramway system and its associated machinery. Its responsibilities include:
+
+- Gondola cabins.
+- Lift motors and mechanical components.
+- Electrical and electronic lift equipment.
+- Sensors and monitoring devices.
+- Other machinery directly associated with lift operation.
+- Preventive and corrective technical maintenance.
+
+The sector may also operate company-owned specialized machinery when a task requires it. This can occasionally include work outside its usual scope, such as using the snow groomer on sled tracks.
+
+Technical Maintenance works closely with Aerial Tramway Operations and Technical Coordination. It is not responsible for general building maintenance or major construction work.
+
+### Transport
+
+Transport (*Transporte*) is a separate operational sector led by the Head of Transport (*Jefe de Transporte*). It operates the shuttle service, assigns available drivers and buses, coordinates daily fleet requirements with the Head of Cashiers, and keeps the fleet in operating condition. Major mechanical repairs are assigned to specialized external mechanics under the sector's coordination.
 
 ### Summit sectors
 
@@ -71,6 +237,10 @@ The summit complex staff is organized into two operational sectors, each with it
 
 - **Indoor sector** (*Interiores*): covers the hall central and the information cabin (*cabaña de informes*) staff.
 - **Outdoor sector** (*Exteriores*): covers patrol staff, outdoor activity areas, and walkways.
+
+Outdoor staff also handle routine manual upkeep of activity areas, such as correcting sled-track details with shovels. Work requiring specialized machinery may be transferred to Technical Maintenance.
+
+During terrestrial evacuations, the Indoor and Outdoor supervisors organize summit visitors into departure groups according to bus availability and instructions coordinated through the Head of Cashiers and the Head of Transport.
 
 ### Concessionaires
 
@@ -81,6 +251,8 @@ Three **concessionaires** — independent businesses that rent space from the fo
 | Gastronomy concessionaire | Confitería Giratoria + Patio de Comidas Panorámico (shared kitchen, single operator) | Summit |
 | Merchandise concessionaire | Souvenir shop in the hall central | Summit |
 | Photography concessionaire | Photography shop in the summit hall central + photography shop at the base station exit | Summit + base |
+
+The concessionaires operate largely independently, with no dedicated internal area managing their daily activity. Each concessionaire pays rent directly to the Head of Cashiers.
 
 ### Summit patrol staff (*Patrulleros*)
 
@@ -115,7 +287,8 @@ The main building sits on a large plot of land owned by Fundación Sara María F
 - **Hall de boletería**: public-facing entrance lobby with the ticket office (*boletería*) and restrooms. This is where visitors enter the building and access the lower station to begin their ascent.
 - **Lower station** (*estación inferior*): gondola departure and arrival platform at the base.
 - **Administrative offices**: all departments listed above.
-- **Maintenance workshop**: fully equipped workshop for gondola servicing and repair. A dedicated technical team performs preventive maintenance twice a year, typically in **May** and **November**, covering both the aerial tramway system and the building itself.
+- **Maintenance workshop**: fully equipped workshop for gondola servicing and repair. Technical Maintenance performs preventive work on the aerial tramway and its associated machinery, with the main maintenance windows typically occurring in **May** and **November**.
+- **General building upkeep**: low-complexity tasks are handled by public-attention and housekeeping staff. Major remodels, extensions, roof work, and structural changes are assigned to the company's regular external engineer and specialized contractors.
 - **Staff apartments**: five residential units inside the building, accessed from the rear/side entrance (not the main public entrance). Available as a benefit to select employees.
 - **Exit area**: after returning to the lower station, passengers descend a series of staircases and pass through:
   1. **Photography shop** (concessionaire): features a gondola shell frame with a green screen — visitors pose inside and receive a photomontage simulating a scene over Lago Nahuel Huapi.
@@ -139,7 +312,7 @@ The main building sits on a large plot of land owned by Fundación Sara María F
 
 ### Service states
 
-The current service state is displayed on the website homepage and updated with every change.
+The current service state is displayed on the website homepage and updated by the Head of Cashiers through the administrative panel with every change. Press / Communications publishes corresponding service announcements on social media.
 
 | State | Meaning |
 |---|---|
@@ -156,6 +329,8 @@ Wind directly affects the aerial tramway. The towers are equipped with **anemome
 - **Service suspension**: if wind persists, ascent is suspended first. Passengers already at the summit are evacuated in controlled batches:
   1. **Gondola batches** (moderate wind): ascent is halted; passengers descend in supervised groups by gondola.
   2. **Bus evacuation** (high wind): when gondola descent is no longer safe, the company's shuttle buses drive up the 9 km gravel road to the estacionamiento de la cumbre and transport passengers down in batches — first to the base station (for visitors with vehicles parked there), then to downtown (for visitors who arrived via shuttle).
+
+When the Head of Operations suspends ascent, the Head of Cashiers instructs all sales points to stop ticket sales and coordinates with the Head of Transport so buses stop bringing new passengers to the base. If terrestrial evacuation becomes necessary, the Head of Cashiers coordinates bus quantity and arrival times with Transport, while the Indoor and Outdoor supervisors organize summit visitors into departure groups.
 
 ## Summit Complex
 
@@ -254,6 +429,8 @@ The downtown cabins (Cabaña Uno and Cabaña Dos) close earlier than the base st
 
 The company operates a **free shuttle bus** service between downtown Bariloche and the base station.
 
+The service is operated by the Transport sector. The Head of Transport coordinates drivers and fleet availability with the Head of Cashiers according to expected demand and current aerial tramway conditions.
+
 ### Routes and stops
 
 - **Cabaña Uno** (Mitre & Villegas): ticket sales + shuttle departure.
@@ -262,9 +439,12 @@ The company operates a **free shuttle bus** service between downtown Bariloche a
 
 ### Fleet and capacity
 
+- Current fleet: at least **3 buses** — two large buses and one smaller bus.
 - Normal operations: **1–2 buses** active.
-- High-demand periods: up to **3 buses**, with additional departure times added.
+- High-demand periods or operational contingencies: all **3 buses** may be used, with additional departure times added.
 - Departure frequency varies by day and demand. Current shuttle times are published on the official website.
+
+Transport performs or coordinates routine mechanical maintenance and is responsible for keeping the fleet available for service. Major repairs, such as clutch or engine replacement, are assigned to specialized external mechanics, with Transport coordinating and following up on the work.
 
 ### Ticketing policy
 
@@ -344,10 +524,16 @@ The following are prohibited per site regulations:
 
 ## Maintenance Schedule
 
-Preventive maintenance for both the aerial tramway system and the buildings is conducted twice a year:
+General maintenance work is concentrated in two annual windows:
 
 - **May**: pre-winter maintenance window.
 - **November**: pre-summer maintenance window.
+
+During these periods:
+
+- Technical Maintenance performs preventive work on the aerial tramway and its associated machinery.
+- Public-attention and housekeeping staff perform routine, low-complexity building upkeep.
+- Major renovations or structural work, when scheduled, are assigned to the company's regular external engineer and specialized contractors.
 
 During these maintenance windows, the excursion and summit complex close to the public. The base ticket office, **Cabaña Uno**, and **Cabaña Dos** remain open only as information points to inform visitors that the service is temporarily out of operation and to provide general assistance.
 

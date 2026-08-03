@@ -83,6 +83,13 @@ This file is the package-local guardrail source for `teleferico-app`: it complem
 - Do not touch dependencies or lockfiles (`package.json`, `pnpm-lock.yaml`) without explicit request.
 - Do not edit generated artifacts (`.next/`, `tsconfig.tsbuildinfo`) or heavy folders.
 
+### Brand identity
+
+- Before implementing any new page, visual component, or design-significant UI change, read `docs/brand-implementation-guide.md` for brand identity rules (colors, typography, spacing, logo usage, visual tone, brand motifs).
+- Respect the documented color palette, especially the red surface-area rules. Do not introduce new reds outside the documented palette.
+- Maintain the documented brand motifs (LogoBadge, HighlightLastWord, red ring cards, cable line motif) when implementing institutional pages.
+- Do not decompose or rearrange logo SVG elements. Use the documented variants for the appropriate background context.
+
 ### Testing
 
 - Automated tests exist for public forms (postulation/contact) and their guards.
@@ -145,6 +152,7 @@ Rules from:
 - `./components.json`
 - `./cloudbuild.yaml`
 - `./src/app/[locale]/(institutional)/news/_components/README.md`
+- `../docs/brand-implementation-guide.md`
 
 ## Output expectations (package-specific)
 

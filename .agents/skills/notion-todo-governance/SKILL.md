@@ -21,7 +21,7 @@ Use this skill when the request is about creating, cleaning up, deduplicating, t
 - Keep one row per work unit; use `Notas` for subtasks or extra acceptance details unless they need independent tracking.
 - Use `Clarificar` for ambiguous items, `Listo para formalizar` when the work is ready for a formal artifact, and `Formalizado` only after that artifact exists and is linked.
 - Set `Canal formal` explicitly before promoting work out of Notion.
-- Treat `Work ID` as the stable backlog identifier; if a branch exists, store it in `Branch`.
+- Treat `Work ID` as the stable backlog identifier. `Branch` is optional metadata for one active or representative branch and must not override a unique Work ID association.
 
 ## Decision Gates
 
@@ -42,7 +42,7 @@ Use this skill when the request is about creating, cleaning up, deduplicating, t
 3. Create, merge, or update the row using the schema in `docs/todo-workflow.md`.
 4. Choose `Canal formal` before promotion; do not default everything to GitHub.
 5. If the request deserves a GitHub issue, confirm `Canal formal = GitHub Issue`, then create/link the issue and update the row state.
-6. If the request includes branch work, prefer the branch format `<type>/<dir>-<work-id>-<slug>` and save the concrete branch name in `Branch`.
+6. If the request includes branch work, prefer the branch format `<type>/<dir>-<work-id>-<slug>` and record one active or representative branch in `Branch` when useful. Keep additional sequential branches in `Notas` rather than treating `Branch` as identity.
 7. Return the row URL, what changed, which formal channel was chosen, and whether a formal artifact was created.
 
 ## Output Contract
