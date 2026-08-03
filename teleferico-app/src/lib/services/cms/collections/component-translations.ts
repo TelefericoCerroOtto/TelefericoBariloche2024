@@ -8,6 +8,7 @@ import type {
   GetHoursoverviewResponse,
   GetNavbarItemsResponse,
   GetPoliciesResponse,
+  GetPoliciesCalloutResponse,
   GetPrivacyResponse,
   GetSchedulesTranslationResponse,
   GetServiceButtonResponse,
@@ -17,6 +18,7 @@ import { stringifyQuery } from "@/utils";
 
 export type TranslateComponentsResponseTypes = {
   policies: GetPoliciesResponse;
+  "policies-callout": GetPoliciesCalloutResponse;
   privacy: GetPrivacyResponse;
   navbar: GetNavbarItemsResponse;
   footer: GetFooterResponse;
@@ -37,6 +39,7 @@ export const getComponentTranslation = async <
     Partial<keyof typeof CACHE_TAGS>
   > = {
     policies: "POLICIES_CONTENT",
+    "policies-callout": "POLICIES_CALLOUT",
     privacy: "PRIVACY_CONTENT",
     navbar: "NAVITEMS",
     footer: "FOOTER",

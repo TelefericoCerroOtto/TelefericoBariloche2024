@@ -222,6 +222,16 @@ export interface PageComponentsImageTextBlock extends Struct.ComponentSchema {
   };
 }
 
+export interface PageComponentsPoliciesCallout extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_policies_callouts';
+  info: {
+    description: 'Add at most once per page localization';
+    displayName: 'PoliciesCallout';
+    icon: 'information';
+  };
+  attributes: {};
+}
+
 export interface PageComponentsSchedules extends Struct.ComponentSchema {
   collectionName: 'components_page_components_schedules';
   info: {
@@ -399,6 +409,7 @@ declare module '@strapi/strapi' {
       'page-components.hero': PageComponentsHero;
       'page-components.hours-overview': PageComponentsHoursOverview;
       'page-components.image-text-block': PageComponentsImageTextBlock;
+      'page-components.policies-callout': PageComponentsPoliciesCallout;
       'page-components.schedules': PageComponentsSchedules;
       'page-components.service-status-button': PageComponentsServiceStatusButton;
       'page-components.spacer': PageComponentsSpacer;

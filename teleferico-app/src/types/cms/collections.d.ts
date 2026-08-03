@@ -49,6 +49,7 @@ export type User = {
 
 export type ComponentTranslationKeys =
   | "policies"
+  | "policies-callout"
   | "privacy"
   | "navbar"
   | "footer"

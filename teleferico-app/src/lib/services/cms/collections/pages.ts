@@ -34,6 +34,7 @@ export const getPageContent = async (locale: Locales, route: string) => {
           },
           "page-components.hours-overview": "*",
           "page-components.title-desc-block": "*",
+          "page-components.policies-callout": "*",
           "page-components.image-text-block": {
             populate: {
               link: true,

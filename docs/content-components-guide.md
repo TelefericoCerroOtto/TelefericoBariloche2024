@@ -283,10 +283,22 @@ These blocks render operational data and require no editorial content. They are 
 |---|---|---|
 | **FAQ Section** | Questions and answers from the FAQ collection | Managed in the FAQ section of Strapi — not inline. A `favs` toggle filters to featured entries only. |
 | **Hours Overview** | Operating hours summary by area | Items with title, description, and icon — managed in Strapi. |
+| **Policies Callout** | Localized pre-visit policies panel and CTA | Marker only. Copy comes from the global `ComponentTranslation` entry with key `policies-callout`; the destination is the fixed policies route. |
 | **Schedules** | Schedules table | Populated from operational data (stations, sectors, service states). No editorial input. |
 | **Service Status Button** | Live service status indicator | Fully automatic — reflects the current service state. |
 | **Activity Showcase** | Highlights a specific activity | Links to an `activity` entry. The activity's own data populates the display. |
 | **Spacer** | Vertical or horizontal whitespace | Spacing values only (`xSpace`, `ySpace`, range 0–96). |
+
+### Policies Callout Marker
+
+`PoliciesCallout` is a functional marker component with no editable properties. Add it at most once per page localization. Its presence and position in `Page.blocks` determine where the panel renders; its design, semantics, localized copy, and destination are application-owned.
+
+- Add and order the marker independently in every required locale because `Page.blocks` is localized. This is a known Page model limitation, not a reason to duplicate copy in the marker.
+- Place it after the first Image-Text Block following Hours Overview. If there is no later Image-Text Block, place it immediately after Hours Overview; if Hours Overview is absent, place it at the end.
+- Maintain one localized `ComponentTranslation` record with key `policies-callout` and JSON fields `epigraph`, `title`, `description`, and `ctaLabel`.
+- The CTA always navigates to the localized policies route. Editors cannot override its URL.
+- The copy uses the dedicated `policies-callout` cache tag. Revalidate that tag after publishing or changing the translation.
+- Missing, duplicate, failed, or malformed translation data is logged server-side and the panel is omitted. It never falls back silently to another locale or exposes a technical error to visitors.
 
 ---
 
