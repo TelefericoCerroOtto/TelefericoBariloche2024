@@ -71,7 +71,7 @@ export default async function PoliciesCallout({ id, locale }: Props) {
               <ScrollText
                 aria-hidden="true"
                 strokeWidth={1.1}
-                className="h-20 w-20 text-red-500 opacity-[0.08] md:h-36 md:w-36"
+                className="h-20 w-20 text-red-500 opacity-[0.50] md:h-36 md:w-36"
               />
             </div>
 
