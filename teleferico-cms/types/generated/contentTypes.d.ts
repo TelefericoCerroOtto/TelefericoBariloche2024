@@ -877,6 +877,7 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
         'page-components.image-text-block',
         'page-components.hero',
         'page-components.hours-overview',
+        'page-components.policies-callout',
         'page-components.title-desc-block',
         'page-components.faq-section',
         'page-components.spacer',

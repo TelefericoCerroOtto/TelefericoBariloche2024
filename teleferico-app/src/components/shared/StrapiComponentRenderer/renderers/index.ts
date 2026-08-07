@@ -3,6 +3,7 @@ export * from "./faq-section";
 export * from "./hero";
 export * from "./hours-overview";
 export * from "./image-text-block";
+export * from "./policies-callout";
 export * from "./schedules";
 export * from "./service-status-button";
 export * from "./spacer";

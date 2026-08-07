@@ -113,6 +113,15 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - Business domain context (zones, facilities, organization, operations): `docs/cerro-otto-business-context.md`
 - Content authoring guide (component catalog, tone, translation vocabulary, content restrictions): `docs/content-components-guide.md`
 
+## Change intake preflight
+
+- Activate `.agents/skills/change-intake-preflight/SKILL.md` for concrete change proposals, implementation requests, follow-ups, regressions, or delivery work already in progress. Informational questions and change-free exploration do not activate backlog intake.
+- `docs/change-intake-preflight.md` is the canonical procedure and decision matrix. For explicit implementation, classify intent, search canonical tracking, resolve delivery artifacts, inspect Git state, prepare appropriate tracking and a safe branch, and only then edit.
+- New implementation branches default to the current remote `origin/development`, unless the user explicitly requests a safe override. Never reuse a branch after its PR was merged; use a fresh follow-up branch.
+- Inspect the working tree before branch changes. Never auto-commit or alter dirty-tree changes to make a branch switch possible.
+- Not every code or documentation change requires a GitHub issue. Preserve the selected `Canal formal` and current authorization boundaries.
+- Agents never merge or close PRs and never delete branches.
+
 ## Shared backlog governance
 
 - The pre-issue source of truth for backlog items is the Notion database **Backlog unificado** documented in `docs/todo-workflow.md`.
@@ -121,9 +130,9 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - Use one Notion row per work unit. Keep subtasks, acceptance notes, or migration details inside the row notes unless the subtask needs independent tracking.
 - Use `Clarificar` for ambiguous items, `Listo para formalizar` when the work is clear enough to deserve a formal artifact, and `Formalizado` only after the artifact exists and the link is attached to the row.
 - Separate work maturity from artifact type: use `Canal formal` to indicate whether the formal target is a GitHub Issue, an operational change, a document/ADR, or something else.
-- Use `Work ID` as the stable backlog identifier and `Branch` as the optional active branch field.
+- Use `Work ID` as the stable backlog identifier and `Branch` as optional metadata for one active or representative branch.
 - When a branch is created from a backlog item, prefer the format `<type>/<dir>-<work-id>-<slug>` (example: `fix/app-tb-066-login-refresh`).
-- For **implementation PRs**, use one deterministic mode: tracked through exactly one canonical `TB-<digits>` marker or, only without a Work ID marker, an exact Notion `Branch` match; otherwise use explicitly untracked mode. Explicitly untracked PRs require a visible `## Tracking` section with `Backlog item: none` and a non-empty `Reason:` line. Malformed, unknown, duplicate, and ambiguous Work IDs or Notion matches fail closed.
+- For **implementation PRs**, use one deterministic mode: tracked through exactly one canonical `TB-<digits>` marker or, only without a Work ID marker, an exact Notion `Branch` match; otherwise use explicitly untracked mode. A uniquely resolved Work ID is primary and cannot be vetoed by a different or empty Notion `Branch`. Explicitly untracked PRs require a visible `## Tracking` section with `Backlog item: none` and a non-empty `Reason:` line. Malformed, unknown, repeated, multiple, and ambiguous Work IDs fail closed without fallback. Validation checks syntax and identity, not whether the slug is semantically meaningful.
 - Governance validation is read-only and uses GitHub-rendered visible GFM semantics. Append-only managed issue comments and Notion closure writes run only after complete preflight for same-repository trusted PR heads; fork metadata must never initiate a mutation. Legacy issue-body blocks are not updated.
 - For **promotion PRs**, do not require a direct `Work ID`/branch association; they track release movement, not a new unit of backlog work.
 - A branch should have **one primary backlog item**. Multiple items on one branch are allowed only when they form one tightly coupled reviewable outcome; otherwise split the work.

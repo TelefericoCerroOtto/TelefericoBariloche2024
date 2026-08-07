@@ -13,7 +13,7 @@ This document defines how Notion items are associated with branches and implemen
 
 - **Notion** stores the work unit and its maturity.
 - **`Work ID`** is the stable identifier for that unit.
-- **`Branch`** is optional and represents a concrete active branch.
+- **`Branch`** is optional metadata for one concrete active or representative branch. It is not the stable identity of the work unit.
 - **Implementation PR** is the review of the actual change.
 - **Promotion PR** moves already reviewed changes between branches/environments and does not create a new backlog unit.
 
@@ -22,6 +22,8 @@ This document defines how Notion items are associated with branches and implemen
 **All artifacts created in GitHub Issues and Notion items MUST be written in English. Only the interactive chat can be in Spanish.**
 
 ## Base Rules
+
+Before implementation edits or branch setup, apply `docs/change-intake-preflight.md`. Not every repository change requires a GitHub issue; tracking follows the selected `Canal formal`.
 
 ### 1. `Work ID` is mandatory for branches governed by this flow
 
@@ -59,6 +61,18 @@ Multiple items in the same branch are only tolerated if:
 
 If these conditions are not met, the work should be split.
 
+### 4. New branches default to current `origin/development`
+
+Inspect updated remote evidence with a read-only operation immediately before creating an implementation branch. Use the current `origin/development` as the default base.
+
+This convention is overridable. Follow and briefly record an explicit safe user-selected base or flow unless a stronger restriction applies.
+
+### 5. Merged branches are historical
+
+Never reuse a branch after its PR was merged. Additional same-scope work before reaching `main`, including staging fixes, uses a **fresh follow-up branch** from the current `origin/development`. Reuse the Work ID only for the same outcome and acceptance scope; a post-main regression or autonomous change normally gets a new linked Work ID.
+
+Keep the active or representative branch in `Branch` and additional fresh follow-up branches in `Notas`.
+
 ## Policy for Implementation PRs
 
 The strict policy only applies to **implementation PRs**.
@@ -71,8 +85,10 @@ Expected governed flow:
 
 An implementation PR has exactly one mode:
 
-1. **Tracked:** its branch has exactly one complete canonical `TB-<digits>` marker, or—only for a branch without a Work ID marker—it has one exact Notion `Branch` match. Marker boundaries use Unicode letters and numbers, so `tb` embedded in a Unicode word is not a Work ID. Unknown, malformed, repeated, multiple, or ambiguously matched IDs fail. A non-empty Notion `Branch` must match a Work-ID-resolved branch exactly.
+1. **Tracked:** its branch has exactly one complete canonical `TB-<digits>` marker, or—only for a branch without a Work ID marker—it has one exact Notion `Branch` match. A canonical marker is the primary identity: once it resolves exactly one Notion item, that item's `Branch` value cannot veto the association. Marker boundaries use Unicode letters and numbers, so `tb` embedded in a Unicode word is not a Work ID. Unknown, malformed, repeated, multiple, or ambiguously matched IDs fail closed without falling back to `Branch` or explicitly untracked mode.
 2. **Explicitly untracked:** only when there is no Work ID marker and no exact Notion `Branch` match. The body must contain a `## Tracking` section with the exact line `Backlog item: none` and a non-empty `Reason: ...` line.
+
+Validation establishes deterministic syntax and identity only. It does not infer whether a branch slug is semantically appropriate. The preferred full branch format remains `<type>/<dir>-<work-id>-<slug>`.
 
 A tracked item must define `Canal formal`. If it is `GitHub Issue`, `Enlace formal` must be a same-repository `github.com/<owner>/<repo>/issues/<number>` URL and the GitHub-rendered visible body must include `Refs #<that exact issue number>` in final `## Related Issues`. Other channels and explicitly untracked PRs may omit `Refs #N`.
 
@@ -80,18 +96,18 @@ A tracked item must define `Canal formal`. If it is `GitHub Issue`, `Enlace form
 
 If a branch has no Work ID marker and no exact `Branch` match, use the explicitly untracked declaration above. Do not use it to bypass a malformed, unknown, or ambiguous Work ID.
 
-### Items in `Clarify`
+### Items in `Clarificar`
 
-If the item is still in `Clarify`:
+If the item is still in `Clarificar`:
 
 - a branch name can be suggested
 - an implementation PR must still satisfy the tracked or explicitly untracked mode
 
-### `Formal Channel` and PRs
+### `Canal formal` and PRs
 
-- If `Formal Channel = GitHub Issue`, the PR must use `Refs #N` for the exact issue in `Enlace formal`.
-- If `Formal Channel != GitHub Issue`, the PR should not invent an issue by default; any optional `Refs #N` must still reference an existing issue.
-- A `Document / ADR` can still live in a docs PR. The important thing is not to force issue semantics when it's not appropriate.
+- If `Canal formal = GitHub Issue`, the PR must use `Refs #N` for the exact issue in `Enlace formal`.
+- If `Canal formal != GitHub Issue`, the PR should not invent an issue by default; any optional `Refs #N` must still reference an existing issue.
+- A `Documento / ADR` can still live in a docs PR. The important thing is not to force issue semantics when it's not appropriate.
 
 ## Policy for Promotion PRs
 
@@ -123,9 +139,9 @@ Uses `git status` and `git diff` to infer type, directory, and slug.
 Should be able to suggest a branch even without local changes, using:
 
 - `Work ID`
-- `Type`
-- `Area`
-- `Task`
+- `Tipo`
+- `Área`
+- `Tarea`
 
 This allows opening the branch before touching code.
 
@@ -137,8 +153,8 @@ Allowed when the same work is divided into reviewable slices, but the primary it
 
 Recommendation:
 
-- keep the main branch in `Branch`
-- document additional branches in `Notes`
+- keep one active or representative branch in `Branch`
+- document additional fresh follow-up branches in `Notas`
 - if the slices are already autonomous, create new items
 
 ### The branch exists before the item
@@ -155,13 +171,13 @@ Valid options:
 
 The flow should be blocked. A branch cannot point to a non-existent unit in the source of truth.
 
-### The item's `Branch` is already occupied by another branch
+### The item's `Branch` names another branch
 
-Do not silently overwrite. Request confirmation to:
+A different non-empty `Branch` does not block a branch whose unique canonical `Work ID` resolves that item. For fresh follow-up branches, keep one representative branch in `Branch` and document additional branches in `Notas`; do not overwrite the field merely to satisfy CI.
 
-- move the association
-- create a new derived branch
-- or use another item
+### Dirty working tree
+
+Inspect the working tree before creating or switching branches. Continue on the correct branch when dirty changes are clearly related, with a brief report. If branch creation or switching is required, do not commit, stash, reset, rebase, restore, move changes, or switch automatically. Ask one consolidated question as defined in `docs/change-intake-preflight.md`; recommend a separate worktree for unrelated changes.
 
 ## Future Enforcement Recommendation
 

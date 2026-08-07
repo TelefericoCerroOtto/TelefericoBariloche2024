@@ -118,6 +118,65 @@ test("tracked work requires the exact rendered related issue reference", async (
   await assert.rejects(governance.validatePrPolicy(config({ renderMarkdown: async () => renderedRelated("Refs #192") })), /Refs #191/);
 });
 
+test("canonical Work ID remains tracked when Notion Branch names another fresh follow-up branch", async () => {
+  mockFetch((url) => {
+    if (url.includes("api.notion.com")) return response(200, { results: [item({ itemBranch: "fix/root-tb-103-initial-slice" })], has_more: false });
+    return response(200, { number: 191, html_url: "https://github.com/acme/teleferico/issues/191" });
+  });
+  await governance.validatePrPolicy(config({ pullRequest: { headRef: "fix/root-tb-103-follow-up-slice" } }));
+});
+
+test("canonical Work ID remains tracked when Notion Branch is empty", async () => {
+  mockFetch((url) => {
+    if (url.includes("api.notion.com")) return response(200, { results: [item({ itemBranch: "" })], has_more: false });
+    return response(200, { number: 191, html_url: "https://github.com/acme/teleferico/issues/191" });
+  });
+  await governance.validatePrPolicy(config());
+});
+
+test("a marker-free branch still uses exact Notion Branch matching as a legacy fallback", async () => {
+  const legacyBranch = "fix/root-legacy-governance";
+  mockFetch((url) => {
+    if (url.includes("api.notion.com")) return response(200, { results: [item({ itemBranch: legacyBranch })], has_more: false });
+    return response(200, { number: 191, html_url: "https://github.com/acme/teleferico/issues/191" });
+  });
+  await governance.validatePrPolicy(config({ pullRequest: { headRef: legacyBranch } }));
+});
+
+test("malformed, repeated, and multiple Work ID markers fail before legacy fallback", async () => {
+  const cases = [
+    ["malformed", "fix/root-tb103-governance", /malformed Work ID/],
+    ["repeated", "fix/root-tb-103-tb-103-governance", /exactly one canonical/],
+    ["multiple", "fix/root-tb-103-tb-104-governance", /exactly one canonical/],
+  ];
+  for (const [name, headRef, expected] of cases) {
+    let calls = 0;
+    mockFetch(() => { calls += 1; return response(200, { results: [item({ itemBranch: headRef })], has_more: false }); });
+    await assert.rejects(governance.validatePrPolicy(config({ pullRequest: { headRef } })), expected, name);
+    assert.equal(calls, 0, name);
+  }
+});
+
+test("unknown and ambiguous Work IDs fail without querying the Branch fallback", async () => {
+  const cases = [
+    ["unknown", "fix/root-tb-999-governance", [], /No Notion backlog item found/],
+    ["ambiguous", branch, [item(), { ...item(), id: "page-2" }], /Multiple Notion backlog items match Work ID/],
+  ];
+  for (const [name, headRef, results, expected] of cases) {
+    const filters = [];
+    mockFetch((url, options) => {
+      if (!url.includes("api.notion.com")) throw new Error(`Unexpected request ${url}`);
+      const filter = JSON.parse(options.body).filter;
+      filters.push(filter);
+      return response(200, { results, has_more: false });
+    });
+    await assert.rejects(governance.validatePrPolicy(config({ pullRequest: { headRef } })), expected, name);
+    assert.equal(filters.length, 1, name);
+    assert.ok(filters[0].unique_id, name);
+    assert.equal(filters[0].rich_text, undefined, name);
+  }
+});
+
 test("Unicode word boundaries do not detect tb inside words and reject punctuation-bound malformed markers", () => {
   for (const branchName of ["fix/ñtb-103", "fix/漢tb-103", "fix/é-tb-103ñ"]) {
     const markers = governance.extractWorkIdMarkers(branchName);

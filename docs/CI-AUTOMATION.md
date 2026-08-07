@@ -86,11 +86,14 @@ What it does:
 **For implementation PRs (branches like `feat/`, `fix/`, etc.):**
 1. fails if the target branch is not `development`
 2. fails if GitHub-rendered visible PR text contains closing keywords (e.g., `Closes #N`)
-3. resolves exactly one tracked Notion item through one valid branch `Work ID`, or an exact Notion `Branch` match for legacy branches; malformed, unknown, and ambiguous associations fail
-4. permits an explicitly untracked PR only when no association exists and `## Tracking` contains `Backlog item: none` plus a non-empty `Reason:` line
-5. requires a non-empty `Canal formal` for tracked items
-6. if `Canal formal = GitHub Issue`, requires a valid linked GitHub Issue URL, verifies it exists, and requires its exact `Refs #N` reference inside a visible final `## Related Issues` section
-7. permits optional `Refs #N` for non-issue and explicitly untracked PRs, but verifies every visible explicit reference from the final `## Related Issues` section before comment synchronization
+3. resolves exactly one tracked Notion item through one valid branch `Work ID`; once resolved, a different or empty Notion `Branch` cannot veto it
+4. uses an exact Notion `Branch` match only as a legacy fallback when the head branch has no Work ID marker; malformed, unknown, repeated, multiple, and ambiguous IDs fail closed without fallback
+5. permits an explicitly untracked PR only when no association exists and `## Tracking` contains `Backlog item: none` plus a non-empty `Reason:` line
+6. requires a non-empty `Canal formal` for tracked items
+7. if `Canal formal = GitHub Issue`, requires a valid linked GitHub Issue URL, verifies it exists, and requires its exact `Refs #N` reference inside a visible final `## Related Issues` section
+8. permits optional `Refs #N` for non-issue and explicitly untracked PRs, but verifies every visible explicit reference from the final `## Related Issues` section before comment synchronization
+
+Branch validation checks deterministic marker syntax and identity only. It does not judge whether the slug is semantically meaningful, and the preferred format remains `<type>/<dir>-<work-id>-<slug>`.
 
 Policy semantics come from GitHub's GFM renderer, not from handwritten Markdown parsing. The script reads only visible headings and text from GitHub-sanitized HTML; rendered code, blockquotes, details, hidden containers, and tag attributes do not count. Rendering failures fail closed.
 

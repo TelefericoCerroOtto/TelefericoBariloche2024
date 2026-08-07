@@ -85,7 +85,6 @@ async function ensureImplementationTracking(config, refsNumbers, document) {
   const page = await findNotionPageByWorkId(config, workId);
   if (!page) throw new Error(`No Notion backlog item found for Work ID '${workId}'.`);
   const item = mapNotionItem(config, page);
-  if (item.branch && item.branch !== config.pullRequest.headRef) throw new Error(`Notion item ${item.workId} branch '${item.branch}' conflicts with '${config.pullRequest.headRef}'.`);
   return validateTrackedItem(config, item, refsNumbers);
 }
 
