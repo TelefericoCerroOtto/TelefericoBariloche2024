@@ -113,6 +113,15 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - Business domain context (zones, facilities, organization, operations): `docs/cerro-otto-business-context.md`
 - Content authoring guide (component catalog, tone, translation vocabulary, content restrictions): `docs/content-components-guide.md`
 
+## Change intake preflight
+
+- Activate `.agents/skills/change-intake-preflight/SKILL.md` for concrete change proposals, implementation requests, follow-ups, regressions, or delivery work already in progress. Informational questions and change-free exploration do not activate backlog intake.
+- `docs/change-intake-preflight.md` is the canonical procedure and decision matrix. For explicit implementation, classify intent, search canonical tracking, resolve delivery artifacts, inspect Git state, prepare appropriate tracking and a safe branch, and only then edit.
+- New implementation branches default to the current remote `origin/development`, unless the user explicitly requests a safe override. Never reuse a branch after its PR was merged; use a fresh follow-up branch.
+- Inspect the working tree before branch changes. Never auto-commit or alter dirty-tree changes to make a branch switch possible.
+- Not every code or documentation change requires a GitHub issue. Preserve the selected `Canal formal` and current authorization boundaries.
+- Agents never merge or close PRs and never delete branches.
+
 ## Shared backlog governance
 
 - The pre-issue source of truth for backlog items is the Notion database **Backlog unificado** documented in `docs/todo-workflow.md`.
