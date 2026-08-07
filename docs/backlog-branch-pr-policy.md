@@ -23,6 +23,8 @@ This document defines how Notion items are associated with branches and implemen
 
 ## Base Rules
 
+Before implementation edits or branch setup, apply `docs/change-intake-preflight.md`. Not every repository change requires a GitHub issue; tracking follows the selected `Canal formal`.
+
 ### 1. `Work ID` is mandatory for branches governed by this flow
 
 If a branch is used to implement a backlog work unit, it must include the `Work ID` in its name.
@@ -59,6 +61,18 @@ Multiple items in the same branch are only tolerated if:
 
 If these conditions are not met, the work should be split.
 
+### 4. New branches default to current `origin/development`
+
+Inspect updated remote evidence with a read-only operation immediately before creating an implementation branch. Use the current `origin/development` as the default base.
+
+This convention is overridable. Follow and briefly record an explicit safe user-selected base or flow unless a stronger restriction applies.
+
+### 5. Merged branches are historical
+
+Never reuse a branch after its PR was merged. Additional same-scope work before reaching `main`, including staging fixes, uses a **fresh follow-up branch** from the current `origin/development`. Reuse the Work ID only for the same outcome and acceptance scope; a post-main regression or autonomous change normally gets a new linked Work ID.
+
+Keep the active or representative branch in `Branch` and additional fresh follow-up branches in `Notas`.
+
 ## Policy for Implementation PRs
 
 The strict policy only applies to **implementation PRs**.
@@ -82,18 +96,18 @@ A tracked item must define `Canal formal`. If it is `GitHub Issue`, `Enlace form
 
 If a branch has no Work ID marker and no exact `Branch` match, use the explicitly untracked declaration above. Do not use it to bypass a malformed, unknown, or ambiguous Work ID.
 
-### Items in `Clarify`
+### Items in `Clarificar`
 
-If the item is still in `Clarify`:
+If the item is still in `Clarificar`:
 
 - a branch name can be suggested
 - an implementation PR must still satisfy the tracked or explicitly untracked mode
 
-### `Formal Channel` and PRs
+### `Canal formal` and PRs
 
-- If `Formal Channel = GitHub Issue`, the PR must use `Refs #N` for the exact issue in `Enlace formal`.
-- If `Formal Channel != GitHub Issue`, the PR should not invent an issue by default; any optional `Refs #N` must still reference an existing issue.
-- A `Document / ADR` can still live in a docs PR. The important thing is not to force issue semantics when it's not appropriate.
+- If `Canal formal = GitHub Issue`, the PR must use `Refs #N` for the exact issue in `Enlace formal`.
+- If `Canal formal != GitHub Issue`, the PR should not invent an issue by default; any optional `Refs #N` must still reference an existing issue.
+- A `Documento / ADR` can still live in a docs PR. The important thing is not to force issue semantics when it's not appropriate.
 
 ## Policy for Promotion PRs
 
@@ -125,9 +139,9 @@ Uses `git status` and `git diff` to infer type, directory, and slug.
 Should be able to suggest a branch even without local changes, using:
 
 - `Work ID`
-- `Type`
-- `Area`
-- `Task`
+- `Tipo`
+- `Área`
+- `Tarea`
 
 This allows opening the branch before touching code.
 
@@ -140,7 +154,7 @@ Allowed when the same work is divided into reviewable slices, but the primary it
 Recommendation:
 
 - keep one active or representative branch in `Branch`
-- document additional branches in `Notes`
+- document additional fresh follow-up branches in `Notas`
 - if the slices are already autonomous, create new items
 
 ### The branch exists before the item
@@ -159,7 +173,11 @@ The flow should be blocked. A branch cannot point to a non-existent unit in the 
 
 ### The item's `Branch` names another branch
 
-A different non-empty `Branch` does not block a branch whose unique canonical `Work ID` resolves that item. For sequential slices, keep one representative branch in `Branch` and document additional branches in `Notes`; do not overwrite the field merely to satisfy CI.
+A different non-empty `Branch` does not block a branch whose unique canonical `Work ID` resolves that item. For fresh follow-up branches, keep one representative branch in `Branch` and document additional branches in `Notas`; do not overwrite the field merely to satisfy CI.
+
+### Dirty working tree
+
+Inspect the working tree before creating or switching branches. Continue on the correct branch when dirty changes are clearly related, with a brief report. If branch creation or switching is required, do not commit, stash, reset, rebase, restore, move changes, or switch automatically. Ask one consolidated question as defined in `docs/change-intake-preflight.md`; recommend a separate worktree for unrelated changes.
 
 ## Future Enforcement Recommendation
 

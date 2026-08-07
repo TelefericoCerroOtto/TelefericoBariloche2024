@@ -1,6 +1,6 @@
 ---
 name: issue-context-harness
-description: "Trigger: TB-###, #123, Notion URL, GitHub issue URL, governed branch context, context snapshot. Resolve linked backlog artifacts silently and summarize only on explicit request."
+description: "Trigger: TB-###, #123, Notion URL, GitHub issue URL, governed branch, follow-up, regression, context snapshot. Resolve linked artifacts silently."
 license: Apache-2.0
 metadata:
   author: manual
@@ -9,7 +9,7 @@ metadata:
 
 ## Activation Contract
 
-Use this skill when a user references issue/backlog identifiers or URLs and the agent must recover cross-artifact context before acting.
+Use this skill when a user references issue/backlog identifiers or URLs, or describes a follow-up/regression without IDs, and the agent must recover cross-artifact context before acting.
 
 This skill complements `notion-todo-governance`: it resolves context for execution; it does not replace backlog triage or promotion decisions.
 
@@ -22,7 +22,7 @@ This skill complements `notion-todo-governance`: it resolves context for executi
 - Emit a structured recap only when the user explicitly asks for summary/context snapshot/recap.
 - Prefer deterministic links: `Work ID` ↔ Notion row ↔ GitHub issue ↔ governed branch.
 - Treat a unique valid `Work ID` as primary identity. A different or empty Notion `Branch` is metadata, not a linkage conflict.
-- If evidence conflicts, report the conflict and continue with the most reliable linked artifact.
+- If evidence conflicts, continue only when one identity remains uniquely supported. Otherwise report the ambiguity without reopening issues or correcting tracking.
 
 ## Decision Gates
 
@@ -32,12 +32,13 @@ This skill complements `notion-todo-governance`: it resolves context for executi
 | `#123` or GitHub issue URL | Resolve issue first; backtrack to Notion row and `Work ID` |
 | Notion row URL | Fetch row, then resolve linked issue and branch |
 | Governed branch with `tb-###` | Extract Work ID from branch, then resolve Notion and issue |
+| Follow-up/regression without IDs | Search canonical Notion, GitHub issues/PRs, and branch history semantically; reuse only on unique evidence |
 | User asks “summary/recap/context snapshot” | Return structured recap of resolved artifacts |
 | User does not ask summary | Keep lookup silent and continue task |
 
 ## Execution Steps
 
-1. Detect references in the user request (`TB-###`, `#123`, Notion URL, issue URL, governed branch).
+1. Detect references or follow-up/regression intent in the user request (`TB-###`, `#123`, Notion URL, issue URL, governed branch).
 2. Resolve the first reliable anchor artifact.
 3. Traverse related artifacts to complete linkage graph.
 4. Validate consistency (`Work ID`, URLs, and branch metadata) without allowing `Branch` to veto a unique Work ID association.
@@ -58,5 +59,6 @@ Always include unresolved links as `Unknown` rather than guessing.
 - `docs/issue-context-contract.md`
 - `docs/todo-workflow.md`
 - `docs/backlog-branch-pr-policy.md`
+- `docs/change-intake-preflight.md`
 - `AGENTS.md`
 - `.agents/skills/notion-todo-governance/SKILL.md`

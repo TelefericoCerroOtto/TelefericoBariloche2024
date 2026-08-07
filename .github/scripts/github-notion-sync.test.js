@@ -118,7 +118,7 @@ test("tracked work requires the exact rendered related issue reference", async (
   await assert.rejects(governance.validatePrPolicy(config({ renderMarkdown: async () => renderedRelated("Refs #192") })), /Refs #191/);
 });
 
-test("canonical Work ID remains tracked when Notion Branch names another sequential branch", async () => {
+test("canonical Work ID remains tracked when Notion Branch names another fresh follow-up branch", async () => {
   mockFetch((url) => {
     if (url.includes("api.notion.com")) return response(200, { results: [item({ itemBranch: "fix/root-tb-103-initial-slice" })], has_more: false });
     return response(200, { number: 191, html_url: "https://github.com/acme/teleferico/issues/191" });

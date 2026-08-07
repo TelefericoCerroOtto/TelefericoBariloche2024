@@ -134,10 +134,13 @@ When a user message includes any of the following references, agents should reso
 - Notion backlog row URL
 - GitHub issue URL
 - Governed branch containing `tb-###`
+- Follow-up or regression language without an identifier
+
+For identifier-free follow-ups or regressions, search the canonical Notion backlog, GitHub issues and PRs, and branch history semantically. Reuse an artifact only when the outcome, scope, and delivery evidence identify it uniquely. Do not reopen issues or repair tracking contradictions automatically when evidence is ambiguous.
 
 ### Default behavior (silent lookup)
 
-Agents should fetch and reconcile linked context silently by default while performing the requested task.
+Agents should fetch and reconcile linked context silently by default while performing the requested task. For change intake, follow the decision and working-tree contract in `docs/change-intake-preflight.md`.
 
 ### Explicit recap behavior
 
