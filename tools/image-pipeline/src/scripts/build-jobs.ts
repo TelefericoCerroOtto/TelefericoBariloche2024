@@ -73,40 +73,40 @@ export const COMPONENT_OUTPUTS = {
     { ratio: "4:5", mp: 1.5, quality: 82 },
   ],
   card: [
-    { ratio: "24:7", mp: 1.9, quality: 84 },
-    { ratio: "4:3", mp: 1.1, quality: 82 },
+    { ratio: "24:7", mp: 1.9, quality: 88 },
+    { ratio: "4:3", mp: 1.1, quality: 86 },
   ],
   poster: [
-    { ratio: "21:9", mp: 2.8, quality: 82 },
-    { ratio: "9:16", mp: 2.1, quality: 80 },
+    { ratio: "21:9", mp: 2.8, quality: 90 },
+    { ratio: "9:16", mp: 2.1, quality: 88 },
   ],
   panoramic: [
-    { ratio: "21:9", mp: 2.8, quality: 80 },
-    { ratio: "2:3", mp: 1.8, quality: 78 },
+    { ratio: "21:9", mp: 2.8, quality: 90 },
+    { ratio: "2:3", mp: 1.8, quality: 88 },
   ],
   single: [
-    { ratio: "1:1", mp: 2.0, quality: 84 },
-    { ratio: "2:3", mp: 2.2, quality: 82 },
+    { ratio: "1:1", mp: 2.0, quality: 88 },
+    { ratio: "2:3", mp: 2.2, quality: 88 },
   ],
   spotlight: [
-    { ratio: "4:3", mp: 1.5, quality: 84 },
-    { ratio: "2:1", mp: 1.0, quality: 82 },
+    { ratio: "4:3", mp: 1.5, quality: 88 },
+    { ratio: "2:1", mp: 1.0, quality: 86 },
   ],
   horizontal: [
-    { ratio: "1:1", mp: 2.0, quality: 82 },
-    { ratio: "4:5", mp: 1.2, quality: 80 },
+    { ratio: "1:1", mp: 2.0, quality: 86 },
+    { ratio: "4:5", mp: 1.2, quality: 85 },
   ],
   ladder: [
-    { ratio: "9:16", mp: 2.1, quality: 82 },
-    { ratio: "3:4", mp: 1.2, quality: 80 },
+    { ratio: "9:16", mp: 2.1, quality: 86 },
+    { ratio: "3:4", mp: 1.2, quality: 85 },
   ],
-  masonrys0: [{ ratio: "9:16", mp: 2.1, quality: 82 }],
-  masonrys1: [{ ratio: "1:1", mp: 1.4, quality: 78 }],
-  miniaturess0: [{ ratio: "1:1", mp: 2.0, quality: 82 }],
-  miniaturess1: [{ ratio: "4:3", mp: 0.7, quality: 78 }],
-  cascades0: [{ ratio: "4:5", mp: 1.8, quality: 82 }],
-  cascades1: [{ ratio: "16:11", mp: 1.4, quality: 78 }],
-  double: [{ ratio: "1:1", mp: 2.0, quality: 82 }],
+  masonrys0: [{ ratio: "9:16", mp: 2.1, quality: 86 }],
+  masonrys1: [{ ratio: "1:1", mp: 1.4, quality: 84 }],
+  miniaturess0: [{ ratio: "1:1", mp: 2.0, quality: 88 }],
+  miniaturess1: [{ ratio: "4:3", mp: 0.7, quality: 84 }],
+  cascades0: [{ ratio: "4:5", mp: 1.8, quality: 86 }],
+  cascades1: [{ ratio: "16:11", mp: 1.4, quality: 85 }],
+  double: [{ ratio: "1:1", mp: 2.0, quality: 86 }],
 } as const satisfies Record<string, readonly OutputTemplate[]>;
 
 type ComponentKey = keyof typeof COMPONENT_OUTPUTS;
@@ -276,9 +276,7 @@ export async function buildJobs(): Promise<void> {
   await writeFile(outputPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
 
-const maybeEntry = process.argv[1]
-  ? path.resolve(process.argv[1])
-  : undefined;
+const maybeEntry = process.argv[1] ? path.resolve(process.argv[1]) : undefined;
 
 if (maybeEntry === __filename) {
   buildJobs().catch((error: unknown) => {
