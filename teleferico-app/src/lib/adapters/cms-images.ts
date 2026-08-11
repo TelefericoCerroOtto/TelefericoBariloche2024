@@ -21,7 +21,9 @@ export function normalizeCmsBucketPathPrefix(pathname: string) {
   if (!trimmed) return "/";
 
   const withoutWildcard = trimmed.replace(/\/\*+$/, "").replace(/\*+$/, "");
-  return withoutWildcard.endsWith("/") ? withoutWildcard : `${withoutWildcard}/`;
+  return withoutWildcard.endsWith("/")
+    ? withoutWildcard
+    : `${withoutWildcard}/`;
 }
 
 export function toCmsImageProxyUrl(source?: string | null) {
@@ -70,6 +72,12 @@ export function selectCmsImageUrl(
       return toCmsImageProxyUrl(candidate.url) ?? candidate.url;
     }
   }
+
+  return toCmsImageProxyUrl(image.url) ?? image.url;
+}
+
+export function selectOriginalCmsImageUrl(image?: CmsImageLike | null) {
+  if (!image) return undefined;
 
   return toCmsImageProxyUrl(image.url) ?? image.url;
 }

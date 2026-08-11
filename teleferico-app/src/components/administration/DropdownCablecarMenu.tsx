@@ -1,7 +1,8 @@
 "use client";
 
-import { useAppAlert } from "@/hooks";
-import { getStateAction, updateStateAction } from "@/lib/actions";
+import { useAppAlert, useServiceState } from "@/hooks";
+import { ROUTE_HANDLERS } from "@/lib/constants/routes.const";
+import { authenticatedInternalApiFetch } from "@/lib/http/clients/auth-internal-fetch";
 import type { ServiceStateValues } from "@/types";
 import {
   addToast,
@@ -62,11 +63,13 @@ export default function DropdownCablecarMenu({
     },
   ];
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Selection>(
     new Set(["normal"]),
   );
   const { showAlert } = useAppAlert();
+  const { serviceState, isError, isLoading: isReading } = useServiceState();
+  const isLoading = isReading || isUpdating;
 
   const selectedValue = useMemo(
     () => Array.from(selectedKeys).join(", ").replaceAll("_", " "),
@@ -74,22 +77,12 @@ export default function DropdownCablecarMenu({
   );
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const res = await getStateAction();
-        setIsLoading(false);
-
-        if (res.ok) return setSelectedKeys(new Set([res.data.data.state]));
-        setSelectedKeys(new Set());
-      } catch (error) {
-        setIsLoading(false);
-        console.log("useEffect on dropdown menu error", error);
-      }
-    };
-
-    fetchData();
-  }, []);
+    if (serviceState) {
+      setSelectedKeys(new Set([serviceState.data.state]));
+    } else if (isError) {
+      setSelectedKeys(new Set());
+    }
+  }, [isError, serviceState]);
 
   return (
     <Dropdown
@@ -107,11 +100,16 @@ export default function DropdownCablecarMenu({
 
           try {
             setSelectedKeys(keys);
-            setIsLoading(true);
-            const res = await updateStateAction(
-              keys.currentKey as ServiceStateValues,
+            setIsUpdating(true);
+            const res = await authenticatedInternalApiFetch(
+              ROUTE_HANDLERS.SERVICE_STATE_ADMIN,
+              {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ state: keys.currentKey }),
+              },
             );
-            setIsLoading(false);
+            setIsUpdating(false);
 
             if (res.ok) {
               return addToast({
@@ -122,11 +120,17 @@ export default function DropdownCablecarMenu({
               });
             }
 
-            console.log("update state action failed", res.data);
+            console.log("service-state update failed", res.status);
             setSelectedKeys(prevValue);
+            showAlert({
+              title: "Error",
+              message: "No se pudo actualizar el estado del medio de elevación",
+              variant: "danger",
+            });
             return;
           } catch (error) {
-            setIsLoading(false);
+            setIsUpdating(false);
+            setSelectedKeys(prevValue);
             showAlert({
               title: "Error",
               message:

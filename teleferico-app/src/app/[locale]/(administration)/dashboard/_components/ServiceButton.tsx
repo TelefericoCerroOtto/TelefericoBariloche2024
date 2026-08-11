@@ -4,16 +4,17 @@ import { DropdownCablecarMenu } from "@/components";
 import type { UserRole } from "@/types";
 import { Button, Tooltip } from "@heroui/react";
 import { CableCar } from "lucide-react";
-import { useSession } from "next-auth/react";
 
-export default function ServiceButton() {
-  const { data: session } = useSession();
+export default function ServiceButton({
+  currentRole,
+}: {
+  currentRole: UserRole["name"];
+}) {
   const allowedRoles: UserRole["name"][] = [
     "Administrator",
     "Operations Supervisor",
   ];
-  const roleAllowed =
-    session?.user?.role?.name && allowedRoles.includes(session.user.role.name);
+  const roleAllowed = allowedRoles.includes(currentRole);
 
   if (!roleAllowed) {
     return (

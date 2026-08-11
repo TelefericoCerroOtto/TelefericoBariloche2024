@@ -9,6 +9,7 @@ import { bgStyles, caseStyles } from "@/lib/constants/styles.const";
 import { typography } from "@/lib/constants/typography.const";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
+import { IMAGE_TEXT_IMAGE_QUALITY } from "../../shared/image-policy";
 import LogoBadge from "../../shared/LogoBadge";
 import type { OneImageProps } from "../../shared/types";
 
@@ -43,12 +44,20 @@ export default function Card(props: OneImageProps) {
           <div className="relative aspect-[4/3] w-full overflow-hidden md:aspect-[24/7]">
             {/* Mobile (<md) */}
             <div className="relative h-full w-full md:hidden">
-              <CustomImage image={mobile0} sizes={sizesMobile} quality={72} />
+              <CustomImage
+                image={mobile0}
+                sizes={sizesMobile}
+                quality={IMAGE_TEXT_IMAGE_QUALITY.primary}
+              />
             </div>
 
             {/* Desktop (>=md) */}
             <div className="relative hidden h-full w-full md:block">
-              <CustomImage image={desktop0} sizes={sizesDesktop} quality={72} />
+              <CustomImage
+                image={desktop0}
+                sizes={sizesDesktop}
+                quality={IMAGE_TEXT_IMAGE_QUALITY.primary}
+              />
             </div>
 
             <div aria-hidden="true" className="absolute inset-0 bg-black/10" />
