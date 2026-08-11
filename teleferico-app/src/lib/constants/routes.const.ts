@@ -27,6 +27,7 @@ export const ROUTE_HANDLERS = {
   POSTULATIONS_FAVORITE: (documentId: string) =>
     `/api/admin/postulations/${documentId}/favorite` as const, // admin endpoint
   POSTULATIONS_BULK_STATUS: "/api/admin/postulations/bulk-status", // admin endpoint
+  SERVICE_STATE_ADMIN: "/api/admin/service-state", // admin endpoint
 } as const;
 
 export const ADMIN_ROUTES = {
@@ -67,10 +68,9 @@ export const ADMIN_LOGIN_REASONS = {
 export type AdminLoginReason =
   (typeof ADMIN_LOGIN_REASONS)[keyof typeof ADMIN_LOGIN_REASONS];
 
-const ADMIN_LOGIN_BASE_URL = process.env[ENV_KEYS.NEXT_PUBLIC_SITE_URL]?.replace(
-  /\/$/,
-  "",
-);
+const ADMIN_LOGIN_BASE_URL = process.env[
+  ENV_KEYS.NEXT_PUBLIC_SITE_URL
+]?.replace(/\/$/, "");
 const ADMIN_LOGIN_PATH = `/${i18n.defaultLocale}${ADMIN_ROUTES.LOGIN}`;
 
 export const getAdminLoginUrl = (reason?: AdminLoginReason) => {

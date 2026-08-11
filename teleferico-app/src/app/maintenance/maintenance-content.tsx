@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { Facebook, Instagram, Mail, Phone, Cog, type LucideIcon } from "lucide-react";
+import { Facebook, Instagram, Mail, Phone, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import BrandLogo from "@/public/logo.svg";
 import BrandMark from "@/public/logo-recortado.svg";
+import { useServiceState } from "@/hooks/use-service-state";
+import { MaintenanceStatusSection } from "./maintenance-status-section";
 
 type SupportedLocale = "es-AR" | "en" | "pt";
 type ContactChannelKey = "instagram" | "facebook" | "email" | "phone";
@@ -56,7 +58,6 @@ const translations = {
     statusTitle: "Trabajo en curso",
     statusMessage:
       "Nuestro equipo está trabajando para restablecer el sitio de forma segura y estable lo antes posible.",
-    statusTags: ["Mantenimiento", "Sistema", "Servicio"],
     contactEyebrow: "Contacto",
     contactTitle: "¿Necesitás hablarnos?",
     contactMessage:
@@ -98,7 +99,6 @@ const translations = {
     statusTitle: "Work in progress",
     statusMessage:
       "Our team is working to restore the site safely and reliably as soon as possible.",
-    statusTags: ["Maintenance", "System", "Service"],
     contactEyebrow: "Contact",
     contactTitle: "Need to reach us another way?",
     contactMessage:
@@ -140,7 +140,6 @@ const translations = {
     statusTitle: "Trabalho em andamento",
     statusMessage:
       "Nossa equipe está trabalhando para restaurar o site com segurança e estabilidade o quanto antes.",
-    statusTags: ["Manutenção", "Sistema", "Serviço"],
     contactEyebrow: "Contato",
     contactTitle: "Precisa falar com a gente?",
     contactMessage:
@@ -197,6 +196,7 @@ interface MaintenanceContentProps {
 export function MaintenanceContent({ initialLocale }: MaintenanceContentProps) {
   const resolved = isSupportedLocale(initialLocale) ? initialLocale : "es-AR";
   const [locale, setLocale] = useState<SupportedLocale>(resolved);
+  const { serviceState, isLoading, isError } = useServiceState();
 
   // Keep the <html lang> attribute in sync so screen readers announce the
   // correct language when the user switches locale on the maintenance page.
@@ -311,45 +311,16 @@ export function MaintenanceContent({ initialLocale }: MaintenanceContentProps) {
                 </p>
               </div>
 
-              <div className="mt-8 max-w-2xl">
-                <div className="rounded-[1.75rem] border border-custom-red/20 bg-[linear-gradient(135deg,rgba(255,248,247,0.98),rgba(255,243,241,0.95))] p-5 shadow-sm sm:p-6">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                    <div
-                      className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-custom-red/30 bg-custom-red/10 shadow-sm"
-                      aria-hidden="true"
-                    >
-                      <Cog
-                        className="h-11 w-11 text-custom-red animate-spin"
-                        style={{ animationDuration: "10s" }}
-                      />
-                      <Cog
-                        className="absolute bottom-2 right-2 h-6 w-6 text-custom-red/70 animate-spin"
-                        style={{ animationDuration: "6s", animationDirection: "reverse" }}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-base font-semibold uppercase tracking-[0.24em] text-foreground/55">
-                        {t.statusTitle}
-                      </p>
-                      <p className="text-base leading-7 text-foreground/70 sm:text-lg sm:leading-8">
-                        {t.statusMessage}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {t.statusTags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center rounded-full border border-custom-red/20 bg-custom-red/10 px-3.5 py-1.5 text-sm font-semibold uppercase tracking-[0.2em] text-custom-red/90"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <MaintenanceStatusSection
+                locale={locale}
+                maintenanceCopy={{
+                  title: t.statusTitle,
+                  message: t.statusMessage,
+                }}
+                serviceState={serviceState}
+                isLoading={isLoading}
+                isError={Boolean(isError)}
+              />
 
               <section
                 aria-labelledby="maintenance-contact-title"
