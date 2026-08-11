@@ -6,6 +6,7 @@ import { typography } from "@/lib/constants/typography.const";
 import { Button } from "@heroui/react";
 import { type BlocksContent } from "@strapi/blocks-react-renderer";
 import CustomImage from "../../shared/CustomImage";
+import { IMAGE_TEXT_IMAGE_QUALITY } from "../../shared/image-policy";
 import type { OneImageProps } from "../../shared/types";
 
 export default function Panoramic(props: OneImageProps) {
@@ -41,12 +42,20 @@ export default function Panoramic(props: OneImageProps) {
         <div className="absolute inset-0">
           {/* Mobile (<md) */}
           <div className="relative h-full w-full md:hidden">
-            <CustomImage image={mobile0} sizes={sizesMobile} quality={68} />
+            <CustomImage
+              image={mobile0}
+              sizes={sizesMobile}
+              quality={IMAGE_TEXT_IMAGE_QUALITY.primary}
+            />
           </div>
 
           {/* Desktop (>=md) */}
           <div className="relative hidden h-full w-full md:block">
-            <CustomImage image={desktop0} sizes={sizesDesktop} quality={68} />
+            <CustomImage
+              image={desktop0}
+              sizes={sizesDesktop}
+              quality={IMAGE_TEXT_IMAGE_QUALITY.primary}
+            />
           </div>
         </div>
 
@@ -62,7 +71,7 @@ export default function Panoramic(props: OneImageProps) {
           <div className="mx-auto flex w-full max-w-6xl flex-col items-center text-center">
             {epigraph ? (
               <p
-                className={`mb-6 sm:mb-10 inline-flex items-center rounded-full bg-black/25 px-3 py-1 font-semibold uppercase tracking-[0.28em] text-red-200 shadow-sm backdrop-blur-sm ${typography.meta.eyebrow} max-sm:text-xs`}
+                className={`mb-6 inline-flex items-center rounded-full bg-black/25 px-3 py-1 font-semibold uppercase tracking-[0.28em] text-red-200 shadow-sm backdrop-blur-sm sm:mb-10 ${typography.meta.eyebrow} max-sm:text-xs`}
               >
                 {epigraph}
               </p>
@@ -71,7 +80,7 @@ export default function Panoramic(props: OneImageProps) {
             {title ? (
               <h2
                 className={[
-                  "font-black tracking-tight text-white sm:tracking-normal max-sm:text-2xl max-sm:leading-tight",
+                  "font-black tracking-tight text-white max-sm:text-2xl max-sm:leading-tight sm:tracking-normal",
                   typography.headings.hero,
                   titleCaseClass,
                 ].join(" ")}
@@ -86,7 +95,7 @@ export default function Panoramic(props: OneImageProps) {
                   content={description as BlocksContent}
                   prosePreset="feature"
                   className={[
-                    "prose-invert text-white max-w-none",
+                    "prose-invert max-w-none text-white",
                     "text-center",
                     "prose-headings:text-center prose-p:text-center prose-li:text-center",
                     "prose-headings:leading-tight prose-p:leading-relaxed",
