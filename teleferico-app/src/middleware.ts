@@ -6,15 +6,24 @@ import {
   ADMIN_ROUTES,
   type AdminLoginReason,
 } from "@/lib/constants/routes.const";
+import {
+  getMaintenanceAccess,
+  isMaintenanceDashboardDescendant,
+  isSafeMaintenanceNavigationMethod,
+  MAINTENANCE_ACCESS,
+  MAINTENANCE_NAVIGATION_REDIRECT_STATUS,
+} from "@/lib/maintenance-access";
 import { shouldSkipMiddleware } from "@/lib/middleware-matcher";
 import { verifySession } from "@/lib/services/cms/users-permissions/auth";
 import type { Locales } from "@/types";
-import { type NextFetchEvent, type NextMiddleware, type NextRequest, NextResponse } from "next/server";
+import {
+  type NextFetchEvent,
+  type NextMiddleware,
+  type NextRequest,
+  NextResponse,
+} from "next/server";
 
-const PUBLIC_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(
-  /\/$/,
-  "",
-);
+const PUBLIC_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
 
 // Locale helpers — module-level so they are accessible to both the outer
 // middleware function (for maintenance) and the inner auth handler.
@@ -46,8 +55,11 @@ const pickLocale = (req: NextRequest): Locales => {
 const handleMaintenance = (req: NextRequest): NextResponse => {
   const pathname = req.nextUrl.pathname;
 
-  // API routes: return 503 JSON directly.
-  if (pathname.startsWith("/api/")) {
+  // APIs and unsafe navigation methods fail closed without rendering a page.
+  if (
+    pathname.startsWith("/api/") ||
+    !isSafeMaintenanceNavigationMethod(req.method)
+  ) {
     return new NextResponse(
       JSON.stringify({ error: "Service unavailable", maintenance: true }),
       {
@@ -75,9 +87,9 @@ const handleMaintenance = (req: NextRequest): NextResponse => {
   });
 };
 
-// Auth-wrapped handler — only reached when maintenance mode is OFF and the
-// path is not an API route. Cast as NextMiddleware so TypeScript resolves the
-// correct overload when we forward (req, event) from the outer function.
+// Auth-wrapped handler for administration routes and normal public routing.
+// Cast as NextMiddleware so TypeScript resolves the correct overload when we
+// forward (req, event) from the outer function.
 const authMiddleware = auth(async (req) => {
   const url = req.nextUrl;
   const pathname = url.pathname;
@@ -101,6 +113,7 @@ const authMiddleware = auth(async (req) => {
   const buildAdminRedirect = (
     route: string,
     reason?: AdminLoginReason,
+    status = 307,
   ) => {
     const pathname = `/${i18n.defaultLocale}${route}`;
     const redirectUrl = PUBLIC_SITE_URL
@@ -115,7 +128,7 @@ const authMiddleware = auth(async (req) => {
       redirectUrl.searchParams.delete(ADMIN_LOGIN_QUERY_PARAMS.REASON);
     }
 
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(redirectUrl, status);
   };
 
   const isAdminPath = adminRoots.some(
@@ -157,6 +170,17 @@ const authMiddleware = auth(async (req) => {
         if (adminPath === ADMIN_ROUTES.LOGIN) {
           return buildAdminRedirect(ADMIN_ROUTES.DASHBOARD);
         }
+
+        if (
+          process.env.MAINTENANCE_MODE === "true" &&
+          isMaintenanceDashboardDescendant(adminPath)
+        ) {
+          return buildAdminRedirect(
+            ADMIN_ROUTES.DASHBOARD,
+            undefined,
+            MAINTENANCE_NAVIGATION_REDIRECT_STATUS,
+          );
+        }
         return;
       }
 
@@ -181,20 +205,26 @@ const authMiddleware = auth(async (req) => {
   // 🚩 Public paths
 
   // 0) Redirección de subdominios legacy (en. / pt.) a la nueva arquitectura de rutas
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? req.nextUrl.host;
+  const host =
+    req.headers.get("x-forwarded-host") ??
+    req.headers.get("host") ??
+    req.nextUrl.host;
   if (host.startsWith("en.") || host.startsWith("pt.")) {
     const targetLocale = host.startsWith("en.") ? "en" : "pt";
-    
+
     const redirectURL = PUBLIC_SITE_URL
       ? new URL(pathname, PUBLIC_SITE_URL)
       : req.nextUrl.clone();
-      
+
     if (!PUBLIC_SITE_URL) {
       redirectURL.hostname = redirectURL.hostname.replace(/^(en|pt)\./, "");
     }
-      
-    const rest = hasLocalePrefix ? segments.slice(2).join("/") : segments.slice(1).join("/");
-    redirectURL.pathname = rest && rest.length > 0 ? `/${targetLocale}/${rest}` : `/${targetLocale}`;
+
+    const rest = hasLocalePrefix
+      ? segments.slice(2).join("/")
+      : segments.slice(1).join("/");
+    redirectURL.pathname =
+      rest && rest.length > 0 ? `/${targetLocale}/${rest}` : `/${targetLocale}`;
     redirectURL.search = req.nextUrl.search;
 
     return NextResponse.redirect(redirectURL, 301);
@@ -235,10 +265,15 @@ const authMiddleware = auth(async (req) => {
   return;
 }) as unknown as NextMiddleware;
 
-export default async function middleware(req: NextRequest, event: NextFetchEvent) {
+export default async function middleware(
+  req: NextRequest,
+  event: NextFetchEvent,
+) {
   const pathname = req.nextUrl.pathname;
 
-  // Fast path: skip static assets, Next.js internals, and root metadata files.
+  // Fast path: skip non-API static assets, Next.js internals, and root metadata
+  // files. API routes must reach the maintenance classifier even when their
+  // path ends in a file extension.
   // This also handles the dual concern raised by security + reliability reviews:
   //   - robots.txt / sitemap.xml are excluded here so they never reach locale
   //     redirect logic (reliability fix).
@@ -246,12 +281,27 @@ export default async function middleware(req: NextRequest, event: NextFetchEvent
   //     /es-AR/dashboard/news/foo.js) are NOT excluded and continue to receive
   //     full middleware processing (security fix).
   // See src/lib/middleware-matcher.ts for the classification rules.
-  if (shouldSkipMiddleware(pathname)) {
+  if (!pathname.startsWith("/api/") && shouldSkipMiddleware(pathname)) {
     return;
   }
 
-  // 1. Maintenance check runs FIRST — no auth overhead, no Strapi calls.
+  // 1. Maintenance check runs first. The public exception reaches the existing
+  // trusted-browser proxy guard; administration still goes through auth.
   if (process.env.MAINTENANCE_MODE === "true") {
+    const maintenanceAccess = getMaintenanceAccess(pathname, req.method);
+
+    if (
+      maintenanceAccess === MAINTENANCE_ACCESS.PUBLIC_SERVICE_STATE ||
+      maintenanceAccess === MAINTENANCE_ACCESS.AUTH_API ||
+      maintenanceAccess === MAINTENANCE_ACCESS.PROTECTED_SERVICE_STATE
+    ) {
+      return;
+    }
+
+    if (maintenanceAccess === MAINTENANCE_ACCESS.AUTHENTICATED_ADMINISTRATION) {
+      return authMiddleware(req, event);
+    }
+
     return handleMaintenance(req);
   }
 

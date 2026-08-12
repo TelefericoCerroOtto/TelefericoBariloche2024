@@ -2,6 +2,19 @@ import clockIilustration from "@/public/oc-time-flies.svg";
 import Image from "next/image";
 
 export default async function DashboardPage() {
+  if (process.env.MAINTENANCE_MODE === "true") {
+    return (
+      <div className="flex w-full max-w-3xl flex-col gap-3 px-10 py-8">
+        <p className="text-custom-red">Modo mantenimiento activo</p>
+        <h2 className="text-4xl font-bold">Control operativo del servicio</h2>
+        <p className="font-light">
+          Durante el mantenimiento, este panel queda limitado al estado público
+          del medio de elevación y a la gestión de tu sesión.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-max-[1350px] flex w-full flex-col-reverse items-center px-10 md:h-[400px] md:flex-row">
       <div className="flex flex-col gap-3">

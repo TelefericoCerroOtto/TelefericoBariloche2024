@@ -2,6 +2,7 @@ import { SidebarProvider } from "@/components/ui/Sidebar";
 import { Header } from "./_components/Header";
 import Sidebar from "./_components/Sidebar";
 import SessionWatcher from "./_components/SessionWatcher";
+import { getDashboardShellProjection } from "./_components/dashboard-shell-projection";
 import { auth } from "@/auth";
 import {
   ADMIN_LOGIN_REASONS,
@@ -40,12 +41,22 @@ export default async function DashboardLayout({
     redirect(getAdminLoginUrl(ADMIN_LOGIN_REASONS.SESSION_EXPIRED));
   }
 
+  const isMaintenanceMode = process.env.MAINTENANCE_MODE === "true";
+  const projection = getDashboardShellProjection({
+    currentRole: session.user.role.name,
+    isMaintenanceMode,
+  });
+
   return (
     <SidebarProvider>
-      <SessionWatcher />
-      <Sidebar />
+      {projection.showSessionWatcher ? <SessionWatcher /> : null}
+      <Sidebar projection={projection} />
       <main className="w-full min-w-0 max-w-full overflow-x-hidden">
-        <Header />
+        <Header
+          user={session.user}
+          showProfile={projection.showProfile}
+          showServiceStateControl={projection.showServiceStateControl}
+        />
         {/* TODO: resolver diferencia con el height del header.
           tailwind no acepta clases de manera dinamica 
           https://stackoverflow.com/questions/71791472/fontawesome-icons-not-accepting-color-props-through-react-functional-components/

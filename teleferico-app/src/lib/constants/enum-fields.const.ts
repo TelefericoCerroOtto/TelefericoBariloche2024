@@ -6,6 +6,7 @@ import type {
   LiftingMean,
   PostulationStatus,
   Season,
+  ServiceStateValues,
   UserRoles,
 } from "@/types";
 
@@ -28,6 +29,14 @@ export const SEASONS: Season[] = [
 export const LIFTING_MEANS: LiftingMean[] = [
   "cablecar",
   "road&funicular",
+] as const;
+
+export const SERVICE_STATE_VALUES: ServiceStateValues[] = [
+  "normal",
+  "conditional",
+  "restricted",
+  "suspended",
+  "closed",
 ] as const;
 
 export const USER_ROLES: UserRoles[] = [

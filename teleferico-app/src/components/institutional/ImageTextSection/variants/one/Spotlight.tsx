@@ -1,16 +1,19 @@
-import { blocksToExcerpt, selectCmsImageUrl } from "@/lib/adapters";
+import { blocksToExcerpt, selectOriginalCmsImageUrl } from "@/lib/adapters";
 import { typography } from "@/lib/constants/typography.const";
 import notFoundImg from "@/public/image-not-found.jpg";
 import NextImage from "next/image";
 import type { OneImageProps } from "../../shared/types";
+import { IMAGE_TEXT_IMAGE_QUALITY } from "../../shared/image-policy";
 
 export function Spotlight(props: OneImageProps) {
   const { desktopImages, mobileImages, title, description, epigraph } = props;
 
   const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
   const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
-  const mobileSrc = selectCmsImageUrl(mobile0?.image) ?? notFoundImg.src;
-  const desktopSrc = selectCmsImageUrl(desktop0?.image) ?? notFoundImg.src;
+  const mobileSrc =
+    selectOriginalCmsImageUrl(mobile0?.image) ?? notFoundImg.src;
+  const desktopSrc =
+    selectOriginalCmsImageUrl(desktop0?.image) ?? notFoundImg.src;
   const mobileAlt = mobile0?.alt ?? "imagen institucional";
   const desktopAlt = desktop0?.alt ?? "imagen institucional";
 
@@ -59,7 +62,7 @@ export function Spotlight(props: OneImageProps) {
                 alt={mobileAlt}
                 fill
                 sizes={sizesMobile}
-                quality={80}
+                quality={IMAGE_TEXT_IMAGE_QUALITY.primary}
                 className="object-contain"
               />
             </div>
@@ -71,7 +74,7 @@ export function Spotlight(props: OneImageProps) {
                 alt={desktopAlt}
                 fill
                 sizes={sizesDesktop}
-                quality={80}
+                quality={IMAGE_TEXT_IMAGE_QUALITY.primary}
                 className="object-contain"
               />
             </div>
@@ -85,9 +88,7 @@ export function Spotlight(props: OneImageProps) {
           <div className="max-w-xl">
             <div className="mb-3 h-1 w-12 bg-gray-900/90 md:hidden" />
 
-            <h2
-              className="mb-3 text-2xl font-bold uppercase leading-[1] tracking-tight text-gray-900 md:text-3xl lg:text-4xl"
-            >
+            <h2 className="mb-3 text-2xl font-bold uppercase leading-[1] tracking-tight text-gray-900 md:text-3xl lg:text-4xl">
               {title}
             </h2>
 

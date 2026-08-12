@@ -46,13 +46,13 @@ Staging and production are separated in:
 
 ### 3.1 Quick matrix
 
-| Component        | Staging                  | Production                   |
-| ---------------- | ------------------------ | ---------------------------- |
-| Next.js          | `app-staging-teleferico` | `app-production-teleferico`  |
-| Strapi           | `cms-staging-teleferico` | `cms-production-teleferico`  |
-| Region           | `southamerica-east1`     | `southamerica-east1`         |
-| Database         | Cloud SQL via connector  | Cloud SQL via private IP/VPC (zonal) |
-| Upload bucket    | `cms_staging_bucket`     | `cms_production_bucket`      |
+| Component     | Staging                  | Production                           |
+| ------------- | ------------------------ | ------------------------------------ |
+| Next.js       | `app-staging-teleferico` | `app-production-teleferico`          |
+| Strapi        | `cms-staging-teleferico` | `cms-production-teleferico`          |
+| Region        | `southamerica-east1`     | `southamerica-east1`                 |
+| Database      | Cloud SQL via connector  | Cloud SQL via private IP/VPC (zonal) |
+| Upload bucket | `cms_staging_bucket`     | `cms_production_bucket`              |
 
 ---
 
@@ -380,10 +380,10 @@ Contracted domains:
 
 Both domains use Google Cloud DNS as name servers. Each has its own independent public zone:
 
-| Domain                       | Cloud DNS Zone          | Name servers                                                                                                                        |
-| ---------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `telefericobariloche.com.ar` | `telefericobariloche`   | `ns-cloud-d1.googledomains.com.` `ns-cloud-d2.googledomains.com.` `ns-cloud-d3.googledomains.com.` `ns-cloud-d4.googledomains.com.` |
-| `telefericobariloche.com`    | `telefericobarilochecom`| `ns-cloud-e1.googledomains.com.` `ns-cloud-e2.googledomains.com.` `ns-cloud-e3.googledomains.com.` `ns-cloud-e4.googledomains.com.` |
+| Domain                       | Cloud DNS Zone           | Name servers                                                                                                                        |
+| ---------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `telefericobariloche.com.ar` | `telefericobariloche`    | `ns-cloud-d1.googledomains.com.` `ns-cloud-d2.googledomains.com.` `ns-cloud-d3.googledomains.com.` `ns-cloud-d4.googledomains.com.` |
+| `telefericobariloche.com`    | `telefericobarilochecom` | `ns-cloud-e1.googledomains.com.` `ns-cloud-e2.googledomains.com.` `ns-cloud-e3.googledomains.com.` `ns-cloud-e4.googledomains.com.` |
 
 Operational rule:
 
@@ -463,7 +463,7 @@ Public forms
 
 ## 13) Maintenance mode
 
-teleferico-app supports a maintenance mode that blocks all user-facing routes (institutional, admin, API) and serves a static maintenance page. It is controlled by a single environment variable.
+teleferico-app supports a maintenance mode that isolates the public site while preserving the authenticated operator control plane and one public read-only service-status capability. It is controlled by a single environment variable.
 
 ### Quick operational path
 
@@ -481,6 +481,7 @@ gcloud run services update <SERVICE_NAME> \
 ```
 
 Replace `<SERVICE_NAME>` with:
+
 - `app-staging-teleferico` (staging)
 - `app-production-teleferico` (production)
 
@@ -541,6 +542,7 @@ gcloud run revisions list \
 ```
 
 Expected result:
+
 - the `services update` command creates a new Cloud Run revision
 - `MAINTENANCE_MODE=true` activates the maintenance flow on that revision
 - `MAINTENANCE_MODE=false` creates another revision that restores normal traffic behavior
@@ -551,13 +553,17 @@ Cloud Build deploys set `MAINTENANCE_MODE=false` explicitly. Any new deploy auto
 
 ### Behavior
 
-- `MAINTENANCE_MODE=true` → all routes blocked.
+- `MAINTENANCE_MODE=true` → institutional routes are rewritten to the maintenance page; the narrow exceptions below remain available.
 - `MAINTENANCE_MODE` absent or any other value → site runs normally.
 - HTML routes: middleware rewrites to `/maintenance` with a `Retry-After` header. Note: the `status: 503` passed to the rewrite does not reach the browser — Next.js resets it to 200 during page render. Crawler protection relies on the `Retry-After` header and the `noindex` meta tag on the maintenance page.
-- API routes: middleware returns `503` with JSON `{ "error": "Service unavailable", "maintenance": true }` + `Retry-After` header.
-- The maintenance page is fully static: no Strapi, Google, Redis, or external calls.
+- Public service status: only `GET /api/proxy/api/service-state` is allowed through middleware. The existing proxy still enforces trusted-browser origin checks and uses the server-side content token. Other methods, proxy paths, and public APIs remain blocked with the maintenance `503` response.
+- Authentication: only `GET|POST /api/auth/session`, `GET /api/auth/csrf`, `GET /api/auth/providers`, `POST /api/auth/callback/credentials`, and `POST /api/auth/signout` remain available. `POST /api/auth/session` is required by the existing client session refresh after credentials sign-in.
+- Administration pages: login, logout, and the exact dashboard root continue through the existing authentication middleware. Authenticated dashboard descendants redirect to `/es-AR/dashboard`; the sections layout enforces the same restriction as defense in depth.
+- Operator service-state update: only `PUT /api/admin/service-state` remains available. The route validates trusted browser origin, CSRF-bound session, the `Administrator` or `Operations Supervisor` role, and the service-state enum before using the operator JWT. Upstream errors are not exposed.
+- Dashboard projection: maintenance mode omits content-management navigation and content-specific dashboard messaging while preserving the service-state control, profile/session information, and logout.
+- The maintenance page always preserves its original maintenance card and reads only `service-state` for a separate localized status card. Loading reserves space below the maintenance card; unavailable or invalid status data omits only the status card and never exposes upstream errors.
 - Cloud Run health checks are unaffected (TCP probe, no HTTP endpoint).
 
 ### Scope of isolation
 
-This is user-layer isolation. Cloud Run service URLs remain technically accessible. The protection prevents conventional users (public visitors and admin operators) from interacting with services during infrastructure work.
+This is user-layer isolation. Cloud Run service URLs remain technically accessible. Public visitors cannot access institutional content or APIs beyond the exact read-only service-state capability. Authenticated operators retain only the dashboard root and the protected service-state update needed to manage that state.

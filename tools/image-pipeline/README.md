@@ -160,10 +160,7 @@ Ejemplo de un solo job:
       { "ratio": "3:4", "mp": 1.2 }
     ]
   },
-  "images": [
-    { "file": "confiteria.jpg" },
-    { "file": "hero-cerro-otto.jpeg" }
-  ]
+  "images": [{ "file": "confiteria.jpg" }, { "file": "hero-cerro-otto.jpeg" }]
 }
 ```
 
@@ -412,13 +409,13 @@ Lee `jobs.json` y, para cada imagen y cada output, hace: metadata con Sharp, cá
 
 ---
 
-## Defaults recomendados de export
+## Recommended export quality
 
-- WebP (fotos): 75–85
-- WebP (con overlays/brightness): 70–78
-- JPEG: 82–90
+- WebP editorial masters: 85–90
+- WebP thumbnail-scale masters: 82–85
+- JPEG masters: 85–90
 
-> Después `next/image` aplica su `quality` y genera variantes según `sizes`. La optimización grande se consigue con: ratio correcto + MP razonables + `sizes` bien declarados.
+Keep pipeline master quality above the downstream delivery quality. `next/image` performs the final responsive encode according to `sizes`; it cannot recover detail removed from the master. ImageTextBlock seed profiles live in `src/scripts/build-jobs.ts`; existing local Studio registries under `.studio/registry` are ignored runtime state and must be updated from those seeds when profile policy changes.
 
 ---
 

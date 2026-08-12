@@ -11,6 +11,7 @@ import { typography } from "@/lib/constants/typography.const";
 import type { BlocksContent } from "@strapi/blocks-react-renderer";
 import { ArrowRight } from "lucide-react";
 import CustomImage from "../../shared/CustomImage";
+import { IMAGE_TEXT_IMAGE_QUALITY } from "../../shared/image-policy";
 import LogoBadge from "../../shared/LogoBadge";
 import type { OneImageProps } from "../../shared/types";
 
@@ -66,7 +67,7 @@ export default function Poster(props: OneImageProps) {
           className={[
             "relative overflow-hidden rounded-3xl shadow-2xl shadow-black/15 ring-1 ring-red-500/15",
             posterState === "image-action-only"
-              ? "group transition-shadow duration-300 hover:shadow-black/25 focus-within:shadow-black/25"
+              ? "group transition-shadow duration-300 focus-within:shadow-black/25 hover:shadow-black/25"
               : null,
           ]
             .filter(Boolean)
@@ -76,17 +77,28 @@ export default function Poster(props: OneImageProps) {
           <div className="relative aspect-[9/16] w-full overflow-hidden md:aspect-[21/9]">
             {/* Mobile (<md) */}
             <div className="relative h-full w-full md:hidden">
-              <CustomImage image={mobile0} sizes={sizesMobile} quality={68} />
+              <CustomImage
+                image={mobile0}
+                sizes={sizesMobile}
+                quality={IMAGE_TEXT_IMAGE_QUALITY.primary}
+              />
             </div>
 
             {/* Desktop (>=md) */}
             <div className="relative hidden h-full w-full md:block">
-              <CustomImage image={desktop0} sizes={sizesDesktop} quality={68} />
+              <CustomImage
+                image={desktop0}
+                sizes={sizesDesktop}
+                quality={IMAGE_TEXT_IMAGE_QUALITY.primary}
+              />
             </div>
 
             {posterState === "default" ? (
               <>
-                <div aria-hidden="true" className="absolute inset-0 bg-black/30" />
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-black/30"
+                />
                 <div
                   aria-hidden="true"
                   className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/25 to-black/10"
@@ -102,11 +114,11 @@ export default function Poster(props: OneImageProps) {
               <>
                 <div
                   aria-hidden="true"
-                  className="absolute inset-0 bg-black/10 transition-colors duration-300 group-hover:bg-black/20 group-focus-within:bg-black/20"
+                  className="absolute inset-0 bg-black/10 transition-colors duration-300 group-focus-within:bg-black/20 group-hover:bg-black/20"
                 />
                 <div
                   aria-hidden="true"
-                  className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100"
+                  className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent transition-opacity duration-300 group-focus-within:opacity-100 group-hover:opacity-100"
                 />
               </>
             ) : null}
@@ -175,7 +187,7 @@ export default function Poster(props: OneImageProps) {
               aria-label={normalizedLink.label}
               className="group absolute inset-0 flex items-end justify-end rounded-3xl p-5 outline-none focus-visible:ring-4 focus-visible:ring-red-500/70 focus-visible:ring-offset-4 focus-visible:ring-offset-black/20 md:p-8"
             >
-              <span className="inline-flex items-center gap-2 rounded-full bg-background/88 px-4 py-2 text-sm font-semibold text-foreground shadow-lg shadow-black/20 backdrop-blur-sm transition-all duration-300 group-hover:-translate-y-0.5 group-hover:bg-background group-focus-visible:-translate-y-0.5 md:text-base">
+              <span className="bg-background/88 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-foreground shadow-lg shadow-black/20 backdrop-blur-sm transition-all duration-300 group-hover:-translate-y-0.5 group-hover:bg-background group-focus-visible:-translate-y-0.5 md:text-base">
                 <span>{normalizedLink.label}</span>
                 <ArrowRight aria-hidden className="h-4 w-4" />
               </span>
