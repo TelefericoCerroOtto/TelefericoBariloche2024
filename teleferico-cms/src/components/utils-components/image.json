@@ -7,16 +7,21 @@
   "options": {},
   "attributes": {
     "image": {
-      "allowedTypes": [
-        "images"
-      ],
       "type": "media",
       "multiple": false,
-      "required": true
+      "required": true,
+      "allowedTypes": [
+        "images"
+      ]
     },
     "alt": {
       "type": "string",
       "required": true
+    },
+    "asset": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::image-asset.image-asset"
     }
   }
 }

@@ -380,6 +380,10 @@ export interface UtilsComponentsImage extends Struct.ComponentSchema {
   };
   attributes: {
     alt: Schema.Attribute.String & Schema.Attribute.Required;
+    asset: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::image-asset.image-asset'
+    >;
     image: Schema.Attribute.Media<'images'> & Schema.Attribute.Required;
   };
 }

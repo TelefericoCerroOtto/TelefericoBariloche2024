@@ -783,6 +783,64 @@ export interface ApiFormProtectionSubmissionFormProtectionSubmission
   };
 }
 
+export interface ApiImageAssetImageAsset extends Struct.CollectionTypeSchema {
+  collectionName: 'image_assets';
+  info: {
+    displayName: 'ImageAsset';
+    pluralName: 'image-assets';
+    singularName: 'image-asset';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    i18n: {
+      localized: true;
+    };
+  };
+  attributes: {
+    alt: Schema.Attribute.Text &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    caption: Schema.Attribute.Text &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: true;
+        };
+      }>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    file: Schema.Attribute.Media<'images'> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: false;
+        };
+      }>;
+    locale: Schema.Attribute.String;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::image-asset.image-asset'
+    >;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: false;
+        };
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiNewNew extends Struct.CollectionTypeSchema {
   collectionName: 'news';
   info: {
@@ -1898,6 +1956,7 @@ declare module '@strapi/strapi' {
       'api::component-translation.component-translation': ApiComponentTranslationComponentTranslation;
       'api::faq.faq': ApiFaqFaq;
       'api::form-protection-submission.form-protection-submission': ApiFormProtectionSubmissionFormProtectionSubmission;
+      'api::image-asset.image-asset': ApiImageAssetImageAsset;
       'api::new.new': ApiNewNew;
       'api::page.page': ApiPagePage;
       'api::postulation.postulation': ApiPostulationPostulation;
