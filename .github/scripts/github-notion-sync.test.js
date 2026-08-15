@@ -89,6 +89,26 @@ test("uses GitHub-rendered visible semantics for adversarial GFM cases", () => {
   assert.deepEqual(governance.extractRefsNumbers(setext), [200]);
   assert.deepEqual(governance.extractClosingReferences(governance.parseGitHubRenderedDocument("<p>`unmatched Closes #201</p>")), [{ keyword: "Closes", issueNumber: 201 }]);
   assert.deepEqual(governance.extractClosingReferences(governance.parseGitHubRenderedDocument("<pre><code>Closes #202</code></pre><p>Closes #203</p>")), [{ keyword: "Closes", issueNumber: 203 }]);
+  assert.deepEqual(governance.extractAdvancingReferences(governance.parseGitHubRenderedDocument("<pre><code>Advances #204</code></pre><p>Advances #205</p>")), [{ keyword: "Advances", issueNumber: 205 }]);
+});
+
+test("main promotion validation supports phased delivery declarations", async () => {
+  const cases = [
+    ["advances only", "<p>Advances #191</p>", null],
+    ["advances and closes different issues", "<p>Advances #191</p><p>Closes #192</p>", null],
+    ["advances and closes the same issue", "<p>Advances #191</p><p>Closes #191</p>", /cannot both advance and close issue #191/],
+    ["advances and no formal issues", "<p>Advances #191</p><p>Formal issues: none</p>", /cannot mix advancing references with Formal issues: none/],
+    ["closes and no formal issues", "<p>Closes #191</p><p>Formal issues: none</p>", /cannot mix closing references with Formal issues: none/],
+    ["no declaration", "<p>Production promotion</p>", /closing references, advancing references, or 'Formal issues: none'/],
+  ];
+  for (const [name, html, expectedError] of cases) {
+    const promotion = config({
+      pullRequest: { headRef: "staging", baseRef: "main" },
+      renderMarkdown: async () => html,
+    });
+    if (expectedError) await assert.rejects(governance.validatePrPolicy(promotion), expectedError, name);
+    else await governance.validatePrPolicy(promotion);
+  }
 });
 
 test("requires visible Tracking and final visible Related Issues sections", () => {
@@ -316,6 +336,26 @@ test("merged main promotions preserve Notion closure after complete preflight", 
   const notionWrite = requests.findIndex(([url, method]) => url.includes("api.notion.com/v1/pages/page-1") && method === "PATCH");
   const commentWrite = requests.findIndex(([url, method]) => url.endsWith("/191/comments") && method === "POST");
   assert.ok(commentLookup >= 0 && notionWrite > commentLookup && commentWrite > notionWrite);
+});
+
+test("merged main promotions keep advanced issues open and record the phased delivery", async () => {
+  const comments = [];
+  const requests = [];
+  mockFetch((url, options) => {
+    requests.push([url, options.method]);
+    if (url.endsWith("/191")) return response(200, { number: 191, html_url: "https://github.com/acme/teleferico/issues/191" });
+    if (url.includes("api.notion.com") && options.method === "POST") return response(200, { results: [item()], has_more: false });
+    if (url.includes("/191/comments?")) return response(200, comments);
+    if (url.endsWith("/191/comments") && options.method === "POST") { comments.push({ body: JSON.parse(options.body).body }); return response(201, {}); }
+    throw new Error(`Unexpected request ${url}`);
+  });
+  await governance.syncPrMutations(config({
+    pullRequest: { number: 44, headRef: "staging", baseRef: "main", action: "closed", merged: true },
+    renderMarkdown: async () => "<p>Advances #191</p><h2>Related Issues</h2><p>Refs #191</p>",
+  }));
+  assert.equal(requests.some(([url, method]) => url.includes("api.notion.com/v1/pages/") && method === "PATCH"), false);
+  assert.ok(comments.some((comment) => comment.body.includes("Advanced by: #44") && comment.body.includes("role=Advanced by")));
+  assert.equal(comments.some((comment) => comment.body.includes("Shipped by")), false);
 });
 
 test("workflow serializes only trusted sync runs for the same PR", () => {
