@@ -60,6 +60,7 @@ async function validatePrPolicy(config) {
   const pr = classifyPr(config.pullRequest.headRef, config.pullRequest.baseRef);
   const document = await renderPrBody(config, config.pullRequest.body);
   const closingRefs = extractClosingReferences(document);
+  const advancingRefs = extractAdvancingReferences(document);
   if (pr.type === "implementation") {
     validateImplementationBody(document, closingRefs);
     return ensureImplementationTracking(config, extractRefsNumbers(document), document);
@@ -68,8 +69,13 @@ async function validatePrPolicy(config) {
     throw new Error("Promotion PRs from development to staging must NOT close issues.");
   }
   if (pr.type === "promotion-to-main") {
-    if (!closingRefs.length && !containsNoFormalIssuesToken(document)) throw new Error(`Promotion PRs from staging to main must declare closing references or '${DEFAULTS.noFormalIssuesToken}'.`);
-    if (closingRefs.length && containsNoFormalIssuesToken(document)) throw new Error("Promotion PRs to main cannot mix closing references with Formal issues: none.");
+    const hasNoFormalIssues = containsNoFormalIssuesToken(document);
+    if (!closingRefs.length && !advancingRefs.length && !hasNoFormalIssues) throw new Error(`Promotion PRs from staging to main must declare closing references, advancing references, or '${DEFAULTS.noFormalIssuesToken}'.`);
+    if (closingRefs.length && hasNoFormalIssues) throw new Error("Promotion PRs to main cannot mix closing references with Formal issues: none.");
+    if (advancingRefs.length && hasNoFormalIssues) throw new Error("Promotion PRs to main cannot mix advancing references with Formal issues: none.");
+    const closingNumbers = new Set(closingRefs.map((entry) => entry.issueNumber));
+    const overlap = advancingRefs.find((entry) => closingNumbers.has(entry.issueNumber));
+    if (overlap) throw new Error(`Promotion PRs to main cannot both advance and close issue #${overlap.issueNumber}.`);
   }
   if (pr.type === "unsupported-implementation-target") {
     throw new Error(`Implementation-like branches must target development. Received '${config.pullRequest.headRef}' -> '${config.pullRequest.baseRef}'.`);
@@ -125,14 +131,20 @@ async function syncMergedMainPromotion(config) {
   const document = await renderPrBody(config, config.pullRequest.body);
   if (containsNoFormalIssuesToken(document)) return;
   const closingNumbers = unique(extractClosingReferences(document).map((entry) => entry.issueNumber));
+  const advancingNumbers = unique(extractAdvancingReferences(document).map((entry) => entry.issueNumber));
   const referenceNumbers = extractRefsNumbers(document);
-  const issueNumbers = unique([...closingNumbers, ...referenceNumbers]);
+  const issueNumbers = unique([...closingNumbers, ...advancingNumbers, ...referenceNumbers]);
   const resolved = await preflightIssues(config, issueNumbers, { strict: true });
   const pagesByIssue = new Map();
   for (const issue of resolved) pagesByIssue.set(issue.number, await findNotionPageByIssueUrl(config, issue.html_url));
-  const comments = await prepareIssueComments(config, resolved, "Shipped by");
+  const advancedIssues = resolved.filter((issue) => advancingNumbers.includes(issue.number));
+  const shippedIssues = resolved.filter((issue) => !advancingNumbers.includes(issue.number));
+  const comments = [
+    ...await prepareIssueComments(config, shippedIssues, "Shipped by"),
+    ...await prepareIssueComments(config, advancedIssues, "Advanced by"),
+  ];
 
-  for (const issue of resolved.filter((entry) => closingNumbers.includes(entry.number))) {
+  for (const issue of resolved.filter((entry) => closingNumbers.includes(entry.number) && !advancingNumbers.includes(entry.number))) {
     await syncIssueNumberToDone(config, issue, pagesByIssue.get(issue.number));
   }
   await createPreparedIssueComments(config, comments);
@@ -146,7 +158,8 @@ async function syncIssuePrReference(config) {
   const document = await renderPrBody(config, config.pullRequest.body);
   const refs = extractRefsNumbers(document);
   const closing = extractClosingReferences(document).map((entry) => entry.issueNumber);
-  const issueNumbers = unique([...refs, ...closing]);
+  const advancing = extractAdvancingReferences(document).map((entry) => entry.issueNumber);
+  const issueNumbers = unique([...refs, ...closing, ...advancing]);
   if (!issueNumbers.length) return;
   const resolved = await preflightIssues(config, issueNumbers, { strict: pr.type === "implementation" });
   if (!resolved) { console.warn("Skipping promotion comment synchronization because an optional issue reference could not be resolved."); return; }
@@ -379,6 +392,11 @@ function extractClosingReferences(document) {
     .map((match) => ({ keyword: match[1], issueNumber: Number(match[2]) }));
 }
 
+function extractAdvancingReferences(document) {
+  return [...document.visibleText.matchAll(/\b(advances)\s+#(\d+)\b/gi)]
+    .map((match) => ({ keyword: match[1], issueNumber: Number(match[2]) }));
+}
+
 function containsNoFormalIssuesToken(document) {
   return document.visibleText.split(/\r?\n/).some((line) => line.trim() === DEFAULTS.noFormalIssuesToken);
 }
@@ -543,6 +561,7 @@ module.exports = {
   extractWorkIdMarkers,
   extractRefsNumbers,
   extractClosingReferences,
+  extractAdvancingReferences,
   parseGitHubRenderedDocument,
   renderPrBody,
   validateExplicitlyUntrackedBody,

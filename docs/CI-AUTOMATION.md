@@ -56,7 +56,8 @@ Responsibilities:
 
 - query Notion for governed backlog linkage checks
 - validate implementation/promotion PR policy
-- sync `Hecho` status on merged `staging -> main` promotions with explicit closure intent
+- sync `Hecho` status on merged `staging -> main` promotions only for issues with explicit closure intent
+- record phased delivery for `Advances #N` without closing the issue or changing its Notion status
 
 Commands are separated by responsibility: `validate-pr-policy` renders the PR body with GitHub GFM and performs read-only policy checks; `sync-pr-mutations` performs the trusted write phase; and the `trusted-pr-sync` workflow job invokes that write command only after validation. Issue-reference synchronization is part of the write phase.
 
@@ -103,7 +104,20 @@ Promotion references remain optional. No references are a silent no-op. A suppli
 1. fails if the PR body contains closing keywords
 
 **For promotion PRs to main (`staging` -> `main`):**
-1. fails if the PR body does not explicitly declare issue closure intent (either using `Closes #N` or the exact line `Formal issues: none`)
+1. accepts `Closes #N` for completed issues, `Advances #N` for intermediate delivery phases, or the exact line `Formal issues: none` when the release has no formal issues
+2. fails when the PR body contains none of those declarations
+3. fails when the same issue is both advanced and closed, or when `Formal issues: none` is combined with either reference type
+
+| Combination | Result |
+| --- | --- |
+| `Advances #N` alone | Valid |
+| `Advances #N` + `Closes #M` for different issues | Valid |
+| `Advances #N` + `Closes #N` for the same issue | Invalid |
+| `Advances #N` + `Formal issues: none` | Invalid |
+| `Closes #N` + `Formal issues: none` | Invalid |
+| No declaration | Invalid |
+
+Phased delivery is distinct from review slicing or chained PRs. Review slices ship together in one release and continue to use the existing promotion policy without `Advances`.
 
 ### 2. `sync-pr-mutations`
 
@@ -114,10 +128,11 @@ Use case:
 What it does:
 
 1. ignores the PR if it was closed without merge
-2. parses closing references from the merged promotion PR body
+2. parses closing and advancing references from the merged promotion PR body
 3. preflights every referenced GitHub issue, issue-comment page, and unique Notion formal-link match before any GitHub or Notion write
-4. marks the uniquely linked Notion rows as `Hecho`; duplicate formal-link matches fail closed before any mutation
-5. does nothing when the PR explicitly declares `Formal issues: none`
+4. marks only uniquely linked rows declared with `Closes #N` as `Hecho`; duplicate formal-link matches fail closed before any mutation
+5. adds an `Advanced by` managed comment for `Advances #N` without adding `Shipped by`, closing the issue, or changing its Notion status
+6. does nothing when the PR explicitly declares `Formal issues: none`
 
 Conservative behavior:
 

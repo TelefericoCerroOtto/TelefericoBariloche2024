@@ -35,10 +35,11 @@ Use this exact heading order for all issue types.
 
 ### Optional sections
 
-9. `## Metadata`
-10. `## Out of Scope`
-11. `## Risks / Constraints`
-12. `## Automation Metadata`
+9. `## Delivery Phases`
+10. `## Metadata`
+11. `## Out of Scope`
+12. `## Risks / Constraints`
+13. `## Automation Metadata`
 
 ## Required vs optional content rules
 
@@ -68,6 +69,7 @@ Never leave empty required sections.
 | `## Repo Surfaces to Inspect` | Technical starting points | Paths, modules, APIs, boundaries |
 | `## Acceptance Signals` | Verifiable completion conditions | Checklist or bullet criteria |
 | `## Related Artifacts` | Cross-system traceability | `Work ID`, Notion URL, related issues/PRs |
+| `## Delivery Phases` (optional) | Sequential production delivery | Ordered checklist of completed and pending phases |
 | `## Metadata` (optional) | Lightweight classification | `Type`, `Area`, `Priority`, `Source`, `Status`, `Branch` |
 | `## Out of Scope` (optional) | Explicit non-goals | Bullets |
 | `## Risks / Constraints` (optional) | Delivery caveats | Risks, blockers, dependencies |
@@ -95,6 +97,21 @@ The Notion field `Tipo` (Bug, Feature, Refactor, Content, Infra, Docs, Security)
 
 All issue types share the same stable section contract. `Type` lives in metadata.
 
+## Phased delivery
+
+Use the optional `## Delivery Phases` section when one issue must reach production through sequentially validated phases. Intermediate promotion PRs declare `Advances #N`, which records delivery while leaving the issue and its Notion backlog row open. The final promotion drops `Advances` and declares `Closes #N`.
+
+This is distinct from review slicing or chained PRs. Review slices ship together in one release and do not require phased-delivery intent.
+
+| Combination | Result |
+| --- | --- |
+| `Advances #N` alone | Valid |
+| `Advances #N` + `Closes #M` for different issues | Valid |
+| `Advances #N` + `Closes #N` for the same issue | Invalid |
+| `Advances #N` + `Formal issues: none` | Invalid |
+| `Closes #N` + `Formal issues: none` | Invalid |
+| No declaration | Invalid |
+
 ## Relation to PRs
 
 The `## Related Artifacts` section is human-authored. New automated PR traceability is recorded as append-only issue comments, so automation never rewrites the issue body.
@@ -115,7 +132,8 @@ Related PR: #456
 | --- | --- | --- |
 | Implementation PR opened / edited / synchronized to `development` | `Related PR` |
 | Promotion PR opened / edited | `Promotion PR` |
-| Promotion PR merged to `main` | `Shipped by` |
+| Promotion PR merged to `main` with `Advances #N` | `Advanced by` for issue `#N` |
+| Promotion PR merged to `main` without `Advances #N` | `Shipped by` |
 
 - The action lists all issue-comment pages before posting and no-ops when the exact marker exists.
 - Different PRs append independent comments; automation does not modify a shared issue-body block.
@@ -175,6 +193,10 @@ Agents should emit a structured context recap only when the user explicitly requ
 - Notion: <url | TBD>
 - Related Issues: <#123 | N/A>
 - Related PRs: <#456 | N/A>
+
+## Delivery Phases
+- [ ] 1. <optional phase and production validation outcome>
+- [ ] 2. <optional phase and production validation outcome>
 
 ## Metadata
 - Type: <Bug|Feature|Refactor|Content|Infra|Docs|Security|Unknown>
