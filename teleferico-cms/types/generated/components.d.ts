@@ -380,6 +380,9 @@ export interface UtilsComponentsImage extends Struct.ComponentSchema {
   };
   attributes: {
     alt: Schema.Attribute.String & Schema.Attribute.Required;
+    altMode: Schema.Attribute.Enumeration<['asset', 'override', 'decorative']> &
+      Schema.Attribute.DefaultTo<'asset'>;
+    altOverride: Schema.Attribute.String;
     asset: Schema.Attribute.Relation<
       'oneToOne',
       'api::image-asset.image-asset'

@@ -22,6 +22,18 @@
       "type": "relation",
       "relation": "oneToOne",
       "target": "api::image-asset.image-asset"
+    },
+    "altMode": {
+      "type": "enumeration",
+      "enum": [
+        "asset",
+        "override",
+        "decorative"
+      ],
+      "default": "asset"
+    },
+    "altOverride": {
+      "type": "string"
     }
   }
 }

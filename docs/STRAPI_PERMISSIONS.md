@@ -59,6 +59,8 @@ Content exposed through the public-facing application must be treated as publish
 
 The Strapi `Public` role must not be used to make the public website work. Public website reads go through the server-side content token instead.
 
+`image-asset` does not need a browser proxy route. It is read only as part of server-side CMS content requests authorized with `BUILD_STRAPI_CONTENT_TOKEN`.
+
 ## API tokens
 
 ### `Public Content Read (Nextjs)`
@@ -72,6 +74,7 @@ This token is for server-side content reads from `teleferico-app`. It must not g
 | `bus-trip`              |   ✅   |    ✅     |    —     |    —     |    —     |
 | `component-translation` |   ✅   |    ✅     |    —     |    —     |    —     |
 | `faq`                   |   ✅   |    ✅     |    —     |    —     |    —     |
+| `image-asset`           |   ✅   |    ✅     |    —     |    —     |    —     |
 | `new`                   |   ✅   |    ✅     |    —     |    —     |    —     |
 | `page`                  |   ✅   |    ✅     |    —     |    —     |    —     |
 | `sector`                |   ✅   |     —     |    —     |    —     |    —     |
@@ -92,6 +95,7 @@ Curriculum files are not uploaded to Strapi. The Next.js route handler stores th
 | Content type                   | `find` | `findOne` | `create` | `update` | `delete` |
 | ------------------------------ | :----: | :-------: | :------: | :------: | :------: |
 | `form-protection-submission`   |   ✅   |     —     |    ✅    |    —     |    —     |
+| `image-asset`                  |   —    |     —     |    —     |    —     |    —     |
 | `postulation`                  |   —    |     —     |    ✅    |    —     |    —     |
 | `sector`                       |   ✅   |     —     |    —     |    —     |    —     |
 
@@ -117,6 +121,8 @@ These roles belong to the Users & Permissions plugin and are separate from Strap
 
 Default role assigned to unauthenticated users.
 
+The `Public` role has no `image-asset` permissions.
+
 | Permission                                |
 | ----------------------------------------- |
 | `users-permissions.callback`              |
@@ -130,6 +136,8 @@ Default role assigned to unauthenticated users.
 ### `Authenticated`
 
 Default role assigned to authenticated users.
+
+The `Authenticated` role has no `image-asset` permissions.
 
 | Permission                         |
 | ---------------------------------- |
@@ -196,6 +204,7 @@ Use this checklist when creating or rebuilding a Strapi environment.
 - [ ] Confirm the `Public` role matches the default permissions listed above.
 - [ ] Confirm the `Authenticated` role matches the default permissions listed above.
 - [ ] Confirm the `Administrator` role matches the permissions listed above.
+- [ ] Configure the `image-asset` Entry Title as `name` in each environment.
 - [ ] Confirm Strapi Admin Panel access is limited to the expected `Super Admin` maintainer/developer account.
 - [ ] For migrations only, create a `Local → Remote Data Migration` transfer token with type `Push` and duration `7 days`.
 - [ ] Revoke or let the transfer token expire after the migration window.
