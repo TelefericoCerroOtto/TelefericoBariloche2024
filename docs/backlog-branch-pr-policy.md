@@ -124,7 +124,20 @@ Therefore:
 - they don't need an associated Notion `Branch` field
 - they should rely on existing PRs/issues and the release/promotion narrative
 - **Promotion to staging**: should not use closure keywords (e.g., `Closes #123`).
-- **Promotion to main**: must explicitly declare closure intent in the PR body (using `Closes #123` or the line `Formal issues: none`).
+- **Promotion to main**: must explicitly declare release intent in the PR body using `Closes #123`, `Advances #123`, or the exact line `Formal issues: none`.
+
+`Advances #N` is reserved for phased delivery: an intermediate production phase of an issue whose acceptance scope is not complete. It records an `Advanced by` relation, leaves the GitHub issue open, and does not move the Notion row to `Hecho`. The final phase uses `Closes #N`.
+
+| Combination | Result |
+| --- | --- |
+| `Advances #N` alone | Valid |
+| `Advances #N` + `Closes #M` for different issues | Valid |
+| `Advances #N` + `Closes #N` for the same issue | Invalid |
+| `Advances #N` + `Formal issues: none` | Invalid |
+| `Closes #N` + `Formal issues: none` | Invalid |
+| No declaration | Invalid |
+
+Phased delivery is not review slicing or chained PRs. Review slices ship together in one release, so they continue to use the existing promotion policy without `Advances`.
 
 ## Policy for Branch Suggestion Skill
 

@@ -132,7 +132,7 @@ When a promotion PR contains **multiple** previously approved implementation PRs
 - state rollback expectations
 
 **CRITICAL: Issue Closure Extraction**
-When creating a promotion PR to `main`, the author (human or agent) MUST scan all included implementation PRs, extract any `Refs #N` issue references from them, and explicitly convert them to `Closes #N` in the promotion PR footer. Failure to do this leaves issues open after release.
+When creating a promotion PR to `main`, the author (human or agent) MUST scan all included implementation PRs and extract every `Refs #N` issue reference. Declare each issue as `Closes #N` when its acceptance scope is complete or `Advances #N` when this release delivers an intermediate phase and the issue must remain open. Failure to declare the release intent leaves issue state ambiguous.
 
 ### Issue linkage and closure policy
 
@@ -143,7 +143,7 @@ Use GitHub Issues as the formal artifact, but distinguish between the PR that
 
 1. Create or reference the GitHub Issue for the work item.
 2. In the **implementation PR** (`feature/fix -> development`), reference the issue as context.
-3. In the **promotion PR to `main`** (`staging -> main`), close the issue.
+3. In the **promotion PR to `main`** (`staging -> main`), close the issue or declare an intermediate delivery phase.
 
 #### Rules
 
@@ -151,18 +151,34 @@ Use GitHub Issues as the formal artifact, but distinguish between the PR that
 |---|---|---|---|
 | Implementation PR | `feat/fix -> development` | `Refs #N` in `## Related Issues` when tracked by a GitHub Issue; optional for other tracked channels and explicitly untracked work | Preserve the technical story of the actual code change |
 | Promotion PR to staging | `development -> staging` | Optional mention of `#N` or included implementation PRs | Track validation scope; do not close the issue here |
-| Promotion PR to main | `staging -> main` | `Closes #N` or explicit `Formal issues: none` | Mark the issue as officially shipped via the default branch |
+| Promotion PR to main | `staging -> main` | `Closes #N`, `Advances #N`, or explicit `Formal issues: none` | Close completed issues, record partial delivery for open issues, or declare that no formal issues are included |
 
 #### Strict issue closure token
 
-When promoting to `main`, the PR body **MUST** declare its closure intent to pass automation:
+When promoting to `main`, the PR body **MUST** declare its release intent to pass automation:
 - If there are issues to close, use standard `Closes #N` / `Fixes #N`.
-  - **MANDATORY EXTRACTION RULE**: You must scan the descriptions of all implementation PRs being promoted, extract every `Refs #N` linked to them, and declare them here as `Closes #N`. Do not assume they will close themselves.
-- If there are no issues closed in the release, include the exact line `Formal issues: none` in the PR body.
+- If an issue is only partially delivered and must remain open, use `Advances #N`.
+- If the release contains no formal issues, include the exact line `Formal issues: none` in the PR body.
+- **MANDATORY EXTRACTION RULE**: Scan the descriptions of all implementation PRs being promoted, extract every `Refs #N`, and classify each as `Closes #N` or `Advances #N`. Do not assume implementation references will update issue state themselves.
+
+| Combination | Result |
+| --- | --- |
+| `Advances #N` alone | Valid |
+| `Advances #N` + `Closes #M` for different issues | Valid |
+| `Advances #N` + `Closes #N` for the same issue | Invalid |
+| `Advances #N` + `Formal issues: none` | Invalid |
+| `Closes #N` + `Formal issues: none` | Invalid |
+| No declaration | Invalid |
+
+#### Phased delivery
+
+Use phased delivery when one issue requires sequential production phases and the next phase is meaningful only after the current phase is live and validated. Intermediate promotion PRs use `Advances #N`; the final promotion drops `Advances` and uses `Closes #N`. The issue should include an optional `## Delivery Phases` checklist so remaining work stays visible.
+
+Phased delivery is not review slicing or chained PRs. Review slices divide a change for review but ship together in one release, so the existing promotion policy applies without `Advances`.
 
 #### Format for `#N`
 
-When referencing an issue via `#N` (e.g., `Refs #N`, `Closes #N`), you **MUST use the numeric GitHub Issue ID** (for example, `Refs #71`). 
+When referencing an issue via `#N` (e.g., `Refs #N`, `Advances #N`, `Closes #N`), you **MUST use the numeric GitHub Issue ID** (for example, `Refs #71`).
 Do **NOT** use the Notion Work ID slug (for example, do not use `Refs #tb-71`), because GitHub's autolinking parser only recognizes pure digits. If the issue is not yet created in GitHub, either create it first to get the ID, or use a plain text reference for the Notion ID without the `#` symbol.
 
 #### Placement of `Refs #N` in implementation PRs
