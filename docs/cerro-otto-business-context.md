@@ -9,9 +9,9 @@ Business context document for Teleférico Cerro Otto. Covers physical zones, fac
 Key terms used throughout this document and across the business domain. Read these first to contextualize everything that follows.
 
 - **Teleférico / góndola**: aerial tramway cabin. Fully enclosed, panoramic, 4-person seated capacity.
-- **Estación inferior**: lower station — gondola departure and arrival platform at the base.
-- **Estación superior**: upper station — gondola departure and arrival platform at the summit.
-- **Hall de boletería**: base station entrance lobby with ticket office and restrooms. Entry point to the excursion.
+- **Estación inferior**: lower station at the base. The term includes the complete operating platform where gondolas arrive and depart, passengers board and disembark, and staff manually guide or handle cabins while they are within the station.
+- **Estación superior**: upper station at the summit. The term includes the complete operating platform where gondolas arrive and depart, passengers board and disembark, and staff manually guide or handle cabins while they are within the station.
+- **Hall de boletería**: base station entrance lobby reached from the public access ramp. Contains the ticket office and provides access to the offices and lower station.
 - **Hall central**: central indoor hub at the summit. Arrival point from the upper station and navigation hub to all other summit areas. Contains the photography shop, information cabin, and souvenir shop.
 - **Confitería Giratoria**: revolving restaurant at the summit. Full-service dining.
 - **Art Gallery**: indoor gallery at the summit, accessed by descending from the hall central. Houses replica sculptures of David, La Pietà, and Moses.
@@ -21,8 +21,10 @@ Key terms used throughout this document and across the business domain. Read the
 - **Cabaña Uno**: downtown ticket sales cabin at Mitre & Villegas. Shuttle departure point.
 - **Cabaña Dos**: downtown ticket sales cabin at Av. San Martín & Independencia. Shuttle departure point.
 - **Cabaña Tres**: summit parking lot ticket sales cabin. Sells complex entry tickets (no gondola descent).
-- **Estacionamiento de la cumbre**: summit vehicle parking lot. Key operational hub — arrival point for visitors driving up the mountain road, endpoint for the adult sled track, former Otto Kart track, snowshoe walk, and Circuito Otto. Also the bus arrival point during terrestrial evacuations. Houses Cabaña Tres and the activity ticket office.
+- **Estacionamiento de la cumbre**: summit vehicle parking lot. Key operational hub — arrival point for visitors driving up the mountain road, endpoint for the adult sled track, former Otto Kart track, snowshoe walk, and Circuito Otto. Also the bus arrival point during terrestrial evacuations. Houses Cabaña Tres.
 - **Funicular de la cumbre**: short-distance lift operating within the summit area only. Connects the estacionamiento de la cumbre to the sled/activity start point.
+- **Terminal superior del funicular**: upper endpoint of the summit funicular, reached through the outdoor ramp network. This term distinguishes it from the upper gondola station (*estación superior*).
+- **Terminal inferior del funicular**: lower endpoint of the summit funicular, reached by ramps beginning at the estacionamiento de la cumbre near Cabaña Tres and the end of the adult sled track.
 - **Patrulleros**: summit patrol staff for visitor assistance, safety, and hiker retrieval.
 - **Jefe de Operaciones**: Head of Operations — manages both stations (lower and upper).
 - **Jefe de Cajas**: Head of Cashiers — centralizes sales-point closings and coordinates public-facing operational changes involving ticket sales, the website, and transport.
@@ -37,7 +39,7 @@ Key terms used throughout this document and across the business domain. Read the
 - **Piedra Habsburg**: rock outcrop viewpoint accessible by hiking trail from the summit. Outside foundation property.
 - **Caminata con raquetas**: guided snowshoe walk. Winter only, paid activity.
 - **Circuito Otto**: guided forest walk with suspension bridge. Non-snow days, variable pricing.
-- **Boletería de actividades**: activity ticket office at the estacionamiento de la cumbre, for paid activities.
+- **Boletería de actividades**: activity ticket office within the summit outdoor ramp network, for paid activities such as the zip line, climbing wall, and sled runs. It is separate from Cabaña Tres at the summit parking lot.
 - **Deslinde**: liability waiver signed when a passenger opts to descend on foot instead of by gondola.
 - **CUD**: Certificado Único de Discapacidad — Argentine national disability certificate.
 - **Fundación Sara María Furman**: non-profit foundation that owns and operates the company.
@@ -236,7 +238,7 @@ Transport (*Transporte*) is a separate operational sector led by the Head of Tra
 The summit complex staff is organized into two operational sectors, each with its own supervisor (*encargado*):
 
 - **Indoor sector** (*Interiores*): covers the hall central and the information cabin (*cabaña de informes*) staff.
-- **Outdoor sector** (*Exteriores*): covers patrol staff, outdoor activity areas, and walkways.
+- **Outdoor sector** (*Exteriores*): covers patrol staff, outdoor activity areas, walkways, and the outdoor restroom group.
 
 Outdoor staff also handle routine manual upkeep of activity areas, such as correcting sled-track details with shovels. Work requiring specialized machinery may be transferred to Technical Maintenance.
 
@@ -253,6 +255,8 @@ Three **concessionaires** — independent businesses that rent space from the fo
 | Photography concessionaire | Photography shop in the summit hall central + photography shop at the base station exit | Summit + base |
 
 The concessionaires operate largely independently, with no dedicated internal area managing their daily activity. Each concessionaire pays rent directly to the Head of Cashiers.
+
+The closed grill space in the summit outdoor circulation is not counted among these five active commercial spaces. It is not currently open or rented as an operating concession; its exact relationship to the existing gastronomy concessionaire remains unconfirmed.
 
 ### Summit patrol staff (*Patrulleros*)
 
@@ -282,19 +286,36 @@ This road is also the **terrestrial evacuation route** used when the aerial tram
 
 The main building sits on a large plot of land owned by Fundación Sara María Furman.
 
+### Public arrival and entrance flow
+
+1. **Inbound shuttle stop**: passengers arriving from downtown disembark at a dedicated stop near the public approach to the building. This is separate from the outbound shuttle boarding point at the building exit.
+2. **Pedestrian approach**: from the inbound stop, visitors walk a short distance over a finished, paved surface with railings toward the entrance ramp. They do not need to walk over bare ground.
+3. **Covered access ramp**: a long, covered ramp ascends toward the ticket hall. Its estimated length is approximately 20 m; the exact measurement remains unconfirmed.
+4. **Restroom block**: at the beginning of the ramp, on the right when facing and ascending toward the building, are the men's and women's restrooms associated with the base ticket-hall area.
+5. **Ticket-hall entrance**: the hall de boletería is located at the upper end of the ramp. Inside the hall:
+   - The ticket office is immediately beside the entrance and sells the tickets used to begin the excursion.
+   - A Banco Credicoop ATM is available to the public.
+   - One door provides access to the administrative-office area.
+   - A separate entrance leads into the lower station and its boarding platform.
+
 ### Building facilities
 
-- **Hall de boletería**: public-facing entrance lobby with the ticket office (*boletería*) and restrooms. This is where visitors enter the building and access the lower station to begin their ascent.
-- **Lower station** (*estación inferior*): gondola departure and arrival platform at the base.
+- **Lower station** (*estación inferior*): the complete base operating platform where gondolas arrive and depart, passengers board and disembark, and station staff manually guide or handle cabins between their arrival and departure movements.
 - **Administrative offices**: all departments listed above.
 - **Maintenance workshop**: fully equipped workshop for gondola servicing and repair. Technical Maintenance performs preventive work on the aerial tramway and its associated machinery, with the main maintenance windows typically occurring in **May** and **November**.
 - **General building upkeep**: low-complexity tasks are handled by public-attention and housekeeping staff. Major remodels, extensions, roof work, and structural changes are assigned to the company's regular external engineer and specialized contractors.
 - **Staff apartments**: five residential units inside the building, accessed from the rear/side entrance (not the main public entrance). Available as a benefit to select employees.
-- **Exit area**: after returning to the lower station, passengers descend a series of staircases and pass through:
-  1. **Photography shop** (concessionaire): features a gondola shell frame with a green screen — visitors pose inside and receive a photomontage simulating a scene over Lago Nahuel Huapi.
-  2. **Waiting area**: an enclosed space where visitors wait for the shuttle bus back to downtown.
-  3. **Bus stop and building exit**: the formal exit door leads directly to the shuttle bus boarding point.
 - **Municipal office**: a small municipal services office (*delegación municipal*) adjacent to the bus stop and building exit, accessible only from this area. Exact scope of services is unconfirmed.
+
+### Public descent and exit flow
+
+1. Returning gondolas enter the **lower station**, where passengers disembark on the operating platform.
+2. Passengers descend a series of staircases from the station to a separate lower exit sector.
+3. They pass through a second **photography shop** operated by the photography concessionaire. It features a gondola shell frame with a green screen for photomontages over Lago Nahuel Huapi and also sells a limited selection of kiosk products, such as soft drinks and candy.
+4. An enclosed **waiting area** provides seating while visitors wait for the company shuttle back to downtown.
+5. The formal building exit leads directly to the **outbound shuttle boarding point**.
+
+The outbound boarding point is distinct from the inbound stop where buses arriving from downtown leave passengers at the beginning of the public entrance route.
 
 ### Grounds
 
@@ -341,7 +362,8 @@ When the Head of Operations suspends ascent, the Head of Cashiers instructs all 
    - **Photography shop** (concessionaire): traditional panoramic photos taken with the lake view as backdrop, available printed on the spot or in digital format.
    - **Information cabin** (*cabaña de informes*): staffed customer service point for tourist inquiries.
    - **Souvenir shop** (concessionaire): gift and memorabilia retail.
-3. From the hall central, visitors can access all other areas of the summit complex.
+3. A long corridor branches from the hall central and contains, in sequence, the men's restroom, an accessible restroom, and the women's restroom.
+4. From the hall central, visitors can access all other areas of the summit complex.
 
 ### Patio de Comidas Panorámico
 
@@ -361,7 +383,17 @@ Accessed by ascending stairs from the hall central. An open-air rooftop terrace 
 
 ### Outdoor Sector (*Sector de Exteriores*)
 
-Accessible from two points: a door in the hall central and a door in the Patio de Comidas Panorámico. The outdoor sector consists of walkways (*pasarelas*) connecting panoramic viewpoints and activity areas.
+Accessible from two points: a door in the hall central and a door in the Patio de Comidas Panorámico. From the hall central, visitors enter a network of inclined metal ramps that descends through the outdoor sector. The same route is used in reverse by visitors returning uphill. These ramps and walkways (*pasarelas*) connect the following service points, viewpoints, and activity areas.
+
+#### Ramp circulation and service points
+
+1. **Closed grill space**: one intermediate ramp level provides access to an indoor gastronomic space equipped with a grill. It is part of the summit-complex building but is entered from the exterior circulation. The space is currently closed and has no operating tenant.
+2. **Activity ticket office and sled distribution point**: farther down the ramps, visitors reach the sales point for paid activities such as the zip line, climbing wall, and sled runs. Directly opposite is a staffed service point used during winter, where visitors present their sled-activity ticket and receive their sled before proceeding to the track.
+3. **Outdoor restroom group**: an additional set of public restrooms serves the outdoor sector independently from the restroom corridor inside the hall central. It is located along the descending ramp section between the activity-ticket and sled-distribution level and the lower branching point.
+4. **Lower branching point**: continuing down the ramps leads to three principal paths:
+   - **Upper funicular terminal** (*terminal superior del funicular*): the upper boarding and disembarkation point of the summit funicular.
+   - **Panoramic deck**: a slightly lower deck with benches, oriented primarily toward the east, with views of Lago Nahuel Huapi and part of Bariloche. It is adjacent to the starting area of the former Otto Kart track.
+   - **Adult sled-track access**: the path leading to the starting point of the adult sled track.
 
 #### Activities
 
@@ -369,7 +401,7 @@ Accessible from two points: a door in the hall central and a door in the Patio d
 - **Climbing wall** (*palestra*): climbing wall, 7 m high. Paid activity, minimum age 6. A combined tirolesa + palestra ticket is available at a reduced price.
 - **Sled tracks** (*pistas de trineos*): three tracks total.
   - **Children's sled track**: short track (~100 m), designed for kids.
-  - **Adult sled track**: longer track with curves, ending at the estacionamiento de la cumbre. Exact length pending confirmation.
+  - **Adult sled track**: longer track with curves that ends directly at the gravel estacionamiento de la cumbre. Exact length pending confirmation. In winter, this corridor is reserved for the sled activity and closed to ordinary vehicle movement. Outside the winter sled configuration, visitors may walk along it beneath the lenga forest. It can also serve as a restricted internal service road for authorized company staff, contractors, maintenance vehicles, machinery, or material deliveries. A barrier prevents general vehicle access and is opened when operational work requires passage; tourist vehicles do not normally use this route.
   - **Former Otto Kart track**: previously used for the Otto Kart activity (inflatable tubes with a plastic base sliding down a mesh-covered track). Otto Kart has been **discontinued for several years** with no current plans to reopen. The track is occasionally repurposed as an overflow sled track during peak demand.
 - **Adult sled activity** (paid, winter): includes **3 sled descents** on the adult track + **3 funicular ascents** to return to the starting point. Pricing is listed on the website.
 - **Snowshoe walk** (*caminata con raquetas*, paid, winter only): guided walk through the forest with snowshoes and poles. Ends at the estacionamiento de la cumbre. Return ascent via the summit funicular is included. Up to ~4 sessions per day depending on demand. Additional cost beyond the base ticket.
@@ -391,12 +423,26 @@ A popular hiking trail (~2–4 km) that departs from the summit area and goes th
 A key operational hub at the summit. End point of the adult sled track, former Otto Kart track, snowshoe walk, and Circuito Otto. Also the arrival point for vehicles driving up the mountain road and for shuttle buses during terrestrial evacuations. It houses:
 
 - **Cabaña Tres**: ticket sales for complex entry (does not include gondola descent).
-- **Activity ticket office** (*boletería de actividades en la cumbre*): where visitors purchase tickets for paid activities (zip line, climbing wall, sled activity, etc.). Separate from the main entry ticket offices.
 - Vehicle parking for visitors who drive up the mountain.
 
 ### Summit Funicular
 
-A short-distance lift operating **within** the summit area only. It transports visitors from the estacionamiento de la cumbre to the starting point of the sled tracks and the former Otto Kart track (both tracks begin near each other). It exists to spare visitors the steep uphill walk. It does **not** connect the base station to the summit — only the aerial tramway does that.
+A short-distance lift operating **within** the summit area only. It has two rails with one car on each; as one car ascends, the other descends. It exists to spare visitors the steep uphill walk. It does **not** connect the base station to the summit — only the aerial tramway does that.
+
+#### Terminals and access
+
+- **Lower terminal** (*terminal inferior del funicular*): reached by ramps that begin at the gravel estacionamiento de la cumbre, near Cabaña Tres and the end of the adult sled track.
+- **Upper terminal** (*terminal superior del funicular*): the public boarding and disembarkation level reached from the outdoor ramp network near the starting points of the adult sled and former Otto Kart tracks.
+- **Upper control cabin**: a separate operational cabin located above the public upper-terminal level. It is reached by a restricted staircase used only by funicular operators.
+
+#### Minimum operating staff
+
+Funicular service requires at least two operators with distinct responsibilities:
+
+1. **Control-cabin operator**: remains in the upper control cabin and controls funicular movement, motor power, braking, and the primary safety and emergency systems.
+2. **Onboard operator**: travels inside the funicular car, opens and closes the doors, assists passengers when needed, and has access to an onboard emergency brake.
+
+The two operators coordinate each start, stop, and passenger movement through handheld two-way radios (*handies* / walkie-talkies).
 
 #### Funicular access by ticket type
 
@@ -540,4 +586,6 @@ During these maintenance windows, the excursion and summit complex close to the 
 ## Pending Confirmation
 
 - Exact length of the adult sled track.
+- Exact length of the covered base entrance ramp (currently estimated at approximately 20 m).
+- Exact concession or administrative status of the closed grill space in the summit outdoor circulation.
 - Exact scope of services of the municipal office adjacent to the base station exit.
