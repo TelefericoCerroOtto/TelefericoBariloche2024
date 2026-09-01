@@ -13,7 +13,10 @@ import {
   MAINTENANCE_ACCESS,
   MAINTENANCE_NAVIGATION_REDIRECT_STATUS,
 } from "@/lib/maintenance-access";
-import { shouldSkipMiddleware } from "@/lib/middleware-matcher";
+import {
+  isQrNamespacePath,
+  shouldSkipMiddleware,
+} from "@/lib/middleware-matcher";
 import { verifySession } from "@/lib/services/cms/users-permissions/auth";
 import type { Locales } from "@/types";
 import {
@@ -270,6 +273,7 @@ export default async function middleware(
   event: NextFetchEvent,
 ) {
   const pathname = req.nextUrl.pathname;
+  const isQrPath = isQrNamespacePath(pathname);
 
   // Fast path: skip non-API static assets, Next.js internals, and root metadata
   // files. API routes must reach the maintenance classifier even when their
@@ -281,7 +285,11 @@ export default async function middleware(
   //     /es-AR/dashboard/news/foo.js) are NOT excluded and continue to receive
   //     full middleware processing (security fix).
   // See src/lib/middleware-matcher.ts for the classification rules.
-  if (!pathname.startsWith("/api/") && shouldSkipMiddleware(pathname)) {
+  if (
+    !isQrPath &&
+    !pathname.startsWith("/api/") &&
+    shouldSkipMiddleware(pathname)
+  ) {
     return;
   }
 
@@ -303,6 +311,11 @@ export default async function middleware(
     }
 
     return handleMaintenance(req);
+  }
+
+  // QR filesystem routes are public and locale-neutral for every HTTP method.
+  if (isQrPath) {
+    return;
   }
 
   // 2. API routes skip locale and auth logic entirely.

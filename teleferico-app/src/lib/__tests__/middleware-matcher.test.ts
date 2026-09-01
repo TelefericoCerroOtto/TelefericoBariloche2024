@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { shouldSkipMiddleware } from "../middleware-matcher";
+import { isQrNamespacePath, shouldSkipMiddleware } from "../middleware-matcher";
+
+describe("isQrNamespacePath", () => {
+  it.each(["/qr", "/qr/", "/qr/home", "/qr/assets/code.svg"])(
+    "classifies %s as part of the QR namespace",
+    (pathname) => {
+      expect(isQrNamespacePath(pathname)).toBe(true);
+    },
+  );
+
+  it.each(["/", "/qr-code", "/es-AR/qr/home", "/QR/home"])(
+    "does not classify %s as part of the QR namespace",
+    (pathname) => {
+      expect(isQrNamespacePath(pathname)).toBe(false);
+    },
+  );
+});
 
 /**
  * Unit tests for the pure shouldSkipMiddleware() helper.
@@ -97,7 +113,9 @@ describe("shouldSkipMiddleware", () => {
     });
 
     it("does NOT skip /en/dashboard/prices/access-ticket", () => {
-      expect(shouldSkipMiddleware("/en/dashboard/prices/access-ticket")).toBe(false);
+      expect(shouldSkipMiddleware("/en/dashboard/prices/access-ticket")).toBe(
+        false,
+      );
     });
   });
 
