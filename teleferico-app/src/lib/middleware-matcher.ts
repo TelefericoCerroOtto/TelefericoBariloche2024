@@ -54,6 +54,10 @@ const ROOT_METADATA_PATHS = new Set(["/robots.txt", "/sitemap.xml"]);
  */
 const ADMIN_PATH_SEGMENTS = ["/dashboard", "/login", "/logout"] as const;
 
+export function isQrNamespacePath(pathname: string): boolean {
+  return pathname === "/qr" || pathname.startsWith("/qr/");
+}
+
 /**
  * Returns true when the pathname is for a real Next.js internal or static
  * asset that middleware should never touch.
