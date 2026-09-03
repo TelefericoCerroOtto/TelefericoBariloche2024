@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { getServerSession } from "@/lib/auth/get-session";
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import { STRAPI_ENDPOINTS } from "@/lib/constants/routes.const";
 import { ensureTrustedBrowserRequest } from "@/lib/http/guards";
@@ -59,7 +59,7 @@ export async function GET(
     });
     if (!built.ok) return built.error;
 
-    const session = await auth();
+    const session = await getServerSession(req);
 
     const headers: HeadersInit = {};
 
