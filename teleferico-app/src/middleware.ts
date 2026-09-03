@@ -17,6 +17,7 @@ import {
   isQrNamespacePath,
   shouldSkipMiddleware,
 } from "@/lib/middleware-matcher";
+import { getServerToken } from "@/lib/auth/auth-token";
 import { verifySession } from "@/lib/services/cms/users-permissions/auth";
 import type { Locales } from "@/types";
 import {
@@ -162,8 +163,11 @@ const authMiddleware = auth(async (req) => {
     if (req.auth !== null) {
       let isLogged = false;
       try {
-        const session = await verifySession(req.auth.jwt);
-        isLogged = session.isLogged;
+        const token = await getServerToken(req);
+        if (token) {
+          const session = await verifySession(token.jwt);
+          isLogged = session.isLogged;
+        }
       } catch (error) {
         console.error("CMS session verification failed in middleware", error);
       }
