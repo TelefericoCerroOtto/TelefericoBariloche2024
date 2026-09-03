@@ -63,9 +63,15 @@ The functions below describe the company's day-to-day operating model. They do n
 
 Role descriptions refer to functions rather than current employees so that this document remains useful when personnel changes.
 
+#### Current management transition
+
+As of September 2026, General Management is in transition. The incumbent General Manager remains formally in the position but is not currently participating in day-to-day operations or regular decision-making. A new *gerente adscripto*, as named in the company's official communication, is in an initial familiarization period focused on learning how the company operates.
+
+During this period, previous decision-making and approval paths should not be assumed to remain active. Responsibility boundaries may remain temporary or unresolved until the new management arrangement is consolidated. The functional descriptions below distinguish the company's established operating model from this transitional current state.
+
 #### General Management
 
-General Management (*Gerencia General*) provides company-wide direction and maintains direct communication with the foundation and all major administrative and operational areas. It provides final approval for major commercial and organizational decisions, coordinates matters that cross area boundaries, and resolves issues that exceed the usual authority of individual functions.
+Under the company's established operating model, General Management (*Gerencia General*) provides company-wide direction and maintains direct communication with the foundation and all major administrative and operational areas. It provides final approval for major commercial and organizational decisions, coordinates matters that cross area boundaries, and resolves issues that exceed the usual authority of individual functions.
 
 #### Management Secretariat
 
@@ -83,7 +89,7 @@ Management Secretariat does not usually decide these matters; its primary functi
 
 Commercial (*Comercial*) combines conventional commercial work with broad cross-area involvement in the company's current day-to-day operation. Its responsibilities commonly include:
 
-- Proposing commercial changes and communicating decisions approved by General Management.
+- Proposing commercial changes and communicating decisions once they have been approved through the authority applicable at the time.
 - Coordinating changes to prices, schedules, and commercial conditions.
 - Managing the company's public image and relationships with external media.
 - Defining or influencing building presentation, including paint, lighting, furniture, and decoration.
@@ -92,7 +98,28 @@ Commercial (*Comercial*) combines conventional commercial work with broad cross-
 
 This broad influence reflects the company's present operating arrangement and should not be interpreted as permanent authority inherent to the Commercial role. Commercial may coordinate daily activity involving the stations, but technical authority over aerial tramway operation and safety remains with the Head of Operations.
 
-For planned changes to prices, schedules, or commercial conditions, General Management provides the decision or final approval. Commercial communicates the approved change, the Head of Cashiers updates the website and sales points, and the social-media role updates the relevant social channels.
+Under the previously established workflow for planned changes to prices, schedules, or commercial conditions, General Management provided the decision or final approval. Commercial communicated the approved change, the Head of Cashiers updated the website and sales points, and the social-media role updated the relevant social channels. During the current management transition, this describes the historical coordination pattern rather than a guaranteed current approval path.
+
+#### Reservations and Cross-Area Operational Support
+
+Reservations and Cross-Area Operational Support (*Reservas y Apoyo Operativo Transversal*) is currently a single-person function. Its original focus was the day-to-day execution of arrangements with travel agencies and organized groups after the applicable commercial conditions had been established.
+
+Its usual and historical responsibilities include:
+
+- Handling operational collections associated with agency reservations.
+- Reviewing vouchers and resolving missing, incorrect, or unusable documentation directly with the relevant agency.
+- Resolving routine day-to-day incidents involving agencies and their passengers.
+- Coordinating group sizes and arrival schedules when group arrangements are active.
+- Historically coordinating the timing and expected attendance of student groups; these groups are not currently part of regular operations.
+
+As reservation activity has changed, the function has also received cross-area assignments according to current operational needs. These include:
+
+- Centralizing the organization and distribution of company-provided clothing, footwear, and safety equipment.
+- Requesting quotations and coordinating limited requirements with suppliers and printing companies.
+- Providing company context and operational history to internal or specialist functions, including Information Technology and Occupational Health and Safety.
+- Assisting with operational or administrative tasks that do not have a stable, narrower owner.
+
+This function does not define commercial conditions or assume the technical authority of Commercial, Procurement, Information Technology, or Occupational Health and Safety. Its role is practical and adaptive: it executes or coordinates assigned work and serves as a cross-area support point. Its exact scope may continue to evolve as management and responsibility boundaries are redefined.
 
 #### Administration
 
@@ -457,6 +484,14 @@ The two operators coordinate each start, stop, and passenger movement through ha
 
 Schedules vary by season and weather conditions. The **source of truth** for current hours and prices is the official website: [telefericobariloche.com.ar/es-AR/pricing-schedules](https://www.telefericobariloche.com.ar/es-AR/pricing-schedules).
 
+### Weekly operating pattern
+
+The complex does not use a single fixed month-by-month definition of high and low season. Operating days vary from year to year according to visitor demand, activity in Bariloche, maintenance needs, and current operational decisions.
+
+Sunday closure is common during lower-demand periods but should not be interpreted as a permanent weekly rule or as applying to a fixed set of months. April has often included Sunday closures. After the May maintenance window, Sunday operation may resume, although selected Sunday closures can still occur during the following months when expected demand is low. Summer generally brings more continuous operation, but the transition between seasonal patterns is not formally fixed.
+
+Current operating days must therefore be confirmed through the company's published schedule rather than inferred from these historical patterns.
+
 ### Staggered closing order
 
 Different zones within the summit complex close at different times. The general closing pattern, from earliest to latest:
@@ -515,7 +550,9 @@ The shuttle is technically free and open to anyone, but in practice staff encour
 
 ### Groups, agencies, and special commercial arrangements
 
-Group visits, school groups, travel agencies, and other special commercial arrangements are handled case by case by the commercial sector (*Comercial*). There is currently no single formal public-facing regulation that covers all of these cases; conditions are coordinated operationally day by day.
+Under the previously established workflow, the commercial sector (*Comercial*) and General Management defined formal agreements, prices, and conditions for group visits, school groups, travel agencies, and other special commercial arrangements. Reservations and Cross-Area Operational Support handled the corresponding day-to-day execution, including collections, voucher issues, incident resolution, and group scheduling.
+
+There is no single formal public-facing regulation covering all of these cases. During the current management transition, the historical workflow should not be interpreted as a guaranteed current approval path; responsibilities and decisions are handled according to the authority available in each case while the operating model is reassessed.
 
 ### Liability waiver (*deslinde de responsabilidad*)
 
@@ -574,6 +611,10 @@ General maintenance work is concentrated in two annual windows:
 
 - **May**: pre-winter maintenance window.
 - **November**: pre-summer maintenance window.
+
+In most years, each window closes the excursion and summit complex for approximately **two weeks**. This is the normal baseline used for maintenance planning. When the amount or complexity of required work is greater, a closure may extend toward **one month**. Exceptional maintenance periods have lasted approximately **six weeks**, but this is not the standard pattern.
+
+Exact dates and duration are determined separately for each maintenance window according to the work required. The months and durations above describe the usual operational pattern, not a fixed annual calendar or a guaranteed public schedule.
 
 During these periods:
 
