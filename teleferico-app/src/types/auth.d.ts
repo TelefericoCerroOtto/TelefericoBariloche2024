@@ -33,7 +33,6 @@ declare module "next-auth" {
       blocked: User["blocked"];
       role: User["role"];
     };
-    jwt: string;
     csrfToken: string;
   }
 }

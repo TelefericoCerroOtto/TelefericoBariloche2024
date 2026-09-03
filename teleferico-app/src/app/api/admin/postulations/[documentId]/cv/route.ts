@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { getServerSession } from "@/lib/auth/get-session";
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import { ensureTrustedBrowserRequest } from "@/lib/http/guards";
 import { getPostulationByDocumentId } from "@/lib/services";
@@ -35,7 +35,7 @@ export async function GET(
   try {
     assertEnv([ENV_KEYS.BUILD_STRAPI_BASE_URL]);
 
-    const session = await auth();
+    const session = await getServerSession(req);
     if (!session?.jwt) {
       return NextResponse.json(
         { message: "Unauthorized" },

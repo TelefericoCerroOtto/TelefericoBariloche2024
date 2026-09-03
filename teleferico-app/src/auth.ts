@@ -1,14 +1,9 @@
-import { login, verifySession } from "@/lib/services/cms/users-permissions/auth";
+import { createAuthSessionCallbacks } from "@/lib/auth/auth-callbacks";
+import { login } from "@/lib/services/cms/users-permissions/auth";
 import { getPersonalData } from "@/lib/services/cms/collections/user";
 import { ENV_KEYS } from "@/lib/constants/env.const";
-import NextAuth, { CredentialsSignin, type Session } from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-
-function generateCsrfTokenHex(byteLength = 32) {
-  const bytes = new Uint8Array(byteLength);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 const SESSION_MAX_AGE_SECONDS = 60 * 45; // 45 minutes
 const PUBLIC_SITE_URL = process.env[ENV_KEYS.NEXT_PUBLIC_SITE_URL]?.replace(
@@ -28,7 +23,7 @@ class InvalidCredentials extends CredentialsSignin {
 /**
  * There are 2 types of session:
  * Strapi: A 1-hour duration JWT obtained when credentials are sent to the server.
- * Auth.js: An Encrypted JWT saved in a httpOnly cookie which contains the data returned by the session callback.
+ * Auth.js: An encrypted JWT saved in an httpOnly cookie. It retains the Strapi JWT for trusted server code only.
  *
  * Identified issues:
  *  - Auth.js renews the session expiration time through Next.js middleware, but the updateAge option to configure this behavior doesn’t seem to work.
@@ -39,6 +34,8 @@ class InvalidCredentials extends CredentialsSignin {
  * Purpose:
  *  - This ensures the Auth.js session stays synchronized with the Strapi JWT expiration.
  * */
+
+const authSessionCallbacks = createAuthSessionCallbacks(SESSION_MAX_AGE_SECONDS);
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   logger: {
@@ -141,74 +138,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Logged in users are authenticated, otherwise redirect to login page
       return !!auth;
     },
-    jwt: async ({ user, trigger, token }) => {
-      if (trigger === "signIn") {
-        token.id = Number(user.id);
-        token.name = user.name;
-        token.surname = user.surname;
-        token.jwt = user.jwt;
-        token.role = user.role;
-        token.blocked = user.blocked;
-        token.username = user.username;
-        token.authExpiresAt =
-          Math.floor(Date.now() / 1000) + SESSION_MAX_AGE_SECONDS;
-
-        // [CSRF] Generar el CSRF token en el momento del signIn
-        if (!token.csrfToken) {
-          token.csrfToken = generateCsrfTokenHex(32);
-        }
-      }
-
-      // [CSRF] Fallback: si por algún motivo el trigger no fue "signIn" pero aún no hay csrfToken,
-      // aseguramos que exista uno (por ejemplo en futuros triggers "update").
-      if (!token.csrfToken) {
-        token.csrfToken = generateCsrfTokenHex(32);
-      }
-
-      const authExpiresAt =
-        typeof token.authExpiresAt === "number" ? token.authExpiresAt : null;
-
-      if (authExpiresAt !== null) {
-        const nowInSeconds = Math.floor(Date.now() / 1000);
-        if (nowInSeconds >= authExpiresAt) {
-          console.log("jwt callback - session expired by maxAge");
-          return null;
-        }
-      }
-
-      if (typeof token.jwt === "string") {
-        const { isLogged } = await verifySession(token.jwt);
-        if (!isLogged) {
-          console.log("jwt callback - session invalidated by backend");
-          return null;
-        }
-      }
-
-      return token;
-    },
-    session: async ({ token, session }) => {
-      /**
-       * We build a fresh `Session` object instead of mutating `session` in-place because
-       * callback typing may include AdapterUser/AdapterSession intersections (id as string).
-       * Our app contract is `session.user.id: number`, aligned with Strapi numeric IDs.
-       */
-      const nextSession: Session = {
-        user: {
-          name: token.name,
-          surname: token.surname,
-          username: token.username,
-          email: token.email,
-          blocked: token.blocked,
-          id: token.id,
-          role: token.role,
-          documentId: token.documentId,
-        },
-        jwt: token.jwt,
-        csrfToken: token.csrfToken,
-        expires: session.expires,
-      };
-
-      return nextSession;
-    },
+    ...authSessionCallbacks,
   },
 });
