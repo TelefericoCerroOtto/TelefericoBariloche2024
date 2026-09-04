@@ -21,3 +21,23 @@ test("validates main containment before checking out or executing deployment-sel
   assert.ok(candidateCheckout > validateProvenance);
   assert.ok(installDependencies > candidateCheckout);
 });
+
+test("enables pnpm before every Playwright workflow job invokes it", () => {
+  const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
+  const jobs = workflow
+    .split(/\n  (?:chromium-smoke|chromium-full|production-public-smoke):\n/)
+    .slice(1);
+
+  assert.equal(jobs.length, 3);
+
+  for (const job of jobs) {
+    const setupNode = job.indexOf("uses: actions/setup-node@v4");
+    const enableCorepack = job.indexOf("name: Enable Corepack");
+    const firstPnpmInvocation = job.indexOf("pnpm ");
+    const setupNodeBlock = job.slice(setupNode, enableCorepack);
+
+    assert.ok(enableCorepack > setupNode);
+    assert.doesNotMatch(setupNodeBlock, /cache:\s*pnpm/);
+    assert.ok(firstPnpmInvocation > enableCorepack);
+  }
+});
