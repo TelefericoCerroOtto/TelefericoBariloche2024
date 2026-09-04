@@ -95,6 +95,7 @@ This file is the package-local guardrail source for `teleferico-app`: it complem
 - Automated tests exist for public forms (postulation/contact) and their guards.
 - Any change to `src/lib/http/guards`, `src/lib/services/form-protection.ts`, or the form API routes MUST be backed by passing tests.
 - Run `pnpm run test` to verify changes in these domains.
+- Playwright E2E tests are Chromium-only. `pnpm run test:e2e` starts or reuses test-only local CMS fixtures and Next.js servers; do not add production-accessible test bypasses.
 
 ## Architecture & conventions
 
@@ -133,6 +134,7 @@ Rules from:
 - Build: `pnpm run build`
 - Lint: `pnpm run lint`
 - Test: `pnpm run test`
+- E2E: `pnpm run test:e2e`
 - Start: `pnpm start`
 - Typecheck: `pnpm run typecheck`
 
