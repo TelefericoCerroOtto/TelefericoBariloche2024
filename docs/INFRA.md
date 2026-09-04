@@ -221,6 +221,14 @@ Notes:
 2. Push to Artifact Registry.
 3. Deploy to Cloud Run.
 
+### GitHub repository ownership and access
+
+- The repository is owned by a standard GitHub user account associated with the company's development mailbox; it is not owned by a GitHub Organization.
+- Day-to-day maintenance is performed by the maintainer's personal GitHub account, which has repository collaborator access.
+- Local Git operations authenticate over SSH as that personal GitHub account. SSH key management is external to this repository.
+- Corporate account identity, recovery information, and access-continuity records are maintained in the restricted Notion "Mapa de activos digitales".
+- This intentional arrangement fits the company's current single-maintainer operating model. Reassess it if team size or governance needs grow.
+
 ### Pipelines
 
 There are four active Cloud Build triggers, all regional in `southamerica-east1` and connected to the project's GitHub repository:
