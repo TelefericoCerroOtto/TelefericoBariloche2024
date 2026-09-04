@@ -251,6 +251,18 @@ Documentary snapshots of their configurations are versioned in [infra/cloud-buil
 
 These files are for reference only. The operational triggers remain defined inline in GCP.
 
+### 6.1.1 GitHub Deployments bridge
+
+The application trigger snapshots include a Cloud Build → GitHub Deployments bridge for the repository `TelefericoCerroOtto/TelefericoBariloche2024`. They create deployments against the exact full commit SHA, keep automatic merging and required deployment contexts disabled, post `in_progress` before the build, and post `success` only after Cloud Run deployment succeeds.
+
+- The verified `staging` and `production` GitHub environments already exist.
+- The GitHub App requires **Deployments: Read and write** permission and is installation-scoped to this repository.
+- Both Cloud Build triggers use `APP__PRODUCTION__GITHUB_DEPLOYMENTS_APP_PRIVATE_KEY` through `availableSecrets` and reporter-step `secretEnv`. It is one repository-scoped GitHub App credential; duplicating the same PEM would not reduce blast radius and would complicate rotation.
+- The Cloud Build execution service account requires `roles/secretmanager.secretAccessor` on that secret. The PEM must never be copied into a repository, trigger field, file path, log, or environment outside the reporter step.
+- The deployment reporter is pinned to the immutable linux/amd64 Docker Hub `node:22.16.0-bookworm-slim` OCI image manifest documented in [infra/cloud-build/README.md](infra/cloud-build/README.md).
+
+The snapshots remain documentation. A reviewed operator must manually copy them to the inline Cloud Build triggers. Ordinary build/deploy failures attempt to report GitHub `failure`, but GitHub API/reporting failure can leave the deployment `in_progress`. A whole-build cancellation or timeout can also prevent the final reporter, leaving the same state until an operator resolves it manually.
+
 ### 6.2 Managed Redis and manual alerting for `public_form_guard`
 
 Real changes to Memorystore/managed Redis, connection secrets, and alert policies must NOT be executed from this repo or from the console. When that operational step arrives, it must be done through the Docker MCP using the running container `google-cloud-sdk`, with preview/dry-run first when available.
@@ -299,6 +311,7 @@ Examples of expected scope:
 - Non-sensitive variables: substitutions or service env vars.
 - Sensitive variables: Secret Manager.
 - Staging and production use separate secrets.
+- Exception: `APP__PRODUCTION__GITHUB_DEPLOYMENTS_APP_PRIVATE_KEY` is intentionally shared by both app deployment triggers because it belongs to one repository-scoped GitHub App, not to an application runtime environment.
 
 ---
 
