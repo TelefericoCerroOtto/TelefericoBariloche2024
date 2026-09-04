@@ -10,6 +10,12 @@ const DEFAULTS = {
   metadataPath: "/workspace/github-deployment-metadata.json",
 };
 
+const DEPLOYMENT_STATUS_DESCRIPTIONS = {
+  in_progress: "Cloud Build deployment started.",
+  success: "Cloud Build deployment succeeded.",
+  failure: "Cloud Build deployment failed.",
+};
+
 async function main() {
   const operation = process.argv[2];
   const config = getConfig(process.env);
@@ -166,7 +172,7 @@ function deploymentStatusPayload(config, state) {
     log_url: config.logUrl,
     target_url: config.targetUrl,
     auto_inactive: false,
-    description: state === "success" ? "Cloud Build deployment succeeded." : "Cloud Build deployment failed.",
+    description: DEPLOYMENT_STATUS_DESCRIPTIONS[state],
   };
 }
 
@@ -276,6 +282,7 @@ module.exports = {
   githubRequest,
   installationTokenPayload,
   redactSensitiveText,
+  startDeployment,
   validateDeployment,
   validateFullSha,
 };

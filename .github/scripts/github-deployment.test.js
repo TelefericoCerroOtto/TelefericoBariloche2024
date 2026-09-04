@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const { generateKeyPairSync, verify } = require("node:crypto");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const deployment = require("./github-deployment.js");
@@ -90,16 +91,62 @@ test("creates deployments against the exact SHA with auto-merge and required con
   assert.throws(() => deployment.validateDeployment({ id: 1, sha: "b".repeat(40) }, sha), /does not match/);
 });
 
-test("posts explicit status payloads with environment, log, and target URLs", () => {
-  assert.deepEqual(deployment.deploymentStatusPayload(config, "success"), {
-    state: "success",
-    environment: "production",
-    environment_url: "https://telefericobariloche.com.ar/",
-    log_url: "https://console.cloud.google.com/cloud-build/builds/build-1?project=project-1",
-    target_url: "https://console.cloud.google.com/cloud-build/builds/build-1?project=project-1",
-    auto_inactive: false,
-    description: "Cloud Build deployment succeeded.",
-  });
+test("posts explicit status payloads with accurate descriptions for supported states", () => {
+  const expectedDescriptions = {
+    in_progress: "Cloud Build deployment started.",
+    success: "Cloud Build deployment succeeded.",
+    failure: "Cloud Build deployment failed.",
+  };
+
+  for (const [state, description] of Object.entries(expectedDescriptions)) {
+    assert.deepEqual(deployment.deploymentStatusPayload(config, state), {
+      state,
+      environment: "production",
+      environment_url: "https://telefericobariloche.com.ar/",
+      log_url: "https://console.cloud.google.com/cloud-build/builds/build-1?project=project-1",
+      target_url: "https://console.cloud.google.com/cloud-build/builds/build-1?project=project-1",
+      auto_inactive: false,
+      description,
+    });
+  }
+});
+
+test("starts deployments with an in_progress status payload", async () => {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "github-deployment-"));
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const requests = [];
+
+  try {
+    await deployment.startDeployment({
+      ...config,
+      appId: "4831348",
+      installationId: "12345",
+      privateKey: privateKey.export({ type: "pkcs8", format: "pem" }),
+      metadataPath: path.join(temporaryDirectory, "deployment-metadata.json"),
+      nowSeconds: () => 1_700_000_000,
+      fetch: async (url, options) => {
+        requests.push({ url, options });
+        const response = [
+          { token: "installation-token" },
+          { id: 42, sha },
+          {},
+        ][requests.length - 1];
+        return { ok: true, status: 201, json: async () => response };
+      },
+    });
+
+    assert.deepEqual(JSON.parse(requests[2].options.body), {
+      state: "in_progress",
+      environment: "production",
+      environment_url: "https://telefericobariloche.com.ar/",
+      log_url: "https://console.cloud.google.com/cloud-build/builds/build-1?project=project-1",
+      target_url: "https://console.cloud.google.com/cloud-build/builds/build-1?project=project-1",
+      auto_inactive: false,
+      description: "Cloud Build deployment started.",
+    });
+  } finally {
+    fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
 });
 
 test("sends authenticated GitHub requests without logging or retaining the credential", async () => {
