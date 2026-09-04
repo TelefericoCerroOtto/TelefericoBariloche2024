@@ -39,6 +39,7 @@ steps:
       - GITHUB_DEPLOYMENTS_ENVIRONMENT_URL=${_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL}
       - GITHUB_DEPLOYMENTS_LOG_URL=https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID
       - GITHUB_DEPLOYMENTS_TARGET_URL=https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID
+      - BUILD_ID=$BUILD_ID
       - GITHUB_DEPLOYMENTS_COMMIT_SHA=$COMMIT_SHA
       - GITHUB_DEPLOYMENTS_METADATA_PATH=/workspace/github-deployment-metadata.json
     secretEnv:
@@ -149,6 +150,7 @@ steps:
       - GITHUB_DEPLOYMENTS_ENVIRONMENT_URL=${_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL}
       - GITHUB_DEPLOYMENTS_LOG_URL=https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID
       - GITHUB_DEPLOYMENTS_TARGET_URL=https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID
+      - BUILD_ID=$BUILD_ID
       - GITHUB_DEPLOYMENTS_COMMIT_SHA=$COMMIT_SHA
       - GITHUB_DEPLOYMENTS_METADATA_PATH=/workspace/github-deployment-metadata.json
     secretEnv:
