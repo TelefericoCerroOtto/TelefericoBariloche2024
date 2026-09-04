@@ -1,0 +1,144 @@
+name: Playwright E2E
+
+on:
+  pull_request:
+    branches: [development, staging]
+    paths:
+      - "teleferico-app/**"
+      - ".github/workflows/playwright-e2e.yml"
+      - "docs/playwright-e2e.md"
+  deployment_status:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-e2e-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.deployment.id || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chromium-smoke:
+    name: Playwright Chromium smoke
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'development'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: teleferico-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: teleferico-app/pnpm-lock.yaml
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install locked Chromium and system dependencies
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run Chromium smoke suite
+        run: pnpm run test:e2e:smoke
+      - name: Upload Playwright failure artifacts
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-artifacts
+          path: |
+            teleferico-app/playwright-report/default
+            teleferico-app/test-results/default
+          if-no-files-found: warn
+          retention-days: 14
+
+  chromium-full:
+    name: Playwright Chromium full
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'staging' && github.event.pull_request.head.ref == 'development'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: teleferico-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: teleferico-app/pnpm-lock.yaml
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install locked Chromium and system dependencies
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run complete Chromium suite
+        run: pnpm run test:e2e
+      - name: Upload Playwright failure artifacts
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-full-artifacts
+          path: |
+            teleferico-app/playwright-report
+            teleferico-app/test-results
+          if-no-files-found: warn
+          retention-days: 14
+
+  production-public-smoke:
+    name: Playwright production public smoke
+    if: github.event_name == 'deployment_status' && github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    defaults:
+      run:
+        working-directory: teleferico-app
+    env:
+      PUBLIC_E2E_BASE_URL: ${{ vars.PRODUCTION_E2E_BASE_URL }}
+    steps:
+      - name: Check out trusted production branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate production deployment commit provenance
+        env:
+          DEPLOYMENT_SHA: ${{ github.event.deployment.sha }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$DEPLOYMENT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Deployment SHA must be a full 40-character Git SHA." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin "$DEPLOYMENT_SHA"
+          git cat-file -e "$DEPLOYMENT_SHA^{commit}"
+          git merge-base --is-ancestor "$DEPLOYMENT_SHA" origin/main
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: teleferico-app/pnpm-lock.yaml
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install locked Chromium and system dependencies
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run read-only public production smoke
+        run: pnpm run test:e2e:production
+      - name: Upload Playwright failure artifacts
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-production-smoke-artifacts
+          path: |
+            teleferico-app/playwright-report/production
+            teleferico-app/test-results/production
+          if-no-files-found: warn
+          retention-days: 14

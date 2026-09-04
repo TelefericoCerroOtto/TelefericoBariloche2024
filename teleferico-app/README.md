@@ -13,6 +13,21 @@ Frontend application of the project, implemented with Next.js (App Router).
 - `pnpm start`: Starts the built app
 - `pnpm run lint`: Lints the files
 - `pnpm run typecheck`: Checks that files included in `tsconfig.json` comply with TypeScript rules
+- `pnpm run test`: Runs the Vitest unit, component, guard, and Route Handler suite
+- `pnpm run test:e2e:smoke`: Runs the local Chromium smoke suite with deterministic server-side CMS fixtures
+- `pnpm run test:e2e:maintenance`: Runs the local Chromium maintenance-mode smoke suite
+- `pnpm run test:e2e`: Runs both local E2E suites; Playwright starts or reuses the local fixture and Next.js servers
+- `pnpm run test:e2e:production`: Runs the read-only public production smoke suite; requires `PUBLIC_E2E_BASE_URL`
+
+## Browser E2E testing
+
+Playwright is Chromium-only in the initial browser test layer. Its local fixtures run as a separate HTTP server and are supplied to the Next.js server through `BUILD_STRAPI_BASE_URL`; no test route or production-accessible bypass is added to the application.
+
+Agents run `pnpm run test:e2e` while implementing or diagnosing browser behavior. Developers are not required to run E2E commands manually, and no pre-commit or pre-push hook runs the suite.
+
+Playwright writes failure traces, screenshots, videos, and HTML reports to `test-results/` and `playwright-report/`. Both paths are ignored by Git.
+
+See [../docs/playwright-e2e.md](../docs/playwright-e2e.md) for the pull-request, promotion, and production-smoke execution policy.
 
 ## Environment variables
 
