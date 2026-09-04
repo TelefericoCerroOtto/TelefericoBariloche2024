@@ -1,5 +1,7 @@
 const assert = require("node:assert/strict");
 const { generateKeyPairSync, verify } = require("node:crypto");
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 const deployment = require("./github-deployment.js");
 
@@ -13,6 +15,46 @@ const config = {
   commitSha: sha,
   buildId: "build-1",
 };
+
+const cloudBuildSnapshots = [
+  ["staging", path.join(__dirname, "..", "..", "docs", "infra", "cloud-build", "app-staging.yaml")],
+  ["production", path.join(__dirname, "..", "..", "docs", "infra", "cloud-build", "app-production.yaml")],
+];
+const requiredReporterEnv = [
+  "GITHUB_DEPLOYMENTS_APP_ID=${_GITHUB_DEPLOYMENTS_APP_ID}",
+  "GITHUB_DEPLOYMENTS_INSTALLATION_ID=${_GITHUB_DEPLOYMENTS_INSTALLATION_ID}",
+  "GITHUB_DEPLOYMENTS_REPOSITORY=${_GITHUB_DEPLOYMENTS_REPOSITORY}",
+  "GITHUB_DEPLOYMENTS_ENVIRONMENT=${_GITHUB_DEPLOYMENTS_ENVIRONMENT}",
+  "GITHUB_DEPLOYMENTS_ENVIRONMENT_URL=${_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL}",
+  "GITHUB_DEPLOYMENTS_LOG_URL=https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID",
+  "GITHUB_DEPLOYMENTS_TARGET_URL=https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID",
+  "BUILD_ID=$BUILD_ID",
+  "GITHUB_DEPLOYMENTS_COMMIT_SHA=$COMMIT_SHA",
+  "GITHUB_DEPLOYMENTS_METADATA_PATH=/workspace/github-deployment-metadata.json",
+];
+
+function reporterStep(snapshot, id) {
+  const start = snapshot.indexOf(`    id: ${id}\n`);
+  const nextStep = snapshot.indexOf("\n  - ", start + 1);
+  const options = snapshot.indexOf("\noptions:", start + 1);
+  const end = [nextStep, options].filter((index) => index >= 0).sort((left, right) => left - right)[0];
+
+  assert.ok(start >= 0, `Missing ${id} step.`);
+  return snapshot.slice(start, end);
+}
+
+test("Cloud Build snapshots provide the required GitHub deployment reporter environment contract", () => {
+  for (const [environment, snapshotPath] of cloudBuildSnapshots) {
+    const snapshot = fs.readFileSync(snapshotPath, "utf8");
+    for (const id of ["GitHub deployment start", "GitHub deployment finish"]) {
+      const step = reporterStep(snapshot, id);
+      for (const env of requiredReporterEnv) {
+        assert.match(step, new RegExp(`^      - ${env.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "m"), `${environment} ${id} must expose ${env}.`);
+      }
+      assert.match(step, /    secretEnv:\n      - GITHUB_DEPLOYMENTS_APP_PRIVATE_KEY/);
+    }
+  }
+});
 
 test("creates a short-lived RS256 GitHub App JWT with the expected claims", () => {
   const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
