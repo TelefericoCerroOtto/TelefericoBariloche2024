@@ -8,6 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "test:e2e": "pnpm run test:e2e:smoke && pnpm run test:e2e:maintenance",
+    "test:e2e:smoke": "playwright test",
+    "test:e2e:maintenance": "playwright test --config=playwright.maintenance.config.ts",
+    "test:e2e:production": "playwright test --config=playwright.production.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "pnpm run typecheck && pnpm run lint"
   },
@@ -60,6 +64,7 @@
     "yup": "1.7.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.61.0",
     "@tailwindcss/typography": "0.5.19",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
