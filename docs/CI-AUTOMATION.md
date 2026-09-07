@@ -27,7 +27,7 @@ The code can execute the automation, but the team also needs a stable explanatio
 That is why this implementation is intentionally split into:
 
 - a workflow that wires triggers and permissions
-- a shared script that contains the business logic
+- a shared PR orchestration script, a pure repository-policy module, and tracked native hooks
 - this document, which preserves the rationale
 
 ## Implemented architecture
@@ -56,6 +56,7 @@ Responsibilities:
 
 - query Notion for governed backlog linkage checks
 - validate implementation/promotion PR policy
+- validate PR commit messages fetched through GitHub's read-only pull-request commits API
 - sync `Hecho` status on merged `staging -> main` promotions only for issues with explicit closure intent
 - record phased delivery for `Advances #N` without closing the issue or changing its Notion status
 
@@ -64,6 +65,18 @@ Commands are separated by responsibility: `validate-pr-policy` renders the PR bo
 The workflow separates read-only validation from privileged synchronization. Validation has read-only issue permissions. Append-only issue comments and Notion closure updates run only after the governance test job and validation job both succeed, only for same-repository `pull_request_target` events, and only in the dedicated job with `issues: write`. Fork metadata and manual dispatch inputs can never trigger a mutation. Every secret-bearing job checks out the repository default branch before executing `.github/scripts/github-notion-sync.js`, so the workflow never executes selected-ref or PR-head code with secrets.
 
 The script uses **plain Node.js with native `fetch`** so the repository does not need a root package manager or root dependency installation just to support this automation.
+
+### Repository policy and local hooks
+
+Files:
+
+- `.github/scripts/repository-policy.js`
+- `.githooks/pre-commit`
+- `.githooks/commit-msg`
+- `.githooks/pre-push`
+- `scripts/setup-git-hooks.sh`
+
+`repository-policy.js` is the single syntax source for branch names and commit subjects. Hooks call it directly with Node; they do not duplicate policy regular expressions or query external services. Run `./scripts/setup-git-hooks.sh` once in each opting-in worktree to set only that checkout's absolute `core.hooksPath`. The script uses Git worktree-specific config, rejects existing conflicting hook paths, does not install packages, and does not change global Git configuration. See [GIT-HOOKS.md](./GIT-HOOKS.md).
 
 ## Issue formalization boundary
 
@@ -84,17 +97,18 @@ Use case:
 
 What it does:
 
-**For implementation PRs (branches like `feat/`, `fix/`, etc.):**
+**For implementation PRs (every non-promotion PR targeting `development`):**
 1. fails if the target branch is not `development`
 2. fails if GitHub-rendered visible PR text contains closing keywords (e.g., `Closes #N`)
-3. resolves exactly one tracked Notion item through one valid branch `Work ID`; once resolved, a different or empty Notion `Branch` cannot veto it
-4. uses an exact Notion `Branch` match only as a legacy fallback when the head branch has no Work ID marker; malformed, unknown, repeated, multiple, and ambiguous IDs fail closed without fallback
-5. permits an explicitly untracked PR only when no association exists and `## Tracking` contains `Backlog item: none` plus a non-empty `Reason:` line
+3. requires `<type>/<dir>-tb-<digits>-<slug>` for tracked work or `<type>/<dir>-no-backlog-<slug>` for explicitly untracked work
+4. resolves exactly one tracked Notion item through the explicit branch `Work ID`; a different or empty Notion `Branch` cannot veto it or establish a fallback
+5. permits an explicitly untracked PR only for the explicit no-backlog branch form and when `## Tracking` contains `Backlog item: none` plus a non-empty `Reason:` line
 6. requires a non-empty `Canal formal` for tracked items
 7. if `Canal formal = GitHub Issue`, requires a valid linked GitHub Issue URL, verifies it exists, and requires its exact `Refs #N` reference inside a visible final `## Related Issues` section
 8. permits optional `Refs #N` for non-issue and explicitly untracked PRs, but verifies every visible explicit reference from the final `## Related Issues` section before comment synchronization
+9. fetches PR commit metadata through GitHub's API and validates each message with the shared policy module
 
-Branch validation checks deterministic marker syntax and identity only. It does not judge whether the slug is semantically meaningful, and the preferred format remains `<type>/<dir>-<work-id>-<slug>`.
+Branch validation checks deterministic syntax and identity only. It does not judge whether the slug is semantically meaningful. Missing, malformed, repeated, multiple, ambiguous, or unknown Work IDs fail closed; missing a Work ID never enables no-backlog mode.
 
 Policy semantics come from GitHub's GFM renderer, not from handwritten Markdown parsing. The script reads only visible headings and text from GitHub-sanitized HTML; rendered code, blockquotes, details, hidden containers, and tag attributes do not count. Rendering failures fail closed.
 
@@ -169,7 +183,7 @@ These exist so the workflow can adapt if the Notion property names or option nam
 
 ## Test execution and activation
 
-The workflow exposes these checks: `Governance tests`, `validate-pr-policy`, and `trusted-pr-sync`. `Governance tests` runs `node --test .github/scripts/github-notion-sync.test.js` for pull requests without secrets or write permissions. Secret-bearing jobs deliberately check out the default branch, not PR code or manually selected refs; this protects privileged validation but means workflow/script fixes become live only after they are promoted to the default branch.
+The workflow exposes these checks: `Governance tests`, `validate-pr-policy`, and `trusted-pr-sync`. `Governance tests` runs `node --test .github/scripts/*.test.js` for pull requests without secrets or write permissions. It includes branch grammar, commit-message grammar, and hook setup tests. Secret-bearing jobs deliberately check out the default branch, not PR code or manually selected refs; this protects privileged validation but means workflow/script fixes become live only after they are promoted to the default branch. `validate-pr-policy` uses that trusted code to fetch PR commit metadata from GitHub's read-only API boundary.
 
 Only trusted-sync runs for the same PR are serialized. Each issue relation is an append-only comment with a deterministic marker, so unrelated PRs never share mutable issue-body state. The action lists paginated comments before posting, making retries idempotent without rewriting issue bodies. Legacy managed body blocks remain untouched and are not used for new synchronization.
 
@@ -186,6 +200,8 @@ The workflow exposes `workflow_dispatch` inputs for:
 Manual dispatch is validation-only. It is the safe preview surface for checking policy decisions against real repository configuration without writing to GitHub or Notion.
 
 `workflow_dispatch` preview also checks out the trusted default branch before running the privileged validation script. Operator-supplied metadata influences validation inputs only; it never selects which repository code runs with secrets.
+
+Manual dispatch validates the supplied branch and PR-body policy but does not validate commit messages because it has no PR number or commit-list input. The `pull_request_target` validation path performs the authoritative commit-list check through GitHub's read-only API.
 
 Recommended operating model:
 

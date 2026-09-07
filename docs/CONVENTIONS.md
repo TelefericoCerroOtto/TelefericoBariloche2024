@@ -1,4 +1,4 @@
-# — Commits & PRs
+# Commits and PRs
 
 This document defines conventions for humans and agents regarding commits and PRs.
 
@@ -7,7 +7,9 @@ This document defines conventions for humans and agents regarding commits and PR
 To ensure a consistent history, we use the format of
 [Conventional Commits](https://www.conventionalcommits.org/):
 
-- Format: `<type>(<dir>/<scope>): <description>`.
+- Required format: `<type>(<dir>/<scope>): <description>`.
+- `<scope>` is non-empty and identifies the affected area.
+- `<description>` must be non-empty. The recommendation to keep it under 100 characters is not enforced.
 
 ### Types (lowercase)
 
@@ -40,9 +42,17 @@ If changes span multiple top-level directories, use a hyphenated composite in st
 
 Note: keep `<dir>` as short as possible while still truthful.
 
-### Scope
+### Scope and Git-generated exceptions
 
-The scope can be any word that refers to the general area covering all the changes in that commit (file name, entity, directory name, feature, etc.).
+The scope identifies the general area covering the commit, such as a file, entity, directory, or feature.
+
+Native Git may generate a subject that cannot use the conventional shape. Enforcement accepts only these explicit exceptions:
+
+- `Merge branch '<ref>' [into <branch>]`, `Merge remote-tracking branch '<ref>' [into <branch>]`, and `Merge tag '<ref>' [into <branch>]`
+- `Merge pull request #<number> from <owner>/<branch>`
+- `Revert "<valid conventional or accepted merge subject>"`
+
+Other arbitrary `Merge ...` or `Revert ...` subjects are rejected.
 
 ### Description
 
@@ -89,6 +99,7 @@ Use an implementation PR when proposing the original code change for review.
 - Goal: review the implementation itself.
 - The PR body should explain the problem, context, solution, and technical details of the actual code change.
 - This is the **source PR** for the change narrative.
+- Every non-promotion PR targeting `development` is implementation work, even when its branch prefix is unknown. Its branch must satisfy the explicit mode in [backlog-branch-pr-policy.md](./backlog-branch-pr-policy.md).
 
 #### 2. Promotion PR
 
@@ -149,7 +160,7 @@ Use GitHub Issues as the formal artifact, but distinguish between the PR that
 
 | PR type | Typical branch flow | How to reference the issue | Purpose |
 |---|---|---|---|
-| Implementation PR | `feat/fix -> development` | `Refs #N` in `## Related Issues` when tracked by a GitHub Issue; optional for other tracked channels and explicitly untracked work | Preserve the technical story of the actual code change |
+| Implementation PR | `<type>/<dir>-tb-<digits>-<slug>` or `<type>/<dir>-no-backlog-<slug>` -> `development` | `Refs #N` in `## Related Issues` when tracked by a GitHub Issue; optional for other tracked channels and explicitly untracked work | Preserve the technical story of the actual code change |
 | Promotion PR to staging | `development -> staging` | Optional mention of `#N` or included implementation PRs | Track validation scope; do not close the issue here |
 | Promotion PR to main | `staging -> main` | `Closes #N`, `Advances #N`, or explicit `Formal issues: none` | Close completed issues, record partial delivery for open issues, or declare that no formal issues are included |
 

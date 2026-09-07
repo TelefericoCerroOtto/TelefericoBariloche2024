@@ -9,7 +9,7 @@ This file defines the portable repository-wide governance for agents working in 
   - `teleferico-cms` (Strapi): CMS/API backend
 - Separately scoped tooling:
   - `tools/image-pipeline`: local-first image authoring and batch processing. Has its own `AGENTS.md` with self-contained governance. It is NOT part of the public site runtime or the CMS; treat it as an independent tool unless a change explicitly crosses its boundary.
-- Root surfaces: `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `docs/`, `.agents/`
+- Root surfaces: `.githooks/`, `.github/scripts/`, `scripts/`, `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `docs/`, `.agents/`
 
 ## Key paths
 
@@ -131,8 +131,9 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - Use `Clarificar` for ambiguous items, `Listo para formalizar` when the work is clear enough to deserve a formal artifact, and `Formalizado` only after the artifact exists and the link is attached to the row.
 - Separate work maturity from artifact type: use `Canal formal` to indicate whether the formal target is a GitHub Issue, an operational change, a document/ADR, or something else.
 - Use `Work ID` as the stable backlog identifier and `Branch` as optional metadata for one active or representative branch.
-- When a branch is created from a backlog item, prefer the format `<type>/<dir>-<work-id>-<slug>` (example: `fix/app-tb-066-login-refresh`).
-- For **implementation PRs**, use one deterministic mode: tracked through exactly one canonical `TB-<digits>` marker or, only without a Work ID marker, an exact Notion `Branch` match; otherwise use explicitly untracked mode. A uniquely resolved Work ID is primary and cannot be vetoed by a different or empty Notion `Branch`. Explicitly untracked PRs require a visible `## Tracking` section with `Backlog item: none` and a non-empty `Reason:` line. Malformed, unknown, repeated, multiple, and ambiguous Work IDs fail closed without fallback. Validation checks syntax and identity, not whether the slug is semantically meaningful.
+- Implementation branches must use `<type>/<dir>-tb-<digits>-<slug>` or `<type>/<dir>-no-backlog-<slug>`. Use only documented types and `app`, `cms`, `tools`, `root` directories; composites use stable `app`, `cms`, `tools`, `root` ordering. The literal `no-backlog` marker is required for deliberately untracked work.
+- For **implementation PRs**, use one deterministic mode: tracked branches resolve exactly one canonical `TB-<digits>` Work ID, while no-backlog branches are explicitly untracked. `Branch` is metadata and never establishes fallback tracking. Explicitly untracked PRs require a visible `## Tracking` section with `Backlog item: none` and a non-empty `Reason:` line. Missing, malformed, unknown, repeated, multiple, and ambiguous Work IDs fail closed without fallback. Every non-promotion PR targeting `development` is implementation work, including unknown branch prefixes.
+- Run `./scripts/setup-git-hooks.sh` once in each opting-in worktree to enable tracked offline branch and commit-message validation. The setup uses worktree-specific Git configuration and fails on existing conflicting hook paths. Hooks do not call Notion or GitHub and do not run package commands, builds, or test suites.
 - Governance validation is read-only and uses GitHub-rendered visible GFM semantics. Append-only managed issue comments and Notion closure writes run only after complete preflight for same-repository trusted PR heads; fork metadata must never initiate a mutation. Legacy issue-body blocks are not updated.
 - For **promotion PRs**, do not require a direct `Work ID`/branch association; they track release movement, not a new unit of backlog work.
 - A branch should have **one primary backlog item**. Multiple items on one branch are allowed only when they form one tightly coupled reviewable outcome; otherwise split the work.

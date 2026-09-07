@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$local_ref" in
+    refs/heads/*)
+      branch=${local_ref#refs/heads/}
+      node "$repo_root/.github/scripts/repository-policy.js" validate-branch "$branch"
+      ;;
+  esac
+done

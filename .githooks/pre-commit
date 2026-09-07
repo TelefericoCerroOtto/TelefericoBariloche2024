@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+branch=$(git symbolic-ref --quiet --short HEAD) || {
+  printf '%s\n' 'Cannot validate a detached HEAD. Check out a policy-compliant branch first.' >&2
+  exit 1
+}
+
+node "$repo_root/.github/scripts/repository-policy.js" validate-branch "$branch"
