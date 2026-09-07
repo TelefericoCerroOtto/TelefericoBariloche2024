@@ -50,7 +50,7 @@ The following changes are sensitive and must be explicitly called out in a propo
 Automated tests are currently implemented in `teleferico-app` specifically for public forms (postulation, contact) and their security guards. 
 - **Forms and security:** If you modify public forms, rate limiters, or their security layers, you MUST maintain and expand their test coverage using the existing Vitest suite.
 - **Other areas:** The long-term goal is to gradually expand testing coverage across all packages. Introduce tests progressively as new features or critical refactors are made.
-- **Cloud Build Playwright baseline:** `cloudbuild.playwright-e2e.json` executes only the fixture-backed Chromium smoke suite and fails closed unless the trigger `COMMIT_SHA` resolves to a commit equal to `/workspace` `HEAD^{commit}`. It has no live trigger or artifact bucket yet; preserve GitHub Actions parity and do not add secret, IAM, Cloud SQL, Cloud Run, staging, or production dependencies without an explicitly approved work unit.
+- **Cloud Build Playwright baseline:** `cloudbuild.playwright-e2e.json` executes only the fixture-backed Chromium smoke suite and fails closed unless the trigger `COMMIT_SHA` resolves to a commit equal to `/workspace` `HEAD^{commit}`. The live `playwright-e2e-pr` trigger is manually gated by owner/collaborator `/gcbrun`; no build or check outcome is proven. Preserve GitHub Actions parity and do not add an artifact bucket, secret/IAM change, Cloud SQL, Cloud Run, staging, or production dependency without an explicitly approved work unit.
 
 ## GCP CLI operational rules
 

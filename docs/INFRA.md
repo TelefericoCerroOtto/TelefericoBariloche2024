@@ -231,12 +231,13 @@ Notes:
 
 ### Pipelines
 
-There are four active Cloud Build triggers, all regional in `southamerica-east1` and connected to the project's GitHub repository:
+There are five active Cloud Build triggers, all regional in `southamerica-east1` and connected to the project's GitHub repository:
 
 - app staging
 - app production
 - cms staging
 - cms production
+- `playwright-e2e-pr` — fixture-backed Playwright smoke tests for pull requests targeting `development`; it requires an owner or collaborator to comment `/gcbrun` before execution.
 
 There may also be legacy triggers paused in the console. They are purposefully kept disabled and are not part of the operational flow.
 
@@ -244,11 +245,11 @@ Documentary snapshots of their configurations are versioned in [infra/cloud-buil
 
 ### Application-test executor baseline
 
-`cloudbuild.playwright-e2e.json` is a repository-owned Cloud Build configuration for the existing fixture-backed Playwright Chromium smoke suite. It is separate from the documentary deployment-trigger snapshots and does not deploy an application.
+`cloudbuild.playwright-e2e.json` is a repository-owned Cloud Build configuration for the existing fixture-backed Playwright Chromium smoke suite. The live `playwright-e2e-pr` trigger uses this configuration; its non-authoritative metadata snapshot is [infra/cloud-build/playwright-e2e-pr.yaml](infra/cloud-build/playwright-e2e-pr.yaml). It does not deploy an application.
 
 - Its immutable `alpine/git` image verifies Git is executable, rejects the all-zero SHA, verifies that `COMMIT_SHA^{commit}` resolves in `/workspace`, and fails closed unless it equals `HEAD^{commit}`. Later steps use the immutable Node 22.16.0 Bookworm image, Corepack, the repository-pinned `pnpm@10.33.0`, `pnpm install --frozen-lockfile`, and the lockfile-backed Playwright CLI.
 - The build is bounded to 20 minutes and has separate revision, package-manager, dependency, browser, and smoke-test steps. Failures remain in Cloud Build logs without suppression.
-- No application-test trigger, GitHub PR-check reporter, artifact bucket, secret access, IAM change, Cloud SQL, Cloud Run, staging, or production integration exists in this baseline. A later manual pilot must validate the native GitHub PR trigger's `.git` source metadata and executor behavior before an approved trigger/reporting design is added; source-upload builds without Git metadata intentionally fail closed.
+- The live trigger targets pull requests with base branch `development` and uses `COMMENTS_ENABLED`, so an owner or collaborator must comment `/gcbrun`. No build has run, and no check outcome, artifact bucket, application secret access, IAM change, Cloud SQL, Cloud Run, staging, or production integration is proven. The manual pilot must validate the native GitHub PR trigger's `.git` source metadata, executor behavior, logs, and check reporting; source-upload builds without Git metadata intentionally fail closed.
 - The current GitHub Actions Playwright workflow remains the parity executor until a later work unit provides accepted Cloud Build evidence. This configuration neither replaces application testing in GitHub Actions nor changes repository-governance workflows.
 
 Read-only repository validation is `node --test .github/scripts/playwright-e2e.test.js`; it does not submit a build or access GCP.
