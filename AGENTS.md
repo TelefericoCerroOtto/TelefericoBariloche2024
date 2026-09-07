@@ -113,6 +113,11 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - Business domain context (zones, facilities, organization, operations): `docs/cerro-otto-business-context.md`
 - Content authoring guide (component catalog, tone, translation vocabulary, content restrictions): `docs/content-components-guide.md`
 
+## Implementation PR finalization
+
+- `/implementation-pr` is an explicit, single-invocation shortcut for one implementation branch snapshot. Load `.agents/skills/implementation-pr/SKILL.md`; it composes the active commit and PR contracts without replacing them.
+- It may commit, non-force-push, create one PR to `development`, apply required PR metadata, and watch checks. It never authorizes promotion PRs, later changes, force pushes, branch changes, merges, issue closure, branch deletion, or releases.
+
 ## Change intake preflight
 
 - Activate `.agents/skills/change-intake-preflight/SKILL.md` for concrete change proposals, implementation requests, follow-ups, regressions, or delivery work already in progress. Informational questions and change-free exploration do not activate backlog intake.

@@ -114,6 +114,12 @@ Use a promotion PR when moving already-reviewed code from one environment branch
   - what validation already happened and what still needs to be validated
   - rollback expectations if the promotion fails
 
+### Direct implementation finalization shortcut
+
+`/implementation-pr` is an explicit, single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR to `development`, apply required metadata, and watch required checks.
+
+It does not authorize later changes, force pushes, branch changes, rebases, merges, issue closure, branch deletion, or releases. It is not a promotion workflow: continue to use the separate `development -> staging` and `staging -> main` promotion flow and its release/closure rules.
+
 ### Content rules by PR type
 
 #### Implementation PR
