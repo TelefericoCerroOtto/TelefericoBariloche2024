@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+const repositoryPolicy = require("./repository-policy.js");
+
 const DEFAULTS = {
   notionVersion: "2025-09-03",
   workIdProperty: "Work ID",
@@ -14,7 +16,6 @@ const DEFAULTS = {
   maxExplicitReferences: 100,
   issueFetchConcurrency: 5,
   commentPageSize: 100,
-  implementationBranchPattern: /^(feat|fix|chore|refactor|docs|style|test|perf|revert)\//i,
 };
 
 async function main() {
@@ -53,17 +54,20 @@ function getConfig() {
       merged: parseBoolean(process.env.PR_MERGED),
       headRepository: process.env.PR_HEAD_REPOSITORY || "",
     },
+    validateCommitMessages: (process.env.GITHUB_EVENT_NAME || "") === "pull_request_target" && Boolean(normalizeNumber(process.env.PR_NUMBER)),
   };
 }
 
 async function validatePrPolicy(config) {
-  const pr = classifyPr(config.pullRequest.headRef, config.pullRequest.baseRef);
+  const pr = repositoryPolicy.classifyPullRequest(config.pullRequest.headRef, config.pullRequest.baseRef);
+  const branch = pr.type === "implementation" ? repositoryPolicy.validateImplementationBranchName(config.pullRequest.headRef) : null;
   const document = await renderPrBody(config, config.pullRequest.body);
   const closingRefs = extractClosingReferences(document);
   const advancingRefs = extractAdvancingReferences(document);
+  await validatePullRequestCommitMessages(config);
   if (pr.type === "implementation") {
     validateImplementationBody(document, closingRefs);
-    return ensureImplementationTracking(config, extractRefsNumbers(document), document);
+    return ensureImplementationTracking(config, branch, extractRefsNumbers(document), document);
   }
   if (pr.type === "promotion-to-staging" && closingRefs.length) {
     throw new Error("Promotion PRs from development to staging must NOT close issues.");
@@ -82,14 +86,13 @@ async function validatePrPolicy(config) {
   }
 }
 
-async function ensureImplementationTracking(config, refsNumbers, document) {
-  const markers = extractWorkIdMarkers(config.pullRequest.headRef);
-  if (markers.malformed.length) throw new Error(`Implementation branch '${config.pullRequest.headRef}' contains malformed Work ID marker(s): ${markers.malformed.join(", ")}.`);
-  if (markers.canonical.length === 0) return resolveImplementationWithoutWorkId(config, refsNumbers, document);
-  if (markers.canonical.length !== 1) throw new Error(`Implementation branch '${config.pullRequest.headRef}' must contain exactly one canonical TB-<digits> marker.`);
-  const workId = markers.canonical[0];
-  const page = await findNotionPageByWorkId(config, workId);
-  if (!page) throw new Error(`No Notion backlog item found for Work ID '${workId}'.`);
+async function ensureImplementationTracking(config, branch, refsNumbers, document) {
+  if (branch.mode === "explicitly-untracked") {
+    validateExplicitlyUntrackedBody(document);
+    return validateIssueNumbers(config, refsNumbers);
+  }
+  const page = await findNotionPageByWorkId(config, branch.workId);
+  if (!page) throw new Error(`No Notion backlog item found for Work ID '${branch.workId}'.`);
   const item = mapNotionItem(config, page);
   return validateTrackedItem(config, item, refsNumbers);
 }
@@ -103,16 +106,9 @@ async function validateTrackedItem(config, item, refsNumbers) {
   await validateIssueNumbers(config, refsNumbers);
 }
 
-async function resolveImplementationWithoutWorkId(config, refsNumbers, document) {
-  const page = await findNotionPageByBranchName(config, config.pullRequest.headRef);
-  if (page) return validateTrackedItem(config, mapNotionItem(config, page), refsNumbers);
-  validateExplicitlyUntrackedBody(document);
-  return validateIssueNumbers(config, refsNumbers);
-}
-
 async function syncPrMutations(config) {
   if (!isTrustedMutation(config)) { console.warn("Skipping privileged synchronization for an untrusted PR head."); return; }
-  const pr = classifyPr(config.pullRequest.headRef, config.pullRequest.baseRef);
+  const pr = repositoryPolicy.classifyPullRequest(config.pullRequest.headRef, config.pullRequest.baseRef);
   if (config.pullRequest.action === "closed" && pr.type === "promotion-to-main") {
     await syncMergedMainPromotion(config);
     return;
@@ -152,7 +148,7 @@ async function syncMergedMainPromotion(config) {
 
 async function syncIssuePrReference(config) {
   if (!isTrustedMutation(config) || !config.pullRequest.number) return;
-  const pr = classifyPr(config.pullRequest.headRef, config.pullRequest.baseRef);
+  const pr = repositoryPolicy.classifyPullRequest(config.pullRequest.headRef, config.pullRequest.baseRef);
   const role = relationRole(pr, config.pullRequest);
   if (!role) return;
   const document = await renderPrBody(config, config.pullRequest.body);
@@ -250,13 +246,6 @@ async function syncIssueNumberToDone(config, issue, page = undefined) {
   if (!matchedPage) return;
   const item = mapNotionItem(config, matchedPage);
   await updateNotionItem(config, item.pageId, { [config.properties.status]: notionOptionValue(item.status.type, config.statuses.done) });
-}
-
-function classifyPr(headRef, baseRef) {
-  if (headRef === "development" && baseRef === "staging") return { type: "promotion-to-staging" };
-  if (headRef === "staging" && baseRef === "main") return { type: "promotion-to-main" };
-  if (DEFAULTS.implementationBranchPattern.test(headRef)) return { type: baseRef === "development" ? "implementation" : "unsupported-implementation-target" };
-  return { type: "other" };
 }
 
 async function renderPrBody(config, body) {
@@ -406,23 +395,6 @@ function validateImplementationBody(document, closingRefs = extractClosingRefere
   return extractRefsNumbers(document);
 }
 
-function extractWorkIdMarkers(branchName) {
-  const canonical = [];
-  const malformed = [];
-  for (const match of branchName.matchAll(/tb/gi)) {
-    const index = match.index;
-    if (index > 0 && isUnicodeLetterOrNumber(branchName[index - 1])) continue;
-    const suffix = branchName.slice(index);
-    const canonicalMatch = suffix.match(/^tb-(\d{1,6})(?=$|[^\p{L}\p{N}])/iu);
-    if (canonicalMatch) { canonical.push(`TB-${canonicalMatch[1]}`); continue; }
-    malformed.push(getMalformedWorkIdToken(suffix));
-  }
-  return { canonical, malformed };
-}
-
-function isUnicodeLetterOrNumber(value) { return Boolean(value && /[\p{L}\p{N}]/u.test(value)); }
-function getMalformedWorkIdToken(value) { return value.match(/^tb[^/\s]*/i)?.[0] || "tb"; }
-
 function validateExplicitlyUntrackedBody(document) {
   const section = getH2Section(document, "Tracking");
   if (!section) throw new Error("Explicitly untracked implementation PRs require a visible ## Tracking section.");
@@ -444,11 +416,6 @@ async function findNotionPageByWorkId(config, workId) {
   const pages = await queryNotionPages(config, { property: config.properties.workId, unique_id: { equals: Number(workId.split("-")[1]) } });
   const matchingPages = pages.filter((page) => workIdMatches(page.properties?.[config.properties.workId], workId));
   return selectSingleNotionPage(matchingPages, `Work ID '${workId}'`);
-}
-
-async function findNotionPageByBranchName(config, branchName) {
-  const pages = await queryNotionPages(config, { property: config.properties.branch, rich_text: { equals: branchName } });
-  return selectSingleNotionPage(pages, `branch '${branchName}'`);
 }
 
 async function findNotionPageByIssueUrl(config, url) {
@@ -537,6 +504,30 @@ async function githubRequest(config, path, options) {
   return options.responseType === "text" ? response.text() : response.status === 204 ? null : response.json();
 }
 
+async function validatePullRequestCommitMessages(config) {
+  if (!config.validateCommitMessages || !config.pullRequest.number) return;
+  const commits = await listPullRequestCommits(config, config.pullRequest.number);
+  for (const commit of commits) {
+    const sha = typeof commit?.sha === "string" ? commit.sha.slice(0, 12) : "<unknown>";
+    const message = commit?.commit?.message;
+    try {
+      repositoryPolicy.validateCommitMessage(message);
+    } catch (error) {
+      throw new Error(`Pull request commit ${sha} violates repository commit policy: ${error.message}`);
+    }
+  }
+}
+
+async function listPullRequestCommits(config, pullRequestNumber) {
+  const commits = [];
+  for (let page = 1; ; page += 1) {
+    const currentPage = await githubRequest(config, `/repos/${config.repository.owner}/${config.repository.repo}/pulls/${pullRequestNumber}/commits?per_page=100&page=${page}`, { method: "GET" });
+    if (!Array.isArray(currentPage)) throw new Error(`GitHub commits response for pull request #${pullRequestNumber} must be an array.`);
+    commits.push(...currentPage);
+    if (currentPage.length < 100) return commits;
+  }
+}
+
 async function requestError(service, method, path, response) {
   let details = "";
   try { const body = await response.json(); details = body?.message ? `: ${String(body.message).slice(0, 200)}` : ""; } catch { /* Error response JSON is optional. */ }
@@ -558,7 +549,6 @@ if (require.main === module) {
 
 module.exports = {
   DEFAULTS,
-  extractWorkIdMarkers,
   extractRefsNumbers,
   extractClosingReferences,
   extractAdvancingReferences,
@@ -567,9 +557,10 @@ module.exports = {
   validateExplicitlyUntrackedBody,
   validateImplementationBody,
   parseFormalIssueUrl,
-  findNotionPageByBranchName,
   findNotionPageByIssueUrl,
+  listPullRequestCommits,
   validatePrPolicy,
+  validatePullRequestCommitMessages,
   syncPrMutations,
   syncIssuePrReference,
   isTrustedMutation,

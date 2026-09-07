@@ -6,8 +6,8 @@ This document defines how Notion items are associated with branches and implemen
 
 1. Work originates or is consolidated in Notion.
 2. If it will touch versioned code or docs, it may have an associated branch.
-3. A tracked branch includes one valid primary `Work ID`; legacy branches may instead exactly match the Notion `Branch` field.
-4. An implementation PR is tracked when that association resolves uniquely, or explicitly untracked when no Work ID marker and no exact `Branch` association exist.
+3. Every implementation branch uses one explicit syntax: tracked with a `Work ID` or deliberately no-backlog.
+4. An implementation PR is tracked only when its branch resolves exactly one Notion `Work ID`; an explicitly untracked branch must declare that mode in both its name and PR body.
 
 ## Conceptual Model
 
@@ -25,21 +25,31 @@ This document defines how Notion items are associated with branches and implemen
 
 Before implementation edits or branch setup, apply `docs/change-intake-preflight.md`. Not every repository change requires a GitHub issue; tracking follows the selected `Canal formal`.
 
-### 1. `Work ID` is mandatory for branches governed by this flow
+### 1. Implementation branch grammar
 
-If a branch is used to implement a backlog work unit, it must include the `Work ID` in its name.
-
-Recommended format:
+Every implementation branch must use exactly one of these forms:
 
 ```text
-<type>/<dir>-<work-id>-<slug>
+<type>/<dir>-tb-<digits>-<slug>
+<type>/<dir>-no-backlog-<slug>
 ```
+
+The first form is tracked. The second is deliberately without a Notion item. Missing a `Work ID` does not select no-backlog mode; the literal `no-backlog` marker is required.
+
+| Component | Allowed values |
+| --- | --- |
+| `<type>` | `feat`, `fix`, `chore`, `refactor`, `docs`, `style`, `test`, `perf`, `revert` |
+| `<dir>` | `app`, `cms`, `tools`, `root`, or a hyphenated composite in this stable order: `app`, `cms`, `tools`, `root` |
+| `<slug>` | Non-empty lowercase kebab-case |
 
 Examples:
 
 - `fix/app-tb-066-login-refresh`
-- `chore/infra-tb-067-pause-legacy-vm`
+- `chore/root-tb-067-pause-legacy-vm`
 - `docs/root-tb-073-backlog-governance`
+- `chore/app-cms-root-no-backlog-policy-maintenance`
+
+The grammar is exhaustive. Old marker-free shapes, unknown types, uppercase names, invalid directory values, unordered composites, repeated directories, missing slugs, malformed markers, repeated markers, and multiple markers are invalid. The policy does not infer whether a slug is semantically appropriate.
 
 ### 2. `Branch` is optional
 
@@ -85,23 +95,29 @@ Expected governed flow:
 
 An implementation PR has exactly one mode:
 
-1. **Tracked:** its branch has exactly one complete canonical `TB-<digits>` marker, or—only for a branch without a Work ID marker—it has one exact Notion `Branch` match. A canonical marker is the primary identity: once it resolves exactly one Notion item, that item's `Branch` value cannot veto the association. Marker boundaries use Unicode letters and numbers, so `tb` embedded in a Unicode word is not a Work ID. Unknown, malformed, repeated, multiple, or ambiguously matched IDs fail closed without falling back to `Branch` or explicitly untracked mode.
-2. **Explicitly untracked:** only when there is no Work ID marker and no exact Notion `Branch` match. The body must contain a `## Tracking` section with the exact line `Backlog item: none` and a non-empty `Reason: ...` line.
+1. **Tracked:** its branch uses `<type>/<dir>-tb-<digits>-<slug>` and the normalized `TB-<digits>` resolves exactly one Notion item. The `Branch` field is optional metadata and cannot establish, override, or veto this identity. Unknown or ambiguously matched IDs fail closed.
+2. **Explicitly untracked:** its branch uses `<type>/<dir>-no-backlog-<slug>`. The body must contain a visible `## Tracking` section with the exact line `Backlog item: none` and a non-empty `Reason: ...` line.
 
-Validation establishes deterministic syntax and identity only. It does not infer whether a branch slug is semantically appropriate. The preferred full branch format remains `<type>/<dir>-<work-id>-<slug>`.
+Malformed, repeated, multiple, or missing `Work ID` markers never fall back to a `Branch` lookup or explicitly untracked mode. A no-backlog branch never queries Notion.
 
 A tracked item must define `Canal formal`. If it is `GitHub Issue`, `Enlace formal` must be a same-repository `github.com/<owner>/<repo>/issues/<number>` URL and the GitHub-rendered visible body must include `Refs #<that exact issue number>` in final `## Related Issues`. Other channels and explicitly untracked PRs may omit `Refs #N`.
 
 ### What to do if the branch doesn't follow the standard
 
-If a branch has no Work ID marker and no exact `Branch` match, use the explicitly untracked declaration above. Do not use it to bypass a malformed, unknown, or ambiguous Work ID.
+Rename the branch to the required no-backlog form before opening its implementation PR. Do not use it to bypass a malformed, unknown, or ambiguous Work ID.
+
+### Legacy branch migration
+
+There is no legacy allowlist and no marker-free fallback. A legacy branch must be renamed to a governed form before its next push or implementation PR only when that is safe under the working-tree and change-intake rules. If renaming is unsafe or the work needs new tracking, continue through a fresh governed branch from the current approved base.
+
+Never auto-rename a branch, move dirty work, or infer a backlog association. Hooks are opt-in per worktree; CI rejects any future implementation PR targeting `development` from a legacy name.
 
 ### Items in `Clarificar`
 
 If the item is still in `Clarificar`:
 
 - a branch name can be suggested
-- an implementation PR must still satisfy the tracked or explicitly untracked mode
+- an implementation PR must still satisfy the tracked or explicitly untracked branch mode
 
 ### `Canal formal` and PRs
 
@@ -177,8 +193,8 @@ Do not assume match by textual similarity.
 Valid options:
 
 - create the item and link it
-- complete `Branch` in the correct item
-- use the explicit untracked declaration only when the branch has no Work ID marker and no exact `Branch` association
+- create a tracked branch after the item exists
+- use the explicit no-backlog branch form only when the work deliberately has no Notion item
 
 ### The branch's `Work ID` doesn't exist in Notion
 
@@ -192,10 +208,8 @@ A different non-empty `Branch` does not block a branch whose unique canonical `W
 
 Inspect the working tree before creating or switching branches. Continue on the correct branch when dirty changes are clearly related, with a brief report. If branch creation or switching is required, do not commit, stash, reset, rebase, restore, move changes, or switch automatically. Ask one consolidated question as defined in `docs/change-intake-preflight.md`; recommend a separate worktree for unrelated changes.
 
-## Future Enforcement Recommendation
+## Enforcement
 
-When the local PR wrapper exists:
+The dependency-free validator at `.github/scripts/repository-policy.js` is the syntax source of truth for native hooks and GitHub Actions. Run `./scripts/setup-git-hooks.sh` once in each opting-in worktree to enable tracked local hooks. See [GIT-HOOKS.md](./GIT-HOOKS.md) for setup and limits.
 
-- **implementation PRs** → fail closed if reliable association is missing
-- **promotion PRs** → do not apply this strict validation
-- if minimum context is missing, request correction before creating/regenerating the PR
+GitHub Actions treats every non-promotion PR targeting `development` as implementation work. Promotion flows remain separately modeled as `development -> staging` and `staging -> main`.
