@@ -1,0 +1,78 @@
+{
+  "steps": [
+    {
+      "name": "alpine/git@sha256:1e9d9a40acbd02aeb3cb005ff43f9e51ac09ba0c241bb2298f811d3f426a2ffd",
+      "id": "Verify workspace revision",
+      "entrypoint": "/bin/sh",
+      "args": [
+        "-c",
+        "set -eu\ntest \"$$EXPECTED_COMMIT_SHA\" != \"0000000000000000000000000000000000000000\"\ntest \"$${#EXPECTED_COMMIT_SHA}\" -eq 40\ncase \"$$EXPECTED_COMMIT_SHA\" in *[!0-9a-f]*) echo \"COMMIT_SHA must be a lowercase 40-character Git SHA.\" >&2; exit 1 ;; esac\ngit --version\ngit rev-parse --verify \"$$EXPECTED_COMMIT_SHA^{commit}\" >/dev/null\nactual_sha=\"$$(git rev-parse HEAD^{commit})\"\ntest \"$$actual_sha\" = \"$$EXPECTED_COMMIT_SHA\"\nprintf 'Verified Cloud Build workspace revision %s\\n' \"$$actual_sha\"\n"
+      ],
+      "env": [
+        "EXPECTED_COMMIT_SHA=$COMMIT_SHA"
+      ],
+      "timeout": "60s"
+    },
+    {
+      "name": "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488",
+      "id": "Verify repository package manager",
+      "dir": "teleferico-app",
+      "entrypoint": "bash",
+      "env": [
+        "COREPACK_DEFAULT_TO_LATEST=0"
+      ],
+      "args": [
+        "-c",
+        "set -euo pipefail\ncorepack enable\ntest \"$(corepack pnpm --version)\" = \"10.33.0\"\n"
+      ],
+      "timeout": "60s"
+    },
+    {
+      "name": "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488",
+      "id": "Install locked application dependencies",
+      "dir": "teleferico-app",
+      "entrypoint": "bash",
+      "env": [
+        "COREPACK_DEFAULT_TO_LATEST=0"
+      ],
+      "args": [
+        "-c",
+        "set -euo pipefail\ncorepack pnpm install --frozen-lockfile\n"
+      ],
+      "timeout": "420s"
+    },
+    {
+      "name": "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488",
+      "id": "Install locked Chromium and system dependencies",
+      "dir": "teleferico-app",
+      "entrypoint": "bash",
+      "env": [
+        "COREPACK_DEFAULT_TO_LATEST=0"
+      ],
+      "args": [
+        "-c",
+        "set -euo pipefail\ncorepack pnpm exec playwright install --with-deps chromium\n"
+      ],
+      "timeout": "360s"
+    },
+    {
+      "name": "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488",
+      "id": "Run fixture-backed Chromium smoke suite",
+      "dir": "teleferico-app",
+      "entrypoint": "bash",
+      "env": [
+        "COREPACK_DEFAULT_TO_LATEST=0",
+        "CI=true"
+      ],
+      "args": [
+        "-c",
+        "set -euo pipefail\ncorepack pnpm run test:e2e:smoke\n"
+      ],
+      "timeout": "480s"
+    }
+  ],
+  "timeout": "1200s",
+  "options": {
+    "logging": "CLOUD_LOGGING_ONLY"
+  }
+}

@@ -9,7 +9,7 @@ This file defines the portable repository-wide governance for agents working in 
   - `teleferico-cms` (Strapi): CMS/API backend
 - Separately scoped tooling:
   - `tools/image-pipeline`: local-first image authoring and batch processing. Has its own `AGENTS.md` with self-contained governance. It is NOT part of the public site runtime or the CMS; treat it as an independent tool unless a change explicitly crosses its boundary.
-- Root surfaces: `.githooks/`, `.github/scripts/`, `scripts/`, `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `docs/`, `.agents/`
+- Root surfaces: `.githooks/`, `.github/scripts/`, `scripts/`, `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `docs/`, `.agents/`, `cloudbuild.playwright-e2e.json`
 
 ## Key paths
 
@@ -50,6 +50,7 @@ The following changes are sensitive and must be explicitly called out in a propo
 Automated tests are currently implemented in `teleferico-app` specifically for public forms (postulation, contact) and their security guards. 
 - **Forms and security:** If you modify public forms, rate limiters, or their security layers, you MUST maintain and expand their test coverage using the existing Vitest suite.
 - **Other areas:** The long-term goal is to gradually expand testing coverage across all packages. Introduce tests progressively as new features or critical refactors are made.
+- **Cloud Build Playwright baseline:** `cloudbuild.playwright-e2e.json` executes only the fixture-backed Chromium smoke suite and fails closed unless the trigger `COMMIT_SHA` resolves to a commit equal to `/workspace` `HEAD^{commit}`. It has no live trigger or artifact bucket yet; preserve GitHub Actions parity and do not add secret, IAM, Cloud SQL, Cloud Run, staging, or production dependencies without an explicitly approved work unit.
 
 ## GCP CLI operational rules
 

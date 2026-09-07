@@ -242,6 +242,17 @@ There may also be legacy triggers paused in the console. They are purposefully k
 
 Documentary snapshots of their configurations are versioned in [infra/cloud-build/README.md](infra/cloud-build/README.md).
 
+### Application-test executor baseline
+
+`cloudbuild.playwright-e2e.json` is a repository-owned Cloud Build configuration for the existing fixture-backed Playwright Chromium smoke suite. It is separate from the documentary deployment-trigger snapshots and does not deploy an application.
+
+- Its immutable `alpine/git` image verifies Git is executable, rejects the all-zero SHA, verifies that `COMMIT_SHA^{commit}` resolves in `/workspace`, and fails closed unless it equals `HEAD^{commit}`. Later steps use the immutable Node 22.16.0 Bookworm image, Corepack, the repository-pinned `pnpm@10.33.0`, `pnpm install --frozen-lockfile`, and the lockfile-backed Playwright CLI.
+- The build is bounded to 20 minutes and has separate revision, package-manager, dependency, browser, and smoke-test steps. Failures remain in Cloud Build logs without suppression.
+- No application-test trigger, GitHub PR-check reporter, artifact bucket, secret access, IAM change, Cloud SQL, Cloud Run, staging, or production integration exists in this baseline. A later manual pilot must validate the native GitHub PR trigger's `.git` source metadata and executor behavior before an approved trigger/reporting design is added; source-upload builds without Git metadata intentionally fail closed.
+- The current GitHub Actions Playwright workflow remains the parity executor until a later work unit provides accepted Cloud Build evidence. This configuration neither replaces application testing in GitHub Actions nor changes repository-governance workflows.
+
+Read-only repository validation is `node --test .github/scripts/playwright-e2e.test.js`; it does not submit a build or access GCP.
+
 ### 6.1 Documentary snapshots
 
 - `docs/infra/cloud-build/app-staging.yaml`

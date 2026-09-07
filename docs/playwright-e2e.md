@@ -27,6 +27,22 @@ The workflow uses `pnpm install --frozen-lockfile` and the lockfile-backed `pnpm
 
 Repository administrators must mark the `Playwright Chromium smoke` and `Playwright Chromium full` checks as required for their respective `development` and `staging` branch protection rules.
 
+## Cloud Build fixture baseline
+
+- `cloudbuild.playwright-e2e.json` is the versioned Cloud Build application-test executor for the existing fixture-backed Chromium smoke suite. Its pinned `alpine/git` image verifies Git is executable, rejects the all-zero SHA, verifies `COMMIT_SHA^{commit}`, and fails closed unless that commit exactly equals `HEAD^{commit}` before package execution.
+- The executor uses the Node 22.16.0 Bookworm image pinned by immutable digest, Corepack with the repository's `pnpm@10.33.0`, `pnpm install --frozen-lockfile`, and the lockfile-backed Playwright CLI to install only Chromium with its required system dependencies.
+- Each setup and test stage has its own timeout; the whole build is bounded to 20 minutes. A command failure remains a Cloud Build failure and is visible in Cloud Build logs.
+- This baseline has no Cloud Build trigger, PR-check reporter, bucket-backed artifact upload, secret, or IAM dependency yet. The later manual pilot must use the native GitHub PR trigger source path and verify that it supplies `.git` metadata; source-upload builds without that metadata intentionally fail closed. The pilot must validate exact-SHA execution, logs, and result behavior before a trigger reports checks; failure-artifact storage requires a separately approved bucket and access policy.
+- GitHub Actions remains intact during parity. The Cloud Build baseline does not replace or disable `.github/workflows/playwright-e2e.yml`.
+
+### Read-only configuration validation
+
+```bash
+node --test .github/scripts/playwright-e2e.test.js
+```
+
+This validates the repository-owned Cloud Build configuration without installing packages, submitting a build, or accessing GCP.
+
 ## Troubleshooting
 
 - Inspect the uploaded `playwright-report` and `test-results` artifacts for failed CI jobs.

@@ -96,6 +96,7 @@ This file is the package-local guardrail source for `teleferico-app`: it complem
 - Any change to `src/lib/http/guards`, `src/lib/services/form-protection.ts`, or the form API routes MUST be backed by passing tests.
 - Run `pnpm run test` to verify changes in these domains.
 - Playwright E2E tests are Chromium-only. `pnpm run test:e2e` starts or reuses test-only local CMS fixtures and Next.js servers; do not add production-accessible test bypasses.
+- The repository-level Cloud Build baseline at `../cloudbuild.playwright-e2e.json` runs the unchanged fixture-backed smoke suite only and fails closed when `COMMIT_SHA^{commit}` cannot be verified against `HEAD^{commit}`. It must remain secretless and must not introduce real Strapi, PostgreSQL, Cloud SQL, Cloud Run, staging, or production dependencies before the dedicated follow-up work unit.
 
 ## Architecture & conventions
 
