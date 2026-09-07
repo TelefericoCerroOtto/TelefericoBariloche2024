@@ -32,7 +32,17 @@ on:
       - .github/scripts/*.test.js
       - .github/scripts/github-notion-sync.js
       - .github/scripts/github-notion-sync.test.js
+      - .github/scripts/repository-policy.js
+      - .github/scripts/repository-policy.test.js
       - .github/workflows/backlog-governance.yml
+      - .githooks/**
+      - .agents/skills/suggest-branch-name/SKILL.md
+      - scripts/setup-git-hooks.sh
+      - AGENTS.md
+      - docs/CONVENTIONS.md
+      - docs/GIT-HOOKS.md
+      - docs/backlog-branch-pr-policy.md
+      - docs/todo-workflow.md
       - docs/CI-AUTOMATION.md
   pull_request_target:
     types: [opened, reopened, edited, synchronize, ready_for_review, closed]
