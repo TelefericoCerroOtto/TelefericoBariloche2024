@@ -20,7 +20,7 @@ Also support branch suggestion from a backlog item when there are no local chang
 - Words MUST be separated by hyphens (kebab-case).
 - The branch name MUST start with a valid conventional commit type (e.g., `feat/`, `fix/`, `chore/`, `refactor/`, `docs/`, `style/`, `test/`).
 - The branch name SHOULD include the scope if it is clear from the changes. Use the directory conventions from `docs/CONVENTIONS.md` if applicable (`app`, `cms`, `tools`, `root`).
-- If the work is linked to a backlog row with `Work ID`, include it in the branch name after `<dir>` using the format `<type>/<dir>-<work-id>-<slug>`.
+- If the work is linked to a backlog row with `Work ID`, use `<type>/<dir>-tb-<digits>-<slug>`. Otherwise, use `<type>/<dir>-no-backlog-<slug>` only when work is deliberately without a Notion item.
 - Keep the branch name concise but descriptive.
 
 ## Execution Steps
@@ -30,7 +30,7 @@ Also support branch suggestion from a backlog item when there are no local chang
 3. Determine the primary type of the change (`feat`, `fix`, `chore`, etc.).
 4. Determine the primary directory/scope (`app`, `cms`, `tools`, `root`, etc.).
 5. If there are no meaningful local changes but a backlog item is provided, derive type/dir/slug from that item.
-6. If a backlog `Work ID` is available, formulate 3 options using `<type>/<dir>-<work-id>-<slug>`; otherwise fall back to `<type>/<dir>-<scope>/<description>` or `<type>/<description>`.
+6. Formulate 3 options using either `<type>/<dir>-tb-<digits>-<slug>` or the explicit `<type>/<dir>-no-backlog-<slug>` form. Never suggest legacy fallback shapes.
 7. Present the options to the user with a brief explanation of why they were chosen.
 
 ## Output Contract
