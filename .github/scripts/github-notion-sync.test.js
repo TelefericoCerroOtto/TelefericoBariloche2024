@@ -9,6 +9,7 @@ const repository = { owner: "acme", repo: "teleferico", slug: "acme/teleferico" 
 const branch = "fix/root-tb-103-governance";
 const workflowPath = path.join(__dirname, "..", "workflows", "backlog-governance.yml");
 const docsPath = path.join(__dirname, "..", "..", "docs", "CI-AUTOMATION.md");
+const conventionsPath = path.join(__dirname, "..", "..", "docs", "CONVENTIONS.md");
 const issueContractPath = path.join(__dirname, "..", "..", "docs", "issue-context-contract.md");
 const scriptPath = path.join(__dirname, "github-notion-sync.js");
 
@@ -32,7 +33,7 @@ function config(overrides = {}) {
     properties: { workId: "Work ID", status: "Estado", formalChannel: "Canal formal", formalLink: "Enlace formal", branch: "Branch" },
     statuses: { done: "Hecho" },
     formalChannelName: "GitHub Issue",
-    pullRequest: { number: 42, headRef: branch, baseRef: "development", action: "opened", body: "## Related Issues\nRefs #191", merged: false, headRepository: repository.slug },
+    pullRequest: { number: 42, headRef: branch, baseRef: "development", action: "opened", body: "## Related Issues\nRefs #191", headSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", merged: false, headRepository: repository.slug },
     renderMarkdown: async () => "<h2>Related Issues</h2>\n<p>Refs #191</p>",
   };
   return { ...defaults, ...overrides, pullRequest: { ...defaults.pullRequest, ...overrides.pullRequest } };
@@ -54,6 +55,42 @@ function item({ channel = "GitHub Issue", link = "https://github.com/acme/telefe
 
 function renderedRelated(content = "Refs #191") { return `<h2>Related Issues</h2>\n<p>${content}</p>`; }
 function mockFetch(handler) { global.fetch = async (url, options = {}) => handler(String(url), options); }
+function renderedPromotion({
+  environment = "staging",
+  validationLabel = "Plan",
+  validation = "Run the booking and administration checks.",
+  included = ["#191"],
+  rollback = "Revert this promotion PR.",
+  releaseCandidateSha = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  releaseIntent = "",
+  advancementFinalization = "",
+} = {}) {
+  return [
+    "<h2>Included Implementation PRs</h2>",
+    ...included.map((reference) => `<p>PR: ${reference}</p>`),
+    "<h2>Release Target</h2>",
+    `<p>Environment: ${environment}</p>`,
+    "<h2>Validation</h2>",
+    `<p>${validationLabel}: ${validation}</p>`,
+    releaseCandidateSha ? `<p>Release candidate SHA: ${releaseCandidateSha}</p>` : "",
+    "<h2>Rollback</h2>",
+    `<p>Strategy: ${rollback}</p>`,
+    releaseIntent,
+    advancementFinalization,
+  ].join("");
+}
+
+function renderedAdvancementFinalization(issueNumber = 191) {
+  return `<h2>Advancement Finalization</h2><p>Issue: #${issueNumber}</p><p>Remaining work or condition: Verify the production smoke result.</p><p>Finalization owner: Release manager.</p><p>Finalization event or action: Close the issue after the smoke workflow passes.</p>`;
+}
+
+function mockIncludedPullRequests() {
+  mockFetch((url) => {
+    const match = url.match(/\/pulls\/(\d+)$/);
+    if (!match) throw new Error(`Unexpected request ${url}`);
+    return response(200, { number: Number(match[1]), html_url: `https://github.com/acme/teleferico/pull/${match[1]}` });
+  });
+}
 
 test("renders PR Markdown through GitHub GFM with repository context", async () => {
   let request;
@@ -93,13 +130,14 @@ test("uses GitHub-rendered visible semantics for adversarial GFM cases", () => {
 });
 
 test("main promotion validation supports phased delivery declarations", async () => {
+  mockIncludedPullRequests();
   const cases = [
-    ["advances only", "<p>Advances #191</p>", null],
-    ["advances and closes different issues", "<p>Advances #191</p><p>Closes #192</p>", null],
-    ["advances and closes the same issue", "<p>Advances #191</p><p>Closes #191</p>", /cannot both advance and close issue #191/],
-    ["advances and no formal issues", "<p>Advances #191</p><p>Formal issues: none</p>", /cannot mix advancing references with Formal issues: none/],
-    ["closes and no formal issues", "<p>Closes #191</p><p>Formal issues: none</p>", /cannot mix closing references with Formal issues: none/],
-    ["no declaration", "<p>Production promotion</p>", /closing references, advancing references, or 'Formal issues: none'/],
+    ["advances only", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Advances #191</p>", advancementFinalization: renderedAdvancementFinalization() }), null],
+    ["advances and closes different issues", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Advances #191</p><p>Closes #192</p>", advancementFinalization: renderedAdvancementFinalization() }), null],
+    ["advances and closes the same issue", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Advances #191</p><p>Closes #191</p>" }), /cannot both advance and close issue #191/],
+    ["advances and no formal issues", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Advances #191</p><p>Formal issues: none</p>" }), /cannot mix advancing references with Formal issues: none/],
+    ["closes and no formal issues", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Closes #191</p><p>Formal issues: none</p>" }), /cannot mix closing references with Formal issues: none/],
+    ["no declaration", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence" }), /closing references, advancing references, or 'Formal issues: none'/],
   ];
   for (const [name, html, expectedError] of cases) {
     const promotion = config({
@@ -109,6 +147,97 @@ test("main promotion validation supports phased delivery declarations", async ()
     if (expectedError) await assert.rejects(governance.validatePrPolicy(promotion), expectedError, name);
     else await governance.validatePrPolicy(promotion);
   }
+});
+
+test("main promotions require deterministic finalization paths for Advances declarations", async () => {
+  const cases = [
+    ["missing finalization", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Advances #191</p>" }), /Advancement Finalization/],
+    ["empty owner", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Advances #191</p>", advancementFinalization: renderedAdvancementFinalization().replace("Finalization owner: Release manager.", "Finalization owner: ") }), /non-empty 'Finalization owner: ...'/],
+    ["unmatched issue", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Advances #191</p>", advancementFinalization: renderedAdvancementFinalization(192) }), /issue #192 has no matching Advances declaration/],
+    ["duplicate declaration", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Advances #191</p><p>Advances #191</p>", advancementFinalization: renderedAdvancementFinalization() }), /same Advances #<number> reference more than once/],
+  ];
+  for (const [name, html, expectedError] of cases) {
+    await assert.rejects(governance.validatePrPolicy(config({
+      pullRequest: { headRef: "staging", baseRef: "main" },
+      renderMarkdown: async () => html,
+    })), expectedError, name);
+  }
+});
+
+test("main promotions bind prior staging evidence to the current release candidate SHA", async () => {
+  mockIncludedPullRequests();
+  await governance.validatePrPolicy(config({
+    pullRequest: { headRef: "staging", baseRef: "main" },
+    renderMarkdown: async () => renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Formal issues: none</p>" }),
+  }));
+
+  const candidateCases = [
+    ["missing candidate", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseCandidateSha: "", releaseIntent: "<p>Formal issues: none</p>" }), {}, /Release candidate SHA: .../],
+    ["malformed candidate", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseCandidateSha: "candidate", releaseIntent: "<p>Formal issues: none</p>" }), {}, /full 40-character hexadecimal/],
+    ["candidate mismatch", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseCandidateSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", releaseIntent: "<p>Formal issues: none</p>" }), {}, /match the PR head SHA/],
+    ["missing runtime SHA", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Formal issues: none</p>" }), { headSha: "" }, /PR head SHA from runtime metadata/],
+    ["malformed runtime SHA", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Formal issues: none</p>" }), { headSha: "not-a-sha" }, /PR head SHA from runtime metadata/],
+    ["blockquote-only candidate", renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseCandidateSha: "", releaseIntent: "<p>Formal issues: none</p>" }) + "<blockquote><p>Release candidate SHA: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</p></blockquote>", {}, /Release candidate SHA: .../],
+  ];
+  for (const [name, html, pullRequest, expectedError] of candidateCases) {
+    await assert.rejects(governance.validatePrPolicy(config({
+      pullRequest: { headRef: "staging", baseRef: "main", ...pullRequest },
+      renderMarkdown: async () => html,
+    })), expectedError, name);
+  }
+});
+
+test("promotion body contract requires visible route-specific release metadata", async () => {
+  const requestedPullRequests = [];
+  mockFetch((url) => {
+    const match = url.match(/\/pulls\/(\d+)$/);
+    if (!match) throw new Error(`Unexpected request ${url}`);
+    requestedPullRequests.push(Number(match[1]));
+    return response(200, { number: Number(match[1]) });
+  });
+
+  await governance.validatePrPolicy(config({
+    pullRequest: { headRef: "development", baseRef: "staging" },
+    renderMarkdown: async () => renderedPromotion(),
+  }));
+  await governance.validatePrPolicy(config({
+    pullRequest: { headRef: "staging", baseRef: "main" },
+    renderMarkdown: async () => renderedPromotion({ environment: "production", validationLabel: "Prior staging validation evidence", releaseIntent: "<p>Formal issues: none</p>" }),
+  }));
+  assert.deepEqual(requestedPullRequests, [191, 191]);
+
+  const cases = [
+    ["missing section", "<h2>Included Implementation PRs</h2><p>PR: #191</p>", /Release Target/],
+    ["empty field", renderedPromotion({ validation: "" }), /non-empty 'Plan: ...'/],
+    ["duplicate section", `${renderedPromotion()}<h2>Rollback</h2><p>Strategy: Duplicate.</p>`, /must not duplicate.*Rollback/],
+    ["malformed reference", renderedPromotion({ included: ["not-a-number"] }), /PR: #<number>/],
+    ["duplicate reference", renderedPromotion({ included: ["#191", "#191"] }), /must not duplicate included implementation PR references/],
+    ["route contradiction", renderedPromotion({ environment: "production" }), /Environment: staging/],
+    ["blockquote-only metadata", "<h2>Included Implementation PRs</h2><p>PR: #191</p><h2>Release Target</h2><p>Environment: staging</p><h2>Validation</h2><p>Plan: Check staging.</p><blockquote><h2>Rollback</h2><p>Strategy: Revert.</p></blockquote>", /Rollback/],
+    ["hidden-only reference", "<details><h2>Included Implementation PRs</h2><p>PR: #191</p></details><h2>Release Target</h2><p>Environment: staging</p><h2>Validation</h2><p>Plan: Check staging.</p><h2>Rollback</h2><p>Strategy: Revert.</p>", /Included Implementation PRs/],
+    ["code-block-only reference", "<pre><code><h2>Included Implementation PRs</h2><p>PR: #191</p></code></pre><h2>Release Target</h2><p>Environment: staging</p><h2>Validation</h2><p>Plan: Check staging.</p><h2>Rollback</h2><p>Strategy: Revert.</p>", /Included Implementation PRs/],
+  ];
+  for (const [name, html, expectedError] of cases) {
+    await assert.rejects(governance.validatePrPolicy(config({
+      pullRequest: { headRef: "development", baseRef: "staging" },
+      renderMarkdown: async () => html,
+    })), expectedError, name);
+  }
+});
+
+test("staging promotions reject closing references after satisfying the release metadata contract", async () => {
+  await assert.rejects(governance.validatePrPolicy(config({
+    pullRequest: { headRef: "development", baseRef: "staging" },
+    renderMarkdown: async () => renderedPromotion({ releaseIntent: "<p>Closes #191</p>" }),
+  })), /development to staging must NOT close issues/);
+});
+
+test("promotion validation rejects an included reference that is not a pull request", async () => {
+  mockFetch(() => response(404, {}));
+  await assert.rejects(governance.validatePrPolicy(config({
+    pullRequest: { headRef: "development", baseRef: "staging" },
+    renderMarkdown: async () => renderedPromotion(),
+  })), /GitHub GET .*\/pulls\/191 failed with status 404/);
 });
 
 test("requires visible Tracking and final visible Related Issues sections", () => {
@@ -395,6 +524,7 @@ test("workflow serializes only trusted sync runs for the same PR", () => {
   assert.match(syncJob, /concurrency:\n\s+group: backlog-governance-pr-\$\{\{ github\.event\.pull_request\.number \}\}/);
   assert.doesNotMatch(workflow, /^concurrency:/m);
   assert.match(validateJob, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
+  assert.match(validateJob, /PR_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| inputs\.pr_head_sha \}\}/);
   assert.match(syncJob, /if: github\.event_name == 'pull_request_target' && github\.event\.pull_request\.head\.repo\.full_name == github\.repository/);
   assert.match(syncJob, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
   assert.match(syncJob, /needs: \[governance-tests, validate-pr-policy\]/);
@@ -403,8 +533,13 @@ test("workflow serializes only trusted sync runs for the same PR", () => {
 
 test("documentation identifies append-only issue comments as authoritative", () => {
   const docs = fs.readFileSync(docsPath, "utf8");
+  const conventions = fs.readFileSync(conventionsPath, "utf8");
   const contract = fs.readFileSync(issueContractPath, "utf8");
   assert.match(docs, /append-only issue comments/i);
+  assert.match(docs, /Included Implementation PRs/);
+  assert.match(conventions, /Prior staging validation evidence/);
+  assert.match(conventions, /Release candidate SHA/);
+  assert.match(conventions, /Advancement Finalization/);
   assert.match(contract, /authoritative mechanism for new synchronization/i);
   assert.doesNotMatch(contract, /managed:related-prs:start/);
 });

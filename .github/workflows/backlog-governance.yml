@@ -15,6 +15,10 @@ on:
         description: PR body content
         required: false
         type: string
+      pr_head_sha:
+        description: PR head commit SHA; required for staging-to-main validation
+        required: false
+        type: string
       pr_action:
         description: PR action
         required: false
@@ -91,6 +95,7 @@ jobs:
           PR_ACTION: ${{ github.event.action || inputs.pr_action }}
           PR_MERGED: ${{ github.event.pull_request.merged || inputs.pr_merged }}
           PR_BODY: ${{ github.event.pull_request.body || inputs.pr_body }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.pr_head_sha }}
           PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || '' }}
         run: node .github/scripts/github-notion-sync.js validate-pr-policy
 
