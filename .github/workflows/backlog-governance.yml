@@ -28,6 +28,8 @@ on:
         type: boolean
   pull_request:
     paths:
+      - .github/scripts/*.js
+      - .github/scripts/*.test.js
       - .github/scripts/github-notion-sync.js
       - .github/scripts/github-notion-sync.test.js
       - .github/workflows/backlog-governance.yml
@@ -46,7 +48,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - run: node --test .github/scripts/github-notion-sync.test.js
+      - run: node --test .github/scripts/*.test.js
 
   validate-pr-policy:
     if: github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch'

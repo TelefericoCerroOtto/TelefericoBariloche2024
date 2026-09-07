@@ -19,15 +19,38 @@
 # - POSTULATION_EMAIL_LIMIT_MAX=2
 # - POSTULATION_EMAIL_LIMIT_WINDOW_MS=2592000000
 # - Live secret/env wiring for Redis must later go through the Docker MCP google-cloud-sdk container path, not this doc snapshot alone.
+# TB-119: the GitHub deployment reporter image is pinned to the Docker Hub
+# node:22.16.0-bookworm-slim linux/amd64 OCI image manifest verified on 2026-09-04.
 
 steps:
+  - name: node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488
+    id: GitHub deployment start
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        node .github/scripts/github-deployment.js start
+    env:
+      - GITHUB_DEPLOYMENTS_APP_ID=${_GITHUB_DEPLOYMENTS_APP_ID}
+      - GITHUB_DEPLOYMENTS_INSTALLATION_ID=${_GITHUB_DEPLOYMENTS_INSTALLATION_ID}
+      - GITHUB_DEPLOYMENTS_REPOSITORY=${_GITHUB_DEPLOYMENTS_REPOSITORY}
+      - GITHUB_DEPLOYMENTS_ENVIRONMENT=${_GITHUB_DEPLOYMENTS_ENVIRONMENT}
+      - GITHUB_DEPLOYMENTS_ENVIRONMENT_URL=${_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL}
+      - GITHUB_DEPLOYMENTS_LOG_URL=https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID
+      - GITHUB_DEPLOYMENTS_TARGET_URL=https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID
+      - BUILD_ID=$BUILD_ID
+      - GITHUB_DEPLOYMENTS_COMMIT_SHA=$COMMIT_SHA
+      - GITHUB_DEPLOYMENTS_METADATA_PATH=/workspace/github-deployment-metadata.json
+    secretEnv:
+      - GITHUB_DEPLOYMENTS_APP_PRIVATE_KEY
   - name: gcr.io/k8s-skaffold/pack
     args:
       - "-c"
-      - >
-        pack build
-        "$_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
-        \
+      - |
+        set -u
+        pack build \
+          "$_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA" \
           --builder="gcr.io/buildpacks/builder:google-22" \
           --network=cloudbuild \
           --path=teleferico-app \
@@ -61,6 +84,11 @@ steps:
           --env="NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${_BUILD_NEXT_PUBLIC_RECAPTCHA_SITE_KEY}" \
           --env="ENABLE_STATIC_LOCALE_PARAMS=${_ENABLE_STATIC_LOCALE_PARAMS}" \
           --env="BUILD_STRAPI_CONTENT_TOKEN=$$APP__STAGING__BUILD_STRAPI_CONTENT_TOKEN"
+        command_exit=$?
+        if [ "$command_exit" -ne 0 ]; then
+          printf 'build:%s\n' "$command_exit" > /workspace/github-deployment-command-result
+        fi
+        exit 0
     id: Buildpack
     entrypoint: sh
     secretEnv:
@@ -69,7 +97,11 @@ steps:
     args:
       - "-c"
       - |
-        set -euo pipefail
+        set -u
+
+        if [ -f /workspace/github-deployment-command-result ]; then
+          exit 0
+        fi
 
         gcloud run deploy "${_SERVICE_NAME}" \
           --image "${_AR_HOSTNAME}/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/${_SERVICE_NAME}:$COMMIT_SHA" \
@@ -90,8 +122,39 @@ steps:
           --set-env-vars "BUILD_STRAPI_BASE_URL=${_BUILD_STRAPI_BASE_URL},AUTH_TRUST_HOST=${_AUTH_TRUST_HOST},NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${_BUILD_NEXT_PUBLIC_RECAPTCHA_SITE_KEY},NEXT_PUBLIC_SITE_URL=${_NEXT_PUBLIC_SITE_URL},APP_INTERNAL_BASE_URL=${_APP_INTERNAL_BASE_URL},ENABLE_STATIC_LOCALE_PARAMS=${_ENABLE_STATIC_LOCALE_PARAMS},BUILD_STRAPI_BUCKET_HOSTNAME=${_BUILD_STRAPI_BUCKET_HOSTNAME},BUILD_STRAPI_BUCKET_PATHNAME=${_BUILD_STRAPI_BUCKET_PATHNAME},GMAIL_SENDER=${_GMAIL_SENDER},GMAIL_RECEIVER=${_GMAIL_RECEIVER},CV_STORAGE_DRIVER=${_CV_STORAGE_DRIVER},GCS_BUCKET_NAME=${_GCS_BUCKET_NAME},GCS_PRIVATE_BASE_PATH=${_GCS_PRIVATE_BASE_PATH},GCS_SIGNED_URL_TTL_SECONDS=${_GCS_SIGNED_URL_TTL_SECONDS},FORM_PROTECTION_REDIS_NAMESPACE=${_FORM_PROTECTION_REDIS_NAMESPACE},FORM_PROTECTION_REDIS_CONNECT_TIMEOUT_MS=${_FORM_PROTECTION_REDIS_CONNECT_TIMEOUT_MS},CONTACT_RATE_LIMIT_ENABLED=${_CONTACT_RATE_LIMIT_ENABLED},CONTACT_RATE_LIMIT_MAX=${_CONTACT_RATE_LIMIT_MAX},CONTACT_RATE_LIMIT_WINDOW_MS=${_CONTACT_RATE_LIMIT_WINDOW_MS},CONTACT_EMAIL_LIMIT_ENABLED=${_CONTACT_EMAIL_LIMIT_ENABLED},CONTACT_EMAIL_LIMIT_MAX=${_CONTACT_EMAIL_LIMIT_MAX},CONTACT_EMAIL_LIMIT_WINDOW_MS=${_CONTACT_EMAIL_LIMIT_WINDOW_MS},POSTULATION_RATE_LIMIT_ENABLED=${_POSTULATION_RATE_LIMIT_ENABLED},POSTULATION_RATE_LIMIT_MAX=${_POSTULATION_RATE_LIMIT_MAX},POSTULATION_RATE_LIMIT_WINDOW_MS=${_POSTULATION_RATE_LIMIT_WINDOW_MS},POSTULATION_EMAIL_LIMIT_ENABLED=${_POSTULATION_EMAIL_LIMIT_ENABLED},POSTULATION_EMAIL_LIMIT_MAX=${_POSTULATION_EMAIL_LIMIT_MAX},POSTULATION_EMAIL_LIMIT_WINDOW_MS=${_POSTULATION_EMAIL_LIMIT_WINDOW_MS},MAINTENANCE_MODE=${_MAINTENANCE_MODE}" \
           --set-secrets "INTERNAL_API_KEY=APP__STAGING__INTERNAL_API_KEY:latest,STRAPI_FORMS_TOKEN=APP__STAGING__STRAPI_FORMS_TOKEN:latest,FORM_PROTECTION_REDIS_URL=APP__STAGING__FORM_PROTECTION_REDIS_URL:latest,BUILD_STRAPI_CONTENT_TOKEN=APP__STAGING__BUILD_STRAPI_CONTENT_TOKEN:latest,AUTH_SECRET=APP__STAGING__AUTH_SECRET:latest,RECAPTCHA_SECRET_KEY=APP__STAGING__RECAPTCHA_SECRET_KEY:latest,GOOGLE_CLIENT_ID=APP__STAGING__GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=APP__STAGING__GOOGLE_CLIENT_SECRET:latest,OAUTH_REFRESH_TOKEN=APP__STAGING__OAUTH_REFRESH_TOKEN:latest,CSRF_STATE_SECRET=APP__STAGING__CSRF_STATE_SECRET:latest,INIT_TOKEN=APP__STAGING__INIT_TOKEN:latest" \
           --quiet
+        command_exit=$?
+        if [ "$command_exit" -ne 0 ]; then
+          printf 'deploy:%s\n' "$command_exit" > /workspace/github-deployment-command-result
+        fi
+        exit 0
     id: Deploy
     entrypoint: bash
+  - name: node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488
+    id: GitHub deployment finish
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -u
+        if [ -f /workspace/github-deployment-command-result ]; then
+          IFS=: read -r phase command_exit < /workspace/github-deployment-command-result
+          GITHUB_DEPLOYMENTS_STATE=failure node .github/scripts/github-deployment.js finish || true
+          exit "$command_exit"
+        fi
+        GITHUB_DEPLOYMENTS_STATE=success node .github/scripts/github-deployment.js finish
+    env:
+      - GITHUB_DEPLOYMENTS_APP_ID=${_GITHUB_DEPLOYMENTS_APP_ID}
+      - GITHUB_DEPLOYMENTS_INSTALLATION_ID=${_GITHUB_DEPLOYMENTS_INSTALLATION_ID}
+      - GITHUB_DEPLOYMENTS_REPOSITORY=${_GITHUB_DEPLOYMENTS_REPOSITORY}
+      - GITHUB_DEPLOYMENTS_ENVIRONMENT=${_GITHUB_DEPLOYMENTS_ENVIRONMENT}
+      - GITHUB_DEPLOYMENTS_ENVIRONMENT_URL=${_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL}
+      - GITHUB_DEPLOYMENTS_LOG_URL=https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID
+      - GITHUB_DEPLOYMENTS_TARGET_URL=https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=$PROJECT_ID
+      - BUILD_ID=$BUILD_ID
+      - GITHUB_DEPLOYMENTS_COMMIT_SHA=$COMMIT_SHA
+      - GITHUB_DEPLOYMENTS_METADATA_PATH=/workspace/github-deployment-metadata.json
+    secretEnv:
+      - GITHUB_DEPLOYMENTS_APP_PRIVATE_KEY
 options:
   substitutionOption: ALLOW_LOOSE
   logging: CLOUD_LOGGING_ONLY
@@ -136,6 +199,11 @@ substitutions:
   _GMAIL_SENDER: info@telefericobariloche.com.ar
   _GMAIL_RECEIVER: info@telefericobariloche.com.ar
   _MAINTENANCE_MODE: "false"
+  _GITHUB_DEPLOYMENTS_APP_ID: "4831348"
+  _GITHUB_DEPLOYMENTS_INSTALLATION_ID: "159079404"
+  _GITHUB_DEPLOYMENTS_REPOSITORY: TelefericoCerroOtto/TelefericoBariloche2024
+  _GITHUB_DEPLOYMENTS_ENVIRONMENT: staging
+  _GITHUB_DEPLOYMENTS_ENVIRONMENT_URL: https://app-staging-teleferico-384535443802.southamerica-east1.run.app
 tags:
   - gcp-cloud-build-deploy-cloud-run
   - gcp-cloud-build-deploy-cloud-run-managed
@@ -145,3 +213,6 @@ availableSecrets:
     - versionName: >-
         projects/384535443802/secrets/APP__STAGING__BUILD_STRAPI_CONTENT_TOKEN/versions/latest
       env: APP__STAGING__BUILD_STRAPI_CONTENT_TOKEN
+    - versionName: >-
+        projects/384535443802/secrets/APP__PRODUCTION__GITHUB_DEPLOYMENTS_APP_PRIVATE_KEY/versions/latest
+      env: GITHUB_DEPLOYMENTS_APP_PRIVATE_KEY
