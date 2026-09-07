@@ -69,25 +69,26 @@ Each item is represented as **one row** with these properties:
 - `Work ID` is the stable work identifier. It doesn't change even if the branch changes.
 - `Branch` stores one concrete active or representative branch, if useful. It does not replace `Work ID` as the stable identity.
 - Record additional fresh follow-up branches in `Notas`.
-- The recommended branch convention is:
+- Implementation branches use one required convention:
 
 ```text
-<type>/<dir>-<work-id>-<slug>
+<type>/<dir>-tb-<digits>-<slug>
+<type>/<dir>-no-backlog-<slug>
 ```
 
 Examples:
 
 - `fix/app-tb-066-login-refresh`
-- `chore/infra-tb-067-pause-legacy-vm`
+- `chore/root-tb-067-pause-legacy-vm`
 - `feat/cms-tb-068-page-seo-fields`
 
 Rules:
 
 - `type` follows Conventional Commits (`feat`, `fix`, `chore`, `refactor`, etc.)
 - `dir` follows `docs/CONVENTIONS.md` (`app`, `cms`, `tools`, `root`, or compound if applicable)
-- `work-id` must come from the `Work ID` field
+- `tb-<digits>` must come from the `Work ID` field; no-backlog work must use the literal `no-backlog` marker
 - `slug` must be short, descriptive, and in kebab-case
-- governance resolves one canonical `Work ID` first; only marker-free legacy branches use exact `Branch` matching
+- governance resolves one canonical `Work ID` from the tracked branch form; `Branch` is metadata and never a fallback association
 - a different or empty Notion `Branch` cannot veto a uniquely resolved `Work ID`
 - The complete policy for association between backlog, branches, and implementation PRs lives in `docs/backlog-branch-pr-policy.md`.
 
@@ -219,7 +220,7 @@ When an agent receives an instruction like "add a TODO", "triage this backlog it
 4. respect the statuses and properties in this document
 5. not write new items in `TODO.md` or legacy checklists
 6. not assume that every clear task ends in a GitHub Issue; first choose the correct `Canal formal`
-7. if a branch is created or suggested, use `Work ID` in the preferred `<type>/<dir>-<work-id>-<slug>` format and record one active or representative branch in `Branch` when useful
+7. if a branch is created or suggested, use `<type>/<dir>-tb-<digits>-<slug>` for tracked work or the explicit `<type>/<dir>-no-backlog-<slug>` form for deliberately untracked work, then record one active or representative branch in `Branch` when useful
 8. not trigger formalization by implicit cron: promotion to formal artifact is decided and executed explicitly
 
 For concrete proposals, implementation requests, follow-ups, and regressions, run the intent and Git preflight in `docs/change-intake-preflight.md` before implementation edits.

@@ -154,25 +154,32 @@ test("canonical Work ID remains tracked when Notion Branch is empty", async () =
   await governance.validatePrPolicy(config());
 });
 
-test("a marker-free branch still uses exact Notion Branch matching as a legacy fallback", async () => {
-  const legacyBranch = "fix/root-legacy-governance";
-  mockFetch((url) => {
-    if (url.includes("api.notion.com")) return response(200, { results: [item({ itemBranch: legacyBranch })], has_more: false });
-    return response(200, { number: 191, html_url: "https://github.com/acme/teleferico/issues/191" });
-  });
-  await governance.validatePrPolicy(config({ pullRequest: { headRef: legacyBranch } }));
+test("no-backlog branches require the visible tracking declaration without querying Notion", async () => {
+  let calls = 0;
+  mockFetch(() => { calls += 1; return response(200, {}); });
+  await governance.validatePrPolicy(config({
+    pullRequest: { headRef: "chore/root-no-backlog-policy-maintenance", body: "## Tracking\nBacklog item: none\nReason: Repository-only maintenance." },
+    renderMarkdown: async () => "<h2>Tracking</h2><p>Backlog item: none\nReason: Repository-only maintenance.</p>",
+  }));
+  assert.equal(calls, 0);
+  await assert.rejects(governance.validatePrPolicy(config({
+    pullRequest: { headRef: "chore/root-no-backlog-policy-maintenance" },
+    renderMarkdown: async () => "<p>Missing tracking declaration.</p>",
+  })), /visible ## Tracking/);
 });
 
-test("malformed, repeated, and multiple Work ID markers fail before legacy fallback", async () => {
+test("missing no-backlog markers, malformed markers, and unknown prefixes fail before external requests", async () => {
   const cases = [
-    ["malformed", "fix/root-tb103-governance", /malformed Work ID/],
-    ["repeated", "fix/root-tb-103-tb-103-governance", /exactly one canonical/],
-    ["multiple", "fix/root-tb-103-tb-104-governance", /exactly one canonical/],
+    ["missing marker", "fix/root-legacy-governance"],
+    ["malformed", "fix/root-tb103-governance"],
+    ["repeated", "fix/root-tb-103-tb-103-governance"],
+    ["multiple", "fix/root-tb-103-tb-104-governance"],
+    ["unknown prefix", "feature/root-tb-103-governance"],
   ];
-  for (const [name, headRef, expected] of cases) {
+  for (const [name, headRef] of cases) {
     let calls = 0;
     mockFetch(() => { calls += 1; return response(200, { results: [item({ itemBranch: headRef })], has_more: false }); });
-    await assert.rejects(governance.validatePrPolicy(config({ pullRequest: { headRef } })), expected, name);
+    await assert.rejects(governance.validatePrPolicy(config({ pullRequest: { headRef } })), /must use|unsupported type|exactly one complete Work ID/, name);
     assert.equal(calls, 0, name);
   }
 });
@@ -197,16 +204,39 @@ test("unknown and ambiguous Work IDs fail without querying the Branch fallback",
   }
 });
 
-test("Unicode word boundaries do not detect tb inside words and reject punctuation-bound malformed markers", () => {
-  for (const branchName of ["fix/ñtb-103", "fix/漢tb-103", "fix/é-tb-103ñ"]) {
-    const markers = governance.extractWorkIdMarkers(branchName);
-    assert.equal(markers.canonical.length, 0, branchName);
-    if (branchName.endsWith("ñ")) assert.ok(markers.malformed.length, branchName);
-  }
-  for (const marker of ["tb@103", "tb=103", "tb%103", "tb--103"]) {
-    assert.ok(governance.extractWorkIdMarkers(`fix/root-${marker}`).malformed.length, marker);
-  }
-  assert.deepEqual(governance.extractWorkIdMarkers("fix/root-tb-103-governance").canonical, ["TB-103"]);
+test("PR commit validation reads trusted GitHub commit metadata and fails malformed messages", async () => {
+  const commitConfig = config({ validateCommitMessages: true });
+  mockFetch((url) => {
+    if (url.includes("/pulls/42/commits?")) return response(200, [{ sha: "abc123456789", commit: { message: "chore(root/policy): Enforce branch grammar" } }]);
+    if (url.includes("api.notion.com")) return response(200, { results: [item()], has_more: false });
+    return response(200, { number: 191, html_url: "https://github.com/acme/teleferico/issues/191" });
+  });
+  await governance.validatePrPolicy(commitConfig);
+
+  mockFetch((url) => {
+    if (url.includes("/pulls/42/commits?")) return response(200, [{ sha: "def987654321", commit: { message: "unstructured commit" } }]);
+    throw new Error(`Unexpected request ${url}`);
+  });
+  await assert.rejects(governance.validatePrPolicy(commitConfig), /commit def987654321 violates repository commit policy/);
+});
+
+test("pull request commit listing paginates at 100 entries and propagates invalid responses", async () => {
+  const requests = [];
+  mockFetch((url) => {
+    requests.push(url);
+    if (url.includes("&page=1")) return response(200, Array.from({ length: 100 }, (_, index) => ({ sha: `${index}` })));
+    if (url.includes("&page=2")) return response(200, [{ sha: "last" }]);
+    throw new Error(`Unexpected request ${url}`);
+  });
+  const commits = await governance.listPullRequestCommits(config(), 42);
+  assert.equal(commits.length, 101);
+  assert.equal(requests.length, 2);
+
+  mockFetch(() => response(503, {}));
+  await assert.rejects(governance.listPullRequestCommits(config(), 42), /GitHub GET .*\/pulls\/42\/commits.*status 503/);
+
+  mockFetch(() => response(200, {}));
+  await assert.rejects(governance.listPullRequestCommits(config(), 42), /commits response for pull request #42 must be an array/);
 });
 
 test("preflight failures perform no comment or Notion mutation", async () => {

@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+node "$repo_root/.github/scripts/repository-policy.js" validate-commit-message "$1"
