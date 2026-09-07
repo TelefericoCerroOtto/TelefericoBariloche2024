@@ -37,7 +37,7 @@
       ],
       "args": [
         "-c",
-        "set -euo pipefail\ncorepack pnpm install --frozen-lockfile\n"
+        "set -euo pipefail\ncorepack enable\npnpm install --frozen-lockfile\n"
       ],
       "timeout": "420s"
     },
@@ -51,7 +51,7 @@
       ],
       "args": [
         "-c",
-        "set -euo pipefail\ncorepack pnpm exec playwright install --with-deps chromium\n"
+        "set -euo pipefail\ncorepack enable\npnpm exec playwright install --with-deps chromium\n"
       ],
       "timeout": "360s"
     },
@@ -66,7 +66,7 @@
       ],
       "args": [
         "-c",
-        "set -euo pipefail\ncorepack pnpm run test:e2e:smoke\n"
+        "set -euo pipefail\ncorepack enable\ncommand -v pnpm\npnpm run test:e2e:smoke\n"
       ],
       "timeout": "480s"
     }

@@ -70,11 +70,19 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
   assert.match(revision.args[1], /git rev-parse --verify "\$\$EXPECTED_COMMIT_SHA\^\{commit\}"/);
   assert.match(revision.args[1], /actual_sha="\$\$\(git rev-parse HEAD\^\{commit\}\)"/);
   assert.match(revision.args[1], /test "\$\$actual_sha" = "\$\$EXPECTED_COMMIT_SHA"/);
-  assert.match(packageManager.args[1], /corepack enable/);
+  for (const step of [packageManager, dependencies, chromium, smoke]) {
+    const command = step.args[1];
+    const enableCorepack = command.indexOf("corepack enable");
+    const firstPnpmInvocation = command.search(/\bpnpm\b/);
+
+    assert.ok(enableCorepack >= 0, `${step.id} must enable Corepack in its own container.`);
+    assert.ok(firstPnpmInvocation > enableCorepack, `${step.id} must enable Corepack before invoking pnpm.`);
+  }
   assert.match(packageManager.args[1], /corepack pnpm --version.*10\.33\.0/);
-  assert.match(dependencies.args[1], /corepack pnpm install --frozen-lockfile/);
-  assert.match(chromium.args[1], /corepack pnpm exec playwright install --with-deps chromium/);
-  assert.match(smoke.args[1], /corepack pnpm run test:e2e:smoke/);
+  assert.match(dependencies.args[1], /pnpm install --frozen-lockfile/);
+  assert.match(chromium.args[1], /pnpm exec playwright install --with-deps chromium/);
+  assert.match(smoke.args[1], /command -v pnpm/);
+  assert.match(smoke.args[1], /pnpm run test:e2e:smoke/);
   assert.ok(smoke.env.includes("CI=true"));
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "secretEnv")));
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "waitFor")));
