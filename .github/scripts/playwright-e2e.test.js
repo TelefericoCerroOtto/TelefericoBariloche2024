@@ -48,7 +48,7 @@ test("enables pnpm before every Playwright workflow job invokes it", () => {
 
 test("Cloud Build fixture executor preserves the ordered locked smoke-suite contract", () => {
   const executor = JSON.parse(fs.readFileSync(cloudBuildExecutorPath, "utf8"));
-  const [revision, packageManager, dependencies, chromium, smoke] = executor.steps;
+  const [revision, packageManager, dependencies, smoke] = executor.steps;
 
   assert.deepEqual(
     executor.steps.map(({ id, name, dir, entrypoint, timeout }) => ({ id, name, dir, entrypoint, timeout })),
@@ -56,7 +56,6 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
       { id: "Verify workspace revision", name: cloudBuildGitImage, dir: undefined, entrypoint: "/bin/sh", timeout: "60s" },
       { id: "Verify repository package manager", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "60s" },
       { id: "Install locked application dependencies", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "420s" },
-      { id: "Install locked Chromium and system dependencies", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "360s" },
       { id: "Run fixture-backed Chromium smoke suite", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "480s" },
     ],
   );
@@ -70,7 +69,7 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
   assert.match(revision.args[1], /git rev-parse --verify "\$\$EXPECTED_COMMIT_SHA\^\{commit\}"/);
   assert.match(revision.args[1], /actual_sha="\$\$\(git rev-parse HEAD\^\{commit\}\)"/);
   assert.match(revision.args[1], /test "\$\$actual_sha" = "\$\$EXPECTED_COMMIT_SHA"/);
-  for (const step of [packageManager, dependencies, chromium, smoke]) {
+  for (const step of [packageManager, dependencies, smoke]) {
     const command = step.args[1];
     const enableCorepack = command.indexOf("corepack enable");
     const firstPnpmInvocation = command.search(/\bpnpm\b/);
@@ -80,7 +79,16 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
   }
   assert.match(packageManager.args[1], /corepack pnpm --version.*10\.33\.0/);
   assert.match(dependencies.args[1], /pnpm install --frozen-lockfile/);
-  assert.match(chromium.args[1], /pnpm exec playwright install --with-deps chromium/);
+  const chromiumInstall = smoke.args[1].indexOf("pnpm exec playwright install --with-deps chromium");
+  const smokeRun = smoke.args[1].indexOf("pnpm run test:e2e:smoke");
+
+  assert.ok(chromiumInstall >= 0, "The smoke container must install Chromium and its system dependencies.");
+  assert.ok(smokeRun > chromiumInstall, "The smoke suite must run after Chromium installation in the same container.");
+  assert.equal(
+    executor.steps.filter((step) => step.args[1].includes("playwright install --with-deps chromium")).length,
+    1,
+    "Chromium installation must not be split into a separate Cloud Build step.",
+  );
   assert.match(smoke.args[1], /command -v pnpm/);
   assert.match(smoke.args[1], /pnpm run test:e2e:smoke/);
   assert.ok(smoke.env.includes("CI=true"));

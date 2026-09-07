@@ -43,20 +43,6 @@
     },
     {
       "name": "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96",
-      "id": "Install locked Chromium and system dependencies",
-      "dir": "teleferico-app",
-      "entrypoint": "bash",
-      "env": [
-        "COREPACK_DEFAULT_TO_LATEST=0"
-      ],
-      "args": [
-        "-c",
-        "set -euo pipefail\ncorepack enable\npnpm exec playwright install --with-deps chromium\n"
-      ],
-      "timeout": "360s"
-    },
-    {
-      "name": "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96",
       "id": "Run fixture-backed Chromium smoke suite",
       "dir": "teleferico-app",
       "entrypoint": "bash",
@@ -66,7 +52,7 @@
       ],
       "args": [
         "-c",
-        "set -euo pipefail\ncorepack enable\ncommand -v pnpm\npnpm run test:e2e:smoke\n"
+        "set -euo pipefail\ncorepack enable\npnpm exec playwright install --with-deps chromium\ncommand -v pnpm\npnpm run test:e2e:smoke\n"
       ],
       "timeout": "480s"
     }
