@@ -14,7 +14,7 @@
       "timeout": "60s"
     },
     {
-      "name": "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488",
+      "name": "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96",
       "id": "Verify repository package manager",
       "dir": "teleferico-app",
       "entrypoint": "bash",
@@ -28,7 +28,7 @@
       "timeout": "60s"
     },
     {
-      "name": "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488",
+      "name": "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96",
       "id": "Install locked application dependencies",
       "dir": "teleferico-app",
       "entrypoint": "bash",
@@ -42,7 +42,7 @@
       "timeout": "420s"
     },
     {
-      "name": "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488",
+      "name": "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96",
       "id": "Install locked Chromium and system dependencies",
       "dir": "teleferico-app",
       "entrypoint": "bash",
@@ -56,7 +56,7 @@
       "timeout": "360s"
     },
     {
-      "name": "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488",
+      "name": "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96",
       "id": "Run fixture-backed Chromium smoke suite",
       "dir": "teleferico-app",
       "entrypoint": "bash",

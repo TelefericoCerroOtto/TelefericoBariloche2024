@@ -5,7 +5,8 @@ const test = require("node:test");
 
 const playwrightWorkflowPath = path.join(__dirname, "..", "workflows", "playwright-e2e.yml");
 const cloudBuildExecutorPath = path.join(__dirname, "..", "..", "cloudbuild.playwright-e2e.json");
-const cloudBuildNodeImage = "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488";
+const cloudBuildNodeImage = "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96";
+const cloudBuildOldNodeImage = "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488";
 const cloudBuildGitImage = "alpine/git@sha256:1e9d9a40acbd02aeb3cb005ff43f9e51ac09ba0c241bb2298f811d3f426a2ffd";
 
 test("validates main containment before checking out or executing deployment-selected code", () => {
@@ -61,6 +62,7 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
   );
   assert.equal(executor.timeout, "1200s");
   assert.deepEqual(executor.options, { logging: "CLOUD_LOGGING_ONLY" });
+  assert.ok(executor.steps.every((step) => step.name !== cloudBuildOldNodeImage));
   assert.equal(revision.args[0], "-c");
   assert.deepEqual(revision.env, ["EXPECTED_COMMIT_SHA=$COMMIT_SHA"]);
   assert.match(revision.args[1], /test "\$\$EXPECTED_COMMIT_SHA" != "0{40}"/);
