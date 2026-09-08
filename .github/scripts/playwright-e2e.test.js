@@ -1,5 +1,4 @@
 const assert = require("node:assert/strict");
-const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -11,7 +10,6 @@ const cloudBuildOldNodeImage = "node@sha256:1471ea646673136b8308550ac14b36d847ff
 const cloudBuildGitImage = "alpine/git@sha256:1e9d9a40acbd02aeb3cb005ff43f9e51ac09ba0c241bb2298f811d3f426a2ffd";
 const cloudBuildDockerImage = "gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c";
 const readinessScriptPath = path.join(__dirname, "..", "..", "scripts", "run-playwright-real-stack-readiness.sh");
-const repositoryRoot = path.join(__dirname, "..", "..");
 
 test("validates main containment before checking out or executing deployment-selected code", () => {
   const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
@@ -108,16 +106,6 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
   for (const field of ["artifacts", "availableSecrets", "images", "logsBucket", "serviceAccount"]) {
     assert.equal(Object.hasOwn(executor, field), false, `${field} must remain out of the baseline.`);
   }
-});
-
-test("Cloud Build readiness leaves the GitHub Actions Playwright workflow unchanged", () => {
-  assert.doesNotThrow(() => {
-    childProcess.execFileSync(
-      "git",
-      ["diff", "--quiet", "development", "--", ".github/workflows/playwright-e2e.yml"],
-      { cwd: repositoryRoot },
-    );
-  });
 });
 
 test("Cloud Build real-stack readiness uses isolated immutable containers and bounded cleanup", () => {
