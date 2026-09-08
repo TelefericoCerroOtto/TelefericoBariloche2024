@@ -11,6 +11,10 @@
 - Build configuration: `cloudbuild.playwright-e2e.json`.
 - Build timeout: 35 minutes (`2100s`).
 
+## Dispatch scope
+
+The GitHub dispatcher runs only when a pull request to `development` changes `teleferico-app/**`, `teleferico-cms/**`, `cloudbuild.playwright-e2e.json`, or `scripts/run-playwright-real-stack-readiness.sh`. Documentation-only changes and `tools/**` are intentionally excluded.
+
 ## Provisioned identities
 
 - GitHub dispatcher/invoker: `github-cloud-build-dispatcher@teleferico-bariloche-2024.iam.gserviceaccount.com`. Its custom role permits only `cloudbuild.builds.create` and `cloudbuild.builds.get`; it may act as the test executor only.
@@ -19,7 +23,7 @@
 ## Workload Identity Federation
 
 - STS API, pool `github-actions`, and provider `teleferico-pr-dispatch` are active.
-- The provider condition restricts repository ID `857375731`, owner ID `181292897`, event `pull_request_target`, base `development`, and `workflow_ref` `.github/workflows/cloud-build-playwright-dispatch.yml@refs/heads/main`.
+- The provider condition restricts repository ID `857375731`, owner ID `181292897`, event `pull_request_target`, base `development`, and `workflow_ref` `TelefericoCerroOtto/TelefericoBariloche2024/.github/workflows/cloud-build-playwright-dispatch.yml@refs/heads/main`.
 - The provider principal set has `roles/iam.workloadIdentityUser` only on the dispatcher identity.
 
 ## Repository variables
@@ -41,4 +45,4 @@ All five values exist; `CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID` holds the immu
 
 ## Activation and rollback
 
-The local uncommitted `pull_request_target` workflow becomes trusted only after it reaches default branch `main`; it has not dispatched a build, so WIF and GitHub-dispatcher behavior remain unproven. The native `playwright-e2e-pr` remains enabled and manual. Roll back by disabling the dispatcher workflow or removing its repository-variable configuration. GitHub cancellation can leave a bounded remote build running until its existing 35-minute timeout.
+The committed and pushed `pull_request_target` workflow is under review in [PR #264](https://github.com/TelefericoCerroOtto/TelefericoBariloche2024/pull/264). It becomes trusted only after it reaches default branch `main`; it has not dispatched a build, so WIF and GitHub-dispatcher behavior remain unproven. The GitHub job is limited to 40 minutes, its polling loop to 36 minutes, and the remote Cloud Build to 35 minutes. The native `playwright-e2e-pr` remains enabled and manual. Roll back by disabling the dispatcher workflow or removing its repository-variable configuration. GitHub cancellation can leave a bounded remote build running until the Cloud Build timeout.
