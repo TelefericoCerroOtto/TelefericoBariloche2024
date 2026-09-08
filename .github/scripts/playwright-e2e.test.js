@@ -1,9 +1,11 @@
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
 const playwrightWorkflowPath = path.join(__dirname, "..", "workflows", "playwright-e2e.yml");
+const dispatcherWorkflowPath = path.join(__dirname, "..", "workflows", "cloud-build-playwright-dispatch.yml");
 const cloudBuildExecutorPath = path.join(__dirname, "..", "..", "cloudbuild.playwright-e2e.json");
 const cloudBuildNodeImage = "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96";
 const cloudBuildOldNodeImage = "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488";
@@ -46,6 +48,41 @@ test("enables pnpm before every Playwright workflow job invokes it", () => {
     assert.doesNotMatch(setupNodeBlock, /cache:\s*pnpm/);
     assert.ok(firstPnpmInvocation > enableCorepack);
   }
+});
+
+test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot execute pull-request code", () => {
+  const dispatcher = fs.readFileSync(dispatcherWorkflowPath, "utf8");
+  const nativeWorkflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
+  const guard = dispatcher.indexOf("name: Validate trusted pull request provenance");
+  const auth = dispatcher.indexOf("google-github-actions/auth@");
+
+  assert.match(dispatcher, /pull_request_target:\n\s+types: \[opened, reopened, synchronize, ready_for_review\]\n\s+branches: \[development\]/);
+  for (const pathFilter of ["teleferico-app/**", "teleferico-cms/**", "cloudbuild.playwright-e2e.json", "scripts/run-playwright-real-stack-readiness.sh"]) {
+    assert.match(dispatcher, new RegExp(`- "${pathFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
+  }
+  assert.doesNotMatch(dispatcher, /(?:docs|tools)\/\*\*/);
+  assert.match(dispatcher, /permissions:\n\s+contents: read\n\nconcurrency:/);
+  assert.match(dispatcher, /dispatch-and-wait:\n\s+needs: validate-trusted-pr\n\s+runs-on: ubuntu-latest\n\s+timeout-minutes: 40\n\s+permissions:\n\s+contents: read\n\s+id-token: write/);
+  assert.match(dispatcher, /group: cloud-build-playwright-dispatch-\$\{\{ github\.event\.pull_request\.number \}\}\n\s+cancel-in-progress: true/);
+  assert.ok(guard >= 0 && auth > guard);
+  for (const value of ["BASE_REF", "CURRENT_REPOSITORY", "HEAD_REPOSITORY", "HEAD_SHA"]) assert.match(dispatcher, new RegExp(`${value}: \\$\\{\\{`));
+  assert.match(dispatcher, /HEAD_REPOSITORY" != "\$CURRENT_REPOSITORY"/);
+  assert.match(dispatcher, /BASE_REF" != "development"/);
+  assert.match(dispatcher, /HEAD_SHA" =~ \^\[0-9a-f\]\{40\}\$/);
+  assert.doesNotMatch(dispatcher, /actions\/checkout|\b(?:pnpm|npm|npx)\b|gcloud builds cancel|\b(?:source|eval)\b/);
+  assert.match(dispatcher, /google-github-actions\/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3/);
+  assert.match(dispatcher, /google-github-actions\/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3/);
+  assert.match(dispatcher, /create_credentials_file: false\n\s+token_format: access_token/);
+  assert.match(dispatcher, /version: 567\.0\.0/);
+  for (const variable of ["CLOUD_BUILD_PROJECT_ID", "CLOUD_BUILD_REGION", "CLOUD_BUILD_WIF_PROVIDER", "CLOUD_BUILD_DISPATCHER_SERVICE_ACCOUNT", "CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID"]) {
+    assert.match(dispatcher, new RegExp(`vars\\.${variable}`));
+  }
+  assert.match(dispatcher, /CLOUD_BUILD_ACCESS_TOKEN: \$\{\{ steps\.auth\.outputs\.access_token \}\}/);
+  assert.match(dispatcher, /umask 077\n\s+token_file="\$RUNNER_TEMP\/cloud-build-dispatch-access-token"/);
+  assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds triggers run "\$CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID".*--sha="\$PR_HEAD_SHA"/);
+  assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds describe "\$build_id"/);
+  assert.match(dispatcher, /GITHUB_STEP_SUMMARY/);
+  assert.equal(crypto.createHash("sha256").update(nativeWorkflow).digest("hex"), "66fb44a47f6845fd5e604a8975a9bb40046cff6611295404c6400bd5e5db3a47");
 });
 
 test("Cloud Build fixture executor preserves the ordered locked smoke-suite contract", () => {
