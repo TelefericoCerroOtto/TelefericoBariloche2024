@@ -116,6 +116,9 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and bo
   const testEnvironment = script.indexOf("NODE_ENV=test");
   const strapiBuild = script.indexOf("\nnpm run build\n");
   const strapiStart = script.indexOf("\nnpm run start ");
+  const nextStart = script.indexOf("pnpm exec next dev --hostname 0.0.0.0 --port 3000");
+  const bucketHostnameValues = [...script.matchAll(/\bBUILD_STRAPI_BUCKET_HOSTNAME=([^\s]+)/g)].map((match) => match[1]);
+  const bucketPathnameValues = [...script.matchAll(/\bBUILD_STRAPI_BUCKET_PATHNAME=([^\s]+)/g)].map((match) => match[1]);
 
   assert.match(script, /postgres:16-bookworm@sha256:[a-f0-9]{64}/);
   assert.match(script, /node@sha256:[a-f0-9]{64}/);
@@ -145,6 +148,10 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and bo
   assert.match(script, /pnpm install --frozen-lockfile/);
   assert.match(script, /pnpm exec next dev --hostname 0\.0\.0\.0 --port 3000 >\/tmp\/next-readiness\.log 2>&1 &/);
   assert.doesNotMatch(script, /pnpm run dev -- --hostname 0\.0\.0\.0 --port 3000/);
+  assert.deepEqual(bucketHostnameValues, ["127.0.0.1"], "Next.js must receive exactly one local-only image hostname.");
+  assert.deepEqual(bucketPathnameValues, ["/uploads/**"], "Next.js must receive exactly one synthetic local image pathname.");
+  assert.ok(script.indexOf("BUILD_STRAPI_BUCKET_HOSTNAME=127.0.0.1") < nextStart);
+  assert.ok(script.indexOf("BUILD_STRAPI_BUCKET_PATHNAME=/uploads/**") < nextStart);
   assert.match(script, /\/api\/auth\/providers/);
   assert.doesNotMatch(script, /(?:gcloud|gsutil|secretEnv|availableSecrets|GCS_|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_CLOUD_PROJECT|CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE|AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY)|AZURE_(?:CLIENT_ID|CLIENT_SECRET|TENANT_ID)|GITHUB_|NPM_TOKEN|PNPM_TOKEN|docker compose)/);
 });
