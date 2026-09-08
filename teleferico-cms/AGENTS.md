@@ -100,6 +100,7 @@ Rules from:
 - Lint: no `lint` script exists in `package.json`.
 - Test: Currently no automated tests are configured for the CMS, but the long-term goal is to add them gradually.
 - Typecheck: no `typecheck` script exists in `package.json`.
+- The root Cloud Build readiness slice may run `npm ci` and production `npm run start` against an isolated synthetic PostgreSQL container. It must not provision users, roles, permissions, domain data, or protected writes.
 
 ## Read if needed
 

@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -8,6 +9,9 @@ const cloudBuildExecutorPath = path.join(__dirname, "..", "..", "cloudbuild.play
 const cloudBuildNodeImage = "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96";
 const cloudBuildOldNodeImage = "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488";
 const cloudBuildGitImage = "alpine/git@sha256:1e9d9a40acbd02aeb3cb005ff43f9e51ac09ba0c241bb2298f811d3f426a2ffd";
+const cloudBuildDockerImage = "gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c";
+const readinessScriptPath = path.join(__dirname, "..", "..", "scripts", "run-playwright-real-stack-readiness.sh");
+const repositoryRoot = path.join(__dirname, "..", "..");
 
 test("validates main containment before checking out or executing deployment-selected code", () => {
   const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
@@ -48,7 +52,7 @@ test("enables pnpm before every Playwright workflow job invokes it", () => {
 
 test("Cloud Build fixture executor preserves the ordered locked smoke-suite contract", () => {
   const executor = JSON.parse(fs.readFileSync(cloudBuildExecutorPath, "utf8"));
-  const [revision, packageManager, dependencies, smoke] = executor.steps;
+  const [revision, packageManager, dependencies, smoke, readiness] = executor.steps;
 
   assert.deepEqual(
     executor.steps.map(({ id, name, dir, entrypoint, timeout }) => ({ id, name, dir, entrypoint, timeout })),
@@ -57,9 +61,10 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
       { id: "Verify repository package manager", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "60s" },
       { id: "Install locked application dependencies", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "420s" },
       { id: "Run fixture-backed Chromium smoke suite", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "480s" },
-    ],
+      { id: "Run real-stack readiness", name: cloudBuildDockerImage, dir: undefined, entrypoint: "bash", timeout: "900s" },
+      ],
   );
-  assert.equal(executor.timeout, "1200s");
+  assert.equal(executor.timeout, "2100s");
   assert.deepEqual(executor.options, { logging: "CLOUD_LOGGING_ONLY" });
   assert.ok(executor.steps.every((step) => step.name !== cloudBuildOldNodeImage));
   assert.equal(revision.args[0], "-c");
@@ -92,6 +97,8 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
   assert.match(smoke.args[1], /command -v pnpm/);
   assert.match(smoke.args[1], /pnpm run test:e2e:smoke/);
   assert.ok(smoke.env.includes("CI=true"));
+  assert.match(readiness.args[1], /bash scripts\/run-playwright-real-stack-readiness\.sh/);
+  assert.deepEqual(readiness.env, ["BUILD_ID=$BUILD_ID"]);
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "secretEnv")));
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "waitFor")));
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "allowFailure")));
@@ -101,4 +108,49 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
   for (const field of ["artifacts", "availableSecrets", "images", "logsBucket", "serviceAccount"]) {
     assert.equal(Object.hasOwn(executor, field), false, `${field} must remain out of the baseline.`);
   }
+});
+
+test("Cloud Build readiness leaves the GitHub Actions Playwright workflow unchanged", () => {
+  assert.doesNotThrow(() => {
+    childProcess.execFileSync(
+      "git",
+      ["diff", "--quiet", "development", "--", ".github/workflows/playwright-e2e.yml"],
+      { cwd: repositoryRoot },
+    );
+  });
+});
+
+test("Cloud Build real-stack readiness uses isolated immutable containers and bounded cleanup", () => {
+  const script = fs.readFileSync(readinessScriptPath, "utf8");
+  const normalizedBuildIdCheck = script.indexOf('if [[ -z "$safe_build_id" ]]');
+  const postgresContainer = script.indexOf("readonly POSTGRES_CONTAINER");
+  const npmCi = script.indexOf("\nnpm ci\n");
+  const strapiBuild = script.indexOf("\nnpm run build\n");
+  const strapiStart = script.indexOf("\nnpm run start ");
+
+  assert.match(script, /postgres:16-bookworm@sha256:[a-f0-9]{64}/);
+  assert.match(script, /node@sha256:[a-f0-9]{64}/);
+  assert.match(script, /BUILD_ID:\?BUILD_ID is required/);
+  assert.ok(normalizedBuildIdCheck >= 0 && normalizedBuildIdCheck < postgresContainer);
+  assert.match(script, /BUILD_ID must contain at least one alphanumeric character/);
+  assert.match(script, /tb122-readiness-postgres-\$\{safe_build_id:0:32\}/);
+  assert.match(script, /docker run --detach --name "\$POSTGRES_CONTAINER" --network cloudbuild/);
+  assert.doesNotMatch(script, /(?:--publish(?:-all)?(?:=|\s|$)|(?:^|\s)-p(?:\s|=|\d)|(?:^|\s)-P(?:\s|$))/m);
+  assert.match(script, /trap cleanup_postgres EXIT/);
+  assert.match(script, /docker rm --force "\$POSTGRES_CONTAINER"/);
+  assert.match(script, /trap stop_processes EXIT/);
+  assert.match(script, /kill "\$pid"/);
+  assert.match(script, /seq 1 30/);
+  assert.match(script, /seq 1 45/);
+  assert.match(script, /docker logs --tail 40/);
+  assert.match(script, /tail -n 40 \/tmp\/(?:strapi|next)-readiness\.log/);
+  assert.ok(npmCi >= 0 && strapiBuild > npmCi && strapiStart > strapiBuild);
+  assert.doesNotMatch(script, /\bnpm\s+install\b/);
+  assert.doesNotMatch(script, /\b(?:npx|pnpm\s+dlx)\b/);
+  assert.match(script, /DATABASE_CLIENT=postgres/);
+  assert.match(script, /COREPACK_DEFAULT_TO_LATEST=0/);
+  assert.match(script, /corepack pnpm --version\)" = "10\.33\.0"/);
+  assert.match(script, /pnpm install --frozen-lockfile/);
+  assert.match(script, /\/api\/auth\/providers/);
+  assert.doesNotMatch(script, /(?:gcloud|gsutil|secretEnv|availableSecrets|GOOGLE_|GITHUB_|NPM_TOKEN|PNPM_TOKEN|docker compose)/);
 });

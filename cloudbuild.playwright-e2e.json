@@ -55,9 +55,22 @@
         "set -euo pipefail\ncorepack enable\npnpm exec playwright install --with-deps chromium\ncommand -v pnpm\npnpm run test:e2e:smoke\n"
       ],
       "timeout": "480s"
+    },
+    {
+      "name": "gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c",
+      "id": "Run real-stack readiness",
+      "entrypoint": "bash",
+      "env": [
+        "BUILD_ID=$BUILD_ID"
+      ],
+      "args": [
+        "-c",
+        "set -euo pipefail\nbash scripts/run-playwright-real-stack-readiness.sh\n"
+      ],
+      "timeout": "900s"
     }
   ],
-  "timeout": "1200s",
+  "timeout": "2100s",
   "options": {
     "logging": "CLOUD_LOGGING_ONLY"
   }
