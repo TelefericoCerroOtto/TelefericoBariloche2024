@@ -9,7 +9,7 @@ This file defines the portable repository-wide governance for agents working in 
   - `teleferico-cms` (Strapi): CMS/API backend
 - Separately scoped tooling:
   - `tools/image-pipeline`: local-first image authoring and batch processing. Has its own `AGENTS.md` with self-contained governance. It is NOT part of the public site runtime or the CMS; treat it as an independent tool unless a change explicitly crosses its boundary.
-- Root surfaces: `.githooks/`, `.github/scripts/`, `scripts/`, `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `docs/`, `.agents/`
+- Root surfaces: `.githooks/`, `.github/scripts/`, `scripts/`, `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `docs/`, `.agents/`, `cloudbuild.playwright-e2e.json`
 
 ## Key paths
 
@@ -50,6 +50,7 @@ The following changes are sensitive and must be explicitly called out in a propo
 Automated tests are currently implemented in `teleferico-app` specifically for public forms (postulation, contact) and their security guards. 
 - **Forms and security:** If you modify public forms, rate limiters, or their security layers, you MUST maintain and expand their test coverage using the existing Vitest suite.
 - **Other areas:** The long-term goal is to gradually expand testing coverage across all packages. Introduce tests progressively as new features or critical refactors are made.
+- **Cloud Build Playwright baseline:** `cloudbuild.playwright-e2e.json` preserves the fixture-backed Chromium smoke suite and fails closed unless the trigger `COMMIT_SHA` resolves to a commit equal to `/workspace` `HEAD^{commit}`. Every Node step enables Corepack before package work because Cloud Build containers do not retain shims between steps. Cloud Build `92e24a70-69f1-48a3-ba0f-adbbd868b254` passed for `2f143badb095d9e6f141fd150c6348a4532e2884` (check `102114323463`, `2026-09-08T15:01:02Z`–`15:09:59Z`, `8m57s`), proving isolated PostgreSQL, Strapi under `NODE_ENV=test` with default local upload storage, and Next.js `/api/auth/providers` readiness. The same-SHA GitHub `Playwright Chromium smoke` check `102113652044` passed. This does not prove users, roles, permissions, credentials login, protected reads/writes/denials, logout, JWT non-exposure, artifact upload, or GitHub Actions cutover; authenticated E2E behavior is a separate future work unit. The runner must remain unauthenticated, write-free, synthetic, and isolated on the `cloudbuild` Docker network. Preserve GitHub Actions parity; staging/production GCS, IAM, secrets, Cloud SQL, Cloud Run, staging, and production remain untouched, and no dependency on them may be added without an explicitly approved work unit.
 
 ## GCP CLI operational rules
 

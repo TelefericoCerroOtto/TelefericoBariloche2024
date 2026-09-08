@@ -1,0 +1,13 @@
+# Cloud Build trigger snapshot (documentary only; not operational source of truth).
+# This records verified trigger metadata and does not apply changes in GCP.
+name: playwright-e2e-pr
+id: c2133674-afdc-46ae-87d0-afe06e605ca6
+region: southamerica-east1
+description: Run fixture-backed Playwright smoke tests for pull requests to development
+filename: cloudbuild.playwright-e2e.json
+repository: Existing 2nd-gen repository binding
+pullRequest:
+  branch: ^development$
+  commentControl: COMMENTS_ENABLED
+serviceAccount: Existing shared appspot service account
+approvalConfig: {}

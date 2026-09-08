@@ -8,12 +8,14 @@ This directory contains documentation snapshots of the Cloud Build configuration
 - `app-production.yaml`
 - `cms-staging.yaml`
 - `cms-production.yaml`
+- `playwright-e2e-pr.yaml`
 
 ## Scope
 
 - The operational source of truth remains the inline configuration of the triggers in Google Cloud Platform.
 - These files exist solely for documentation and auditing purposes.
 - If re-exported from GCP, make sure they do not include sensitive values.
+- `playwright-e2e-pr.yaml` records verified metadata for the live pull-request trigger. Its runtime build configuration remains `cloudbuild.playwright-e2e.json` at the repository root; editing either file does not change the trigger.
 
 ## GitHub deployment bridge
 
