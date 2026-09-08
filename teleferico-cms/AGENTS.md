@@ -100,7 +100,7 @@ Rules from:
 - Lint: no `lint` script exists in `package.json`.
 - Test: Currently no automated tests are configured for the CMS, but the long-term goal is to add them gradually.
 - Typecheck: no `typecheck` script exists in `package.json`.
-- The root Cloud Build readiness slice may run `npm ci`, then `NODE_ENV=test` CMS build and start against an isolated synthetic PostgreSQL container. The first pilot failed when production mode selected the GCS upload provider without a bucket; the corrected test environment intentionally retains default local upload storage and does not alter staging or production GCS configuration. Rerun evidence is pending. It must not provision users, roles, permissions, domain data, or protected writes.
+- The root Cloud Build readiness slice may run `npm ci`, then `NODE_ENV=test` CMS build and start against an isolated synthetic PostgreSQL container. The first pilot failed when production mode selected the GCS upload provider without a bucket; the corrected test environment intentionally retains default local upload storage and does not alter staging or production GCS configuration. Rerun `0e61da83-7490-4208-b242-ee04a95ba9b5` built and started Strapi and reached `/admin/init`, but Next.js failed before readiness because `pnpm run dev -- --hostname 0.0.0.0 --port 3000` made `--hostname` a positional project directory. The runner now uses `pnpm exec next dev --hostname 0.0.0.0 --port 3000`; a further rerun is pending, so the full real stack is not yet proven. It must not provision users, roles, permissions, domain data, or protected writes.
 
 ## Read if needed
 

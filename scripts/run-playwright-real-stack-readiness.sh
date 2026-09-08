@@ -111,7 +111,7 @@ pnpm install --frozen-lockfile
 export APP_INTERNAL_BASE_URL=http://127.0.0.1:3000 AUTH_SECRET="$READINESS_SECRET-auth"
 export AUTH_TRUST_HOST=true BUILD_STRAPI_BASE_URL=http://127.0.0.1:1337
 export NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000
-pnpm run dev -- --hostname 0.0.0.0 --port 3000 >/tmp/next-readiness.log 2>&1 &
+pnpm exec next dev --hostname 0.0.0.0 --port 3000 >/tmp/next-readiness.log 2>&1 &
 app_pid=$!
 wait_for_http "Next.js" "http://127.0.0.1:3000/api/auth/providers"
 printf 'Real PostgreSQL, Strapi, and Next.js readiness passed.\n'

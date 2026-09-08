@@ -143,6 +143,8 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and bo
   assert.match(script, /COREPACK_DEFAULT_TO_LATEST=0/);
   assert.match(script, /corepack pnpm --version\)" = "10\.33\.0"/);
   assert.match(script, /pnpm install --frozen-lockfile/);
+  assert.match(script, /pnpm exec next dev --hostname 0\.0\.0\.0 --port 3000 >\/tmp\/next-readiness\.log 2>&1 &/);
+  assert.doesNotMatch(script, /pnpm run dev -- --hostname 0\.0\.0\.0 --port 3000/);
   assert.match(script, /\/api\/auth\/providers/);
   assert.doesNotMatch(script, /(?:gcloud|gsutil|secretEnv|availableSecrets|GCS_|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_CLOUD_PROJECT|CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE|AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY)|AZURE_(?:CLIENT_ID|CLIENT_SECRET|TENANT_ID)|GITHUB_|NPM_TOKEN|PNPM_TOKEN|docker compose)/);
 });
