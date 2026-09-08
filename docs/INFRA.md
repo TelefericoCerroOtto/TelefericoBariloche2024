@@ -231,13 +231,14 @@ Notes:
 
 ### Pipelines
 
-There are five active Cloud Build triggers, all regional in `southamerica-east1` and connected to the project's GitHub repository:
+There are six provisioned Cloud Build triggers, all regional in `southamerica-east1` and connected to the project's GitHub repository:
 
 - app staging
 - app production
 - cms staging
 - cms production
 - `playwright-e2e-pr` — fixture-backed Playwright smoke tests for pull requests targeting `development`; it requires an owner or collaborator to comment `/gcbrun` before execution.
+- `playwright-e2e-dispatch` — manual fixture-backed trigger (`3946c022-59cf-42cc-97cf-827c19f73291`) with a successful exact-SHA pilot; its GitHub workflow remains local/unactivated.
 
 There may also be legacy triggers paused in the console. They are purposefully kept disabled and are not part of the operational flow.
 
@@ -252,6 +253,7 @@ Documentary snapshots of their configurations are versioned in [infra/cloud-buil
 - The live trigger targets pull requests with base branch `development` and uses `COMMENTS_ENABLED`, so an owner or collaborator must comment `/gcbrun`. The fourth fixture pilot passed for `498004d7f065e6b0a43bff42dd95c672efc2b707` (`a4b071a2-2e78-428c-9d6d-854487f888da`, check `101890859299`). Earlier real-stack pilots exposed production upload-provider, Next CLI, and synthetic image-input failures; the runner now selects `NODE_ENV=test`, default local upload storage, `BUILD_STRAPI_BUCKET_HOSTNAME=127.0.0.1`, and `BUILD_STRAPI_BUCKET_PATHNAME=/uploads/**`.
 - Cloud Build `92e24a70-69f1-48a3-ba0f-adbbd868b254` passed for commit `2f143badb095d9e6f141fd150c6348a4532e2884` (check `102114323463`), started `2026-09-08T15:01:02Z`, completed `2026-09-08T15:09:59Z`, duration `8m57s`. It proves isolated PostgreSQL, Strapi under `NODE_ENV=test` with local upload storage, and Next.js `/api/auth/providers` readiness. The runner stays unauthenticated, write-free, synthetic, and isolated on the `cloudbuild` Docker network; it does not prove users, roles, permissions, credentials login, protected reads/writes/denials, logout, JWT non-exposure, artifact upload, or GitHub Actions cutover. Staging/production GCS, IAM, secrets, Cloud SQL, Cloud Run, staging, and production remain untouched. Authenticated E2E behavior is a separate future work unit.
 - The same-SHA GitHub `Playwright Chromium smoke` check `102113652044` passed. GitHub Actions remains the parity executor; this Cloud Build evidence does not replace application testing or change repository-governance workflows.
+- The separate manual dispatcher trigger is provisioned with `cloud-build-playwright-tests@teleferico-bariloche-2024.iam.gserviceaccount.com` as its test-execution identity. Its successful exact-SHA pilot is recorded in [infra/cloud-build/playwright-e2e-manual-dispatcher.md](infra/cloud-build/playwright-e2e-manual-dispatcher.md). Its WIF-authenticated GitHub invoker is `github-cloud-build-dispatcher@teleferico-bariloche-2024.iam.gserviceaccount.com`; neither path uses a service-account key or static credential. No GitHub-dispatched build has run, and the local workflow must reach `main` before activation.
 
 Read-only repository validation is `node --test .github/scripts/playwright-e2e.test.js`; it does not submit a build or access GCP.
 
