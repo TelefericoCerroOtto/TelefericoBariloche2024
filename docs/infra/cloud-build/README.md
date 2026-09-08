@@ -8,12 +8,22 @@ This directory contains documentation snapshots of the Cloud Build configuration
 - `app-production.yaml`
 - `cms-staging.yaml`
 - `cms-production.yaml`
+- `playwright-e2e-pr.yaml`
+- `playwright-e2e-manual-dispatcher.md`
 
 ## Scope
 
 - The operational source of truth remains the inline configuration of the triggers in Google Cloud Platform.
 - These files exist solely for documentation and auditing purposes.
 - If re-exported from GCP, make sure they do not include sensitive values.
+- `playwright-e2e-pr.yaml` records verified metadata for the live pull-request trigger. Its runtime build configuration remains `cloudbuild.playwright-e2e.json` at the repository root; editing either file does not change the trigger.
+- `playwright-e2e-manual-dispatcher.md` records the provisioned manual trigger, its successful exact-SHA pilot, and least-privilege identities; the GitHub workflow/OIDC path remains unactivated and unproven.
+
+## Provisioned GitHub dispatcher
+
+Cloud Build pull-request triggers cannot use `includedFiles` or `ignoredFiles`, so the live `playwright-e2e-pr` path remains owner/collaborator `/gcbrun`-gated. The regional manual trigger `playwright-e2e-dispatch` (`3946c022-59cf-42cc-97cf-827c19f73291`) is provisioned for the local `pull_request_target` dispatcher, which filters repository paths, rejects fork heads before OIDC, runs the exact head SHA, and waits for terminal status. It never checks out or executes PR code in GitHub.
+
+The WIF pool/provider, separate dispatcher and test-execution service accounts, and five repository variables are provisioned without static credentials. The manual trigger passed its first exact-SHA pilot; the dispatcher is still inactive until its workflow reaches default branch `main`, and no GitHub-dispatched build has run. It preserves `.github/workflows/playwright-e2e.yml` during same-SHA parity. GitHub's cancellation only stops the waiter; without remote-cancellation permission, a dispatched build can run until the existing 35-minute Cloud Build timeout. Disable the workflow or remove its variables to roll back.
 
 ## GitHub deployment bridge
 

@@ -112,15 +112,19 @@ Branch validation checks deterministic syntax and identity only. It does not jud
 
 Policy semantics come from GitHub's GFM renderer, not from handwritten Markdown parsing. The script reads only visible headings and text from GitHub-sanitized HTML; rendered code, blockquotes, details, hidden containers, and tag attributes do not count. Rendering failures fail closed.
 
-Promotion references remain optional. No references are a silent no-op. A supplied reference that is definitively missing skips all comment writes for that PR with a warning; transient, rate-limit, authentication, malformed-response, and server failures fail so the run can be retried safely. Governance accepts at most 100 distinct explicit issue references per PR and fetches them with bounded concurrency of five.
+Every promotion PR uses the canonical body contract in [CONVENTIONS.md](./CONVENTIONS.md#promotion-pr-body-contract). It requires exactly one visible `## Included Implementation PRs`, `## Release Target`, `## Validation`, and `## Rollback` section; non-empty route-specific fields; and at least one unique `PR: #<number>` entry. Each included reference is verified through the GitHub pull-request API with bounded concurrency. Rendering and API failures fail closed.
 
 **For promotion PRs to staging (`development` -> `staging`):**
-1. fails if the PR body contains closing keywords
+1. requires `Environment: staging`, `Plan: <non-empty text>`, and `Strategy: <non-empty text>` in the canonical sections
+2. fails if the PR body contains closing keywords
+3. does not require the new promotion PR own CI results in the body; the plan names expected checks before they run
 
 **For promotion PRs to main (`staging` -> `main`):**
-1. accepts `Closes #N` for completed issues, `Advances #N` for intermediate delivery phases, or the exact line `Formal issues: none` when the release has no formal issues
-2. fails when the PR body contains none of those declarations
-3. fails when the same issue is both advanced and closed, or when `Formal issues: none` is combined with either reference type
+1. requires `Environment: production`, `Prior staging validation evidence: <non-empty text>`, `Release candidate SHA: <40-character SHA>`, and `Strategy: <non-empty text>` in the canonical sections; the candidate SHA must equal the current PR head SHA case-insensitively
+2. accepts `Closes #N` for completed issues, `Advances #N` for intermediate delivery phases, or the exact line `Formal issues: none` when the release has no formal issues
+3. fails when the PR body contains none of those declarations
+4. fails when the same issue is both advanced and closed, or when `Formal issues: none` is combined with either reference type
+5. requires a visible `## Advancement Finalization` record for each `Advances #N`, with `Issue: #N`, `Remaining work or condition:`, `Finalization owner:`, and `Finalization event or action:` fields
 
 | Combination | Result |
 | --- | --- |
@@ -131,7 +135,9 @@ Promotion references remain optional. No references are a silent no-op. A suppli
 | `Closes #N` + `Formal issues: none` | Invalid |
 | No declaration | Invalid |
 
-Phased delivery is distinct from review slicing or chained PRs. Review slices ship together in one release and continue to use the existing promotion policy without `Advances`.
+Phased delivery is distinct from review slicing or chained PRs. Use `Advances #N` only when real work or an actual acceptance condition remains after merge, with the required finalization path. Use `Closes #N` when merge delivers the complete intended mechanism, even if a deployment-triggered workflow executes that mechanism afterward. Review slices ship together in one release and continue to use the existing promotion policy without `Advances`.
+
+For `workflow_dispatch` validation of a `staging -> main` route, provide `pr_head_sha`. Missing or malformed runtime SHA input fails closed before the policy accepts the body.
 
 ### 2. `sync-pr-mutations`
 
