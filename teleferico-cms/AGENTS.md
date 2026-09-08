@@ -100,7 +100,7 @@ Rules from:
 - Lint: no `lint` script exists in `package.json`.
 - Test: Currently no automated tests are configured for the CMS, but the long-term goal is to add them gradually.
 - Typecheck: no `typecheck` script exists in `package.json`.
-- The root Cloud Build readiness slice may run `npm ci` and production `npm run start` against an isolated synthetic PostgreSQL container. It must not provision users, roles, permissions, domain data, or protected writes.
+- The root Cloud Build readiness slice may run `npm ci`, then `NODE_ENV=test` CMS build and start against an isolated synthetic PostgreSQL container. The first pilot failed when production mode selected the GCS upload provider without a bucket; the corrected test environment intentionally retains default local upload storage and does not alter staging or production GCS configuration. Rerun evidence is pending. It must not provision users, roles, permissions, domain data, or protected writes.
 
 ## Read if needed
 

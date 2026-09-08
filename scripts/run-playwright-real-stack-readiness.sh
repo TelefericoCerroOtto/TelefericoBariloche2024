@@ -61,8 +61,11 @@ stop_processes() {
 
   if [[ "$status" -ne 0 ]]; then
     printf 'Real-stack readiness failed. Last service log lines follow.\n' >&2
-    tail -n 40 /tmp/strapi-readiness.log >&2 || :
-    tail -n 40 /tmp/next-readiness.log >&2 || :
+    for log_path in /tmp/strapi-readiness.log /tmp/next-readiness.log; do
+      if [[ -f "$log_path" ]]; then
+        tail -n 40 "$log_path" >&2 || :
+      fi
+    done
   fi
 
   for pid in "$app_pid" "$cms_pid"; do
@@ -92,11 +95,11 @@ wait_for_http() {
 
 cd /workspace/teleferico-cms
 npm ci
-npm run build
-export NODE_ENV=production DATABASE_CLIENT=postgres DATABASE_PORT=5432 DATABASE_SSL=false
+export NODE_ENV=test DATABASE_CLIENT=postgres DATABASE_PORT=5432 DATABASE_SSL=false
 export APP_KEYS="$READINESS_SECRET-app-1,$READINESS_SECRET-app-2"
 export API_TOKEN_SALT="$READINESS_SECRET-api" ADMIN_JWT_SECRET="$READINESS_SECRET-admin"
 export TRANSFER_TOKEN_SALT="$READINESS_SECRET-transfer" JWT_SECRET="$READINESS_SECRET-jwt"
+npm run build
 npm run start >/tmp/strapi-readiness.log 2>&1 &
 cms_pid=$!
 wait_for_http "Strapi" "http://127.0.0.1:1337/admin/init"

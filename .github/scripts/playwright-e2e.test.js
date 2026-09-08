@@ -113,6 +113,7 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and bo
   const normalizedBuildIdCheck = script.indexOf('if [[ -z "$safe_build_id" ]]');
   const postgresContainer = script.indexOf("readonly POSTGRES_CONTAINER");
   const npmCi = script.indexOf("\nnpm ci\n");
+  const testEnvironment = script.indexOf("NODE_ENV=test");
   const strapiBuild = script.indexOf("\nnpm run build\n");
   const strapiStart = script.indexOf("\nnpm run start ");
 
@@ -131,8 +132,11 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and bo
   assert.match(script, /seq 1 30/);
   assert.match(script, /seq 1 45/);
   assert.match(script, /docker logs --tail 40/);
-  assert.match(script, /tail -n 40 \/tmp\/(?:strapi|next)-readiness\.log/);
-  assert.ok(npmCi >= 0 && strapiBuild > npmCi && strapiStart > strapiBuild);
+  assert.match(script, /for log_path in \/tmp\/strapi-readiness\.log \/tmp\/next-readiness\.log; do/);
+  assert.match(script, /if \[\[ -f "\$log_path" \]\]; then\n\s+tail -n 40 "\$log_path" >&2 \|\| :/);
+  assert.doesNotMatch(script, /tail -n 40 \/tmp\/(?:strapi|next)-readiness\.log/);
+  assert.ok(npmCi >= 0 && testEnvironment > npmCi && strapiBuild > testEnvironment && strapiStart > strapiBuild);
+  assert.doesNotMatch(script, /NODE_ENV=production/);
   assert.doesNotMatch(script, /\bnpm\s+install\b/);
   assert.doesNotMatch(script, /\b(?:npx|pnpm\s+dlx)\b/);
   assert.match(script, /DATABASE_CLIENT=postgres/);
@@ -140,5 +144,5 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and bo
   assert.match(script, /corepack pnpm --version\)" = "10\.33\.0"/);
   assert.match(script, /pnpm install --frozen-lockfile/);
   assert.match(script, /\/api\/auth\/providers/);
-  assert.doesNotMatch(script, /(?:gcloud|gsutil|secretEnv|availableSecrets|GOOGLE_|GITHUB_|NPM_TOKEN|PNPM_TOKEN|docker compose)/);
+  assert.doesNotMatch(script, /(?:gcloud|gsutil|secretEnv|availableSecrets|GCS_|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_CLOUD_PROJECT|CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE|AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY)|AZURE_(?:CLIENT_ID|CLIENT_SECRET|TENANT_ID)|GITHUB_|NPM_TOKEN|PNPM_TOKEN|docker compose)/);
 });
