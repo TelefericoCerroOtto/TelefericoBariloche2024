@@ -17,6 +17,10 @@ const DEFAULTS = {
   maxIncludedPullRequests: 100,
   issueFetchConcurrency: 5,
   commentPageSize: 100,
+  commitFilePageSize: 100,
+  maxCommitFiles: 3000,
+  maxPullRequestCommits: 250,
+  maxPullRequestCommitFilePages: 300,
 };
 
 const PROMOTION_BODY_CONTRACT = {
@@ -657,15 +661,65 @@ async function githubRequest(config, path, options) {
 async function validatePullRequestCommitMessages(config) {
   if (!config.validateCommitMessages || !config.pullRequest.number) return;
   const commits = await listPullRequestCommits(config, config.pullRequest.number);
-  for (const commit of commits) {
-    const sha = typeof commit?.sha === "string" ? commit.sha.slice(0, 12) : "<unknown>";
-    const message = commit?.commit?.message;
+  const commitFilePageBudget = { remaining: DEFAULTS.maxPullRequestCommitFilePages };
+  for (const listedCommit of commits) {
+    const requestedSha = listedCommit?.sha;
+    const sha = typeof requestedSha === "string" ? requestedSha.slice(0, 12) : "<unknown>";
     try {
-      repositoryPolicy.validateCommitMessage(message);
+      const commit = await fetchGitHubCommitWithFiles(config, requestedSha, commitFilePageBudget);
+      repositoryPolicy.validateCommitMessageAgainstPaths(commit.message, commit.paths);
     } catch (error) {
       throw new Error(`Pull request commit ${sha} violates repository commit policy: ${error.message}`);
     }
   }
+}
+
+async function fetchGitHubCommitWithFiles(config, sha, pageBudget = { remaining: DEFAULTS.maxPullRequestCommitFilePages }) {
+  if (!isFullSha(sha)) throw new Error("Pull request commit metadata must include a full commit SHA.");
+  const files = [];
+  let message;
+  for (let page = 1; ; page += 1) {
+    if (pageBudget.remaining < 1) {
+      throw new Error(`Pull request commit validation exceeds its ${DEFAULTS.maxPullRequestCommitFilePages}-page commit-detail request budget.`);
+    }
+    pageBudget.remaining -= 1;
+    const path = `/repos/${config.repository.owner}/${config.repository.repo}/commits/${sha}?per_page=${DEFAULTS.commitFilePageSize}&page=${page}`;
+    const commit = await githubRequest(config, path, { method: "GET" });
+    if (!commit || typeof commit !== "object" || !isFullSha(commit.sha) || commit.sha.toLowerCase() !== sha.toLowerCase()) {
+      throw new Error(`GitHub commit metadata for '${sha}' is unresolved or does not match the requested SHA.`);
+    }
+    if (page === 1) {
+      message = commit.commit?.message;
+      if (typeof message !== "string") throw new Error(`GitHub commit metadata for '${sha}' has no commit message.`);
+    }
+    if (!Array.isArray(commit.files)) throw new Error(`GitHub commit metadata for '${sha}' has malformed file metadata.`);
+    if (commit.files.length > DEFAULTS.commitFilePageSize) {
+      throw new Error(`GitHub commit metadata for '${sha}' has malformed file pagination.`);
+    }
+    files.push(...commit.files);
+    if (files.length >= DEFAULTS.maxCommitFiles) {
+      throw new Error(`GitHub commit metadata for '${sha}' is demonstrably truncated at the GitHub API's ${DEFAULTS.maxCommitFiles}-file limit.`);
+    }
+    if (commit.files.length < DEFAULTS.commitFilePageSize) break;
+  }
+  return { message, paths: pathsFromCommitFiles(files, sha) };
+}
+
+function pathsFromCommitFiles(files, sha) {
+  const paths = [];
+  for (const file of files) {
+    if (!file || typeof file.filename !== "string" || !file.filename) {
+      throw new Error(`GitHub commit metadata for '${sha}' has malformed file metadata.`);
+    }
+    paths.push(file.filename);
+    if (file.previous_filename !== undefined) {
+      if (typeof file.previous_filename !== "string" || !file.previous_filename) {
+        throw new Error(`GitHub commit metadata for '${sha}' has malformed previous file metadata.`);
+      }
+      paths.push(file.previous_filename);
+    }
+  }
+  return paths;
 }
 
 async function listPullRequestCommits(config, pullRequestNumber) {
@@ -674,6 +728,9 @@ async function listPullRequestCommits(config, pullRequestNumber) {
     const currentPage = await githubRequest(config, `/repos/${config.repository.owner}/${config.repository.repo}/pulls/${pullRequestNumber}/commits?per_page=100&page=${page}`, { method: "GET" });
     if (!Array.isArray(currentPage)) throw new Error(`GitHub commits response for pull request #${pullRequestNumber} must be an array.`);
     commits.push(...currentPage);
+    if (commits.length >= DEFAULTS.maxPullRequestCommits) {
+      throw new Error(`GitHub commit listing for pull request #${pullRequestNumber} reaches the ${DEFAULTS.maxPullRequestCommits}-commit API cap and cannot prove all commits were validated.`);
+    }
     if (currentPage.length < 100) return commits;
   }
 }
@@ -711,6 +768,8 @@ module.exports = {
   parseFormalIssueUrl,
   findNotionPageByIssueUrl,
   listPullRequestCommits,
+  fetchGitHubCommitWithFiles,
+  pathsFromCommitFiles,
   validatePrPolicy,
   validatePullRequestCommitMessages,
   syncPrMutations,

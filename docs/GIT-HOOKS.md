@@ -17,12 +17,16 @@ If any common or global `core.hooksPath` differs from this worktree's `.githooks
 | Hook | Validation |
 | --- | --- |
 | `pre-commit` | Current branch uses a tracked, explicit no-backlog, or promotion branch form. |
-| `commit-msg` | Commit subject uses the documented convention or an explicit Git-generated exception. |
-| `pre-push` | Each pushed local branch uses a valid branch form. |
+| `commit-msg` | Commit subject and staged paths use the documented convention. It reads NUL-delimited staged paths with rename detection disabled, including deletes and both sides of cross-directory renames. |
+| `pre-push` | Each pushed head branch uses a valid branch form and every outgoing commit is revalidated against paths derived from its first parent. |
 
 ## Limits
 
 Hooks do not query Notion or GitHub. They do not run `npx`, `pnpm dlx`, package installation, builds, typechecks, Playwright, or test suites. GitHub Actions performs the authoritative Notion identity and PR commit-list checks.
+
+`pre-push` ignores deleted and non-head refs, deduplicates commits shared by multiple refs, and never revalidates remote ancestry. For an existing remote ref it fails closed when the advertised remote commit is unavailable locally. For a new branch it compares against the configured remote namespace and fails closed if that namespace cannot be established. Git-generated merges skip path correlation; empty conventional commits are accepted with explicit `unverifiable` / `empty` metadata.
+
+`commit-msg` validates the staged delta rather than a completed commit. In particular, an amend may replace a commit with paths outside that staged delta. The later `pre-push` and pull-request checks validate the final commit against its first parent.
 
 ## Removal
 
