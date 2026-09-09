@@ -209,9 +209,10 @@ substitutions:
   _BUILD_STRAPI_BASE_URL: https://cms-production-teleferico-ra2cbgog2a-rj.a.run.app
   _AUTH_TRUST_HOST: "true"
   _BUILD_NEXT_PUBLIC_RECAPTCHA_SITE_KEY: 6LfCNkArAAAAAADLLHKHAsT-wokiRhyC1cnXFfSY
-  _NEXT_PUBLIC_SITE_URL: https://telefericobariloche.com.ar
+  # Temporary public origin; follow docs/INFRA.md recovery guidance before restoring the domain.
+  _NEXT_PUBLIC_SITE_URL: https://app-production-teleferico-384535443802.southamerica-east1.run.app
   _APP_INTERNAL_BASE_URL: https://app-production-teleferico-384535443802.southamerica-east1.run.app
-  _ALLOWED_PUBLIC_ORIGINS: https://telefericobariloche.com,https://www.telefericobariloche.com,https://telefericobariloche.com.ar,https://www.telefericobariloche.com.ar
+  _ALLOWED_PUBLIC_ORIGINS: https://telefericobariloche.com,https://www.telefericobariloche.com,https://telefericobariloche.com.ar,https://www.telefericobariloche.com.ar,https://app-production-teleferico-384535443802.southamerica-east1.run.app
   _ENABLE_STATIC_LOCALE_PARAMS: "false"
   _BUILD_STRAPI_BUCKET_HOSTNAME: storage.googleapis.com
   _BUILD_STRAPI_BUCKET_PATHNAME: /cms_production_bucket/public/cms/**
@@ -241,7 +242,7 @@ substitutions:
   _GITHUB_DEPLOYMENTS_INSTALLATION_ID: "159079404"
   _GITHUB_DEPLOYMENTS_REPOSITORY: TelefericoCerroOtto/TelefericoBariloche2024
   _GITHUB_DEPLOYMENTS_ENVIRONMENT: production
-  _GITHUB_DEPLOYMENTS_ENVIRONMENT_URL: https://telefericobariloche.com.ar
+  _GITHUB_DEPLOYMENTS_ENVIRONMENT_URL: https://app-production-teleferico-384535443802.southamerica-east1.run.app
 tags:
   - gcp-cloud-build-deploy-cloud-run
   - gcp-cloud-build-deploy-cloud-run-managed

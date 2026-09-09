@@ -237,8 +237,8 @@ There are six provisioned Cloud Build triggers, all regional in `southamerica-ea
 - app production
 - cms staging
 - cms production
-- `playwright-e2e-pr` — fixture-backed Playwright smoke tests for pull requests targeting `development`; it requires an owner or collaborator to comment `/gcbrun` before execution.
-- `playwright-e2e-dispatch` — manual fixture-backed trigger (`3946c022-59cf-42cc-97cf-827c19f73291`) with a successful exact-SHA pilot; its GitHub workflow remains local/unactivated.
+- `playwright-e2e-pr` — disabled legacy `/gcbrun` pull-request trigger retained temporarily for reversible rollback.
+- `playwright-e2e-dispatch` — manual exact-SHA fixture executor (`3946c022-59cf-42cc-97cf-827c19f73291`) used by the active GitHub OIDC dispatcher and retained as the fallback executor.
 
 There may also be legacy triggers paused in the console. They are purposefully kept disabled and are not part of the operational flow.
 
@@ -246,14 +246,16 @@ Documentary snapshots of their configurations are versioned in [infra/cloud-buil
 
 ### Application-test executor baseline
 
-`cloudbuild.playwright-e2e.json` is a repository-owned Cloud Build configuration for the existing fixture-backed Playwright Chromium smoke suite. The live `playwright-e2e-pr` trigger uses this configuration; its non-authoritative metadata snapshot is [infra/cloud-build/playwright-e2e-pr.yaml](infra/cloud-build/playwright-e2e-pr.yaml). It does not deploy an application.
+`cloudbuild.playwright-e2e.json` is the repository-owned Cloud Build configuration for the fixture-backed Playwright Chromium smoke suite. The active GitHub dispatcher submits it through `playwright-e2e-dispatch`; the disabled legacy `playwright-e2e-pr` trigger references the same file. Its non-authoritative metadata snapshot is [infra/cloud-build/playwright-e2e-pr.yaml](infra/cloud-build/playwright-e2e-pr.yaml). It does not deploy an application.
 
 - Its immutable `alpine/git` image verifies Git is executable, rejects the all-zero SHA, verifies that `COMMIT_SHA^{commit}` resolves in `/workspace`, and fails closed unless it equals `HEAD^{commit}`. Later steps use the immutable Node 22.23.2 Bookworm image, Corepack, the repository-pinned `pnpm@10.33.0`, `pnpm install --frozen-lockfile`, and the lockfile-backed Playwright CLI. Chromium and its operating-system dependencies are installed immediately before the fixture-backed smoke suite in the same container because build-step operating-system libraries are not shared.
 - The build is bounded to 35 minutes and has separate revision, package-manager, dependency, combined browser-install/smoke-test, and real-stack readiness steps. Failures remain in Cloud Build logs without suppression.
-- The live trigger targets pull requests with base branch `development` and uses `COMMENTS_ENABLED`, so an owner or collaborator must comment `/gcbrun`. The fourth fixture pilot passed for `498004d7f065e6b0a43bff42dd95c672efc2b707` (`a4b071a2-2e78-428c-9d6d-854487f888da`, check `101890859299`). Earlier real-stack pilots exposed production upload-provider, Next CLI, and synthetic image-input failures; the runner now selects `NODE_ENV=test`, default local upload storage, `BUILD_STRAPI_BUCKET_HOSTNAME=127.0.0.1`, and `BUILD_STRAPI_BUCKET_PATHNAME=/uploads/**`.
+- Historical native-trigger evidence is preserved: the fourth fixture pilot passed for `498004d7f065e6b0a43bff42dd95c672efc2b707` (`a4b071a2-2e78-428c-9d6d-854487f888da`, check `101890859299`). Earlier real-stack pilots exposed production upload-provider, Next CLI, and synthetic image-input failures; the runner now selects `NODE_ENV=test`, default local upload storage, `BUILD_STRAPI_BUCKET_HOSTNAME=127.0.0.1`, and `BUILD_STRAPI_BUCKET_PATHNAME=/uploads/**`.
 - Cloud Build `92e24a70-69f1-48a3-ba0f-adbbd868b254` passed for commit `2f143badb095d9e6f141fd150c6348a4532e2884` (check `102114323463`), started `2026-09-08T15:01:02Z`, completed `2026-09-08T15:09:59Z`, duration `8m57s`. It proves isolated PostgreSQL, Strapi under `NODE_ENV=test` with local upload storage, and Next.js `/api/auth/providers` readiness. The runner stays unauthenticated, write-free, synthetic, and isolated on the `cloudbuild` Docker network; it does not prove users, roles, permissions, credentials login, protected reads/writes/denials, logout, JWT non-exposure, artifact upload, or GitHub Actions cutover. Staging/production GCS, IAM, secrets, Cloud SQL, Cloud Run, staging, and production remain untouched. Authenticated E2E behavior is a separate future work unit.
-- The same-SHA GitHub `Playwright Chromium smoke` check `102113652044` passed. GitHub Actions remains the parity executor; this Cloud Build evidence does not replace application testing or change repository-governance workflows.
-- The separate manual dispatcher trigger is provisioned with `cloud-build-playwright-tests@teleferico-bariloche-2024.iam.gserviceaccount.com` as its test-execution identity. Its successful exact-SHA pilot is recorded in [infra/cloud-build/playwright-e2e-manual-dispatcher.md](infra/cloud-build/playwright-e2e-manual-dispatcher.md). Its WIF-authenticated GitHub invoker is `github-cloud-build-dispatcher@teleferico-bariloche-2024.iam.gserviceaccount.com`; neither path uses a service-account key or static credential. No GitHub-dispatched build has run, and the local workflow must reach `main` before activation.
+- Historical same-SHA GitHub `Playwright Chromium smoke` check `102113652044` passed. GitHub Actions remains the parity executor; this Cloud Build evidence does not replace application testing or change repository-governance workflows.
+- PR #268 proved the active GitHub route at SHA `8a0185fa70ee0dedc53573f0f6dafbffd9a4199c`. GitHub run `34373237590` passed `validate-trusted-pr`, OIDC/WIF authentication, and `dispatch-and-wait` without a service-account key. Trigger `playwright-e2e-dispatch` launched Cloud Build `b29e46c1-10a4-4d28-bf2b-21b7d985b22d`; all five steps passed and both `COMMIT_SHA` and `REVISION_ID` matched the PR SHA. The GitHub-hosted Chromium smoke also passed on that SHA.
+- Final legacy `/gcbrun` build `3ce4566d-030c-4dcf-b533-f9c97dc71b7c` passed the same five steps on the same SHA, and its historical PR check reached success. Trigger `playwright-e2e-pr` (`c2133674-afdc-46ae-87d0-afe06e605ca6`) is now disabled. Future PR updates use only the automatic GitHub OIDC dispatcher plus GitHub parity smoke. Retain the disabled trigger temporarily for rollback; delete it only after a later dispatcher-only SHA proves the legacy check does not return. The manual exact-SHA trigger remains the fallback executor, not the disabled native trigger.
+- The proven parity criterion covers development fixture smoke only. Full staging, production-smoke migration, authenticated E2E, diagnostic artifacts, and final redundant-job removal remain under issue #261. The dispatcher path filters do not include `.github/workflows/cloud-build-playwright-dispatch.yml` or `.github/scripts/playwright-e2e.test.js`; covering those paths remains pending and this documentation update does not modify the workflow.
 
 Read-only repository validation is `node --test .github/scripts/playwright-e2e.test.js`; it does not submit a build or access GCP.
 
@@ -424,6 +426,36 @@ Both domains use Google Cloud DNS as name servers. Each has its own independent 
 Operational rule:
 
 - DNS changes are made in `teleferico-bariloche`, not in the GCP project associated with this repo.
+
+### 10.1 Temporary production origin recovery
+
+As of the 2026-09-09 incident, the canonical production origin is temporarily `https://app-production-teleferico-384535443802.southamerica-east1.run.app`. The registrar/parent delegation for `telefericobariloche.com.ar` remained inactive and returned `NXDOMAIN`, although the authoritative Google Cloud DNS records remained present.
+
+The live Cloud Build trigger `app-production-deploy-cr` (`252cd6a2-304b-49db-8e8a-d515cf31afc6`) and GitHub production environment use this temporary state:
+
+- `_NEXT_PUBLIC_SITE_URL` and `_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL` use the Cloud Run origin instead of `https://telefericobariloche.com.ar`.
+- `_ALLOWED_PUBLIC_ORIGINS` retains `https://telefericobariloche.com`, `https://www.telefericobariloche.com`, `https://telefericobariloche.com.ar`, and `https://www.telefericobariloche.com.ar`, and appends the Cloud Run origin.
+- `_APP_INTERNAL_BASE_URL` remains unchanged because it already uses the Cloud Run origin. **Do not restore this variable to the public domain during recovery.**
+- GitHub production `PRODUCTION_E2E_BASE_URL` uses the Cloud Run origin.
+- The Cloud Run hostname was added manually to the reCAPTCHA allowlist. Never record reCAPTCHA secret values in this repository.
+
+Evidence for the temporary state:
+
+- Manual production build `3b334e7b-31d2-4ae7-a158-c86413443341` passed for main commit `fb220fc3c8904a14385a7377da5fd96f5fc1375b`.
+- Revision `app-production-teleferico-00030-79c` serves 100% of traffic. The previous ready rollback revision is `app-production-teleferico-00029-22l`.
+- GitHub deployment `6352989259` and production smoke run `34369735354` passed.
+- Forms, reCAPTCHA submission, authenticated administration, and email writes were intentionally not tested. This does not block TB-122 dispatcher verification.
+
+Production mutations always require explicit approval. Recovery checklist:
+
+- [ ] Restore the public domain only after registrar/parent delegation and external DNS resolution are confirmed healthy.
+- [ ] Restore `_NEXT_PUBLIC_SITE_URL`, `_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL`, and GitHub `PRODUCTION_E2E_BASE_URL` to the verified public domain.
+- [ ] Keep `_APP_INTERNAL_BASE_URL` on the Cloud Run origin.
+- [ ] Remove the temporary Cloud Run entry from `_ALLOWED_PUBLIC_ORIGINS` only after the public-domain deployment and smoke verification pass.
+- [ ] Review whether the Cloud Run hostname should remain in the reCAPTCHA allowlist.
+- [ ] If recovery fails, route traffic to `app-production-teleferico-00029-22l` and restore the temporary substitutions before retrying.
+
+Track registrar/DNS recovery in [TB-124](https://app.notion.com/p/3d6a58c3fefc81a7bcb5eb8a008435a9) and durable origin portability in [TB-125](https://app.notion.com/p/3d6a58c3fefc8135a264c91cd8da32a4).
 
 ---
 
