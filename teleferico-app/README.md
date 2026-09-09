@@ -4,6 +4,7 @@ Frontend application of the project, implemented with Next.js (App Router).
 
 - Monorepo overview: [../README.md](../README.md)
 - Infrastructure, CI/CD and GCP deployments: [../docs/INFRA.md](../docs/INFRA.md)
+- Temporary production origin recovery: [../docs/INFRA.md#101-temporary-production-origin-recovery](../docs/INFRA.md#101-temporary-production-origin-recovery)
 - This README: scripts, variables and frontend-specific flows
 
 ## Useful scripts

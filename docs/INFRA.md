@@ -425,6 +425,36 @@ Operational rule:
 
 - DNS changes are made in `teleferico-bariloche`, not in the GCP project associated with this repo.
 
+### 10.1 Temporary production origin recovery
+
+As of the 2026-09-09 incident, the canonical production origin is temporarily `https://app-production-teleferico-384535443802.southamerica-east1.run.app`. The registrar/parent delegation for `telefericobariloche.com.ar` remained inactive and returned `NXDOMAIN`, although the authoritative Google Cloud DNS records remained present.
+
+The live Cloud Build trigger `app-production-deploy-cr` (`252cd6a2-304b-49db-8e8a-d515cf31afc6`) and GitHub production environment use this temporary state:
+
+- `_NEXT_PUBLIC_SITE_URL` and `_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL` use the Cloud Run origin instead of `https://telefericobariloche.com.ar`.
+- `_ALLOWED_PUBLIC_ORIGINS` retains `https://telefericobariloche.com`, `https://www.telefericobariloche.com`, `https://telefericobariloche.com.ar`, and `https://www.telefericobariloche.com.ar`, and appends the Cloud Run origin.
+- `_APP_INTERNAL_BASE_URL` remains unchanged because it already uses the Cloud Run origin. **Do not restore this variable to the public domain during recovery.**
+- GitHub production `PRODUCTION_E2E_BASE_URL` uses the Cloud Run origin.
+- The Cloud Run hostname was added manually to the reCAPTCHA allowlist. Never record reCAPTCHA secret values in this repository.
+
+Evidence for the temporary state:
+
+- Manual production build `3b334e7b-31d2-4ae7-a158-c86413443341` passed for main commit `fb220fc3c8904a14385a7377da5fd96f5fc1375b`.
+- Revision `app-production-teleferico-00030-79c` serves 100% of traffic. The previous ready rollback revision is `app-production-teleferico-00029-22l`.
+- GitHub deployment `6352989259` and production smoke run `34369735354` passed.
+- Forms, reCAPTCHA submission, authenticated administration, and email writes were intentionally not tested. This does not block TB-122 dispatcher verification.
+
+Production mutations always require explicit approval. Recovery checklist:
+
+- [ ] Restore the public domain only after registrar/parent delegation and external DNS resolution are confirmed healthy.
+- [ ] Restore `_NEXT_PUBLIC_SITE_URL`, `_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL`, and GitHub `PRODUCTION_E2E_BASE_URL` to the verified public domain.
+- [ ] Keep `_APP_INTERNAL_BASE_URL` on the Cloud Run origin.
+- [ ] Remove the temporary Cloud Run entry from `_ALLOWED_PUBLIC_ORIGINS` only after the public-domain deployment and smoke verification pass.
+- [ ] Review whether the Cloud Run hostname should remain in the reCAPTCHA allowlist.
+- [ ] If recovery fails, route traffic to `app-production-teleferico-00029-22l` and restore the temporary substitutions before retrying.
+
+Track registrar/DNS recovery in [TB-124](https://app.notion.com/p/3d6a58c3fefc81a7bcb5eb8a008435a9) and durable origin portability in [TB-125](https://app.notion.com/p/3d6a58c3fefc8135a264c91cd8da32a4).
+
 ---
 
 ## 11) Deployment variables that do change by environment
