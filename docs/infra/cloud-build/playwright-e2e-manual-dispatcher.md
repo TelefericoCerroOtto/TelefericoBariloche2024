@@ -1,6 +1,6 @@
 # Provisioned manual Playwright dispatcher target
 
-**Status: infrastructure provisioned; manual trigger proven once, GitHub dispatcher unactivated and OIDC unproven.** This snapshot records external state but does not create, update, or enable it.
+**Status: GitHub OIDC dispatcher proven and active for eligible pull requests; manual exact-SHA trigger retained as its executor and fallback.** This snapshot records external state but does not create, update, disable, or enable it.
 
 ## Target
 
@@ -43,6 +43,29 @@ All five values exist; `CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID` holds the immu
 - Workspace revision, package-manager, locked-dependency, fixture-backed Chromium smoke, and real-stack-readiness steps all succeeded. No Secret Manager reference, inline secret, `secretEnv`, credential, environment value, source content, or raw log was exposed.
 - This proves the manual trigger, exact-SHA execution, and dedicated executor only. It does not prove GitHub OIDC/dispatcher behavior, authenticated flows, staging, production, or final migration cutover.
 
-## Activation and rollback
+## GitHub-dispatched proof
 
-The committed and pushed `pull_request_target` workflow is under review in [PR #264](https://github.com/TelefericoCerroOtto/TelefericoBariloche2024/pull/264). It becomes trusted only after it reaches default branch `main`; it has not dispatched a build, so WIF and GitHub-dispatcher behavior remain unproven. The GitHub job is limited to 40 minutes, its polling loop to 36 minutes, and the remote Cloud Build to 35 minutes. The native `playwright-e2e-pr` remains enabled and manual. Roll back by disabling the dispatcher workflow or removing its repository-variable configuration. GitHub cancellation can leave a bounded remote build running until the Cloud Build timeout.
+- PR #268 head SHA: `8a0185fa70ee0dedc53573f0f6dafbffd9a4199c`.
+- GitHub dispatcher run `34373237590`: `validate-trusted-pr` and `dispatch-and-wait` succeeded.
+- OIDC/WIF authentication succeeded without a service-account key.
+- Trigger `3946c022-59cf-42cc-97cf-827c19f73291` launched Cloud Build `b29e46c1-10a4-4d28-bf2b-21b7d985b22d`.
+- All five Cloud Build steps succeeded; `COMMIT_SHA` and `REVISION_ID` exactly matched the PR SHA.
+- GitHub-hosted Chromium smoke passed on the same SHA.
+
+This proves the GitHub-dispatched development fixture smoke path. It does not prove the full staging suite, production-smoke migration, authenticated E2E, diagnostic artifacts, or final redundant-job removal.
+
+## Cutover and rollback
+
+- Final legacy `/gcbrun` build `3ce4566d-030c-4dcf-b533-f9c97dc71b7c` passed the same SHA and five steps; its historical PR check reached success.
+- Native trigger `playwright-e2e-pr` (`c2133674-afdc-46ae-87d0-afe06e605ca6`) is disabled.
+- Future eligible PR updates use the automatic GitHub OIDC dispatcher plus GitHub parity smoke.
+- The manual exact-SHA trigger remains the fallback executor. The disabled native trigger is not a canonical fallback.
+- Retain the disabled native trigger for reversible rollback and delete it only after a later dispatcher-only SHA proves its check does not return.
+- Roll back the dispatcher by disabling its workflow or removing its repository-variable configuration. GitHub cancellation can leave a bounded remote build running until the 35-minute Cloud Build timeout.
+
+## Pending issue #261 scope
+
+- Full staging suite and production-smoke execution migration.
+- Authenticated E2E and diagnostic artifacts.
+- Final removal of redundant GitHub jobs and the disabled native trigger.
+- Dispatcher path coverage for `.github/workflows/cloud-build-playwright-dispatch.yml` and `.github/scripts/playwright-e2e.test.js`; current filters exclude both.
