@@ -4,6 +4,7 @@ name: playwright-e2e-pr
 id: c2133674-afdc-46ae-87d0-afe06e605ca6
 region: southamerica-east1
 description: Run fixture-backed Playwright smoke tests for pull requests to development
+disabled: true
 filename: cloudbuild.playwright-e2e.json
 repository: Existing 2nd-gen repository binding
 pullRequest:

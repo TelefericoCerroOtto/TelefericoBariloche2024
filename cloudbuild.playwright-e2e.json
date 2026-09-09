@@ -6,10 +6,11 @@
       "entrypoint": "/bin/sh",
       "args": [
         "-c",
-        "set -eu\ntest \"$$EXPECTED_COMMIT_SHA\" != \"0000000000000000000000000000000000000000\"\ntest \"$${#EXPECTED_COMMIT_SHA}\" -eq 40\ncase \"$$EXPECTED_COMMIT_SHA\" in *[!0-9a-f]*) echo \"COMMIT_SHA must be a lowercase 40-character Git SHA.\" >&2; exit 1 ;; esac\ngit --version\ngit rev-parse --verify \"$$EXPECTED_COMMIT_SHA^{commit}\" >/dev/null\nactual_sha=\"$$(git rev-parse HEAD^{commit})\"\ntest \"$$actual_sha\" = \"$$EXPECTED_COMMIT_SHA\"\nprintf 'Verified Cloud Build workspace revision %s\\n' \"$$actual_sha\"\n"
+        "set -eu\ntest \"$$EXPECTED_COMMIT_SHA\" != \"0000000000000000000000000000000000000000\"\ntest \"$${#EXPECTED_COMMIT_SHA}\" -eq 40\ncase \"$$EXPECTED_COMMIT_SHA\" in *[!0-9a-f]*) echo \"COMMIT_SHA must be a lowercase 40-character Git SHA.\" >&2; exit 1 ;; esac\ncase \"$$PLAYWRIGHT_SUITE\" in smoke|full) ;; *) echo \"_PLAYWRIGHT_SUITE must be exactly smoke or full.\" >&2; exit 1 ;; esac\ngit --version\ngit rev-parse --verify \"$$EXPECTED_COMMIT_SHA^{commit}\" >/dev/null\nactual_sha=\"$$(git rev-parse HEAD^{commit})\"\ntest \"$$actual_sha\" = \"$$EXPECTED_COMMIT_SHA\"\nprintf 'Verified Cloud Build workspace revision %s for suite %s\\n' \"$$actual_sha\" \"$$PLAYWRIGHT_SUITE\"\n"
       ],
       "env": [
-        "EXPECTED_COMMIT_SHA=$COMMIT_SHA"
+        "EXPECTED_COMMIT_SHA=$COMMIT_SHA",
+        "PLAYWRIGHT_SUITE=$_PLAYWRIGHT_SUITE"
       ],
       "timeout": "60s"
     },
@@ -43,18 +44,19 @@
     },
     {
       "name": "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96",
-      "id": "Run fixture-backed Chromium smoke suite",
+      "id": "Run fixture-backed Chromium suite",
       "dir": "teleferico-app",
       "entrypoint": "bash",
       "env": [
         "COREPACK_DEFAULT_TO_LATEST=0",
-        "CI=true"
+        "CI=true",
+        "PLAYWRIGHT_SUITE=$_PLAYWRIGHT_SUITE"
       ],
       "args": [
         "-c",
-        "set -euo pipefail\ncorepack enable\npnpm exec playwright install --with-deps chromium\ncommand -v pnpm\npnpm run test:e2e:smoke\n"
+        "set -euo pipefail\ncase \"$$PLAYWRIGHT_SUITE\" in\n  smoke) suite_command=\"test:e2e:smoke\" ;;\n  full) suite_command=\"test:e2e\" ;;\n  *) echo \"_PLAYWRIGHT_SUITE must be exactly smoke or full.\" >&2; exit 1 ;;\nesac\ncorepack enable\npnpm exec playwright install --with-deps chromium\ncommand -v pnpm\npnpm run \"$$suite_command\"\n"
       ],
-      "timeout": "480s"
+      "timeout": "900s"
     },
     {
       "name": "gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c",
@@ -70,7 +72,10 @@
       "timeout": "900s"
     }
   ],
-  "timeout": "2100s",
+  "timeout": "2700s",
+  "substitutions": {
+    "_PLAYWRIGHT_SUITE": "smoke"
+  },
   "options": {
     "logging": "CLOUD_LOGGING_ONLY"
   }
