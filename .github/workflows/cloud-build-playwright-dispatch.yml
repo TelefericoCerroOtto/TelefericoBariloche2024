@@ -1,0 +1,118 @@
+name: Dispatch Cloud Build Playwright
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [development]
+    paths:
+      - "teleferico-app/**"
+      - "teleferico-cms/**"
+      - "cloudbuild.playwright-e2e.json"
+      - "scripts/run-playwright-real-stack-readiness.sh"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-build-playwright-dispatch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate-trusted-pr:
+    runs-on: ubuntu-latest
+    outputs:
+      head_sha: ${{ steps.provenance.outputs.head_sha }}
+    steps:
+      - id: provenance
+        name: Validate trusted pull request provenance
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          CURRENT_REPOSITORY: ${{ github.repository }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$HEAD_REPOSITORY" != "$CURRENT_REPOSITORY" ]]; then
+            echo "External pull requests cannot dispatch Cloud Build." >&2
+            exit 1
+          fi
+          if [[ "$BASE_REF" != "development" ]]; then
+            echo "Cloud Build dispatch requires the development base branch." >&2
+            exit 1
+          fi
+          if ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Pull request head SHA must be a lowercase 40-character Git SHA." >&2
+            exit 1
+          fi
+          printf 'head_sha=%s\n' "$HEAD_SHA" >> "$GITHUB_OUTPUT"
+
+  dispatch-and-wait:
+    needs: validate-trusted-pr
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CLOUD_BUILD_DISPATCHER_SERVICE_ACCOUNT: ${{ vars.CLOUD_BUILD_DISPATCHER_SERVICE_ACCOUNT }}
+      CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID: ${{ vars.CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID }}
+      CLOUD_BUILD_PROJECT_ID: ${{ vars.CLOUD_BUILD_PROJECT_ID }}
+      CLOUD_BUILD_REGION: ${{ vars.CLOUD_BUILD_REGION }}
+      CLOUD_BUILD_WIF_PROVIDER: ${{ vars.CLOUD_BUILD_WIF_PROVIDER }}
+      PR_HEAD_SHA: ${{ needs.validate-trusted-pr.outputs.head_sha }}
+    steps:
+      - name: Validate dispatcher configuration
+        run: |
+          set -euo pipefail
+          for value in CLOUD_BUILD_PROJECT_ID CLOUD_BUILD_REGION CLOUD_BUILD_WIF_PROVIDER CLOUD_BUILD_DISPATCHER_SERVICE_ACCOUNT CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID PR_HEAD_SHA; do
+            test -n "${!value}"
+          done
+      - id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          project_id: ${{ vars.CLOUD_BUILD_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.CLOUD_BUILD_WIF_PROVIDER }}
+          service_account: ${{ vars.CLOUD_BUILD_DISPATCHER_SERVICE_ACCOUNT }}
+          create_credentials_file: false
+          token_format: access_token
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          project_id: ${{ vars.CLOUD_BUILD_PROJECT_ID }}
+          version: 567.0.0
+      - name: Dispatch exact revision and wait for Cloud Build
+        env:
+          CLOUD_BUILD_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          token_file="$RUNNER_TEMP/cloud-build-dispatch-access-token"
+          trap 'rm -f "$token_file"' EXIT
+          printf '%s' "$CLOUD_BUILD_ACCESS_TOKEN" > "$token_file"
+          build_id="$(gcloud --access-token-file="$token_file" builds triggers run "$CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID" --project="$CLOUD_BUILD_PROJECT_ID" --region="$CLOUD_BUILD_REGION" --sha="$PR_HEAD_SHA" --format='value(metadata.build.id)')"
+          test -n "$build_id"
+          deadline=$((SECONDS + 2160))
+          while :; do
+            status="$(gcloud --access-token-file="$token_file" builds describe "$build_id" --project="$CLOUD_BUILD_PROJECT_ID" --region="$CLOUD_BUILD_REGION" --format='value(status)')"
+            case "$status" in
+              SUCCESS)
+                printf 'Cloud Build `%s` in `%s` completed with `%s`.\n' "$build_id" "$CLOUD_BUILD_REGION" "$status" >> "$GITHUB_STEP_SUMMARY"
+                break
+                ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                printf 'Cloud Build `%s` in `%s` completed with `%s`.\n' "$build_id" "$CLOUD_BUILD_REGION" "$status" >> "$GITHUB_STEP_SUMMARY"
+                exit 1
+                ;;
+              QUEUED|WORKING|PENDING)
+                ;;
+              *)
+                printf 'Cloud Build `%s` reported unexpected status `%s`.\n' "$build_id" "$status" >> "$GITHUB_STEP_SUMMARY"
+                exit 1
+                ;;
+            esac
+            if (( SECONDS >= deadline )); then
+              printf 'Cloud Build `%s` did not reach a terminal status before the GitHub wait deadline.\n' "$build_id" >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            sleep 15
+          done

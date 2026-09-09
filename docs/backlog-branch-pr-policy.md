@@ -138,11 +138,13 @@ Therefore:
 
 - they don't need `Work ID` in the branch
 - they don't need an associated Notion `Branch` field
-- they should rely on existing PRs/issues and the release/promotion narrative
-- **Promotion to staging**: should not use closure keywords (e.g., `Closes #123`).
-- **Promotion to main**: must explicitly declare release intent in the PR body using `Closes #123`, `Advances #123`, or the exact line `Formal issues: none`.
+- they must use the deterministic promotion body contract in [CONVENTIONS.md](./CONVENTIONS.md#promotion-pr-body-contract): visible included implementation PRs, route-consistent target environment, route-specific validation, and rollback strategy
+- **Promotion to staging**: requires a validation plan or expected checks and must not use closure keywords (e.g., `Closes #123`).
+- **Promotion to main**: requires prior staging validation evidence and `Release candidate SHA: <40-character SHA>` matching the promotion PR head for the exact release candidate; it must explicitly declare release intent using `Closes #123`, `Advances #123`, or the exact line `Formal issues: none`.
 
-`Advances #N` is reserved for phased delivery: an intermediate production phase of an issue whose acceptance scope is not complete. It records an `Advanced by` relation, leaves the GitHub issue open, and does not move the Notion row to `Hecho`. The final phase uses `Closes #N`.
+`Advances #N` is reserved for phased delivery: an intermediate production phase with real remaining work or an actual remaining acceptance condition. Each declaration requires its deterministic `## Advancement Finalization` record: `Issue: #N`, `Remaining work or condition:`, `Finalization owner:`, and `Finalization event or action:`. It records an `Advanced by` relation, leaves the GitHub issue open, and does not move the Notion row to `Hecho`. The final phase uses `Closes #N`.
+
+Use `Closes #N` when merging the production promotion delivers the complete intended mechanism, even if a deployment-triggered workflow normally executes the mechanism after deployment.
 
 | Combination | Result |
 | --- | --- |

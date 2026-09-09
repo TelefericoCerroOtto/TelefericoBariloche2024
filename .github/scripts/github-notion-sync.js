@@ -14,8 +14,33 @@ const DEFAULTS = {
   noFormalIssuesToken: "Formal issues: none",
   noBacklogItemDeclaration: "Backlog item: none",
   maxExplicitReferences: 100,
+  maxIncludedPullRequests: 100,
   issueFetchConcurrency: 5,
   commentPageSize: 100,
+};
+
+const PROMOTION_BODY_CONTRACT = {
+  shared: {
+    includedPullRequests: { heading: "Included Implementation PRs", label: "PR" },
+    releaseTarget: { heading: "Release Target", label: "Environment" },
+    rollback: { heading: "Rollback", label: "Strategy" },
+  },
+  "promotion-to-staging": { environment: "staging", validation: { heading: "Validation", label: "Plan" } },
+  "promotion-to-main": {
+    environment: "production",
+    validation: {
+      heading: "Validation",
+      label: "Prior staging validation evidence",
+      releaseCandidateShaLabel: "Release candidate SHA",
+    },
+    advancementFinalization: {
+      heading: "Advancement Finalization",
+      issueLabel: "Issue",
+      remainingLabel: "Remaining work or condition",
+      ownerLabel: "Finalization owner",
+      eventLabel: "Finalization event or action",
+    },
+  },
 };
 
 async function main() {
@@ -51,6 +76,7 @@ function getConfig() {
       baseRef: process.env.PR_BASE_REF || "",
       action: process.env.PR_ACTION || "opened",
       body: process.env.PR_BODY || "",
+      headSha: process.env.PR_HEAD_SHA || "",
       merged: parseBoolean(process.env.PR_MERGED),
       headRepository: process.env.PR_HEAD_REPOSITORY || "",
     },
@@ -69,17 +95,24 @@ async function validatePrPolicy(config) {
     validateImplementationBody(document, closingRefs);
     return ensureImplementationTracking(config, branch, extractRefsNumbers(document), document);
   }
-  if (pr.type === "promotion-to-staging" && closingRefs.length) {
-    throw new Error("Promotion PRs from development to staging must NOT close issues.");
-  }
-  if (pr.type === "promotion-to-main") {
-    const hasNoFormalIssues = containsNoFormalIssuesToken(document);
-    if (!closingRefs.length && !advancingRefs.length && !hasNoFormalIssues) throw new Error(`Promotion PRs from staging to main must declare closing references, advancing references, or '${DEFAULTS.noFormalIssuesToken}'.`);
-    if (closingRefs.length && hasNoFormalIssues) throw new Error("Promotion PRs to main cannot mix closing references with Formal issues: none.");
-    if (advancingRefs.length && hasNoFormalIssues) throw new Error("Promotion PRs to main cannot mix advancing references with Formal issues: none.");
-    const closingNumbers = new Set(closingRefs.map((entry) => entry.issueNumber));
-    const overlap = advancingRefs.find((entry) => closingNumbers.has(entry.issueNumber));
-    if (overlap) throw new Error(`Promotion PRs to main cannot both advance and close issue #${overlap.issueNumber}.`);
+  if (pr.type === "promotion-to-staging" || pr.type === "promotion-to-main") {
+    const promotion = evaluatePromotionBody(document, pr.type);
+    if (pr.type === "promotion-to-staging" && closingRefs.length) {
+      throw new Error("Promotion PRs from development to staging must NOT close issues.");
+    }
+    if (pr.type === "promotion-to-main") {
+      validatePromotionCandidateSha(config, promotion.releaseCandidateSha);
+      const hasNoFormalIssues = containsNoFormalIssuesToken(document);
+      if (!closingRefs.length && !advancingRefs.length && !hasNoFormalIssues) throw new Error(`Promotion PRs from staging to main must declare closing references, advancing references, or '${DEFAULTS.noFormalIssuesToken}'.`);
+      if (closingRefs.length && hasNoFormalIssues) throw new Error("Promotion PRs to main cannot mix closing references with Formal issues: none.");
+      if (advancingRefs.length && hasNoFormalIssues) throw new Error("Promotion PRs to main cannot mix advancing references with Formal issues: none.");
+      const closingNumbers = new Set(closingRefs.map((entry) => entry.issueNumber));
+      const overlap = advancingRefs.find((entry) => closingNumbers.has(entry.issueNumber));
+      if (overlap) throw new Error(`Promotion PRs to main cannot both advance and close issue #${overlap.issueNumber}.`);
+      if (advancingRefs.length) validateAdvancingFinalization(document, advancingRefs);
+    }
+    await validateIncludedPullRequests(config, promotion.includedPullRequestNumbers);
+    return;
   }
   if (pr.type === "unsupported-implementation-target") {
     throw new Error(`Implementation-like branches must target development. Received '${config.pullRequest.headRef}' -> '${config.pullRequest.baseRef}'.`);
@@ -395,6 +428,117 @@ function validateImplementationBody(document, closingRefs = extractClosingRefere
   return extractRefsNumbers(document);
 }
 
+function evaluatePromotionBody(document, promotionType) {
+  const route = PROMOTION_BODY_CONTRACT[promotionType];
+  if (!route) throw new Error(`Unsupported promotion route '${promotionType}'.`);
+  const includedPullRequests = getRequiredPromotionSection(document, route, PROMOTION_BODY_CONTRACT.shared.includedPullRequests.heading);
+  const releaseTarget = getRequiredPromotionSection(document, route, PROMOTION_BODY_CONTRACT.shared.releaseTarget.heading);
+  const validation = getRequiredPromotionSection(document, route, route.validation.heading);
+  const rollback = getRequiredPromotionSection(document, route, PROMOTION_BODY_CONTRACT.shared.rollback.heading);
+  const promotion = {
+    includedPullRequestNumbers: parseIncludedPullRequestNumbers(includedPullRequests, route),
+    environment: getRequiredPromotionField(releaseTarget, route, PROMOTION_BODY_CONTRACT.shared.releaseTarget.label, route.environment),
+    validation: getRequiredPromotionField(validation, route, route.validation.label),
+    rollback: getRequiredPromotionField(rollback, route, PROMOTION_BODY_CONTRACT.shared.rollback.label),
+  };
+  if (route.validation.releaseCandidateShaLabel) {
+    promotion.releaseCandidateSha = getRequiredPromotionShaField(validation, route, route.validation.releaseCandidateShaLabel);
+  }
+  return promotion;
+}
+
+function getRequiredPromotionSection(document, route, heading) {
+  const sections = document.sections.filter((section) => section.heading === heading);
+  const routeName = promotionRouteName(route);
+  if (!sections.length) throw new Error(`Promotion PRs from ${routeName} require a visible '## ${heading}' section.`);
+  if (sections.length > 1) throw new Error(`Promotion PRs from ${routeName} must not duplicate the visible '## ${heading}' section.`);
+  return sections[0];
+}
+
+function getRequiredPromotionField(section, route, label, expectedValue = undefined) {
+  const matchingLines = section.content.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.startsWith(`${label}:`));
+  const routeName = promotionRouteName(route);
+  if (!matchingLines.length) throw new Error(`Promotion PRs from ${routeName} require a '${label}: ...' field in visible '## ${section.heading}'.`);
+  if (matchingLines.length > 1) throw new Error(`Promotion PRs from ${routeName} must not duplicate the '${label}:' field in visible '## ${section.heading}'.`);
+  const value = matchingLines[0].slice(label.length + 1).trim();
+  if (!value) throw new Error(`Promotion PRs from ${routeName} require a non-empty '${label}: ...' field in visible '## ${section.heading}'.`);
+  if (expectedValue && value !== expectedValue) throw new Error(`Promotion PRs from ${routeName} require '${label}: ${expectedValue}' in visible '## ${section.heading}'.`);
+  return value;
+}
+
+function getRequiredPromotionShaField(section, route, label) {
+  const value = getRequiredPromotionField(section, route, label);
+  if (!isFullSha(value)) throw new Error(`Promotion PRs from ${promotionRouteName(route)} require a full 40-character hexadecimal '${label}: <sha>' field in visible '## ${section.heading}'.`);
+  return value;
+}
+
+function validatePromotionCandidateSha(config, candidateSha) {
+  const headSha = config.pullRequest.headSha;
+  if (!isFullSha(headSha)) throw new Error("Promotion PRs from staging to main require a full 40-character PR head SHA from runtime metadata.");
+  if (candidateSha.toLowerCase() !== headSha.toLowerCase()) {
+    throw new Error(`Promotion PRs from staging to main require 'Release candidate SHA' to match the PR head SHA '${headSha}'.`);
+  }
+}
+
+function isFullSha(value) { return typeof value === "string" && /^[a-f\d]{40}$/i.test(value); }
+
+function parseIncludedPullRequestNumbers(section, route) {
+  const routeName = promotionRouteName(route);
+  const entries = section.content.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.startsWith(`${PROMOTION_BODY_CONTRACT.shared.includedPullRequests.label}:`));
+  if (!entries.length) throw new Error(`Promotion PRs from ${routeName} require at least one '${PROMOTION_BODY_CONTRACT.shared.includedPullRequests.label}: #<number>' entry in visible '## ${section.heading}'.`);
+  const numbers = entries.map((entry) => {
+    const match = entry.match(/^PR:\s*#(\d+)\s*$/);
+    if (!match) throw new Error(`Promotion PRs from ${routeName} require included implementation PR entries to use 'PR: #<number>'.`);
+    return Number(match[1]);
+  });
+  if (unique(numbers).length !== numbers.length) throw new Error(`Promotion PRs from ${routeName} must not duplicate included implementation PR references.`);
+  return numbers;
+}
+
+function promotionRouteName(route) { return route.environment === "staging" ? "development to staging" : "staging to main"; }
+
+function validateAdvancingFinalization(document, advancingRefs) {
+  const route = PROMOTION_BODY_CONTRACT["promotion-to-main"];
+  const finalization = route.advancementFinalization;
+  const advancingNumbers = advancingRefs.map((entry) => entry.issueNumber);
+  if (unique(advancingNumbers).length !== advancingNumbers.length) throw new Error("Promotion PRs to main must not declare the same Advances #<number> reference more than once.");
+  const section = getRequiredPromotionSection(document, route, finalization.heading);
+  const records = [];
+  let current;
+  for (const line of section.content.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean)) {
+    if (line.startsWith(`${finalization.issueLabel}:`)) {
+      const match = line.match(/^Issue:\s*#(\d+)\s*$/);
+      if (!match) throw new Error(`Promotion PRs to main require '${finalization.issueLabel}: #<number>' entries in visible '## ${finalization.heading}'.`);
+      current = { issueNumber: Number(match[1]), fields: new Map() };
+      records.push(current);
+      continue;
+    }
+    const label = [finalization.remainingLabel, finalization.ownerLabel, finalization.eventLabel].find((entry) => line.startsWith(`${entry}:`));
+    if (!label) continue;
+    if (!current) throw new Error(`Promotion PRs to main require '${finalization.issueLabel}: #<number>' before '${label}: ...' in visible '## ${finalization.heading}'.`);
+    if (current.fields.has(label)) throw new Error(`Promotion PRs to main must not duplicate '${label}:' for issue #${current.issueNumber} in visible '## ${finalization.heading}'.`);
+    const value = line.slice(label.length + 1).trim();
+    if (!value) throw new Error(`Promotion PRs to main require a non-empty '${label}: ...' for issue #${current.issueNumber} in visible '## ${finalization.heading}'.`);
+    current.fields.set(label, value);
+  }
+  const recordNumbers = records.map((record) => record.issueNumber);
+  if (unique(recordNumbers).length !== recordNumbers.length) throw new Error(`Promotion PRs to main must not duplicate '${finalization.issueLabel}: #<number>' entries in visible '## ${finalization.heading}'.`);
+  for (const record of records) {
+    if (!advancingNumbers.includes(record.issueNumber)) throw new Error(`Promotion PRs to main finalization entry for issue #${record.issueNumber} has no matching Advances declaration.`);
+    for (const label of [finalization.remainingLabel, finalization.ownerLabel, finalization.eventLabel]) {
+      if (!record.fields.has(label)) throw new Error(`Promotion PRs to main require '${label}: ...' for Advances #${record.issueNumber} in visible '## ${finalization.heading}'.`);
+    }
+  }
+  for (const issueNumber of advancingNumbers) {
+    if (!recordNumbers.includes(issueNumber)) throw new Error(`Promotion PRs to main require a finalization entry for Advances #${issueNumber} in visible '## ${finalization.heading}'.`);
+  }
+}
+
+async function validateIncludedPullRequests(config, pullRequestNumbers) {
+  if (pullRequestNumbers.length > DEFAULTS.maxIncludedPullRequests) throw new Error(`Promotion PR included implementation PRs exceed the maximum of ${DEFAULTS.maxIncludedPullRequests} references.`);
+  await mapWithConcurrency(pullRequestNumbers, DEFAULTS.issueFetchConcurrency, (number) => fetchGitHubPullRequest(config, number));
+}
+
 function validateExplicitlyUntrackedBody(document) {
   const section = getH2Section(document, "Tracking");
   if (!section) throw new Error("Explicitly untracked implementation PRs require a visible ## Tracking section.");
@@ -482,6 +626,12 @@ async function fetchGitHubIssue(config, number) {
   return issue;
 }
 
+async function fetchGitHubPullRequest(config, number) {
+  const pullRequest = await githubRequest(config, `/repos/${config.repository.owner}/${config.repository.repo}/pulls/${number}`, { method: "GET" });
+  if (!pullRequest || pullRequest.number !== number) throw new Error(`GitHub pull request response for #${number} is invalid.`);
+  return pullRequest;
+}
+
 async function updateNotionItem(config, pageId, properties) { await notionRequest(config, `/pages/${pageId}`, { method: "PATCH", body: { properties } }); }
 
 async function notionRequest(config, path, options) {
@@ -552,10 +702,12 @@ module.exports = {
   extractRefsNumbers,
   extractClosingReferences,
   extractAdvancingReferences,
+  evaluatePromotionBody,
   parseGitHubRenderedDocument,
   renderPrBody,
   validateExplicitlyUntrackedBody,
   validateImplementationBody,
+  validateIncludedPullRequests,
   parseFormalIssueUrl,
   findNotionPageByIssueUrl,
   listPullRequestCommits,

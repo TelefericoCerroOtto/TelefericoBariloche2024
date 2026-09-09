@@ -114,6 +114,12 @@ Use a promotion PR when moving already-reviewed code from one environment branch
   - what validation already happened and what still needs to be validated
   - rollback expectations if the promotion fails
 
+### Direct implementation finalization shortcut
+
+`/implementation-pr` is an explicit, single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR to `development`, apply required metadata, and watch required checks.
+
+It does not authorize later changes, force pushes, branch changes, rebases, merges, issue closure, branch deletion, or releases. It is not a promotion workflow: continue to use the separate `development -> staging` and `staging -> main` promotion flow and its release/closure rules.
+
 ### Content rules by PR type
 
 #### Implementation PR
@@ -124,23 +130,28 @@ Use a promotion PR when moving already-reviewed code from one environment branch
 
 #### Promotion PR
 
-- Use the same headings and English Markdown structure.
-- Keep the content short and release-oriented.
-- Reference the already reviewed implementation PRs instead of duplicating their full explanation.
-- If the promotion contains a single implementation PR, mention that PR explicitly.
-- If the promotion contains multiple implementation PRs, present them as an included release batch.
-- State the validation target clearly (`staging` or production) and the expected rollback path.
+- Use the deterministic promotion body contract below. The validator reads GitHub-rendered visible content only; hidden containers, code blocks, details, and blockquotes do not satisfy a field.
+- Keep the narrative short and release-oriented. Do not copy the implementation narrative or expect automation to rewrite the body.
 
-### Promotion PR guidance
+### Promotion PR body contract
 
-When a promotion PR contains **one** previously approved implementation PR, the body should summarize the promotion and link the original PR. It should not restate the full technical story.
+Both routes require each canonical H2 section exactly once:
 
-When a promotion PR contains **multiple** previously approved implementation PRs, the body should act as a release summary:
+- `## Included Implementation PRs` with one or more exact `PR: #<number>` entries. Each entry must resolve to a pull request.
+- `## Release Target` with `Environment: staging` for `development -> staging` or `Environment: production` for `staging -> main`.
+- `## Validation` with `Plan: <non-empty text>` for `development -> staging` or both `Prior staging validation evidence: <non-empty text>` and `Release candidate SHA: <40-character SHA>` for `staging -> main`.
+- `## Rollback` with `Strategy: <non-empty text>`.
 
-- list the included PRs
-- summarize the combined scope
-- identify the main validation focus
-- state rollback expectations
+When a `staging -> main` promotion uses `Advances #N`, it must also include exactly one `## Advancement Finalization` section with one record for every advanced issue:
+
+```md
+Issue: #<number>
+Remaining work or condition: <non-empty text>
+Finalization owner: <non-empty text>
+Finalization event or action: <non-empty text>
+```
+
+The staging plan describes expected checks; it does not require the new promotion PR own CI results, which do not exist when the body is created. Production promotions record prior staging evidence and the exact 40-character candidate SHA; the validator compares that SHA case-insensitively with the current promotion PR head SHA. Post-merge production checks remain GitHub Actions evidence and are not copied back into the PR body.
 
 **CRITICAL: Issue Closure Extraction**
 When creating a promotion PR to `main`, the author (human or agent) MUST scan all included implementation PRs and extract every `Refs #N` issue reference. Declare each issue as `Closes #N` when its acceptance scope is complete or `Advances #N` when this release delivers an intermediate phase and the issue must remain open. Failure to declare the release intent leaves issue state ambiguous.
@@ -168,7 +179,7 @@ Use GitHub Issues as the formal artifact, but distinguish between the PR that
 
 When promoting to `main`, the PR body **MUST** declare its release intent to pass automation:
 - If there are issues to close, use standard `Closes #N` / `Fixes #N`.
-- If an issue is only partially delivered and must remain open, use `Advances #N`.
+- If an issue is only partially delivered and must remain open, use `Advances #N` and add its record to `## Advancement Finalization`.
 - If the release contains no formal issues, include the exact line `Formal issues: none` in the PR body.
 - **MANDATORY EXTRACTION RULE**: Scan the descriptions of all implementation PRs being promoted, extract every `Refs #N`, and classify each as `Closes #N` or `Advances #N`. Do not assume implementation references will update issue state themselves.
 
@@ -183,7 +194,7 @@ When promoting to `main`, the PR body **MUST** declare its release intent to pas
 
 #### Phased delivery
 
-Use phased delivery when one issue requires sequential production phases and the next phase is meaningful only after the current phase is live and validated. Intermediate promotion PRs use `Advances #N`; the final promotion drops `Advances` and uses `Closes #N`. The issue should include an optional `## Delivery Phases` checklist so remaining work stays visible.
+Use phased delivery only when real work or an actual acceptance condition remains after the production promotion. Intermediate promotion PRs use `Advances #N` with the deterministic finalization path above; the final promotion drops `Advances` and uses `Closes #N`. Use `Closes #N` when merging the production promotion delivers the complete intended mechanism, even if a deployment-triggered workflow executes that mechanism afterward.
 
 Phased delivery is not review slicing or chained PRs. Review slices divide a change for review but ship together in one release, so the existing promotion policy applies without `Advances`.
 
@@ -252,19 +263,21 @@ Refs #N
 - This promotion contains the previously reviewed implementation from #123.
 - No additional code changes were introduced after the original approval.
 
-## Changes
+## Included Implementation PRs
 
-- Included PRs:
-  - #123 — Fix checkout validation for seasonal pricing
+- PR: #123
 
-## Technical Details
+## Release Target
 
-- Validation target: staging
-- Expected checks:
-  - booking flow
-  - admin update flow
-- Rollback strategy:
-  - revert this promotion PR if staging validation fails
+Environment: staging
+
+## Validation
+
+Plan: Verify the booking flow and the administration update flow.
+
+## Rollback
+
+Strategy: Revert this promotion PR if staging validation fails.
 
 ## Breaking Changes
 
@@ -280,13 +293,25 @@ Refs #N
 
 ## Context
 
-- This promotion was previously validated in staging.
-- The implementation was originally introduced in #123.
+- The implementation was originally introduced in #123 and this exact release candidate passed staging validation.
 
-## Changes
+## Included Implementation PRs
 
-- Included PRs:
-  - #123 — Fix checkout validation for seasonal pricing
+- PR: #123
+
+## Release Target
+
+Environment: production
+
+## Validation
+
+Prior staging validation evidence: Staging run https://github.com/<owner>/<repo>/actions/runs/<run-id> passed for the current release candidate.
+
+Release candidate SHA: <40-character SHA of this PR head>
+
+## Rollback
+
+Strategy: Revert this promotion PR and redeploy the prior release if production validation fails.
 
 Closes #123
 ```
@@ -302,22 +327,23 @@ Closes #123
 
 - This promotion groups multiple previously reviewed changes into a single validation batch.
 
-## Changes
+## Included Implementation PRs
 
-- Included PRs:
-  - #123 — Fix checkout validation for seasonal pricing
-  - #124 — Add operator note field to booking management
-  - #126 — Refactor availability cache invalidation
+- PR: #123
+- PR: #124
+- PR: #126
 
-## Technical Details
+## Release Target
 
-- Validation target: staging
-- Focus areas:
-  - checkout
-  - booking admin
-  - availability sync
-- Rollback strategy:
-  - revert this promotion PR or exclude affected changes in the next release batch
+Environment: staging
+
+## Validation
+
+Plan: Verify checkout, booking administration, and availability synchronization.
+
+## Rollback
+
+Strategy: Revert this promotion PR or exclude affected changes in the next release batch.
 
 ## Breaking Changes
 
