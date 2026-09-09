@@ -51,14 +51,18 @@ jobs:
 
   chromium-full:
     name: Playwright Chromium full
-    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'staging' && github.event.pull_request.head.ref == 'development'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.base.ref == 'staging' && github.event.pull_request.head.ref == 'development'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     defaults:
       run:
         working-directory: teleferico-app
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out exact promotion head revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22

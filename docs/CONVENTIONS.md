@@ -8,7 +8,7 @@ To ensure a consistent history, we use the format of
 [Conventional Commits](https://www.conventionalcommits.org/):
 
 - Required format: `<type>(<dir>/<scope>): <description>`.
-- `<scope>` is non-empty and identifies the affected area.
+- `<scope>` is non-empty and identifies the affected area. It uses alphanumeric segments separated by a single dot, underscore, or hyphen: `[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*`.
 - `<description>` must be non-empty. The recommendation to keep it under 100 characters is not enforced.
 
 ### Types (lowercase)
@@ -25,12 +25,12 @@ To ensure a consistent history, we use the format of
 
 ### Directories (lowercase)
 
-Choose `<dir>` based on the staged paths covered by the commit:
+Choose `<dir>` from every changed path covered by the commit. The mapping is exact:
 
 - `app`: all changes are within `./teleferico-app/**`
 - `cms`: all changes are within `./teleferico-cms/**`
 - `tools`: all changes are within `./tools/**`
-- `root`: changes include paths outside `./teleferico-app/**`, `./teleferico-cms/**`, and `./tools/**`
+- `root`: a changed path is outside `./teleferico-app/**`, `./teleferico-cms/**`, and `./tools/**`; it is a category, not a wildcard
 
 If changes span multiple top-level directories, use a hyphenated composite in stable order:
 
@@ -41,6 +41,8 @@ If changes span multiple top-level directories, use a hyphenated composite in st
   - `app-tools-root`
 
 Note: keep `<dir>` as short as possible while still truthful.
+
+The declared directory must exactly equal the directories derived from the paths. For example, `feat(app/login): ...` may not include a CMS path, and a root-only declaration may not cover application-only paths. The policy derives composites only in this order: `app`, `cms`, `tools`, `root`.
 
 ### Scope and Git-generated exceptions
 
@@ -53,6 +55,12 @@ Native Git may generate a subject that cannot use the conventional shape. Enforc
 - `Revert "<valid conventional or accepted merge subject>"`
 
 Other arbitrary `Merge ...` or `Revert ...` subjects are rejected.
+
+Git-generated merges declare no directory and skip path correlation. A generated revert correlates the inner conventional subject when one exists; a revert of an accepted merge also skips correlation. A conventional `revert(<dir>/<scope>): ...` remains an ordinary conventional commit and must match its paths.
+
+An empty conventional commit is accepted because no paths can establish its directory. Validators return explicit `unverifiable` / `empty` path metadata for this exception. This is not a directory wildcard.
+
+Local `commit-msg` checks the NUL-delimited staged path set with rename detection disabled, so deletes and both sides of a cross-directory rename are included. During `git commit --amend`, that staged delta may not represent the full replacement commit; `pre-push` and PR validation re-check each final commit against its first parent.
 
 ### Description
 

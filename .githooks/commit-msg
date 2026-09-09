@@ -2,4 +2,9 @@
 set -eu
 
 repo_root=$(git rev-parse --show-toplevel)
-node "$repo_root/.github/scripts/repository-policy.js" validate-commit-message "$1"
+paths_file=$(mktemp /tmp/teleferico-commit-msg-paths.XXXXXX)
+cleanup() { rm -f "$paths_file"; }
+trap cleanup EXIT HUP INT TERM
+
+git diff --cached --name-only --no-renames -z > "$paths_file"
+node "$repo_root/.github/scripts/repository-policy.js" validate-commit-message-with-paths "$1" "$paths_file"

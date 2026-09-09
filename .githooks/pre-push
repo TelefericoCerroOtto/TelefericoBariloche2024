@@ -2,11 +2,60 @@
 set -eu
 
 repo_root=$(git rev-parse --show-toplevel)
+remote_name=${1:-}
+outgoing_file=$(mktemp /tmp/teleferico-pre-push-outgoing.XXXXXX)
+message_file=$(mktemp /tmp/teleferico-pre-push-message.XXXXXX)
+paths_file=$(mktemp /tmp/teleferico-pre-push-paths.XXXXXX)
+cleanup() { rm -f "$outgoing_file" "$message_file" "$paths_file"; }
+trap cleanup EXIT HUP INT TERM
+zero_oid=0000000000000000000000000000000000000000
+
+[ -n "$remote_name" ] || {
+  printf '%s\n' 'Cannot determine the configured remote name for pre-push validation.' >&2
+  exit 1
+}
+
 while read -r local_ref local_sha remote_ref remote_sha; do
   case "$local_ref" in
-    refs/heads/*)
-      branch=${local_ref#refs/heads/}
-      node "$repo_root/.github/scripts/repository-policy.js" validate-branch "$branch"
+    "$zero_oid"|""|refs/heads/*)
       ;;
+    *) continue ;;
   esac
+  case "$local_ref:$remote_ref" in
+    "$zero_oid":*|refs/heads/*:refs/heads/*)
+      ;;
+    *) continue ;;
+  esac
+  [ "$local_sha" = "$zero_oid" ] && continue
+
+  branch=${local_ref#refs/heads/}
+  node "$repo_root/.github/scripts/repository-policy.js" validate-branch "$branch"
+  if [ "$remote_sha" = "$zero_oid" ]; then
+    git remote get-url "$remote_name" >/dev/null 2>&1 || {
+      printf "Cannot establish configured remote namespace '%s' for new-branch validation.\n" "$remote_name" >&2
+      exit 1
+    }
+    git rev-list "$local_sha" --not "--remotes=$remote_name" >> "$outgoing_file"
+  else
+    git cat-file -e "$remote_sha^{commit}" 2>/dev/null || {
+      printf "Cannot validate outgoing commits because remote boundary '%s' is unavailable locally.\n" "$remote_sha" >&2
+      exit 1
+    }
+    git rev-list "$local_sha" "^$remote_sha" >> "$outgoing_file"
+  fi
 done
+
+while read -r sha; do
+  [ -n "$sha" ] || continue
+  git show -s --format=%B "$sha" > "$message_file"
+  parent=$(git rev-parse "$sha^" 2>/dev/null || true)
+  if [ -n "$parent" ]; then
+    git diff-tree --no-commit-id --name-only --no-renames -r -z "$parent" "$sha" > "$paths_file"
+  else
+    empty_tree=$(git hash-object -t tree /dev/null)
+    git diff-tree --no-commit-id --name-only --no-renames -r -z "$empty_tree" "$sha" > "$paths_file"
+  fi
+  node "$repo_root/.github/scripts/repository-policy.js" validate-commit-message-with-paths "$message_file" "$paths_file"
+done <<EOF
+$(sort -u "$outgoing_file")
+EOF
