@@ -1,6 +1,6 @@
 # Provisioned manual Playwright dispatcher target
 
-**Status: GitHub OIDC dispatcher proven and active for eligible pull requests; manual exact-SHA trigger retained as its executor and fallback.** This snapshot records external state but does not create, update, disable, or enable it.
+**Status: development smoke dispatch is proven; staging full-suite routing is implemented in the repository but awaits the WIF prerequisite and same-SHA promotion evidence. The manual exact-SHA trigger remains the executor and fallback.** This snapshot records external state but does not create, update, disable, or enable it.
 
 ## Target
 
@@ -9,11 +9,12 @@
 - Default source branch: `development`; no approval requirement.
 - Source revision: the exact lowercase 40-character PR head SHA supplied as `--sha`.
 - Build configuration: `cloudbuild.playwright-e2e.json`.
-- Build timeout: 35 minutes (`2100s`).
+- Build timeout from the selected revision: 45 minutes (`2700s`).
+- Suite substitution: `_PLAYWRIGHT_SUITE=smoke|full`; omission defaults safely to `smoke`.
 
 ## Dispatch scope
 
-The GitHub dispatcher runs only when a pull request to `development` changes `teleferico-app/**`, `teleferico-cms/**`, `cloudbuild.playwright-e2e.json`, or `scripts/run-playwright-real-stack-readiness.sh`. Documentation-only changes and `tools/**` are intentionally excluded.
+The GitHub dispatcher runs for relevant same-repository pull requests to `development` and `staging`. It covers `teleferico-app/**`, `teleferico-cms/**`, `cloudbuild.playwright-e2e.json`, `scripts/run-playwright-real-stack-readiness.sh`, the dispatcher and parity workflows, and the static contract test. Documentation-only changes and `tools/**` are intentionally excluded. Pull requests to `development` derive `smoke`; only a `development` head targeting `staging` derives `full`; other staging heads skip before OIDC.
 
 ## Provisioned identities
 
@@ -23,7 +24,8 @@ The GitHub dispatcher runs only when a pull request to `development` changes `te
 ## Workload Identity Federation
 
 - STS API, pool `github-actions`, and provider `teleferico-pr-dispatch` are active.
-- The provider condition restricts repository ID `857375731`, owner ID `181292897`, event `pull_request_target`, base `development`, and `workflow_ref` `TelefericoCerroOtto/TelefericoBariloche2024/.github/workflows/cloud-build-playwright-dispatch.yml@refs/heads/main`.
+- The provider condition currently restricts repository ID `857375731`, owner ID `181292897`, event `pull_request_target`, base `development`, and `workflow_ref` `TelefericoCerroOtto/TelefericoBariloche2024/.github/workflows/cloud-build-playwright-dispatch.yml@refs/heads/main`.
+- Operational prerequisite for staging: an approved operator must replace only the development-only base clause with `assertion.base_ref == 'development' || (assertion.base_ref == 'staging' && assertion.head_ref == 'development')`. Keep the repository ID, owner ID, event, workflow ref, principal binding, and keyless token flow unchanged. Until then, staging full-suite OIDC authentication will fail closed. This repository slice does not alter GCP or IAM.
 - The provider principal set has `roles/iam.workloadIdentityUser` only on the dispatcher identity.
 
 ## Repository variables
@@ -54,18 +56,20 @@ All five values exist; `CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID` holds the immu
 
 This proves the GitHub-dispatched development fixture smoke path. It does not prove the full staging suite, production-smoke migration, authenticated E2E, diagnostic artifacts, or final redundant-job removal.
 
+- Dispatcher-only GitHub run `34381586085` and Cloud Build `bf5ce7c0-74d6-4e89-9c5e-28aadb38d645` passed the smoke route at exact SHA `1dbf18ed28975fc45beb786816e42c690d304cda` after the legacy trigger was disabled.
+- No Cloud Build full-suite parity evidence exists yet. Record it only after a committed/pushed internal `development` to `staging` promotion shows Cloud Build and GitHub `chromium-full` passed the same head SHA.
+
 ## Cutover and rollback
 
 - Final legacy `/gcbrun` build `3ce4566d-030c-4dcf-b533-f9c97dc71b7c` passed the same SHA and five steps; its historical PR check reached success.
 - Native trigger `playwright-e2e-pr` (`c2133674-afdc-46ae-87d0-afe06e605ca6`) is disabled.
-- Future eligible PR updates use the automatic GitHub OIDC dispatcher plus GitHub parity smoke.
+- Future eligible PR updates use the automatic GitHub OIDC dispatcher plus the matching GitHub parity suite. The GitHub `chromium-full` job remains temporary and checks out the exact internal promotion head SHA.
 - The manual exact-SHA trigger remains the fallback executor. The disabled native trigger is not a canonical fallback.
 - Retain the disabled native trigger for reversible rollback and delete it only after a later dispatcher-only SHA proves its check does not return.
-- Roll back the dispatcher by disabling its workflow or removing its repository-variable configuration. GitHub cancellation can leave a bounded remote build running until the 35-minute Cloud Build timeout.
+- Roll back this slice by reverting the suite substitution/selection and staging routing while retaining the proven development smoke path. Disabling the dispatcher or removing its repository-variable configuration is the broader operational rollback. GitHub cancellation can leave a bounded remote build running until the 45-minute Cloud Build timeout.
 
 ## Pending issue #261 scope
 
-- Full staging suite and production-smoke execution migration.
+- Full staging same-SHA proof and production-smoke execution migration.
 - Authenticated E2E and diagnostic artifacts.
 - Final removal of redundant GitHub jobs and the disabled native trigger.
-- Dispatcher path coverage for `.github/workflows/cloud-build-playwright-dispatch.yml` and `.github/scripts/playwright-e2e.test.js`; current filters exclude both.
