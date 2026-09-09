@@ -7,9 +7,11 @@ const DIRECTORIES = Object.freeze(["app", "cms", "tools", "root"]);
 const PROMOTION_BRANCHES = Object.freeze(["development", "staging", "main"]);
 const COMMIT_TYPES = BRANCH_TYPES;
 
+const SCOPE_PATTERN = /^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$/;
 const COMMIT_SUBJECT_PATTERN = /^(?<type>feat|fix|chore|refactor|docs|style|test|perf|revert)\((?<directory>[a-z-]+)\/(?<scope>[^\s():/]+)\): (?<description>\S.*)$/;
 const GIT_MERGE_SUBJECT_PATTERN = /^Merge (?:branch|remote-tracking branch|tag) '[^'\r\n]+'(?: into [a-zA-Z0-9._/-]+)?$/;
 const GITHUB_MERGE_SUBJECT_PATTERN = /^Merge pull request #\d+ from [A-Za-z0-9_.-]+\/[A-Za-z0-9._/-]+$/;
+const MAX_PATH_EVIDENCE = 5;
 
 function validateImplementationBranchName(branchName) {
   if (typeof branchName !== "string" || !branchName) throw new Error("Branch name is required.");
@@ -51,6 +53,27 @@ function validateDirectory(directory, context) {
   }
 }
 
+function validateScope(scope, context) {
+  if (!SCOPE_PATTERN.test(scope)) {
+    throw new Error(`${context} uses invalid scope '${scope}'. Scopes use alphanumeric segments separated by one dot, underscore, or hyphen.`);
+  }
+}
+
+function directoryForPath(filePath) {
+  if (typeof filePath !== "string" || !filePath) throw new Error("Changed paths must be non-empty strings.");
+  if (filePath.startsWith("teleferico-app/")) return "app";
+  if (filePath.startsWith("teleferico-cms/")) return "cms";
+  if (filePath.startsWith("tools/")) return "tools";
+  return "root";
+}
+
+function deriveDirectoryFromPaths(paths) {
+  if (!Array.isArray(paths)) throw new Error("Changed paths must be an array.");
+  if (!paths.length) return null;
+  const directories = [...new Set(paths.map(directoryForPath))];
+  return directories.sort((left, right) => DIRECTORIES.indexOf(left) - DIRECTORIES.indexOf(right)).join("-");
+}
+
 function isImplementationBranchCandidate(branchName) {
   return typeof branchName === "string" && BRANCH_TYPES.some((type) => branchName.startsWith(`${type}/`));
 }
@@ -69,10 +92,37 @@ function validateCommitMessage(message) {
   return validateCommitSubject(subject);
 }
 
+function validateCommitMessageAgainstPaths(message, paths) {
+  const commit = validateCommitMessage(message);
+  if (!Array.isArray(paths)) throw new Error("Changed paths must be an array.");
+
+  const correlated = commit.kind === "conventional"
+    ? commit
+    : commit.kind === "git-generated-revert" && commit.reverted?.kind === "conventional"
+      ? commit.reverted
+      : null;
+  if (!correlated) {
+    const reason = commit.kind === "git-generated-revert" ? "reverted-git-generated-merge" : "git-generated-merge";
+    return { ...commit, pathValidation: { status: "skipped", reason } };
+  }
+  if (!paths.length) {
+    return { ...commit, pathValidation: { status: "unverifiable", reason: "empty", declaredDirectory: correlated.directory } };
+  }
+
+  const derivedDirectory = deriveDirectoryFromPaths(paths);
+  if (correlated.directory !== derivedDirectory) {
+    const evidence = paths.slice(0, MAX_PATH_EVIDENCE).join(", ");
+    const suffix = paths.length > MAX_PATH_EVIDENCE ? `, and ${paths.length - MAX_PATH_EVIDENCE} more` : "";
+    throw new Error(`Commit '${commit.subject}' declares directory '${correlated.directory}', but changed paths derive '${derivedDirectory}'. Evidence: ${evidence}${suffix}.`);
+  }
+  return { ...commit, pathValidation: { status: "verified", declaredDirectory: correlated.directory, derivedDirectory } };
+}
+
 function validateCommitSubject(subject) {
   const conventional = subject.match(COMMIT_SUBJECT_PATTERN);
   if (conventional?.groups) {
     validateDirectory(conventional.groups.directory, `Commit '${subject}'`);
+    validateScope(conventional.groups.scope, `Commit '${subject}'`);
     return { kind: "conventional", subject, ...conventional.groups };
   }
 
@@ -82,18 +132,22 @@ function validateCommitSubject(subject) {
 
   const revert = subject.match(/^Revert "(?<reverted>[^"\r\n]+)"$/);
   if (revert?.groups) {
-    validateCommitSubject(revert.groups.reverted);
-    return { kind: "git-generated-revert", subject };
+    return { kind: "git-generated-revert", subject, reverted: validateCommitSubject(revert.groups.reverted) };
   }
 
   throw new Error(`Commit subject '${subject}' must use '<type>(<dir>/<scope>): <description>'.`);
 }
 
 function main() {
-  const [command, value] = process.argv.slice(2);
+  const [command, value, pathsFile] = process.argv.slice(2);
   if (command === "validate-branch") return validateImplementationBranchName(value);
   if (command === "validate-commit-message") return validateCommitMessage(fs.readFileSync(value, "utf8"));
-  throw new Error("Use: validate-branch <branch> | validate-commit-message <message-file>");
+  if (command === "validate-commit-message-with-paths") {
+    if (!pathsFile) throw new Error("A NUL-delimited changed-paths file is required.");
+    const paths = fs.readFileSync(pathsFile, "utf8").split("\0").filter(Boolean);
+    return validateCommitMessageAgainstPaths(fs.readFileSync(value, "utf8"), paths);
+  }
+  throw new Error("Use: validate-branch <branch> | validate-commit-message <message-file> | validate-commit-message-with-paths <message-file> <paths-file>");
 }
 
 if (require.main === module) {
@@ -111,9 +165,13 @@ module.exports = {
   DIRECTORIES,
   PROMOTION_BRANCHES,
   classifyPullRequest,
+  deriveDirectoryFromPaths,
+  directoryForPath,
   isImplementationBranchCandidate,
   validateCommitMessage,
+  validateCommitMessageAgainstPaths,
   validateCommitSubject,
   validateDirectory,
   validateImplementationBranchName,
+  validateScope,
 };

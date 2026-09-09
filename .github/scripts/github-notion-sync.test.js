@@ -335,18 +335,98 @@ test("unknown and ambiguous Work IDs fail without querying the Branch fallback",
 
 test("PR commit validation reads trusted GitHub commit metadata and fails malformed messages", async () => {
   const commitConfig = config({ validateCommitMessages: true });
+  const validSha = "a".repeat(40);
+  const invalidSha = "b".repeat(40);
   mockFetch((url) => {
-    if (url.includes("/pulls/42/commits?")) return response(200, [{ sha: "abc123456789", commit: { message: "chore(root/policy): Enforce branch grammar" } }]);
+    if (url.includes("/pulls/42/commits?")) return response(200, [{ sha: validSha }]);
+    if (url.includes(`/commits/${validSha}?`)) return response(200, { sha: validSha, commit: { message: "chore(root/policy): Enforce branch grammar" }, files: [{ filename: ".github/scripts/repository-policy.js" }] });
     if (url.includes("api.notion.com")) return response(200, { results: [item()], has_more: false });
     return response(200, { number: 191, html_url: "https://github.com/acme/teleferico/issues/191" });
   });
   await governance.validatePrPolicy(commitConfig);
 
   mockFetch((url) => {
-    if (url.includes("/pulls/42/commits?")) return response(200, [{ sha: "def987654321", commit: { message: "unstructured commit" } }]);
+    if (url.includes("/pulls/42/commits?")) return response(200, [{ sha: invalidSha }]);
+    if (url.includes(`/commits/${invalidSha}?`)) return response(200, { sha: invalidSha, commit: { message: "unstructured commit" }, files: [{ filename: ".github/scripts/repository-policy.js" }] });
     throw new Error(`Unexpected request ${url}`);
   });
-  await assert.rejects(governance.validatePrPolicy(commitConfig), /commit def987654321 violates repository commit policy/);
+  await assert.rejects(governance.validatePrPolicy(commitConfig), /commit bbbbbbbbbbbb violates repository commit policy/);
+});
+
+test("PR commit validation isolates paths per SHA, paginates files, includes rename paths, and routes through the base repository", async () => {
+  const appSha = "c".repeat(40);
+  const renameSha = "d".repeat(40);
+  const requests = [];
+  mockFetch((url) => {
+    requests.push(url);
+    if (url.includes("/pulls/42/commits?")) return response(200, [{ sha: appSha }, { sha: renameSha }]);
+    if (url.includes(`/commits/${appSha}?`) && url.endsWith("page=1")) {
+      return response(200, { sha: appSha, commit: { message: "feat(app/login): Add login" }, files: Array.from({ length: 100 }, (_, index) => ({ filename: `teleferico-app/src/${index}.tsx` })) });
+    }
+    if (url.includes(`/commits/${appSha}?`) && url.endsWith("page=2")) {
+      return response(200, { sha: appSha, commit: { message: "feat(app/login): Add login" }, files: [] });
+    }
+    if (url.includes(`/commits/${renameSha}?`)) {
+      return response(200, {
+        sha: renameSha,
+        commit: { message: "refactor(app-cms/contact): Move contact" },
+        files: [
+          { filename: "teleferico-cms/src/contact.js", previous_filename: "teleferico-app/src/contact.tsx", status: "renamed" },
+          { filename: "teleferico-app/src/contact-copy.tsx", previous_filename: "teleferico-app/src/contact.tsx", status: "copied" },
+        ],
+      });
+    }
+    if (url.includes("api.notion.com")) return response(200, { results: [item()], has_more: false });
+    return response(200, { number: 191, html_url: "https://github.com/acme/teleferico/issues/191" });
+  });
+  await governance.validatePrPolicy(config({ validateCommitMessages: true, pullRequest: { headRepository: "fork/acme" } }));
+  assert.ok(requests.some((url) => url.includes(`/repos/acme/teleferico/commits/${appSha}?`)));
+  assert.equal(requests.some((url) => url.includes("/repos/fork/acme/")), false);
+  assert.equal(requests.some((url) => url.endsWith("page=2")), true);
+});
+
+test("PR commit validation shares one commit-detail page budget across commits and fails before an excess request", async () => {
+  const shas = Array.from({ length: 151 }, (_, index) => index.toString(16).padStart(40, "0"));
+  const requests = [];
+  mockFetch((url) => {
+    if (url.includes("/pulls/42/commits?") && url.endsWith("page=1")) return response(200, shas.map((sha) => ({ sha })));
+    if (url.includes("/pulls/42/commits?") && url.endsWith("page=2")) return response(200, []);
+    if (url.includes("/commits/")) {
+      requests.push(url);
+      return response(200, {
+        sha: url.match(/commits\/([0-9a-f]{40})\?/)?.[1],
+        commit: { message: "chore(root/policy): Enforce branch grammar" },
+        files: url.endsWith("page=1") ? Array.from({ length: 100 }, () => ({ filename: ".github/scripts/repository-policy.js" })) : [],
+      });
+    }
+    throw new Error(`Unexpected request ${url}`);
+  });
+  await assert.rejects(
+    governance.validatePullRequestCommitMessages(config({ validateCommitMessages: true })),
+    /exceeds its 300-page commit-detail request budget/,
+  );
+  assert.equal(requests.length, governance.DEFAULTS.maxPullRequestCommitFilePages);
+  assert.equal(requests.some((url) => url.includes(shas.at(-1))), false);
+});
+
+test("commit-file metadata fails closed when it is malformed, unresolved, or demonstrably truncated", async () => {
+  const sha = "e".repeat(40);
+  const cases = [
+    ["malformed files", { sha, commit: { message: "feat(app/login): Add login" }, files: null }, /malformed file metadata/],
+    ["unresolved SHA", { sha: "f".repeat(40), commit: { message: "feat(app/login): Add login" }, files: [] }, /unresolved or does not match/],
+    ["malformed pagination", { sha, commit: { message: "feat(app/login): Add login" }, files: Array.from({ length: 101 }, () => ({ filename: "teleferico-app/src/login.tsx" })) }, /malformed file pagination/],
+  ];
+  for (const [name, body, expected] of cases) {
+    mockFetch(() => response(200, body));
+    await assert.rejects(governance.fetchGitHubCommitWithFiles(config(), sha), expected, name);
+  }
+
+  mockFetch((url) => response(200, {
+    sha,
+    commit: { message: "feat(app/login): Add login" },
+    files: Array.from({ length: 100 }, (_, index) => ({ filename: `teleferico-app/src/${url.includes("page=30") ? 2900 + index : index}.tsx` })),
+  }));
+  await assert.rejects(governance.fetchGitHubCommitWithFiles(config(), sha), /demonstrably truncated/);
 });
 
 test("pull request commit listing paginates at 100 entries and propagates invalid responses", async () => {
@@ -366,6 +446,18 @@ test("pull request commit listing paginates at 100 entries and propagates invali
 
   mockFetch(() => response(200, {}));
   await assert.rejects(governance.listPullRequestCommits(config(), 42), /commits response for pull request #42 must be an array/);
+});
+
+test("pull request commit listing fails closed at GitHub's 250-commit cap", async () => {
+  const requests = [];
+  mockFetch((url) => {
+    requests.push(url);
+    if (url.includes("&page=1") || url.includes("&page=2")) return response(200, Array.from({ length: 100 }, (_, index) => ({ sha: `${url.at(-1)}-${index}` })));
+    if (url.includes("&page=3")) return response(200, Array.from({ length: 50 }, (_, index) => ({ sha: `3-${index}` })));
+    throw new Error(`Unexpected request ${url}`);
+  });
+  await assert.rejects(governance.listPullRequestCommits(config(), 42), /250-commit API cap/);
+  assert.equal(requests.length, 3);
 });
 
 test("preflight failures perform no comment or Notion mutation", async () => {
