@@ -7,6 +7,10 @@ const test = require("node:test");
 const playwrightWorkflowPath = path.join(__dirname, "..", "workflows", "playwright-e2e.yml");
 const dispatcherWorkflowPath = path.join(__dirname, "..", "workflows", "cloud-build-playwright-dispatch.yml");
 const cloudBuildExecutorPath = path.join(__dirname, "..", "..", "cloudbuild.playwright-e2e.json");
+const appPackagePath = path.join(__dirname, "..", "..", "teleferico-app", "package.json");
+const standardConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.config.ts");
+const maintenanceConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.maintenance.config.ts");
+const productionConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.production.config.ts");
 const cloudBuildNodeImage = "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96";
 const cloudBuildOldNodeImage = "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488";
 const cloudBuildGitImage = "alpine/git@sha256:1e9d9a40acbd02aeb3cb005ff43f9e51ac09ba0c241bb2298f811d3f426a2ffd";
@@ -56,20 +60,33 @@ test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot ex
   const guard = dispatcher.indexOf("name: Validate trusted pull request provenance");
   const auth = dispatcher.indexOf("google-github-actions/auth@");
 
-  assert.match(dispatcher, /pull_request_target:\n\s+types: \[opened, reopened, synchronize, ready_for_review\]\n\s+branches: \[development\]/);
-  for (const pathFilter of ["teleferico-app/**", "teleferico-cms/**", "cloudbuild.playwright-e2e.json", "scripts/run-playwright-real-stack-readiness.sh"]) {
+  assert.match(dispatcher, /pull_request_target:\n\s+types: \[opened, reopened, synchronize, ready_for_review\]\n\s+branches: \[development, staging\]/);
+  for (const pathFilter of [
+    "teleferico-app/**",
+    "teleferico-cms/**",
+    "cloudbuild.playwright-e2e.json",
+    "scripts/run-playwright-real-stack-readiness.sh",
+    ".github/workflows/cloud-build-playwright-dispatch.yml",
+    ".github/workflows/playwright-e2e.yml",
+    ".github/scripts/playwright-e2e.test.js",
+  ]) {
     assert.match(dispatcher, new RegExp(`- "${pathFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
   }
   assert.doesNotMatch(dispatcher, /(?:docs|tools)\/\*\*/);
   assert.match(dispatcher, /permissions:\n\s+contents: read\n\nconcurrency:/);
-  assert.match(dispatcher, /dispatch-and-wait:\n\s+needs: validate-trusted-pr\n\s+runs-on: ubuntu-latest\n\s+timeout-minutes: 40\n\s+permissions:\n\s+contents: read\n\s+id-token: write/);
+  assert.match(dispatcher, /dispatch-and-wait:\n\s+needs: validate-trusted-pr\n\s+if: needs\.validate-trusted-pr\.outputs\.dispatch_allowed == 'true'\n\s+runs-on: ubuntu-latest\n\s+timeout-minutes: 50\n\s+permissions:\n\s+contents: read\n\s+id-token: write/);
   assert.match(dispatcher, /group: cloud-build-playwright-dispatch-\$\{\{ github\.event\.pull_request\.number \}\}\n\s+cancel-in-progress: true/);
   assert.ok(guard >= 0 && auth > guard);
-  for (const value of ["BASE_REF", "CURRENT_REPOSITORY", "HEAD_REPOSITORY", "HEAD_SHA"]) assert.match(dispatcher, new RegExp(`${value}: \\$\\{\\{`));
+  for (const value of ["BASE_REF", "CURRENT_REPOSITORY", "HEAD_REF", "HEAD_REPOSITORY", "HEAD_SHA"]) assert.match(dispatcher, new RegExp(`${value}: \\$\\{\\{`));
   assert.match(dispatcher, /HEAD_REPOSITORY" != "\$CURRENT_REPOSITORY"/);
-  assert.match(dispatcher, /BASE_REF" != "development"/);
   assert.match(dispatcher, /HEAD_SHA" =~ \^\[0-9a-f\]\{40\}\$/);
+  assert.match(dispatcher, /case "\$BASE_REF:\$HEAD_REF" in[\s\S]*development:\*\)[\s\S]*suite="smoke"[\s\S]*staging:development\)[\s\S]*suite="full"[\s\S]*staging:\*\)[\s\S]*dispatch_allowed=false/);
+  assert.match(dispatcher, /printf 'suite=%s\\n' "\$suite" >> "\$GITHUB_OUTPUT"/);
+  assert.doesNotMatch(dispatcher, /(?:github\.event\.inputs|workflow_dispatch|secrets\.|service_account_key|credentials_json)/);
   assert.doesNotMatch(dispatcher, /actions\/checkout|\b(?:pnpm|npm|npx)\b|gcloud builds cancel|\b(?:source|eval)\b/);
+  for (const action of dispatcher.matchAll(/^\s*uses:\s*(\S+)/gm)) {
+    assert.match(action[1], /@[0-9a-f]{40}$/, `Privileged dispatcher action must be pinned by full commit SHA: ${action[1]}`);
+  }
   assert.match(dispatcher, /google-github-actions\/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3/);
   assert.match(dispatcher, /google-github-actions\/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3/);
   assert.match(dispatcher, /create_credentials_file: false\n\s+token_format: access_token/);
@@ -79,15 +96,15 @@ test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot ex
   }
   assert.match(dispatcher, /CLOUD_BUILD_ACCESS_TOKEN: \$\{\{ steps\.auth\.outputs\.access_token \}\}/);
   assert.match(dispatcher, /umask 077\n\s+token_file="\$RUNNER_TEMP\/cloud-build-dispatch-access-token"/);
-  assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds triggers run "\$CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID".*--sha="\$PR_HEAD_SHA"/);
+  assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds triggers run "\$CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID".*--sha="\$PR_HEAD_SHA".*--substitutions="_PLAYWRIGHT_SUITE=\$PLAYWRIGHT_SUITE"/);
   assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds describe "\$build_id"/);
   assert.match(dispatcher, /GITHUB_STEP_SUMMARY/);
-  assert.equal(crypto.createHash("sha256").update(nativeWorkflow).digest("hex"), "66fb44a47f6845fd5e604a8975a9bb40046cff6611295404c6400bd5e5db3a47");
+  assert.equal(crypto.createHash("sha256").update(nativeWorkflow).digest("hex"), "5ec4c93ac280db023ff377e40fb53891635ed9ed0f6e02a9e431d113eddce067");
 });
 
-test("Cloud Build fixture executor preserves the ordered locked smoke-suite contract", () => {
+test("Cloud Build fixture executor preserves the ordered locked selectable-suite contract", () => {
   const executor = JSON.parse(fs.readFileSync(cloudBuildExecutorPath, "utf8"));
-  const [revision, packageManager, dependencies, smoke, readiness] = executor.steps;
+  const [revision, packageManager, dependencies, suite, readiness] = executor.steps;
 
   assert.deepEqual(
     executor.steps.map(({ id, name, dir, entrypoint, timeout }) => ({ id, name, dir, entrypoint, timeout })),
@@ -95,21 +112,24 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
       { id: "Verify workspace revision", name: cloudBuildGitImage, dir: undefined, entrypoint: "/bin/sh", timeout: "60s" },
       { id: "Verify repository package manager", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "60s" },
       { id: "Install locked application dependencies", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "420s" },
-      { id: "Run fixture-backed Chromium smoke suite", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "480s" },
+      { id: "Run fixture-backed Chromium suite", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "900s" },
       { id: "Run real-stack readiness", name: cloudBuildDockerImage, dir: undefined, entrypoint: "bash", timeout: "900s" },
       ],
   );
-  assert.equal(executor.timeout, "2100s");
+  assert.equal(executor.timeout, "2700s");
+  assert.deepEqual(executor.substitutions, { _PLAYWRIGHT_SUITE: "smoke" });
   assert.deepEqual(executor.options, { logging: "CLOUD_LOGGING_ONLY" });
   assert.ok(executor.steps.every((step) => step.name !== cloudBuildOldNodeImage));
   assert.equal(revision.args[0], "-c");
-  assert.deepEqual(revision.env, ["EXPECTED_COMMIT_SHA=$COMMIT_SHA"]);
+  assert.deepEqual(revision.env, ["EXPECTED_COMMIT_SHA=$COMMIT_SHA", "PLAYWRIGHT_SUITE=$_PLAYWRIGHT_SUITE"]);
   assert.match(revision.args[1], /test "\$\$EXPECTED_COMMIT_SHA" != "0{40}"/);
+  assert.match(revision.args[1], /case "\$\$PLAYWRIGHT_SUITE" in smoke\|full\)/);
+  assert.match(revision.args[1], /_PLAYWRIGHT_SUITE must be exactly smoke or full/);
   assert.match(revision.args[1], /git --version/);
   assert.match(revision.args[1], /git rev-parse --verify "\$\$EXPECTED_COMMIT_SHA\^\{commit\}"/);
   assert.match(revision.args[1], /actual_sha="\$\$\(git rev-parse HEAD\^\{commit\}\)"/);
   assert.match(revision.args[1], /test "\$\$actual_sha" = "\$\$EXPECTED_COMMIT_SHA"/);
-  for (const step of [packageManager, dependencies, smoke]) {
+  for (const step of [packageManager, dependencies, suite]) {
     const command = step.args[1];
     const enableCorepack = command.indexOf("corepack enable");
     const firstPnpmInvocation = command.search(/\bpnpm\b/);
@@ -119,19 +139,23 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
   }
   assert.match(packageManager.args[1], /corepack pnpm --version.*10\.33\.0/);
   assert.match(dependencies.args[1], /pnpm install --frozen-lockfile/);
-  const chromiumInstall = smoke.args[1].indexOf("pnpm exec playwright install --with-deps chromium");
-  const smokeRun = smoke.args[1].indexOf("pnpm run test:e2e:smoke");
+  const chromiumInstall = suite.args[1].indexOf("pnpm exec playwright install --with-deps chromium");
+  const suiteRun = suite.args[1].indexOf('pnpm run "$$suite_command"');
 
-  assert.ok(chromiumInstall >= 0, "The smoke container must install Chromium and its system dependencies.");
-  assert.ok(smokeRun > chromiumInstall, "The smoke suite must run after Chromium installation in the same container.");
+  assert.ok(chromiumInstall >= 0, "The suite container must install Chromium and its system dependencies.");
+  assert.ok(suiteRun > chromiumInstall, "The selected suite must run after Chromium installation in the same container.");
   assert.equal(
     executor.steps.filter((step) => step.args[1].includes("playwright install --with-deps chromium")).length,
     1,
     "Chromium installation must not be split into a separate Cloud Build step.",
   );
-  assert.match(smoke.args[1], /command -v pnpm/);
-  assert.match(smoke.args[1], /pnpm run test:e2e:smoke/);
-  assert.ok(smoke.env.includes("CI=true"));
+  assert.match(suite.args[1], /case "\$\$PLAYWRIGHT_SUITE" in/);
+  assert.match(suite.args[1], /smoke\) suite_command="test:e2e:smoke"/);
+  assert.match(suite.args[1], /full\) suite_command="test:e2e"/);
+  assert.match(suite.args[1], /_PLAYWRIGHT_SUITE must be exactly smoke or full/);
+  assert.match(suite.args[1], /command -v pnpm/);
+  assert.ok(suite.env.includes("CI=true"));
+  assert.ok(suite.env.includes("PLAYWRIGHT_SUITE=$_PLAYWRIGHT_SUITE"));
   assert.match(readiness.args[1], /bash scripts\/run-playwright-real-stack-readiness\.sh/);
   assert.deepEqual(readiness.env, ["BUILD_ID=$BUILD_ID"]);
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "secretEnv")));
@@ -143,6 +167,46 @@ test("Cloud Build fixture executor preserves the ordered locked smoke-suite cont
   for (const field of ["artifacts", "availableSecrets", "images", "logsBucket", "serviceAccount"]) {
     assert.equal(Object.hasOwn(executor, field), false, `${field} must remain out of the baseline.`);
   }
+});
+
+test("GitHub full-suite parity runs only for an internal exact-head promotion", () => {
+  const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
+  const fullJobStart = workflow.indexOf("  chromium-full:");
+  const productionJobStart = workflow.indexOf("  production-public-smoke:");
+  const fullJob = workflow.slice(fullJobStart, productionJobStart);
+  const checkout = fullJob.indexOf("name: Check out exact promotion head revision");
+  const install = fullJob.indexOf("name: Install locked dependencies");
+
+  assert.ok(fullJobStart >= 0 && productionJobStart > fullJobStart);
+  assert.match(fullJob, /github\.event\.pull_request\.head\.repo\.full_name == github\.repository/);
+  assert.match(fullJob, /github\.event\.pull_request\.base\.ref == 'staging'/);
+  assert.match(fullJob, /github\.event\.pull_request\.head\.ref == 'development'/);
+  assert.match(fullJob, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}\n\s+persist-credentials: false/);
+  assert.ok(checkout >= 0 && install > checkout);
+  assert.doesNotMatch(fullJob, /(?:\|\|\s*true|continue-on-error:\s*true)/);
+});
+
+test("Playwright script composition preserves automatic suite discovery boundaries", () => {
+  const appPackage = JSON.parse(fs.readFileSync(appPackagePath, "utf8"));
+  const standardConfig = fs.readFileSync(standardConfigPath, "utf8");
+  const maintenanceConfig = fs.readFileSync(maintenanceConfigPath, "utf8");
+  const productionConfig = fs.readFileSync(productionConfigPath, "utf8");
+
+  assert.equal(appPackage.packageManager, "pnpm@10.33.0");
+  assert.equal(appPackage.scripts["test:e2e"], "pnpm run test:e2e:smoke && pnpm run test:e2e:maintenance");
+  assert.equal(appPackage.scripts["test:e2e:smoke"], "playwright test");
+  assert.equal(appPackage.scripts["test:e2e:maintenance"], "playwright test --config=playwright.maintenance.config.ts");
+  assert.equal(appPackage.scripts["test:e2e:production"], "playwright test --config=playwright.production.config.ts");
+  assert.match(standardConfig, /testIgnore: \["\*\*\/maintenance\.spec\.ts", "\*\*\/production\/\*\*"\]/);
+  assert.match(maintenanceConfig, /testMatch: "\*\*\/maintenance\.spec\.ts"/);
+  assert.match(productionConfig, /testMatch: "\*\*\/production\/\*\*\/\*\.spec\.ts"/);
+});
+
+test("production public smoke workflow remains unchanged by the full-suite cutover", () => {
+  const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
+  const productionJob = workflow.slice(workflow.indexOf("  production-public-smoke:"));
+
+  assert.equal(crypto.createHash("sha256").update(productionJob).digest("hex"), "64522e1b88186003bb9f540fbe486d36b3cebe8af7c5db1efb0474151db5f4ae");
 });
 
 test("Cloud Build real-stack readiness uses isolated immutable containers and bounded cleanup", () => {
