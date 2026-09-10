@@ -117,7 +117,8 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 ## Implementation PR finalization
 
 - `/implementation-pr` is an explicit, single-invocation shortcut for one implementation branch snapshot. Load `.agents/skills/implementation-pr/SKILL.md`; it composes the active commit and PR contracts without replacing them.
-- It may commit, non-force-push, create one PR to `development`, apply required PR metadata, and watch checks. It never authorizes promotion PRs, later changes, force pushes, branch changes, merges, issue closure, branch deletion, or releases.
+- It may commit, non-force-push, create one PR to `development`, apply required PR metadata, and observe checks. It never authorizes promotion PRs, later changes, force pushes, branch changes, merges, issue closure, branch deletion, or releases.
+- `.github/scripts/wait-for-implementation-governance.js` is the sole implementation for polling and classifying implementation PR checks. It waits only for repository governance and convention checks with a bounded timeout, while reporting Cloud Build and other functional checks separately.
 
 ## Change intake preflight
 
@@ -172,8 +173,8 @@ Do not treat documentation as a follow-up task; outdated docs actively mislead a
 
 When an agent is instructed to create or update a Pull Request, it MUST NOT consider the task finished just by opening it. Because this repository enforces strict semantic checks via GitHub Actions (`backlog-governance.yml`), the agent MUST proactively ensure the PR passes CI:
 
-1. After creating/updating the PR, immediately run `gh pr checks --watch`.
-2. If the checks pass, the task is complete.
-3. If the checks fail—especially `Governance tests`, `validate-pr-policy`, or `trusted-pr-sync`—the agent MUST fetch the failed run logs using the GitHub CLI.
+1. After creating/updating an implementation PR, immediately run `node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url>`. Do not replace it with an unfiltered `gh pr checks --watch`.
+2. Treat exit `0` as governance completion only. Report functional and Cloud Build checks separately; they may still be running or may have failed, and the PR must not be described as fully validated while they are nonterminal.
+3. If a governance check fails—especially `Governance tests`, `validate-pr-policy`, or `trusted-pr-sync`—the agent MUST fetch the failed run logs using the GitHub CLI.
 4. Analyze the logs against `docs/CONVENTIONS.md` to find the exact semantic violation (e.g., missing issue linkage, wrong title format, wrong PR type).
-5. Fix the PR using `gh pr edit` and repeat the watch process until the checks pass.
+5. Fix PR metadata using `gh pr edit` only when the current authorization permits it, then invoke the helper again. Code failures require a new implementation/finalization invocation.

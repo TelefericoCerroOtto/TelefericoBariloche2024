@@ -124,7 +124,15 @@ Use a promotion PR when moving already-reviewed code from one environment branch
 
 ### Direct implementation finalization shortcut
 
-`/implementation-pr` is an explicit, single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR to `development`, apply required metadata, and watch required checks.
+`/implementation-pr` is an explicit, single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR to `development`, apply required metadata, and observe repository governance with a bounded timeout.
+
+After PR creation, invoke:
+
+```bash
+node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url>
+```
+
+The helper is the sole source of check identities, polling, duplicate-run handling, and exit semantics. It waits for `Governance tests`, `validate-pr-policy`, and `trusted-pr-sync`; Cloud Build and other functional checks are reported separately and never change the governance exit status. A governance pass is not a claim that the PR is fully validated while application tests are still running.
 
 It does not authorize later changes, force pushes, branch changes, rebases, merges, issue closure, branch deletion, or releases. It is not a promotion workflow: continue to use the separate `development -> staging` and `staging -> main` promotion flow and its release/closure rules.
 
