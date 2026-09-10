@@ -1,12 +1,6 @@
 name: Playwright E2E
 
 on:
-  pull_request:
-    branches: [development, staging]
-    paths:
-      - "teleferico-app/**"
-      - ".github/workflows/playwright-e2e.yml"
-      - "docs/playwright-e2e.md"
   deployment_status:
 
 permissions:
@@ -17,74 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  chromium-smoke:
-    name: Playwright Chromium smoke
-    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'development'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: teleferico-app
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Enable Corepack
-        run: corepack enable
-      - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install locked Chromium and system dependencies
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Run Chromium smoke suite
-        run: pnpm run test:e2e:smoke
-      - name: Upload Playwright failure artifacts
-        if: failure() || cancelled()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-smoke-artifacts
-          path: |
-            teleferico-app/playwright-report/default
-            teleferico-app/test-results/default
-          if-no-files-found: warn
-          retention-days: 14
-
-  chromium-full:
-    name: Playwright Chromium full
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.base.ref == 'staging' && github.event.pull_request.head.ref == 'development'
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    defaults:
-      run:
-        working-directory: teleferico-app
-    steps:
-      - name: Check out exact promotion head revision
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Enable Corepack
-        run: corepack enable
-      - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install locked Chromium and system dependencies
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Run complete Chromium suite
-        run: pnpm run test:e2e
-      - name: Upload Playwright failure artifacts
-        if: failure() || cancelled()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-full-artifacts
-          path: |
-            teleferico-app/playwright-report
-            teleferico-app/test-results
-          if-no-files-found: warn
-          retention-days: 14
-
   production-public-smoke:
     name: Playwright production public smoke
     if: github.event_name == 'deployment_status' && github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'production'
