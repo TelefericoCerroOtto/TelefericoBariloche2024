@@ -16,6 +16,7 @@ const cloudBuildOldNodeImage = "node@sha256:1471ea646673136b8308550ac14b36d847ff
 const cloudBuildGitImage = "alpine/git@sha256:1e9d9a40acbd02aeb3cb005ff43f9e51ac09ba0c241bb2298f811d3f426a2ffd";
 const cloudBuildDockerImage = "gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c";
 const readinessScriptPath = path.join(__dirname, "..", "..", "scripts", "run-playwright-real-stack-readiness.sh");
+const lifecycleScriptPath = path.join(__dirname, "..", "..", "scripts", "playwright-real-stack-lifecycle.js");
 
 test("validates main containment before checking out or executing deployment-selected code", () => {
   const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
@@ -64,9 +65,11 @@ test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot ex
     "teleferico-cms/**",
     "cloudbuild.playwright-e2e.json",
     "scripts/run-playwright-real-stack-readiness.sh",
+    "scripts/playwright-real-stack-lifecycle.js",
     ".github/workflows/cloud-build-playwright-dispatch.yml",
     ".github/workflows/playwright-e2e.yml",
     ".github/scripts/playwright-e2e.test.js",
+    ".github/scripts/playwright-real-stack-lifecycle.test.js",
   ]) {
     assert.match(dispatcher, new RegExp(`- "${pathFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
   }
@@ -199,50 +202,81 @@ test("production public smoke workflow remains unchanged by the full-suite cutov
   assert.equal(crypto.createHash("sha256").update(productionJob).digest("hex"), "64522e1b88186003bb9f540fbe486d36b3cebe8af7c5db1efb0474151db5f4ae");
 });
 
-test("Cloud Build real-stack readiness uses isolated immutable containers and bounded cleanup", () => {
+test("Cloud Build real-stack readiness uses isolated immutable containers and deterministic cleanup", () => {
   const script = fs.readFileSync(readinessScriptPath, "utf8");
-  const normalizedBuildIdCheck = script.indexOf('if [[ -z "$safe_build_id" ]]');
+  const lifecycle = fs.readFileSync(lifecycleScriptPath, "utf8");
+  const normalizedBuildIdCheck = script.indexOf('if [[ -z "$normalized_build_id" ]]');
   const postgresContainer = script.indexOf("readonly POSTGRES_CONTAINER");
-  const npmCi = script.indexOf("\nnpm ci\n");
-  const testEnvironment = script.indexOf("NODE_ENV=test");
-  const strapiBuild = script.indexOf("\nnpm run build\n");
-  const strapiStart = script.indexOf("\nnpm run start ");
-  const nextStart = script.indexOf("pnpm exec next dev --hostname 0.0.0.0 --port 3000");
-  const bucketHostnameValues = [...script.matchAll(/\bBUILD_STRAPI_BUCKET_HOSTNAME=([^\s]+)/g)].map((match) => match[1]);
-  const bucketPathnameValues = [...script.matchAll(/\bBUILD_STRAPI_BUCKET_PATHNAME=([^\s]+)/g)].map((match) => match[1]);
+  const npmCi = lifecycle.indexOf('["ci"]');
+  const testEnvironment = lifecycle.indexOf('NODE_ENV: "test"');
+  const strapiBuild = lifecycle.indexOf('["run", "build"]');
+  const strapiStart = lifecycle.indexOf('args: ["run", "start"]');
+  const nextStart = lifecycle.indexOf('args: ["exec", "next", "dev", "--hostname", "0.0.0.0", "--port", "3000"]');
 
   assert.match(script, /postgres:16-bookworm@sha256:[a-f0-9]{64}/);
   assert.match(script, /node@sha256:[a-f0-9]{64}/);
   assert.match(script, /BUILD_ID:\?BUILD_ID is required/);
   assert.ok(normalizedBuildIdCheck >= 0 && normalizedBuildIdCheck < postgresContainer);
-  assert.match(script, /BUILD_ID must contain at least one alphanumeric character/);
-  assert.match(script, /tb122-readiness-postgres-\$\{safe_build_id:0:32\}/);
-  assert.match(script, /docker run --detach --name "\$POSTGRES_CONTAINER" --network cloudbuild/);
+  assert.match(script, /BUILD_ID must use only/);
+  assert.match(script, /sha256sum/);
+  assert.match(script, /build_id_digest=.*:0:24/);
+  assert.match(script, /build_namespace="\$\{build_id_digest\}"/);
+  assert.match(script, /tb122-readiness-postgres-\$\{build_namespace\}/);
+  assert.match(script, /docker create --name "\$POSTGRES_CONTAINER" --network cloudbuild/);
   assert.doesNotMatch(script, /(?:--publish(?:-all)?(?:=|\s|$)|(?:^|\s)-p(?:\s|=|\d)|(?:^|\s)-P(?:\s|$))/m);
-  assert.match(script, /trap cleanup_postgres EXIT/);
-  assert.match(script, /docker rm --force "\$POSTGRES_CONTAINER"/);
-  assert.match(script, /trap stop_processes EXIT/);
-  assert.match(script, /kill "\$pid"/);
-  assert.match(script, /seq 1 30/);
-  assert.match(script, /seq 1 45/);
-  assert.match(script, /docker logs --tail 40/);
-  assert.match(script, /for log_path in \/tmp\/strapi-readiness\.log \/tmp\/next-readiness\.log; do/);
-  assert.match(script, /if \[\[ -f "\$log_path" \]\]; then\n\s+tail -n 40 "\$log_path" >&2 \|\| :/);
-  assert.doesNotMatch(script, /tail -n 40 \/tmp\/(?:strapi|next)-readiness\.log/);
-  assert.ok(npmCi >= 0 && testEnvironment > npmCi && strapiBuild > testEnvironment && strapiStart > strapiBuild);
-  assert.doesNotMatch(script, /NODE_ENV=production/);
-  assert.doesNotMatch(script, /\bnpm\s+install\b/);
-  assert.doesNotMatch(script, /\b(?:npx|pnpm\s+dlx)\b/);
-  assert.match(script, /DATABASE_CLIENT=postgres/);
+  assert.match(script, /docker create --name "\$RUNNER_CONTAINER" --network cloudbuild/);
+  assert.match(script, /--label "\$OWNERSHIP_LABEL"/);
+  assert.match(script, /container_owned/);
+  assert.match(script, /cleanup_container "runner"[\s\S]*cleanup_container "postgres"/);
+  assert.match(script, /timeout --signal=TERM --kill-after=5s/);
+  assert.match(script, /POSTGRES_READINESS_DEADLINE_SECONDS=55/);
+  assert.match(script, /run_bounded_until/);
+  assert.match(script, /CLEANUP_RESERVE_DEADLINE_SECONDS=720/);
+  assert.match(script, /runner_timeout_seconds=\$\(\(CLEANUP_RESERVE_DEADLINE_SECONDS - SECONDS\)\)/);
+  assert.match(script, /timeout --signal=TERM --kill-after=15s "\$\{runner_timeout_seconds\}s" docker start --attach/);
+  assert.match(script, /docker stop --time 5/);
+  assert.match(script, /docker rm --force/);
+  assert.match(script, /record_cleanup "\$resource" "verify-removed"/);
+  assert.match(script, /Error: No such object:/);
+  assert.match(script, /inspect-exit-\$\{inspect_status\}/);
+  assert.doesNotMatch(script, /trap - EXIT INT TERM/);
+  assert.match(script, /trap - EXIT/);
+  assert.match(script, /if \[\[ -z "\$received_signal" \]\]/);
+  assert.match(script, /postgres_create_status=\$\?/);
+  assert.match(script, /postgres_start_status=\$\?/);
+  assert.match(script, /runner_create_status=\$\?/);
+  assert.match(script, /DIAGNOSTIC_LINES=80/);
+  assert.match(script, /DIAGNOSTIC_BYTES=32768/);
+  assert.match(script, /docker logs --tail "\$DIAGNOSTIC_LINES"[\s\S]*tail -c "\$DIAGNOSTIC_BYTES"/);
+  assert.doesNotMatch(script, /\|\|\s*:|>\s*\/dev\/null\s+2>&1/);
+  assert.ok(npmCi >= 0 && testEnvironment >= 0 && strapiBuild > npmCi && strapiStart > strapiBuild);
+  assert.doesNotMatch(lifecycle, /NODE_ENV[=:]\s*["']?production/);
+  assert.doesNotMatch(lifecycle, /\bnpm\s+install\b/);
+  assert.doesNotMatch(lifecycle, /\b(?:npx|pnpm\s+dlx)\b/);
+  assert.match(lifecycle, /DATABASE_CLIENT: "postgres"/);
   assert.match(script, /COREPACK_DEFAULT_TO_LATEST=0/);
-  assert.match(script, /corepack pnpm --version\)" = "10\.33\.0"/);
-  assert.match(script, /pnpm install --frozen-lockfile/);
-  assert.match(script, /pnpm exec next dev --hostname 0\.0\.0\.0 --port 3000 >\/tmp\/next-readiness\.log 2>&1 &/);
-  assert.doesNotMatch(script, /pnpm run dev -- --hostname 0\.0\.0\.0 --port 3000/);
-  assert.deepEqual(bucketHostnameValues, ["127.0.0.1"], "Next.js must receive exactly one local-only image hostname.");
-  assert.deepEqual(bucketPathnameValues, ["/uploads/**"], "Next.js must receive exactly one synthetic local image pathname.");
-  assert.ok(script.indexOf("BUILD_STRAPI_BUCKET_HOSTNAME=127.0.0.1") < nextStart);
-  assert.ok(script.indexOf("BUILD_STRAPI_BUCKET_PATHNAME=/uploads/**") < nextStart);
-  assert.match(script, /\/api\/auth\/providers/);
-  assert.doesNotMatch(script, /(?:gcloud|gsutil|secretEnv|availableSecrets|GCS_|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_CLOUD_PROJECT|CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE|AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY)|AZURE_(?:CLIENT_ID|CLIENT_SECRET|TENANT_ID)|GITHUB_|NPM_TOKEN|PNPM_TOKEN|docker compose)/);
+  assert.match(lifecycle, /corepack pnpm --version/);
+  assert.match(lifecycle, /runCommand\("app-install", "pnpm", \["install", "--frozen-lockfile"\]/);
+  assert.ok(nextStart > lifecycle.indexOf('BUILD_STRAPI_BUCKET_HOSTNAME: "127.0.0.1"'));
+  assert.ok(nextStart > lifecycle.indexOf('BUILD_STRAPI_BUCKET_PATHNAME: "\/uploads\/\*\*"'));
+  assert.match(lifecycle, /\/admin\/init/);
+  assert.match(lifecycle, /\/api\/auth\/providers/);
+  assert.match(lifecycle, /process\.kill\(-this\.child\.pid, signal\)/);
+  assert.match(lifecycle, /signal-term/);
+  assert.match(lifecycle, /signal-kill/);
+  assert.match(lifecycle, /leader-reaped/);
+  assert.match(lifecycle, /installSignalHandlers/);
+  const mainLifecycle = lifecycle.slice(lifecycle.indexOf("async function main()"));
+  const cleanupIndex = mainLifecycle.indexOf("cleanupRegistry.cleanup()");
+  const signalDisposeIndex = mainLifecycle.indexOf("signalHandlers.dispose()");
+  assert.ok(cleanupIndex >= 0 && signalDisposeIndex > cleanupIndex);
+  assert.match(lifecycle, /verifyFinalReadiness/);
+  assert.match(lifecycle, /`\$\{name\}-final-process`/);
+  assert.match(lifecycle, /assertManagedProcessLive\("strapi"/);
+  assert.match(lifecycle, /assertManagedProcessLive\("next"/);
+  assert.match(lifecycle, /postgres-final-readiness/);
+  assert.match(lifecycle, /LOG_LIMITS = Object\.freeze\(\{ maxBytes: 32 \* 1024, maxLines: 80 \}\)/);
+  assert.match(lifecycle, /isSymbolicLink\(\)/);
+  assert.match(lifecycle, /\[REDACTED\]/);
+  assert.doesNotMatch(`${script}\n${lifecycle}`, /(?:gcloud|gsutil|secretEnv|availableSecrets|GCS_|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_CLOUD_PROJECT|CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE|AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY)|AZURE_(?:CLIENT_ID|CLIENT_SECRET|TENANT_ID)|GITHUB_|NPM_TOKEN|PNPM_TOKEN|docker compose)/);
 });
