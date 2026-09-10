@@ -11,7 +11,7 @@ metadata:
 
 ## Activation Contract
 
-Load only for an explicit `/implementation-pr` invocation or an equally explicit request to use this project shortcut. Authorization applies only to the current invocation and its captured snapshot.
+Load only when the user explicitly invokes `/implementation-pr` or explicitly names the `implementation-pr` shortcut or workflow in a natural-language request to run it; slash syntax is optional. Authorization applies only to the current invocation and its captured snapshot and cannot be reused for later mutations. Vague or anaphoric follow-ups such as `do it again`, `go again`, `hazlo de vuelta`, or `dale de nuevo` are not new invocations unless they unambiguously identify this shortcut and its mutation scope.
 
 ## Hard Rules
 
@@ -28,7 +28,8 @@ Load only for an explicit `/implementation-pr` invocation or an equally explicit
 | Open PR for the head branch | Stop; do not create a duplicate. |
 | Clean tree with no committed diff from `origin/development` | Stop. |
 | Commit, push, or PR outcome is ambiguous | Read back state before any retry. |
-| CI reports a code failure | Stop; require a new implementation/finalization invocation. |
+| Governance observation reports a code failure | Stop; require a new implementation/finalization invocation. |
+| Functional or Cloud Build checks are pending or failed after governance passes | Report them separately; do not wait, repair, or change the governance outcome. |
 
 ## Execution Steps
 
@@ -38,11 +39,11 @@ Load only for an explicit `/implementation-pr` invocation or an equally explicit
 4. When changes exist, invoke `commit-planner` auto mode for only the captured snapshot. Require a clean tree and verify the commit matches that snapshot before continuing.
 5. Push only with `git push -u origin HEAD`. Verify the remote head SHA equals local `HEAD`.
 6. Invoke `branch-pr` create mode only after that verification, with `remote=origin` and `base=development`. If creation is ambiguous, read back the PR state before retrying.
-7. Apply only repository-required PR metadata, then run `gh pr checks --watch`. Inspect failures; repair metadata only within this authorization and repeat. Do not repair code failures.
+7. Apply only repository-required PR metadata, then run `node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url>`. This helper is the sole polling and classification implementation: do not reproduce its check names, filtering, timeout, or duplicate-run rules in the skill. Inspect governance failures; repair metadata only within this authorization and invoke the helper again. Do not repair code failures or wait for functional and Cloud Build checks.
 
 ## Output Contract
 
-Report the resolved contracts, preflight result, snapshot decision, completed phase, PR URL when created, CI result, and any blocker. State explicitly that authorization has expired.
+Report the resolved contracts, preflight result, snapshot decision, completed phase, PR URL when created, governance result, separately observed functional/Cloud Build status, and any blocker. Never describe the PR as fully validated while application tests remain nonterminal. Normal successful output should end with useful operational facts rather than authorization boilerplate. Mention authorization boundaries only when they explain a blocker or excluded action, answer the user, or prevent ambiguity.
 
 ## References
 
@@ -53,3 +54,4 @@ Report the resolved contracts, preflight result, snapshot decision, completed ph
 - `~/.config/opencode/skills/commit-planner/SKILL.md`
 - `~/.config/opencode/skills/branch-pr/SKILL.md`
 - `.agents/skills/commit-guard/SKILL.md`
+- `.github/scripts/wait-for-implementation-governance.js`
