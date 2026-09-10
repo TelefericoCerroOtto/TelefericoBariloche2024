@@ -18,7 +18,7 @@ It does not attempt to replace GCP or deployment manifests; it only provides the
 The platform has four main components:
 
 - **Global External HTTPS Load Balancer**:
-  - configured in `teleferico-bariloche-2024` to publish the production app with a fixed IP and managed certificate; the public cutover still depends on DNS changes.
+  - configured in `teleferico-bariloche-2024` to publish the production app with a fixed IP and managed certificate.
 - **Cloud Run**:
   - **teleferico-app**: Next.js frontend with institutional site and administrative dashboard.
   - **teleferico-cms**: CMS/API in Strapi.
@@ -403,14 +403,12 @@ These integrations are independent of Strapi.
 
 The DNS layer does not live in this repo's project. It is configured in the legacy Google Cloud project `teleferico-bariloche`.
 
-The `teleferico-bariloche-2024` project already has the new frontend prepared for production:
+The `teleferico-bariloche-2024` project publishes the production frontend through:
 
 - **LB global fixed IP**: `130.211.28.132`
 - **Load Balancer**: HTTP/HTTPS frontend with HTTP→HTTPS redirect
 - **Backend**: `app-production-teleferico` through the serverless NEG `teleferico-app-prod-neg`
 - **Managed certificate**: `teleferico-managed-cert` for `.com` and `.com.ar` with and without `www`
-
-As long as the `A`/`CNAME` records in the legacy zone are not changed, public domains continue to resolve to the previous site.
 
 The inventory read from the legacy (DNS, VM, and TLS) is documented in [docs/INFRA-LEGACY.md](docs/INFRA-LEGACY.md).
 
@@ -430,35 +428,15 @@ Operational rule:
 
 - DNS changes are made in `teleferico-bariloche`, not in the GCP project associated with this repo.
 
-### 10.1 Temporary production origin recovery
+### 10.1 Production public origin
 
-As of the 2026-09-09 incident, the canonical production origin is temporarily `https://app-production-teleferico-384535443802.southamerica-east1.run.app`. The registrar/parent delegation for `telefericobariloche.com.ar` remained inactive and returned `NXDOMAIN`, although the authoritative Google Cloud DNS records remained present.
+The canonical production origin is `https://telefericobariloche.com.ar`. Production configuration must use it for `NEXT_PUBLIC_SITE_URL`, the GitHub deployment environment URL, and read-only production E2E checks. `https://telefericobariloche.com`, `https://www.telefericobariloche.com`, and `https://www.telefericobariloche.com.ar` remain allowed public aliases.
 
-The live Cloud Build trigger `app-production-deploy-cr` (`252cd6a2-304b-49db-8e8a-d515cf31afc6`) and GitHub production environment use this temporary state:
+`APP_INTERNAL_BASE_URL` intentionally uses the Cloud Run service URL. It is an internal server-to-server origin and must not follow public canonical-domain changes.
 
-- `_NEXT_PUBLIC_SITE_URL` and `_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL` use the Cloud Run origin instead of `https://telefericobariloche.com.ar`.
-- `_ALLOWED_PUBLIC_ORIGINS` retains `https://telefericobariloche.com`, `https://www.telefericobariloche.com`, `https://telefericobariloche.com.ar`, and `https://www.telefericobariloche.com.ar`, and appends the Cloud Run origin.
-- `_APP_INTERNAL_BASE_URL` remains unchanged because it already uses the Cloud Run origin. **Do not restore this variable to the public domain during recovery.**
-- GitHub production `PRODUCTION_E2E_BASE_URL` uses the Cloud Run origin.
-- The Cloud Run hostname was added manually to the reCAPTCHA allowlist. Never record reCAPTCHA secret values in this repository.
+On 2026-09-09, registrar delegation failure caused public `.com.ar` DNS queries to return `NXDOMAIN`. Production temporarily used the Cloud Run service URL as its public, deployment, and E2E origin while the custom domain recovered. Build `3b334e7b-31d2-4ae7-a158-c86413443341`, revision `app-production-teleferico-00030-79c`, GitHub deployment `6352989259`, and production smoke run `34369735354` recorded the temporary state. The incident did not validate forms, reCAPTCHA submission, authenticated administration, or email writes.
 
-Evidence for the temporary state:
-
-- Manual production build `3b334e7b-31d2-4ae7-a158-c86413443341` passed for main commit `fb220fc3c8904a14385a7377da5fd96f5fc1375b`.
-- Revision `app-production-teleferico-00030-79c` serves 100% of traffic. The previous ready rollback revision is `app-production-teleferico-00029-22l`.
-- GitHub deployment `6352989259` and production smoke run `34369735354` passed.
-- Forms, reCAPTCHA submission, authenticated administration, and email writes were intentionally not tested. This does not block TB-122 dispatcher verification.
-
-Production mutations always require explicit approval. Recovery checklist:
-
-- [ ] Restore the public domain only after registrar/parent delegation and external DNS resolution are confirmed healthy.
-- [ ] Restore `_NEXT_PUBLIC_SITE_URL`, `_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL`, and GitHub `PRODUCTION_E2E_BASE_URL` to the verified public domain.
-- [ ] Keep `_APP_INTERNAL_BASE_URL` on the Cloud Run origin.
-- [ ] Remove the temporary Cloud Run entry from `_ALLOWED_PUBLIC_ORIGINS` only after the public-domain deployment and smoke verification pass.
-- [ ] Review whether the Cloud Run hostname should remain in the reCAPTCHA allowlist.
-- [ ] If recovery fails, route traffic to `app-production-teleferico-00029-22l` and restore the temporary substitutions before retrying.
-
-Track registrar/DNS recovery in [TB-124](https://app.notion.com/p/3d6a58c3fefc81a7bcb5eb8a008435a9) and durable origin portability in [TB-125](https://app.notion.com/p/3d6a58c3fefc8135a264c91cd8da32a4).
+Repository snapshots now record the restored canonical domain. The inline Cloud Build trigger substitutions and GitHub production `PRODUCTION_E2E_BASE_URL` remain separate operational settings and require explicit approval to update. Track the recovery in [TB-124](https://app.notion.com/p/3d6a58c3fefc81a7bcb5eb8a008435a9) and durable origin portability in [TB-125](https://app.notion.com/p/3d6a58c3fefc8135a264c91cd8da32a4).
 
 ---
 
