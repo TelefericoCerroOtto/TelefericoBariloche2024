@@ -36,11 +36,9 @@ test("validates main containment before checking out or executing deployment-sel
 
 test("enables pnpm before every Playwright workflow job invokes it", () => {
   const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
-  const jobs = workflow
-    .split(/\n  (?:chromium-smoke|chromium-full|production-public-smoke):\n/)
-    .slice(1);
+  const jobs = workflow.split(/\n  production-public-smoke:\n/).slice(1);
 
-  assert.equal(jobs.length, 3);
+  assert.equal(jobs.length, 1);
 
   for (const job of jobs) {
     const setupNode = job.indexOf("uses: actions/setup-node@v4");
@@ -99,7 +97,7 @@ test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot ex
   assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds triggers run "\$CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID".*--sha="\$PR_HEAD_SHA".*--substitutions="_PLAYWRIGHT_SUITE=\$PLAYWRIGHT_SUITE"/);
   assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds describe "\$build_id"/);
   assert.match(dispatcher, /GITHUB_STEP_SUMMARY/);
-  assert.equal(crypto.createHash("sha256").update(nativeWorkflow).digest("hex"), "5ec4c93ac280db023ff377e40fb53891635ed9ed0f6e02a9e431d113eddce067");
+  assert.equal(crypto.createHash("sha256").update(nativeWorkflow).digest("hex"), "ce053b507efcfae66a7e0629acbdeff6e87fdc736655ddfc4b14655be51535af");
 });
 
 test("Cloud Build fixture executor preserves the ordered locked selectable-suite contract", () => {
@@ -169,21 +167,13 @@ test("Cloud Build fixture executor preserves the ordered locked selectable-suite
   }
 });
 
-test("GitHub full-suite parity runs only for an internal exact-head promotion", () => {
+test("GitHub fixture-backed pull-request parity jobs are absent after cutover", () => {
   const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
-  const fullJobStart = workflow.indexOf("  chromium-full:");
-  const productionJobStart = workflow.indexOf("  production-public-smoke:");
-  const fullJob = workflow.slice(fullJobStart, productionJobStart);
-  const checkout = fullJob.indexOf("name: Check out exact promotion head revision");
-  const install = fullJob.indexOf("name: Install locked dependencies");
 
-  assert.ok(fullJobStart >= 0 && productionJobStart > fullJobStart);
-  assert.match(fullJob, /github\.event\.pull_request\.head\.repo\.full_name == github\.repository/);
-  assert.match(fullJob, /github\.event\.pull_request\.base\.ref == 'staging'/);
-  assert.match(fullJob, /github\.event\.pull_request\.head\.ref == 'development'/);
-  assert.match(fullJob, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}\n\s+persist-credentials: false/);
-  assert.ok(checkout >= 0 && install > checkout);
-  assert.doesNotMatch(fullJob, /(?:\|\|\s*true|continue-on-error:\s*true)/);
+  assert.doesNotMatch(workflow, /\bpull_request:/);
+  assert.doesNotMatch(workflow, /\bchromium-(?:smoke|full):/);
+  assert.doesNotMatch(workflow, /pnpm run test:e2e(?::smoke)?(?:\s|$)/m);
+  assert.match(workflow, /\n  production-public-smoke:\n/);
 });
 
 test("Playwright script composition preserves automatic suite discovery boundaries", () => {
