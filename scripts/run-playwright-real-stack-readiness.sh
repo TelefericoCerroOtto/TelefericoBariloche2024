@@ -354,7 +354,7 @@ if [[ "$postgres_ready" -ne 1 ]]; then
   exit "$primary_code"
 fi
 
-runner_id="$(run_create_bounded docker create --name "$RUNNER_CONTAINER" --network cloudbuild --volume /workspace:/workspace --workdir /workspace \
+runner_id="$(run_create_bounded docker create --name "$RUNNER_CONTAINER" --network cloudbuild --init --volume /workspace:/workspace --workdir /workspace \
   --label "$OWNERSHIP_LABEL" \
   --env COREPACK_DEFAULT_TO_LATEST=0 \
   --env "DATABASE_HOST=$POSTGRES_CONTAINER" \

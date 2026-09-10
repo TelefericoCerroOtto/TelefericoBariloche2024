@@ -357,6 +357,16 @@ test("container harness registers owned resources and cleans them in reverse ord
   assert.match(result.stderr, /final=outcome:success exit:0/);
 });
 
+test("runner container uses an init process without changing PostgreSQL creation", () => {
+  const result = runHarnessWithDockerStub();
+  assert.equal(result.status, 0, result.stderr);
+  const createCalls = result.calls.match(/^create .*$/gm);
+
+  assert.equal(createCalls.length, 2, result.calls);
+  assert.doesNotMatch(createCalls[0], /(?:^|\s)--init(?:\s|$)/);
+  assert.match(createCalls[1], /(?:^|\s)--init(?:\s|$)/);
+});
+
 test("container removal treats operational inspect failure as cleanup failure and continues", () => {
   const runnerId = "b".repeat(64);
   const postgresId = "a".repeat(64);
