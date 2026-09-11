@@ -14,7 +14,7 @@
 
 ## Dispatch scope
 
-The repository dispatcher implementation on default `main` covers relevant same-repository pull requests to `development` and `staging`. It covers `teleferico-app/**`, `teleferico-cms/**`, `cloudbuild.playwright-e2e.json`, `scripts/run-playwright-real-stack-readiness.sh`, the dispatcher and parity workflows, and the static contract test. Documentation-only changes and `tools/**` are intentionally excluded. Pull requests to `development` derive `smoke`; only a `development` head targeting `staging` derives `full`; other staging heads skip before OIDC.
+The repository dispatcher implementation on default `main` covers relevant same-repository pull requests to `development` and `staging`. It covers `teleferico-app/**`, `teleferico-cms/**`, `cloudbuild.playwright-e2e.json`, both real-stack lifecycle scripts, the dispatcher and parity workflows, and both lifecycle contract tests. Documentation-only changes and `tools/**` are intentionally excluded. Pull requests to `development` derive `smoke`; only a `development` head targeting `staging` derives `full`; other staging heads skip before OIDC.
 
 ## Provisioned identities
 
@@ -96,5 +96,5 @@ This evidence was accepted for the parity cutover. GitHub GraphQL reported no `b
 ## Pending issue #261 scope
 
 - Production-public-smoke execution migration.
-- Authenticated real-stack E2E completion and diagnostic artifacts.
+- Authenticated real-stack E2E completion. Deterministic teardown and bounded Cloud Logging diagnostics are repository-defined; no diagnostic artifact sink is introduced. Historical runtime evidence predates this corrected lifecycle, which has passed focused stub/static verification only and has not yet run through real Docker or Cloud Build. Cloud Logging remains the sole durable runtime evidence channel, and rollback remains repository-level only.
 - Disabled native-trigger cleanup after its rollback window is no longer needed.
