@@ -6,7 +6,8 @@ All content is normative except provider facts behind explicit gates.
 
 ```ts
 // Normative
-type ModelConfigV1={version:"survey-model-config.v1";provider:"vertex-ai";model:"gemini-3.8-flash";temperature:0;reasoning:"LOW";grounding:false;promptVersion:string;mapSchemaVersion:"survey-map.v1";analysisSchemaVersion:"survey-analysis.v1";redactionVersion:string;validatorVersion:string;chunkVersion:string;verifiedInputTokenLimit:number;map:{targetMin:600;targetMax:1200;hardMax:4000};directReduce:{targetMin:1800;targetMax:3000;hardMax:8000};safetyHeadroomTokens:number;sourceRevision:string};
+type ModelConfigV1={version:"survey-model-config.v1";provider:"vertex-ai";vertexProjectId:"teleferico-bariloche-2024";vertexLocation:string;model:"gemini-3.8-flash";temperature:0;reasoning:"LOW";grounding:false;promptVersion:string;mapSchemaVersion:"survey-map.v1";analysisSchemaVersion:"survey-analysis.v1";redactionVersion:string;validatorVersion:string;chunkVersion:string;verifiedInputTokenLimit:number;map:{targetMin:600;targetMax:1200;hardMax:4000};directReduce:{targetMin:1800;targetMax:3000;hardMax:8000};safetyHeadroomTokens:number;sourceRevision:string};
+type WorkerDeploymentConfigV1={version:"survey-worker-deployment.v1";operationalProjectId:"teleferico-bariloche-2024";vertexProjectId:"teleferico-bariloche-2024";vertexLocation:string;cloudTasksLocation:"southamerica-east1";workerRuntimeServiceAccount:string;taskInvokerServiceAccount:string;workerOidcAudience:string};
 type EvidenceClaimV1={claimId:string;textEs:string;evidenceRefs:string[];signal:"recurrent"|"minority"|"descriptive"};
 type MapV1={schemaVersion:"survey-map.v1";chunkId:string;coveredRefs:string[];themes:Array<{themeKey:string;labelEs:string;claims:EvidenceClaimV1[]}>;limitations:string[]};
 type SectionKey="executive_summary"|"observed_changes"|"strengths"|"unfavorable_areas"|"recurrent_themes"|"minority_signals"|"coverage_limitations";
@@ -15,6 +16,8 @@ type DirectV1={schemaVersion:"survey-analysis.v1";route:"direct";sections:[Secti
 type ReduceV1=Omit<DirectV1,"route">&{route:"reduce";mapOutputDigests:string[]};
 type PublishedAnalysisV1={schemaVersion:"survey-published-analysis.v1";sections:Array<{key:SectionKey;status:SectionV1["status"];paragraphsEs:string[]}>};
 ```
+
+The worker MUST initialize Vertex with `vertexProjectId` and `vertexLocation` from the validated model configuration. Both fields are required and MUST exactly match the deployment configuration; both project fields MUST equal `teleferico-bariloche-2024`, while `vertexLocation` MUST equal the location approved by the model-availability gate. Missing or mismatched values are terminal `CONFIGURATION` failures before client initialization, token counting, or generation. Runtime project, location, quota-project, local ADC, or CLI defaults MUST NOT fill either field. `Teleferico-AI`, `opencode-vertex-local`, and every local OpenCode principal/configuration are outside the production trust and quota boundary.
 
 Headroom=`max(2048,ceil(limit*10/100))`; `available=limit-instructions-schema-metrics-reservedOutput-headroom`, with exact token counts per serialized segment. Direct is selected only when the complete request fits. Otherwise sort complete redacted records by period/time/ID, token-count each, choose the minimum fitting chunk count, then place each record in the lowest-token chunk (tie: index). Never split, sample, or duplicate. Reduce receives validated maps plus immutable metrics.
 
@@ -49,7 +52,9 @@ Task name=`tb113-report-`+run UUID without hyphens, stored by CMS before enqueue
 
 After successful creation, Cloud Tasks exclusively owns delivery retries: deadline 1,800s, attempts 5, backoff 30..600s, doublings 4, all provider-gated. Worker 503 requests redelivery/resume. Delivery retry/exhaustion never invokes pre-claim compensation or creates another task.
 
-OIDC requires valid signature/time, exact audience `WORKER_OIDC_AUDIENCE`, issuer in verified immutable allowlist, and exact principal `TASK_INVOKER_SERVICE_ACCOUNT`; audience is canonical HTTPS worker origin without path/query/trailing slash; unset issuers reject all. App may create on one queue/read required secrets only; invoker may invoke one worker; worker may use the selected model, CMS token, two object prefixes, logs/metrics; CMS gets no GCP authority.
+The operational project and Vertex consumer/quota project are both `teleferico-bariloche-2024`. The worker MUST run as a dedicated user-managed `WORKER_RUNTIME_SERVICE_ACCOUNT` attached as its Cloud Run service identity. It uses metadata-provided keyless credentials only: production MUST provision no service-account JSON key and MUST omit `GOOGLE_APPLICATION_CREDENTIALS`. The Cloud Tasks OIDC `TASK_INVOKER_SERVICE_ACCOUNT` is a distinct service account with only invocation duty; it MUST NOT inherit the worker's Vertex, storage, CMS, logging, or metric permissions. IAM bindings attach each principal only to the policy of the required product-project resource.
+
+OIDC requires valid signature/time, exact audience `WORKER_OIDC_AUDIENCE`, issuer in verified immutable allowlist, and exact principal `TASK_INVOKER_SERVICE_ACCOUNT`; audience is canonical HTTPS worker origin without path/query/trailing slash; unset issuers reject all. App may create on one queue/read required secrets only; invoker may invoke one worker; worker runtime may use the gated Vertex model, CMS token, two object prefixes, logs/metrics; CMS gets no GCP authority. The effective quota/billing project MUST be `teleferico-bariloche-2024`; any explicit quota-project mechanism requires the worker principal to hold `roles/serviceusage.serviceUsageConsumer` on that project. Vertex usage, feature labels, logs, metrics, per-generation pricing snapshots, cumulative cost, and alerts all remain attributable there, distinct from OpenCode usage.
 
 Terminal key `tb113:terminal-failure:{run}:v1` is created once after any failed commit, including enqueue exhaustion, never on retries; replay cannot re-alert. Cost key `tb113:cost-over-10-usd:{run}:v1` is created once crossing `<=10_000_000` to `>10_000_000` micros and is nonblocking.
 
@@ -57,7 +62,8 @@ Report key `private/feedback-reports/{reportId}/report.pdf` is private/no-store/
 
 ## Verification Gates
 
-- **Vertex / AI:** docs+staging probe prove model/region, tokens/settings/usage/limits/revision; failure disables, with no alternate API/model.
-- **Tasks/Run/OIDC / platform:** docs+redacted probes prove route/audience/issuer/name/deadline/retry/ingress/invoker; failure disables dispatch/generation.
-- **Region/storage/IAM / platform:** inventory/docs prove location, identity, conditions, lifecycle, prefixes; divergence needs approval.
+- **Project/API / platform:** reviewed readback proves operational, Vertex consumer, quota, billing, and telemetry ownership in `teleferico-bariloche-2024`; `aiplatform.googleapis.com`, `run.googleapis.com`, `storage.googleapis.com`, and `cloudtasks.googleapis.com` are enabled; Cloud Tasks supports `southamerica-east1`. Divergence disables generation.
+- **Vertex / AI:** docs+staging probe prove the configured `vertexLocation`, exact model availability, tokens/settings/usage/limits/revision, and exact `vertexProjectId`; failure disables, with no alternate API/model or implicit project/location fallback.
+- **Tasks/Run/OIDC / platform:** docs+redacted probes prove route/audience/issuer/name/deadline/retry/ingress, distinct invoker/runtime identities, and worker attachment; failure disables dispatch/generation.
+- **Region/storage/IAM / platform:** inventory/docs prove locations, least-privilege resource policies, lifecycle, prefixes, keyless runtime identity, absence of service-account JSON keys from deployment, and absence of `GOOGLE_APPLICATION_CREDENTIALS`; divergence needs approval.
 - **Strapi / CMS:** version docs/metadata+isolated PostgreSQL prove policies, transactions, relations, hooks, constraints; custom services own invariants, never CRUD.

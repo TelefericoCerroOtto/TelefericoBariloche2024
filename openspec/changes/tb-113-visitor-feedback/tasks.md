@@ -22,7 +22,7 @@ P00/#282 is the planning baseline and already targets `development`. After it me
 
 | Slice → target | Units; prerequisites | Start → finish | Verification; runtime harness | Rollback; review focus | LOC |
 |---|---|---|---|---|---:|
-| S01 → `development` after planning-finalization merge | U1; sensitive-probe approval | unknown facts → reviewed gates | document review; redacted provider probes | evidence only; gates | 150 |
+| S01 → `development` after planning-finalization merge | U1; sensitive-probe approval | confirmed product topology → reviewed identity/API/model gates | document review; safe readback; redacted provider probes | evidence only; gates | 150 |
 | S02 → `development` after S01 merge | U2 | no safe DB runner → isolated harness | CMS harness tests; local PostgreSQL | harness only; process boundary | 450 |
 | S03 → `development` after S02 merge | U3; S01 | candidates → reviewed POC result | worker Vitest; local/staging-equivalent POC | POC/deps absent; adoption gate | 700 |
 | S04 → `development` after S03 merge | U4; S02, schema approval | RED catalog → disabled schemas | CMS Node; local PostgreSQL | additive models; catalog | 500 |
@@ -51,7 +51,7 @@ Failed S03 POC stops S15 and S20-S23; failed provider/platform gates stop their 
 
 ## Phase 1: Gates and foundations
 
-- [ ] 1.1 U1 Verify official facts in `docs/infra/survey-reporting/verification-gates.md`; D:none; RED/implementation/GREEN:owner-evidence-pass-fail-fallback+redacted-probes; E:document-review/provider-probes; R:D35,D57-D58,D70,D79,D92,operations; B:evidence; A:sensitive-probes; L:150,root/CMS/worker.
+- [x] 1.1 U1 Verify official facts in `docs/infra/survey-reporting/verification-gates.md`: product operational/Vertex/quota/billing/telemetry project, four enabled APIs, Cloud Tasks `southamerica-east1`, explicit `vertexProjectId`/`vertexLocation`, exact model/settings availability, dedicated attached keyless worker identity, distinct least-privilege OIDC invoker, no service-account JSON key, and absent `GOOGLE_APPLICATION_CREDENTIALS`; D:none; RED/implementation/GREEN:owner-evidence-pass-fail-no-fallback+safe-readback+redacted-probes; E:document-review/safe-readback/provider-probes; R:D35,D57-D58,D70,D75-D79,D92,operations; B:evidence; A:sensitive-probes; L:150,root/CMS/worker. Keep unchecked until S01 apply evidence exists.
 - [ ] 1.2 U2 RED remote/staging/production database; metacharacters; alternate compose path; child failure/signal; stale container/volume, then fixed-array/local-`tb113_test_` harness+cleanup in `teleferico-cms/test/feedback/harness/**`; D:none; E:`npm --prefix teleferico-cms test -- feedback/harness`/PostgreSQL; R:D92,Threat-Shell,platform; B:harness; A:none; L:450,CMS.
 - [ ] 1.3 U3 RED→POC→GREEN Appendix-05 criteria in `teleferico-app/services/survey-report-worker/poc/**` and `teleferico-app/src/components/administration/feedback/__tests__/chart-parity.fixture.ts`; D:U1; E:worker-Vitest/local+staging-equivalent; R:D80-D84,D89,delivery; B:POC/dependencies; A:manifest/lock/build-scripts; L:700,app/worker. STOP on failure before Recharts/ECharts/Chromium or `teleferico-app/{package.json,pnpm-lock.yaml,pnpm-workspace.yaml}`.
 
@@ -70,9 +70,9 @@ Failed S03 POC stops S15 and S20-S23; failed provider/platform gates stop their 
 ## Phase 4: Worker and operations
 
 - [ ] 4.1 U10 RED create transient/auth/config/exhaustion; duplicate name same/different run; invalid OIDC issuer/audience/principal; wrong route/method; duplicate/altered delivery; stale CAS; timeout/redelivery; post-create delivery exhaustion; terminal replay, then auth-first/deduplicated worker/image/CMS APIs/checkpoints in `teleferico-app/services/survey-report-worker/**`; D:U3,U4,U6; E:worker/CMS-fake-Vitest/private-server; R:D35,D48,D61,D70,D86,D89,Threat-Tasks+worker; B:worker/image/routes; A:deps/image/env; L:600,app/CMS/worker.
-- [ ] 4.2 U11 Fake-provider RED→implement→GREEN Vertex direct/map/reduce/redaction/validation/CountTokens/cost in `teleferico-app/services/survey-report-worker/src/**`; D:U1,U10; E:worker-Vitest/approved-staging-probe; R:D26,D51-D68,D75-D77,AI; B:adapter; A:provider/secrets; L:800,worker.
+- [ ] 4.2 U11 Fake-provider RED→implement→GREEN explicit product-project/location Vertex initialization, fail-closed config, direct/map/reduce/redaction/validation/CountTokens/cost in `teleferico-app/services/survey-report-worker/src/**`; D:U1,U10; E:worker-Vitest/approved-staging-probe; R:D26,D51-D68,D75-D77,AI; B:adapter; A:provider/secrets; L:800,worker.
 - [ ] 4.3 U12 RED→implement→GREEN PDF/accessibility/eight-sections/five-charts/diagnostics/private-GCS in `teleferico-app/services/survey-report-worker/src/**`; D:passed-U3,U10-U11; E:golden/prohibited-content-Vitest+pinned-renderer; R:D78-D84,D89,delivery; B:renderer/objects; A:storage-lifecycle; L:700,worker.
-- [ ] 4.4 U13 Plan→approve→apply→GREEN Tasks/private-Run/IAM/secrets/env/logging/alerts/labels in `teleferico-app/{cloudbuild.yaml,.env.example}`, `teleferico-cms/.env.example`, `docs/{INFRA.md,infra/survey-reporting/**}`; D:U1,U10-U12; E:`node docs/infra/survey-reporting/verify-config.test.mjs`+dry-runs; R:D35,D70,D72-D79,D89,operations; B:named-resources/grants; A:separate-staging/production; L:700,root/app/CMS/infra.
+- [ ] 4.4 U13 Plan→approve→apply→GREEN product-project Tasks/private-Run/IAM, distinct task-invoker/worker-runtime service accounts, keyless service-identity attachment, explicit Vertex config, secrets/env/logging/alerts/labels in `teleferico-app/{cloudbuild.yaml,.env.example}`, `teleferico-cms/.env.example`, `docs/{INFRA.md,infra/survey-reporting/**}`; D:U1,U10-U12; E:`node docs/infra/survey-reporting/verify-config.test.mjs`+dry-runs; R:D35,D70,D72-D79,D89,operations; B:named-resources/grants; A:separate-staging/production; L:700,root/app/CMS/infra.
 
 ## Phase 5: Rollout and proof
 
