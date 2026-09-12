@@ -27,6 +27,7 @@ Appendices win over summaries; specs remain behavior authority. Code blocks are 
 | Next.js mediation | More hops | Required to keep CMS/GCP credentials server-only |
 | Pure app-local core | New workspace package | Required for one deterministic metric authority |
 | Separate private worker | Additional deployment/IAM | Required to isolate AI/render/runtime dependencies |
+| Single product-project topology | Product quota and operations share one boundary | Cloud Run, Cloud Tasks, storage, Vertex, billing, and telemetry remain in `teleferico-bariloche-2024`; local OpenCode identities are excluded |
 | Immutable canonical snapshot | Storage overhead | Required for reproducibility and worker validation |
 | Conditional renderer adoption | POC delays dependencies | Required because research produced zero source claims |
 
@@ -34,7 +35,7 @@ Appendices win over summaries; specs remain behavior authority. Code blocks are 
 
 `QR browser → Next.js public route → bounded CMS command → PostgreSQL`
 
-`Admin browser → Next.js auth/capability route → core snapshot → CMS generation → Cloud Tasks → private worker → CMS checkpoints → Vertex gate → renderer gate → private GCS → mediated download`
+`Admin browser → Next.js auth/capability route → core snapshot → CMS generation → product-project Cloud Tasks → private worker service identity → CMS checkpoints → explicit product-project Vertex gate → renderer gate → private GCS → mediated download`
 
 ## File Changes
 

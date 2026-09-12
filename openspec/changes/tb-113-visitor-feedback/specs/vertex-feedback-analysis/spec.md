@@ -8,7 +8,7 @@ Define deterministic model routing, redaction, structured evidence, validation, 
 
 ### Requirement: Exact model request and routing
 
-Every environment MUST use only Vertex AI / Agent Platform `gemini-3.8-flash` with temperature `0`, reasoning `LOW`, and grounding disabled. Repository-versioned prompts, schemas, redaction, token/chunk/model/validator/narrative rules and deployed source revision MUST be recorded. Character count MAY prefilter; exact CountTokens MUST budget instructions, schemas, official metrics, complete comments, output reservation, and headroom. A fitting request MUST route direct; otherwise complete records MUST be deterministically balanced into map/reduce chunks without sampling. (Primary: D52-D53, D56-D58)
+Every environment MUST configure `vertexProjectId` as `teleferico-bariloche-2024` and an explicit, evidence-approved `vertexLocation`, and MUST use only Vertex AI / Agent Platform `gemini-3.8-flash` with temperature `0`, reasoning `LOW`, and grounding disabled. The model/deployment project and location MUST match; missing or mismatched values MUST fail as configuration errors before client initialization, CountTokens, or generation, without runtime, ADC, CLI, local OpenCode, project, location, or alternate-model fallback. Exact model availability and settings in the configured location remain blocked until probed. Repository-versioned prompts, schemas, redaction, token/chunk/model/validator/narrative rules and deployed source revision MUST be recorded. Character count MAY prefilter; exact CountTokens MUST budget instructions, schemas, official metrics, complete comments, output reservation, and headroom. A fitting request MUST route direct; otherwise complete records MUST be deterministically balanced into map/reduce chunks without sampling. (Primary: D52-D53, D56-D58)
 
 #### Scenario: Route direct
 - GIVEN the exact full request including reserved output and headroom fits
@@ -19,6 +19,11 @@ Every environment MUST use only Vertex AI / Agent Platform `gemini-3.8-flash` wi
 - GIVEN the exact full request exceeds budget
 - WHEN routing is selected
 - THEN every complete record MUST occur in exactly one deterministic map chunk before reduce.
+
+#### Scenario: Reject implicit or mismatched Vertex topology
+- GIVEN `vertexProjectId` or `vertexLocation` is absent, differs from deployment configuration, or has not passed its evidence gate
+- WHEN the worker prepares the Vertex client
+- THEN the run MUST fail with a nonretryable configuration error before any provider request.
 
 ### Requirement: Output budgets and stage duties
 
