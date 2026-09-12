@@ -7,18 +7,18 @@
 - Delivery mode: automatic chained slice
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
 - Review budget: 800 changed lines
-- Current slice/work unit: S01 / task 1.1 / U1
-- Progress: 1 of 15 tasks complete
+- Current slice/work unit: S02 / task 1.2 / U2
+- Progress: 2 of 15 tasks complete
 - Generation status: disabled
 - Size exception: not granted and not used
 
 ## Completed tasks
 
 - [x] 1.1 U1 — Record official facts, approved probe evidence, pass/fail criteria, fail-closed fallbacks, provenance, and affected decisions in `docs/infra/survey-reporting/verification-gates.md`.
+- [x] 1.2 U2 — Add the isolated local-only PostgreSQL harness, fixed subprocess boundary, deterministic cleanup, and canonical dependency-free Node 22 test command.
 
 ## Remaining tasks
 
-- [ ] 1.2 U2
 - [ ] 1.3 U3
 - [ ] 2.1 U4
 - [ ] 2.2 U5
@@ -38,12 +38,13 @@
 | Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
 |---|---|---|---|---|---|---|---|
 | 1.1 | Inline Python S01 structural validator | Documentation contract | RED/pre-completion PASS: diff clean; 93 decisions; 15 tasks with 0 checked; 24 slices | PASS: validator failed with `missing S01 verification-gates.md` before creation | PASS: 9 complete gates; required sections and blockers present | Skipped: this is a structural evidence artifact with one required document contract and no production branching | None needed; the first complete document structure passed |
+| 1.2 | `teleferico-cms/test/feedback/harness/process-boundary.test.js` | Unit plus local PostgreSQL integration | N/A (new harness); prior attempt established the missing canonical test script | PASS: exact focused command entered Node 22 test execution and failed with `MODULE_NOT_FOUND` for `./postgres-harness`; 0 passing, 1 failing | PASS: exact focused command completed 21/21 tests with 0 failures | PASS: 21 cases cover local/remote targets, marker rejection, seven metacharacter paths, alternate Compose path, fixed arrays, stale cleanup, child failure, SIGTERM cleanup, and orphan detection | PASS: 21/21 after local-socket isolation and stale-resource runtime refinement |
 
 ### Test Summary
 
-- Total tests written: 1 structural contract validator.
-- Total tests passing: 1 after implementation.
-- Layer used: documentation contract/readback.
+- Total tests written: 1 structural contract validator plus 21 Node test cases/subtests.
+- Total tests passing: 1 structural validator plus 21/21 Node cases after implementation.
+- Layers used: documentation contract/readback, unit process-boundary tests, and local PostgreSQL integration.
 - Approval tests: none; no existing runtime behavior was refactored.
 - Pure functions created: none.
 
@@ -91,6 +92,48 @@ The commands ran only inside the already-authenticated `google-cloud-sdk` contai
 5. `gcloud storage buckets get-iam-policy <each approved CMS bucket> --format=<bounded IAM projection>` — two reads, one attempt per bucket.
 
 No other GCP command was executed.
+
+## S02 Corrected Candidate Evidence
+
+- Failed evidence remediated: `sha256:95df89d1fc3b35687ebf18e815ec68acf6976e5a7e347ce039829069828328e4`.
+- Corrected evidence revision: `sha256:a477a5c2221a589f462055c747ac658902253a6333ef382156a612f7c60155d1`.
+- Manifest exception: only `scripts.test` was added to `teleferico-cms/package.json`; dependencies and lifecycle scripts are unchanged, and `package-lock.json` is untouched.
+- Package-security detection: npm package manager; Node `v22.22.0`; npm `11.15.0`; no install, `npx`, package-security configuration mutation, or dependency resolution was performed.
+
+### S02 RED, GREEN, and REFACTOR
+
+| Phase | Command | Exact result |
+|---|---|---|
+| RED | `npm --prefix teleferico-cms test -- feedback/harness` | Exit 1 after Node 22 test execution began: 0 passing, 1 failing; `MODULE_NOT_FOUND` for `./postgres-harness`. This replaced the prior missing-script failure with a valid behavioral RED. |
+| GREEN | `npm --prefix teleferico-cms test -- feedback/harness` | Exit 0; 21 tests, 21 passed, 0 failed, 0 cancelled, 0 skipped, 0 todo. |
+| REFACTOR | `npm --prefix teleferico-cms test -- feedback/harness` | Exit 0 after fixed local-socket isolation and stale-runtime refinement; 21 tests, 21 passed, 0 failed, 0 cancelled, 0 skipped, 0 todo. |
+
+### S02 Runtime and Cleanup Evidence
+
+Runtime command:
+
+```bash
+node teleferico-cms/test/feedback/harness/runtime-smoke.js && docker ps -aq --filter label=com.docker.compose.project=tb113_test_runtime_stale && docker volume ls -q --filter label=com.docker.compose.project=tb113_test_runtime_stale
+```
+
+Result: exit 0. PostgreSQL `16.8` ran from the already-local image with `pull_policy: never`; the harness connected only to database `tb113_test_feedback`, seeded and removed exactly one stale owned container and one stale owned volume, and returned `remoteContactCount:0`, `containerCount:0`, and `volumeCount:0`. Both post-run Docker queries were empty.
+
+The subprocess boundary uses `/usr/local/bin/docker` with argument arrays and `shell:false`. It supplies a fixed non-credential environment, selects only an approved local Unix Docker socket, locks Compose to the repository-owned file, rejects non-loopback database hosts and staging/production markers before spawning, generates or validates only `tb113_test_` project ownership, aborts the active child on `SIGINT`/`SIGTERM`, runs `down --volumes --remove-orphans`, and verifies project-labeled containers and volumes are absent. The 21-case suite proves child exit 37 remains primary after cleanup, signal cleanup is idempotent, and any remaining owned container or volume fails the run.
+
+## S02 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/harness`; final exit 0; 21/21 passed with 0 failures. |
+| Runtime harness command/scenario and exact result | The runtime command above completed against local PostgreSQL 16.8; one stale container and volume existed before the harness, the database identity was `tb113_test_feedback`, no remote target was present, and cleanup ended at 0 containers/0 volumes. |
+| Rollback boundary | Revert `teleferico-cms/test/feedback/harness/**`, remove only `scripts.test` from `teleferico-cms/package.json`, revert only task 1.2's checkbox, and remove only the S02 additions/status changes from this cumulative apply-progress artifact. Preserve S01 and all other task text. |
+
+### S02 Review Boundary
+
+- Slice: S02 only; S03 was not started.
+- Authored changed lines before SDD evidence persistence: 587 additions, 0 deletions; below the authorized 800-line budget.
+- Intended untracked implementation files: `compose.yaml`, `postgres-harness.js`, `process-boundary.test.js`, `runtime-smoke.js`, and `test-runner.js` under `teleferico-cms/test/feedback/harness/`.
+- No dependency, lockfile, credential, provider, GCP, deployment, or external-system mutation occurred.
 
 ## Gate result and blockers
 
