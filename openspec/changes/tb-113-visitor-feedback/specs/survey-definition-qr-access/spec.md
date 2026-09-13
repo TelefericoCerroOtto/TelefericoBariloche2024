@@ -12,7 +12,7 @@ The CMS MUST expose exactly five collection types: `survey-version`, `survey-qr-
 
 | Model | Required semantics |
 |---|---|
-| `survey-version` | unique immutable `versionKey`; `status: draft\|published`; ES/EN/PT question/copy fields; ordered aspect definitions |
+| `survey-version` | unique immutable `versionKey`; `status: draft\|published`; versioned closed semantic copy map with every visible state in ES/EN/PT; ordered aspect definitions |
 | aspect definition | `aspectKey`, `sortOrder`, ES/EN/PT labels; keys unique within a version |
 | `survey-settings` | nullable single relation `activeSurveyVersion` to a published version |
 | `survey-qr-point` | globally unique immutable `pointKey` and opaque `publicCode`; `displayName`; `status: active\|inactive`; nullable `inactiveAt`; `sortOrder` |
@@ -32,6 +32,8 @@ The CMS MUST expose exactly five collection types: `survey-version`, `survey-qr-
 
 Draft versions MAY change translations and ordered aspects. Published versions MUST be immutable whether active or inactive; ES/EN/PT MUST activate together. `activeSurveyVersion` MUST be the sole active pointer, and rollback MUST repoint it. Label-only translations retain `aspectKey`; semantic changes MUST use a new key. (Primary: D05-D08)
 
+The initial published seed MUST contain the 13 predefined keys `cable-car`, `views`, `staff`, `wait`, `signage`, `cleanliness`, `mobility`, `activities`, `rotating-cafe`, `food`, `stores`, and `bus`, then `price`, followed by the reserved `other` option. Their `sortOrder` values MUST preserve that order and every definition MUST provide the approved ES/EN/PT label. This catalog is only the initial version: later catalogs remain versioned and content-managed in the CMS under the same lifecycle rules.
+
 #### Scenario: Publish and activate
 - GIVEN a complete draft with all three locales
 - WHEN it is published and selected
@@ -41,6 +43,11 @@ Draft versions MAY change translations and ordered aspects. Published versions M
 - GIVEN a published version
 - WHEN content, order, or aspects are edited
 - THEN the CMS MUST reject the mutation and require a new version.
+
+#### Scenario: Seed the initial ordered catalog
+- GIVEN an empty survey catalog
+- WHEN the deterministic initial seed is applied
+- THEN one ES/EN/PT-complete version MUST contain exactly the 13 predefined keys plus `other` in the required order.
 
 ### Requirement: Permanent QR-point lifecycle
 

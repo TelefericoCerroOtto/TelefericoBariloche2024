@@ -8,7 +8,8 @@ GET `/api/feedback/surveys/{publicCode}` requires `^[A-Za-z0-9_-]{32,128}$`; suc
 
 ```ts
 // Normative
-type PublicSurveyV1={contractVersion:"feedback-public.v1";point:{pointKey:string;displayName:string};survey:{versionKey:string;translations:Record<"es"|"en"|"pt",{title:string;question:string;intro:string;privacyNotice:string;submitLabel:string;successMessage:string}>;aspects:Array<{aspectKey:string;sortOrder:number;labels:Record<"es"|"en"|"pt",string>}>};sessionToken:string;expiresAt:string};
+type PublicCopyKeyV1="headerTitle"|"localeLabel"|"progressLabel"|"overallQuestion"|"overallInstruction"|"aspectsQuestion"|"aspectsInstruction"|"otherLabel"|"sentimentQuestion"|"sentimentInstruction"|"commentQuestion"|"commentInstruction"|"commentLabel"|"personalDataWarning"|"verificationTitle"|"verificationInstruction"|"privacyNotice"|"backLabel"|"nextLabel"|"submitLabel"|"loadingStatus"|"ratingRequired"|"aspectsRequired"|"otherRequired"|"sentimentsRequired"|"verificationFailed"|"submittingStatus"|"genericFailure"|"successTitle"|"successMessage"|"receiptLabel";
+type PublicSurveyV1={contractVersion:"feedback-public.v1";point:{pointKey:string;displayName:string};survey:{versionKey:string;translations:Record<"es"|"en"|"pt",Record<PublicCopyKeyV1,string>>;aspects:Array<{aspectKey:string;sortOrder:number;labels:Record<"es"|"en"|"pt",string>}>};sessionToken:string;expiresAt:string};
 type SubmitV1={contractVersion:"feedback-public.v1";sessionToken:string;idempotencyKey:string;locale:"es"|"en"|"pt";overallRating:1|2|3|4|5;aspects:Array<{aspectKey:string;rating:"positive"|"neutral"|"negative"}>;otherAspect?:{customText:string;rating:"positive"|"neutral"|"negative"};comment?:string;formLoadedAt:number;website:"";captchaToken:string};
 type AcceptedV1={submissionReceipt:string;acceptedAt:string;guardUntil:string};
 ```
@@ -19,24 +20,42 @@ The token is `base64url(header).base64url(payload).base64url(HMAC-SHA256(secret,
 
 POST `/api/feedback/submissions` constrains idempotency key to 16..128 `^[A-Za-z0-9._~-]+$`; `aspects` to 0..3 unique active-version keys excluding `other`; `otherAspect.customText` to 1..300 nonblank characters; optional comment to 1..2000; captcha to 1..4096; form age to 3 seconds..2 hours. Exact total `aspects.length + (otherAspect ? 1 : 0)` MUST be 1..3. Validation order is media/size→origin/fetch-site→JSON/closed schema→combined count/uniqueness/separation→form-age/honeypot→captcha→token→point/code/version/grace→durable idempotency→24-hour guard→commit→best-effort Redis. Identical replay returns 200 with original `AcceptedV1` before the guard; new acceptance returns 201 with the same shape. Errors: 400 `VALIDATION_FAILED`; 401 `INVALID_SESSION`; 403 `UNTRUSTED_REQUEST|CAPTCHA_FAILED`; 409 `IDEMPOTENCY_CONFLICT|GUARD_ACTIVE`; 410 `SURVEY_UNAVAILABLE|SESSION_EXPIRED`; 413 `PAYLOAD_TOO_LARGE`; 415 `UNSUPPORTED_MEDIA_TYPE`; 503 `UPSTREAM_UNAVAILABLE`. Redis failure after authoritative checks accepts with degradation telemetry. Cookie: opaque HttpOnly Secure SameSite=Lax, path `/`, max-age 86,400; persist only its hash. (D15-D18, D23-D24, D33)
 
+## Public Form Projection
+
+The single stage order is header/locale/progress → Q1 integer 1-5 overall rating → Q2 1-3 active-version aspects presented by `sortOrder,aspectKey` → Q3 explicit negative/neutral/positive sentiment for each selection → Q4 optional 1-2000-character comment and personal-data warning → uncounted production anti-abuse verification → authoritative success/receipt. One is lowest and five highest; the UI introduces no verbal scale labels. `other` requires its own text and sentiment and never becomes Q4.
+
+Mobile and desktop share this state machine and validation; responsive code changes presentation only. A failed forward action remains on the stage, updates a `role="status"` or equivalent live status, and focuses the first invalid control. Back and locale navigation preserve all answers. Draft storage/resume requires the QR-bound version+point context and expires after two hours; no generic resume route exists.
+
+All copy and states use semantic keys with ES/EN/PT values, including loading, empty, validation, server failure, privacy, verification, and success. Missing selected-locale copy falls back to ES and emits telemetry. The privacy notice appears before submit; submit acknowledgment requires no checkbox and persists no consent event/version. CAPTCHA is server verified under the production failure policy and is not a question. Success is derived only from `AcceptedV1` and the guard contract.
+
 ## Administration
 
-Routes require Auth.js session/capability; mutations enforce origin→session/CSRF→capability→schema→CMS. CMS rechecks with server-held JWT. Queries require `from,to`, optional `pointKey,versionKey`, maximum 366 days. Lists add `page=1,pageSize=25` (1..100); generations alone allow `status`. Comments filter acceptance; reports/generations use period intersection; pagination follows filtering/order. Metric types come from Appendix 03.
+Routes require Auth.js session/capability; mutations enforce origin→session/CSRF→capability→schema→CMS. CMS rechecks with server-held JWT. The shared analyzed period requires `from,to`, maximum 366 days; only the route-specific filters below are accepted. Lists add `page=1,pageSize=25` (1..100); generations alone allow `status`. Comments filter acceptance; reports/generations use period intersection; pagination follows filtering/order. Metric types come from Appendix 03.
 
 ```ts
 // Normative
-type MetaV1={filters:{from:string;to:string;pointKey:string|null;versionKey:string|null;status:string|null};population:PopulationMetaV1;page?:number;pageSize?:number;total?:number};
+type RouteFiltersV1={route:"summary";from:string;to:string}|{route:"aspects";from:string;to:string;pointKey:string|null}|{route:"qr-comparison";from:string;to:string;pointKeys:string[]}|{route:"qr-detail";from:string;to:string;pointKey:string}|{route:"comments";from:string;to:string;aspectKey:string|null;ratings:Array<1|2|3|4|5>;pointKey:string|null;locale:"es"|"en"|"pt"|null;text:string|null}|{route:"reports";from:string;to:string}|{route:"generations";from:string;to:string;status:string|null};
+type MetaV1={filters:RouteFiltersV1;population:PopulationMetaV1;page?:number;pageSize?:number;total?:number};
 type ReadV1<T>={contractVersion:"feedback-admin.v1";data:T;meta:MetaV1};
 type SummaryV1={current:PeriodV1;previous:PeriodV1;deltas:DeltasV1};
 type AspectRowV1={aspectKey:string;label:string;sortOrder:number;current:SentimentV1;previous:SentimentV1};
 type PointRowV1={pointKey:string;displayName:string;sortOrder:number;current:PeriodV1;previous:PeriodV1};
 type AdminCommentV1=Omit<CommentRecordV1,"recordId">;
-type ReportRowV1={reportId:string;reportRunId:string;period:{from:string;to:string};dataCutoffAt:string;createdAt:string;requestedBy:string|null;generatedBy:string|null;artifactSize:number;artifactSha256:string};
+type ReportRowV1={reportId:string;reportRunId:string;name:string;period:{from:string;to:string};status:"succeeded";analyzedResponseCount:number;analyzedCommentCount:number;dataCutoffAt:string;createdAt:string;requestedBy:string|null;generatedBy:string|null;canDownload:boolean;artifactSize:number;artifactSha256:string};
 type GenerationRowV1={reportRunId:string;status:"queued"|"running"|"succeeded"|"failed";period:{from:string;to:string};dataCutoffAt:string;createdAt:string;completedAt:string|null;requestedBy:string|null;retryOfReportRunId:string|null;reportId:string|null;safeFailureMessage:string|null;cumulativeCostMicros:number};
 type GenerateV1={contractVersion:"feedback-admin.v1";period:{from:string;to:string};override:{accepted:boolean;overlapDigest:string|null}};
 ```
 
-Base `/api/admin/feedback/`: GET `summary` has no page keys; GET `aspects` orders `sortOrder,aspectKey`; GET `qr-points` orders `sortOrder,pointKey`; GET `comments` orders `acceptedAt DESC,receipt ASC`; GET `reports` orders `createdAt DESC,reportId ASC`; GET `generations` orders `createdAt DESC,reportRunId ASC`. Capabilities respectively are `feedback.read`, `feedback.read`, `feedback.read`, `feedback.comments.read`, `feedback.reports.read`, `feedback.reports.read`.
+Base `/api/admin/feedback/`: GET `summary` accepts only `from,to`; GET `aspects` adds optional `pointKey` and orders analytics rows by selection count descending, then `sortOrder,aspectKey`; GET `qr-points` has a comparison projection with its own nonempty selected-point set and a detail projection with exactly one point; GET `comments` adds optional aspect/rating/point/language/text filters and orders `acceptedAt DESC,receipt ASC`; GET `reports` accepts only `from,to` and orders `createdAt DESC,reportId ASC`; GET `generations` alone adds nullable `status` and orders `createdAt DESC,reportRunId ASC`. Every other route-specific filter is rejected. Comment `total`, pages, detail eligibility, and empty state use the same filtered set. Report generation accepts only its independent range and overlap fields, never comment filters. Capabilities respectively are `feedback.read`, `feedback.read`, `feedback.read`, `feedback.comments.read`, `feedback.reports.read`, `feedback.reports.read`.
+
+Top-level navigation and module projections are fixed:
+
+1. **Summary:** responses, average rating, satisfaction, unfavorable; temporal evolution; star distribution; strengths/opportunities; latest successful report by `createdAt DESC,reportId ASC`.
+2. **Aspects:** period overview; selected-aspect sentiment, related overall rating by sentiment, and temporal evolution; priority matrix; five-star association; structured `other` entries.
+3. **QR points:** Comparison then Detail tabs. Comparison has selectors, four KPIs, volume by point, and a comparison table, with no temporal evolution. Detail has one selector, four KPIs, star distribution, temporal evolution, exact-data table, and a point-filtered aspects link/context.
+4. **Comments and reports:** comment filters/results/pagination/detail; AI explanation; independent generation; immutable history.
+
+Every route uses the shared analyzed range and previous equal-duration comparison. Responsive projections may replace navigation, layout, or tables with equivalent cards only. Invitation/scan response rate is prohibited until a denominator contract exists. Prior-zero, zero-denominator, low-evidence, and empty states are explicit. Report history contains persisted rows only; no synthetic first row or demo download text is normative.
 
 POST `generations` requires generate capability: no overlap→202 queued; overlap without matching digest→409 `OVERLAP_REQUIRES_OVERRIDE` with all intersections ordered start/run, digest, adjustment; active exact-range race→409 `ACTIVE_RANGE_CONFLICT` plus run. POST `generations/{run}/retry` accepts only `{contractVersion:"feedback-admin.v1"}` for failed source and returns a new queued run/lineage; otherwise 409 `INVALID_STATE`. GET `reports/{id}/download` requires download capability and streams PDF with attachment disposition, SHA-256 ETag, private/no-store, no URL. Mapping: 400 `VALIDATION_FAILED`; 401 `UNAUTHORIZED`; 403 `FORBIDDEN`; 404 `NOT_FOUND`; named 409; 413 `PAYLOAD_TOO_LARGE`; 503 `UPSTREAM_UNAVAILABLE`; 500 `INTERNAL_ERROR`.
 
