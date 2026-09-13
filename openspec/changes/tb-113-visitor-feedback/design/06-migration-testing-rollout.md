@@ -16,6 +16,8 @@ Migration order:
 6. Seed local/test `tb113-fixture-v1` with deterministic IDs. Parent-first create and children-first cleanup are transactional; cleanup requires marker, exact manifest IDs, and expected count or aborts.
 7. Release compatible disabled readers. Absent settings creates one disabled row; invent no active version/point, touch no unrelated data, perform no destructive backfill.
 
+The U5/S06 production bootstrap seed uses Appendix 01's exact 13 predefined aspect identities/order/translations plus `other`. Synthetic fixture values remain separate and MUST NOT establish production metrics or catalog semantics.
+
 ## Access and Compatibility
 
 | Principal | Read | Write |
@@ -40,6 +42,13 @@ Contracts: browser→app→CMS public/admin v1; app dispatcher→CMS dispatch-co
 - **Infra** worker OIDC/task tests plus `docs/infra/survey-reporting/verify-config.test.mjs`: product-project ownership, four required APIs, Cloud Tasks `southamerica-east1`, explicit Vertex project/location, distinct task-invoker and worker-runtime identities, worker service-identity attachment, least-privilege bindings, no service-account JSON key, absent `GOOGLE_APPLICATION_CREDENTIALS`, prefixes, lifecycle, labels, per-generation costs, and alerts from redacted config.
 
 Blocking execution order is isolated CMS PostgreSQL suite and cleanup, core/app/worker/POC tests, app typecheck/lint, E2E, then traceability lint. These commands are planned, not run during design. Appendix-07 RED cases propagate unchanged. The harness uses fixed argument arrays, `finally` cleanup, and explicit volume removal; never arbitrary paths/remote databases.
+
+## UI Design Evidence Boundary
+
+- Current administration evidence: OpenDesign project `teleferico-cerro-otto-design-system`, file `feedback-dashboard.html`.
+- Public-form evolution evidence: OpenDesign project `teleferico-cerro-otto-design-system-evolution`, file `feedback-form.html`.
+
+These responsive prototypes are non-normative design evidence only. They do not override specs, Appendices 01-03, server security, production limits, fixture populations, persisted ordering, or calculations. In particular, implementation MUST reject the prototype's static/inconsistent Summary values, non-recalculating aspect point filter, unsorted comments, hard-coded latest report, synthetic six-aspect QR subset, range-anchored 7/30-day buckets, mock verification checkbox, 800-character comment limit, and demo-text downloads. Prototype omission does not remove QR-only access or the two-hour QR-bound draft/resume contract.
 
 ## Rollout and Rollback
 

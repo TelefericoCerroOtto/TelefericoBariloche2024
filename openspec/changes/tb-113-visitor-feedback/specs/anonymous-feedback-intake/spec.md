@@ -22,7 +22,7 @@ Browsers MUST use Next.js mediation. `GET /api/feedback/surveys/{publicCode}` MU
 
 ### Requirement: Exact answer validation and immutable acceptance
 
-`overallRating` MUST be an integer 1-5. A submission MUST contain 1-3 unique aspect ratings. `other` counts toward three and MUST include nonblank `customText` and `rating: positive|neutral|negative`. General `comment` MUST remain separate. Each aspect MUST snapshot its key, displayed label, and submitted rating. The server MUST authoritatively set `acceptedAt`, version, source=`valid_qr`, point, and final locale. Application users MUST NOT mutate accepted submissions. (Primary: D15-D20)
+`overallRating` MUST be an integer 1-5, where 1 is lowest and 5 is highest; no verbal rating labels are normative. A submission MUST contain 1-3 unique aspect ratings from options presented in the signed active survey version's `sortOrder,aspectKey` order. `other` counts toward three and MUST include nonblank `customText` and one explicit negative, neutral, or positive sentiment. Every standard aspect MUST also have exactly one explicit negative, neutral, or positive sentiment. General `comment` MUST remain separate and optional; when present it MUST contain 1-2000 characters. Each aspect MUST snapshot its key, displayed label, order, and submitted rating. The server MUST authoritatively set `acceptedAt`, version, source=`valid_qr`, point, and final locale. Application users MUST NOT mutate accepted submissions. (Primary: D15-D20)
 
 #### Scenario: Accept bounded answers
 - GIVEN one to three aspects valid for the signed version
@@ -36,7 +36,7 @@ Browsers MUST use Next.js mediation. `GET /api/feedback/surveys/{publicCode}` MU
 
 ### Requirement: Browser draft and success guard
 
-The browser MUST keep a client-only draft keyed by version, point, and pseudonymous browser context for two hours; locale MUST remain mutable. Success or expiry MUST remove it. An accepted response MUST establish a 24-hour browser guard across all points. (Primary: D21-D22)
+The browser MUST keep a client-only draft keyed by version, point, and pseudonymous browser context for two hours; locale MUST remain mutable. Draft creation and resume MUST occur only inside a valid QR-bound route and MUST NOT create a generic non-QR resume route. Success or expiry MUST remove it. An accepted response MUST establish a 24-hour browser guard across all points. (Primary: D21-D22)
 
 #### Scenario: Resume draft in another locale
 - GIVEN an unexpired draft
@@ -47,6 +47,24 @@ The browser MUST keep a client-only draft keyed by version, point, and pseudonym
 - GIVEN this browser succeeded within 24 hours at any point
 - WHEN another valid point is submitted
 - THEN the API MUST reject acceptance without creating a second submission.
+
+### Requirement: Invariant public form journey
+
+The mobile-first public form MUST expose the same business stages and validation on mobile and desktop, in this order: persistent header/locale/progress; Q1 overall rating; Q2 ordered aspect selection; Q3 sentiment for every selected aspect; Q4 optional comment with a personal-data warning; uncounted anti-abuse verification; success/receipt. Responsive presentation MAY change layout only. Production verification MUST use the server-validated anti-abuse and failure contract, MUST NOT be counted as a question, and MUST NOT be represented as a user-attested mock-security checkbox.
+
+Forward navigation MUST remain blocked while the current stage is invalid, expose a visible and assistive-technology status, and move focus to the first invalid control. Back navigation and ES/EN/PT locale changes MUST preserve entered state. Every visible state, instruction, validation message, loading state, failure, and success message MUST use semantic ES/EN/PT keys; a missing selected-locale value MUST fall back to ES and emit telemetry without changing answers.
+
+The privacy notice MUST appear before submission. Submission itself acknowledges the notice: the UI MUST NOT require a consent checkbox and the system MUST NOT persist a separate consent event or notice version. Success MUST render only from authoritative `submissionReceipt`, `acceptedAt`, and guard state returned by acceptance.
+
+#### Scenario: Keep responsive behavior semantically identical
+- GIVEN the same valid QR session and answers on mobile and desktop
+- WHEN the visitor advances, returns, changes locale, and submits
+- THEN both variants MUST enforce the same stages, validation, preserved state, privacy acknowledgment, verification, and authoritative receipt behavior.
+
+#### Scenario: Focus the first invalid answer
+- GIVEN a required answer is missing from the current stage
+- WHEN the visitor attempts to continue
+- THEN navigation MUST stay on that stage, announce its status, and focus the first invalid control.
 
 ### Requirement: Idempotent, shared-network-safe defense
 
