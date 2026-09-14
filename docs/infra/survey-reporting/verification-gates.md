@@ -2,13 +2,13 @@
 
 ## Outcome
 
-S01 records evidence; it does not provision or approve infrastructure. The product topology and Cloud Tasks regional prerequisites are verified, but the exact Vertex model/location/access probe failed with `NOT_FOUND` and the worker, queue, IAM, storage-policy, and keyless-deployment evidence is incomplete. Therefore, generation remains disabled. No alternate model, API, project, location, or local OpenCode identity is authorized as a fallback.
+S01 records evidence; it does not provision infrastructure. The maintainer has now approved sanitized visitor-comment processing with `gemini-3.8-flash` in Vertex AI multi-region `us`, and the exact model/location/settings gate passed through the official `aiplatform.us.rep.googleapis.com` endpoint. Generation remains disabled because the worker, queue, IAM, storage-policy, renderer POC, and keyless-deployment gates are incomplete. No raw comment processing, alternate model, API, project, location, or local OpenCode identity is authorized as a fallback; there is no silent fallback.
 
 ## Evidence handling
 
 - **Evidence boundary:** Maintainer-supplied facts, approved bounded Google Cloud reads, and the official sources below are the only evidence used.
 - **Credential boundary:** No credential, token, active account, ADC state, authentication environment variable, key file, or container credential store was read or changed.
-- **Probe boundary:** The four approved probe groups were attempted once at `2026-09-12T00:55:51Z`. No failed or inconclusive read was retried or broadened.
+- **Probe boundary:** The four S01 infrastructure probe groups were attempted once at `2026-09-12T00:55:51Z`. Later maintainer-supplied Vertex evidence is limited to the approved bounded `CountTokens` and synthetic `generateContent` outcomes recorded below; this reconciliation made no additional provider call.
 - **Interpretation rule:** An empty or null bounded projection is inconclusive unless the requested field was positively returned. It is not proof that the underlying policy or configuration is empty.
 - **Decision rule:** `PASS` means the evidence named by that gate satisfies its current S01 criterion. `FAIL` or `DEFERRED` keeps the dependent behavior disabled.
 
@@ -20,12 +20,15 @@ S01 records evidence; it does not provision or approve infrastructure. The produ
 - The four named existing application and CMS Cloud Run services were read successfully. Each reported ingress `all` and use of the documented shared App Engine identity.
 - The bounded TB-113 inventory returned no queue or Cloud Run service whose name matched `tb113|survey-report` in `southamerica-east1`.
 - Both approved existing buckets reported location `SOUTHAMERICA-EAST1` and an empty lifecycle rule list in the bounded read.
+- `CountTokens` succeeded for `gemini-3.8-flash` at resource location `us` through `https://aiplatform.us.rep.googleapis.com` and returned `totalTokens: 8`.
+- A separate synthetic `generateContent` request succeeded at the same endpoint and location with a strict JSON response schema, `temperature: 0`, `candidateCount: 1`, `thinkingConfig.thinkingLevel: LOW`, and no grounding metadata.
+- The generation returned `modelVersion: gemini-3.8-flash`, `finishReason: STOP`, prompt tokens: 516, candidate tokens: 330, total tokens: 846, and zero structural validation failures. The generated text was intentionally not emitted, so language and tone were not manually inspected.
 
 ## Failed facts
 
-- The maintainer's manual `countTokens` request reached the provider transport, but the exact resource `projects/teleferico-bariloche-2024/locations/southamerica-east1/publishers/google/models/gemini-3.8-flash` returned HTTP `404`, error code `404`, and status `NOT_FOUND` at `2026-09-12T00:45:42Z`.
-- This result proves only that the exact model/location/access gate did not pass. It does not establish whether the cause is the model name, regional availability, or project access.
-- The exact model settings, usable token limit, generation response usage metadata, and model revision are not proven because the model availability gate failed before those facts could be established.
+- `southamerica-east1` returned HTTP `404` / `NOT_FOUND` for both `gemini-3.8-flash` and `gemini-3.5-flash-lite`; production MUST NOT retry there or silently fall back to another model or location.
+- An earlier bare-US `404` used the wrong hostname `us-aiplatform.googleapis.com` and is invalid as model-availability evidence. The official Vertex AI multi-region hostname used by the passing probes is `aiplatform.us.rep.googleapis.com`.
+- The probes establish access, fixed request settings, strict structured output, response usage metadata, and returned model revision. They do not establish the model's maximum usable input/output limits or manually reviewed Spanish language and tone quality; those remain U11 validation concerns rather than a failed availability gate.
 - The existing buckets did not show the required 30-day diagnostics lifecycle rule in the bounded result. This fails TB-113 storage readiness even though report artifacts are not yet being written.
 
 ## Deferred evidence
@@ -63,12 +66,12 @@ S01 records evidence; it does not provision or approve infrastructure. The produ
 ### Gate G03 — Exact Vertex model, location, access, and settings
 
 - **Owner**: Maintainer for the manual provider probe; survey AI implementer for later validated configuration.
-- **Source/evidence**: Maintainer-supplied manual `countTokens` result; official Vertex initialization and Gemini model/location documentation.
-- **Observed status**: `FAIL`. At `2026-09-12T00:45:42Z`, transport exited `0`, while the exact `gemini-3.8-flash` resource in `southamerica-east1` returned HTTP `404` / `NOT_FOUND`; token and billable-character totals were absent.
-- **Pass criterion**: An approved probe proves the exact model is accessible in the configured Vertex location and establishes CountTokens behavior, supported fixed settings, usable token limits, usage metadata, and revision evidence.
+- **Source/evidence**: Maintainer-supplied approved `CountTokens` and synthetic strict-schema `generateContent` results; official Vertex initialization and Gemini model/location documentation.
+- **Observed status**: `PASS`. `gemini-3.8-flash` is accessible at resource location `us` through `aiplatform.us.rep.googleapis.com`. `CountTokens` returned 8 tokens. Strict structured generation with temperature 0, one candidate, LOW thinking, and no grounding returned model version `gemini-3.8-flash`, `STOP`, 516 prompt tokens, 330 candidate tokens, 846 total tokens, and zero structural validation failures.
+- **Pass criterion**: Approved probes prove the exact model is accessible in configured location `us` through the official multi-region endpoint, CountTokens succeeds, fixed generation settings are accepted, strict schema validation passes, and response usage/model revision metadata is returned.
 - **Fail criterion**: `NOT_FOUND`, denied access, unsupported location/settings, unavailable token/usage evidence, or any project/location mismatch.
-- **Fallback**: None. Do not select an alternate model, API, project, location, or implicit runtime default.
-- **Timestamp/evidence provenance**: Manual maintainer probe at `2026-09-12T00:45:42Z`; S01 copied only the bounded structured result and did not rerun the request.
+- **Fallback**: None. Production uses only `gemini-3.8-flash` in `us`; it MUST NOT retry in `southamerica-east1` or select an alternate model, API, project, location, hostname, or implicit runtime default.
+- **Timestamp/evidence provenance**: Original regional failure was recorded on `2026-09-12`. The maintainer supplied the later passing bounded probe results and approved sanitized-comment processing in `us` on `2026-09-14`; this reconciliation did not rerun either request and did not inspect the intentionally suppressed generated text.
 - **Affected decisions**: D57, D58, D75, D92.
 
 ### Gate G04 — Cloud Run worker identity and ingress
@@ -143,11 +146,14 @@ S01 records evidence; it does not provision or approve infrastructure. The produ
 2. **TB-113 resource inventory:** zero matching Cloud Tasks queues and zero matching Cloud Run services were returned in `southamerica-east1`.
 3. **Bucket configuration:** both redacted buckets returned `SOUTHAMERICA-EAST1` and `lifecycle=[]`; location type, uniform bucket-level access, and public access prevention were null in the bounded projection.
 4. **Bucket IAM:** both redacted buckets returned an empty projected binding array. The outcome is recorded as inconclusive rather than as proof of an empty policy.
+5. **Vertex `us` CountTokens:** the official multi-region endpoint returned `totalTokens: 8` for `gemini-3.8-flash`.
+6. **Vertex `us` structured generation:** the official multi-region endpoint returned strict-schema output with zero structural failures, `STOP`, model version `gemini-3.8-flash`, and usage 516 prompt / 330 candidate / 846 total tokens. Output text was suppressed, so no manual language or tone claim is made.
 
 ## Dependency impact
 
-- **Blocked now:** S03 cannot claim provider/PDF adoption readiness from S01; S18 and S19 cannot implement or prove Vertex routing/analysis; S20 cannot enable deterministic private PDF delivery; S21 cannot apply operational infrastructure; S22 and S23 cannot complete compatibility, rollout, or staging proof.
-- **Transitively blocked:** S15 cannot complete report-capable administration without the S03 renderer gate. Any generation path remains disabled.
+- **Unblocked now:** S03 may execute its renderer POC because G03 passed for sanitized comments with the exact `gemini-3.8-flash` / `us` contract. U11 may implement the fixed provider boundary when its earlier code dependencies are complete.
+- **Blocked now:** S20 cannot enable deterministic private PDF delivery until S03 passes and storage readiness is approved; S21 cannot apply operational infrastructure; S22 and S23 cannot complete compatibility, rollout, or staging proof.
+- **Transitively blocked:** S15 cannot complete report-capable administration without a passed S03 renderer gate. Any generation path remains disabled by the remaining worker, renderer, storage, IAM, and deployment gates.
 - **Not authorized by S01:** dependency adoption, schema/auth changes, environment changes, IAM changes, queue/service/bucket mutations, deployment, or provider substitution.
 - **Unblocking rule:** each failed or deferred gate requires its named approved evidence in the responsible future slice. A design/spec revision is required before any substitute is considered.
 
