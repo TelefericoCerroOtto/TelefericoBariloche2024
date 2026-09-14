@@ -4,6 +4,8 @@ Business context document for Teleférico Cerro Otto. Covers physical zones, fac
 
 > **Audience**: agents and humans needing business domain understanding. This file does not affect application code directly; it provides the mental model behind the product.
 
+> **Source of truth and synchronization**: this repository file is canonical. A Notion replica may exist for connector or mobile access, but synchronization is manual and occurs only after an explicit request to compare or update the Notion copy. A divergent Notion copy must not override this file.
+
 ## Terminology
 
 Key terms used throughout this document and across the business domain. Read these first to contextualize everything that follows.
@@ -65,9 +67,9 @@ Role descriptions refer to functions rather than current employees so that this 
 
 #### Current management transition
 
-As of September 2026, General Management is in transition. The incumbent General Manager remains formally in the position but is not currently participating in day-to-day operations or regular decision-making. A new *gerente adscripto*, as named in the company's official communication, is in an initial familiarization period focused on learning how the company operates.
+As of September 2026, General Management remains in transition. The incumbent General Manager still holds the formal title on paper but is not exercising the operational or managerial role and does not participate in routine decisions. A different person holds the formally communicated *gerente adscripto* role and is bringing a different management approach while assuming operational leadership during the transition.
 
-During this period, previous decision-making and approval paths should not be assumed to remain active. Responsibility boundaries may remain temporary or unresolved until the new management arrangement is consolidated. The functional descriptions below distinguish the company's established operating model from this transitional current state.
+The organization remains in a prolonged transition and adaptation period. Current observations should not be treated as a permanent organizational design: previous decision-making and approval paths should not be assumed to remain active, not every recurring or cross-area task has a stable owner, and assignments or responsibility boundaries may remain provisional. The functional descriptions below distinguish the company's established operating model from this transitional current state and will require iterative updates as the reorganization progresses.
 
 #### General Management
 
@@ -87,16 +89,15 @@ Management Secretariat does not usually decide these matters; its primary functi
 
 #### Commercial
 
-Commercial (*Comercial*) combines conventional commercial work with broad cross-area involvement in the company's current day-to-day operation. Its responsibilities commonly include:
+Commercial (*Comercial*) is currently more clearly delimited to its commercial remit. Its responsibilities commonly include:
 
 - Proposing commercial changes and communicating decisions once they have been approved through the authority applicable at the time.
 - Coordinating changes to prices, schedules, and commercial conditions.
 - Managing the company's public image and relationships with external media.
-- Defining or influencing building presentation, including paint, lighting, furniture, and decoration.
-- Providing day-to-day direction to public-facing areas, summit sectors, and stations.
-- Coordinating matters across areas when no narrower responsibility boundary exists.
 
-This broad influence reflects the company's present operating arrangement and should not be interpreted as permanent authority inherent to the Commercial role. Commercial may coordinate daily activity involving the stations, but technical authority over aerial tramway operation and safety remains with the Head of Operations.
+Historically, Commercial exercised unusually broad influence across areas, enabled in part by a close working relationship and informal access to the prior active General Management arrangement. That influence included decisions or direction concerning building presentation—such as paint, lighting, furniture, and decoration—day-to-day direction to public-facing areas, summit sectors, and stations, and coordination across areas where no narrower responsibility boundary existed.
+
+Under the new management approach, this cross-area influence appears to have been substantially mitigated. Any Commercial involvement outside its own remit should be understood as transitional, explicitly assigned, or case-specific; it does not imply standing authority over operational, technical, administrative, or other public-facing sectors. In particular, technical and safety authority over aerial tramway operation remains with the Head of Operations.
 
 Under the previously established workflow for planned changes to prices, schedules, or commercial conditions, General Management provided the decision or final approval. Commercial communicated the approved change, the Head of Cashiers updated the website and sales points, and the social-media role updated the relevant social channels. During the current management transition, this describes the historical coordination pattern rather than a guaranteed current approval path.
 
@@ -233,7 +234,7 @@ Housekeeping / General Services (*Maestranza*) is responsible primarily for clea
 
 #### Building projects and external specialists
 
-Major building work at the base station or summit complex—such as extensions, roof modifications, remodels, or other significant structural changes—is normally assigned to the company's regular external engineer and specialized contractors. General Management and Commercial coordinate these projects directly; Technical Coordination does not routinely participate in this process.
+Major building work at the base station or summit complex—such as extensions, roof modifications, remodels, or other significant structural changes—is normally assigned to the company's regular external engineer and specialized contractors. Under the prior active management arrangement, General Management and Commercial coordinated these projects directly, while Technical Coordination did not routinely participate. During the current transition, any Commercial involvement in building projects is transitional, explicitly assigned, or case-specific rather than standing cross-area authority.
 
 ### Operations department
 
