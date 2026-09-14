@@ -7,19 +7,20 @@
 - Delivery mode: automatic chained slice
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
 - Review budget: 800 changed lines
-- Current slice/work unit: S02 / task 1.2 / U2
-- Progress: 2 of 15 tasks complete
+- Current slice/work unit: S03 / task 1.3 / U3 (complete; ready for independent verification)
+- Progress: 3 of 15 tasks complete
 - Generation status: disabled
+- Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
 - Size exception: not granted and not used
 
 ## Completed tasks
 
 - [x] 1.1 U1 — Record official facts, approved probe evidence, pass/fail criteria, fail-closed fallbacks, provenance, and affected decisions in `docs/infra/survey-reporting/verification-gates.md`.
 - [x] 1.2 U2 — Add the isolated local-only PostgreSQL harness, fixed subprocess boundary, deterministic cleanup, and canonical dependency-free Node 22 test command.
+- [x] 1.3 U3 — Prove the nine Appendix-05 renderer criteria with Recharts, ECharts 6.1 SVG SSR, pinned Chromium, deterministic PDFs, and synthetic parity fixtures.
 
 ## Remaining tasks
 
-- [ ] 1.3 U3
 - [ ] 2.1 U4
 - [ ] 2.2 U5
 - [ ] 2.3 U6
@@ -39,14 +40,15 @@
 |---|---|---|---|---|---|---|---|
 | 1.1 | Inline Python S01 structural validator | Documentation contract | RED/pre-completion PASS: diff clean; 93 decisions; 15 tasks with 0 checked; 24 slices | PASS: validator failed with `missing S01 verification-gates.md` before creation | PASS: 9 complete gates; required sections and blockers present | Skipped: this is a structural evidence artifact with one required document contract and no production branching | None needed; the first complete document structure passed |
 | 1.2 | `teleferico-cms/test/feedback/harness/process-boundary.test.js` | Unit plus local PostgreSQL integration | N/A (new harness); prior attempt established the missing canonical test script | PASS: exact focused command entered Node 22 test execution and failed with `MODULE_NOT_FOUND` for `./postgres-harness`; 0 passing, 1 failing | PASS: exact focused command completed 21/21 tests with 0 failures | PASS: 21 cases cover local/remote targets, marker rejection, seven metacharacter paths, alternate Compose path, fixed arrays, stale cleanup, child failure, SIGTERM cleanup, and orphan detection | PASS: 21/21 after local-socket isolation and stale-resource runtime refinement |
+| 1.3 | `src/components/administration/feedback/__tests__/renderer-poc.test.ts` | Unit + local Chromium/PDF integration | PASS: package-policy 4/4; exact dependency commands succeeded; typecheck passed | PASS: missing `renderer-poc` import failed; digest/artifact triangulation later failed on absent fields | PASS: 2/2; all nine criteria true | PASS: zero/one, five charts, null/zero/negative, long ES/PT labels, and 200-point scatter | PASS: 2/2 after Node-environment cleanup |
 
 ### Test Summary
 
-- Total tests written: 1 structural contract validator plus 21 Node test cases/subtests.
-- Total tests passing: 1 structural validator plus 21/21 Node cases after implementation.
-- Layers used: documentation contract/readback, unit process-boundary tests, and local PostgreSQL integration.
+- Total tests written: 2 structural contract validators, 21 Node cases/subtests, and 2 renderer POC tests.
+- Total tests passing: 2 structural validators, 4/4 package-policy tests, 21/21 Node cases, and 2/2 renderer POC tests.
+- Layers used: documentation contracts/readback, unit/process-boundary tests, local PostgreSQL integration, and local Chromium/PDF integration.
 - Approval tests: none; no existing runtime behavior was refactored.
-- Pure functions created: none.
+- Pure functions created: renderer-neutral semantic and HTML/SVG adapter projections.
 
 ### Safety-net RED/pre-completion command and result
 
@@ -138,10 +140,20 @@ The subprocess boundary uses `/usr/local/bin/docker` with argument arrays and `s
 ## Gate result and blockers
 
 - Passed: selected product-project topology; four required APIs; Cloud Tasks regional support.
-- Failed: exact `gemini-3.8-flash` resource/access gate in `southamerica-east1`; required diagnostics lifecycle readiness.
+- Passed after approved reconciliation: exact `gemini-3.8-flash` access and fixed structured-generation settings at Vertex location `us` through `aiplatform.us.rep.googleapis.com`. `CountTokens` returned 8; generation returned `STOP`, model version `gemini-3.8-flash`, and 516 prompt / 330 candidate / 846 total tokens with zero structural validation failures. The output text was suppressed, so language and tone were not manually inspected.
+- Failed: `southamerica-east1` returned `NOT_FOUND` for both evaluated Gemini models and is not a production fallback; required diagnostics lifecycle readiness remains failed.
 - Deferred: dedicated keyless worker, private ingress, queue retry/OIDC configuration, distinct least-privilege invoker, complete bucket security/IAM evidence, and runtime quota/billing/telemetry attribution.
-- Blocked slices: S03 and S15; S18-S23. Generation remains disabled, with no alternate model or implicit fallback.
+- S03 passed after explicit dependency authorization: all nine Appendix-05 criteria are true, so S15/S20 are no longer blocked by renderer adoption. Their own prerequisites and the remaining worker, storage, IAM, deployment, diagnostics, quota, billing, and telemetry gates still block generation.
+- No alternate model, location, hostname, API, project, or implicit fallback is permitted.
+
+## S03 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/components/administration/feedback/__tests__/renderer-poc.test.ts`; RED unresolved production import, triangulation RED missing six required digests/artifacts, final GREEN/REFACTOR exit 0 with 2/2 passed and all nine criteria true. Package-policy 4/4, typecheck, and `git diff --check` also passed. |
+| Runtime harness command/scenario and exact result | The focused command rendered five synthetic charts through Recharts and ECharts SVG SSR, launched pinned Chromium five times (353/283/280/279/307 ms; p95 353 ms), produced one PDF semantic digest and one pagination digest across five renders, extracted every label, found 0 clipping and 0 serious/critical structural violations, emitted 290 selectable SVG text nodes and no chart raster images, excluded worker imports from the public source graph, measured 184,720,835 compressed candidate-worker bytes (<750 MiB), closed all browsers, and removed temporary artifacts. |
+| Rollback boundary | Revert the four exact dependency entries and generated lockfile delta; remove `services/survey-report-worker/poc/**`, the parity fixture, and renderer POC test; revert only task 1.3 and S03 evidence/status here. Preserve S01/S02 and G03 reconciliation. |
 
 ## Deviations
 
-None. S01 records external gate failure and deferral exactly as designed; task completion means the evidence register is complete, not that every external gate passed.
+Explicit authorization installed candidate dependencies before the reviewed pass because the real POC could not execute without them; no production import was added, and rollback is confined to the dependency delta and POC files. All other implementation matches the design.
