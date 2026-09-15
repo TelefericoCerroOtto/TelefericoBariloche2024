@@ -23,6 +23,10 @@ command="$1"; shift
 postgres_id="$(printf 'a%.0s' {1..64})"
 runner_id="$(printf 'b%.0s' {1..64})"
 case "$command" in
+  version)
+    [[ -n "\${STUB_DOCKER_VERSION_EXIT:-}" ]] && exit "$STUB_DOCKER_VERSION_EXIT"
+    printf 'stub docker version\n'
+    ;;
   create)
     name=""; label=""
     while (( "$#" )); do
@@ -160,6 +164,9 @@ function harnessEnvironment(directory, callsPath, environment) {
 
 function runHarnessWithDockerStub(environment = {}, selectedHarness = harnessPath, args = []) {
   const { directory, callsPath } = createDockerStub();
+  if (environment.STUB_NODE_PREFLIGHT_EXIT) {
+    fs.writeFileSync(path.join(directory, "node"), `#!/usr/bin/env bash\nexit ${environment.STUB_NODE_PREFLIGHT_EXIT}\n`, { mode: 0o755 });
+  }
   const result = childProcess.spawnSync("bash", [selectedHarness, ...args], {
     cwd: root,
     encoding: "utf8",
@@ -462,6 +469,18 @@ test("readiness harness uses bounded redaction for line-leading login fields", (
   assert.doesNotMatch(result.stderr, /synthetic-user|synthetic-password/);
   assert.match(result.stderr, /identifier=\[REDACTED\]/);
   assert.match(result.stderr, /password=\[REDACTED\]/);
+});
+
+test("readiness harness fails runtime preflight before creating resources", () => {
+  const dockerFailure = runHarnessWithDockerStub({ STUB_DOCKER_VERSION_EXIT: "17" });
+  assert.equal(dockerFailure.status, 1, dockerFailure.stderr);
+  assert.equal(dockerFailure.calls, "version\n");
+  assert.match(dockerFailure.stderr, /Docker CLI cannot reach the build Docker daemon; no harness resources were created/);
+
+  const nodeFailure = runHarnessWithDockerStub({ STUB_NODE_PREFLIGHT_EXIT: "18" });
+  assert.equal(nodeFailure.status, 1, nodeFailure.stderr);
+  assert.equal(nodeFailure.calls, "version\n");
+  assert.match(nodeFailure.stderr, /Node\.js cannot load the bounded diagnostic redaction implementation; no harness resources were created/);
 });
 
 test("anonymous descriptor capture is bounded", async () => {
@@ -900,7 +919,7 @@ test("PostgreSQL readiness caps attempts and sleeps to one wall-clock deadline",
     assert.equal(result.status, 1, result.stderr);
     assert.match(result.stderr, /phase=postgres-readiness code=1 detail=timeout-after-55s/);
     assert.equal((timingCalls.match(/docker exec/g) ?? []).length, 2, timingCalls);
-    assert.match(timingCalls, /--signal=KILL 5s docker inspect/);
+    assert.match(timingCalls, /--signal=KILL 5s \S*\/docker inspect/);
     assert.deepEqual(timingCalls.match(/^sleep .*$/gm), ["sleep 2", "sleep 1"]);
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
