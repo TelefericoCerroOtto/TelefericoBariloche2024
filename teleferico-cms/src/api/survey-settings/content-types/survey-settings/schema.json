@@ -1,0 +1,43 @@
+{
+  "kind": "singleType",
+  "collectionName": "survey_settings",
+  "info": {
+    "singularName": "survey-settings",
+    "pluralName": "survey-settings-list",
+    "displayName": "Survey settings"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "singletonKey": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "default": "default",
+      "configurable": false
+    },
+    "activeSurveyVersion": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::survey-version.survey-version"
+    },
+    "intakeEnabled": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "generationEnabled": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    },
+    "settingsRevision": {
+      "type": "integer",
+      "required": true,
+      "min": 1,
+      "default": 1
+    }
+  }
+}
