@@ -3,25 +3,25 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Standard for the historical S05a implementation; the focused Cloud Build remediation used strict test-first execution because `openspec/config.yaml` currently declares `strict_tdd: true`
+- Apply mode: Strict TDD for S05b; historical modes remain recorded in their evidence sections
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: accepted `size:exception`; maintainer-authorized native reset preserves the 843-line S05a candidate as the new baseline
-- Current slice/work unit: S05a / `s05a-cloud-build-remediation`; local correction and verification complete, remote rerun not authorized
-- Progress: 3 of 15 tasks complete
+- Review budget: maintainer-approved S05b `size:exception` of exactly 807 complete changed lines
+- Current slice/work unit: S05b / U4 completion; migration, indexes, inert service/route boundaries, and lifecycle contracts are complete
+- Progress: 4 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
-- Size exception: explicitly accepted together with the successful native reset for this cohesive persistence-definition slice
+- Size exception: former 800-line attempt settled failed at evidence revision `sha256:c57930a7430e91880415ef1d9c6633220e91dcd0852f343246f5ffabe5c8e264`; maintainer explicitly approved the distinct 807-line correction candidate; later slices require a new workload decision
 
 ## Completed tasks
 
 - [x] 1.1 U1 — Record official facts, approved probe evidence, pass/fail criteria, fail-closed fallbacks, provenance, and affected decisions in `docs/infra/survey-reporting/verification-gates.md`.
 - [x] 1.2 U2 — Add the isolated local-only PostgreSQL harness, fixed subprocess boundary, deterministic cleanup, and canonical dependency-free Node 22 test command.
 - [x] 1.3 U3 — Prove the nine Appendix-05 renderer criteria with Recharts, ECharts 6.1 SVG SSR, pinned Chromium, deterministic PDFs, and synthetic parity fixtures.
+- [x] 2.1 U4 — Complete exact Strapi persistence services/routes, additive constraints and indexes, lifecycle contracts, generated-type regeneration, and local PostgreSQL proof.
 
 ## Remaining tasks
 
-- [ ] 2.1 U4 — partial: all approved inert persistence definitions and generated declarations exist; migrations/indexes and lifecycle services/routes remain for S05b
 - [ ] 2.2 U5
 - [ ] 2.3 U6
 - [ ] 3.1 U7
@@ -41,6 +41,7 @@
 | 1.1 | Inline Python S01 structural validator | Documentation contract | RED/pre-completion PASS: diff clean; 93 decisions; 15 tasks with 0 checked; 24 slices | PASS: validator failed with `missing S01 verification-gates.md` before creation | PASS: 9 complete gates; required sections and blockers present | Skipped: this is a structural evidence artifact with one required document contract and no production branching | None needed; the first complete document structure passed |
 | 1.2 | `teleferico-cms/test/feedback/harness/process-boundary.test.js` | Unit plus local PostgreSQL integration | N/A (new harness); prior attempt established the missing canonical test script | PASS: exact focused command entered Node 22 test execution and failed with `MODULE_NOT_FOUND` for `./postgres-harness`; 0 passing, 1 failing | PASS: exact focused command completed 21/21 tests with 0 failures | PASS: 21 cases cover local/remote targets, marker rejection, seven metacharacter paths, alternate Compose path, fixed arrays, stale cleanup, child failure, SIGTERM cleanup, and orphan detection | PASS: 21/21 after local-socket isolation and stale-resource runtime refinement |
 | 1.3 | `src/components/administration/feedback/__tests__/renderer-poc.test.ts` | Unit + local Chromium/PDF integration | PASS: package-policy 4/4; exact dependency commands succeeded; typecheck passed | PASS: missing `renderer-poc` import failed; digest/artifact triangulation later failed on absent fields | PASS: 2/2; all nine criteria true | PASS: zero/one, five charts, null/zero/negative, long ES/PT labels, and 200-point scatter | PASS: 2/2 after Node-environment cleanup |
+| 2.1 | `teleferico-cms/test/feedback/lifecycle/{lifecycle,postgres-lifecycle}.test.js` | Unit + local PostgreSQL integration | PASS: catalog 6/6 and harness 21/21 before production edits | PASS: lifecycle selector exited 1 with missing migration; later REDs proved missing routes and submission lifecycle | PASS: final lifecycle selector exited 0 with 9/9 tests | PASS: complete/incomplete publication, activation/repoint, QR deactivate/reactivate, valid/invalid submissions, CAS/terminal transitions, idempotent migration, duplicate/range/check rollback paths | PASS: final 9/9 after route/service alignment and PostgreSQL cleanup assertions |
 
 ### Test Summary
 
@@ -49,6 +50,7 @@
 - Layers used: documentation contracts/readback, unit/process-boundary tests, local PostgreSQL integration, and local Chromium/PDF integration.
 - Approval tests: none; no existing runtime behavior was refactored.
 - Pure functions created: renderer-neutral semantic and HTML/SVG adapter projections.
+- S05b additions: 9 lifecycle/migration tests pass; pure lifecycle preparation functions cover publication, activation, QR state, immutable submission snapshots, generation CAS, and report eligibility.
 
 ### Safety-net RED/pre-completion command and result
 
@@ -230,3 +232,42 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - `pnpm --dir teleferico-app run typecheck`: exit 0, TypeScript reported no errors.
 - Real-auth discovery command: exit 0, exactly 3 tests in 1 file.
 - Remote Cloud Build: not run; local authorization explicitly excludes remote build triggers and mutations.
+
+## S05b U4 Completion Evidence
+
+- Scope: completed only task 2.1/U4. Added the approved additive migration, eight uniqueness indexes, four check constraints, disabled singleton bootstrap, aligned controllers/services/routes with zero generic content routes, and pure lifecycle contracts for versions, activation, QR points, submissions, generations, and report eligibility.
+- Authorization: schema/migration/generated-type work was explicitly approved. No permission grant, dependency, lockfile, environment, app contract, deployment, or remote resource changed.
+- Contract review: `teleferico-app/src/types/{cms,api}` has no current survey consumer to update. `docs/STRAPI_PERMISSIONS.md` already states all six survey types have no API-token or Users & Permissions grants; access expectations remain unchanged, so no permissions-document edit was required.
+- Generated artifacts: `npm --prefix teleferico-cms run strapi -- ts:generate-types` exited 0 with 0 warnings/errors. Both generated declaration files remained byte-identical because S05a already contained the complete schemas.
+
+### S05b RED, GREEN, TRIANGULATE, and REFACTOR
+
+| Phase | Command | Exact result |
+|---|---|---|
+| Safety net | `npm --prefix teleferico-cms test -- feedback/catalog` and `npm --prefix teleferico-cms test -- feedback/harness` | Before production edits: catalog exit 0, 6/6 passed; harness exit 0, 21/21 passed. |
+| RED | `npm --prefix teleferico-cms test -- feedback/lifecycle` | Exit 1, 0 passing/1 failing because `2026.09.11T0001-tb113-constraints` did not exist. Later scoped REDs failed on missing route modules and missing submission lifecycle preparation. |
+| GREEN | `npm --prefix teleferico-cms test -- feedback/lifecycle` | Final exit 0; 9 tests passed, 0 failed/skipped/cancelled/todo. |
+| TRIANGULATE | Same lifecycle selector | Covered complete and incomplete publication, duplicate ordering, activation/repoint/no-op predecessor, QR deactivate/reactivate/invalid status, standard plus `other` snapshots, duplicate selections, CAS conflict, valid/invalid terminal transitions, migration statement ownership, idempotent rerun, uniqueness conflicts, range/terminal checks, and transaction rollback. |
+| REFACTOR | Same lifecycle selector after route/service alignment and runtime cleanup assertions | Exit 0; 9/9 remained green. |
+
+### S05b Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/lifecycle`; exit 0; 9/9 passed. The selector includes unit contracts plus a real PostgreSQL 16.8 migration/invariant test. |
+| Runtime harness command/scenario and exact result | The lifecycle selector started only local Compose project `tb113_test_lifecycle` against database `tb113_test_feedback`, applied and reapplied the migration, observed `8|4|1` for indexes/constraints/disabled singleton, proved duplicate submission and active-range rejection, proved failed multi-write rollback (`1|0`), and exited 0. Post-run Docker container and volume queries for `tb113_test_lifecycle` and `tb113_test_runtime_stale` were empty. |
+| Rollback boundary | Remove `teleferico-cms/database/migrations/2026.09.11T0001-tb113-constraints.js`; remove only the new `controllers`, `routes`, and `services` directories under the six survey APIs; remove `teleferico-cms/test/feedback/lifecycle/**`; revert only the catalog/test-runner changes, task 2.1 checkbox, and this S05b evidence. Preserve all S01-S05a definitions, generated declarations, permissions documentation, and evidence. |
+
+### S05b Required Verification
+
+- `npm --prefix teleferico-cms test -- feedback/catalog`: exit 0; 6/6 passed.
+- `npm --prefix teleferico-cms test -- feedback/lifecycle`: exit 0; 9/9 passed.
+- `npm --prefix teleferico-cms test -- feedback/harness`: exit 0; 21/21 passed.
+- `npm --prefix teleferico-cms run build`: exit 0; Strapi admin build completed. It emitted only the pre-existing stale Browserslist-data advisory.
+- `git diff --check`: exit 0; no output.
+
+### S05b Review Boundary
+
+- Size: 746 implementation changed lines before SDD evidence persistence (743 additions, 3 deletions); generated declarations had zero delta. Required cumulative task/apply evidence brings the complete correction candidate to exactly 807 changed lines (794 additions, 13 deletions). The maintainer explicitly extended the S05b `size:exception` from 800 to exactly 807 complete changed lines after the former attempt settled failed.
+- Sequential boundary: starts from merged PR #301 on `development` and ends with U4 complete. Task 2.2/U5 and all later work remain untouched.
+- Deviations: none. Exact browser/admin/worker endpoints remain deferred to their assigned U7/U8/U9/U10 slices; S05b exposes no generic CRUD or invented endpoint.
