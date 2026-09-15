@@ -105,7 +105,7 @@ test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot ex
 
 test("Cloud Build fixture executor preserves the ordered locked selectable-suite contract", () => {
   const executor = JSON.parse(fs.readFileSync(cloudBuildExecutorPath, "utf8"));
-  const [revision, packageManager, dependencies, suite, readiness] = executor.steps;
+  const [revision, packageManager, dependencies, suite, dockerCli, readiness] = executor.steps;
 
   assert.deepEqual(
     executor.steps.map(({ id, name, dir, entrypoint, timeout }) => ({ id, name, dir, entrypoint, timeout })),
@@ -114,7 +114,8 @@ test("Cloud Build fixture executor preserves the ordered locked selectable-suite
       { id: "Verify repository package manager", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "60s" },
       { id: "Install locked application dependencies", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "420s" },
       { id: "Run fixture-backed Chromium suite", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "900s" },
-      { id: "Run real-stack readiness", name: cloudBuildDockerImage, dir: undefined, entrypoint: "bash", timeout: "900s" },
+      { id: "Stage Docker CLI", name: cloudBuildDockerImage, dir: undefined, entrypoint: "bash", timeout: "60s" },
+      { id: "Run real-stack readiness", name: cloudBuildNodeImage, dir: undefined, entrypoint: "bash", timeout: "900s" },
       ],
   );
   assert.equal(executor.timeout, "2700s");
@@ -157,7 +158,12 @@ test("Cloud Build fixture executor preserves the ordered locked selectable-suite
   assert.match(suite.args[1], /command -v pnpm/);
   assert.ok(suite.env.includes("CI=true"));
   assert.ok(suite.env.includes("PLAYWRIGHT_SUITE=$_PLAYWRIGHT_SUITE"));
+  assert.match(dockerCli.args[1], /docker_path="\$\$\(command -v docker\)"/);
+  assert.match(dockerCli.args[1], /cp "\$\$docker_path" \/tb122-runtime\/docker/);
+  assert.deepEqual(dockerCli.volumes, [{ name: "tb122-runtime", path: "/tb122-runtime" }]);
+  assert.match(readiness.args[1], /export PATH="\/tb122-runtime:\$\$PATH"/);
   assert.match(readiness.args[1], /bash scripts\/run-playwright-real-stack-readiness\.sh/);
+  assert.deepEqual(readiness.volumes, dockerCli.volumes);
   assert.deepEqual(readiness.env, ["BUILD_ID=$BUILD_ID"]);
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "secretEnv")));
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "waitFor")));
@@ -207,6 +213,10 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and de
   const lifecycle = fs.readFileSync(lifecycleScriptPath, "utf8");
   const normalizedBuildIdCheck = script.indexOf('if [[ -z "$normalized_build_id" ]]');
   const postgresContainer = script.indexOf("readonly POSTGRES_CONTAINER");
+  const dockerPreflight = script.indexOf('"$DOCKER_EXECUTABLE" version');
+  const nodePreflight = script.indexOf('"$NODE_EXECUTABLE" -e');
+  const postgresCreate = script.indexOf('"$DOCKER_EXECUTABLE" create --name "$POSTGRES_CONTAINER"');
+  const runtimePreflightEnd = script.indexOf('readonly raw_build_id=');
   const npmCi = lifecycle.indexOf('["ci"]');
   const testEnvironment = lifecycle.indexOf('NODE_ENV: "test"');
   const strapiBuild = lifecycle.indexOf('["run", "build"]');
@@ -215,16 +225,19 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and de
 
   assert.match(script, /postgres:16-bookworm@sha256:[a-f0-9]{64}/);
   assert.match(script, /node@sha256:[a-f0-9]{64}/);
+  assert.ok(dockerPreflight >= 0 && nodePreflight > dockerPreflight && postgresCreate > nodePreflight);
+  assert.doesNotMatch(script, /(^|[^_$A-Z])node -e/m);
   assert.match(script, /BUILD_ID:\?BUILD_ID is required/);
   assert.ok(normalizedBuildIdCheck >= 0 && normalizedBuildIdCheck < postgresContainer);
   assert.match(script, /BUILD_ID must use only/);
   assert.match(script, /sha256sum/);
   assert.match(script, /build_id_digest=.*:0:24/);
   assert.match(script, /build_namespace="\$\{build_id_digest\}"/);
-  assert.match(script, /tb122-readiness-postgres-\$\{build_namespace\}/);
-  assert.match(script, /docker create --name "\$POSTGRES_CONTAINER" --network cloudbuild/);
+  assert.match(script, /resource_prefix="tb122-readiness"/);
+  assert.match(script, /POSTGRES_CONTAINER="\$\{resource_prefix\}-postgres-\$\{build_namespace\}"/);
+  assert.match(script, /"\$DOCKER_EXECUTABLE" create --name "\$POSTGRES_CONTAINER" --network cloudbuild/);
   assert.doesNotMatch(script, /(?:--publish(?:-all)?(?:=|\s|$)|(?:^|\s)-p(?:\s|=|\d)|(?:^|\s)-P(?:\s|$))/m);
-  assert.match(script, /docker create --name "\$RUNNER_CONTAINER" --network cloudbuild/);
+  assert.match(script, /"\$DOCKER_EXECUTABLE" create --name "\$RUNNER_CONTAINER" --network cloudbuild/);
   assert.match(script, /--label "\$OWNERSHIP_LABEL"/);
   assert.match(script, /container_owned/);
   assert.match(script, /cleanup_container "runner"[\s\S]*cleanup_container "postgres"/);
@@ -233,9 +246,9 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and de
   assert.match(script, /run_bounded_until/);
   assert.match(script, /CLEANUP_RESERVE_DEADLINE_SECONDS=720/);
   assert.match(script, /runner_timeout_seconds=\$\(\(CLEANUP_RESERVE_DEADLINE_SECONDS - SECONDS\)\)/);
-  assert.match(script, /timeout --signal=TERM --kill-after=15s "\$\{runner_timeout_seconds\}s" docker start --attach/);
-  assert.match(script, /docker stop --time 5/);
-  assert.match(script, /docker rm --force/);
+  assert.match(script, /timeout --signal=TERM --kill-after=15s "\$\{runner_timeout_seconds\}s" "\$DOCKER_EXECUTABLE" start --attach/);
+  assert.match(script, /"\$DOCKER_EXECUTABLE" stop --time 5/);
+  assert.match(script, /"\$DOCKER_EXECUTABLE" rm --force/);
   assert.match(script, /record_cleanup "\$resource" "verify-removed"/);
   assert.match(script, /Error: No such object:/);
   assert.match(script, /inspect-exit-\$\{inspect_status\}/);
@@ -247,8 +260,9 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and de
   assert.match(script, /runner_create_status=\$\?/);
   assert.match(script, /DIAGNOSTIC_LINES=80/);
   assert.match(script, /DIAGNOSTIC_BYTES=32768/);
-  assert.match(script, /docker logs --tail "\$DIAGNOSTIC_LINES"[\s\S]*tail -c "\$DIAGNOSTIC_BYTES"/);
-  assert.doesNotMatch(script, /\|\|\s*:|>\s*\/dev\/null\s+2>&1/);
+  assert.match(script, /"\$DOCKER_EXECUTABLE" logs --tail "\$DIAGNOSTIC_LINES"[\s\S]*\| redact_bounded_stream/);
+  assert.match(script.slice(dockerPreflight, runtimePreflightEnd), />\/dev\/null 2>&1/);
+  assert.doesNotMatch(script.slice(runtimePreflightEnd), /\|\|\s*:|>\s*\/dev\/null\s+2>&1/);
   assert.ok(npmCi >= 0 && testEnvironment >= 0 && strapiBuild > npmCi && strapiStart > strapiBuild);
   assert.doesNotMatch(lifecycle, /NODE_ENV[=:]\s*["']?production/);
   assert.doesNotMatch(lifecycle, /\bnpm\s+install\b/);

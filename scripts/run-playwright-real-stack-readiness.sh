@@ -3,15 +3,50 @@ set -uo pipefail
 
 readonly POSTGRES_IMAGE="postgres:16-bookworm@sha256:bb3e1a57e5407e0a5280b4211980a5e537f4abd234a87014ac979849a78dd825"
 readonly RUNNER_IMAGE="node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96"
-readonly POSTGRES_USER="readiness"
-readonly POSTGRES_DATABASE="readiness"
+readonly HARNESS_CAPABILITY="${TB122_HARNESS_CAPABILITY:-readiness}"
+case "$HARNESS_CAPABILITY" in
+  readiness) ;;
+  real-auth)
+    if [[ "${PLAYWRIGHT_REAL_AUTH_HARNESS_OPT_IN:-}" != "run" ]]; then
+      printf 'Real-auth harness requires its explicit run opt-in.\n' >&2
+      exit 1
+    fi
+    ;;
+  *)
+    printf 'Unknown TB122 harness capability.\n' >&2
+    exit 1
+    ;;
+esac
 readonly DIAGNOSTIC_LINES=80
 readonly DIAGNOSTIC_BYTES=32768
 readonly OPERATION_TIMEOUT_SECONDS=8
 readonly CREATE_TIMEOUT_SECONDS=180
-readonly CLEANUP_RESERVE_DEADLINE_SECONDS=720
+if [[ "$HARNESS_CAPABILITY" == "real-auth" ]]; then
+  readonly CLEANUP_RESERVE_DEADLINE_SECONDS=1020
+else
+  readonly CLEANUP_RESERVE_DEADLINE_SECONDS=720
+fi
 readonly POSTGRES_READINESS_DEADLINE_SECONDS=55
 readonly POSTGRES_READINESS_INTERVAL_SECONDS=2
+
+docker_executable="$(command -v docker 2>/dev/null)" || {
+  printf 'Docker CLI is required for the real-stack harness; ensure the pinned CLI is on PATH.\n' >&2
+  exit 1
+}
+node_executable="$(command -v node 2>/dev/null)" || {
+  printf 'Node.js is required for bounded diagnostic redaction; run the harness from the pinned Node runtime.\n' >&2
+  exit 1
+}
+readonly DOCKER_EXECUTABLE="$docker_executable"
+readonly NODE_EXECUTABLE="$node_executable"
+if ! "$DOCKER_EXECUTABLE" version >/dev/null 2>&1; then
+  printf 'Docker CLI cannot reach the build Docker daemon; no harness resources were created.\n' >&2
+  exit 1
+fi
+if ! "$NODE_EXECUTABLE" -e 'require("./scripts/playwright-real-stack-lifecycle")' >/dev/null 2>&1; then
+  printf 'Node.js cannot load the bounded diagnostic redaction implementation; no harness resources were created.\n' >&2
+  exit 1
+fi
 
 readonly raw_build_id="${BUILD_ID:?BUILD_ID is required}"
 if ! [[ "$raw_build_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]; then
@@ -36,11 +71,23 @@ if ! [[ "$build_id_hash" =~ ^[a-f0-9]{64}$ ]]; then
 fi
 readonly build_id_digest="${build_id_hash:0:24}"
 readonly build_namespace="${build_id_digest}"
-readonly POSTGRES_CONTAINER="tb122-readiness-postgres-${build_namespace}"
-readonly RUNNER_CONTAINER="tb122-readiness-runner-${build_namespace}"
+if [[ "$HARNESS_CAPABILITY" == "real-auth" ]]; then
+  readonly resource_prefix="tb122-real-auth"
+  readonly POSTGRES_USER="real_auth"
+  readonly POSTGRES_DATABASE="tb122_real_auth_${build_namespace}"
+  readonly RUNNER_LIFECYCLE="scripts/playwright-real-auth-lifecycle.js"
+else
+  readonly resource_prefix="tb122-readiness"
+  readonly POSTGRES_USER="readiness"
+  readonly POSTGRES_DATABASE="readiness"
+  readonly RUNNER_LIFECYCLE="scripts/playwright-real-stack-lifecycle.js"
+fi
+readonly POSTGRES_CONTAINER="${resource_prefix}-postgres-${build_namespace}"
+readonly RUNNER_CONTAINER="${resource_prefix}-runner-${build_namespace}"
 readonly OWNERSHIP_LABEL="tb122.playwright.build=${build_namespace}"
 readonly POSTGRES_PASSWORD="in-build-${build_id_digest}"
-readonly DIAGNOSTIC_DIRECTORY="$(mktemp -d /tmp/tb122-readiness.XXXXXX)"
+readonly REAL_AUTH_MANIFEST_PATH="/tmp/tb122-real-auth-${build_namespace}/manifest.json"
+readonly DIAGNOSTIC_DIRECTORY="$(mktemp -d "/tmp/${resource_prefix}.XXXXXX")"
 
 postgres_id=""
 runner_id=""
@@ -86,12 +133,29 @@ run_create_bounded() {
   timeout --signal=TERM --kill-after=10s "${CREATE_TIMEOUT_SECONDS}s" "$@"
 }
 
+redact_bounded_stream() {
+  TB122_DIAGNOSTIC_BYTES="$DIAGNOSTIC_BYTES" \
+    TB122_DIAGNOSTIC_LINES="$DIAGNOSTIC_LINES" \
+    TB122_DIAGNOSTIC_SECRET="$POSTGRES_PASSWORD" \
+    "$NODE_EXECUTABLE" -e '
+      const lifecycle = require("./scripts/playwright-real-stack-lifecycle");
+      lifecycle.collectBoundedRedactedStream(process.stdin, {
+        maxBytes: Number(process.env.TB122_DIAGNOSTIC_BYTES),
+        maxLines: Number(process.env.TB122_DIAGNOSTIC_LINES),
+        secrets: [process.env.TB122_DIAGNOSTIC_SECRET],
+      }).then((content) => process.stdout.write(content)).catch((error) => {
+        process.stderr.write(`Diagnostic redaction failed: ${error.message}\n`);
+        process.exitCode = 1;
+      });
+    '
+}
+
 container_owned() {
   local resource="$1" expected_id="$2" expected_name="$3" actual
   if [[ -z "$expected_id" ]]; then
     return 1
   fi
-  if ! actual="$(run_bounded docker inspect --format '{{.Id}} {{index .Config.Labels "tb122.playwright.build"}} {{.Name}}' "$expected_id")"; then
+  if ! actual="$(run_bounded "$DOCKER_EXECUTABLE" inspect --format '{{.Id}} {{index .Config.Labels "tb122.playwright.build"}} {{.Name}}' "$expected_id")"; then
     record_cleanup "$resource" "verify-ownership" "failed" "inspect-failed"
     return 1
   fi
@@ -114,9 +178,9 @@ cleanup_container() {
     return
   fi
 
-  if state="$(run_bounded docker inspect --format '{{.State.Running}}' "$container_id")"; then
+  if state="$(run_bounded "$DOCKER_EXECUTABLE" inspect --format '{{.State.Running}}' "$container_id")"; then
     if [[ "$state" == "true" ]]; then
-      if run_bounded docker stop --time 5 "$container_id"; then
+      if run_bounded "$DOCKER_EXECUTABLE" stop --time 5 "$container_id"; then
         record_cleanup "$resource" "stop" "succeeded" "stopped"
       else
         record_cleanup "$resource" "stop" "failed" "bounded-stop-failed"
@@ -128,13 +192,13 @@ cleanup_container() {
     record_cleanup "$resource" "inspect-state" "failed" "bounded-inspect-failed"
   fi
 
-  if run_bounded docker rm --force "$container_id"; then
+  if run_bounded "$DOCKER_EXECUTABLE" rm --force "$container_id"; then
     record_cleanup "$resource" "remove" "succeeded" "removed"
   else
     record_cleanup "$resource" "remove" "failed" "bounded-remove-failed"
   fi
   inspect_output="$DIAGNOSTIC_DIRECTORY/${resource}-post-remove.log"
-  run_bounded docker inspect "$container_id" 2>&1 | tail -c "$DIAGNOSTIC_BYTES" >"$inspect_output"
+  run_bounded "$DOCKER_EXECUTABLE" inspect "$container_id" 2>&1 | redact_bounded_stream >"$inspect_output"
   pipeline_statuses=("${PIPESTATUS[@]}")
   inspect_status="${pipeline_statuses[0]}"
   if [[ "${pipeline_statuses[1]}" -ne 0 ]]; then
@@ -163,10 +227,21 @@ print_bounded_file() {
     return
   fi
   printf 'TB122 diagnostic resource=%s path=%s status=captured lines<=%s bytes<=%s\n' "$resource" "$path" "$DIAGNOSTIC_LINES" "$DIAGNOSTIC_BYTES" >&2
-  if ! tail -n "$DIAGNOSTIC_LINES" "$path" | tail -c "$DIAGNOSTIC_BYTES" | sed -E \
-    -e "s/${POSTGRES_PASSWORD}/[REDACTED]/g" \
-    -e 's/([Aa]uthorization:[[:space:]]*[Bb]earer[[:space:]]+)[^[:space:]]+/\1[REDACTED]/g' \
-    -e 's/((PASSWORD|SECRET|TOKEN|API_KEY|JWT)[A-Z0-9_-]*[=:])[^[:space:],]+/\1[REDACTED]/g' >&2; then
+  if ! TB122_DIAGNOSTIC_PATH="$path" \
+    TB122_DIAGNOSTIC_BYTES="$DIAGNOSTIC_BYTES" \
+    TB122_DIAGNOSTIC_LINES="$DIAGNOSTIC_LINES" \
+    TB122_DIAGNOSTIC_SECRET="$POSTGRES_PASSWORD" \
+    "$NODE_EXECUTABLE" -e '
+      const lifecycle = require("./scripts/playwright-real-stack-lifecycle");
+      const logPath = process.env.TB122_DIAGNOSTIC_PATH;
+      const evidence = lifecycle.readBoundedLog(logPath, {
+        allowedPaths: [logPath],
+        maxBytes: Number(process.env.TB122_DIAGNOSTIC_BYTES),
+        maxLines: Number(process.env.TB122_DIAGNOSTIC_LINES),
+        secrets: [process.env.TB122_DIAGNOSTIC_SECRET],
+      });
+      if (evidence.content) process.stdout.write(`${evidence.content}\n`);
+    ' >&2; then
     record_cleanup "$resource" "bound-and-redact-diagnostic" "failed" "pipeline-failed"
   fi
 }
@@ -178,13 +253,13 @@ capture_container_diagnostics() {
     printf 'TB122 diagnostic resource=%s state=not-created\n' "$resource" >&2
     return
   fi
-  if run_bounded docker inspect --format 'state={{.State.Status}} running={{.State.Running}} exit={{.State.ExitCode}}' "$container_id" >"$output" 2>&1; then
+  if run_bounded "$DOCKER_EXECUTABLE" inspect --format 'state={{.State.Status}} running={{.State.Running}} exit={{.State.ExitCode}}' "$container_id" >"$output" 2>&1; then
     printf 'TB122 diagnostic resource=%s operation=inspect status=succeeded\n' "$resource" >&2
   else
     printf 'TB122 diagnostic resource=%s operation=inspect status=failed\n' "$resource" >&2
     record_cleanup "$resource" "diagnostic-inspect" "failed" "bounded-inspect-failed"
   fi
-  if ! run_bounded docker logs --tail "$DIAGNOSTIC_LINES" "$container_id" 2>&1 | tail -c "$DIAGNOSTIC_BYTES" >>"$output"; then
+  if ! run_bounded "$DOCKER_EXECUTABLE" logs --tail "$DIAGNOSTIC_LINES" "$container_id" 2>&1 | redact_bounded_stream >>"$output"; then
     printf 'TB122 diagnostic resource=%s operation=logs status=failed\n' "$resource" >&2
     record_cleanup "$resource" "diagnostic-logs" "failed" "bounded-log-read-failed"
   fi
@@ -265,7 +340,7 @@ trap finalize EXIT
 trap 'on_signal SIGINT 130' INT
 trap 'on_signal SIGTERM 143' TERM
 
-postgres_id="$(run_create_bounded docker create --name "$POSTGRES_CONTAINER" --network cloudbuild \
+postgres_id="$(run_create_bounded "$DOCKER_EXECUTABLE" create --name "$POSTGRES_CONTAINER" --network cloudbuild \
   --label "$OWNERSHIP_LABEL" \
   --env "POSTGRES_USER=$POSTGRES_USER" \
   --env "POSTGRES_DB=$POSTGRES_DATABASE" \
@@ -282,7 +357,7 @@ if ! [[ "$postgres_id" =~ ^[a-f0-9]{64}$ ]]; then
   exit 1
 fi
 postgres_state="created"
-run_bounded docker start "$postgres_id"
+run_bounded "$DOCKER_EXECUTABLE" start "$postgres_id"
 postgres_start_status=$?
 if [[ "$postgres_start_status" -ne 0 ]]; then
   record_primary "command" "postgres-start" "$postgres_start_status" "docker-start-failed"
@@ -311,7 +386,7 @@ while true; do
   if [[ "$postgres_readiness_remaining" -lt "$postgres_operation_timeout" ]]; then
     postgres_operation_timeout="$postgres_readiness_remaining"
   fi
-  if run_bounded_until "$postgres_operation_timeout" docker exec "$postgres_id" pg_isready --username "$POSTGRES_USER" --dbname "$POSTGRES_DATABASE" >"$DIAGNOSTIC_DIRECTORY/postgres-readiness.log" 2>&1; then
+  if run_bounded_until "$postgres_operation_timeout" "$DOCKER_EXECUTABLE" exec "$postgres_id" pg_isready --username "$POSTGRES_USER" --dbname "$POSTGRES_DATABASE" >"$DIAGNOSTIC_DIRECTORY/postgres-readiness.log" 2>&1; then
     postgres_ready=1
     postgres_state="ready"
     break
@@ -326,7 +401,7 @@ while true; do
   if [[ "$postgres_readiness_remaining" -lt "$postgres_operation_timeout" ]]; then
     postgres_operation_timeout="$postgres_readiness_remaining"
   fi
-  if ! postgres_running="$(run_bounded_until "$postgres_operation_timeout" docker inspect --format '{{.State.Running}}' "$postgres_id")"; then
+  if ! postgres_running="$(run_bounded_until "$postgres_operation_timeout" "$DOCKER_EXECUTABLE" inspect --format '{{.State.Running}}' "$postgres_id")"; then
     record_primary "readiness" "postgres-readiness" 1 "container-state-unavailable"
     break
   fi
@@ -354,15 +429,29 @@ if [[ "$postgres_ready" -ne 1 ]]; then
   exit "$primary_code"
 fi
 
-runner_id="$(run_create_bounded docker create --name "$RUNNER_CONTAINER" --network cloudbuild --init --volume /workspace:/workspace --workdir /workspace \
+runner_environment=(
+  --env COREPACK_DEFAULT_TO_LATEST=0
+  --env "DATABASE_HOST=$POSTGRES_CONTAINER"
+  --env "DATABASE_NAME=$POSTGRES_DATABASE"
+  --env "DATABASE_USERNAME=$POSTGRES_USER"
+  --env "DATABASE_PASSWORD=$POSTGRES_PASSWORD"
+  --env "READINESS_SECRET=$POSTGRES_PASSWORD"
+)
+if [[ "$HARNESS_CAPABILITY" == "real-auth" ]]; then
+  runner_environment+=(
+    --env NODE_ENV=test
+    --env PLAYWRIGHT_REAL_AUTH_OPT_IN=provision
+    --env "PLAYWRIGHT_REAL_AUTH_RUN_ID=$build_namespace"
+    --env "PLAYWRIGHT_REAL_AUTH_EXPECTED_DATABASE_HOST=$POSTGRES_CONTAINER"
+    --env "PLAYWRIGHT_REAL_AUTH_EXPECTED_DATABASE_NAME=$POSTGRES_DATABASE"
+    --env "PLAYWRIGHT_REAL_AUTH_MANIFEST_PATH=$REAL_AUTH_MANIFEST_PATH"
+  )
+fi
+
+runner_id="$(run_create_bounded "$DOCKER_EXECUTABLE" create --name "$RUNNER_CONTAINER" --network cloudbuild --init --volume /workspace:/workspace --workdir /workspace \
   --label "$OWNERSHIP_LABEL" \
-  --env COREPACK_DEFAULT_TO_LATEST=0 \
-  --env "DATABASE_HOST=$POSTGRES_CONTAINER" \
-  --env "DATABASE_NAME=$POSTGRES_DATABASE" \
-  --env "DATABASE_USERNAME=$POSTGRES_USER" \
-  --env "DATABASE_PASSWORD=$POSTGRES_PASSWORD" \
-  --env "READINESS_SECRET=$POSTGRES_PASSWORD" \
-  "$RUNNER_IMAGE" node scripts/playwright-real-stack-lifecycle.js)"
+  "${runner_environment[@]}" \
+  "$RUNNER_IMAGE" node "$RUNNER_LIFECYCLE")"
 runner_create_status=$?
 if [[ "$runner_create_status" -ne 0 ]]; then
   record_primary "command" "runner-create" "$runner_create_status" "docker-create-failed"
@@ -379,7 +468,7 @@ if [[ "$runner_timeout_seconds" -le 0 ]]; then
   record_primary "command" "runner" 124 "no-runtime-budget-before-cleanup-reserve"
   exit 124
 fi
-if timeout --signal=TERM --kill-after=15s "${runner_timeout_seconds}s" docker start --attach "$runner_id"; then
+if timeout --signal=TERM --kill-after=15s "${runner_timeout_seconds}s" "$DOCKER_EXECUTABLE" start --attach "$runner_id"; then
   runner_state="completed"
 else
   runner_status=$?
@@ -398,7 +487,7 @@ else
   exit "$primary_code"
 fi
 
-run_bounded docker exec "$postgres_id" pg_isready --username "$POSTGRES_USER" --dbname "$POSTGRES_DATABASE" >"$DIAGNOSTIC_DIRECTORY/postgres-final-readiness.log" 2>&1
+run_bounded "$DOCKER_EXECUTABLE" exec "$postgres_id" pg_isready --username "$POSTGRES_USER" --dbname "$POSTGRES_DATABASE" >"$DIAGNOSTIC_DIRECTORY/postgres-final-readiness.log" 2>&1
 postgres_final_status=$?
 if [[ "$postgres_final_status" -ne 0 ]]; then
   postgres_state="failed-final-readiness"
