@@ -104,6 +104,10 @@ case "$command" in
     exit 0
     ;;
   logs)
+    if [[ -n "\${STUB_REAL_AUTH_INTERNAL_SIGNAL:-}" ]]; then
+      printf '%s\n' "$STUB_REAL_AUTH_INTERNAL_SIGNAL"
+      exit 0
+    fi
     if [[ -n "\${STUB_DOCKER_LOGS:-}" ]]; then
       printf '%s\\n' "$STUB_DOCKER_LOGS"
     else
@@ -230,6 +234,75 @@ function realAuthEnvironment(overrides = {}) {
   };
 }
 
+function passingPlaywrightReport() {
+  return JSON.stringify({
+    suites: [{
+      specs: Array.from({ length: 3 }, (_, index) => ({
+        tests: [{
+          expectedStatus: "passed",
+          results: [{ status: "passed" }],
+          title: `scenario-${index + 1}`,
+        }],
+      })),
+    }],
+    stats: { expected: 3, skipped: 0, unexpected: 0, flaky: 0 },
+  });
+}
+
+function causalRealAuthPhases(configure = () => ({})) {
+  const calls = [];
+  return {
+    calls,
+    phases: {
+      provision: async (markAttempted) => {
+        calls.push("provision");
+        markAttempted();
+        return "a".repeat(256);
+      },
+      startStrapi: async () => { calls.push("start-strapi"); },
+      startNext: async () => { calls.push("start-next"); },
+      runPlaywright: async () => {
+        calls.push("playwright");
+        return passingPlaywrightReport();
+      },
+      verifySyntheticState: async () => { calls.push("verify"); },
+      cleanupSyntheticState: async () => { calls.push("cleanup-synthetic"); },
+      stopServices: async () => {
+        calls.push("stop-services");
+        return [
+          { resource: "next", operation: "process-group-cleanup", status: "succeeded" },
+          { resource: "strapi", operation: "process-group-cleanup", status: "succeeded" },
+        ];
+      },
+      ...configure(calls),
+    },
+  };
+}
+
+async function assertCausalRealAuthFailure({ overrides, expectedPrimary, expectedCleanupFailure }) {
+  const { calls, phases } = causalRealAuthPhases(overrides);
+  const result = await realAuthLifecycle.runRealAuthPhases(phases);
+  const resolved = realAuthLifecycle.resolveRealAuthFinalResult(result, null);
+
+  assert.equal(result.acceptedScenarios, 3);
+  assert.equal(resolved.internalAcceptanceSignal, null);
+  assert.equal(resolved.final.exitCode, 1);
+  assert.equal(resolved.final.outcome, expectedPrimary ? "primary-failure" : "cleanup-failure");
+  if (expectedPrimary) assert.equal(result.primary, expectedPrimary);
+  if (expectedCleanupFailure) {
+    assert.ok(result.cleanup.some(({ status, detail }) => status === "failed" && detail === expectedCleanupFailure));
+  }
+
+  const outerEnvironment = resolved.internalAcceptanceSignal
+    ? { STUB_REAL_AUTH_INTERNAL_SIGNAL: resolved.internalAcceptanceSignal.trim() }
+    : {};
+  const outer = runHarnessWithDockerStub(outerEnvironment, realAuthHarnessPath);
+  assert.equal(outer.status, 1, outer.stderr);
+  assert.match(outer.stderr, /phase=real-auth-acceptance-signal.*expected-one-signal-found-0/);
+  assert.doesNotMatch(outer.stderr, /TB122 real-auth acceptance=scenarios:3\/3/);
+  return calls;
+}
+
 test("preserves primary identity and cleanup precedence", () => {
   const cases = [
     [{ primary: null, cleanup: [] }, 0, "success"],
@@ -354,31 +427,93 @@ test("real-auth preflight validates namespace, manifest binding, and prohibited 
   );
 });
 
-test("runRealAuthPhases preserves verification, synthetic cleanup, and service cleanup precedence", async () => {
-  const calls = [];
-  const primary = new Error("synthetic verification failure");
-  const result = await realAuthLifecycle.runRealAuthPhases({
-    provision: async (markAttempted) => { calls.push("provision"); markAttempted(); return "a".repeat(256); },
-    startStrapi: async () => { calls.push("start-strapi"); },
-    startNext: async () => { calls.push("start-next"); },
-    runPlaywright: async () => { calls.push("playwright"); },
-    verifySyntheticState: async () => { calls.push("verify"); throw primary; },
-    cleanupSyntheticState: async () => { calls.push("cleanup-synthetic"); throw new Error("synthetic cleanup failure"); },
-    stopServices: async () => {
-      calls.push("stop-services");
-      return [
-        { resource: "next", operation: "cleanup", status: "failed", detail: "next stop failure" },
-        { resource: "strapi", operation: "cleanup", status: "succeeded" },
-      ];
-    },
+test("3/3 followed by synthetic verification failure cannot reach either acceptance marker", async () => {
+  const verificationFailure = new Error("synthetic verification failure");
+  const calls = await assertCausalRealAuthFailure({
+    overrides: (phaseCalls) => ({
+      verifySyntheticState: async () => {
+        phaseCalls.push("verify");
+        throw verificationFailure;
+      },
+    }),
+    expectedPrimary: verificationFailure,
   });
-  assert.equal(result.primary, primary);
   assert.deepEqual(calls, ["provision", "start-strapi", "start-next", "playwright", "verify", "cleanup-synthetic", "stop-services"]);
-  assert.deepEqual(result.cleanup.map(({ name, resource, status }) => ({ name, resource, status })), [
-    { name: "synthetic-cleanup", resource: undefined, status: "failed" },
-    { name: undefined, resource: "next", status: "failed" },
-    { name: undefined, resource: "strapi", status: "succeeded" },
-  ]);
+});
+
+test("3/3 and verification followed by synthetic cleanup failure cannot reach either acceptance marker", async () => {
+  const calls = await assertCausalRealAuthFailure({
+    overrides: (phaseCalls) => ({
+      cleanupSyntheticState: async () => {
+        phaseCalls.push("cleanup-synthetic");
+        throw new Error("synthetic cleanup failure");
+      },
+    }),
+    expectedCleanupFailure: "synthetic cleanup failure",
+  });
+  assert.deepEqual(calls, ["provision", "start-strapi", "start-next", "playwright", "verify", "cleanup-synthetic", "stop-services"]);
+});
+
+test("3/3, verification, and synthetic cleanup followed by service cleanup failure cannot reach either acceptance marker", async () => {
+  const calls = await assertCausalRealAuthFailure({
+    overrides: (phaseCalls) => ({
+      stopServices: async () => {
+        phaseCalls.push("stop-services");
+        return [
+          { resource: "next", operation: "process-group-cleanup", status: "failed", detail: "next stop failure" },
+          { resource: "strapi", operation: "process-group-cleanup", status: "succeeded" },
+        ];
+      },
+    }),
+    expectedCleanupFailure: "next stop failure",
+  });
+  assert.deepEqual(calls, ["provision", "start-strapi", "start-next", "playwright", "verify", "cleanup-synthetic", "stop-services"]);
+});
+
+test("real-auth lifecycle exposes validated scenario evidence without emitting the public marker", async () => {
+  let output = "";
+  const originalWrite = process.stderr.write;
+  process.stderr.write = (chunk) => { output += String(chunk); return true; };
+  let result;
+  try {
+    result = await realAuthLifecycle.runRealAuthPhases({
+      provision: async (markAttempted) => { markAttempted(); return "a".repeat(256); },
+      startStrapi: async () => {},
+      startNext: async () => {},
+      runPlaywright: async () => passingPlaywrightReport(),
+      verifySyntheticState: async () => {},
+      cleanupSyntheticState: async () => {},
+      stopServices: async () => [],
+    });
+  } finally {
+    process.stderr.write = originalWrite;
+  }
+
+  assert.equal(result.primary, null);
+  assert.equal(result.acceptedScenarios, 3);
+  assert.equal(output, "");
+});
+
+test("real-auth validated scenario evidence is absent after Playwright failure or incomplete evidence", async () => {
+  for (const runPlaywright of [
+    async () => { throw new Error("playwright failed"); },
+    async () => JSON.stringify({
+      suites: [{ specs: [{ tests: [{ expectedStatus: "passed", results: [{ status: "passed" }] }] }] }],
+      stats: { expected: 1, skipped: 0, unexpected: 0, flaky: 0 },
+    }),
+  ]) {
+    const result = await realAuthLifecycle.runRealAuthPhases({
+      provision: async (markAttempted) => { markAttempted(); return "a".repeat(256); },
+      startStrapi: async () => {},
+      startNext: async () => {},
+      runPlaywright,
+      verifySyntheticState: async () => {},
+      cleanupSyntheticState: async () => {},
+      stopServices: async () => [],
+    });
+    assert.ok(result.primary);
+    assert.equal(result.acceptedScenarios, null);
+  }
 });
 
 test("printDiagnostics emits bounded useful context without sensitive values", async () => {
@@ -539,7 +674,9 @@ test("readiness harness refuses cleanup without exact ownership", () => {
 });
 
 test("real-auth entrypoint selects its isolated database and lifecycle", () => {
-  const result = runHarnessWithDockerStub({}, realAuthHarnessPath);
+  const result = runHarnessWithDockerStub({
+    STUB_REAL_AUTH_INTERNAL_SIGNAL: realAuthLifecycle.INTERNAL_ACCEPTANCE_SIGNAL,
+  }, realAuthHarnessPath);
   const namespace = expectedNamespace("test-build");
   const creates = result.calls.match(/^create .*$/gm);
   assert.equal(result.status, 0, result.stderr);
@@ -549,6 +686,39 @@ test("real-auth entrypoint selects its isolated database and lifecycle", () => {
   assert.match(creates[1], /--network cloudbuild/);
   assert.match(creates[1], /--volume \/workspace:\/workspace/);
   assert.match(creates[1], /node scripts\/playwright-real-auth-lifecycle\.js$/);
+  assert.match(result.stderr, /TB122 real-auth acceptance=scenarios:3\/3/);
+});
+
+test("real-auth public acceptance marker is final and requires every verification and cleanup boundary", () => {
+  const marker = "TB122 real-auth acceptance=scenarios:3/3";
+  const success = runHarnessWithDockerStub({
+    STUB_REAL_AUTH_INTERNAL_SIGNAL: realAuthLifecycle.INTERNAL_ACCEPTANCE_SIGNAL,
+  }, realAuthHarnessPath);
+  assert.equal(success.status, 0, success.stderr);
+  assert.equal((success.stderr.match(new RegExp(marker, "g")) ?? []).length, 1);
+  assert.ok(success.stderr.indexOf("resource=postgres operation=verify-removed status=succeeded detail=absent") < success.stderr.indexOf(marker));
+  assert.ok(success.stderr.indexOf("final=outcome:success exit:0") < success.stderr.indexOf(marker));
+
+  const failures = [
+    ["missing inner acceptance signal", {}],
+    ["outer final readiness", {
+      STUB_REAL_AUTH_INTERNAL_SIGNAL: realAuthLifecycle.INTERNAL_ACCEPTANCE_SIGNAL,
+      STUB_POSTGRES_FINAL_EXIT: "7",
+    }],
+    ["outer cleanup absence", {
+      STUB_REAL_AUTH_INTERNAL_SIGNAL: realAuthLifecycle.INTERNAL_ACCEPTANCE_SIGNAL,
+      STUB_VERIFY_INSPECT_FAIL_ID: "b".repeat(64),
+    }],
+  ];
+  for (const [phase, environment] of failures) {
+    const result = runHarnessWithDockerStub(environment, realAuthHarnessPath);
+    assert.notEqual(result.status, 0, `${phase}: ${result.stderr}`);
+    assert.doesNotMatch(result.stderr, /TB122 real-auth acceptance=scenarios:3\/3/, phase);
+  }
+
+  const readiness = runHarnessWithDockerStub();
+  assert.equal(readiness.status, 0, readiness.stderr);
+  assert.doesNotMatch(readiness.stderr, /TB122 real-auth acceptance=scenarios:3\/3/);
 });
 
 test("real-auth wrapper rejects every argument before Docker access", () => {

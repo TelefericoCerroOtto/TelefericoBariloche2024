@@ -28,6 +28,8 @@ else
 fi
 readonly POSTGRES_READINESS_DEADLINE_SECONDS=55
 readonly POSTGRES_READINESS_INTERVAL_SECONDS=2
+readonly REAL_AUTH_INTERNAL_ACCEPTANCE_SIGNAL="TB122 real-auth internal=validated-scenarios:3/3"
+readonly REAL_AUTH_PUBLIC_ACCEPTANCE_MARKER="TB122 real-auth acceptance=scenarios:3/3"
 
 docker_executable="$(command -v docker 2>/dev/null)" || {
   printf 'Docker CLI is required for the real-stack harness; ensure the pinned CLI is on PATH.\n' >&2
@@ -266,6 +268,33 @@ capture_container_diagnostics() {
   print_bounded_file "$resource" "$output"
 }
 
+verify_real_auth_acceptance_signal() {
+  local output pipeline_statuses docker_status redaction_status signal_count grep_status
+  if [[ "$HARNESS_CAPABILITY" != "real-auth" ]]; then
+    return 0
+  fi
+  output="$DIAGNOSTIC_DIRECTORY/real-auth-acceptance.log"
+  run_bounded "$DOCKER_EXECUTABLE" logs --tail "$DIAGNOSTIC_LINES" "$runner_id" 2>&1 | redact_bounded_stream >"$output"
+  pipeline_statuses=("${PIPESTATUS[@]}")
+  docker_status="${pipeline_statuses[0]}"
+  redaction_status="${pipeline_statuses[1]}"
+  if [[ "$docker_status" -ne 0 || "$redaction_status" -ne 0 ]]; then
+    record_primary "evidence" "real-auth-acceptance-signal" 1 "bounded-log-read-failed"
+    return 1
+  fi
+  signal_count="$(grep -Fxc -- "$REAL_AUTH_INTERNAL_ACCEPTANCE_SIGNAL" "$output")"
+  grep_status=$?
+  if [[ "$grep_status" -gt 1 ]]; then
+    record_primary "evidence" "real-auth-acceptance-signal" 1 "signal-count-failed"
+    return 1
+  fi
+  if [[ "$signal_count" -ne 1 ]]; then
+    record_primary "evidence" "real-auth-acceptance-signal" 1 "expected-one-signal-found-${signal_count}"
+    return 1
+  fi
+  return 0
+}
+
 on_signal() {
   local signal="$1" code="$2"
   if [[ -z "$received_signal" ]]; then
@@ -333,6 +362,9 @@ finalize() {
     final_outcome="cleanup-failure"
   fi
   printf 'TB122 evidence final=outcome:%s exit:%s signal:%s\n' "$final_outcome" "$final_code" "${received_signal:-none}" >&2
+  if [[ "$HARNESS_CAPABILITY" == "real-auth" && "$final_code" -eq 0 ]]; then
+    printf '%s\n' "$REAL_AUTH_PUBLIC_ACCEPTANCE_MARKER" >&2
+  fi
   exit "$final_code"
 }
 
@@ -484,6 +516,10 @@ else
   else
     record_primary "command" "runner" "$runner_status" "runner-exit"
   fi
+  exit "$primary_code"
+fi
+
+if ! verify_real_auth_acceptance_signal; then
   exit "$primary_code"
 fi
 

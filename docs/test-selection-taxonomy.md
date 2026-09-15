@@ -1,6 +1,6 @@
 # Fail-Closed Test Selection Taxonomy
 
-TB-127 defines the repository's minimum test-selection model and closes when this design is approved. It does not change current CI behavior: implementation pull requests still use legacy `smoke`, trusted `development -> staging` promotions still use legacy `full`, and production public smoke remains isolated.
+TB-127 defines the repository's minimum test-selection model and closes when this design is approved. It does not change current CI behavior: implementation pull requests still use legacy `smoke`, trusted `development -> staging` promotions still use legacy `full`, both legacy profiles include blocking real-auth acceptance, and production public smoke remains isolated.
 
 ## Outcome and invariants
 
@@ -14,7 +14,7 @@ TB-127 defines the repository's minimum test-selection model and closes when thi
 - Running a suite is not a substitute for adding or updating representative tests when changed behavior lacks coverage.
 - Public output never contains paths, filenames, provider messages, or pull-request-controlled strings.
 
-Implementation is deliberately outside TB-127. Selector code, contract tests, workflow integration, shadow rollout, app Vitest CI adoption, TB-122 real-auth and production work, and TB-126 staging-impact research are separate work units.
+Implementation is deliberately outside TB-127. Selector code, contract tests, workflow integration, shadow rollout, app Vitest CI adoption, remaining TB-122 runtime acceptance and production work, and TB-126 staging-impact research are separate work units.
 
 ## Core model
 
@@ -41,7 +41,7 @@ Catalog order is normative and is used for deterministic public collections.
 | 2. `app.playwright.fixture-standard` | Fixture-backed standard browser smoke. CI-executable; a selected failure blocks its profile. |
 | 3. `app.playwright.fixture-maintenance` | Fixture-backed maintenance-only browser coverage. CI-executable; a selected failure blocks its profile. |
 | 4. `app-cms.real-stack-readiness` | PostgreSQL, Strapi, and Next.js build, start, and readiness evidence. CI-executable; a selected failure blocks its profile. It does not prove functional authentication. |
-| 5. `app-cms.playwright.real-auth` | Authenticated app/CMS coverage planned by TB-122. It is not CI-executable until delivered and activated. When required before activation, its disposition is advisory debt; after activation, omission or failure is blocking. |
+| 5. `app-cms.playwright.real-auth` | Authenticated app/CMS coverage activated by TB-122. It is CI-executable and blocking in both legacy pre-merge profiles; exact-SHA runtime 3/3 acceptance remains required before treating delivery as proven. |
 | 6. `app.playwright.production-public-smoke` | Read-only post-deployment production probe. CI-executable only in its isolated production profile and never eligible for pre-merge selection. |
 | 7. `tools.image-pipeline.vitest` | Known local-only Image Pipeline suite. It has no CI executor or profile membership and is never reported as unavailable CI evidence. |
 
@@ -59,7 +59,7 @@ The policy classifies all old and new paths before selecting suites. A change ma
 - The same contract change must add or update a representative app-side contract test. If that evidence is absent, selection fails with a typed contract-coverage error; merely running the existing suite is insufficient.
 - Add `app.playwright.fixture-standard` only when the contract affects a browser scenario or resource represented by the fixture-backed standard suite.
 - Purely operational CMS configuration requires `app-cms.real-stack-readiness` without automatically requiring `app.vitest`.
-- Authentication, roles, permissions, and protected operations require `app-cms.playwright.real-auth`. This is advisory unavailable debt before TB-122 activation and blocking evidence after activation.
+- Authentication, roles, permissions, and protected operations require the blocking `app-cms.playwright.real-auth` suite.
 
 ### App surfaces
 
@@ -225,9 +225,9 @@ A material rule, domain, capability, output-contract, or fallback change resets 
 8. Prove that no legacy callers remain, including manual and documented callers.
 9. Obtain final maintainer confirmation, then remove `_PLAYWRIGHT_SUITE` and legacy mode.
 
-TB-122 real-auth delivery and native-trigger cleanup are independent of this rollout order:
+TB-122 runtime acceptance and native-trigger cleanup are independent of this rollout order:
 
-- TB-122 may deliver and activate real-auth before, during, or after the selector rollout. Until activation, the selector reports required real-auth evidence as advisory `requiredButUnavailable`; after activation, the same selection rules make omission or failure blocking.
+- Real-auth is active and blocking in legacy profiles. Selector implementation must preserve that capability and fail closed as blocking if it becomes unavailable; exact-SHA runtime 3/3 evidence remains a separate acceptance gate.
 - Cleanup of the disabled native trigger follows TB-122's own rollback-acceptance criteria and does not depend on selector enforcement.
 - Removing `_PLAYWRIGHT_SUITE` and legacy selector mode still requires definitive v1 evidence, zero legacy callers, proof that the native trigger no longer depends on the legacy protocol, and final human confirmation.
 
@@ -248,8 +248,8 @@ The following 24 vectors are minimum observable contracts. Tests may add cases, 
 | 5 | Pure operational CMS configuration | `selected`; include `app-cms.real-stack-readiness` without automatically adding app Vitest. |
 | 6 | App-consumed CMS contract with an added or updated app contract test | `required-but-unavailable` before app Vitest CI adoption; select readiness, report app Vitest as blocking unavailable evidence, and add fixture standard only for a represented browser contract. After adoption, include app Vitest in `selected`. |
 | 7 | App-consumed CMS contract without added or updated app contract evidence | `error`; emit a typed policy-contract error and do not treat suite execution as sufficient coverage. |
-| 8 | Authentication/protected-operation impact while real-auth is unavailable | `required-but-unavailable`; report `app-cms.playwright.real-auth` as advisory before TB-122 activation and include any other available selected suites. |
-| 9 | Authentication/protected-operation impact after real-auth activation | `selected`; include `app-cms.playwright.real-auth`, whose omission or failure is blocking. |
+| 8 | Authentication/protected-operation impact if real-auth capability regresses to unavailable | `required-but-unavailable`; report `app-cms.playwright.real-auth` as blocking and include any other available selected suites. |
+| 9 | Authentication/protected-operation impact with active real-auth | `selected`; include `app-cms.playwright.real-auth`, whose omission or failure is blocking. |
 | 10 | Combined app and CMS impact | Derived `selected` or `required-but-unavailable`; return the deduplicated additive union in catalog order and apply the stricter relevant capability disposition. |
 | 11 | Unknown or root-ambiguous executable surface | `required-but-unavailable` when relevant required suites are unavailable, otherwise `selected`; apply the complete available pre-merge fallback with typed `unknown-surface` or `root-ambiguous` code. |
 | 12 | Rename or copy across domains | Derived `selected` or `required-but-unavailable`; classify the old-plus-new path union, deduplicate suites, and publish aggregate rename/copy counts only. |
@@ -269,8 +269,8 @@ The following 24 vectors are minimum observable contracts. Tests may add cases, 
 
 | # | Vector | Expected public status and behavior |
 | --- | --- | --- |
-| 19 | Valid legacy `smoke` | `selected`; fixture standard plus real-stack readiness, with no atomic flags accepted. |
-| 20 | Valid legacy `full` | `selected`; fixture standard, fixture maintenance, plus real-stack readiness, with no atomic flags accepted. |
+| 19 | Valid legacy `smoke` | `selected`; fixture standard, real-stack readiness, and real-auth acceptance, with no atomic flags accepted. |
+| 20 | Valid legacy `full` | `selected`; fixture standard, fixture maintenance, real-stack readiness, and real-auth acceptance, with no atomic flags accepted. |
 | 21 | Valid v1 atomic flags | `selected`, `required-but-unavailable`, or `no-ci-tests` according to the policy result; `_PLAYWRIGHT_SUITE` is empty and all flags are explicit strict Booleans. |
 | 22 | Mixed or contradictory legacy/v1 input | `error`; reject before Corepack or dependency installation with a typed compatibility code. |
 | 23 | Trusted `development -> staging` promotion | Bypass selector impact rules under `staging.full`; run every staging-relevant CI-executable app/CMS suite and report relevant unavailable suites, yielding `required-but-unavailable` while any such suite is unavailable. |
@@ -278,6 +278,6 @@ The following 24 vectors are minimum observable contracts. Tests may add cases, 
 
 ## Relationship to current repository behavior
 
-The current executor accepts `_PLAYWRIGHT_SUITE=smoke|full`, defaults to `smoke`, maps smoke to the standard fixture suite, maps full to standard plus maintenance, and runs real-stack readiness in both cases. The trusted dispatcher derives smoke for same-repository implementation pull requests to `development` and full for the exact internal `development -> staging` route. These are the legacy semantics preserved during coexistence.
+The current executor accepts `_PLAYWRIGHT_SUITE=smoke|full`, defaults to `smoke`, maps smoke to the standard fixture suite, maps full to standard plus maintenance, and runs real-stack readiness followed by blocking real-auth acceptance in both cases. The trusted dispatcher derives smoke for same-repository implementation pull requests to `development` and full for the exact internal `development -> staging` route. These are the legacy semantics preserved during coexistence.
 
 The current app Vitest suite discovers `src/**/*.{test,spec}.{ts,tsx}` and remains local rather than CI-executable. The CMS has no configured automated test suite. Production-safe browser specs remain isolated from fixture-backed Playwright configuration. See [Playwright E2E testing](./playwright-e2e.md), [Infrastructure](./INFRA.md), and [GitHub Actions Automation & Governance](./CI-AUTOMATION.md).

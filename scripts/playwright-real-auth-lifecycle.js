@@ -14,10 +14,45 @@ const LOGS = Object.freeze({
   playwright: "/tmp/playwright-real-auth-playwright.log",
 });
 const SIGNAL_CODES = Object.freeze({ SIGINT: 130, SIGTERM: 143 });
+const ACCEPTED_SCENARIO_COUNT = 3;
+const INTERNAL_ACCEPTANCE_SIGNAL = "TB122 real-auth internal=validated-scenarios:3/3";
+const PLAYWRIGHT_REPORT_MAX_BYTES = 256 * 1024;
+
+function validatePlaywrightAcceptance(rawReport) {
+  let report;
+  try {
+    report = JSON.parse(rawReport);
+  } catch {
+    throw new Error("Playwright acceptance report is not valid JSON.");
+  }
+  const tests = [];
+  const visitSuite = (suite) => {
+    for (const spec of suite.specs ?? []) tests.push(...(spec.tests ?? []));
+    for (const child of suite.suites ?? []) visitSuite(child);
+  };
+  for (const suite of report.suites ?? []) visitSuite(suite);
+  const accepted = tests.filter((test) =>
+    test.expectedStatus === "passed" &&
+    test.results?.length === 1 &&
+    test.results[0].status === "passed"
+  );
+  if (
+    tests.length !== ACCEPTED_SCENARIO_COUNT ||
+    accepted.length !== ACCEPTED_SCENARIO_COUNT ||
+    report.stats?.expected !== ACCEPTED_SCENARIO_COUNT ||
+    report.stats?.skipped !== 0 ||
+    report.stats?.unexpected !== 0 ||
+    report.stats?.flaky !== 0
+  ) {
+    throw new Error("Playwright acceptance report must prove exactly three discovered, non-skipped, passing scenarios.");
+  }
+  return ACCEPTED_SCENARIO_COUNT;
+}
 
 async function runRealAuthPhases(phases) {
   let primary = null;
   let provisioningAttempted = false;
+  let acceptedScenarios = null;
   try {
     const contentApiToken = await phases.provision(() => {
       provisioningAttempted = true;
@@ -25,7 +60,7 @@ async function runRealAuthPhases(phases) {
     validateContentToken(contentApiToken);
     await phases.startStrapi();
     await phases.startNext(contentApiToken);
-    await phases.runPlaywright();
+    acceptedScenarios = validatePlaywrightAcceptance(await phases.runPlaywright());
     await phases.verifySyntheticState();
   } catch (error) {
     primary = error;
@@ -58,7 +93,33 @@ async function runRealAuthPhases(phases) {
       detail: error.message,
     });
   }
-  return { primary, cleanup };
+  return { acceptedScenarios, primary, cleanup };
+}
+
+function resolveRealAuthFinalResult(result, signal) {
+  const primary = result.primary
+    ? commandFailure("real-auth-lifecycle", result.primary)
+    : null;
+  const effectivePrimary = primary ?? (signal ? {
+    kind: "signal", phase: "cleanup", signal, code: SIGNAL_CODES[signal],
+  } : null);
+  const final = shared.selectFinalResult({
+    primary: effectivePrimary,
+    signal,
+    cleanup: result.cleanup,
+  });
+  if (final.exitCode !== 0) {
+    return { cleanup: result.cleanup, effectivePrimary, final, internalAcceptanceSignal: null };
+  }
+  if (result.acceptedScenarios !== ACCEPTED_SCENARIO_COUNT) {
+    throw new Error("Real-auth acceptance signal requires the exact scenario contract.");
+  }
+  return {
+    cleanup: result.cleanup,
+    effectivePrimary,
+    final,
+    internalAcceptanceSignal: `${INTERNAL_ACCEPTANCE_SIGNAL}\n`,
+  };
 }
 
 function validateRealAuthPreflight(environment, contract = realAuthContract) {
@@ -160,7 +221,6 @@ async function main() {
   const signalState = { signal: null, active: null };
   const signalHandlers = shared.installSignalHandlers(signalState);
   const services = { strapi: "not-started", next: "not-started", syntheticData: "not-provisioned" };
-  let primary = null;
   let strapi = null;
   let next = null;
   let knownStrapiJwt = null;
@@ -255,7 +315,14 @@ async function main() {
       await shared.waitForHttp("next", `${baseURL}/es-AR/login`, next, signalState);
       services.next = "ready";
     },
-    runPlaywright: () => shared.runCommand("playwright-real-auth", "pnpm", buildPlaywrightArguments(), {
+    runPlaywright: () => shared.runCommand("playwright-real-auth", "bash", [
+      "-c",
+      'exec "$@" >&3',
+      "playwright-real-auth",
+      "pnpm",
+      ...buildPlaywrightArguments(),
+      "--reporter=json",
+    ], {
       cwd: "/workspace/teleferico-app",
       env: {
         ...appEnvironment,
@@ -270,6 +337,7 @@ async function main() {
         PLAYWRIGHT_REAL_AUTH_KNOWN_STRAPI_JWT: knownStrapiJwt,
       },
       logPath: LOGS.playwright,
+      captureFd3MaxBytes: PLAYWRIGHT_REPORT_MAX_BYTES,
     }, signalState, [strapi, next]),
     verifySyntheticState: () => shared.runCommand("synthetic-verify", "node", ["scripts/provision-playwright-real-auth.js", "--verify"], {
       cwd: "/workspace/teleferico-cms", env: cmsEnvironment, logPath: LOGS.provisioner,
@@ -284,13 +352,8 @@ async function main() {
     stopServices: () => serviceRegistry.cleanup(),
   };
   const result = await runValidatedRealAuthPhases(cmsEnvironment, phases);
-  primary = result.primary
-    ? commandFailure("real-auth-lifecycle", result.primary)
-    : null;
-  const cleanup = result.cleanup;
-  const effectivePrimary = primary ?? (signalState.signal ? {
-    kind: "signal", phase: "cleanup", signal: signalState.signal, code: SIGNAL_CODES[signalState.signal],
-  } : null);
+  const resolved = resolveRealAuthFinalResult(result, signalState.signal);
+  const { cleanup, effectivePrimary, final, internalAcceptanceSignal } = resolved;
   printDiagnostics(effectivePrimary, cleanup, services, [
     readinessSecret,
     adminPassword,
@@ -298,17 +361,20 @@ async function main() {
     knownStrapiJwt,
     contentApiToken,
   ]);
-  const final = shared.selectFinalResult({ primary: effectivePrimary, signal: signalState.signal, cleanup });
   process.stderr.write(`TB122 real-auth final=${JSON.stringify({ outcome: final.outcome, exitCode: final.exitCode })}\n`);
   signalHandlers.dispose();
+  if (internalAcceptanceSignal) process.stderr.write(internalAcceptanceSignal);
   process.exitCode = final.exitCode;
 }
 
 module.exports = {
   buildPlaywrightArguments,
+  INTERNAL_ACCEPTANCE_SIGNAL,
   printDiagnostics,
+  resolveRealAuthFinalResult,
   runRealAuthPhases,
   runValidatedRealAuthPhases,
+  validatePlaywrightAcceptance,
   validateContentToken,
   validateRealAuthPreflight,
 };
