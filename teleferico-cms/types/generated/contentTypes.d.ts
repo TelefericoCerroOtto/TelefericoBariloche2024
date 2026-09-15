@@ -1239,6 +1239,181 @@ export interface ApiStationStation extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiSurveyQrPointSurveyQrPoint
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'survey_qr_points';
+  info: {
+    displayName: 'Survey QR point';
+    pluralName: 'survey-qr-points';
+    singularName: 'survey-qr-point';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    displayName: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+        minLength: 1;
+      }>;
+    fixtureMarker: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+      }>;
+    inactiveAt: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::survey-qr-point.survey-qr-point'
+    > &
+      Schema.Attribute.Private;
+    pointKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 1;
+      }>;
+    publicCode: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 128;
+        minLength: 32;
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    sortOrder: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    status: Schema.Attribute.Enumeration<['active', 'inactive']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'active'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSurveySettingsSurveySettings
+  extends Struct.SingleTypeSchema {
+  collectionName: 'survey_settings';
+  info: {
+    displayName: 'Survey settings';
+    pluralName: 'survey-settings-list';
+    singularName: 'survey-settings';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    activeSurveyVersion: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::survey-version.survey-version'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    generationEnabled: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    intakeEnabled: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::survey-settings.survey-settings'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    settingsRevision: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 1;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<1>;
+    singletonKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.DefaultTo<'default'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSurveyVersionSurveyVersion
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'survey_versions';
+  info: {
+    displayName: 'Survey version';
+    pluralName: 'survey-versions';
+    singularName: 'survey-version';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    aspects: Schema.Attribute.Component<'survey.aspect-definition', true> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 64;
+          min: 1;
+        },
+        number
+      >;
+    copyEn: Schema.Attribute.JSON & Schema.Attribute.Required;
+    copyEs: Schema.Attribute.JSON & Schema.Attribute.Required;
+    copyPt: Schema.Attribute.JSON & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    fixtureMarker: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+      }>;
+    lastActivatedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    lastSupersededAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    lifecyclePublishedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::survey-version.survey-version'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    status: Schema.Attribute.Enumeration<['draft', 'published']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'draft'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    versionKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 1;
+      }>;
+  };
+}
+
 export interface ApiTicketTicket extends Struct.CollectionTypeSchema {
   collectionName: 'tickets';
   info: {
@@ -1965,6 +2140,9 @@ declare module '@strapi/strapi' {
       'api::service-state.service-state': ApiServiceStateServiceState;
       'api::station-translation.station-translation': ApiStationTranslationStationTranslation;
       'api::station.station': ApiStationStation;
+      'api::survey-qr-point.survey-qr-point': ApiSurveyQrPointSurveyQrPoint;
+      'api::survey-settings.survey-settings': ApiSurveySettingsSurveySettings;
+      'api::survey-version.survey-version': ApiSurveyVersionSurveyVersion;
       'api::ticket.ticket': ApiTicketTicket;
       'api::zone-translation.zone-translation': ApiZoneTranslationZoneTranslation;
       'api::zone.zone': ApiZoneZone;

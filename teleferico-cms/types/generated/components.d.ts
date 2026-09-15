@@ -338,6 +338,55 @@ export interface PagePropertiesSeo extends Struct.ComponentSchema {
   };
 }
 
+export interface SurveyAspectDefinition extends Struct.ComponentSchema {
+  collectionName: 'components_survey_aspect_definitions';
+  info: {
+    displayName: 'Survey aspect definition';
+  };
+  attributes: {
+    aspectKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 1;
+      }>;
+    labelEn: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+        minLength: 1;
+      }>;
+    labelEs: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+        minLength: 1;
+      }>;
+    labelPt: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+        minLength: 1;
+      }>;
+    ownerVersionKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 1;
+      }>;
+    sortOrder: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 63;
+          min: 0;
+        },
+        number
+      >;
+  };
+}
+
 export interface UtilsComponentsCarrouselItem extends Struct.ComponentSchema {
   collectionName: 'components_utils_components_carrousel_items';
   info: {
@@ -423,6 +472,7 @@ declare module '@strapi/strapi' {
       'page-components.title-desc-block': PageComponentsTitleDescBlock;
       'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-properties.seo': PagePropertiesSeo;
+      'survey.aspect-definition': SurveyAspectDefinition;
       'utils-components.carrousel-item': UtilsComponentsCarrouselItem;
       'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
       'utils-components.image': UtilsComponentsImage;
