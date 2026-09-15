@@ -6,7 +6,8 @@ type SessionPayload = {
   user?: { role?: { name?: string } };
 };
 
-const LOGIN_COLD_START_TIMEOUT_MS = 75_000;
+const LOGIN_NAVIGATION_TIMEOUT_MS = 90_000;
+const LOGIN_HYDRATION_TIMEOUT_MS = 30_000;
 const LOGIN_FAILURE_DIAGNOSTIC_MAX_CHARS = 512;
 const loginUrl = "http://127.0.0.1:3200/es-AR/login";
 const dashboardUrl = "http://127.0.0.1:3200/es-AR/dashboard";
@@ -87,11 +88,10 @@ async function login(page: Page, user: (typeof users)[keyof typeof users]) {
   page.on("request", observeNavigation);
 
   try {
-    const readinessDeadline = Date.now() + LOGIN_COLD_START_TIMEOUT_MS;
     const loginResponse = await page
       .goto(loginUrl, {
         waitUntil: "domcontentloaded",
-        timeout: LOGIN_COLD_START_TIMEOUT_MS,
+        timeout: LOGIN_NAVIGATION_TIMEOUT_MS,
       })
       .catch(async () => {
         throw await createLoginReadinessTimeoutError(page, null);
@@ -114,10 +114,9 @@ async function login(page: Page, user: (typeof users)[keyof typeof users]) {
     }
 
     const form = page.locator("form[data-login-hydrated]");
-    const hydrationTimeout = Math.max(1, readinessDeadline - Date.now());
     try {
       await expect(form).toHaveAttribute("data-login-hydrated", "true", {
-        timeout: hydrationTimeout,
+        timeout: LOGIN_HYDRATION_TIMEOUT_MS,
       });
     } catch {
       throw await createLoginReadinessTimeoutError(page, responseStatus);
@@ -134,7 +133,7 @@ async function login(page: Page, user: (typeof users)[keyof typeof users]) {
     await submit.click();
     try {
       await page.waitForURL(dashboardUrl, {
-        timeout: LOGIN_COLD_START_TIMEOUT_MS,
+        timeout: LOGIN_NAVIGATION_TIMEOUT_MS,
       });
     } catch {
       throw new Error("Login did not reach the dashboard.");
