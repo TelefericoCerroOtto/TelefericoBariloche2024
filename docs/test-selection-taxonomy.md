@@ -1,6 +1,6 @@
 # Fail-Closed Test Selection Taxonomy
 
-TB-127 defines the repository's minimum test-selection model and closes when this design is approved. It does not change current CI behavior: implementation pull requests still use legacy `smoke`, trusted `development -> staging` promotions still use legacy `full`, both legacy profiles include blocking real-auth acceptance, and production public smoke remains isolated.
+TB-127 defines the repository's minimum test-selection model. TB-131 tracks its implementation and controlled activation in [GitHub issue #302](https://github.com/TelefericoCerroOtto/TelefericoBariloche2024/issues/302). Selector implementation may merge without CI authority: until explicit activation, implementation pull requests still use legacy `smoke`, trusted `development -> staging` promotions still use legacy `full`, both legacy profiles include blocking real-auth acceptance, and production public smoke remains isolated.
 
 ## Outcome and invariants
 
@@ -14,7 +14,7 @@ TB-127 defines the repository's minimum test-selection model and closes when thi
 - Running a suite is not a substitute for adding or updating representative tests when changed behavior lacks coverage.
 - Public output never contains paths, filenames, provider messages, or pull-request-controlled strings.
 
-Implementation is deliberately outside TB-127. Selector code, contract tests, workflow integration, shadow rollout, app Vitest CI adoption, remaining TB-122 runtime acceptance and production work, and TB-126 staging-impact research are separate work units.
+Implementation is deliberately outside TB-127. Selector code, contract tests, workflow integration, controlled rollout, app Vitest CI adoption, remaining TB-122 runtime acceptance and production work, and TB-126 staging-impact research are separate work units.
 
 ## Core model
 
@@ -196,33 +196,49 @@ During coexistence, `_TEST_SELECTION_MODE` is mandatory and accepts only `legacy
 
 Missing, mixed, contradictory, or unknown mode/input combinations fail before Corepack or dependency installation. Production public smoke does not use either pre-merge mode.
 
-## Shadow and enforcement gates
+Rollback is an explicit caller change to `legacy` with valid legacy inputs. The dispatcher and executor never infer a mode from omitted, stale, or mixed inputs; those inputs fail closed.
 
-Shadow evaluation runs for every internal implementation pull request to `development`, including changes omitted by current workflow path filters. Legacy remains authoritative during shadow, selector output contains no filenames, and staging continues to bypass selector decisions.
+## Independent regression guard
 
-Version 1 enforcement requires all of the following:
+The regression guard, not the selector, decides when to run the complete 24-vector selector contract suite. It must select the complete suite when a change affects any of these surfaces:
 
-- at least 14 consecutive days of valid shadow evidence;
-- at least 10 unique head SHAs in that window;
-- every contract vector passing;
-- zero false `no-ci-tests` results;
-- zero final-window snapshot or evidence failures;
-- conservative fallback for every unknown or root-ambiguous executable surface;
-- every difference from legacy behavior classified and reviewed; and
-- explicit maintainer approval.
+- selector implementation;
+- classification rules or suite catalog data;
+- JSON schema, serialization, ordering, or sanitization contracts;
+- trusted GitHub evidence acquisition or consistency validation;
+- Cloud Build transport, compatibility validation, or executor semantics; or
+- dependencies used by any of those surfaces.
 
-A material rule, domain, capability, output-contract, or fallback change resets the evidence window. Editorial changes that cannot affect selection do not reset it.
+Uncertain or unclassified guard evidence fails closed by running the complete suite. The suite must be directly runnable locally, fast, deterministic, and independent of live GitHub, GCP, Strapi, PostgreSQL, Next.js, and browser services. The guard is regression coverage for selector contracts; it does not grant selector output CI authority.
+
+## Activation and retirement gates
+
+Before v1 activation, all of the following proof is required:
+
+- all 24 minimum contract vectors pass;
+- exactly one internal draft canary pull request exercises v1 and remains unmerged;
+- legacy remains authoritative for required CI outcomes;
+- the sanitized canary result is recorded in [GitHub issue #302](https://github.com/TelefericoCerroOtto/TelefericoBariloche2024/issues/302) and the workflow summary; and
+- a maintainer explicitly approves activation.
+
+Activation does not require a 14-day or 10-distinct-SHA shadow threshold. The rollout must not add long-lived shadow artifacts or a cross-run aggregator.
+
+After activation, retain `legacy` compatibility until both one real internal v1 implementation pull request and one fixed v1 `staging.full` promotion pass. Removal then requires final maintainer confirmation and proof that no caller depends on `_PLAYWRIGHT_SUITE`.
+
+`app.vitest` remains unavailable to CI until a separate work unit lands. Relevant selection must continue to report it in `requiredButUnavailable` with blocking disposition, so its absence prevents an incorrectly successful selection result.
+
+TB-126 staging-impact selection remains separate from this rollout. Version 1 `staging.full` is fixed, bypasses impact selection, and must not consume TB-126 policy.
 
 ## Rollout order
 
 1. Publish and approve the TB-127 design.
 2. Implement the selector, JSON v1 output, and contract vectors without CI authority.
-3. Run legacy-authoritative shadow evaluation for every internal implementation pull request.
-4. Integrate app Vitest into CI so required app evidence becomes CI-executable.
-5. Satisfy the complete shadow gate and obtain maintainer approval.
-6. Enable v1 enforcement for implementation pull requests.
-7. Observe 10 successful v1 implementation builds and two successful fixed v1 `staging.full` promotions using the definitive suite set.
-8. Prove that no legacy callers remain, including manual and documented callers.
+3. Add the independent regression guard and keep the complete contract suite directly runnable locally.
+4. Exercise v1 through exactly one unmerged internal draft canary while legacy remains authoritative.
+5. Record the sanitized canary result in issue #302 and the workflow summary, prove all 24 vectors pass, and obtain explicit maintainer approval.
+6. Enable v1 for internal implementation pull requests while retaining explicit legacy compatibility.
+7. Pass one real internal v1 implementation pull request and one fixed v1 `staging.full` promotion.
+8. Prove that no caller depends on `_PLAYWRIGHT_SUITE`, including manual and documented callers.
 9. Obtain final maintainer confirmation, then remove `_PLAYWRIGHT_SUITE` and legacy mode.
 
 TB-122 runtime acceptance and native-trigger cleanup are independent of this rollout order:
