@@ -3,13 +3,29 @@ set -uo pipefail
 
 readonly POSTGRES_IMAGE="postgres:16-bookworm@sha256:bb3e1a57e5407e0a5280b4211980a5e537f4abd234a87014ac979849a78dd825"
 readonly RUNNER_IMAGE="node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96"
-readonly POSTGRES_USER="readiness"
-readonly POSTGRES_DATABASE="readiness"
+readonly HARNESS_CAPABILITY="${TB122_HARNESS_CAPABILITY:-readiness}"
+case "$HARNESS_CAPABILITY" in
+  readiness) ;;
+  real-auth)
+    if [[ "${PLAYWRIGHT_REAL_AUTH_HARNESS_OPT_IN:-}" != "run" ]]; then
+      printf 'Real-auth harness requires its explicit run opt-in.\n' >&2
+      exit 1
+    fi
+    ;;
+  *)
+    printf 'Unknown TB122 harness capability.\n' >&2
+    exit 1
+    ;;
+esac
 readonly DIAGNOSTIC_LINES=80
 readonly DIAGNOSTIC_BYTES=32768
 readonly OPERATION_TIMEOUT_SECONDS=8
 readonly CREATE_TIMEOUT_SECONDS=180
-readonly CLEANUP_RESERVE_DEADLINE_SECONDS=720
+if [[ "$HARNESS_CAPABILITY" == "real-auth" ]]; then
+  readonly CLEANUP_RESERVE_DEADLINE_SECONDS=1020
+else
+  readonly CLEANUP_RESERVE_DEADLINE_SECONDS=720
+fi
 readonly POSTGRES_READINESS_DEADLINE_SECONDS=55
 readonly POSTGRES_READINESS_INTERVAL_SECONDS=2
 
@@ -36,11 +52,23 @@ if ! [[ "$build_id_hash" =~ ^[a-f0-9]{64}$ ]]; then
 fi
 readonly build_id_digest="${build_id_hash:0:24}"
 readonly build_namespace="${build_id_digest}"
-readonly POSTGRES_CONTAINER="tb122-readiness-postgres-${build_namespace}"
-readonly RUNNER_CONTAINER="tb122-readiness-runner-${build_namespace}"
+if [[ "$HARNESS_CAPABILITY" == "real-auth" ]]; then
+  readonly resource_prefix="tb122-real-auth"
+  readonly POSTGRES_USER="real_auth"
+  readonly POSTGRES_DATABASE="tb122_real_auth_${build_namespace}"
+  readonly RUNNER_LIFECYCLE="scripts/playwright-real-auth-lifecycle.js"
+else
+  readonly resource_prefix="tb122-readiness"
+  readonly POSTGRES_USER="readiness"
+  readonly POSTGRES_DATABASE="readiness"
+  readonly RUNNER_LIFECYCLE="scripts/playwright-real-stack-lifecycle.js"
+fi
+readonly POSTGRES_CONTAINER="${resource_prefix}-postgres-${build_namespace}"
+readonly RUNNER_CONTAINER="${resource_prefix}-runner-${build_namespace}"
 readonly OWNERSHIP_LABEL="tb122.playwright.build=${build_namespace}"
 readonly POSTGRES_PASSWORD="in-build-${build_id_digest}"
-readonly DIAGNOSTIC_DIRECTORY="$(mktemp -d /tmp/tb122-readiness.XXXXXX)"
+readonly REAL_AUTH_MANIFEST_PATH="/tmp/tb122-real-auth-${build_namespace}/manifest.json"
+readonly DIAGNOSTIC_DIRECTORY="$(mktemp -d "/tmp/${resource_prefix}.XXXXXX")"
 
 postgres_id=""
 runner_id=""
@@ -84,6 +112,23 @@ run_bounded_until() {
 
 run_create_bounded() {
   timeout --signal=TERM --kill-after=10s "${CREATE_TIMEOUT_SECONDS}s" "$@"
+}
+
+redact_bounded_stream() {
+  TB122_DIAGNOSTIC_BYTES="$DIAGNOSTIC_BYTES" \
+    TB122_DIAGNOSTIC_LINES="$DIAGNOSTIC_LINES" \
+    TB122_DIAGNOSTIC_SECRET="$POSTGRES_PASSWORD" \
+    node -e '
+      const lifecycle = require("./scripts/playwright-real-stack-lifecycle");
+      lifecycle.collectBoundedRedactedStream(process.stdin, {
+        maxBytes: Number(process.env.TB122_DIAGNOSTIC_BYTES),
+        maxLines: Number(process.env.TB122_DIAGNOSTIC_LINES),
+        secrets: [process.env.TB122_DIAGNOSTIC_SECRET],
+      }).then((content) => process.stdout.write(content)).catch((error) => {
+        process.stderr.write(`Diagnostic redaction failed: ${error.message}\n`);
+        process.exitCode = 1;
+      });
+    '
 }
 
 container_owned() {
@@ -134,7 +179,7 @@ cleanup_container() {
     record_cleanup "$resource" "remove" "failed" "bounded-remove-failed"
   fi
   inspect_output="$DIAGNOSTIC_DIRECTORY/${resource}-post-remove.log"
-  run_bounded docker inspect "$container_id" 2>&1 | tail -c "$DIAGNOSTIC_BYTES" >"$inspect_output"
+  run_bounded docker inspect "$container_id" 2>&1 | redact_bounded_stream >"$inspect_output"
   pipeline_statuses=("${PIPESTATUS[@]}")
   inspect_status="${pipeline_statuses[0]}"
   if [[ "${pipeline_statuses[1]}" -ne 0 ]]; then
@@ -163,10 +208,21 @@ print_bounded_file() {
     return
   fi
   printf 'TB122 diagnostic resource=%s path=%s status=captured lines<=%s bytes<=%s\n' "$resource" "$path" "$DIAGNOSTIC_LINES" "$DIAGNOSTIC_BYTES" >&2
-  if ! tail -n "$DIAGNOSTIC_LINES" "$path" | tail -c "$DIAGNOSTIC_BYTES" | sed -E \
-    -e "s/${POSTGRES_PASSWORD}/[REDACTED]/g" \
-    -e 's/([Aa]uthorization:[[:space:]]*[Bb]earer[[:space:]]+)[^[:space:]]+/\1[REDACTED]/g' \
-    -e 's/((PASSWORD|SECRET|TOKEN|API_KEY|JWT)[A-Z0-9_-]*[=:])[^[:space:],]+/\1[REDACTED]/g' >&2; then
+  if ! TB122_DIAGNOSTIC_PATH="$path" \
+    TB122_DIAGNOSTIC_BYTES="$DIAGNOSTIC_BYTES" \
+    TB122_DIAGNOSTIC_LINES="$DIAGNOSTIC_LINES" \
+    TB122_DIAGNOSTIC_SECRET="$POSTGRES_PASSWORD" \
+    node -e '
+      const lifecycle = require("./scripts/playwright-real-stack-lifecycle");
+      const logPath = process.env.TB122_DIAGNOSTIC_PATH;
+      const evidence = lifecycle.readBoundedLog(logPath, {
+        allowedPaths: [logPath],
+        maxBytes: Number(process.env.TB122_DIAGNOSTIC_BYTES),
+        maxLines: Number(process.env.TB122_DIAGNOSTIC_LINES),
+        secrets: [process.env.TB122_DIAGNOSTIC_SECRET],
+      });
+      if (evidence.content) process.stdout.write(`${evidence.content}\n`);
+    ' >&2; then
     record_cleanup "$resource" "bound-and-redact-diagnostic" "failed" "pipeline-failed"
   fi
 }
@@ -184,7 +240,7 @@ capture_container_diagnostics() {
     printf 'TB122 diagnostic resource=%s operation=inspect status=failed\n' "$resource" >&2
     record_cleanup "$resource" "diagnostic-inspect" "failed" "bounded-inspect-failed"
   fi
-  if ! run_bounded docker logs --tail "$DIAGNOSTIC_LINES" "$container_id" 2>&1 | tail -c "$DIAGNOSTIC_BYTES" >>"$output"; then
+  if ! run_bounded docker logs --tail "$DIAGNOSTIC_LINES" "$container_id" 2>&1 | redact_bounded_stream >>"$output"; then
     printf 'TB122 diagnostic resource=%s operation=logs status=failed\n' "$resource" >&2
     record_cleanup "$resource" "diagnostic-logs" "failed" "bounded-log-read-failed"
   fi
@@ -354,15 +410,29 @@ if [[ "$postgres_ready" -ne 1 ]]; then
   exit "$primary_code"
 fi
 
+runner_environment=(
+  --env COREPACK_DEFAULT_TO_LATEST=0
+  --env "DATABASE_HOST=$POSTGRES_CONTAINER"
+  --env "DATABASE_NAME=$POSTGRES_DATABASE"
+  --env "DATABASE_USERNAME=$POSTGRES_USER"
+  --env "DATABASE_PASSWORD=$POSTGRES_PASSWORD"
+  --env "READINESS_SECRET=$POSTGRES_PASSWORD"
+)
+if [[ "$HARNESS_CAPABILITY" == "real-auth" ]]; then
+  runner_environment+=(
+    --env NODE_ENV=test
+    --env PLAYWRIGHT_REAL_AUTH_OPT_IN=provision
+    --env "PLAYWRIGHT_REAL_AUTH_RUN_ID=$build_namespace"
+    --env "PLAYWRIGHT_REAL_AUTH_EXPECTED_DATABASE_HOST=$POSTGRES_CONTAINER"
+    --env "PLAYWRIGHT_REAL_AUTH_EXPECTED_DATABASE_NAME=$POSTGRES_DATABASE"
+    --env "PLAYWRIGHT_REAL_AUTH_MANIFEST_PATH=$REAL_AUTH_MANIFEST_PATH"
+  )
+fi
+
 runner_id="$(run_create_bounded docker create --name "$RUNNER_CONTAINER" --network cloudbuild --init --volume /workspace:/workspace --workdir /workspace \
   --label "$OWNERSHIP_LABEL" \
-  --env COREPACK_DEFAULT_TO_LATEST=0 \
-  --env "DATABASE_HOST=$POSTGRES_CONTAINER" \
-  --env "DATABASE_NAME=$POSTGRES_DATABASE" \
-  --env "DATABASE_USERNAME=$POSTGRES_USER" \
-  --env "DATABASE_PASSWORD=$POSTGRES_PASSWORD" \
-  --env "READINESS_SECRET=$POSTGRES_PASSWORD" \
-  "$RUNNER_IMAGE" node scripts/playwright-real-stack-lifecycle.js)"
+  "${runner_environment[@]}" \
+  "$RUNNER_IMAGE" node "$RUNNER_LIFECYCLE")"
 runner_create_status=$?
 if [[ "$runner_create_status" -ne 0 ]]; then
   record_primary "command" "runner-create" "$runner_create_status" "docker-create-failed"

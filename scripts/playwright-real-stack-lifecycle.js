@@ -11,6 +11,8 @@ const SERVICE_LOGS = Object.freeze({
   next: "/tmp/next-readiness.log",
 });
 const SIGNAL_CODES = Object.freeze({ SIGINT: 130, SIGTERM: 143 });
+const MAX_REDACTION_SECRETS = 32;
+const MAX_REDACTION_SECRET_BYTES = 4 * 1024;
 
 function normalizeExitCode(code) {
   return Number.isInteger(code) && code > 0 && code <= 255 ? code : 1;
@@ -48,6 +50,8 @@ function redact(content, secrets = []) {
     redacted = redacted.split(secret).join("[REDACTED]");
   }
   return redacted
+    .replace(/(^|[?&])((?:identifier|password)=)[^&#\s]*/gim, "$1$2[REDACTED]")
+    .replace(/(^|%3f|%26)((?:identifier|password)%3d)(?:(?!%26)[^#\s])*/gim, "$1$2[REDACTED]")
     .replace(/(authorization\s*:\s*bearer\s+)[^\s]+/gi, "$1[REDACTED]")
     .replace(/((?:password|secret|token|api[_-]?key|jwt)\s*[=:]\s*)[^\s,]+/gi, "$1[REDACTED]")
     .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, "[REDACTED]");
@@ -59,13 +63,61 @@ function truncateUtf8(content, maxBytes) {
   return buffer.subarray(buffer.length - maxBytes).toString("utf8").replace(/^\uFFFD+/, "");
 }
 
+function validateDiagnosticOptions({ maxBytes, maxLines, secrets = [] }) {
+  if (!Number.isInteger(maxBytes) || maxBytes < 1 || !Number.isInteger(maxLines) || maxLines < 1) {
+    throw new Error("Diagnostic limits must be positive integers.");
+  }
+  if (!Array.isArray(secrets) || secrets.length > MAX_REDACTION_SECRETS) {
+    throw new Error("Diagnostic secrets exceed the supported bounded set.");
+  }
+  const normalizedSecrets = secrets.filter(Boolean);
+  for (const secret of normalizedSecrets) {
+    if (typeof secret !== "string" || Buffer.byteLength(secret) > MAX_REDACTION_SECRET_BYTES) {
+      throw new Error("A diagnostic secret exceeds the supported byte limit.");
+    }
+  }
+  return normalizedSecrets;
+}
+
+function rawTailLimit(maxBytes, secrets) {
+  const longestSecret = secrets.reduce((longest, secret) => Math.max(longest, Buffer.byteLength(secret)), 0);
+  return maxBytes + Math.max(0, longestSecret - 1);
+}
+
+function boundAndRedactTail(buffer, { maxBytes, maxLines, secrets, truncated }) {
+  let safeBuffer = buffer;
+  if (truncated) {
+    const firstLineEnd = safeBuffer.indexOf(0x0a);
+    safeBuffer = firstLineEnd === -1 ? Buffer.alloc(0) : safeBuffer.subarray(firstLineEnd + 1);
+  }
+  const lines = safeBuffer.toString("utf8").replace(/^\uFFFD+/, "").split(/\r?\n/).slice(-maxLines);
+  return truncateUtf8(redact(lines.join("\n"), secrets), maxBytes);
+}
+
+async function collectBoundedRedactedStream(stream, options) {
+  const secrets = validateDiagnosticOptions(options);
+  const limit = rawTailLimit(options.maxBytes, secrets);
+  let tail = Buffer.alloc(0);
+  let bytesSeen = 0;
+  for await (const value of stream) {
+    const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
+    bytesSeen += chunk.length;
+    const boundedChunk = chunk.length > limit ? chunk.subarray(chunk.length - limit) : chunk;
+    tail = Buffer.concat([tail, boundedChunk]);
+    if (tail.length > limit) tail = tail.subarray(tail.length - limit);
+  }
+  return boundAndRedactTail(tail, {
+    ...options,
+    secrets,
+    truncated: bytesSeen > tail.length,
+  });
+}
+
 function readBoundedLog(logPath, { allowedPaths, maxBytes, maxLines, secrets = [] }) {
   if (!Array.isArray(allowedPaths) || !allowedPaths.includes(logPath)) {
     throw new Error(`Diagnostic path is not allowlisted: ${logPath}`);
   }
-  if (!Number.isInteger(maxBytes) || maxBytes < 1 || !Number.isInteger(maxLines) || maxLines < 1) {
-    throw new Error("Diagnostic limits must be positive integers.");
-  }
+  const normalizedSecrets = validateDiagnosticOptions({ maxBytes, maxLines, secrets });
   if (!fs.existsSync(logPath)) return { path: logPath, status: "missing", content: "" };
 
   const stat = fs.lstatSync(logPath);
@@ -73,7 +125,7 @@ function readBoundedLog(logPath, { allowedPaths, maxBytes, maxLines, secrets = [
     throw new Error(`Diagnostic path must be a regular non-symlink file: ${logPath}`);
   }
 
-  const readBytes = Math.min(stat.size, maxBytes);
+  const readBytes = Math.min(stat.size, rawTailLimit(maxBytes, normalizedSecrets));
   const buffer = Buffer.alloc(readBytes);
   const descriptor = fs.openSync(logPath, "r");
   try {
@@ -81,8 +133,12 @@ function readBoundedLog(logPath, { allowedPaths, maxBytes, maxLines, secrets = [
   } finally {
     fs.closeSync(descriptor);
   }
-  const lines = buffer.toString("utf8").replace(/^\uFFFD+/, "").split(/\r?\n/).slice(-maxLines);
-  const content = truncateUtf8(redact(lines.join("\n"), secrets), maxBytes);
+  const content = boundAndRedactTail(buffer, {
+    maxBytes,
+    maxLines,
+    secrets: normalizedSecrets,
+    truncated: stat.size > readBytes,
+  });
   return { path: logPath, status: content ? "captured" : "empty", content };
 }
 
@@ -112,10 +168,11 @@ function processGroupExists(pid) {
 }
 
 class ManagedProcess {
-  constructor(name, child, descriptor) {
+  constructor(name, child, descriptor, capturedOutput = null) {
     this.name = name;
     this.child = child;
     this.descriptor = descriptor;
+    this.capturedOutput = capturedOutput;
     this.exit = null;
     this.exitPromise = new Promise((resolve) => {
       child.once("error", (error) => {
@@ -129,11 +186,37 @@ class ManagedProcess {
     });
   }
 
-  static start({ name, command, args, logPath, cwd, env = process.env }) {
+  static start({ name, command, args, logPath, cwd, env = process.env, captureFd3MaxBytes = null }) {
+    if (captureFd3MaxBytes !== null && (!Number.isInteger(captureFd3MaxBytes) || captureFd3MaxBytes < 1)) {
+      throw new Error("Anonymous descriptor capture requires a positive byte limit.");
+    }
     const descriptor = fs.openSync(logPath, "a", 0o600);
     try {
-      const child = spawn(command, args, { cwd, env, detached: true, stdio: ["ignore", descriptor, descriptor] });
-      return new ManagedProcess(name, child, descriptor);
+      const child = spawn(command, args, {
+        cwd,
+        env,
+        detached: true,
+        stdio: ["ignore", descriptor, descriptor, captureFd3MaxBytes === null ? "ignore" : "pipe"],
+      });
+      let capturedOutput = null;
+      if (captureFd3MaxBytes !== null) {
+        capturedOutput = new Promise((resolve) => {
+          const chunks = [];
+          let bytes = 0;
+          let exceeded = false;
+          child.stdio[3].on("data", (chunk) => {
+            bytes += chunk.length;
+            if (bytes <= captureFd3MaxBytes) chunks.push(chunk);
+            else exceeded = true;
+          });
+          child.stdio[3].once("error", () => resolve({ error: "Anonymous descriptor capture failed." }));
+          child.stdio[3].once("close", () => {
+            if (exceeded) resolve({ error: "Anonymous descriptor output exceeded its byte limit." });
+            else resolve({ value: Buffer.concat(chunks).toString("utf8") });
+          });
+        });
+      }
+      return new ManagedProcess(name, child, descriptor, capturedOutput);
     } catch (error) {
       fs.closeSync(descriptor);
       throw error;
@@ -315,7 +398,14 @@ function commandFailure(phase, result) {
   return { kind: "command", phase, code: normalizeExitCode(result.code), detail: result.signal ?? result.error ?? "nonzero-exit" };
 }
 
-async function runCommand(phase, command, args, options, signalState, monitored = []) {
+async function runCommand(
+  phase,
+  command,
+  args,
+  options,
+  signalState,
+  monitored = [],
+) {
   const managed = ManagedProcess.start({ name: phase, command, args, ...options });
   signalState.active = managed;
   const winner = await Promise.race([
@@ -325,6 +415,7 @@ async function runCommand(phase, command, args, options, signalState, monitored 
   signalState.active = null;
   if (winner.type === "monitor") {
     await managed.stop({ graceMs: 1_000, killMs: 2_000, intervalMs: 50 });
+    if (managed.capturedOutput) await managed.capturedOutput.catch(() => undefined);
     throw {
       kind: "readiness",
       phase,
@@ -337,8 +428,18 @@ async function runCommand(phase, command, args, options, signalState, monitored 
     fs.closeSync(managed.descriptor);
     managed.descriptor = null;
   }
-  if (signalState.signal) throw { kind: "signal", phase, signal: signalState.signal, code: SIGNAL_CODES[signalState.signal] };
-  if (result.code !== 0) throw commandFailure(phase, result);
+  if (signalState.signal) {
+    if (managed.capturedOutput) await managed.capturedOutput.catch(() => undefined);
+    throw { kind: "signal", phase, signal: signalState.signal, code: SIGNAL_CODES[signalState.signal] };
+  }
+  if (result.code !== 0) {
+    if (managed.capturedOutput) await managed.capturedOutput.catch(() => undefined);
+    throw commandFailure(phase, result);
+  }
+  if (!managed.capturedOutput) return undefined;
+  const capture = await managed.capturedOutput;
+  if (capture.error) throw new Error(capture.error);
+  return capture.value;
 }
 
 async function waitForHttp(service, url, managed, signalState) {
@@ -471,8 +572,11 @@ module.exports = {
   CleanupRegistry,
   LOG_LIMITS,
   ManagedProcess,
+  collectBoundedRedactedStream,
   installSignalHandlers,
+  redact,
   readBoundedLog,
+  runCommand,
   selectFinalResult,
   validateResourceName,
   verifyFinalReadiness,

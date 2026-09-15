@@ -6,8 +6,11 @@ const path = require("node:path");
 const childProcess = require("node:child_process");
 const test = require("node:test");
 
+const root = path.join(__dirname, "..", "..");
 const lifecycle = require("../../scripts/playwright-real-stack-lifecycle.js");
-const harnessPath = path.join(__dirname, "..", "..", "scripts", "run-playwright-real-stack-readiness.sh");
+const realAuthLifecycle = require("../../scripts/playwright-real-auth-lifecycle.js");
+const harnessPath = path.join(root, "scripts", "run-playwright-real-stack-readiness.sh");
+const realAuthHarnessPath = path.join(root, "scripts", "run-playwright-real-auth.sh");
 
 function createDockerStub() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "tb122-docker-"));
@@ -97,7 +100,11 @@ case "$command" in
     exit 0
     ;;
   logs)
-    printf 'Authorization: Bearer abc.def.ghi\\nDATABASE_PASSWORD=in-build-testbuild\\nservice diagnostic\\n'
+    if [[ -n "\${STUB_DOCKER_LOGS:-}" ]]; then
+      printf '%s\\n' "$STUB_DOCKER_LOGS"
+    else
+      printf 'Authorization: Bearer abc.def.ghi\\nDATABASE_PASSWORD=in-build-testbuild\\nservice diagnostic\\n'
+    fi
     ;;
   *) exit 22 ;;
 esac
@@ -151,9 +158,10 @@ function harnessEnvironment(directory, callsPath, environment) {
   };
 }
 
-function runHarnessWithDockerStub(environment = {}) {
+function runHarnessWithDockerStub(environment = {}, selectedHarness = harnessPath, args = []) {
   const { directory, callsPath } = createDockerStub();
-  const result = childProcess.spawnSync("bash", [harnessPath], {
+  const result = childProcess.spawnSync("bash", [selectedHarness, ...args], {
+    cwd: root,
     encoding: "utf8",
     env: harnessEnvironment(directory, callsPath, environment),
     timeout: 10_000,
@@ -198,6 +206,373 @@ async function runHarnessWithSignalDuringCleanup(signal) {
 function expectedNamespace(buildId) {
   return crypto.createHash("sha256").update(buildId).digest("hex").slice(0, 24);
 }
+
+function realAuthEnvironment(overrides = {}) {
+  const namespace = "a".repeat(24);
+  return {
+    NODE_ENV: "test",
+    PLAYWRIGHT_REAL_AUTH_OPT_IN: "provision",
+    PLAYWRIGHT_REAL_AUTH_RUN_ID: namespace,
+    PLAYWRIGHT_REAL_AUTH_EXPECTED_DATABASE_HOST: `tb122-real-auth-postgres-${namespace}`,
+    PLAYWRIGHT_REAL_AUTH_EXPECTED_DATABASE_NAME: `tb122_real_auth_${namespace}`,
+    PLAYWRIGHT_REAL_AUTH_MANIFEST_PATH: `/tmp/tb122-real-auth-${namespace}/manifest.json`,
+    DATABASE_CLIENT: "postgres",
+    DATABASE_HOST: `tb122-real-auth-postgres-${namespace}`,
+    DATABASE_NAME: `tb122_real_auth_${namespace}`,
+    ...overrides,
+  };
+}
+
+test("preserves primary identity and cleanup precedence", () => {
+  const cases = [
+    [{ primary: null, cleanup: [] }, 0, "success"],
+    [{ primary: { kind: "command", code: 23 }, cleanup: [] }, 23, "primary-failure"],
+    [{ primary: null, cleanup: [{ status: "failed" }] }, 1, "cleanup-failure"],
+    [{ primary: { kind: "readiness", code: 17 }, cleanup: [{ status: "failed" }] }, 17, "primary-and-cleanup-failure"],
+  ];
+  for (const [input, exitCode, outcome] of cases) {
+    const result = lifecycle.selectFinalResult(input);
+    assert.equal(result.exitCode, exitCode);
+    assert.equal(result.outcome, outcome);
+  }
+});
+
+test("preserves signal exits unless an earlier primary failure governs", () => {
+  assert.equal(lifecycle.selectFinalResult({ signal: "SIGINT", cleanup: [] }).exitCode, 130);
+  assert.equal(lifecycle.selectFinalResult({ signal: "SIGTERM", cleanup: [] }).exitCode, 143);
+  assert.equal(lifecycle.selectFinalResult({ primary: { code: 17 }, signal: "SIGTERM", cleanup: [] }).exitCode, 17);
+});
+
+test("cleanup registry is reverse-ordered, exhaustive, and idempotent", async () => {
+  const attempts = [];
+  const registry = new lifecycle.CleanupRegistry();
+  registry.register("process", "strapi", async () => { attempts.push("strapi"); throw new Error("failed"); });
+  registry.register("process", "next", async () => attempts.push("next"));
+  const [first, second] = await Promise.all([registry.cleanup(), registry.cleanup()]);
+  assert.deepEqual(attempts, ["next", "strapi"]);
+  assert.deepEqual(second, first);
+  assert.deepEqual(first.map(({ status }) => status), ["succeeded", "failed"]);
+});
+
+test("bounded log evidence redacts secrets and login query values", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "tb122-log-"));
+  const logPath = path.join(directory, "service.log");
+  try {
+    fs.writeFileSync(logPath, "identifier=user&password=secret-value\nAuthorization: Bearer abc.def.ghi\n");
+    const evidence = lifecycle.readBoundedLog(logPath, {
+      allowedPaths: [logPath],
+      maxBytes: 96,
+      maxLines: 2,
+      secrets: ["secret-value"],
+    });
+    assert.ok(Buffer.byteLength(evidence.content) <= 96);
+    assert.doesNotMatch(evidence.content, /secret-value|abc\.def\.ghi|identifier=user/);
+    assert.match(evidence.content, /\[REDACTED\]/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("bounded log evidence redacts a configured secret before the final byte crop", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "tb122-split-log-"));
+  const logPath = path.join(directory, "service.log");
+  const marker = "synthetic-boundary-marker";
+  try {
+    fs.writeFileSync(logPath, `${"p".repeat(80)}\nvalue=${marker}\n${"z".repeat(18)}\n`);
+    const evidence = lifecycle.readBoundedLog(logPath, {
+      allowedPaths: [logPath],
+      maxBytes: 32,
+      maxLines: 4,
+      secrets: [marker],
+    });
+    assert.ok(Buffer.byteLength(evidence.content) <= 32);
+    assert.doesNotMatch(evidence.content, new RegExp(marker));
+    assert.doesNotMatch(evidence.content, /boundary-marker/);
+    assert.match(evidence.content, /\[REDACTED\]/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("line-leading login fields survive line limiting with redacted values", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "tb122-leading-fields-"));
+  const logPath = path.join(directory, "service.log");
+  try {
+    fs.writeFileSync(logPath, [
+      "discarded line",
+      "identifier=synthetic-user",
+      "password=synthetic-password",
+      "useful line",
+    ].join("\n"));
+    const evidence = lifecycle.readBoundedLog(logPath, {
+      allowedPaths: [logPath],
+      maxBytes: 256,
+      maxLines: 3,
+    });
+    assert.deepEqual(evidence.content.split("\n"), [
+      "identifier=[REDACTED]",
+      "password=[REDACTED]",
+      "useful line",
+    ]);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("real-auth preflight rejects exact identity mismatches before provisioning commands", async () => {
+  const commands = [];
+  await assert.rejects(
+    realAuthLifecycle.runValidatedRealAuthPhases(
+      realAuthEnvironment({ DATABASE_NAME: "wrong_database" }),
+      { provision: async () => commands.push("cms-install") },
+    ),
+    /Database identity does not match/,
+  );
+  assert.deepEqual(commands, []);
+});
+
+test("real-auth preflight validates namespace, manifest binding, and prohibited environment keys", () => {
+  assert.equal(realAuthLifecycle.validateRealAuthPreflight(realAuthEnvironment()).namespace, "a".repeat(24));
+  assert.throws(
+    () => realAuthLifecycle.validateRealAuthPreflight(realAuthEnvironment({ PLAYWRIGHT_REAL_AUTH_RUN_ID: "invalid" })),
+    /exactly 24 lowercase hexadecimal/,
+  );
+  assert.throws(
+    () => realAuthLifecycle.validateRealAuthPreflight(realAuthEnvironment({ PLAYWRIGHT_REAL_AUTH_MANIFEST_PATH: "/tmp/other/manifest.json" })),
+    /outside the run-scoped temporary directory/,
+  );
+  assert.throws(
+    () => realAuthLifecycle.validateRealAuthPreflight(realAuthEnvironment({ DATABASE_URL: "synthetic-prohibited-value" })),
+    /DATABASE_URL is prohibited/,
+  );
+});
+
+test("runRealAuthPhases preserves verification, synthetic cleanup, and service cleanup precedence", async () => {
+  const calls = [];
+  const primary = new Error("synthetic verification failure");
+  const result = await realAuthLifecycle.runRealAuthPhases({
+    provision: async (markAttempted) => { calls.push("provision"); markAttempted(); return "a".repeat(256); },
+    startStrapi: async () => { calls.push("start-strapi"); },
+    startNext: async () => { calls.push("start-next"); },
+    runPlaywright: async () => { calls.push("playwright"); },
+    verifySyntheticState: async () => { calls.push("verify"); throw primary; },
+    cleanupSyntheticState: async () => { calls.push("cleanup-synthetic"); throw new Error("synthetic cleanup failure"); },
+    stopServices: async () => {
+      calls.push("stop-services");
+      return [
+        { resource: "next", operation: "cleanup", status: "failed", detail: "next stop failure" },
+        { resource: "strapi", operation: "cleanup", status: "succeeded" },
+      ];
+    },
+  });
+  assert.equal(result.primary, primary);
+  assert.deepEqual(calls, ["provision", "start-strapi", "start-next", "playwright", "verify", "cleanup-synthetic", "stop-services"]);
+  assert.deepEqual(result.cleanup.map(({ name, resource, status }) => ({ name, resource, status })), [
+    { name: "synthetic-cleanup", resource: undefined, status: "failed" },
+    { name: undefined, resource: "next", status: "failed" },
+    { name: undefined, resource: "strapi", status: "succeeded" },
+  ]);
+});
+
+test("printDiagnostics emits bounded useful context without sensitive values", async () => {
+  const marker = "synthetic-boundary-marker";
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "tb122-diagnostics-"));
+  const logPath = path.join(directory, "diagnostic.log");
+  const sourceContent = [
+    ...Array.from({ length: 76 }, (_, index) => `metadata-${index}=${"p".repeat(512)}`),
+    `value=${marker}`,
+    "identifier=synthetic-user",
+    "password=synthetic-password",
+    "phase=playwright failure=synthetic",
+  ].join("\n");
+  fs.writeFileSync(logPath, sourceContent);
+  const reads = [];
+  let output = "";
+  const originalReadBoundedLog = lifecycle.readBoundedLog;
+  const originalWrite = process.stderr.write;
+  lifecycle.readBoundedLog = (requestedLogPath, options) => {
+    const evidence = originalReadBoundedLog(logPath, {
+      ...options,
+      allowedPaths: [logPath],
+    });
+    reads.push({ logPath: requestedLogPath, options, evidence });
+    return evidence;
+  };
+  process.stderr.write = (chunk) => {
+    output += String(chunk);
+    return true;
+  };
+
+  try {
+    realAuthLifecycle.printDiagnostics(
+      { kind: "command", phase: "playwright-real-auth", code: 23, detail: marker },
+      [{ name: "synthetic-cleanup", status: "failed", detail: marker }],
+      { strapi: "ready", next: "failed", syntheticData: "cleanup-started" },
+      [marker],
+    );
+  } finally {
+    lifecycle.readBoundedLog = originalReadBoundedLog;
+    process.stderr.write = originalWrite;
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+
+  assert.equal(reads.length, 4);
+  assert.ok(Buffer.byteLength(sourceContent) > lifecycle.LOG_LIMITS.maxBytes);
+  for (const { options, evidence } of reads) {
+    assert.equal(options.maxBytes, lifecycle.LOG_LIMITS.maxBytes);
+    assert.equal(options.maxLines, lifecycle.LOG_LIMITS.maxLines);
+    assert.deepEqual(options.secrets, [marker]);
+    assert.equal(evidence.status, "captured");
+    assert.ok(Buffer.byteLength(evidence.content) <= lifecycle.LOG_LIMITS.maxBytes);
+  }
+  const outputCeiling = reads.length * lifecycle.LOG_LIMITS.maxBytes + 4_096;
+  assert.ok(Buffer.byteLength(output) <= outputCeiling);
+  assert.doesNotMatch(output, /synthetic-boundary-marker|boundary-marker|synthetic-user|synthetic-password/);
+  assert.match(output, /value=\[REDACTED\]/);
+  assert.match(output, /identifier=\[REDACTED\]/);
+  assert.match(output, /password=\[REDACTED\]/);
+  assert.match(output, /primary=.*"phase":"playwright-real-auth".*"code":23/);
+  assert.match(output, /cleanup=.*"name":"synthetic-cleanup".*"status":"failed"/);
+  assert.match(output, /resource=strapi state=ready/);
+  assert.match(output, /resource=next state=failed/);
+  assert.match(output, /phase=playwright failure=synthetic/);
+  assert.match(output, /diagnostic resource=playwright status=captured lines<=80 bytes<=32768/);
+});
+
+test("real-auth token and Playwright argument contracts remain exact", () => {
+  const token = "a".repeat(256);
+  assert.equal(realAuthLifecycle.validateContentToken(token), token);
+  for (const value of ["", "a".repeat(255), "g".repeat(256), undefined]) {
+    assert.throws(() => realAuthLifecycle.validateContentToken(value), /missing or invalid/);
+  }
+  assert.deepEqual(realAuthLifecycle.buildPlaywrightArguments(), [
+    "exec",
+    "playwright",
+    "test",
+    "--config=playwright.real-auth.config.ts",
+  ]);
+});
+
+test("readiness harness uses bounded redaction for line-leading login fields", () => {
+  const result = runHarnessWithDockerStub({
+    STUB_RUNNER_EXIT: "23",
+    STUB_DOCKER_LOGS: "identifier=synthetic-user\npassword=synthetic-password\nservice diagnostic",
+  });
+  assert.equal(result.status, 23, result.stderr);
+  assert.doesNotMatch(result.stderr, /synthetic-user|synthetic-password/);
+  assert.match(result.stderr, /identifier=\[REDACTED\]/);
+  assert.match(result.stderr, /password=\[REDACTED\]/);
+});
+
+test("anonymous descriptor capture is bounded", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "tb122-fd-"));
+  const logPath = path.join(directory, "command.log");
+  try {
+    const output = await lifecycle.runCommand(
+      "fd-capture",
+      process.execPath,
+      ["-e", 'require("node:fs").writeSync(3, "a".repeat(32))'],
+      { logPath, captureFd3MaxBytes: 32 },
+      { signal: null, active: null },
+    );
+    assert.equal(output, "a".repeat(32));
+    await assert.rejects(
+      lifecycle.runCommand(
+        "fd-overflow",
+        process.execPath,
+        ["-e", 'require("node:fs").writeSync(3, "a".repeat(33))'],
+        { logPath, captureFd3MaxBytes: 32 },
+        { signal: null, active: null },
+      ),
+      /exceeded its byte limit/,
+    );
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("readiness harness keeps owned cleanup in reverse order", () => {
+  const result = runHarnessWithDockerStub();
+  const runnerRemove = result.calls.indexOf(`rm --force ${"b".repeat(64)}`);
+  const postgresRemove = result.calls.indexOf(`rm --force ${"a".repeat(64)}`);
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(runnerRemove >= 0 && postgresRemove > runnerRemove);
+  assert.match(result.stderr, /final=outcome:success exit:0/);
+});
+
+test("readiness harness preserves failure identity while attempting all cleanup", () => {
+  const result = runHarnessWithDockerStub({
+    STUB_RUNNER_EXIT: "23",
+    STUB_FAIL_STOP_ID: "b".repeat(64),
+    STUB_FAIL_REMOVE_ID: "a".repeat(64),
+  });
+  assert.equal(result.status, 23, result.stderr);
+  assert.match(result.stderr, /primary=failed kind=command phase=runner code=23/);
+  assert.match(result.stderr, /final=outcome:primary-and-cleanup-failure exit:23/);
+  assert.doesNotMatch(result.stderr, /abc\.def\.ghi|in-build-testbuild/);
+});
+
+test("readiness harness refuses cleanup without exact ownership", () => {
+  const result = runHarnessWithDockerStub({ STUB_OWNERSHIP_LABEL: "anotherbuild" });
+  assert.equal(result.status, 1, result.stderr);
+  assert.doesNotMatch(result.calls, /^rm /m);
+  assert.match(result.stderr, /ownership-not-proven/);
+});
+
+test("real-auth entrypoint selects its isolated database and lifecycle", () => {
+  const result = runHarnessWithDockerStub({}, realAuthHarnessPath);
+  const namespace = expectedNamespace("test-build");
+  const creates = result.calls.match(/^create .*$/gm);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(creates.length, 2);
+  assert.match(creates[0], new RegExp(`--name tb122-real-auth-postgres-${namespace}`));
+  assert.match(creates[0], new RegExp(`POSTGRES_DB=tb122_real_auth_${namespace}`));
+  assert.match(creates[1], /--network cloudbuild/);
+  assert.match(creates[1], /--volume \/workspace:\/workspace/);
+  assert.match(creates[1], /node scripts\/playwright-real-auth-lifecycle\.js$/);
+});
+
+test("real-auth wrapper rejects every argument before Docker access", () => {
+  const result = runHarnessWithDockerStub({}, realAuthHarnessPath, ["--unknown"]);
+  assert.equal(result.status, 2, result.stderr);
+  assert.equal(result.calls, "");
+  assert.equal(result.stderr, "The real-auth harness accepts no arguments.\n");
+});
+
+test("build namespaces remain deterministic and distinct", () => {
+  const ids = ["A-b", "ab", `${"a".repeat(80)}-one`, `${"a".repeat(80)}-two`];
+  const names = ids.map((buildId) => {
+    const result = runHarnessWithDockerStub({ BUILD_ID: buildId });
+    const name = result.calls.match(/create --name (tb122-readiness-postgres-[a-z0-9-]+)/)?.[1];
+    assert.equal(name, `tb122-readiness-postgres-${expectedNamespace(buildId)}`);
+    return name;
+  });
+  assert.equal(new Set(names).size, ids.length);
+});
+
+test("final readiness checks both services and PostgreSQL", async () => {
+  const calls = [];
+  await lifecycle.verifyFinalReadiness({
+    strapi: { name: "strapi", exit: null, child: { pid: 101 } },
+    next: { name: "next", exit: null, child: { pid: 102 } },
+    signalState: { signal: null },
+    postgresHost: "postgres-build",
+    postgresPort: 5432,
+  }, {
+    processGroupExists: (pid) => { calls.push(`process:${pid}`); return true; },
+    fetch: async (url) => { calls.push(`http:${url}`); return { ok: true }; },
+    probeTcp: async (host, port) => { calls.push(`postgres:${host}:${port}`); return true; },
+  });
+  assert.deepEqual(calls, [
+    "process:101",
+    "process:102",
+    "http:http://127.0.0.1:1337/admin/init",
+    "http:http://127.0.0.1:3000/api/auth/providers",
+    "postgres:postgres-build:5432",
+    "process:101",
+    "process:102",
+  ]);
+});
 
 test("preserves primary identity while cleanup contributes only secondary failures", () => {
   const cases = [
