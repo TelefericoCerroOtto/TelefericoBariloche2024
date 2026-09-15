@@ -1,0 +1,57 @@
+{
+  "kind": "collectionType",
+  "collectionName": "survey_qr_points",
+  "info": {
+    "singularName": "survey-qr-point",
+    "pluralName": "survey-qr-points",
+    "displayName": "Survey QR point"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "pointKey": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 1,
+      "maxLength": 64,
+      "regex": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "publicCode": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 32,
+      "maxLength": 128,
+      "regex": "^[A-Za-z0-9_-]+$",
+      "private": true
+    },
+    "displayName": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["active", "inactive"],
+      "required": true,
+      "default": "active"
+    },
+    "inactiveAt": {
+      "type": "datetime"
+    },
+    "sortOrder": {
+      "type": "integer",
+      "required": true,
+      "min": 0
+    },
+    "fixtureMarker": {
+      "type": "string",
+      "private": true,
+      "maxLength": 64
+    }
+  }
+}

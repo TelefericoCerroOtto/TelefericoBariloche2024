@@ -197,6 +197,11 @@ Admin panel credentials must never be documented in this repository.
 
 Anything not listed in this document is not part of the expected permission model.
 
+The disabled TB-113 schema foundation (`survey-version`, `survey-settings`, and
+`survey-qr-point`) has no API-token or Users & Permissions grants in this slice.
+Its future custom intake and administration routes require a separately reviewed
+permission bootstrap; generic collection CRUD remains outside the access model.
+
 In particular, public-facing application tokens must not grant:
 
 - write permissions unless explicitly listed for the token;
@@ -229,4 +234,5 @@ Use this checklist when creating or rebuilding a Strapi environment.
 
 | Change | Date | Result | Evidence |
 | --- | --- | --- | --- |
+| `tb-113-visitor-feedback` S04 foundation | 2026-09-15 | Added disabled definition/QR schemas with no permission grants. | Catalog tests verify disabled defaults and the approved model subset; permission bootstrap remains out of scope. |
 | `tb-71-form-protection` | 2026-05-20 | Added `form-protection-submission` collection and token delta; existing `postulation` contract stays intact. | Verified `teleferico-cms/src/api/postulation/content-types/postulation/schema.json` stayed unchanged, added `teleferico-cms/src/api/form-protection-submission/**`, expanded `Public Forms (Next.js)` token to `form-protection-submission.find/create`, and kept `teleferico-app/src/lib/services/{contact,postulation}.ts` as server-only internal callers using `Origin`, `x-internal-api-key`, and optional `x-client-ip` without exposing Strapi access client-side. |

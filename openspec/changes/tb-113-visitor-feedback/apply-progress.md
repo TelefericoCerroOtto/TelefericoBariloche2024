@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD
-- Delivery mode: automatic chained slice
+- Apply mode: Standard for S04, using requested behavior-first RED → GREEN → REFACTOR discipline; historical S01-S03 evidence is preserved below
+- Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: 800 changed lines
-- Current slice/work unit: S03 / task 1.3 / U3 (complete; ready for independent verification)
+- Review budget: 400 authored changed lines for S04
+- Current slice/work unit: S04 / task 2.1 / U4 definition and QR schema foundation (partial)
 - Progress: 3 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -21,7 +21,7 @@
 
 ## Remaining tasks
 
-- [ ] 2.1 U4
+- [ ] 2.1 U4 — partial: definition/QR schema foundation exists; submission, report lifecycle, migration, services/routes, constraints, and generated types remain
 - [ ] 2.2 U5
 - [ ] 2.3 U6
 - [ ] 3.1 U7
@@ -153,6 +153,35 @@ The subprocess boundary uses `/usr/local/bin/docker` with argument arrays and `s
 | Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/components/administration/feedback/__tests__/renderer-poc.test.ts`; RED unresolved production import, triangulation RED missing six required digests/artifacts, final GREEN/REFACTOR exit 0 with 2/2 passed and all nine criteria true. Package-policy 4/4, typecheck, and `git diff --check` also passed. |
 | Runtime harness command/scenario and exact result | The focused command rendered five synthetic charts through Recharts and ECharts SVG SSR, launched pinned Chromium five times (353/283/280/279/307 ms; p95 353 ms), produced one PDF semantic digest and one pagination digest across five renders, extracted every label, found 0 clipping and 0 serious/critical structural violations, emitted 290 selectable SVG text nodes and no chart raster images, excluded worker imports from the public source graph, measured 184,720,835 compressed candidate-worker bytes (<750 MiB), closed all browsers, and removed temporary artifacts. |
 | Rollback boundary | Revert the four exact dependency entries and generated lockfile delta; remove `services/survey-report-worker/poc/**`, the parity fixture, and renderer POC test; revert only task 1.3 and S03 evidence/status here. Preserve S01/S02 and G03 reconciliation. |
+
+## S04 Partial Work Unit Evidence
+
+- Scope: first coherent definition/catalog foundation only. Added `survey-version`, `survey-settings`, `survey-qr-point`, and `survey.aspect-definition`; U4 remains unchecked.
+- Explicitly deferred: the other three approved collections, `survey.aspect-rating`, migrations/indexes, lifecycle services/routes, generated types, permission bootstrap, and all app/core/worker/operational work.
+- Disabled baseline: all three content types set `draftAndPublish:false`; versions default to `draft`; intake and generation default to `false`; no permission grant or custom route was added.
+
+### S04 RED, GREEN, and REFACTOR
+
+| Phase | Command | Exact result |
+|---|---|---|
+| RED | `npm --prefix teleferico-cms test -- feedback/catalog` | Exit 1; 4 tests failed because the required foundation schema files did not exist. |
+| GREEN | `npm --prefix teleferico-cms test -- feedback/catalog` | Exit 0; 4 tests passed, 0 failed, 0 skipped. |
+| REFACTOR | `npm --prefix teleferico-cms test -- feedback/catalog` | Exit 0; no production refactor was needed after the cohesive schema/test structure passed. |
+
+### S04 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/catalog`; exit 0; 4/4 passed with 0 failures. Tests prove approved identities, forbidden identity exclusion, disabled defaults, bounded multilingual definition fields, and constrained QR identity/lifecycle fields. |
+| Runtime harness command/scenario and exact result | `npm --prefix teleferico-cms test -- feedback/harness`; exit 0; 21/21 passed with 0 failures. No PostgreSQL process was started for this static schema subset because migrations and runtime services are explicitly deferred; the harness boundary remains healthy and no cleanup-owned process/container/volume was created. |
+| Rollback boundary | Remove the four new schema JSON files and `teleferico-cms/test/feedback/catalog/schema-catalog.test.js`; revert only the selector mapping in `test-runner.js`, the TB-113 no-grant note in `docs/STRAPI_PERMISSIONS.md`, and this S04 partial evidence/status. Preserve all S01-S03 files, evidence, and task checkboxes. |
+
+### S04 Review Boundary
+
+- Task state: partial; task 2.1 remains unchecked.
+- Sequential boundary: starts after the committed S03 baseline and ends before submission/report schemas or any migration/runtime behavior.
+- Size exception: not granted and not used.
+- Candidate evidence revision is reported by the executor after final hybrid persistence so the hash is not self-referential.
 
 ## Deviations
 
