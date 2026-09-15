@@ -211,6 +211,13 @@ async function createContentToken(strapi, context) {
   return token;
 }
 
+function requiredDocumentId(entity, label) {
+  if (!entity?.documentId) {
+    throw new Error(`Synthetic ${label} creation returned no stable document identity.`);
+  }
+  return entity.documentId;
+}
+
 function manifestFor(context, roles, users, fixtures, token) {
   return {
     version: 1,
@@ -223,13 +230,22 @@ function manifestFor(context, roles, users, fixtures, token) {
       email,
       roleType,
     })),
-    sector: { id: fixtures.sector.id, key: context.sectorKey },
+    sector: {
+      id: fixtures.sector.id,
+      documentId: requiredDocumentId(fixtures.sector, "sector"),
+      key: context.sectorKey,
+    },
     postulation: {
       id: fixtures.postulation.id,
+      documentId: requiredDocumentId(fixtures.postulation, "postulation"),
       email: context.postulationEmail,
       note: context.marker,
     },
-    serviceState: { id: fixtures.serviceState.id, initialState: "normal" },
+    serviceState: {
+      id: fixtures.serviceState.id,
+      documentId: requiredDocumentId(fixtures.serviceState, "service-state"),
+      initialState: "normal",
+    },
     contentApiAccess: {
       id: token.id,
       name: context.contentTokenName,
@@ -289,21 +305,39 @@ async function findOwnedUser(strapi, owned) {
 }
 
 async function findOwnedFixtures(strapi, manifest, context) {
+  if (!manifest.sector.documentId) {
+    throw new Error("Synthetic sector fixture has no stable document identity.");
+  }
   const sector = await strapi.db.query(UIDS.sector).findOne({
-    where: { id: manifest.sector.id, key: manifest.sector.key },
+    where: {
+      documentId: manifest.sector.documentId,
+      key: manifest.sector.key,
+    },
   });
+  if (!sector || sector.documentId !== manifest.sector.documentId) {
+    throw new Error("Synthetic sector fixture ownership could not be proven.");
+  }
+  if (!manifest.postulation.documentId) {
+    throw new Error("Synthetic postulation fixture has no stable document identity.");
+  }
   const postulation = await strapi.db.query(UIDS.postulation).findOne({
     where: {
-      id: manifest.postulation.id,
+      documentId: manifest.postulation.documentId,
       email: manifest.postulation.email,
       note: context.marker,
     },
   });
+  if (!postulation || postulation.documentId !== manifest.postulation.documentId) {
+    throw new Error("Synthetic postulation fixture ownership could not be proven.");
+  }
+  if (!manifest.serviceState.documentId) {
+    throw new Error("Synthetic service-state fixture has no stable document identity.");
+  }
   const serviceState = await strapi.db.query(UIDS.serviceState).findOne({
-    where: { id: manifest.serviceState.id },
+    where: { documentId: manifest.serviceState.documentId },
   });
-  if (!sector || !postulation || !serviceState) {
-    throw new Error("Synthetic domain fixture ownership could not be proven.");
+  if (!serviceState || serviceState.documentId !== manifest.serviceState.documentId) {
+    throw new Error("Synthetic service-state fixture ownership could not be proven.");
   }
   return { sector, postulation, serviceState };
 }
@@ -474,6 +508,8 @@ module.exports = {
   ROLE_DEFINITIONS,
   buildContext,
   cleanup,
+  findOwnedFixtures,
+  manifestFor,
   parseOperation,
   permissionTree,
   provision,
