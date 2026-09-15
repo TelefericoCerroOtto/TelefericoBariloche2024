@@ -216,6 +216,39 @@ test("Cloud Build real-auth acceptance remains fail-closed around exactly three 
   assert.match(outerLifecycle, /HARNESS_CAPABILITY.*real-auth.*final_code.*-eq 0/);
 });
 
+test("real-auth login reserves independent navigation and hydration budgets", () => {
+  const config = fs.readFileSync(realAuthConfigPath, "utf8");
+  const spec = fs.readFileSync(realAuthSpecPath, "utf8");
+  const navigationTimeout = spec.match(/LOGIN_NAVIGATION_TIMEOUT_MS = ([\d_]+)/);
+  const hydrationTimeout = spec.match(/LOGIN_HYDRATION_TIMEOUT_MS = ([\d_]+)/);
+  const testTimeout = config.match(/timeout: ([\d_]+)/);
+
+  assert.ok(navigationTimeout, "The login navigation must have its own timeout budget.");
+  assert.ok(hydrationTimeout, "Client hydration must retain an independent timeout budget.");
+  assert.ok(testTimeout, "The real-auth test timeout must remain explicit.");
+  assert.match(spec, /goto\(loginUrl, \{[\s\S]*timeout: LOGIN_NAVIGATION_TIMEOUT_MS/);
+  assert.match(spec, /toHaveAttribute\("data-login-hydrated", "true", \{[\s\S]*timeout: LOGIN_HYDRATION_TIMEOUT_MS/);
+  assert.doesNotMatch(spec, /readinessDeadline/);
+
+  const parseMilliseconds = (match) => Number(match[1].replaceAll("_", ""));
+  const observedColdNavigationMs = 74_659;
+  const formerSharedReadinessBudgetMs = 75_000;
+  assert.ok(
+    formerSharedReadinessBudgetMs - observedColdNavigationMs < 1_000,
+    "The observed cold navigation must reproduce the former hydration starvation branch.",
+  );
+  assert.ok(
+    parseMilliseconds(hydrationTimeout) >
+      formerSharedReadinessBudgetMs - observedColdNavigationMs,
+    "Hydration must keep its full budget after the observed cold navigation.",
+  );
+  assert.ok(
+    parseMilliseconds(testTimeout) >
+      parseMilliseconds(navigationTimeout) + parseMilliseconds(hydrationTimeout),
+    "The test timeout must leave time for authentication assertions after cold navigation and hydration.",
+  );
+});
+
 test("GitHub fixture-backed pull-request parity jobs are absent after cutover", () => {
   const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
 

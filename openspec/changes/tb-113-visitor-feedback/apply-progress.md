@@ -3,15 +3,15 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Standard for S04, using requested behavior-first RED → GREEN → REFACTOR discipline; historical S01-S03 evidence is preserved below
+- Apply mode: Standard for the historical S05a implementation; the focused Cloud Build remediation used strict test-first execution because `openspec/config.yaml` currently declares `strict_tdd: true`
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: 400 authored changed lines for S04
-- Current slice/work unit: S04 / task 2.1 / U4 definition and QR schema foundation (partial)
+- Review budget: accepted `size:exception`; maintainer-authorized native reset preserves the 843-line S05a candidate as the new baseline
+- Current slice/work unit: S05a / `s05a-cloud-build-remediation`; local correction and verification complete, remote rerun not authorized
 - Progress: 3 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
-- Size exception: not granted and not used
+- Size exception: explicitly accepted together with the successful native reset for this cohesive persistence-definition slice
 
 ## Completed tasks
 
@@ -21,7 +21,7 @@
 
 ## Remaining tasks
 
-- [ ] 2.1 U4 — partial: definition/QR schema foundation exists; submission, report lifecycle, migration, services/routes, constraints, and generated types remain
+- [ ] 2.1 U4 — partial: all approved inert persistence definitions and generated declarations exist; migrations/indexes and lifecycle services/routes remain for S05b
 - [ ] 2.2 U5
 - [ ] 2.3 U6
 - [ ] 3.1 U7
@@ -157,7 +157,7 @@ The subprocess boundary uses `/usr/local/bin/docker` with argument arrays and `s
 ## S04 Partial Work Unit Evidence
 
 - Scope: first coherent definition/catalog foundation only. Added `survey-version`, `survey-settings`, `survey-qr-point`, and `survey.aspect-definition`; U4 remains unchecked.
-- Explicitly deferred: the other three approved collections, `survey.aspect-rating`, migrations/indexes, lifecycle services/routes, generated types, permission bootstrap, and all app/core/worker/operational work.
+- Explicitly deferred at S04: the other three approved collections, `survey.aspect-rating`, migrations/indexes, lifecycle services/routes, and permission bootstrap. PR #300 synchronized S04 generated declarations before S05a.
 - Disabled baseline: all three content types set `draftAndPublish:false`; versions default to `draft`; intake and generation default to `false`; no permission grant or custom route was added.
 
 ### S04 RED, GREEN, and REFACTOR
@@ -186,3 +186,47 @@ The subprocess boundary uses `/usr/local/bin/docker` with argument arrays and `s
 ## Deviations
 
 Explicit authorization installed candidate dependencies before the reviewed pass because the real POC could not execute without them; no production import was added, and rollback is confined to the dependency delta and POC files. All other implementation matches the design.
+
+## S05a Partial Work Unit Evidence
+
+- Scope: added `survey-submission`, `survey-report-generation`, `survey-report`, and `survey.aspect-rating`; regenerated declarations for these definitions only. Task 2.1 remains unchecked.
+- RED: `npm --prefix teleferico-cms test -- feedback/catalog` exited 1 with 3/8 passing and 5 failures because the four definitions were absent.
+- Pre-reset GREEN/REFACTOR: `npm --prefix teleferico-cms test -- feedback/catalog` exited 0 with 6/6 passing after the final schema and catalog-test refactor.
+- Post-reset verification: catalog 6/6 passed; harness 21/21 passed; CMS build exited 0; `git diff --check` exited 0 with no output.
+- Runtime harness: N/A for PostgreSQL because this static schema slice adds no migration, index, service, controller, route, or lifecycle behavior. The harness unit suite spawned no real PostgreSQL or Docker resource.
+- Cleanup and generation: no test-owned process, container, or volume remained; the repository generator completed with 0 warnings/errors and left both generated declaration hashes unchanged.
+- Rollback boundary: remove the four new schema/component files; revert their generated declaration deltas, the focused catalog-test extension, the deny-by-default permissions wording, and this S05a evidence only. Preserve S01-S04 and PR #300 declarations.
+- Boundary: sequential S05a slice after merged S04 and PR #300; S05b waits for this future slice to merge before adding migrations/indexes and lifecycle services/routes.
+- Size: the reset-authorized candidate baseline is exactly 418 authored changed lines plus 425 generated declaration lines, 843 complete changed lines; task 2.1 stays unchecked because S05b remains.
+- Remediation lineage: native reset authorized remediation of failed evidence `sha256:e8af3ff9923dd78a75be29945f0a54de77d48a19278eedf5ee4b16bd1656a7db`; new evidence revision `sha256:2223e4eb6dc602299a8f3463225ea8f566d694dcae98f8b4007fb8967327209b`, computed from the sorted changed-file SHA-256 manifest with this line normalized to `new evidence revision pending`.
+
+## S05a Cloud Build Remediation Evidence
+
+- Scope: corrected only the real-auth login cold-start timing contract and its repository guard test. Task 2.1 remains unchecked and no product behavior, schema, permission, dependency, lockfile, image pin, cleanup rule, SHA gate, or acceptance-count rule changed.
+- Proven cause: the server-side Strapi credential probe succeeded. The first browser login then spent 74,659 ms in cold navigation while the test shared one 75,000 ms deadline between navigation and hydration, leaving at most 341 ms for hydration. The app log recorded no subsequent dashboard or authenticated browser request before Playwright exited 1. The lifecycle therefore withheld the internal 3/3 signal, performed synthetic and service cleanup, and correctly selected primary failure.
+- Non-cause evidence: PostgreSQL missing-index messages preceded successful Strapi startup and the successful credential probe, so they did not terminate readiness, provisioning, or authentication and are not causal for this failure.
+- Correction: navigation now has a 90,000 ms budget and hydration has an independent 30,000 ms budget. The 180,000 ms per-test ceiling remains unchanged and leaves 60,000 ms for authentication assertions after both cold-start phases.
+- Package-security boundary: package-manager pinning, frozen installs, dependencies, lifecycle scripts, and lockfiles are unchanged.
+
+### S05a Remediation TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `s05a-cloud-build-remediation` | `.github/scripts/playwright-e2e.test.js` | Repository contract test over the real Playwright spec/config | `node --test .github/scripts/playwright-real-stack-lifecycle.test.js .github/scripts/playwright-e2e.test.js .github/scripts/playwright-real-auth-provisioner.test.js`: exit 0, 61/61 passed | Focused command exited 1, 0/1 passed; the login navigation had no independent timeout budget | Focused command exited 0, 1/1 passed after separate navigation and hydration budgets were implemented | The same test reproduces the observed branch: 75,000 − 74,659 = 341 ms, then proves the independent hydration budget exceeds that remainder and the global timeout exceeds both phase budgets | Focused command exited 0, 1/1 passed after adding the observed-duration boundary assertions |
+
+### S05a Remediation Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `node --test --test-name-pattern="real-auth login reserves independent navigation and hydration budgets" .github/scripts/playwright-e2e.test.js`; final exit 0, 1/1 passed, 0 failed. RED was exit 1, 0/1 passed, with `The login navigation must have its own timeout budget.` |
+| Runtime harness command/scenario and exact result | `PLAYWRIGHT_REAL_AUTH_BASE_URL=http://127.0.0.1:3200 <synthetic required contract variables> pnpm --dir teleferico-app exec playwright test --config=playwright.real-auth.config.ts --list`; exit 0, exactly 3 tests discovered in the one real-auth file. Full PostgreSQL/Strapi/Next.js execution was not rerun because reproducing Cloud Build is the independently authorized remote verification step. |
+| Rollback boundary | Revert only `.github/scripts/playwright-e2e.test.js` and `teleferico-app/tests/e2e-real-auth/real-auth.spec.ts`, then remove this remediation section/status adjustment. Preserve the S01-S05a persistence candidate and all historical evidence. |
+
+### S05a Remediation Verification
+
+- `bash -n scripts/run-playwright-real-auth.sh`: exit 0, no output.
+- `node --test .github/scripts/playwright-real-stack-lifecycle.test.js .github/scripts/playwright-e2e.test.js .github/scripts/playwright-real-auth-provisioner.test.js`: exit 0, 62/62 passed, 0 failed/skipped/cancelled/todo.
+- `git diff --check`: exit 0, no output.
+- `pnpm --dir teleferico-app run typecheck`: exit 0, TypeScript reported no errors.
+- Real-auth discovery command: exit 0, exactly 3 tests in 1 file.
+- Remote Cloud Build: not run; local authorization explicitly excludes remote build triggers and mutations.
