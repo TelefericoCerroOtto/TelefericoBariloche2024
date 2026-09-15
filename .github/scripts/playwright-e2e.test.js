@@ -221,7 +221,8 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and de
   assert.match(script, /sha256sum/);
   assert.match(script, /build_id_digest=.*:0:24/);
   assert.match(script, /build_namespace="\$\{build_id_digest\}"/);
-  assert.match(script, /tb122-readiness-postgres-\$\{build_namespace\}/);
+  assert.match(script, /resource_prefix="tb122-readiness"/);
+  assert.match(script, /POSTGRES_CONTAINER="\$\{resource_prefix\}-postgres-\$\{build_namespace\}"/);
   assert.match(script, /docker create --name "\$POSTGRES_CONTAINER" --network cloudbuild/);
   assert.doesNotMatch(script, /(?:--publish(?:-all)?(?:=|\s|$)|(?:^|\s)-p(?:\s|=|\d)|(?:^|\s)-P(?:\s|$))/m);
   assert.match(script, /docker create --name "\$RUNNER_CONTAINER" --network cloudbuild/);
@@ -247,7 +248,7 @@ test("Cloud Build real-stack readiness uses isolated immutable containers and de
   assert.match(script, /runner_create_status=\$\?/);
   assert.match(script, /DIAGNOSTIC_LINES=80/);
   assert.match(script, /DIAGNOSTIC_BYTES=32768/);
-  assert.match(script, /docker logs --tail "\$DIAGNOSTIC_LINES"[\s\S]*tail -c "\$DIAGNOSTIC_BYTES"/);
+  assert.match(script, /docker logs --tail "\$DIAGNOSTIC_LINES"[\s\S]*\| redact_bounded_stream/);
   assert.doesNotMatch(script, /\|\|\s*:|>\s*\/dev\/null\s+2>&1/);
   assert.ok(npmCi >= 0 && testEnvironment >= 0 && strapiBuild > npmCi && strapiStart > strapiBuild);
   assert.doesNotMatch(lifecycle, /NODE_ENV[=:]\s*["']?production/);
