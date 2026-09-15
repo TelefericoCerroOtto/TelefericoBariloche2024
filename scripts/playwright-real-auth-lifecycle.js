@@ -312,7 +312,7 @@ async function main() {
       });
       services.next = "started";
       serviceRegistry.register("process", "next", () => next.stop({ graceMs: 5_000, killMs: 5_000, intervalMs: 100 }));
-      await shared.waitForHttp("next", `${baseURL}/es-AR/login`, next, signalState);
+      await shared.waitForHttp("next", `${baseURL}/api/auth/providers`, next, signalState);
       services.next = "ready";
     },
     runPlaywright: () => shared.runCommand("playwright-real-auth", "bash", [

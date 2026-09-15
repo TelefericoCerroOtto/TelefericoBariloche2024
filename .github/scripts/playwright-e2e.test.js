@@ -209,6 +209,8 @@ test("Cloud Build real-auth acceptance remains fail-closed around exactly three 
   assert.match(lifecycle, /stats\?\.skipped !== 0/);
   assert.match(lifecycle, /TB122 real-auth internal=validated-scenarios:3\/3/);
   assert.doesNotMatch(lifecycle, /TB122 real-auth acceptance=scenarios:3\/3/);
+  assert.match(lifecycle, /waitForHttp\("next", `\$\{baseURL\}\/api\/auth\/providers`/);
+  assert.doesNotMatch(lifecycle, /waitForHttp\("next", `\$\{baseURL\}\/es-AR\/login`/);
   assert.match(outerLifecycle, /verify_real_auth_acceptance_signal/);
   assert.match(outerLifecycle, /TB122 real-auth acceptance=scenarios:3\/3/);
   assert.match(outerLifecycle, /HARNESS_CAPABILITY.*real-auth.*final_code.*-eq 0/);
