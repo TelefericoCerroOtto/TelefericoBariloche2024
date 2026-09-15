@@ -11,11 +11,16 @@ const appPackagePath = path.join(__dirname, "..", "..", "teleferico-app", "packa
 const standardConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.config.ts");
 const maintenanceConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.maintenance.config.ts");
 const productionConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.production.config.ts");
+const realAuthConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.real-auth.config.ts");
+const realAuthSpecPath = path.join(__dirname, "..", "..", "teleferico-app", "tests", "e2e-real-auth", "real-auth.spec.ts");
 const cloudBuildNodeImage = "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96";
 const cloudBuildOldNodeImage = "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488";
 const cloudBuildGitImage = "alpine/git@sha256:1e9d9a40acbd02aeb3cb005ff43f9e51ac09ba0c241bb2298f811d3f426a2ffd";
 const cloudBuildDockerImage = "gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c";
 const readinessScriptPath = path.join(__dirname, "..", "..", "scripts", "run-playwright-real-stack-readiness.sh");
+const lifecycleScriptPath = path.join(__dirname, "..", "..", "scripts", "playwright-real-stack-lifecycle.js");
+const realAuthHarnessPath = path.join(__dirname, "..", "..", "scripts", "run-playwright-real-auth.sh");
+const realAuthLifecyclePath = path.join(__dirname, "..", "..", "scripts", "playwright-real-auth-lifecycle.js");
 
 test("validates main containment before checking out or executing deployment-selected code", () => {
   const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
@@ -64,15 +69,19 @@ test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot ex
     "teleferico-cms/**",
     "cloudbuild.playwright-e2e.json",
     "scripts/run-playwright-real-stack-readiness.sh",
+    "scripts/playwright-real-stack-lifecycle.js",
+    "scripts/run-playwright-real-auth.sh",
+    "scripts/playwright-real-auth-lifecycle.js",
     ".github/workflows/cloud-build-playwright-dispatch.yml",
     ".github/workflows/playwright-e2e.yml",
     ".github/scripts/playwright-e2e.test.js",
+    ".github/scripts/playwright-real-stack-lifecycle.test.js",
   ]) {
     assert.match(dispatcher, new RegExp(`- "${pathFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`));
   }
   assert.doesNotMatch(dispatcher, /(?:docs|tools)\/\*\*/);
   assert.match(dispatcher, /permissions:\n\s+contents: read\n\nconcurrency:/);
-  assert.match(dispatcher, /dispatch-and-wait:\n\s+needs: validate-trusted-pr\n\s+if: needs\.validate-trusted-pr\.outputs\.dispatch_allowed == 'true'\n\s+runs-on: ubuntu-latest\n\s+timeout-minutes: 50\n\s+permissions:\n\s+contents: read\n\s+id-token: write/);
+  assert.match(dispatcher, /dispatch-and-wait:\n\s+needs: validate-trusted-pr\n\s+if: needs\.validate-trusted-pr\.outputs\.dispatch_allowed == 'true'\n\s+runs-on: ubuntu-latest\n\s+timeout-minutes: 75\n\s+permissions:\n\s+contents: read\n\s+id-token: write/);
   assert.match(dispatcher, /group: cloud-build-playwright-dispatch-\$\{\{ github\.event\.pull_request\.number \}\}\n\s+cancel-in-progress: true/);
   assert.ok(guard >= 0 && auth > guard);
   for (const value of ["BASE_REF", "CURRENT_REPOSITORY", "HEAD_REF", "HEAD_REPOSITORY", "HEAD_SHA"]) assert.match(dispatcher, new RegExp(`${value}: \\$\\{\\{`));
@@ -96,13 +105,14 @@ test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot ex
   assert.match(dispatcher, /umask 077\n\s+token_file="\$RUNNER_TEMP\/cloud-build-dispatch-access-token"/);
   assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds triggers run "\$CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID".*--sha="\$PR_HEAD_SHA".*--substitutions="_PLAYWRIGHT_SUITE=\$PLAYWRIGHT_SUITE"/);
   assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds describe "\$build_id"/);
+  assert.match(dispatcher, /deadline=\$\(\(SECONDS \+ 4200\)\)/);
   assert.match(dispatcher, /GITHUB_STEP_SUMMARY/);
   assert.equal(crypto.createHash("sha256").update(nativeWorkflow).digest("hex"), "ce053b507efcfae66a7e0629acbdeff6e87fdc736655ddfc4b14655be51535af");
 });
 
 test("Cloud Build fixture executor preserves the ordered locked selectable-suite contract", () => {
   const executor = JSON.parse(fs.readFileSync(cloudBuildExecutorPath, "utf8"));
-  const [revision, packageManager, dependencies, suite, readiness] = executor.steps;
+  const [revision, packageManager, dependencies, suite, dockerCli, readiness, realAuth] = executor.steps;
 
   assert.deepEqual(
     executor.steps.map(({ id, name, dir, entrypoint, timeout }) => ({ id, name, dir, entrypoint, timeout })),
@@ -111,10 +121,12 @@ test("Cloud Build fixture executor preserves the ordered locked selectable-suite
       { id: "Verify repository package manager", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "60s" },
       { id: "Install locked application dependencies", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "420s" },
       { id: "Run fixture-backed Chromium suite", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "900s" },
-      { id: "Run real-stack readiness", name: cloudBuildDockerImage, dir: undefined, entrypoint: "bash", timeout: "900s" },
+      { id: "Stage Docker CLI", name: cloudBuildDockerImage, dir: undefined, entrypoint: "bash", timeout: "60s" },
+      { id: "Run real-stack readiness", name: cloudBuildNodeImage, dir: undefined, entrypoint: "bash", timeout: "900s" },
+      { id: "Run real-auth acceptance", name: cloudBuildNodeImage, dir: undefined, entrypoint: "bash", timeout: "1200s" },
       ],
   );
-  assert.equal(executor.timeout, "2700s");
+  assert.equal(executor.timeout, "3900s");
   assert.deepEqual(executor.substitutions, { _PLAYWRIGHT_SUITE: "smoke" });
   assert.deepEqual(executor.options, { logging: "CLOUD_LOGGING_ONLY" });
   assert.ok(executor.steps.every((step) => step.name !== cloudBuildOldNodeImage));
@@ -154,8 +166,17 @@ test("Cloud Build fixture executor preserves the ordered locked selectable-suite
   assert.match(suite.args[1], /command -v pnpm/);
   assert.ok(suite.env.includes("CI=true"));
   assert.ok(suite.env.includes("PLAYWRIGHT_SUITE=$_PLAYWRIGHT_SUITE"));
+  assert.match(dockerCli.args[1], /docker_path="\$\$\(command -v docker\)"/);
+  assert.match(dockerCli.args[1], /cp "\$\$docker_path" \/tb122-runtime\/docker/);
+  assert.deepEqual(dockerCli.volumes, [{ name: "tb122-runtime", path: "/tb122-runtime" }]);
+  assert.match(readiness.args[1], /export PATH="\/tb122-runtime:\$\$PATH"/);
   assert.match(readiness.args[1], /bash scripts\/run-playwright-real-stack-readiness\.sh/);
+  assert.deepEqual(readiness.volumes, dockerCli.volumes);
   assert.deepEqual(readiness.env, ["BUILD_ID=$BUILD_ID"]);
+  assert.match(realAuth.args[1], /export PATH="\/tb122-runtime:\$\$PATH"/);
+  assert.match(realAuth.args[1], /bash scripts\/run-playwright-real-auth\.sh/);
+  assert.deepEqual(realAuth.volumes, dockerCli.volumes);
+  assert.deepEqual(realAuth.env, ["BUILD_ID=$BUILD_ID"]);
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "secretEnv")));
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "waitFor")));
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "allowFailure")));
@@ -165,6 +186,34 @@ test("Cloud Build fixture executor preserves the ordered locked selectable-suite
   for (const field of ["artifacts", "availableSecrets", "images", "logsBucket", "serviceAccount"]) {
     assert.equal(Object.hasOwn(executor, field), false, `${field} must remain out of the baseline.`);
   }
+});
+
+test("Cloud Build real-auth acceptance remains fail-closed around exactly three scenarios", () => {
+  const config = fs.readFileSync(realAuthConfigPath, "utf8");
+  const spec = fs.readFileSync(realAuthSpecPath, "utf8");
+  const harness = fs.readFileSync(realAuthHarnessPath, "utf8");
+  const lifecycle = fs.readFileSync(realAuthLifecyclePath, "utf8");
+  const outerLifecycle = fs.readFileSync(readinessScriptPath, "utf8");
+
+  assert.match(config, /testDir: "\.\/tests\/e2e-real-auth"/);
+  assert.match(config, /testMatch: "\*\*\/real-auth\.spec\.ts"/);
+  assert.match(config, /retries: 0/);
+  assert.match(config, /workers: 1/);
+  assert.equal((spec.match(/^\s*test\("/gm) ?? []).length, 3);
+  assert.doesNotMatch(spec, /\btest\.(?:skip|fixme)\b|\btest\.describe\.skip\b/);
+  assert.match(harness, /TB122_HARNESS_CAPABILITY=real-auth/);
+  assert.match(harness, /PLAYWRIGHT_REAL_AUTH_HARNESS_OPT_IN=run/);
+  assert.match(lifecycle, /ACCEPTED_SCENARIO_COUNT = 3/);
+  assert.match(lifecycle, /test\.expectedStatus === "passed"/);
+  assert.match(lifecycle, /test\.results\[0\]\.status === "passed"/);
+  assert.match(lifecycle, /stats\?\.skipped !== 0/);
+  assert.match(lifecycle, /TB122 real-auth internal=validated-scenarios:3\/3/);
+  assert.doesNotMatch(lifecycle, /TB122 real-auth acceptance=scenarios:3\/3/);
+  assert.match(lifecycle, /waitForHttp\("next", `\$\{baseURL\}\/api\/auth\/providers`/);
+  assert.doesNotMatch(lifecycle, /waitForHttp\("next", `\$\{baseURL\}\/es-AR\/login`/);
+  assert.match(outerLifecycle, /verify_real_auth_acceptance_signal/);
+  assert.match(outerLifecycle, /TB122 real-auth acceptance=scenarios:3\/3/);
+  assert.match(outerLifecycle, /HARNESS_CAPABILITY.*real-auth.*final_code.*-eq 0/);
 });
 
 test("GitHub fixture-backed pull-request parity jobs are absent after cutover", () => {
@@ -199,50 +248,89 @@ test("production public smoke workflow remains unchanged by the full-suite cutov
   assert.equal(crypto.createHash("sha256").update(productionJob).digest("hex"), "64522e1b88186003bb9f540fbe486d36b3cebe8af7c5db1efb0474151db5f4ae");
 });
 
-test("Cloud Build real-stack readiness uses isolated immutable containers and bounded cleanup", () => {
+test("Cloud Build real-stack readiness uses isolated immutable containers and deterministic cleanup", () => {
   const script = fs.readFileSync(readinessScriptPath, "utf8");
-  const normalizedBuildIdCheck = script.indexOf('if [[ -z "$safe_build_id" ]]');
+  const lifecycle = fs.readFileSync(lifecycleScriptPath, "utf8");
+  const normalizedBuildIdCheck = script.indexOf('if [[ -z "$normalized_build_id" ]]');
   const postgresContainer = script.indexOf("readonly POSTGRES_CONTAINER");
-  const npmCi = script.indexOf("\nnpm ci\n");
-  const testEnvironment = script.indexOf("NODE_ENV=test");
-  const strapiBuild = script.indexOf("\nnpm run build\n");
-  const strapiStart = script.indexOf("\nnpm run start ");
-  const nextStart = script.indexOf("pnpm exec next dev --hostname 0.0.0.0 --port 3000");
-  const bucketHostnameValues = [...script.matchAll(/\bBUILD_STRAPI_BUCKET_HOSTNAME=([^\s]+)/g)].map((match) => match[1]);
-  const bucketPathnameValues = [...script.matchAll(/\bBUILD_STRAPI_BUCKET_PATHNAME=([^\s]+)/g)].map((match) => match[1]);
+  const dockerPreflight = script.indexOf('"$DOCKER_EXECUTABLE" version');
+  const nodePreflight = script.indexOf('"$NODE_EXECUTABLE" -e');
+  const postgresCreate = script.indexOf('"$DOCKER_EXECUTABLE" create --name "$POSTGRES_CONTAINER"');
+  const runtimePreflightEnd = script.indexOf('readonly raw_build_id=');
+  const npmCi = lifecycle.indexOf('["ci"]');
+  const testEnvironment = lifecycle.indexOf('NODE_ENV: "test"');
+  const strapiBuild = lifecycle.indexOf('["run", "build"]');
+  const strapiStart = lifecycle.indexOf('args: ["run", "start"]');
+  const nextStart = lifecycle.indexOf('args: ["exec", "next", "dev", "--hostname", "0.0.0.0", "--port", "3000"]');
 
   assert.match(script, /postgres:16-bookworm@sha256:[a-f0-9]{64}/);
   assert.match(script, /node@sha256:[a-f0-9]{64}/);
+  assert.ok(dockerPreflight >= 0 && nodePreflight > dockerPreflight && postgresCreate > nodePreflight);
+  assert.doesNotMatch(script, /(^|[^_$A-Z])node -e/m);
   assert.match(script, /BUILD_ID:\?BUILD_ID is required/);
   assert.ok(normalizedBuildIdCheck >= 0 && normalizedBuildIdCheck < postgresContainer);
-  assert.match(script, /BUILD_ID must contain at least one alphanumeric character/);
-  assert.match(script, /tb122-readiness-postgres-\$\{safe_build_id:0:32\}/);
-  assert.match(script, /docker run --detach --name "\$POSTGRES_CONTAINER" --network cloudbuild/);
+  assert.match(script, /BUILD_ID must use only/);
+  assert.match(script, /sha256sum/);
+  assert.match(script, /build_id_digest=.*:0:24/);
+  assert.match(script, /build_namespace="\$\{build_id_digest\}"/);
+  assert.match(script, /resource_prefix="tb122-readiness"/);
+  assert.match(script, /POSTGRES_CONTAINER="\$\{resource_prefix\}-postgres-\$\{build_namespace\}"/);
+  assert.match(script, /"\$DOCKER_EXECUTABLE" create --name "\$POSTGRES_CONTAINER" --network cloudbuild/);
   assert.doesNotMatch(script, /(?:--publish(?:-all)?(?:=|\s|$)|(?:^|\s)-p(?:\s|=|\d)|(?:^|\s)-P(?:\s|$))/m);
-  assert.match(script, /trap cleanup_postgres EXIT/);
-  assert.match(script, /docker rm --force "\$POSTGRES_CONTAINER"/);
-  assert.match(script, /trap stop_processes EXIT/);
-  assert.match(script, /kill "\$pid"/);
-  assert.match(script, /seq 1 30/);
-  assert.match(script, /seq 1 45/);
-  assert.match(script, /docker logs --tail 40/);
-  assert.match(script, /for log_path in \/tmp\/strapi-readiness\.log \/tmp\/next-readiness\.log; do/);
-  assert.match(script, /if \[\[ -f "\$log_path" \]\]; then\n\s+tail -n 40 "\$log_path" >&2 \|\| :/);
-  assert.doesNotMatch(script, /tail -n 40 \/tmp\/(?:strapi|next)-readiness\.log/);
-  assert.ok(npmCi >= 0 && testEnvironment > npmCi && strapiBuild > testEnvironment && strapiStart > strapiBuild);
-  assert.doesNotMatch(script, /NODE_ENV=production/);
-  assert.doesNotMatch(script, /\bnpm\s+install\b/);
-  assert.doesNotMatch(script, /\b(?:npx|pnpm\s+dlx)\b/);
-  assert.match(script, /DATABASE_CLIENT=postgres/);
+  assert.match(script, /"\$DOCKER_EXECUTABLE" create --name "\$RUNNER_CONTAINER" --network cloudbuild/);
+  assert.match(script, /--label "\$OWNERSHIP_LABEL"/);
+  assert.match(script, /container_owned/);
+  assert.match(script, /cleanup_container "runner"[\s\S]*cleanup_container "postgres"/);
+  assert.match(script, /timeout --signal=TERM --kill-after=5s/);
+  assert.match(script, /POSTGRES_READINESS_DEADLINE_SECONDS=55/);
+  assert.match(script, /run_bounded_until/);
+  assert.match(script, /CLEANUP_RESERVE_DEADLINE_SECONDS=720/);
+  assert.match(script, /runner_timeout_seconds=\$\(\(CLEANUP_RESERVE_DEADLINE_SECONDS - SECONDS\)\)/);
+  assert.match(script, /timeout --signal=TERM --kill-after=15s "\$\{runner_timeout_seconds\}s" "\$DOCKER_EXECUTABLE" start --attach/);
+  assert.match(script, /"\$DOCKER_EXECUTABLE" stop --time 5/);
+  assert.match(script, /"\$DOCKER_EXECUTABLE" rm --force/);
+  assert.match(script, /record_cleanup "\$resource" "verify-removed"/);
+  assert.match(script, /Error: No such object:/);
+  assert.match(script, /inspect-exit-\$\{inspect_status\}/);
+  assert.doesNotMatch(script, /trap - EXIT INT TERM/);
+  assert.match(script, /trap - EXIT/);
+  assert.match(script, /if \[\[ -z "\$received_signal" \]\]/);
+  assert.match(script, /postgres_create_status=\$\?/);
+  assert.match(script, /postgres_start_status=\$\?/);
+  assert.match(script, /runner_create_status=\$\?/);
+  assert.match(script, /DIAGNOSTIC_LINES=80/);
+  assert.match(script, /DIAGNOSTIC_BYTES=32768/);
+  assert.match(script, /"\$DOCKER_EXECUTABLE" logs --tail "\$DIAGNOSTIC_LINES"[\s\S]*\| redact_bounded_stream/);
+  assert.match(script.slice(dockerPreflight, runtimePreflightEnd), />\/dev\/null 2>&1/);
+  assert.doesNotMatch(script.slice(runtimePreflightEnd), /\|\|\s*:|>\s*\/dev\/null\s+2>&1/);
+  assert.ok(npmCi >= 0 && testEnvironment >= 0 && strapiBuild > npmCi && strapiStart > strapiBuild);
+  assert.doesNotMatch(lifecycle, /NODE_ENV[=:]\s*["']?production/);
+  assert.doesNotMatch(lifecycle, /\bnpm\s+install\b/);
+  assert.doesNotMatch(lifecycle, /\b(?:npx|pnpm\s+dlx)\b/);
+  assert.match(lifecycle, /DATABASE_CLIENT: "postgres"/);
   assert.match(script, /COREPACK_DEFAULT_TO_LATEST=0/);
-  assert.match(script, /corepack pnpm --version\)" = "10\.33\.0"/);
-  assert.match(script, /pnpm install --frozen-lockfile/);
-  assert.match(script, /pnpm exec next dev --hostname 0\.0\.0\.0 --port 3000 >\/tmp\/next-readiness\.log 2>&1 &/);
-  assert.doesNotMatch(script, /pnpm run dev -- --hostname 0\.0\.0\.0 --port 3000/);
-  assert.deepEqual(bucketHostnameValues, ["127.0.0.1"], "Next.js must receive exactly one local-only image hostname.");
-  assert.deepEqual(bucketPathnameValues, ["/uploads/**"], "Next.js must receive exactly one synthetic local image pathname.");
-  assert.ok(script.indexOf("BUILD_STRAPI_BUCKET_HOSTNAME=127.0.0.1") < nextStart);
-  assert.ok(script.indexOf("BUILD_STRAPI_BUCKET_PATHNAME=/uploads/**") < nextStart);
-  assert.match(script, /\/api\/auth\/providers/);
-  assert.doesNotMatch(script, /(?:gcloud|gsutil|secretEnv|availableSecrets|GCS_|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_CLOUD_PROJECT|CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE|AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY)|AZURE_(?:CLIENT_ID|CLIENT_SECRET|TENANT_ID)|GITHUB_|NPM_TOKEN|PNPM_TOKEN|docker compose)/);
+  assert.match(lifecycle, /corepack pnpm --version/);
+  assert.match(lifecycle, /runCommand\("app-install", "pnpm", \["install", "--frozen-lockfile"\]/);
+  assert.ok(nextStart > lifecycle.indexOf('BUILD_STRAPI_BUCKET_HOSTNAME: "127.0.0.1"'));
+  assert.ok(nextStart > lifecycle.indexOf('BUILD_STRAPI_BUCKET_PATHNAME: "\/uploads\/\*\*"'));
+  assert.match(lifecycle, /\/admin\/init/);
+  assert.match(lifecycle, /\/api\/auth\/providers/);
+  assert.match(lifecycle, /process\.kill\(-this\.child\.pid, signal\)/);
+  assert.match(lifecycle, /signal-term/);
+  assert.match(lifecycle, /signal-kill/);
+  assert.match(lifecycle, /leader-reaped/);
+  assert.match(lifecycle, /installSignalHandlers/);
+  const mainLifecycle = lifecycle.slice(lifecycle.indexOf("async function main()"));
+  const cleanupIndex = mainLifecycle.indexOf("cleanupRegistry.cleanup()");
+  const signalDisposeIndex = mainLifecycle.indexOf("signalHandlers.dispose()");
+  assert.ok(cleanupIndex >= 0 && signalDisposeIndex > cleanupIndex);
+  assert.match(lifecycle, /verifyFinalReadiness/);
+  assert.match(lifecycle, /`\$\{name\}-final-process`/);
+  assert.match(lifecycle, /assertManagedProcessLive\("strapi"/);
+  assert.match(lifecycle, /assertManagedProcessLive\("next"/);
+  assert.match(lifecycle, /postgres-final-readiness/);
+  assert.match(lifecycle, /LOG_LIMITS = Object\.freeze\(\{ maxBytes: 32 \* 1024, maxLines: 80 \}\)/);
+  assert.match(lifecycle, /isSymbolicLink\(\)/);
+  assert.match(lifecycle, /\[REDACTED\]/);
+  assert.doesNotMatch(`${script}\n${lifecycle}`, /(?:gcloud|gsutil|secretEnv|availableSecrets|GCS_|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_CLOUD_PROJECT|CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE|AWS_(?:ACCESS_KEY_ID|SECRET_ACCESS_KEY)|AZURE_(?:CLIENT_ID|CLIENT_SECRET|TENANT_ID)|GITHUB_|NPM_TOKEN|PNPM_TOKEN|docker compose)/);
 });

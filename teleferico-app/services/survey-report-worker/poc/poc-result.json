@@ -1,0 +1,81 @@
+{
+  "versions": {
+    "echarts": "6.1.0",
+    "recharts": "3.10.1",
+    "playwright": "1.61.0",
+    "chromium": "1228",
+    "node": "v22.22.0"
+  },
+  "digests": {
+    "lock": "952a492d052a0a97e821d142ec913b2313bf7cd6aa40d55c364eda5dcd6419dd",
+    "image": "d47d7323160626cfefc411b09499feb1967e251fff8afbb356fafeef1a9cd04f",
+    "font": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280",
+    "browser": "2d18db9d8608b052b6a552ee00ec1e830f93692e928b65ecc67d693bd33fe801",
+    "runtime": "4365bdb5af90eeeb0afaab48801c88ec94dc6ce11e6f13ff6651588606abc2fa",
+    "fixture": "c6e048871cd270cfa3c18529143a6105c5191a7aef817c2784dd8f3d37a7401f"
+  },
+  "pdf": {
+    "semanticDigests": [
+      "ce3f94be58f6265602829302c002e02491334ea5d0c0935cd379ce6c6aa7c38a",
+      "ce3f94be58f6265602829302c002e02491334ea5d0c0935cd379ce6c6aa7c38a",
+      "ce3f94be58f6265602829302c002e02491334ea5d0c0935cd379ce6c6aa7c38a",
+      "ce3f94be58f6265602829302c002e02491334ea5d0c0935cd379ce6c6aa7c38a",
+      "ce3f94be58f6265602829302c002e02491334ea5d0c0935cd379ce6c6aa7c38a"
+    ],
+    "paginationDigests": [
+      "54b9fa9ca126deddd98bf455cb44e1600f972f3e27cb08af4ba0ddcb351a1c5c",
+      "54b9fa9ca126deddd98bf455cb44e1600f972f3e27cb08af4ba0ddcb351a1c5c",
+      "54b9fa9ca126deddd98bf455cb44e1600f972f3e27cb08af4ba0ddcb351a1c5c",
+      "54b9fa9ca126deddd98bf455cb44e1600f972f3e27cb08af4ba0ddcb351a1c5c",
+      "54b9fa9ca126deddd98bf455cb44e1600f972f3e27cb08af4ba0ddcb351a1c5c"
+    ],
+    "extractedLabels": true,
+    "missingLabels": []
+  },
+  "artifacts": {
+    "pdfSemantic": "ce3f94be58f6265602829302c002e02491334ea5d0c0935cd379ce6c6aa7c38a",
+    "pagination": "54b9fa9ca126deddd98bf455cb44e1600f972f3e27cb08af4ba0ddcb351a1c5c"
+  },
+  "accessibility": {
+    "seriousOrCriticalViolations": 0,
+    "clippingCount": 0,
+    "svgTextCount": 345,
+    "fontReady": true
+  },
+  "browser": {
+    "coldStartMilliseconds": [
+      1219,
+      306,
+      356,
+      284,
+      366
+    ],
+    "p95ReadyMilliseconds": 1219
+  },
+  "worker": {
+    "compressedGrowthBytes": 184728005,
+    "thresholdBytes": 786432000
+  },
+  "publicGraphExcluded": true,
+  "edgeCases": {
+    "dashboard": true,
+    "chromiumPdf": true
+  },
+  "cleanup": {
+    "browserProcessesAfter": 0,
+    "temporaryArtifactsRemoved": true
+  },
+  "criteria": {
+    "1": true,
+    "2": true,
+    "3": true,
+    "4": true,
+    "5": true,
+    "6": true,
+    "7": true,
+    "8": true,
+    "9": true
+  },
+  "resultPath": "services/survey-report-worker/poc/poc-result.json",
+  "visitorData": false
+}

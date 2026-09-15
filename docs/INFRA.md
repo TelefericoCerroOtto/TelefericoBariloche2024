@@ -18,7 +18,7 @@ It does not attempt to replace GCP or deployment manifests; it only provides the
 The platform has four main components:
 
 - **Global External HTTPS Load Balancer**:
-  - configured in `teleferico-bariloche-2024` to publish the production app with a fixed IP and managed certificate; the public cutover still depends on DNS changes.
+  - configured in `teleferico-bariloche-2024` to publish the production app with a fixed IP and managed certificate.
 - **Cloud Run**:
   - **teleferico-app**: Next.js frontend with institutional site and administrative dashboard.
   - **teleferico-cms**: CMS/API in Strapi.
@@ -246,21 +246,28 @@ Documentary snapshots of their configurations are versioned in [infra/cloud-buil
 
 ### Application-test executor baseline
 
-`cloudbuild.playwright-e2e.json` is the repository-owned Cloud Build configuration for fixture-backed Playwright Chromium smoke and full suites. The active GitHub dispatcher submits it through `playwright-e2e-dispatch`; the disabled legacy `playwright-e2e-pr` trigger references the same file and receives the safe default `smoke` suite. Its non-authoritative metadata snapshot is [infra/cloud-build/playwright-e2e-pr.yaml](infra/cloud-build/playwright-e2e-pr.yaml). It does not deploy an application.
+`cloudbuild.playwright-e2e.json` is the repository-owned pre-merge executor. The active GitHub dispatcher submits the exact PR SHA through `playwright-e2e-dispatch`; the disabled legacy `playwright-e2e-pr` trigger references the same file and receives the safe default `smoke` suite. Every accepted legacy profile runs fixture-backed Playwright, independent real-stack readiness, and blocking real-auth acceptance. It does not deploy an application.
 
 - Its immutable `alpine/git` image verifies Git is executable, rejects the all-zero SHA, verifies that `COMMIT_SHA^{commit}` resolves in `/workspace`, and fails closed unless it equals `HEAD^{commit}`. `_PLAYWRIGHT_SUITE` accepts only `smoke` or `full`, defaults to `smoke`, and maps to `pnpm run test:e2e:smoke` or `pnpm run test:e2e`. Later steps use the immutable Node 22.23.2 Bookworm image, Corepack, the repository-pinned `pnpm@10.33.0`, `pnpm install --frozen-lockfile`, and the lockfile-backed Playwright CLI. Chromium and its operating-system dependencies are installed immediately before the selected suite in the same container because build-step operating-system libraries are not shared.
-- The build is bounded to 45 minutes and has separate revision, package-manager, dependency, combined browser-install/test, and real-stack readiness steps. Failures remain in Cloud Build logs without suppression.
+- The build is bounded to 65 minutes and has separate revision, package-manager, dependency, fixture-browser, Docker-CLI staging, real-stack readiness, and real-auth acceptance steps. Readiness is bounded to 900 seconds. Real-auth is bounded to 1200 seconds and reserves its final 180 seconds for diagnostics and teardown. The dispatcher polls for 4200 seconds within a 75-minute job. Failures remain in Cloud Build logs without suppression.
+- Real-auth acceptance is fail-closed. The inner lifecycle records a bounded internal signal only after Playwright exits successfully, its structured report proves exactly three discovered non-skipped passing scenarios, synthetic state is verified and restored, and service cleanup succeeds. The outer finalizer emits `TB122 real-auth acceptance=scenarios:3/3` only after it validates that signal, repeats final PostgreSQL readiness, removes the owned runner and PostgreSQL containers, proves their absence, removes diagnostics, and selects exit `0`. Merge evidence requires that marker and terminal Cloud Build success for the exact PR SHA. This activation alone is not runtime proof.
+- Real-stack resources are registered only after successful creation and are scoped by an opaque 24-hex SHA-256 prefix derived from the validated raw `BUILD_ID`, plus exact container ID, exact name, and ownership label. The digest prevents normalized or truncated aliases from sharing ownership while keeping the raw ID out of logs. The named runner and PostgreSQL containers are stopped, force-removed, and checked for absence with bounded Docker operations in reverse creation order. Only the runner uses Docker's minimal init/subreaper to reap orphaned descendants; PostgreSQL creation remains unchanged. Only Docker's explicit not-found response proves absence; timeout, daemon, permission, or other inspection failures are recorded as cleanup failures with bounded redacted evidence. Cleanup continues after individual failures, and no name search or cross-build cleanup is allowed.
+- Service descendants are supervised as process groups inside the runner. Teardown uses a 5-second `SIGTERM` grace period, then `SIGKILL`, a second 5-second bound, and leader reaping. Before success, the runner verifies both process groups, Strapi `/admin/init`, Next.js `/api/auth/providers`, bounded PostgreSQL TCP reachability, and both process groups again; the outer harness then repeats `pg_isready`. PostgreSQL startup readiness uses one 55-second wall-clock deadline that caps each probe, state inspection, and sleep to its remaining budget, while each initial HTTP readiness wait is bounded to 90 seconds and fails fast if its process exits.
+- Cloud Logging evidence distinguishes the primary result, every cleanup result, resource state, and final exit. Actual outer command statuses are retained. Primary success plus cleanup failure exits `1`; an existing primary command/readiness failure keeps its code. Signal handlers remain installed through diagnostics, exhaustive cleanup, and final evidence; the first `SIGINT`/`SIGTERM` remains `130`/`143` unless an earlier non-signal primary failure governs, and later signals do not reenter cleanup. Diagnostic excerpts are restricted to fixed service/container sources, at most 80 lines and 32 KiB each, with credential-shaped values and the generated readiness secret redacted. No diagnostic artifacts, external sink, environment dump, database dump, or arbitrary workspace collection is configured.
 - Historical native-trigger evidence is preserved: the fourth fixture pilot passed for `498004d7f065e6b0a43bff42dd95c672efc2b707` (`a4b071a2-2e78-428c-9d6d-854487f888da`, check `101890859299`). Earlier real-stack pilots exposed production upload-provider, Next CLI, and synthetic image-input failures; the runner now selects `NODE_ENV=test`, default local upload storage, `BUILD_STRAPI_BUCKET_HOSTNAME=127.0.0.1`, and `BUILD_STRAPI_BUCKET_PATHNAME=/uploads/**`.
 - Cloud Build `92e24a70-69f1-48a3-ba0f-adbbd868b254` passed for commit `2f143badb095d9e6f141fd150c6348a4532e2884` (check `102114323463`), started `2026-09-08T15:01:02Z`, completed `2026-09-08T15:09:59Z`, duration `8m57s`. It proves isolated PostgreSQL, Strapi under `NODE_ENV=test` with local upload storage, and Next.js `/api/auth/providers` readiness. The runner stays unauthenticated, write-free, synthetic, and isolated on the `cloudbuild` Docker network; it does not prove users, roles, permissions, credentials login, protected reads/writes/denials, logout, JWT non-exposure, artifact upload, or GitHub Actions cutover. Staging/production GCS, IAM, secrets, Cloud SQL, Cloud Run, staging, and production remain untouched. Authenticated E2E behavior is a separate future work unit.
+- Cloud Build `ca50eb99-440f-4b81-9372-82f6f8fa2ce8` at commit `50433ca000fb95c3dede9289caf81c222e0a8388` proved PostgreSQL, Strapi, Next.js, and final readiness, but cleanup failed because both service process groups remained observable after `SIGKILL` while Node ran as PID 1 without an init/subreaper. The runner `--init` correction has passed focused stub/static verification only and has not yet run through real Docker or Cloud Build. Cloud Logging remains the sole durable runtime evidence channel when such execution is authorized.
 - Historical same-SHA GitHub `Playwright Chromium smoke` check `102113652044` passed during parity. Cloud Build now owns fixture-backed application testing; repository-governance workflows remain unchanged.
 - PR #268 proved the active GitHub route at SHA `8a0185fa70ee0dedc53573f0f6dafbffd9a4199c`. GitHub run `34373237590` passed `validate-trusted-pr`, OIDC/WIF authentication, and `dispatch-and-wait` without a service-account key. Trigger `playwright-e2e-dispatch` launched Cloud Build `b29e46c1-10a4-4d28-bf2b-21b7d985b22d`; all five steps passed and both `COMMIT_SHA` and `REVISION_ID` matched the PR SHA. The GitHub-hosted Chromium smoke also passed on that SHA.
 - Final legacy `/gcbrun` build `3ce4566d-030c-4dcf-b533-f9c97dc71b7c` passed the same five steps on the same SHA, and its historical PR check reached success. Trigger `playwright-e2e-pr` (`c2133674-afdc-46ae-87d0-afe06e605ca6`) remains disabled and retained for rollback; do not delete it during bootstrap. The manual exact-SHA trigger remains the fallback executor, not the disabled native trigger.
-- The dispatcher on default `main` derives `smoke` for trusted internal PRs to `development` and `full` only for same-repository `development` to `staging` promotions. It passes the exact head SHA and derived suite to Cloud Build; unrelated staging heads skip before OIDC.
+- The dispatcher on default `main` derives `smoke` for trusted internal PRs to `development` and `full` only for same-repository `development` to `staging` promotions. It passes the exact head SHA and derived suite to Cloud Build, and its path filters include both real-auth lifecycle and entrypoint files; unrelated staging heads skip before OIDC.
 - Manual same-SHA bootstrap is complete. PR #269 merged into `development`. PR #270 used head SHA `317483acb566fbeb6077a0c10a8c70f721e1c2ca`; GitHub full run `34399083297` and manual Cloud Build full build `b2639432-a76e-4c65-b2f3-5c6fd779afc6` passed on that SHA. PR #270 merged into `staging` as `d46a448d996d24a421b4d4a320cb6f3e84f58506`, and PR #271 merged into `main` as `465f1f02262a67c14a2a4c8fe0c0ed16fcdbbdd2`.
 - The live Workload Identity Provider is ACTIVE with condition `assertion.repository_id=='857375731' && assertion.repository_owner_id=='181292897' && assertion.event_name=='pull_request_target' && (assertion.base_ref=='development' || (assertion.base_ref=='staging' && assertion.head_ref=='development')) && assertion.workflow_ref=='TelefericoCerroOtto/TelefericoBariloche2024/.github/workflows/cloud-build-playwright-dispatch.yml@refs/heads/main'`. PR #273 proved automatic staging OIDC full dispatch at exact head SHA `16fab46f3781088ea4b310d6bb4e265c170372a9`: GitHub run `34409554758` and Cloud Build `dcf5a6e9-b9b1-430d-a41e-cf98a9e84ade` succeeded with matching source revision and `COMMIT_SHA`, `_PLAYWRIGHT_SUITE=full`, and parallel GitHub full-suite and governance checks passing before merge commit `983c933f9b0a77ccdbb8472d0bcecd3bc425eb8e`. No deployment or further IAM change is part of this repository follow-up.
-- Maintainer acceptance removed the redundant GitHub-hosted `chromium-smoke` and temporary `chromium-full` jobs and their `pull_request` trigger. `production-public-smoke` remains unchanged. GitHub GraphQL reported no `branchProtectionRules`, so no required status context needed replacement. Production-smoke migration, authenticated real-stack E2E completion, diagnostic artifacts, Vitest migration, deployments, and deletion of the disabled legacy trigger remain pending or out of scope under issue #261; TB-122 remains open.
+- Maintainer acceptance removed the redundant GitHub-hosted `chromium-smoke` and temporary `chromium-full` jobs and their `pull_request` trigger. `production-public-smoke` remains unchanged. GitHub GraphQL reported no `branchProtectionRules`, so no required status context needed replacement. Deterministic real-stack teardown and bounded Cloud Logging diagnostics are repository-defined; exact-SHA real-auth 3/3 runtime evidence, production-smoke migration, Vitest migration, deployments, and deletion of the disabled legacy trigger remain pending or out of scope under issue #261; TB-122 remains open.
 
 Read-only repository validation is `node --test .github/scripts/playwright-e2e.test.js`; it does not submit a build or access GCP.
+
+Repository-level rollback for this teardown slice is limited to restoring the outer readiness script, removing the inner lifecycle script and focused lifecycle test, restoring the directly related static assertions and dispatcher path filters, and restoring the teardown documentation in `docs/playwright-e2e.md`, this file, and `docs/infra/cloud-build/{README.md,playwright-e2e-manual-dispatcher.md}`. It does not authorize commit, PR, trigger, build, deployment, GCP, or IAM changes.
 
 ### 6.1 Documentary snapshots
 
@@ -403,14 +410,12 @@ These integrations are independent of Strapi.
 
 The DNS layer does not live in this repo's project. It is configured in the legacy Google Cloud project `teleferico-bariloche`.
 
-The `teleferico-bariloche-2024` project already has the new frontend prepared for production:
+The `teleferico-bariloche-2024` project publishes the production frontend through:
 
 - **LB global fixed IP**: `130.211.28.132`
 - **Load Balancer**: HTTP/HTTPS frontend with HTTP→HTTPS redirect
 - **Backend**: `app-production-teleferico` through the serverless NEG `teleferico-app-prod-neg`
 - **Managed certificate**: `teleferico-managed-cert` for `.com` and `.com.ar` with and without `www`
-
-As long as the `A`/`CNAME` records in the legacy zone are not changed, public domains continue to resolve to the previous site.
 
 The inventory read from the legacy (DNS, VM, and TLS) is documented in [docs/INFRA-LEGACY.md](docs/INFRA-LEGACY.md).
 
@@ -430,35 +435,15 @@ Operational rule:
 
 - DNS changes are made in `teleferico-bariloche`, not in the GCP project associated with this repo.
 
-### 10.1 Temporary production origin recovery
+### 10.1 Production public origin
 
-As of the 2026-09-09 incident, the canonical production origin is temporarily `https://app-production-teleferico-384535443802.southamerica-east1.run.app`. The registrar/parent delegation for `telefericobariloche.com.ar` remained inactive and returned `NXDOMAIN`, although the authoritative Google Cloud DNS records remained present.
+The canonical production origin is `https://telefericobariloche.com.ar`. Production configuration must use it for `NEXT_PUBLIC_SITE_URL`, the GitHub deployment environment URL, and read-only production E2E checks. `https://telefericobariloche.com`, `https://www.telefericobariloche.com`, and `https://www.telefericobariloche.com.ar` remain allowed public aliases.
 
-The live Cloud Build trigger `app-production-deploy-cr` (`252cd6a2-304b-49db-8e8a-d515cf31afc6`) and GitHub production environment use this temporary state:
+`APP_INTERNAL_BASE_URL` intentionally uses the Cloud Run service URL. It is an internal server-to-server origin and must not follow public canonical-domain changes.
 
-- `_NEXT_PUBLIC_SITE_URL` and `_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL` use the Cloud Run origin instead of `https://telefericobariloche.com.ar`.
-- `_ALLOWED_PUBLIC_ORIGINS` retains `https://telefericobariloche.com`, `https://www.telefericobariloche.com`, `https://telefericobariloche.com.ar`, and `https://www.telefericobariloche.com.ar`, and appends the Cloud Run origin.
-- `_APP_INTERNAL_BASE_URL` remains unchanged because it already uses the Cloud Run origin. **Do not restore this variable to the public domain during recovery.**
-- GitHub production `PRODUCTION_E2E_BASE_URL` uses the Cloud Run origin.
-- The Cloud Run hostname was added manually to the reCAPTCHA allowlist. Never record reCAPTCHA secret values in this repository.
+On 2026-09-09, registrar delegation failure caused public `.com.ar` DNS queries to return `NXDOMAIN`. Production temporarily used the Cloud Run service URL as its public, deployment, and E2E origin while the custom domain recovered. Build `3b334e7b-31d2-4ae7-a158-c86413443341`, revision `app-production-teleferico-00030-79c`, GitHub deployment `6352989259`, and production smoke run `34369735354` recorded the temporary state. The incident did not validate forms, reCAPTCHA submission, authenticated administration, or email writes.
 
-Evidence for the temporary state:
-
-- Manual production build `3b334e7b-31d2-4ae7-a158-c86413443341` passed for main commit `fb220fc3c8904a14385a7377da5fd96f5fc1375b`.
-- Revision `app-production-teleferico-00030-79c` serves 100% of traffic. The previous ready rollback revision is `app-production-teleferico-00029-22l`.
-- GitHub deployment `6352989259` and production smoke run `34369735354` passed.
-- Forms, reCAPTCHA submission, authenticated administration, and email writes were intentionally not tested. This does not block TB-122 dispatcher verification.
-
-Production mutations always require explicit approval. Recovery checklist:
-
-- [ ] Restore the public domain only after registrar/parent delegation and external DNS resolution are confirmed healthy.
-- [ ] Restore `_NEXT_PUBLIC_SITE_URL`, `_GITHUB_DEPLOYMENTS_ENVIRONMENT_URL`, and GitHub `PRODUCTION_E2E_BASE_URL` to the verified public domain.
-- [ ] Keep `_APP_INTERNAL_BASE_URL` on the Cloud Run origin.
-- [ ] Remove the temporary Cloud Run entry from `_ALLOWED_PUBLIC_ORIGINS` only after the public-domain deployment and smoke verification pass.
-- [ ] Review whether the Cloud Run hostname should remain in the reCAPTCHA allowlist.
-- [ ] If recovery fails, route traffic to `app-production-teleferico-00029-22l` and restore the temporary substitutions before retrying.
-
-Track registrar/DNS recovery in [TB-124](https://app.notion.com/p/3d6a58c3fefc81a7bcb5eb8a008435a9) and durable origin portability in [TB-125](https://app.notion.com/p/3d6a58c3fefc8135a264c91cd8da32a4).
+Repository snapshots now record the restored canonical domain. The inline Cloud Build trigger substitutions and GitHub production `PRODUCTION_E2E_BASE_URL` remain separate operational settings and require explicit approval to update. Track the recovery in [TB-124](https://app.notion.com/p/3d6a58c3fefc81a7bcb5eb8a008435a9) and durable origin portability in [TB-125](https://app.notion.com/p/3d6a58c3fefc8135a264c91cd8da32a4).
 
 ---
 

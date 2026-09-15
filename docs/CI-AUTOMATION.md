@@ -78,6 +78,20 @@ Files:
 
 `repository-policy.js` is the dependency-free source for branch syntax, commit syntax, path-to-directory mapping, and commit/path correlation. Hooks call it directly with Node; they do not duplicate policy regular expressions or query external services. Run `./scripts/setup-git-hooks.sh` once in each opting-in worktree to set only that checkout's absolute `core.hooksPath`. The script uses Git worktree-specific config, rejects existing conflicting hook paths, does not install packages, and does not change global Git configuration. See [GIT-HOOKS.md](./GIT-HOOKS.md).
 
+### Implementation PR governance observer
+
+File: `.github/scripts/wait-for-implementation-governance.js`
+
+The repository-local implementation finalizer invokes this dependency-free CLI with a PR number or URL. The observer binds one invocation to the resolved PR head SHA, reads GitHub Actions workflow runs and exact-attempt jobs through `gh api`, and orders reruns by stable run number, attempt, and IDs rather than nullable timestamps. Only `pull_request` and `pull_request_target` runs are authoritative for governance; manual previews are ignored. Commit-scoped external check runs supply the separately reported Cloud Build status. Contract tests read the workflow definitions so job-name or trigger-event drift cannot silently change the observer.
+
+```bash
+node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url> \
+  --timeout-seconds 300 \
+  --interval-seconds 5
+```
+
+Exit codes are stable: `0` means governance passed, `1` means governance failed, `2` means expected governance checks remained missing or pending until timeout, and `3` means usage, GitHub CLI, malformed-response, or PR-snapshot observation failed. Functional failures are reported but do not replace the governance exit code.
+
 ## Issue formalization boundary
 
 Issue creation/formalization is outside this workflow.
@@ -190,7 +204,7 @@ These exist so the workflow can adapt if the Notion property names or option nam
 
 ## Test execution and activation
 
-The workflow exposes these checks: `Governance tests`, `validate-pr-policy`, and `trusted-pr-sync`. `Governance tests` runs `node --test .github/scripts/*.test.js` for pull requests without secrets or write permissions. It includes branch grammar, commit-message grammar, and hook setup tests. Secret-bearing jobs deliberately check out the default branch, not PR code or manually selected refs; this protects privileged validation but means workflow/script fixes become live only after they are promoted to the default branch. `validate-pr-policy` uses that trusted code to fetch PR commit metadata from GitHub's read-only API boundary and fails closed when GitHub's pull-request commit listing reaches its 250-commit cap.
+The workflow exposes these checks: `Governance tests`, `validate-pr-policy`, and `trusted-pr-sync`. `Governance tests` runs `node --test .github/scripts/*.test.js` for pull requests without secrets or write permissions. It includes branch grammar, commit-message grammar, hook setup tests, and the implementation-finalizer observer contract. Secret-bearing jobs deliberately check out the default branch, not PR code or manually selected refs; this protects privileged validation but means workflow/script fixes become live only after they are promoted to the default branch. `validate-pr-policy` uses that trusted code to fetch PR commit metadata from GitHub's read-only API boundary and fails closed when GitHub's pull-request commit listing reaches its 250-commit cap.
 
 Only trusted-sync runs for the same PR are serialized. Each issue relation is an append-only comment with a deterministic marker, so unrelated PRs never share mutable issue-body state. The action lists paginated comments before posting, making retries idempotent without rewriting issue bodies. Legacy managed body blocks remain untouched and are not used for new synchronization.
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ButtonDos, FormError } from "@/components";
+import { ButtonDos, FormError } from "@/components/shared";
 import {
   ADMIN_LOGIN_QUERY_PARAMS,
   ADMIN_LOGIN_REASONS,
@@ -28,6 +28,7 @@ const getLoginErrorMessage = (error?: string) => {
 };
 
 export default function LoginForm() {
+  const [isHydrated, setIsHydrated] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,6 +43,10 @@ export default function LoginForm() {
     reason === ADMIN_LOGIN_REASONS.SESSION_EXPIRED && !isClosingSessionAlert;
 
   const toggleVisibility = () => setIsVisible(!isVisible);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   useEffect(() => {
     setIsClosingSessionAlert(false);
@@ -90,7 +95,11 @@ export default function LoginForm() {
     });
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form
+      className="flex flex-col gap-4"
+      data-login-hydrated={isHydrated}
+      onSubmit={handleSubmit}
+    >
       {showSessionExpiredAlert ? (
         <Alert
           color="warning"
@@ -112,6 +121,7 @@ export default function LoginForm() {
         type="text"
         className="w-full"
         classNames={formInputClassNames}
+        isDisabled={!isHydrated || isSubmitting}
         onChange={(evt) => {
           if (error !== "") setError("");
           handleChange(evt);
@@ -134,6 +144,7 @@ export default function LoginForm() {
         }}
         onBlur={handleBlur}
         classNames={formInputClassNames}
+        isDisabled={!isHydrated || isSubmitting}
         endContent={
           <button
             className="focus:outline-none"
@@ -151,7 +162,11 @@ export default function LoginForm() {
         type={isVisible ? "text" : "password"}
         className="w-full"
       />
-      <ButtonDos type="submit" fullWidth disabled={isSubmitting}>
+      <ButtonDos
+        type="submit"
+        fullWidth
+        disabled={!isHydrated || isSubmitting}
+      >
         {isSubmitting ? <Spinner size="sm" color="white" /> : "Acceder"}
       </ButtonDos>
       <FormError message={error} />

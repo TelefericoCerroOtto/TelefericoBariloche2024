@@ -1,6 +1,6 @@
 # Provisioned manual Playwright dispatcher target
 
-**Status: development smoke dispatch, manual same-SHA staging parity, and automatic staging OIDC full dispatch are proven. The accepted parity cutover removed the redundant GitHub-hosted fixture jobs; the manual exact-SHA trigger remains the fallback.** This snapshot records external state but does not create, update, disable, or enable it.
+**Status: exact-SHA fixture dispatch is proven; repository configuration now activates blocking real-auth acceptance, but runtime 3/3 acceptance remains unproven.** The manual exact-SHA trigger remains the fallback. This snapshot records external state but does not create, update, disable, or enable it.
 
 ## Target
 
@@ -9,12 +9,18 @@
 - Default source branch: `development`; no approval requirement.
 - Source revision: the exact lowercase 40-character PR head SHA supplied as `--sha`.
 - Build configuration: `cloudbuild.playwright-e2e.json`.
-- Build timeout from the selected revision: 45 minutes (`2700s`).
+- Build timeout from the selected revision: 65 minutes (`3900s`).
 - Suite substitution: `_PLAYWRIGHT_SUITE=smoke|full`; omission defaults safely to `smoke`.
 
 ## Dispatch scope
 
-The repository dispatcher implementation on default `main` covers relevant same-repository pull requests to `development` and `staging`. It covers `teleferico-app/**`, `teleferico-cms/**`, `cloudbuild.playwright-e2e.json`, `scripts/run-playwright-real-stack-readiness.sh`, the dispatcher and parity workflows, and the static contract test. Documentation-only changes and `tools/**` are intentionally excluded. Pull requests to `development` derive `smoke`; only a `development` head targeting `staging` derives `full`; other staging heads skip before OIDC.
+The repository dispatcher implementation on default `main` covers relevant same-repository pull requests to `development` and `staging`. It covers `teleferico-app/**`, `teleferico-cms/**`, `cloudbuild.playwright-e2e.json`, readiness and real-auth lifecycle and entrypoint files, the dispatcher and parity workflows, and both lifecycle contract tests. Documentation-only changes and `tools/**` are intentionally excluded. Pull requests to `development` derive `smoke`; only a `development` head targeting `staging` derives `full`; other staging heads skip before OIDC. Polling is bounded to 4200 seconds inside a 75-minute job.
+
+## Real-auth merge gate
+
+After the selected fixture profile and independent readiness succeed, Cloud Build unconditionally runs real-auth acceptance with the pinned Node image and staged Docker CLI. The step receives only non-secret `BUILD_ID` from Cloud Build configuration. Its inner lifecycle signals validated 3/3 evidence only after synthetic verification and cleanup and service cleanup succeed. The outer finalizer emits `TB122 real-auth acceptance=scenarios:3/3` only after validating that signal, repeating final PostgreSQL readiness, removing owned containers, proving their absence, removing diagnostics, and selecting exit `0`. Merge evidence requires both that marker and terminal success for the exact PR SHA; local/static checks or historical readiness builds are insufficient. This activation does not claim that evidence already exists.
+
+Production smoke, deployment, staging or production resources, IAM/WIF changes, Secret Manager, role hardening, and legacy-trigger deletion remain excluded.
 
 ## Provisioned identities
 
@@ -91,10 +97,10 @@ This evidence was accepted for the parity cutover. GitHub GraphQL reported no `b
 - Later eligible PR updates use the configured automatic GitHub OIDC dispatcher. After accepted proof from PR #273, the redundant GitHub-hosted `chromium-smoke` and temporary `chromium-full` jobs and their `pull_request` trigger were removed. `production-public-smoke` remains unchanged.
 - The manual exact-SHA trigger remains the fallback executor. The disabled native trigger is not a canonical fallback.
 - Retain the disabled native trigger for reversible rollback; do not delete it during this bootstrap.
-- Roll back this cutover by restoring the removed GitHub parity jobs and `pull_request` trigger. Reverting suite selection or staging routing is a broader rollback of the proven Cloud Build path. Disabling the dispatcher or removing its repository-variable configuration remains an operational change. GitHub cancellation can leave a bounded remote build running until the 45-minute Cloud Build timeout.
+- Roll back this cutover by restoring the removed GitHub parity jobs and `pull_request` trigger. Reverting suite selection or staging routing is a broader rollback of the proven Cloud Build path. Disabling the dispatcher or removing its repository-variable configuration remains an operational change. GitHub cancellation can leave a bounded remote build running until the 65-minute Cloud Build timeout.
 
 ## Pending issue #261 scope
 
 - Production-public-smoke execution migration.
-- Authenticated real-stack E2E completion and diagnostic artifacts.
+- Exact-SHA runtime proof that the activated real-auth step reaches terminal success and emits the sanitized 3/3 marker. Deterministic teardown and bounded Cloud Logging diagnostics are repository-defined; no diagnostic artifact sink is introduced. Historical runtime evidence predates this activation. Cloud Logging remains the sole durable runtime evidence channel, and rollback remains repository-level only.
 - Disabled native-trigger cleanup after its rollback window is no longer needed.

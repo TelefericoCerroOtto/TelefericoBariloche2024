@@ -1,0 +1,66 @@
+{
+  "kind": "collectionType",
+  "collectionName": "survey_versions",
+  "info": {
+    "singularName": "survey-version",
+    "pluralName": "survey-versions",
+    "displayName": "Survey version"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "versionKey": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 1,
+      "maxLength": 64,
+      "regex": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["draft", "published"],
+      "required": true,
+      "default": "draft"
+    },
+    "copyEs": {
+      "type": "json",
+      "required": true
+    },
+    "copyEn": {
+      "type": "json",
+      "required": true
+    },
+    "copyPt": {
+      "type": "json",
+      "required": true
+    },
+    "aspects": {
+      "type": "component",
+      "component": "survey.aspect-definition",
+      "repeatable": true,
+      "required": true,
+      "min": 1,
+      "max": 64
+    },
+    "lifecyclePublishedAt": {
+      "type": "datetime",
+      "private": true
+    },
+    "lastActivatedAt": {
+      "type": "datetime",
+      "private": true
+    },
+    "lastSupersededAt": {
+      "type": "datetime",
+      "private": true
+    },
+    "fixtureMarker": {
+      "type": "string",
+      "private": true,
+      "maxLength": 64
+    }
+  }
+}

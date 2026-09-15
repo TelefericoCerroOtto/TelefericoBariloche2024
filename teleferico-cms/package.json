@@ -8,6 +8,7 @@
     "develop": "strapi develop",
     "start": "strapi start",
     "strapi": "strapi",
+    "test": "node test/feedback/harness/test-runner.js",
     "seed:postulations": "node scripts/seed-postulations.js"
   },
   "dependencies": {

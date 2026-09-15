@@ -67,6 +67,8 @@ The Strapi `Public` role must not be used to make the public website work. Publi
 
 This token is for server-side content reads from `teleferico-app`. It must not grant write, delete, user-management or role-management permissions.
 
+The Playwright real-auth harness creates one narrower ephemeral custom token in its disposable CMS. It grants only `api::service-state.service-state.find`, the single dashboard runtime read exercised by this capability; it intentionally does not reproduce the persistent profile below. Its name and description are bound to the run marker. Only bounded non-secret ownership metadata is stored; plaintext is handed once to the lifecycle through anonymous file descriptor 3, supplied only to the Turbopack Next dev process, and revoked only after ownership and permission scope are revalidated during cleanup.
+
 | Content type            | `find` | `findOne` | `create` | `update` | `delete` |
 | ----------------------- | :----: | :-------: | :------: | :------: | :------: |
 | `activity`              |   ✅   |    ✅     |    —     |    —     |    —     |
@@ -116,6 +118,19 @@ No Strapi Upload API permission is required for this token.
 ## Users & Permissions roles
 
 These roles belong to the Users & Permissions plugin and are separate from Strapi Admin Panel roles.
+
+### Ephemeral Playwright real-auth roles
+
+The real-auth harness creates run-scoped role equivalents with the exact application-visible names `Administrator` and `Media Manager`. Their unique role types and descriptions contain the synthetic run marker; they never replace or update persistent roles. Provisioning fails if either exact name already belongs to another role in the disposable database.
+
+| Synthetic role | `users-permissions.role.find` | `users-permissions.user.me` | `postulation.find` | `service-state.update` |
+| --- | :---: | :---: | :---: | :---: |
+| `Administrator` | ✅ | ✅ | ✅ | ✅ |
+| `Media Manager` | ✅ | ✅ | — | — |
+
+`users-permissions.role.find` is required for Strapi to retain the populated role relation when sanitizing `/users/me?populate=*`; it does not grant role mutation. The Strapi JWT remains server-only.
+
+The default synthetic-database `Public` role must already expose `users-permissions.auth.callback`; the provisioner verifies it and does not modify that role. No delete, user/role-management, upload, Strapi Admin, or unused permission is granted. Confirmed/unblocked users, one service-state, one sector, and one marker-owned postulation exist only for the run. A bounded `0600` manifest stores only resource IDs and deterministic selectors. Cleanup restores service state first and deletes only records whose exact ownership is proven. Final PostgreSQL container removal is the interruption-recovery boundary.
 
 ### `Public`
 
@@ -182,6 +197,11 @@ Admin panel credentials must never be documented in this repository.
 
 Anything not listed in this document is not part of the expected permission model.
 
+The disabled TB-113 schema foundation (`survey-version`, `survey-settings`, and
+`survey-qr-point`) has no API-token or Users & Permissions grants in this slice.
+Its future custom intake and administration routes require a separately reviewed
+permission bootstrap; generic collection CRUD remains outside the access model.
+
 In particular, public-facing application tokens must not grant:
 
 - write permissions unless explicitly listed for the token;
@@ -214,4 +234,5 @@ Use this checklist when creating or rebuilding a Strapi environment.
 
 | Change | Date | Result | Evidence |
 | --- | --- | --- | --- |
+| `tb-113-visitor-feedback` S04 foundation | 2026-09-15 | Added disabled definition/QR schemas with no permission grants. | Catalog tests verify disabled defaults and the approved model subset; permission bootstrap remains out of scope. |
 | `tb-71-form-protection` | 2026-05-20 | Added `form-protection-submission` collection and token delta; existing `postulation` contract stays intact. | Verified `teleferico-cms/src/api/postulation/content-types/postulation/schema.json` stayed unchanged, added `teleferico-cms/src/api/form-protection-submission/**`, expanded `Public Forms (Next.js)` token to `form-protection-submission.find/create`, and kept `teleferico-app/src/lib/services/{contact,postulation}.ts` as server-only internal callers using `Origin`, `x-internal-api-key`, and optional `x-client-ip` without exposing Strapi access client-side. |
