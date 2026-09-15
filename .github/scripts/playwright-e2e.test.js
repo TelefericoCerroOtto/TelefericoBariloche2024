@@ -11,12 +11,16 @@ const appPackagePath = path.join(__dirname, "..", "..", "teleferico-app", "packa
 const standardConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.config.ts");
 const maintenanceConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.maintenance.config.ts");
 const productionConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.production.config.ts");
+const realAuthConfigPath = path.join(__dirname, "..", "..", "teleferico-app", "playwright.real-auth.config.ts");
+const realAuthSpecPath = path.join(__dirname, "..", "..", "teleferico-app", "tests", "e2e-real-auth", "real-auth.spec.ts");
 const cloudBuildNodeImage = "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96";
 const cloudBuildOldNodeImage = "node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488";
 const cloudBuildGitImage = "alpine/git@sha256:1e9d9a40acbd02aeb3cb005ff43f9e51ac09ba0c241bb2298f811d3f426a2ffd";
 const cloudBuildDockerImage = "gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c";
 const readinessScriptPath = path.join(__dirname, "..", "..", "scripts", "run-playwright-real-stack-readiness.sh");
 const lifecycleScriptPath = path.join(__dirname, "..", "..", "scripts", "playwright-real-stack-lifecycle.js");
+const realAuthHarnessPath = path.join(__dirname, "..", "..", "scripts", "run-playwright-real-auth.sh");
+const realAuthLifecyclePath = path.join(__dirname, "..", "..", "scripts", "playwright-real-auth-lifecycle.js");
 
 test("validates main containment before checking out or executing deployment-selected code", () => {
   const workflow = fs.readFileSync(playwrightWorkflowPath, "utf8");
@@ -66,6 +70,8 @@ test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot ex
     "cloudbuild.playwright-e2e.json",
     "scripts/run-playwright-real-stack-readiness.sh",
     "scripts/playwright-real-stack-lifecycle.js",
+    "scripts/run-playwright-real-auth.sh",
+    "scripts/playwright-real-auth-lifecycle.js",
     ".github/workflows/cloud-build-playwright-dispatch.yml",
     ".github/workflows/playwright-e2e.yml",
     ".github/scripts/playwright-e2e.test.js",
@@ -75,7 +81,7 @@ test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot ex
   }
   assert.doesNotMatch(dispatcher, /(?:docs|tools)\/\*\*/);
   assert.match(dispatcher, /permissions:\n\s+contents: read\n\nconcurrency:/);
-  assert.match(dispatcher, /dispatch-and-wait:\n\s+needs: validate-trusted-pr\n\s+if: needs\.validate-trusted-pr\.outputs\.dispatch_allowed == 'true'\n\s+runs-on: ubuntu-latest\n\s+timeout-minutes: 50\n\s+permissions:\n\s+contents: read\n\s+id-token: write/);
+  assert.match(dispatcher, /dispatch-and-wait:\n\s+needs: validate-trusted-pr\n\s+if: needs\.validate-trusted-pr\.outputs\.dispatch_allowed == 'true'\n\s+runs-on: ubuntu-latest\n\s+timeout-minutes: 75\n\s+permissions:\n\s+contents: read\n\s+id-token: write/);
   assert.match(dispatcher, /group: cloud-build-playwright-dispatch-\$\{\{ github\.event\.pull_request\.number \}\}\n\s+cancel-in-progress: true/);
   assert.ok(guard >= 0 && auth > guard);
   for (const value of ["BASE_REF", "CURRENT_REPOSITORY", "HEAD_REF", "HEAD_REPOSITORY", "HEAD_SHA"]) assert.match(dispatcher, new RegExp(`${value}: \\$\\{\\{`));
@@ -99,13 +105,14 @@ test("Cloud Build dispatcher is path-filtered, provenance-guarded, and cannot ex
   assert.match(dispatcher, /umask 077\n\s+token_file="\$RUNNER_TEMP\/cloud-build-dispatch-access-token"/);
   assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds triggers run "\$CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID".*--sha="\$PR_HEAD_SHA".*--substitutions="_PLAYWRIGHT_SUITE=\$PLAYWRIGHT_SUITE"/);
   assert.match(dispatcher, /gcloud --access-token-file="\$token_file" builds describe "\$build_id"/);
+  assert.match(dispatcher, /deadline=\$\(\(SECONDS \+ 4200\)\)/);
   assert.match(dispatcher, /GITHUB_STEP_SUMMARY/);
   assert.equal(crypto.createHash("sha256").update(nativeWorkflow).digest("hex"), "ce053b507efcfae66a7e0629acbdeff6e87fdc736655ddfc4b14655be51535af");
 });
 
 test("Cloud Build fixture executor preserves the ordered locked selectable-suite contract", () => {
   const executor = JSON.parse(fs.readFileSync(cloudBuildExecutorPath, "utf8"));
-  const [revision, packageManager, dependencies, suite, dockerCli, readiness] = executor.steps;
+  const [revision, packageManager, dependencies, suite, dockerCli, readiness, realAuth] = executor.steps;
 
   assert.deepEqual(
     executor.steps.map(({ id, name, dir, entrypoint, timeout }) => ({ id, name, dir, entrypoint, timeout })),
@@ -116,9 +123,10 @@ test("Cloud Build fixture executor preserves the ordered locked selectable-suite
       { id: "Run fixture-backed Chromium suite", name: cloudBuildNodeImage, dir: "teleferico-app", entrypoint: "bash", timeout: "900s" },
       { id: "Stage Docker CLI", name: cloudBuildDockerImage, dir: undefined, entrypoint: "bash", timeout: "60s" },
       { id: "Run real-stack readiness", name: cloudBuildNodeImage, dir: undefined, entrypoint: "bash", timeout: "900s" },
+      { id: "Run real-auth acceptance", name: cloudBuildNodeImage, dir: undefined, entrypoint: "bash", timeout: "1200s" },
       ],
   );
-  assert.equal(executor.timeout, "2700s");
+  assert.equal(executor.timeout, "3900s");
   assert.deepEqual(executor.substitutions, { _PLAYWRIGHT_SUITE: "smoke" });
   assert.deepEqual(executor.options, { logging: "CLOUD_LOGGING_ONLY" });
   assert.ok(executor.steps.every((step) => step.name !== cloudBuildOldNodeImage));
@@ -165,6 +173,10 @@ test("Cloud Build fixture executor preserves the ordered locked selectable-suite
   assert.match(readiness.args[1], /bash scripts\/run-playwright-real-stack-readiness\.sh/);
   assert.deepEqual(readiness.volumes, dockerCli.volumes);
   assert.deepEqual(readiness.env, ["BUILD_ID=$BUILD_ID"]);
+  assert.match(realAuth.args[1], /export PATH="\/tb122-runtime:\$\$PATH"/);
+  assert.match(realAuth.args[1], /bash scripts\/run-playwright-real-auth\.sh/);
+  assert.deepEqual(realAuth.volumes, dockerCli.volumes);
+  assert.deepEqual(realAuth.env, ["BUILD_ID=$BUILD_ID"]);
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "secretEnv")));
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "waitFor")));
   assert.ok(executor.steps.every((step) => !Object.hasOwn(step, "allowFailure")));
@@ -174,6 +186,32 @@ test("Cloud Build fixture executor preserves the ordered locked selectable-suite
   for (const field of ["artifacts", "availableSecrets", "images", "logsBucket", "serviceAccount"]) {
     assert.equal(Object.hasOwn(executor, field), false, `${field} must remain out of the baseline.`);
   }
+});
+
+test("Cloud Build real-auth acceptance remains fail-closed around exactly three scenarios", () => {
+  const config = fs.readFileSync(realAuthConfigPath, "utf8");
+  const spec = fs.readFileSync(realAuthSpecPath, "utf8");
+  const harness = fs.readFileSync(realAuthHarnessPath, "utf8");
+  const lifecycle = fs.readFileSync(realAuthLifecyclePath, "utf8");
+  const outerLifecycle = fs.readFileSync(readinessScriptPath, "utf8");
+
+  assert.match(config, /testDir: "\.\/tests\/e2e-real-auth"/);
+  assert.match(config, /testMatch: "\*\*\/real-auth\.spec\.ts"/);
+  assert.match(config, /retries: 0/);
+  assert.match(config, /workers: 1/);
+  assert.equal((spec.match(/^\s*test\("/gm) ?? []).length, 3);
+  assert.doesNotMatch(spec, /\btest\.(?:skip|fixme)\b|\btest\.describe\.skip\b/);
+  assert.match(harness, /TB122_HARNESS_CAPABILITY=real-auth/);
+  assert.match(harness, /PLAYWRIGHT_REAL_AUTH_HARNESS_OPT_IN=run/);
+  assert.match(lifecycle, /ACCEPTED_SCENARIO_COUNT = 3/);
+  assert.match(lifecycle, /test\.expectedStatus === "passed"/);
+  assert.match(lifecycle, /test\.results\[0\]\.status === "passed"/);
+  assert.match(lifecycle, /stats\?\.skipped !== 0/);
+  assert.match(lifecycle, /TB122 real-auth internal=validated-scenarios:3\/3/);
+  assert.doesNotMatch(lifecycle, /TB122 real-auth acceptance=scenarios:3\/3/);
+  assert.match(outerLifecycle, /verify_real_auth_acceptance_signal/);
+  assert.match(outerLifecycle, /TB122 real-auth acceptance=scenarios:3\/3/);
+  assert.match(outerLifecycle, /HARNESS_CAPABILITY.*real-auth.*final_code.*-eq 0/);
 });
 
 test("GitHub fixture-backed pull-request parity jobs are absent after cutover", () => {

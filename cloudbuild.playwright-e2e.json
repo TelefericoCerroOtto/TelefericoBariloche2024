@@ -92,9 +92,28 @@
         }
       ],
       "timeout": "900s"
+    },
+    {
+      "name": "node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96",
+      "id": "Run real-auth acceptance",
+      "entrypoint": "bash",
+      "env": [
+        "BUILD_ID=$BUILD_ID"
+      ],
+      "args": [
+        "-c",
+        "set -euo pipefail\nexport PATH=\"/tb122-runtime:$$PATH\"\nbash scripts/run-playwright-real-auth.sh\n"
+      ],
+      "volumes": [
+        {
+          "name": "tb122-runtime",
+          "path": "/tb122-runtime"
+        }
+      ],
+      "timeout": "1200s"
     }
   ],
-  "timeout": "2700s",
+  "timeout": "3900s",
   "substitutions": {
     "_PLAYWRIGHT_SUITE": "smoke"
   },

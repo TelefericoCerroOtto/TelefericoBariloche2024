@@ -10,6 +10,8 @@ on:
       - "cloudbuild.playwright-e2e.json"
       - "scripts/run-playwright-real-stack-readiness.sh"
       - "scripts/playwright-real-stack-lifecycle.js"
+      - "scripts/run-playwright-real-auth.sh"
+      - "scripts/playwright-real-auth-lifecycle.js"
       - ".github/workflows/cloud-build-playwright-dispatch.yml"
       - ".github/workflows/playwright-e2e.yml"
       - ".github/scripts/playwright-e2e.test.js"
@@ -73,7 +75,7 @@ jobs:
     needs: validate-trusted-pr
     if: needs.validate-trusted-pr.outputs.dispatch_allowed == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 75
     permissions:
       contents: read
       id-token: write
@@ -117,7 +119,7 @@ jobs:
           printf '%s' "$CLOUD_BUILD_ACCESS_TOKEN" > "$token_file"
           build_id="$(gcloud --access-token-file="$token_file" builds triggers run "$CLOUD_BUILD_PLAYWRIGHT_MANUAL_TRIGGER_ID" --project="$CLOUD_BUILD_PROJECT_ID" --region="$CLOUD_BUILD_REGION" --sha="$PR_HEAD_SHA" --substitutions="_PLAYWRIGHT_SUITE=$PLAYWRIGHT_SUITE" --format='value(metadata.build.id)')"
           test -n "$build_id"
-          deadline=$((SECONDS + 2760))
+          deadline=$((SECONDS + 4200))
           while :; do
             status="$(gcloud --access-token-file="$token_file" builds describe "$build_id" --project="$CLOUD_BUILD_PROJECT_ID" --region="$CLOUD_BUILD_REGION" --format='value(status)')"
             case "$status" in
