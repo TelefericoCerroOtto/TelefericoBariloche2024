@@ -387,6 +387,50 @@ export interface SurveyAspectDefinition extends Struct.ComponentSchema {
   };
 }
 
+export interface SurveyAspectRating extends Struct.ComponentSchema {
+  collectionName: 'components_survey_aspect_ratings';
+  info: {
+    displayName: 'Survey aspect rating';
+  };
+  attributes: {
+    aspectKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 1;
+      }>;
+    customText: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 300;
+        minLength: 1;
+      }>;
+    label: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+        minLength: 1;
+      }>;
+    ownerReceipt: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 36;
+        minLength: 36;
+      }>;
+    rating: Schema.Attribute.Enumeration<['negative', 'neutral', 'positive']> &
+      Schema.Attribute.Required;
+    sortOrder: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 63;
+          min: 0;
+        },
+        number
+      >;
+  };
+}
+
 export interface UtilsComponentsCarrouselItem extends Struct.ComponentSchema {
   collectionName: 'components_utils_components_carrousel_items';
   info: {
@@ -473,6 +517,7 @@ declare module '@strapi/strapi' {
       'page-properties.metat-tag': PagePropertiesMetatTag;
       'page-properties.seo': PagePropertiesSeo;
       'survey.aspect-definition': SurveyAspectDefinition;
+      'survey.aspect-rating': SurveyAspectRating;
       'utils-components.carrousel-item': UtilsComponentsCarrouselItem;
       'utils-components.hours-overview-item': UtilsComponentsHoursOverviewItem;
       'utils-components.image': UtilsComponentsImage;

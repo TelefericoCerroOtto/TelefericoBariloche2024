@@ -197,9 +197,10 @@ Admin panel credentials must never be documented in this repository.
 
 Anything not listed in this document is not part of the expected permission model.
 
-The disabled TB-113 schema foundation (`survey-version`, `survey-settings`, and
-`survey-qr-point`) has no API-token or Users & Permissions grants in this slice.
-Its future custom intake and administration routes require a separately reviewed
+The disabled TB-113 persistence catalog (`survey-version`, `survey-settings`,
+`survey-qr-point`, `survey-submission`, `survey-report-generation`, and
+`survey-report`) has no API-token or Users & Permissions grants. Its future
+custom intake, administration, and worker routes require a separately reviewed
 permission bootstrap; generic collection CRUD remains outside the access model.
 
 In particular, public-facing application tokens must not grant:

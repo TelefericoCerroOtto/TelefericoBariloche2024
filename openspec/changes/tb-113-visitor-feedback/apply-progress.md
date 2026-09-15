@@ -3,15 +3,15 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Standard for S04, using requested behavior-first RED → GREEN → REFACTOR discipline; historical S01-S03 evidence is preserved below
+- Apply mode: Standard for S05a, using requested behavior-first RED → GREEN → REFACTOR discipline; historical S01-S04 evidence is preserved below
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: 400 authored changed lines for S04
-- Current slice/work unit: S04 / task 2.1 / U4 definition and QR schema foundation (partial)
+- Review budget: accepted `size:exception`; maintainer-authorized native reset preserves the 843-line S05a candidate as the new baseline
+- Current slice/work unit: S05a / task 2.1 / U4 persistence schema completion candidate; post-reset verification complete
 - Progress: 3 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
-- Size exception: not granted and not used
+- Size exception: explicitly accepted together with the successful native reset for this cohesive persistence-definition slice
 
 ## Completed tasks
 
@@ -21,7 +21,7 @@
 
 ## Remaining tasks
 
-- [ ] 2.1 U4 — partial: definition/QR schema foundation exists; submission, report lifecycle, migration, services/routes, constraints, and generated types remain
+- [ ] 2.1 U4 — partial: all approved inert persistence definitions and generated declarations exist; migrations/indexes and lifecycle services/routes remain for S05b
 - [ ] 2.2 U5
 - [ ] 2.3 U6
 - [ ] 3.1 U7
@@ -157,7 +157,7 @@ The subprocess boundary uses `/usr/local/bin/docker` with argument arrays and `s
 ## S04 Partial Work Unit Evidence
 
 - Scope: first coherent definition/catalog foundation only. Added `survey-version`, `survey-settings`, `survey-qr-point`, and `survey.aspect-definition`; U4 remains unchecked.
-- Explicitly deferred: the other three approved collections, `survey.aspect-rating`, migrations/indexes, lifecycle services/routes, generated types, permission bootstrap, and all app/core/worker/operational work.
+- Explicitly deferred at S04: the other three approved collections, `survey.aspect-rating`, migrations/indexes, lifecycle services/routes, and permission bootstrap. PR #300 synchronized S04 generated declarations before S05a.
 - Disabled baseline: all three content types set `draftAndPublish:false`; versions default to `draft`; intake and generation default to `false`; no permission grant or custom route was added.
 
 ### S04 RED, GREEN, and REFACTOR
@@ -186,3 +186,16 @@ The subprocess boundary uses `/usr/local/bin/docker` with argument arrays and `s
 ## Deviations
 
 Explicit authorization installed candidate dependencies before the reviewed pass because the real POC could not execute without them; no production import was added, and rollback is confined to the dependency delta and POC files. All other implementation matches the design.
+
+## S05a Partial Work Unit Evidence
+
+- Scope: added `survey-submission`, `survey-report-generation`, `survey-report`, and `survey.aspect-rating`; regenerated declarations for these definitions only. Task 2.1 remains unchecked.
+- RED: `npm --prefix teleferico-cms test -- feedback/catalog` exited 1 with 3/8 passing and 5 failures because the four definitions were absent.
+- Pre-reset GREEN/REFACTOR: `npm --prefix teleferico-cms test -- feedback/catalog` exited 0 with 6/6 passing after the final schema and catalog-test refactor.
+- Post-reset verification: catalog 6/6 passed; harness 21/21 passed; CMS build exited 0; `git diff --check` exited 0 with no output.
+- Runtime harness: N/A for PostgreSQL because this static schema slice adds no migration, index, service, controller, route, or lifecycle behavior. The harness unit suite spawned no real PostgreSQL or Docker resource.
+- Cleanup and generation: no test-owned process, container, or volume remained; the repository generator completed with 0 warnings/errors and left both generated declaration hashes unchanged.
+- Rollback boundary: remove the four new schema/component files; revert their generated declaration deltas, the focused catalog-test extension, the deny-by-default permissions wording, and this S05a evidence only. Preserve S01-S04 and PR #300 declarations.
+- Boundary: sequential S05a slice after merged S04 and PR #300; S05b waits for this future slice to merge before adding migrations/indexes and lifecycle services/routes.
+- Size: the reset-authorized candidate baseline is exactly 418 authored changed lines plus 425 generated declaration lines, 843 complete changed lines; task 2.1 stays unchecked because S05b remains.
+- Remediation lineage: native reset authorized remediation of failed evidence `sha256:e8af3ff9923dd78a75be29945f0a54de77d48a19278eedf5ee4b16bd1656a7db`; new evidence revision `sha256:2223e4eb6dc602299a8f3463225ea8f566d694dcae98f8b4007fb8967327209b`, computed from the sorted changed-file SHA-256 manifest with this line normalized to `new evidence revision pending`.

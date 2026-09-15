@@ -1,0 +1,45 @@
+{
+  "collectionName": "components_survey_aspect_ratings",
+  "info": {
+    "displayName": "Survey aspect rating"
+  },
+  "options": {},
+  "attributes": {
+    "ownerReceipt": {
+      "type": "string",
+      "required": true,
+      "private": true,
+      "minLength": 36,
+      "maxLength": 36
+    },
+    "aspectKey": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 64,
+      "regex": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "label": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "sortOrder": {
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "max": 63
+    },
+    "rating": {
+      "type": "enumeration",
+      "enum": ["negative", "neutral", "positive"],
+      "required": true
+    },
+    "customText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    }
+  }
+}
