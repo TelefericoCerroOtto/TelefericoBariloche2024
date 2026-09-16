@@ -19,11 +19,15 @@ This document defines how project TODOs are captured, triaged, and promoted betw
 
 The source of truth is the Notion database **Backlog unificado**:
 
+- Navigation: top-level page **Teleferico** (`https://app.notion.com/p/909a58c3fefc828c872f81d2ed3b6d74`) → **Backlog unificado**
+- Parent page ID: `909a58c3-fefc-828c-872f-81d2ed3b6d74`
 - Database ID: `adf69803-af21-49a1-a98f-e5afa6f95be5`
 - Data source ID: `c0734f69-87ea-43ca-a757-3bb80a41cbbc`
 - URL: `https://app.notion.com/p/adf69803af2149a1a98fe5afa6f95be5`
 
-Any suffixed copy, especially `Backlog unificado (1)`, is non-canonical and must not receive writes.
+Repository agents should use the Notion MCP for backlog reads and writes when it is available. If it is unavailable, they must report the limitation and must not pretend that backlog state was verified or changed.
+
+Any other homonymous or suffixed database, especially `Backlog unificado (1)`, is non-canonical and must not receive operational reads or writes.
 
 It is used for:
 
