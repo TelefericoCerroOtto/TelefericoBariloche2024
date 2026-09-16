@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; corrective S07a package-local boundary and core foundation passed
+- Apply mode: Strict TDD; S09 snapshot slice passed, phase-contract reconciliation partial
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: corrected S08 contains exactly 400 authored changed lines; no size exception applies
-- Current slice/work unit: `U6-S08-reporting-metrics`; complete, while task 2.3 remains partial for S09
+- Review budget: corrected candidate contains 386 authored changed lines relative to `5e1d8c81609912c0b85cc97817f6e9f822db88cb`; no size exception applies
+- Current slice/work unit: `S09 phase-contract reconciliation`; snapshot slice complete, but task 2.3/U6 reopened for missing D64-D67 evidence thresholds
 - Progress: 5 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -385,3 +385,28 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 | Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/metrics.test.ts --config packages/survey-reporting-core/vitest.config.ts`; corrective RED exit 1 with absent trend; final exit 0, 1 file and 5/5 passed. |
 | Runtime harness command/scenario and exact result | N/A — S08 remains a dependency-free pure TypeScript library with no runtime, I/O, framework, browser, CMS, or Node boundary. |
 | Rollback boundary | Remove `src/metrics.ts` and `src/metrics.test.ts`, revert the metrics barrel export and only this S08 status/evidence; preserve S07 and keep task 2.3 unchecked. |
+
+## S09 Snapshot Slice Evidence — U6 Remains Open
+
+- Scope: deterministic immutable `survey-snapshot.v1` envelopes, canonical SHA-256 population/payload digests, complete current/previous comments, calendar and QR-point projections, validation, deep freezing, five ordered renderer-neutral report charts, exact one-decimal formatting, and explicit empty states. Terminal S09 settlement revision: `sha256:4c0c8157d956eda3dedc7535567c2e176912f10f4635d22efe2e1e6cd1f20f78`.
+- Reconciliation finding: source/test inspection proves only the separate 5% aspect threshold and aspect `insufficient_evidence` state; no recurrent/minority implementation or tests prove D64-D67 (`max(10,ceil(2%))`, four unique refs, distinct signals, recurrent overlap precedence, unsupported category). Task 2.3 is therefore reopened. Production imports remain relative-only and contain no React, Next.js, Strapi, ECharts, Recharts, browser, or Node dependency, supporting D85.
+- Partial closure: S09 is a partial U6 slice; D64-D67 are deferred to the next ordered slice, and task 2.3 remains unchecked.
+
+### S09 TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `U6-S09-reporting-snapshots` | `src/snapshot.test.ts` | Pure unit | Package baseline exit 0, 16/16 passed | Exit 1 before production code: missing `./snapshot`; 0 tests collected | Focused selector exit 0, 3/3 passed | Non-empty and empty populations, both periods, canonical digest fixture, altered digest rejection, five ordered charts, accessible tables, unavailable values, signed percentages, and half-up rating formatting | Full package exit 0, 19/19 passed after runtime-neutral SHA-256 and chart-kind refinement |
+
+### S09 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run packages/survey-reporting-core/src/snapshot.test.ts --config packages/survey-reporting-core/vitest.config.ts`; exit 0; 1 file and 3/3 tests passed. |
+| Runtime harness command/scenario and exact result | N/A — S09 is a pure dependency-free TypeScript library with no I/O, framework, browser, CMS, Node, process, or remote boundary. |
+| Rollback boundary | Remove `src/snapshot.ts` and `src/snapshot.test.ts`, revert their barrel export, task 2.3 checkbox, and this S09/status evidence; preserve all S07/S08 behavior and evidence. |
+
+### S09 Verification and Cleanup
+
+- Package tests: exit 0, 3 files and 19/19 tests passed. Root app typecheck: exit 0 after aligning the TypeScript target with the core's exact BigInt contract at ES2020 and cleaning the stale local incremental cache. `git diff --check`: exit 0, no output. Pure-core inspection: 6 production files, 12 relative-only imports, 0 prohibited dependencies. Corrected candidate: 388 authored changed lines (384 additions, 4 deletions).
+- Test-created package-local `node_modules` was removed; no child process, container, volume, temporary artifact, dependency, manifest, lockfile, runtime, remote service, or credential remained or changed.
