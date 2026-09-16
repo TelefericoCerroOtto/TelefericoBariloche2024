@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; U6 complete through bounded S10 D64-D67 evidence rules
+- Apply mode: Strict TDD; U6 complete and the first bounded U7 foundation is implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: S10 remains below the 400 authored-line ceiling; no size exception applies
-- Current slice/work unit: `S10-D64-D67-report-evidence`; U6 is complete and U7 has not started
+- Review budget: S11 remains below the 400 authored-line ceiling; no size exception applies
+- Current slice/work unit: `S11-U7-intake-http-boundary`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -442,3 +442,33 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Authored scope: 158 changed lines (152 additions, 6 deletions), including cumulative SDD task/progress persistence; no size exception.
 - Evidence revision: `sha256:8c19bf2599e0679316db8586fa759faed14a5313c3e21231098dd0475f17e871`, derived from canonical `tb113-apply-evidence.v1` JSON containing the two implementation-file SHA-256 digests, exact verification outcomes, completed task identity, runtime boundary, and harness state.
 - The existing package-local Vitest harness was reused and not invalidated; no configuration, dependency, manifest, lockfile, generated artifact, runtime service, process, container, volume, remote operation, or credential was created or changed.
+
+## S11 U7 Intake HTTP Boundary — U7 Remains Open
+
+- Scope: added pure server-usable validation for canonical QR public codes, canonical UUID draft identifiers, and the public submission request envelope.
+- The envelope fails closed on method, UTF-8 JSON media type, actual/declared 32 KiB size, query parameters, malformed UTF-8/JSON, contract version, required fields, and unknown fields.
+- Typed deterministic results expose only safe status/code/field metadata. No Route Handler, CMS call, token/draft lifecycle, origin/session/CSRF/capability enforcement, Redis guard, receipt, UI, worker transport, or E2E flow was added.
+- Task 3.1/U7 remains unchecked. Remaining U7 work is the QR resolver and signed session; exact answer/domain validation; origin/fetch-site, CAPTCHA, token/version/grace, idempotency and guard ordering; authoritative acceptance/receipt and Redis degradation; QR-bound draft and localized responsive UI; and visitor E2E proof.
+
+### S11 TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `S11-U7-intake-http-boundary` | `src/lib/feedback/intake-boundary.test.ts` | Pure unit | Public-form route baseline exit 0, 4/4 passed | Exit 1 before production code; unresolved `./intake-boundary`, 0 tests collected | Focused exit 0, 22/22 passed | Canonical and encoded/malformed/overlong/dot/extra-segment identifiers; valid envelope plus method/media/charset/query/size/length/UTF-8/JSON/field branches | Unified path validation helper; focused exit 0, 22/22 remained green |
+
+### S11 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/intake-boundary.test.ts`; exit 0; 1 file, 22/22 passed. |
+| Runtime harness command/scenario and exact result | N/A — this slice is a pure request-boundary library with no Route Handler, network, persistence, process, browser, CMS, or other runtime integration. |
+| Rollback boundary | Remove `src/lib/feedback/intake-boundary.ts` and its focused test, then remove only this S11 progress/status update; preserve S01-S10 and keep task 3.1 unchecked. |
+
+### S11 Verification, Cleanup, and Settlement Evidence
+
+- Safety net: `pnpm --dir teleferico-app exec vitest run src/app/api/__tests__/public-form-routes.test.ts`; exit 0; 1 file, 4/4 passed.
+- Focused test: exit 0; 1 file, 22/22 passed. App typecheck: exit 0; no diagnostics. `git diff --check`: exit 0; no output.
+- Authored scope: 351 changed lines (348 additions, 3 deletions), including cumulative OpenSpec persistence; no size exception.
+- No source-mutating formatter ran. No process remained after foreground Vitest/TypeScript commands; no container, volume, temporary artifact, dependency, manifest, lockfile, generated artifact, runtime service, remote operation, or credential was created or changed.
+- Evidence revision: `sha256:7d8deb330a4009a1282dd18acff30862afcc04652a4f4934eb7fbb8a6bf4f757`, derived from canonical `tb113-apply-evidence.v1` JSON containing the two implementation-file SHA-256 digests, exact verification outcomes, incomplete task state, runtime disposition, and harness cleanup state.
+- Settlement diagnosis: passed for this partial U7 slice; task 3.1 correctly remains open, and native attempt settlement remains parent-owned.
