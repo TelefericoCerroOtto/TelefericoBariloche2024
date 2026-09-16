@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD for S06a and S06b; historical modes remain recorded in their evidence sections
+- Apply mode: Strict TDD; corrective S07a package-local boundary and core foundation passed
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: S06b is a cohesive 459-line slice under its own maintainer-approved, candidate-specific `size:exception`
-- Current slice/work unit: `s06b-seed-fixtures`; exact catalog and marker-owned local/test fixtures only
+- Review budget: S07a contains exactly 360 authored changed lines; no size exception applies
+- Current slice/work unit: `U6-S07a-package-test-boundary-and-contracts-periods`; complete, while task 2.3 remains partial
 - Progress: 5 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -353,3 +353,22 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Lifecycle: exit 0, 10/10. Catalog: exit 0, 6/6. Harness: exit 0, 21/21.
 - `ENV_PATH=/dev/null npm --prefix teleferico-cms run build`: exit 0; only the noncausal stale Browserslist advisory appeared.
 - U5 and every later task remain unchecked and untouched. Parent attempt settlement remains outside this apply execution.
+
+## S07a Partial U6 Evidence
+
+- Scope: package-local Vitest/typecheck boundary, reporting contract identities and exact route-filter scopes, `tb-json.v1` canonical serialization primitives, and Buenos Aires local-calendar day/week/month periods. Metrics, populations, snapshots, chart models, formatting, and empty states remain deferred; task 2.3 stays unchecked.
+- The root Vitest configuration and every dependency, manifest, workspace declaration, lockfile, CMS, runtime UI, and excluded path remain unchanged.
+
+### S07a TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `U6-S07a-package-test-boundary-and-contracts-periods` | `packages/survey-reporting-core/src/reporting-core.test.ts` | Pure unit | N/A — new package | Missing `canonical-json` suite failed before implementation; day-bucket triangulation later failed 1/11 | Final package selector passed 11/11 | Exact routes, valid/invalid canonical values, equal previous range, and clipped day/week/month paths | Final 11/11 remained green after scalar-validation correction and package export boundary |
+
+### S07a Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run --config packages/survey-reporting-core/vitest.config.ts`; exit 0; 1 file and 11/11 tests passed. |
+| Runtime harness command/scenario and exact result | N/A — pure dependency-free library; no runtime boundary in S07. |
+| Rollback boundary | Remove only `teleferico-app/packages/survey-reporting-core/**` and this S07a evidence/status update; preserve S01-S06 and task 2.3 unchecked. |
