@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; U6 complete and the first bounded U7 foundation is implemented
+- Apply mode: Strict TDD; U6 complete and two bounded U7 foundations are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: S11 remains below the 400 authored-line ceiling; no size exception applies
-- Current slice/work unit: `S11-U7-intake-http-boundary`; U7 remains incomplete
+- Review budget: S12 remains below the 400 authored-line ceiling; no size exception applies
+- Current slice/work unit: `S12-U7-qr-session-contract`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -472,3 +472,28 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - No source-mutating formatter ran. No process remained after foreground Vitest/TypeScript commands; no container, volume, temporary artifact, dependency, manifest, lockfile, generated artifact, runtime service, remote operation, or credential was created or changed.
 - Evidence revision: `sha256:7d8deb330a4009a1282dd18acff30862afcc04652a4f4934eb7fbb8a6bf4f757`, derived from canonical `tb113-apply-evidence.v1` JSON containing the two implementation-file SHA-256 digests, exact verification outcomes, incomplete task state, runtime disposition, and harness cleanup state.
 - Settlement diagnosis: passed for this partial U7 slice; task 3.1 correctly remains open, and native attempt settlement remains parent-owned.
+
+## S12 U7 QR Session Contract — U7 Remains Open
+
+- Scope: injected-record resolution of only an active QR point plus the current published version, and an HMAC-SHA256 session token bound to point, hashed code, version/revision, capability, nonce, issuance, and exact two-hour expiry.
+- Fail-closed coverage includes unavailable QR/version state, malformed or tampered tokens, expiry, future issuance, wrong context/revision, and wrong capability. Signing material is accepted only as function input.
+- Task 3.1 remains unchecked. Answer validation, grace handling, guards/idempotency/acceptance, drafts/UI, Route Handlers, transports, persistence, and E2E remain deferred.
+
+### S12 TDD Cycle Evidence
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `S12-U7-qr-session-contract` | `src/lib/feedback/qr-session.test.ts` | Unit + Node crypto runtime | Intake boundary 22/22 passed | Missing `./qr-session`; exit 1, 0 tests | 15/15 passed | Active/unavailable records; valid/last-second/expired/future/tampered/malformed; wrong QR/point/version/revision/capability | Deterministic tamper helper; 15/15 remained green |
+
+### S12 Work Unit Evidence
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/qr-session.test.ts`; exit 0; 1 file, 15/15 passed. |
+| Runtime harness command/scenario and exact result | The focused suite executed Node `crypto` HMAC-SHA256, SHA-256, and constant-time signature comparison across valid and adversarial session scenarios; exit 0, 15/15 passed. |
+| Rollback boundary | Remove `qr-session.ts`, `qr-session.test.ts`, and this S12 evidence/status update; preserve S01-S11 and keep task 3.1 unchecked. |
+
+### S12 Verification, Cleanup, and Settlement Evidence
+- Focused: 15/15; S11+S12 safety suite: 37/37; app typecheck: exit 0; `git diff --check`: exit 0.
+- Authored scope: 395 changed lines (392 additions, 3 deletions), including OpenSpec persistence; no size exception.
+- No formatter, dependency, manifest, lockfile, environment, credential, network, persistence, process, container, volume, temporary artifact, Route Handler, or remote operation changed or remained.
+- Implementation SHA-256: `qr-session.ts=0f4690ce79079e3d34f24cb22b310bdaf6d13d4c7343cefba91a4f7aaf8f8332`; `qr-session.test.ts=531ab9807ca41e909625a8bfeb82fa86fcc69e28fb9fbe6d6bd266be3b8b168a`.
+- Evidence revision: `sha256:65de30b6e598ed421cdb1a43d0245451ee067622b6f1b7754cf9b503a2b6bd7c`; passed partial-slice diagnosis, runtime harness exercised, parent owns settlement.
