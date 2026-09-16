@@ -2,7 +2,7 @@
 
 ## Files and Migration
 
-CMS creates `src/api/survey-{version,qr-point,submission,report-generation,report}/**`, `src/api/survey-settings/**`, `src/components/survey/{aspect-definition,aspect-rating}.json`, `database/migrations/2026.09.11T0001-tb113-constraints.js`, `scripts/{seed-surveys,bootstrap-feedback-permissions}.js`, and `test/feedback/**`; regenerate, never hand-edit, `types/generated/{contentTypes,components}.d.ts`.
+CMS creates `src/api/survey-{version,qr-point,submission,report-generation,report}/**`, `src/api/survey-settings/**`, `src/components/survey/{aspect-definition,aspect-rating}.json`, `database/migrations/2026.09.11T0001-tb113-constraints.js`, `scripts/seed-surveys.js`, and `test/feedback/**`; regenerate, never hand-edit, `types/generated/{contentTypes,components}.d.ts`.
 
 App creates the QR page, Appendix-02 API routes, admin UI, `src/{types,lib}/feedback/**`, `packages/survey-reporting-core/**`, and `services/survey-report-worker/**`; auth changes capabilities, never JWT. Sensitive changes: manifests/locks/env examples, worker pinned image, permissions/infra docs. No dependency before POC; pnpm remains 10.33.0, installs frozen, build scripts reviewed before `allowBuilds`.
 
@@ -11,12 +11,13 @@ Migration order:
 1. Build isolated PostgreSQL harness and RED schema/auth/race tests; reject nonlocal host, non-`tb113_test_` database, or staging/production marker.
 2. Add disabled schemas/custom routes; catalog proves exactly five collections, one single type, two components, zero excluded types.
 3. One transaction asserts physical names, applies Appendix-01 SQL, creates the locked disabled singleton, verifies catalog, and rolls back any failure.
-4. Permission bootstrap plan→review→transaction: Public/Authenticated no survey routes; intake/worker tokens only exact actions; application `Administrator` all five D31 capabilities, others none by default; Super Admin unchanged. Future grants require explicit change; update permissions docs now.
-5. Regenerate types; fail unexpected files/contract mismatch.
-6. Seed local/test `tb113-fixture-v1` with deterministic IDs. Parent-first create and children-first cleanup are transactional; cleanup requires marker, exact manifest IDs, and expected count or aborts.
-7. Release compatible disabled readers. Absent settings creates one disabled row; invent no active version/point, touch no unrelated data, perform no destructive backfill.
+4. Before custom survey routes exist, S06a adds direct deny-baseline tests and permissions documentation only. Tests verify empty route/controller modules, zero registered survey Content API actions, zero survey grants for Public, Authenticated, every other application role, and API tokens, while excluding Super Admin from application-role inspection. They apply no grants or other permission mutation.
+5. Exact intake, worker, and administration grants are deferred to the route-owning U7, U8, and U10 slices after those actions exist. The five D31 names are application-level capabilities that U8 will map and enforce; they are not standalone Users & Permissions action rows.
+6. Regenerate types; fail unexpected files/contract mismatch.
+7. S06b seeds local/test `tb113-fixture-v1` with deterministic IDs. Parent-first create and children-first cleanup are transactional; cleanup requires marker, exact manifest IDs, and expected count or aborts.
+8. Release compatible disabled readers. Absent settings creates one disabled row; invent no active version/point, touch no unrelated data, perform no destructive backfill.
 
-The U5/S06 production bootstrap seed uses Appendix 01's exact 13 predefined aspect identities/order/translations plus `other`. Synthetic fixture values remain separate and MUST NOT establish production metrics or catalog semantics.
+The U5/S06b production bootstrap seed uses Appendix 01's exact 13 predefined aspect identities/order/translations plus `other`. Synthetic fixture values remain separate and MUST NOT establish production metrics or catalog semantics.
 
 ## Access and Compatibility
 

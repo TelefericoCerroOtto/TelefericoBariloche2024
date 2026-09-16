@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD for S05b; historical modes remain recorded in their evidence sections
+- Apply mode: Strict TDD for S06a; historical modes remain recorded in their evidence sections
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: maintainer-approved S05b `size:exception` of exactly 807 complete changed lines
-- Current slice/work unit: `s05b-cloud-build-remediation`; fresh Strapi startup now defers TB-113 invariants until schema synchronization, then installs them transactionally
+- Review budget: S06a is a bounded <=400-line slice; the historical S05b `size:exception` does not apply
+- Current slice/work unit: `s06a-permission-deny-baseline-tests-docs`; direct deny-baseline tests and operational documentation only
 - Progress: 4 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -33,6 +33,34 @@
 - [ ] 4.4 U13
 - [ ] 5.1 U14
 - [ ] 5.2 U15
+
+## S06a Permission Deny-Baseline Evidence
+
+- Scope: completed only direct deny-by-default tests and operational documentation. Task 2.2 remains unchecked until S06b seed/fixtures also complete.
+- All six survey route arrays and controllers expose zero Content API actions. Registered survey actions, application-role survey grants, API-token survey actions, and current D31 rows are zero.
+- Public, Authenticated, and every other application role remain denied. Super Admin is excluded from application-role reads and mutation. D31 names remain future U8 application capabilities rather than current Strapi action IDs.
+- Inspection issues only read queries and always destroys Strapi; isolated PostgreSQL containers and volumes are removed on completion.
+- No seed, fixture, U6, dependency, lockfile, environment, schema, generated-type, app, remote, deployment, or effective permission mutation occurred.
+
+### S06a TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `s06a-permission-deny-baseline-tests-docs` | `test/feedback/permissions/{permissions,postgres-permissions}.test.js` | Static contract + isolated PostgreSQL/real Strapi | Lifecycle 10/10, catalog 6/6, harness 21/21 passed | Interrupted script-based candidate exited 1, 4/5; revised direct suite then exited 1, 2/4 on stale docs and unavailable plugin query metadata | Direct selector exited 0, 4/4 | Intermediate REDs exposed multiline ownership wording, query count assumptions, and Knex non-write query methods; assertions now cover every route/controller, all application permission rows, token rows, and failure cleanup | Shared inspection cleanup was extracted; final 4/4 remained green |
+
+### S06a Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/permissions`; exit 0; 4/4 passed, 0 failed/skipped/cancelled/todo. |
+| Runtime harness command/scenario and exact result | The focused selector started only local PostgreSQL project `tb113_test_permissions`, synchronized real Strapi against `tb113_test_feedback`, directly registered Strapi, proved zero survey/D31 action rows across registered routes, all application-role permissions, and API-token permissions, then destroyed Strapi and ended with zero owned containers/volumes. The inspection query ledger contained no write or Admin Panel role/permission query. |
+| Rollback boundary | Remove the two focused test files and their selector registration; revert the S06a permissions documentation, S06 split amendments, and this S06a evidence. Preserve all S01-S05b implementation and evidence. |
+
+### S06a Verification
+
+- Permissions: exit 0, 4/4. Lifecycle: exit 0, 10/10. Catalog: exit 0, 6/6. Harness: exit 0, 21/21.
+- `git diff --check`: exit 0, no output.
+- Complete authored changed-line total: 304 (288 additions, 16 deletions), below the 400-line ceiling.
 
 ## TDD Cycle Evidence
 
