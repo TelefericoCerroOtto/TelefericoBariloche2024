@@ -3,12 +3,12 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; S09 snapshot slice passed, phase-contract reconciliation partial
+- Apply mode: Strict TDD; U6 complete through bounded S10 D64-D67 evidence rules
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: corrected candidate contains 386 authored changed lines relative to `5e1d8c81609912c0b85cc97817f6e9f822db88cb`; no size exception applies
-- Current slice/work unit: `S09 phase-contract reconciliation`; snapshot slice complete, but task 2.3/U6 reopened for missing D64-D67 evidence thresholds
-- Progress: 5 of 15 tasks complete
+- Review budget: S10 remains below the 400 authored-line ceiling; no size exception applies
+- Current slice/work unit: `S10-D64-D67-report-evidence`; U6 is complete and U7 has not started
+- Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
 - Size exception: former 800-line attempt settled failed at evidence revision `sha256:c57930a7430e91880415ef1d9c6633220e91dcd0852f343246f5ffabe5c8e264`; maintainer explicitly approved the distinct 807-line correction candidate; later slices require a new workload decision
@@ -20,10 +20,10 @@
 - [x] 1.3 U3 — Prove the nine Appendix-05 renderer criteria with Recharts, ECharts 6.1 SVG SSR, pinned Chromium, deterministic PDFs, and synthetic parity fixtures.
 - [x] 2.1 U4 — Complete exact Strapi persistence services/routes, additive constraints and indexes, lifecycle contracts, generated-type regeneration, and local PostgreSQL proof.
 - [x] 2.2 U5 — Preserve deny-by-default permissions and add the exact initial catalog plus deterministic transactional local/test fixtures.
+- [x] 2.3 U6 — Complete the pure reporting core, including independent recurrent/minority evidence classification and explicit unsupported categories.
 
 ## Remaining tasks
 
-- [ ] 2.3 U6
 - [ ] 3.1 U7
 - [ ] 3.2 U8
 - [ ] 3.3 U9
@@ -410,3 +410,35 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 - Package tests: exit 0, 3 files and 19/19 tests passed. Root app typecheck: exit 0 after aligning the TypeScript target with the core's exact BigInt contract at ES2020 and cleaning the stale local incremental cache. `git diff --check`: exit 0, no output. Pure-core inspection: 6 production files, 12 relative-only imports, 0 prohibited dependencies. Corrected candidate: 388 authored changed lines (384 additions, 4 deletions).
 - Test-created package-local `node_modules` was removed; no child process, container, volume, temporary artifact, dependency, manifest, lockfile, runtime, remote service, or credential remained or changed.
+
+## S10 D64-D67 Evidence Rules — U6 Complete
+
+- Scope: added only renderer-neutral pure-core recurrent/minority evidence thresholds and classification. S07-S09 behavior is preserved, U7 and later tasks remain untouched, and task 2.3 is now complete.
+- Recurrent thresholds are calculated independently per period as `max(10, ceil(2% of unique eligible comments))`; minority support requires four unique eligible comments.
+- Required categories are always projected in caller-provided deterministic order. Missing or weak categories explicitly return `insufficient_evidence`; recurrent takes precedence when the same category also qualifies as minority.
+- Candidate references are deduplicated and only eligible period references contribute to support, so evidence cannot leak across periods.
+
+### S10 TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `S10-D64-D67-report-evidence` | `packages/survey-reporting-core/src/metrics.test.ts` | Pure unit | Focused baseline exit 0, 5/5 passed | Exit 1, 3/8 failed because both new production exports were absent; the existing 5 tests remained green | Focused exit 0, 8/8 passed after the minimum threshold and classification implementation | Covered 0/500/501/1,001 eligible-comment boundaries, 21-ref recurrence, four-ref minority, recurrent overlap precedence, duplicate refs, three-ref weakness, absent required categories, and current/previous isolation | Extracted the signal decision into one pure rule; focused exit 0, 8/8 remained green |
+
+### S10 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run packages/survey-reporting-core/src/metrics.test.ts --config packages/survey-reporting-core/vitest.config.ts`; exit 0; 1 file, 8/8 passed. |
+| Runtime harness command/scenario and exact result | N/A — this slice changes a dependency-free pure TypeScript calculation with no runtime, I/O, framework, browser, CMS, process, or remote boundary. |
+| Rollback boundary | Revert only the evidence contracts/functions in `src/metrics.ts`, the D64-D67 tests in `src/metrics.test.ts`, task 2.3's checkbox, and this S10 evidence/status. Preserve every S07-S09 contract, metric, snapshot, chart, and test behavior. |
+
+### S10 Verification and Cleanup
+
+- Focused metrics: exit 0, 1 file and 8/8 tests passed.
+- Full core: exit 0, 3 files and 22/22 tests passed.
+- Core TypeScript: exit 0, no diagnostics.
+- App TypeScript: exit 0, no diagnostics.
+- `git diff --check`: exit 0, no output.
+- Authored scope: 158 changed lines (152 additions, 6 deletions), including cumulative SDD task/progress persistence; no size exception.
+- Evidence revision: `sha256:8c19bf2599e0679316db8586fa759faed14a5313c3e21231098dd0475f17e871`, derived from canonical `tb113-apply-evidence.v1` JSON containing the two implementation-file SHA-256 digests, exact verification outcomes, completed task identity, runtime boundary, and harness state.
+- The existing package-local Vitest harness was reused and not invalidated; no configuration, dependency, manifest, lockfile, generated artifact, runtime service, process, container, volume, remote operation, or credential was created or changed.

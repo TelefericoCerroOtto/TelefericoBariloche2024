@@ -4,9 +4,11 @@ import { normalizePeriod } from "./periods";
 import {
   MetricError,
   buildEligiblePopulations,
+  calculateRecurrentEvidenceThreshold,
   calculateMetrics,
   calculateRateBps,
   calculateRelativeChangeBps,
+  classifyEvidenceCategories,
   type MetricSubmission,
 } from "./metrics";
 
@@ -61,6 +63,62 @@ describe("eligible populations", () => {
     expect(result.current.map(({ receipt }) => receipt)).toEqual(["a", "b"]);
     expect(result.previous.map(({ receipt }) => receipt)).toEqual(["previous"]);
     expect(result.excludedAfterCutoffCount).toBe(1);
+  });
+});
+
+describe("comment evidence classification", () => {
+  it("calculates the recurrent threshold independently from each period's eligible comments", () => {
+    expect(calculateRecurrentEvidenceThreshold("0")).toBe(10);
+    expect(calculateRecurrentEvidenceThreshold("500")).toBe(10);
+    expect(calculateRecurrentEvidenceThreshold("501")).toBe(11);
+    expect(calculateRecurrentEvidenceThreshold("1001")).toBe(21);
+  });
+
+  it("keeps recurrent and minority signals distinct with recurrent precedence", () => {
+    const eligibleCommentRefs = Array.from({ length: 1001 }, (_, index) => `e_${index}`);
+    const result = classifyEvidenceCategories({
+      period: "current",
+      eligibleCommentRefs,
+      requiredCategoryKeys: ["recurrent", "minority", "overlap", "weak", "missing"],
+      categories: [
+        { categoryKey: "recurrent", evidenceRefs: eligibleCommentRefs.slice(0, 21) },
+        { categoryKey: "minority", evidenceRefs: eligibleCommentRefs.slice(30, 34) },
+        { categoryKey: "overlap", evidenceRefs: [...eligibleCommentRefs.slice(40, 61), "e_40"] },
+        { categoryKey: "weak", evidenceRefs: eligibleCommentRefs.slice(70, 73) },
+      ],
+    });
+
+    expect(result).toEqual({
+      period: "current",
+      eligibleCommentCount: 1001,
+      recurrentThreshold: 21,
+      minorityThreshold: 4,
+      categories: [
+        { categoryKey: "recurrent", uniqueCommentCount: 21, status: "supported", signal: "recurrent" },
+        { categoryKey: "minority", uniqueCommentCount: 4, status: "supported", signal: "minority" },
+        { categoryKey: "overlap", uniqueCommentCount: 21, status: "supported", signal: "recurrent" },
+        { categoryKey: "weak", uniqueCommentCount: 3, status: "insufficient_evidence", signal: null },
+        { categoryKey: "missing", uniqueCommentCount: 0, status: "insufficient_evidence", signal: null },
+      ],
+    });
+  });
+
+  it("does not combine evidence across periods", () => {
+    const current = classifyEvidenceCategories({
+      period: "current",
+      eligibleCommentRefs: Array.from({ length: 1001 }, (_, index) => `current_${index}`),
+      requiredCategoryKeys: ["theme"],
+      categories: [{ categoryKey: "theme", evidenceRefs: Array.from({ length: 10 }, (_, index) => `current_${index}`) }],
+    });
+    const previous = classifyEvidenceCategories({
+      period: "previous",
+      eligibleCommentRefs: Array.from({ length: 10 }, (_, index) => `previous_${index}`),
+      requiredCategoryKeys: ["theme"],
+      categories: [{ categoryKey: "theme", evidenceRefs: Array.from({ length: 10 }, (_, index) => `previous_${index}`) }],
+    });
+
+    expect(current.categories[0]).toMatchObject({ signal: "minority", uniqueCommentCount: 10 });
+    expect(previous.categories[0]).toMatchObject({ signal: "recurrent", uniqueCommentCount: 10 });
   });
 });
 
