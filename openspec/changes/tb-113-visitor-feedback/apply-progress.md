@@ -3,12 +3,12 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD for S06a; historical modes remain recorded in their evidence sections
+- Apply mode: Strict TDD for S06a and S06b; historical modes remain recorded in their evidence sections
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: S06a is a bounded <=400-line slice; the historical S05b `size:exception` does not apply
-- Current slice/work unit: `s06a-permission-deny-baseline-tests-docs`; direct deny-baseline tests and operational documentation only
-- Progress: 4 of 15 tasks complete
+- Review budget: S06b is a cohesive 459-line slice under its own maintainer-approved, candidate-specific `size:exception`
+- Current slice/work unit: `s06b-seed-fixtures`; exact catalog and marker-owned local/test fixtures only
+- Progress: 5 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
 - Size exception: former 800-line attempt settled failed at evidence revision `sha256:c57930a7430e91880415ef1d9c6633220e91dcd0852f343246f5ffabe5c8e264`; maintainer explicitly approved the distinct 807-line correction candidate; later slices require a new workload decision
@@ -19,10 +19,10 @@
 - [x] 1.2 U2 — Add the isolated local-only PostgreSQL harness, fixed subprocess boundary, deterministic cleanup, and canonical dependency-free Node 22 test command.
 - [x] 1.3 U3 — Prove the nine Appendix-05 renderer criteria with Recharts, ECharts 6.1 SVG SSR, pinned Chromium, deterministic PDFs, and synthetic parity fixtures.
 - [x] 2.1 U4 — Complete exact Strapi persistence services/routes, additive constraints and indexes, lifecycle contracts, generated-type regeneration, and local PostgreSQL proof.
+- [x] 2.2 U5 — Preserve deny-by-default permissions and add the exact initial catalog plus deterministic transactional local/test fixtures.
 
 ## Remaining tasks
 
-- [ ] 2.2 U5
 - [ ] 2.3 U6
 - [ ] 3.1 U7
 - [ ] 3.2 U8
@@ -36,7 +36,7 @@
 
 ## S06a Permission Deny-Baseline Evidence
 
-- Scope: completed only direct deny-by-default tests and operational documentation. Task 2.2 remains unchecked until S06b seed/fixtures also complete.
+- Scope: completed only direct deny-by-default tests and operational documentation. Task 2.2 remained unchecked at that point and is now complete through S06b.
 - All six survey route arrays and controllers expose zero Content API actions. Registered survey actions, application-role survey grants, API-token survey actions, and current D31 rows are zero.
 - Public, Authenticated, and every other application role remain denied. Super Admin is excluded from application-role reads and mutation. D31 names remain future U8 application capabilities rather than current Strapi action IDs.
 - Inspection issues only read queries and always destroys Strapi; isolated PostgreSQL containers and volumes are removed on completion.
@@ -61,6 +61,34 @@
 - Permissions: exit 0, 4/4. Lifecycle: exit 0, 10/10. Catalog: exit 0, 6/6. Harness: exit 0, 21/21.
 - `git diff --check`: exit 0, no output.
 - Complete authored changed-line total: 304 (288 additions, 16 deletions), below the 400-line ceiling.
+
+## S06b Seed and Fixture Evidence
+
+- Scope: exact Appendix-01 ordered 13-key plus `other` ES/EN/PT catalog, a separate production-bootstrap descriptor, and deterministic local/test fixture ownership under `tb113-fixture-v1`.
+- Parent-first fixture creation, repeat application, child-first cleanup, and every cleanup guard execute inside the injected transaction boundary.
+- Cleanup also validates the fixture parent's draft status and synthetic flag before deletion. Any ownership mismatch aborts without deleting unrelated data.
+- S06a remains unchanged: no route, controller, action, role, API-token, grant, or permission mutation was added.
+
+### S06b TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `s06b-seed-fixtures` correction | `test/feedback/seed/{seed,postgres-seed}.test.js` | Unit + isolated PostgreSQL/real Strapi | Seed 7/7 passed before correction | Exit 1: status/synthetic mismatches were accepted and `runProductionSeed` was absent | Final seed selector exited 0, 10/10 | Production CLI create/replay, failure cleanup, and both omitted ownership fields exercised distinct paths | Final 10/10 remained green |
+
+### S06b Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/seed`; exit 0; 10/10 passed, 0 failed/skipped/cancelled/todo. |
+| Runtime harness command/scenario and exact result | Local project `tb113_test_seed` ran the direct production CLI twice against real Strapi/PostgreSQL, observed create then replay with one version/14 aspects, and ended with zero owned containers, volumes, or seed child processes. |
+| Rollback boundary | Remove `teleferico-cms/scripts/seed-surveys.js`, `teleferico-cms/test/feedback/seed/**`, and only the `feedback/seed` selector; revert task 2.2 and this S06b evidence while preserving S01-S06a. |
+
+### S06b Verification
+
+- Seed: exit 0, 10/10. Permissions: exit 0, 4/4. Lifecycle: exit 0, 10/10. Catalog: exit 0, 6/6. Harness: exit 0, 21/21.
+- `git diff --check`: exit 0, no output.
+- Complete authored changed-line total: 459 (452 additions, 7 deletions); the approximately 152-line RDD correction stayed within its authorized 172-line budget, and the complete candidate is covered by its specific `size:exception`.
+- Native RDD approved and acknowledged lineage `review-9493ffd813868f58` for target `sha256:6517bdb7e823f3c053a26c331f6f0c5badad198bc56882916e78dd0188aa05af` before this passive evidence-only update.
 
 ## TDD Cycle Evidence
 
