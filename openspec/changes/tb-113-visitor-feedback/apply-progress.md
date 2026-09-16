@@ -6,8 +6,8 @@
 - Apply mode: Strict TDD; corrective S07a package-local boundary and core foundation passed
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
-- Review budget: S07a contains exactly 360 authored changed lines; no size exception applies
-- Current slice/work unit: `U6-S07a-package-test-boundary-and-contracts-periods`; complete, while task 2.3 remains partial
+- Review budget: corrected S08 contains exactly 400 authored changed lines; no size exception applies
+- Current slice/work unit: `U6-S08-reporting-metrics`; complete, while task 2.3 remains partial for S09
 - Progress: 5 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -372,3 +372,16 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 | Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run --config packages/survey-reporting-core/vitest.config.ts`; exit 0; 1 file and 11/11 tests passed. |
 | Runtime harness command/scenario and exact result | N/A — pure dependency-free library; no runtime boundary in S07. |
 | Rollback boundary | Remove only `teleferico-app/packages/survey-reporting-core/**` and this S07a evidence/status update; preserve S01-S06 and task 2.3 unchecked. |
+
+## Corrected S08 Partial U6 Evidence
+- Rescope remediation for failed revision `sha256:1aa9c7cccfee066fbd775fb5dc867db74229b14f7341e4066239ce8b50a03491`: eligible populations plus exact KPI, aspect, related-rating, day/week/month trend, threshold, dominance, matrix, association, and `other` formulas; S09 snapshots, chart models, formatting, and empty states remain deferred, so task 2.3 stays unchecked.
+### S08 TDD Cycle Evidence
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `U6-S08-reporting-metrics` | `src/metrics.test.ts` | Pure unit | Correction baseline 16/16 passed; original RED was missing `./metrics` | Corrective trend assertion failed because `trend` was absent | 5/5 passed | Related-rating cohort count/average; Buenos Aires day/week/month buckets and sentiment denominators; no S09 result keys; all original arithmetic/population/aspect/matrix/association cases retained | 5/5 remained green after cohesive helper refactor |
+### S08 Work Unit Evidence
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/metrics.test.ts --config packages/survey-reporting-core/vitest.config.ts`; corrective RED exit 1 with absent trend; final exit 0, 1 file and 5/5 passed. |
+| Runtime harness command/scenario and exact result | N/A — S08 remains a dependency-free pure TypeScript library with no runtime, I/O, framework, browser, CMS, or Node boundary. |
+| Rollback boundary | Remove `src/metrics.ts` and `src/metrics.test.ts`, revert the metrics barrel export and only this S08 status/evidence; preserve S07 and keep task 2.3 unchecked. |
