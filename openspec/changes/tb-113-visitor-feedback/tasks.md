@@ -12,13 +12,13 @@ Chain strategy: stacked-to-main
 Delivery strategy: ask-on-risk — resolved to chained/sequential delivery
 delivery_strategy: ask-on-risk — resolved to chained/sequential delivery
 chain_strategy: stacked-to-main
-size:exception: not granted/not used
+size:exception: accepted for S05b only; maximum 807 changed lines
 
-The review-workload/topology decision is resolved. `stacked-to-main` is adapted to repository governance as sequential PRs targeting `development`: P00/#282 must merge before a planning-finalization PR is prepared, and every later planning or implementation slice waits for the prior PR to merge before it targets `development`. Remaining planning artifacts stay uncommitted until P00 merges. Agents never merge; every subsequent finalization requires fresh explicit authorization. Runtime, provider, dependency, schema/auth, environment, IAM, deployment, and operational approvals remain per-slice blockers. No implementation starts in this session.
+The review-workload/topology decision is resolved. `stacked-to-main` is adapted to repository governance as sequential PRs targeting `development`: P00/#282 must merge before a planning-finalization PR is prepared, and every later planning or implementation slice waits for the prior PR to merge before it targets `development`. The maintainer explicitly extended the candidate-specific S05b `size:exception` from 800 to exactly 807 complete changed lines. Agents never merge; every subsequent finalization requires fresh explicit authorization. Runtime, provider, dependency, schema/auth, environment, IAM, deployment, and operational approvals remain per-slice blockers.
 
 ## Sequential-to-Development Chain Plan
 
-P00/#282 is the planning baseline and already targets `development`. After it merges, the next planning-finalization PR targets `development`; S01 follows only after that PR merges. S02-S24 each target `development` only after the preceding slice merges. Never open simultaneous slice PRs against intermediate bases under current governance. No `size:exception` is granted or used.
+P00/#282 is the planning baseline and already targets `development`. After it merges, the next planning-finalization PR targets `development`; S01 follows only after that PR merges. S02-S24 each target `development` only after the preceding slice merges. Never open simultaneous slice PRs against intermediate bases under current governance. S05b alone uses the accepted `size:exception`; later slices require their own workload decision.
 
 | Slice → target | Units; prerequisites | Start → finish | Verification; runtime harness | Rollback; review focus | LOC |
 |---|---|---|---|---|---:|
@@ -57,7 +57,7 @@ Failed S03 POC stops S15 and S20-S23; failed provider/platform gates stop their 
 
 ## Phase 2: CMS and core
 
-- [ ] 2.1 U4 RED→implement→GREEN exact Strapi models/services/routes, constraints/migration/generated-types in `teleferico-cms/{src,database/migrations,types/generated}/**`; D:U1-U2; E:CMS-Node/PostgreSQL catalog/auth/lifecycle/transaction; R:D04-D20,D36-D44,D69,D71,definition+lifecycle; B:additive-schema/data-preserving; A:schema/auth/migration; L:1,000,CMS.
+- [x] 2.1 U4 RED→implement→GREEN exact Strapi models/services/routes, constraints/migration/generated-types in `teleferico-cms/{src,database/migrations,types/generated}/**`; D:U1-U2; E:CMS-Node/PostgreSQL catalog/auth/lifecycle/transaction; R:D04-D20,D36-D44,D69,D71,definition+lifecycle; B:additive-schema/data-preserving; A:schema/auth/migration; L:1,000,CMS.
 - [ ] 2.2 U5 RED→implement→GREEN idempotent `teleferico-cms/scripts/{bootstrap-feedback-permissions,seed-surveys}.js` and `docs/STRAPI_PERMISSIONS.md`, including the exact ordered 13-key+`other` ES/EN/PT initial catalog while preserving CMS-versioned evolution; D:U4; E:CMS plan/transaction/catalog-identity/marker-cleanup; R:D05-D08,D27-D31,D92,definition+admin+platform; B:fixtures/unused-grants; A:permissions; L:500,CMS/docs.
 - [ ] 2.3 U6 RED→implement→GREEN contracts/canonicalization/local-calendar day-week-month periods/populations, absolute+relative deltas, route scopes, aspect ordering/rates/thresholds/classification/related-rating/trends/matrix/five-star/`other`, snapshots/chart models/formatting/empty states in `teleferico-app/packages/survey-reporting-core/**`; D:U4; E:core-Vitest/dependency-graph; R:D03,D41-D43,D49-D51,D64-D67,D85,D87,metrics; B:package; A:none; L:1,200,app/core.
 

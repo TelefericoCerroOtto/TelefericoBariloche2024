@@ -158,9 +158,17 @@ test('remaining persistence schemas preserve critical constraints and private ow
 test('new persistence definitions remain inert and deny generic runtime exposure', () => {
   for (const name of APPROVED_COLLECTIONS) {
     const apiRoot = path.join(CMS_ROOT, 'src/api', name);
-    assert.deepEqual(readdirSync(apiRoot), ['content-types']);
+    assert.deepEqual(
+      readdirSync(apiRoot).sort(),
+      ['content-types', 'controllers', 'routes', 'services'],
+    );
     assert.equal(readJson(SURVEY_SCHEMAS[name]).options.draftAndPublish, false);
   }
+
+  assert.deepEqual(
+    readdirSync(path.join(CMS_ROOT, 'src/api/survey-settings')).sort(),
+    ['content-types', 'controllers', 'routes', 'services'],
+  );
 
   const permissions = readFileSync(path.join(CMS_ROOT, '../docs/STRAPI_PERMISSIONS.md'), 'utf8');
   for (const name of [...APPROVED_COLLECTIONS, 'survey-settings']) {
