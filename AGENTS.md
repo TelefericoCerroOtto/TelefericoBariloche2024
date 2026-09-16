@@ -114,6 +114,14 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - Business domain context (zones, facilities, organization, operations): `docs/cerro-otto-business-context.md`
 - Content authoring guide (component catalog, tone, translation vocabulary, content restrictions): `docs/content-components-guide.md`
 
+## Business context sources
+
+- `docs/cerro-otto-business-context.md` is the curated repository reference. Do not change it merely to mirror Notion; changes require an explicit request and must be relevant to repository or product context.
+- When current or live organizational context is required, use the Notion MCP and start from `00 — LEER PRIMERO — Notion Teleférico Cerro Otto`: `https://app.notion.com/p/3dca58c3fefc81f89064cc55729b7ec5`.
+- MCP-first behavior belongs in repository-agent governance, not in external ChatGPT project instructions.
+- If the Notion MCP is unavailable, report the limitation and do not claim to have read or written Notion.
+- Do not automatically overwrite either source or enforce literal bilingual parity between them.
+
 ## Implementation PR finalization
 
 - `/implementation-pr` is an explicit, single-invocation shortcut for one implementation branch snapshot. Load `.agents/skills/implementation-pr/SKILL.md`; it composes the active commit and PR contracts without replacing them.
