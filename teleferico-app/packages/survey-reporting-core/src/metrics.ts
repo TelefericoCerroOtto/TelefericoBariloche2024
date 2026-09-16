@@ -26,6 +26,19 @@ export interface MetricSubmission {
 
 const SENTIMENTS = ["positive", "neutral", "negative"] as const;
 const COUNT_PATTERN = /^(0|[1-9]\d*)$/;
+const MINORITY_EVIDENCE_THRESHOLD = 4n;
+
+export interface EvidenceCategoryInput {
+  readonly categoryKey: string;
+  readonly evidenceRefs: readonly string[];
+}
+
+export interface EvidenceClassificationInput {
+  readonly period: "current" | "previous";
+  readonly eligibleCommentRefs: readonly string[];
+  readonly requiredCategoryKeys: readonly string[];
+  readonly categories: readonly EvidenceCategoryInput[];
+}
 
 function count(value: CountInput): bigint {
   if (typeof value === "bigint" && value >= 0n) return value;
@@ -65,6 +78,49 @@ export function calculateRelativeChangeBps(current: CountInput, previous: CountI
   const previousCount = count(previous);
   if (previousCount === 0n) return null;
   return jsonInteger(roundHalfUp((currentCount - previousCount) * 10000n, previousCount));
+}
+
+export function calculateRecurrentEvidenceThreshold(eligibleComments: CountInput): number {
+  const eligible = count(eligibleComments);
+  const twoPercentCeiling = (eligible * 2n + 99n) / 100n;
+  return jsonInteger(twoPercentCeiling > 10n ? twoPercentCeiling : 10n, 0n);
+}
+
+function classifyEvidenceSignal(uniqueCommentCount: number, recurrentThreshold: number) {
+  if (uniqueCommentCount >= recurrentThreshold) return "recurrent" as const;
+  if (BigInt(uniqueCommentCount) >= MINORITY_EVIDENCE_THRESHOLD) return "minority" as const;
+  return null;
+}
+
+export function classifyEvidenceCategories(input: EvidenceClassificationInput) {
+  const eligibleRefs = new Set(input.eligibleCommentRefs);
+  const recurrentThreshold = calculateRecurrentEvidenceThreshold(BigInt(eligibleRefs.size));
+  const refsByCategory = new Map<string, Set<string>>();
+
+  for (const category of input.categories) {
+    const refs = refsByCategory.get(category.categoryKey) ?? new Set<string>();
+    for (const reference of category.evidenceRefs) {
+      if (eligibleRefs.has(reference)) refs.add(reference);
+    }
+    refsByCategory.set(category.categoryKey, refs);
+  }
+
+  return {
+    period: input.period,
+    eligibleCommentCount: eligibleRefs.size,
+    recurrentThreshold,
+    minorityThreshold: Number(MINORITY_EVIDENCE_THRESHOLD),
+    categories: input.requiredCategoryKeys.map((categoryKey) => {
+      const uniqueCommentCount = refsByCategory.get(categoryKey)?.size ?? 0;
+      const signal = classifyEvidenceSignal(uniqueCommentCount, recurrentThreshold);
+      return {
+        categoryKey,
+        uniqueCommentCount,
+        status: signal === null ? "insufficient_evidence" as const : "supported" as const,
+        signal,
+      };
+    }),
+  };
 }
 
 function isoEpoch(value: string): number {
