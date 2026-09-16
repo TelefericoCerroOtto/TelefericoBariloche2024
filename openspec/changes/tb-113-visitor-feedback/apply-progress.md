@@ -7,7 +7,7 @@
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
 - Review budget: maintainer-approved S05b `size:exception` of exactly 807 complete changed lines
-- Current slice/work unit: S05b / U4 completion; migration, indexes, inert service/route boundaries, and lifecycle contracts are complete
+- Current slice/work unit: `s05b-cloud-build-remediation`; fresh Strapi startup now defers TB-113 invariants until schema synchronization, then installs them transactionally
 - Progress: 4 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -271,3 +271,29 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Size: 746 implementation changed lines before SDD evidence persistence (743 additions, 3 deletions); generated declarations had zero delta. Required cumulative task/apply evidence brings the complete correction candidate to exactly 807 changed lines (794 additions, 13 deletions). The maintainer explicitly extended the S05b `size:exception` from 800 to exactly 807 complete changed lines after the former attempt settled failed.
 - Sequential boundary: starts from merged PR #301 on `development` and ends with U4 complete. Task 2.2/U5 and all later work remain untouched.
 - Deviations: none. Exact browser/admin/worker endpoints remain deferred to their assigned U7/U8/U9/U10 slices; S05b exposes no generic CRUD or invented endpoint.
+
+## S05b Cloud Build Startup Remediation Evidence
+
+- Failed evidence: Cloud Build `12413529-44d6-495e-b50f-9c3cc8b24a29` ran user migrations before Strapi schema synchronization, so the TB-113 migration asserted columns that did not yet exist and stopped readiness.
+- Correction: the migration now defers only when its complete required-column surface is absent. Strapi's user bootstrap, which runs after `db.schema.sync()`, reapplies the same idempotent statements inside one transaction. Existing databases still apply the migration before sync; every startup revalidates/reapplies the same eight indexes, four checks, and disabled singleton.
+- Security boundary: the fresh-start process receives only fixed local PostgreSQL/test values, `ENV_PATH=/dev/null`, and a minimal environment. No dependency, lockfile, permission, credential, remote service, or deployment changed.
+
+### Remediation TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `s05b-cloud-build-remediation` | `test/feedback/lifecycle/{lifecycle,postgres-lifecycle}.test.js` | Unit + isolated PostgreSQL/real Strapi startup | Lifecycle 9/9 passed before edits | Fresh-start test exited 1 with the exact `TB-113 schema mismatch` missing-column list; migration deferral unit test also exited 1 before implementation | Focused fresh-start test exited 0, 1/1; migration deferral test exited 0, 1/1 | Full lifecycle covers both fresh startup and pre-existing schema paths; 10/10 passed with catalog `8|4|1` | 10/10 remained green after minimal environment and dynamic loopback-port hardening |
+
+### Remediation Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/lifecycle`; exit 0; 10/10 passed, including a real empty-database Strapi startup and the existing-database invariant path. |
+| Runtime harness command/scenario and exact result | The lifecycle selector started PostgreSQL 16.8 in `tb113_test_lifecycle`, launched real `strapi start` against the empty database, reached `/admin/init`, and observed `8|4|1`. Final owned container, volume, and process checks were empty. |
+| Rollback boundary | Revert only the migration readiness gate, post-sync bootstrap application, loopback-only random PostgreSQL test port, fresh-start regression test, and this remediation evidence. Preserve U4 schemas, lifecycle behavior, indexes/checks, singleton semantics, and all prior S01-S05b evidence. |
+
+### Remediation Verification
+
+- Lifecycle: exit 0, 10/10. Catalog: exit 0, 6/6. Harness: exit 0, 21/21.
+- `ENV_PATH=/dev/null npm --prefix teleferico-cms run build`: exit 0; only the noncausal stale Browserslist advisory appeared.
+- U5 and every later task remain unchecked and untouched. Parent attempt settlement remains outside this apply execution.

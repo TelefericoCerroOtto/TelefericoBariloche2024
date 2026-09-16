@@ -225,10 +225,26 @@ test('generation transitions require CAS and complete terminal timestamps', () =
   assert.throws(() => assertReportCreation({ status: 'queued' }), { code: 'INVALID_STATE' });
 });
 
-test('migration executes every statement through one supplied transaction handle', async () => {
+test('migration defers on an empty database and executes through one ready transaction handle', async () => {
+  const deferred = [];
+  const deferredResult = await migration.up({
+    raw: async (statement) => {
+      deferred.push(statement);
+      return { rows: [{ missing_count: 20 }] };
+    },
+  });
+  assert.equal(deferredResult, false);
+  assert.deepEqual(deferred, [migration.SCHEMA_READINESS_SQL]);
+
   const executed = [];
-  await migration.up({ raw: async (statement) => executed.push(statement) });
-  assert.deepEqual(executed, migration.STATEMENTS);
+  const appliedResult = await migration.up({
+    raw: async (statement) => {
+      executed.push(statement);
+      return { rows: [{ missing_count: 0 }] };
+    },
+  });
+  assert.equal(appliedResult, true);
+  assert.deepEqual(executed, [migration.SCHEMA_READINESS_SQL, ...migration.STATEMENTS]);
   await assert.rejects(migration.down(), /no destructive rollback/);
 });
 

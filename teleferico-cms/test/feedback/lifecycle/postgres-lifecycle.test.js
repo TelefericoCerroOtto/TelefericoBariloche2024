@@ -1,4 +1,7 @@
 const assert = require('node:assert/strict');
+const { spawn } = require('node:child_process');
+const http = require('node:http');
+const path = require('node:path');
 const test = require('node:test');
 
 const migration = require('../../../database/migrations/2026.09.11T0001-tb113-constraints');
@@ -31,6 +34,43 @@ async function psql(sql) {
     '--no-align',
     `--command=${sql}`,
   );
+}
+
+async function waitForStrapi(child, output) {
+  const deadline = Date.now() + 60_000;
+
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(`Strapi exited before readiness:\n${output.value}`);
+    }
+
+    const ready = await new Promise((resolve) => {
+      const request = http.get('http://127.0.0.1:14337/admin/init', (response) => {
+        response.resume();
+        resolve(response.statusCode >= 200 && response.statusCode < 500);
+      });
+      request.once('error', () => resolve(false));
+      request.setTimeout(1_000, () => {
+        request.destroy();
+        resolve(false);
+      });
+    });
+
+    if (ready) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error(`Strapi did not become ready:\n${output.value}`);
+}
+
+async function stopProcess(child) {
+  if (child.exitCode !== null) return;
+  child.kill('SIGTERM');
+  await Promise.race([
+    new Promise((resolve) => child.once('exit', resolve)),
+    new Promise((resolve) => setTimeout(resolve, 5_000)),
+  ]);
+  if (child.exitCode === null) child.kill('SIGKILL');
 }
 
 const SCHEMA_SQL = `
@@ -87,4 +127,61 @@ test('PostgreSQL migration is additive, idempotent, transactional, and enforces 
   const volumes = await executeFixed(DOCKER_EXECUTABLE, ['volume', 'ls', '-q', '--filter', label]);
   assert.equal(containers.stdout.trim(), '');
   assert.equal(volumes.stdout.trim(), '');
+});
+
+test('fresh Strapi startup synchronizes the TB-113 schema before installing invariants', async () => {
+  const output = { value: '' };
+  let strapi;
+
+  try {
+    await executeCompose('down', '--volumes', '--remove-orphans', '--timeout=5');
+    await executeCompose('up', '--detach', '--wait');
+    const publishedPort = await executeCompose('port', 'postgres', '5432');
+    const databasePort = publishedPort.stdout.trim().split(':').at(-1);
+    const secret = 'tb113-fresh-start-local-only';
+    strapi = spawn(path.join(__dirname, '../../../node_modules/.bin/strapi'), ['start'], {
+      cwd: path.join(__dirname, '../../..'),
+      env: {
+        HOME: '/tmp/opencode',
+        PATH: process.env.PATH,
+        NODE_ENV: 'test',
+        ENV_PATH: '/dev/null',
+        HOST: '127.0.0.1',
+        PORT: '14337',
+        DATABASE_CLIENT: 'postgres',
+        DATABASE_HOST: '127.0.0.1',
+        DATABASE_PORT: databasePort,
+        DATABASE_NAME: 'tb113_test_feedback',
+        DATABASE_USERNAME: 'tb113_test_runner',
+        DATABASE_PASSWORD: 'tb113_test_local_only',
+        DATABASE_SSL: 'false',
+        DATABASE_POOL_MIN: '0',
+        DATABASE_POOL_MAX: '10',
+        APP_KEYS: `${secret}-app-1,${secret}-app-2`,
+        API_TOKEN_SALT: `${secret}-api`,
+        ADMIN_JWT_SECRET: `${secret}-admin`,
+        TRANSFER_TOKEN_SALT: `${secret}-transfer`,
+        JWT_SECRET: `${secret}-jwt`,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    strapi.stdout.on('data', (chunk) => { output.value += chunk; });
+    strapi.stderr.on('data', (chunk) => { output.value += chunk; });
+
+    await waitForStrapi(strapi, output);
+    const catalog = await psql(`
+      SELECT
+        (SELECT count(*) FROM pg_indexes WHERE schemaname=current_schema() AND indexname LIKE 'uq_%'),
+        (SELECT count(*) FROM pg_constraint WHERE conname LIKE 'ck_%'),
+        (SELECT count(*) FROM survey_settings WHERE singleton_key='default' AND intake_enabled=false AND generation_enabled=false AND settings_revision=1);
+    `);
+    assert.equal(catalog.stdout.trim(), '8|4|1');
+  } finally {
+    if (strapi) await stopProcess(strapi);
+    await executeCompose('down', '--volumes', '--remove-orphans', '--timeout=5');
+  }
+
+  const label = `label=com.docker.compose.project=${OWNER_ID}`;
+  assert.equal((await executeFixed(DOCKER_EXECUTABLE, ['ps', '-aq', '--filter', label])).stdout.trim(), '');
+  assert.equal((await executeFixed(DOCKER_EXECUTABLE, ['volume', 'ls', '-q', '--filter', label])).stdout.trim(), '');
 });

@@ -28,6 +28,12 @@ const REQUIRED_COLUMNS = Object.freeze({
   survey_submissions: ['session_nonce_hash', 'idempotency_key'],
 });
 
+const REQUIRED_COLUMN_VALUES = Object.entries(REQUIRED_COLUMNS)
+  .flatMap(([table, columns]) => columns.map((column) => `('${table}','${column}')`))
+  .join(',');
+
+const SCHEMA_READINESS_SQL = `SELECT count(*)::integer AS missing_count FROM (VALUES ${REQUIRED_COLUMN_VALUES}) e(table_name,column_name) LEFT JOIN information_schema.columns c ON c.table_schema=current_schema() AND c.table_name=e.table_name AND c.column_name=e.column_name WHERE c.column_name IS NULL`;
+
 const INDEX_SQL = Object.freeze([
   'CREATE UNIQUE INDEX IF NOT EXISTS uq_submission_nonce_idem ON survey_submissions(session_nonce_hash,idempotency_key)',
   'CREATE UNIQUE INDEX IF NOT EXISTS uq_definition_owner_key ON components_survey_aspect_definitions(owner_version_key,aspect_key)',
@@ -47,11 +53,7 @@ const CONSTRAINT_SQL = Object.freeze([
 ]);
 
 function assertionSql() {
-  const expected = Object.entries(REQUIRED_COLUMNS)
-    .flatMap(([table, columns]) => columns.map((column) => `('${table}','${column}')`))
-    .join(',');
-
-  return `DO $$ DECLARE missing text; BEGIN SELECT string_agg(e.table_name||'.'||e.column_name, ',') INTO missing FROM (VALUES ${expected}) e(table_name,column_name) LEFT JOIN information_schema.columns c ON c.table_schema=current_schema() AND c.table_name=e.table_name AND c.column_name=e.column_name WHERE c.column_name IS NULL; IF missing IS NOT NULL THEN RAISE EXCEPTION 'TB-113 schema mismatch: %', missing; END IF; END $$`;
+  return `DO $$ DECLARE missing text; BEGIN SELECT string_agg(e.table_name||'.'||e.column_name, ',') INTO missing FROM (VALUES ${REQUIRED_COLUMN_VALUES}) e(table_name,column_name) LEFT JOIN information_schema.columns c ON c.table_schema=current_schema() AND c.table_name=e.table_name AND c.column_name=e.column_name WHERE c.column_name IS NULL; IF missing IS NOT NULL THEN RAISE EXCEPTION 'TB-113 schema mismatch: %', missing; END IF; END $$`;
 }
 
 function constraintSql(table, name, check) {
@@ -66,13 +68,18 @@ const STATEMENTS = Object.freeze([
 ]);
 
 async function up(knex) {
+  const readiness = await knex.raw(SCHEMA_READINESS_SQL);
+  if (readiness.rows[0].missing_count !== 0) return false;
+
   for (const statement of STATEMENTS) {
     await knex.raw(statement);
   }
+
+  return true;
 }
 
 async function down() {
   throw new Error('TB-113 constraints are additive and intentionally have no destructive rollback');
 }
 
-module.exports = { CONSTRAINT_NAMES, INDEX_NAMES, STATEMENTS, down, up };
+module.exports = { CONSTRAINT_NAMES, INDEX_NAMES, SCHEMA_READINESS_SQL, STATEMENTS, down, up };
