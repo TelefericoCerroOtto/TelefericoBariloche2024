@@ -12,6 +12,10 @@ const TESTS_BY_SELECTOR = {
     path.join(__dirname, '../permissions/permissions.test.js'),
     path.join(__dirname, '../permissions/postgres-permissions.test.js'),
   ],
+  'feedback/seed': [
+    path.join(__dirname, '../seed/seed.test.js'),
+    path.join(__dirname, '../seed/postgres-seed.test.js'),
+  ],
 };
 const selector = process.argv[2];
 
