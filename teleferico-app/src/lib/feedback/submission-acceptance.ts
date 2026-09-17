@@ -34,19 +34,19 @@ export type StoredSubmission = {
 export type SubmissionTransaction = {
   // The adapter must lock this pair whether or not a row already exists.
   lockAndFindByIdempotency(
-    sessionNonceHash: string,
-    idempotencyKey: string,
+    _sessionNonceHash: string,
+    _idempotencyKey: string,
   ): Promise<StoredSubmission | null>;
-  insert(submission: StoredSubmission): Promise<void>;
+  insert(_submission: StoredSubmission): Promise<void>;
 };
 
 export type AcceptanceStore = {
-  withTransaction<T>(operation: (transaction: SubmissionTransaction) => Promise<T>): Promise<T>;
+  withTransaction<T>(_operation: (_transaction: SubmissionTransaction) => Promise<T>): Promise<T>;
 };
 
 type AcceptanceDependencies = {
   readonly store: AcceptanceStore;
-  readonly isBrowserGuardActive: (browserTokenHash: string) => Promise<boolean>;
+  readonly isBrowserGuardActive: (_browserTokenHash: string) => Promise<boolean>;
   readonly now: () => Date;
   readonly createReceipt: () => string;
 };
