@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; U6 complete and three bounded U7 foundations are implemented
+- Apply mode: Strict TDD; U6 complete and four bounded U7 foundations are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
-- Review budget: U7-A3 remains below the 400 authored-line ceiling; no size exception applies
-- Current slice/work unit: `U7-A3-answer-domain-validation`; U7 remains incomplete
+- Review budget: U7-A4 remains below the 400 authored-line ceiling; no size exception applies
+- Current slice/work unit: `U7-A4-version-grace-validation`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -518,3 +518,61 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Cleanup/process: all commands ran in the foreground and exited; no formatter, dependency, manifest, lockfile, generated artifact, environment, credential, service, child process, container, volume, temporary artifact, remote operation, S11, or S12 file changed or remained.
 - Authored scope: 383 changed lines (379 additions, 4 deletions). SHA-256: `answer-validation.ts=6273c3349c0e54fe68413ddc97e58db191ed9c859112833181b3b30100dd9ca2`; `answer-validation.test.ts=3c68e20fdfdf1d871734d30efa48e53442da8e5b6eb624c54ac66e77ba7a825b`; `feedback.d.ts=7f797347bce0a52bf0e86bde414170e648b66452c28760aa843598e317061eae`.
 - Evidence revision: `sha256:0483d3d5b2f8ee2c245a5e0e6ddb501a601faa9f6e5d012752e5f63f5df04492`, from canonical `tb113-apply-evidence.v1` implementation hashes, verification outcomes, unchecked task state, runtime/cleanup disposition, branch/base, and authored count. Proposed settlement diagnosis: passed partial U7 slice; harness N/A; parent owns settlement.
+
+## U7-A4 Version Grace Validation — U7 Remains Open
+
+- Scope: pure D10 submission eligibility over injected lifecycle records and explicit epoch-second inputs. The current published version is eligible; a published superseded version remains eligible through exactly 1,800 elapsed seconds and returns `SESSION_EXPIRED` only after that boundary.
+- Untrusted lifecycle records fail closed as `SURVEY_UNAVAILABLE` for invalid clocks, future or malformed supersession times, missing/draft/unknown versions, unavailable active context, unknown statuses, and duplicate version identities. This remains distinct from an otherwise valid superseded session beyond grace.
+- Deferred: security/origin/fetch-site guards, form age, honeypot, CAPTCHA, Route Handlers, CMS transport, persistence, idempotency, Redis, acceptance/receipt, drafts/UI, browser behavior, and E2E. S11, S12, U7-A3, S11/S12 modules, and task 3.1 remain unchanged.
+
+### U7-A4 TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `U7-A4-version-grace-validation` | `src/lib/feedback/version-eligibility.test.ts` | Pure unit | S11+S12+U7-A3 exit 0, 3 files and 47/47 passed | Missing `./version-eligibility`; exit 1, 0 tests collected | Initial current-version behavior exit 0, 1/1 passed | Expanded suite first exited 1 with 5/14 failures, then final 14/14 passed across exact grace, expiry, unavailable context, malformed lifecycle, and duplicate identities | No further structural extraction was justified; focused rerun remained 14/14 green |
+
+### U7-A4 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/version-eligibility.test.ts`; exit 0; 1 file, 14/14 passed. |
+| Runtime harness command/scenario and exact result | N/A — the final implementation is deterministic pure TypeScript with injected lifecycle records and an injected epoch-second clock, with no I/O, network, persistence, process, browser, CMS, environment, or crypto boundary. |
+| Rollback boundary | Remove `version-eligibility.ts`, its focused test, and only this U7-A4 status/evidence update; preserve S01-U7-A3 and keep task 3.1 unchecked. |
+
+### U7-A4 Verification, Cleanup, and Settlement Evidence
+
+- Combined safety: `pnpm --dir teleferico-app exec vitest run src/lib/feedback/intake-boundary.test.ts src/lib/feedback/qr-session.test.ts src/lib/feedback/answer-validation.test.ts src/lib/feedback/version-eligibility.test.ts`; exit 0, 4 files and 61/61 passed.
+- Typecheck: `pnpm --dir teleferico-app run typecheck`; exit 0 with no diagnostics. `git diff --check 62c84ca9822c5e994b8d21f2761769b41477e382 --`; exit 0 with no output.
+- Cleanup/process: all commands ran in the foreground and exited; no formatter, dependency, manifest, lockfile, generated artifact, environment, credential, service, child process, container, volume, temporary artifact, remote operation, S11, S12, or U7-A3 module changed or remained.
+- Branch/base: `feat/app-tb-113-feedback-version-grace` from exact `62c84ca9822c5e994b8d21f2761769b41477e382`. Path/budget proof passed: exactly three changed paths, 295 additions, 3 deletions, 298 authored lines, ceiling 400.
+- Authored scope: 298 changed lines (295 additions, 3 deletions), including cumulative OpenSpec persistence; no size exception. Implementation SHA-256: `version-eligibility.ts=dac8b90b4f590d41ad41597fa88163b54316d853639001ddc0719f89ac04e1e9`; `version-eligibility.test.ts=3faadcfcc7026bfccecacc805989b2e56a9ef927f81cc35a9eb8546e4910d3bd`.
+- Evidence revision: `sha256:cf6f31bed879df3b63868df9d21a99909aa7b15786a733458186442136e16f46`, from canonical `tb113-apply-evidence.v1` implementation hashes, exact TDD/verification outcomes, unchecked task state, runtime/cleanup disposition, branch/base, changed paths, and authored count. Proposed settlement diagnosis: passed partial U7 slice; runtime harness N/A; task 3.1 remains open; parent owns settlement.
+
+## U7-A4 Future-Timestamp Correction — U7 Remains Open
+
+- Defect corrected: the current published version previously returned success before validating its future `lastSupersededAtEpochSeconds`; lifecycle timestamp validation now precedes the current-version success path and fails closed as 410 `SURVEY_UNAVAILABLE`.
+- Scope remains pure D10 eligibility only. Task 3.1/U7 remains unchecked, generation remains disabled, and all deferred U7 behavior is unchanged.
+
+### U7-A4 Correction TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `U7-A4-version-grace-validation-correction` | `src/lib/feedback/version-eligibility.test.ts` | Pure unit | Focused baseline exit 0, 14/14 passed | Focused exit 1, 1/15 failed: current version with a future supersession timestamp returned `current` instead of 410 `SURVEY_UNAVAILABLE` | Focused exit 0, 15/15 passed after timestamp validation moved before current-version success | Existing current-version success and superseded-version future-timestamp rejection exercise distinct valid and invalid paths; no additional production branch was introduced | No structural refactor justified; final focused verification remained 15/15 green |
+
+### U7-A4 Correction Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/version-eligibility.test.ts`; exit 0; 1 file, 15/15 passed. |
+| Runtime harness command/scenario and exact result | N/A — deterministic pure TypeScript over injected lifecycle records and an injected epoch-second clock; no runtime, I/O, network, persistence, process, browser, CMS, environment, or crypto boundary exists. |
+| Rollback boundary | Revert only the future-current-version test, restore the prior current-version return ordering in `version-eligibility.ts`, and remove this correction evidence; preserve the original U7-A4 slice, S01-U7-A3, and task 3.1 unchecked. |
+
+### U7-A4 Correction Verification, Cleanup, and Revision Input
+
+- Authoritative parent spot-check: `pnpm --dir teleferico-app exec vitest run src/lib/feedback/intake-boundary.test.ts src/lib/feedback/qr-session.test.ts src/lib/feedback/answer-validation.test.ts src/lib/feedback/version-eligibility.test.ts`; exit 0, 4 files and 62/62 passed.
+- Typecheck: `pnpm --dir teleferico-app run typecheck`; exit 0, no diagnostics. Exact base-relative four-path `git diff --check` exited 0 with no output.
+- Path/budget proof: exactly three changed paths; 345 additions, 3 deletions, 348 authored lines relative to `62c84ca9822c5e994b8d21f2761769b41477e382`; below 400 with no size exception.
+- Cleanup/process: every command ran in the foreground and exited; no formatter, dependency, manifest, lockfile, generated artifact, environment, credential, service, child process, container, volume, temporary artifact, remote operation, branch operation, or unrelated file changed or remained.
+- Corrected implementation SHA-256: `version-eligibility.ts=d899added4939499d9646f7efc992ef65a117e7b7ab8f18fb5198f954913f13a`; `version-eligibility.test.ts=20d0320f857b6c83f277ea37565b552441e3100e661c2fe299727c2a79340626`.
+- Proposed deterministic revision input: canonical `tb113-apply-evidence.v1` JSON over change/work-unit identity, branch/base, corrected implementation hashes, exact RED/GREEN/authoritative-parent-combined/typecheck/diff outcomes, sorted changed paths, authored additions/deletions, unchecked task 3.1, runtime N/A reason, cleanup disposition, and parent-owned attempt token; proposed evidence revision `sha256:f147c52c4c65e333b0e00213f55c7823688deff7ded675194a454070e3e7f23a`.
+- Proposed settlement diagnosis: passed bounded correction to a partial U7 slice; task 3.1 remains open and parent owns attempt settlement.
