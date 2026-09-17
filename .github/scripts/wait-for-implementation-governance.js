@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const childProcess = require("node:child_process");
+const repositoryPolicy = require("./repository-policy.js");
 
 const EXIT_CODES = Object.freeze({
   passed: 0,
@@ -41,17 +42,19 @@ const FUNCTIONAL_JOBS_BY_EVENT = Object.freeze({
 const TERMINAL_FAILURE_BUCKETS = new Set(["fail", "cancel"]);
 const KNOWN_BUCKETS = new Set(["pass", "fail", "pending", "skipping", "cancel", "missing"]);
 const MAX_API_PAGES = 10;
+const OBSERVATION_MODES = Object.freeze(["implementation", "stacked-preview"]);
 
 function parseArguments(argv) {
-  const options = { timeoutSeconds: 300, intervalSeconds: 5, repo: undefined, reference: undefined };
+  const options = { timeoutSeconds: 300, intervalSeconds: 5, mode: "implementation", repo: undefined, reference: undefined };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
-    if (argument === "--repo" || argument === "--timeout-seconds" || argument === "--interval-seconds") {
+    if (argument === "--repo" || argument === "--timeout-seconds" || argument === "--interval-seconds" || argument === "--mode") {
       const value = argv[++index];
       if (!value) throw new Error(`${argument} requires a value.`);
       if (argument === "--repo") options.repo = value;
       if (argument === "--timeout-seconds") options.timeoutSeconds = parseNonNegativeNumber(value, argument);
       if (argument === "--interval-seconds") options.intervalSeconds = parsePositiveNumber(value, argument);
+      if (argument === "--mode") options.mode = value;
       continue;
     }
     if (argument.startsWith("-")) throw new Error(`Unknown option '${argument}'.`);
@@ -60,6 +63,7 @@ function parseArguments(argv) {
   }
 
   if (!options.reference) throw new Error("Provide an implementation PR number or URL.");
+  if (!OBSERVATION_MODES.includes(options.mode)) throw new Error(`--mode must be one of: ${OBSERVATION_MODES.join(", ")}.`);
   validatePullRequestReference(options.reference);
   if (options.repo && !/^[^/\s]+\/[^/\s]+$/.test(options.repo)) throw new Error("--repo must use OWNER/REPO.");
   const urlRepo = repositoryFromPullRequestUrl(options.reference);
@@ -299,8 +303,9 @@ function isExternalCloudBuildExecution(execution) {
   return execution.workflowPath === "external/cloud-build" && /^Trigger: \S/.test(execution.name);
 }
 
-function evaluateFunctional(rawExecutions) {
+function evaluateFunctional(rawExecutions, { deferred = false } = {}) {
   if (!Array.isArray(rawExecutions)) throw new Error("GitHub functional executions must be an array.");
+  if (deferred) return { status: "deferred", hasFailure: false, hasPending: false, applicable: [], skipped: [] };
   const matching = rawExecutions.filter((execution) => execution && (
     (execution.workflowPath === FUNCTIONAL_WORKFLOW.path && FUNCTIONAL_CHECK_NAMES.has(execution.name))
     || isExternalCloudBuildExecution(execution)
@@ -343,12 +348,12 @@ function adaptExternalCheckRuns(rawCheckRuns) {
   }];
 }
 
-async function waitForGovernance({ readObservation, timeoutMs, intervalMs, now = Date.now, sleep = delay, onWaiting = () => {} }) {
+async function waitForGovernance({ readObservation, timeoutMs, intervalMs, mode = "implementation", now = Date.now, sleep = delay, onWaiting = () => {} }) {
   const startedAt = now();
   while (true) {
     const observation = await readObservation();
     const governance = evaluateGovernance(observation.executions);
-    const functional = evaluateFunctional(observation.executions);
+    const functional = evaluateFunctional(observation.executions, { deferred: mode === "stacked-preview" });
     if (governance.status === "failed") return { outcome: "governance-failed", observation, governance, functional };
     if (governance.status === "passed") return { outcome: "passed", observation, governance, functional };
     const elapsed = now() - startedAt;
@@ -364,7 +369,13 @@ function delay(milliseconds) {
 
 function formatReport(result) {
   const { observation, governance, functional, outcome } = result;
-  const lines = [`PR: ${observation.pr.url}`, `Head SHA: ${observation.pr.headRefOid}`, `Governance result: ${governanceLabel(outcome)}`];
+  const lines = [
+    `PR: ${observation.pr.url}`,
+    `Head SHA: ${observation.pr.headRefOid}`,
+    `Base: ${observation.pr.baseRefName}@${observation.pr.baseRefOid}`,
+    `Draft: ${observation.pr.isDraft}`,
+    `Governance result: ${governanceLabel(outcome)}`,
+  ];
   for (const check of governance.checks) {
     lines.push(`- ${check.name}: ${check.status.toUpperCase()} (${check.applicable.length} applicable, ${check.skipped.length} skipped)`);
     for (const execution of check.applicable) {
@@ -373,7 +384,8 @@ function formatReport(result) {
   }
   lines.push(`Functional / Cloud Build status: ${functional.status.toUpperCase()}`);
   for (const execution of functional.applicable) lines.push(`- ${execution.name}: ${execution.bucket.toUpperCase()}${execution.link ? ` — ${execution.link}` : ""}`);
-  if (!functional.applicable.length) lines.push("- No applicable functional or Cloud Build check is currently registered.");
+  if (functional.status === "deferred") lines.push("- Preview mode observes governance only; functional and Cloud Build checks are deferred until retargeting to development.");
+  else if (!functional.applicable.length) lines.push("- No applicable functional or Cloud Build check is currently registered.");
   if (functional.hasPending) lines.push("Application tests may continue after this session.");
   if (functional.hasFailure) lines.push("Application tests have failed separately; the governance result and exit status are unchanged.");
   if (outcome === "passed" && functional.hasPending) lines.push("Governance checks passed, but the PR is not fully validated while application tests are still running.");
@@ -407,13 +419,19 @@ function repoArguments(repo) {
   return repo ? ["--repo", repo] : [];
 }
 
-function resolvePullRequest(reference, repo) {
-  const pr = runGhJson(["pr", "view", reference, ...repoArguments(repo), "--json", "number,url,headRefOid,headRefName,baseRefName"]);
-  if (!pr || !Number.isInteger(pr.number) || !pr.url || !/^[a-f\d]{40}$/i.test(pr.headRefOid || "") || !pr.headRefName || !pr.baseRefName) {
+function resolvePullRequest(reference, repo, mode = "implementation") {
+  const pr = runGhJson(["pr", "view", reference, ...repoArguments(repo), "--json", "number,url,headRefOid,headRefName,baseRefOid,baseRefName,isDraft"]);
+  if (!pr || !Number.isInteger(pr.number) || !pr.url || !/^[a-f\d]{40}$/i.test(pr.headRefOid || "") || !/^[a-f\d]{40}$/i.test(pr.baseRefOid || "") || !pr.headRefName || !pr.baseRefName || typeof pr.isDraft !== "boolean") {
     throw new Error("GitHub CLI returned incomplete pull request identity metadata.");
   }
-  if (pr.baseRefName !== "development" || ["development", "staging", "main"].includes(pr.headRefName)) {
+  if (mode === "implementation" && (pr.baseRefName !== "development" || ["development", "staging", "main"].includes(pr.headRefName))) {
     throw new Error(`Expected an implementation PR into development, received '${pr.headRefName}' -> '${pr.baseRefName}'.`);
+  }
+  if (mode === "stacked-preview") {
+    if (!pr.isDraft) throw new Error("Expected a draft stacked child preview.");
+    if (repositoryPolicy.classifyPullRequest(pr.headRefName, pr.baseRefName).type !== "stacked-child-preview") {
+      throw new Error(`Expected a governed stacked child preview, received '${pr.headRefName}' -> '${pr.baseRefName}'.`);
+    }
   }
   return pr;
 }
@@ -455,10 +473,12 @@ function samePullRequest(left, right) {
     && left.url === right.url
     && left.headRefOid.toLowerCase() === right.headRefOid.toLowerCase()
     && left.headRefName === right.headRefName
-    && left.baseRefName === right.baseRefName;
+    && left.baseRefOid.toLowerCase() === right.baseRefOid.toLowerCase()
+    && left.baseRefName === right.baseRefName
+    && left.isDraft === right.isDraft;
 }
 
-function createLiveObservationReader(reference, repo, initialPr, adapter = {}) {
+function createLiveObservationReader(reference, repo, initialPr, adapter = {}, mode = "implementation") {
   const dependencies = {
     resolvePullRequest: adapter.resolvePullRequest || resolvePullRequest,
     readWorkflowRuns: adapter.readWorkflowRuns || readWorkflowRuns,
@@ -466,19 +486,19 @@ function createLiveObservationReader(reference, repo, initialPr, adapter = {}) {
     readExternalCheckRuns: adapter.readExternalCheckRuns || readExternalCheckRuns,
   };
   return async () => {
-    const before = dependencies.resolvePullRequest(reference, repo);
-    if (!samePullRequest(initialPr, before)) throw new Error("Pull request head changed before governance observation. Start a new finalization invocation for the new snapshot.");
+    const before = dependencies.resolvePullRequest(reference, repo, mode);
+    if (!samePullRequest(initialPr, before)) throw new Error("Pull request head, base, or draft state changed before governance observation. Start a new finalization invocation for the new snapshot.");
     const rawRuns = dependencies.readWorkflowRuns(repo, before.headRefOid);
     const governanceRuns = selectLatestWorkflowRuns(rawRuns, GOVERNANCE_WORKFLOW, AUTHORITATIVE_GOVERNANCE_EVENTS, before.headRefOid);
-    const functionalRuns = selectLatestWorkflowRuns(rawRuns, FUNCTIONAL_WORKFLOW, Object.keys(FUNCTIONAL_JOBS_BY_EVENT), before.headRefOid);
+    const functionalRuns = mode === "stacked-preview" ? [] : selectLatestWorkflowRuns(rawRuns, FUNCTIONAL_WORKFLOW, Object.keys(FUNCTIONAL_JOBS_BY_EVENT), before.headRefOid);
     const jobsByAttempt = dependencies.readJobsForRuns(repo, [...governanceRuns, ...functionalRuns]);
     const executions = [
       ...adaptWorkflowRuns({ rawRuns, jobsByAttempt, workflow: GOVERNANCE_WORKFLOW, jobsByEvent: GOVERNANCE_JOBS_BY_EVENT, events: AUTHORITATIVE_GOVERNANCE_EVENTS, headSha: before.headRefOid }),
-      ...adaptWorkflowRuns({ rawRuns, jobsByAttempt, workflow: FUNCTIONAL_WORKFLOW, jobsByEvent: FUNCTIONAL_JOBS_BY_EVENT, events: Object.keys(FUNCTIONAL_JOBS_BY_EVENT), headSha: before.headRefOid }),
-      ...adaptExternalCheckRuns(dependencies.readExternalCheckRuns(repo, before.headRefOid)),
+      ...(mode === "stacked-preview" ? [] : adaptWorkflowRuns({ rawRuns, jobsByAttempt, workflow: FUNCTIONAL_WORKFLOW, jobsByEvent: FUNCTIONAL_JOBS_BY_EVENT, events: Object.keys(FUNCTIONAL_JOBS_BY_EVENT), headSha: before.headRefOid })),
+      ...(mode === "stacked-preview" ? [] : adaptExternalCheckRuns(dependencies.readExternalCheckRuns(repo, before.headRefOid))),
     ];
-    const after = dependencies.resolvePullRequest(reference, repo);
-    if (!samePullRequest(before, after)) throw new Error("Pull request head changed while GitHub run identities were being read. Start a new finalization invocation for the new snapshot.");
+    const after = dependencies.resolvePullRequest(reference, repo, mode);
+    if (!samePullRequest(before, after)) throw new Error("Pull request head, base, or draft state changed while GitHub run identities were being read. Start a new finalization invocation for the new snapshot.");
     return { pr: after, executions };
   };
 }
@@ -487,13 +507,14 @@ async function main(argv = process.argv.slice(2)) {
   try {
     const options = parseArguments(argv);
     let repo = options.repo || repositoryFromPullRequestUrl(options.reference) || undefined;
-    const initialPr = resolvePullRequest(options.reference, repo);
+    const initialPr = resolvePullRequest(options.reference, repo, options.mode);
     repo ||= repositoryFromPullRequestUrl(initialPr.url);
     if (!repo) throw new Error("Unable to resolve OWNER/REPO from pull request metadata.");
     const result = await waitForGovernance({
-      readObservation: createLiveObservationReader(options.reference, repo, initialPr),
+      readObservation: createLiveObservationReader(options.reference, repo, initialPr, {}, options.mode),
       timeoutMs: options.timeoutSeconds * 1000,
       intervalMs: options.intervalSeconds * 1000,
+      mode: options.mode,
       onWaiting: (state) => console.error(waitingMessage(state)),
     });
     console.log(formatReport(result));
@@ -517,6 +538,7 @@ module.exports = {
   GOVERNANCE_CHECKS,
   GOVERNANCE_JOBS_BY_EVENT,
   GOVERNANCE_WORKFLOW,
+  OBSERVATION_MODES,
   adaptExternalCheckRuns,
   adaptWorkflowRuns,
   bucketFor,
@@ -529,6 +551,7 @@ module.exports = {
   main,
   parseArguments,
   repositoryFromPullRequestUrl,
+  resolvePullRequest,
   samePullRequest,
   selectLatestWorkflowRuns,
   waitForGovernance,

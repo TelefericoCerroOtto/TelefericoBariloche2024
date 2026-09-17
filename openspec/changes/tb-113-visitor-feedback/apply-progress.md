@@ -5,7 +5,7 @@
 - Change: `tb-113-visitor-feedback`
 - Apply mode: Strict TDD; U6 complete and three bounded U7 foundations are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
-- Chain strategy: sequential PRs to `development`, adapting `stacked-to-main` to repository governance
+- Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
 - Review budget: U7-A3 remains below the 400 authored-line ceiling; no size exception applies
 - Current slice/work unit: `U7-A3-answer-domain-validation`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
