@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; U6 complete and four bounded U7 foundations are implemented
+- Apply mode: Strict TDD; U6 complete and five bounded U7 foundations are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
-- Review budget: U7-A4 remains below the 400 authored-line ceiling; no size exception applies
-- Current slice/work unit: `U7-A4-version-grace-validation`; U7 remains incomplete
+- Review budget: U7-A5 remains below the 400 authored-line ceiling; no size exception applies
+- Current slice/work unit: `U7-A5-pre-persistence-security-pipeline`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -24,7 +24,7 @@
 
 ## Remaining tasks
 
-- [ ] 3.1 U7
+- [ ] 3.1 U7 — Pre-persistence security composition is complete; persistence, idempotency, guards/Redis, receipt, drafts/UI, Route Handler, and E2E remain.
 - [ ] 3.2 U8
 - [ ] 3.3 U9
 - [ ] 4.1 U10
@@ -576,3 +576,32 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Corrected implementation SHA-256: `version-eligibility.ts=d899added4939499d9646f7efc992ef65a117e7b7ab8f18fb5198f954913f13a`; `version-eligibility.test.ts=20d0320f857b6c83f277ea37565b552441e3100e661c2fe299727c2a79340626`.
 - Proposed deterministic revision input: canonical `tb113-apply-evidence.v1` JSON over change/work-unit identity, branch/base, corrected implementation hashes, exact RED/GREEN/authoritative-parent-combined/typecheck/diff outcomes, sorted changed paths, authored additions/deletions, unchecked task 3.1, runtime N/A reason, cleanup disposition, and parent-owned attempt token; proposed evidence revision `sha256:f147c52c4c65e333b0e00213f55c7823688deff7ded675194a454070e3e7f23a`.
 - Proposed settlement diagnosis: passed bounded correction to a partial U7 slice; task 3.1 remains open and parent owns attempt settlement.
+
+## U7-A5 Pre-Persistence Security Pipeline — U7 Remains Open
+
+- Scope: composed transport/media/size, trusted origin/fetch metadata, closed JSON and D15-D18 answers, 3-second-to-2-hour form age, honeypot, injected CAPTCHA, QR session, and D10 version-grace checks into one fail-closed pipeline.
+- Ordering stops at the first failure. CAPTCHA is never called before its stage; the successful result exposes validated context only and has no persistence, CMS, Redis, cookie, receipt, or other downstream capability.
+- An absent `Sec-Fetch-Site` remains allowed only after trusted-origin validation; `cross-site` is rejected as 403 `UNTRUSTED_REQUEST`.
+- Task 3.1/U7 remains unchecked. No Route Handler, transport adapter, persistence, guard state, draft/UI, or E2E behavior was added.
+
+### U7-A5 TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `U7-A5-pre-persistence-security-pipeline` | `src/lib/feedback/submission-preflight.test.ts` | Unit + synthetic NextRequest/Node crypto | Four foundation files exited 0, 62/62 passed | Missing `./submission-preflight`; exit 1, 0 tests | Focused exit 0, 11/11 passed | Intermediate run exited 1, 8/11; final cases prove each ordered stop, absent/cross-site fetch metadata, CAPTCHA rejection, QR failure, grace expiry, and success | Split transport from parsing without changing the existing composed API; focused 11/11 remained green |
+
+### U7-A5 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/submission-preflight.test.ts`; exit 0; 1 file, 11/11 passed. |
+| Runtime harness command/scenario and exact result | Node/Vitest constructed synthetic request metadata, executed real origin/fetch-site and HMAC session checks, and used injected mock CAPTCHA verification; no external network, credential, CMS, Redis, browser, container, or persistence boundary exists in this preflight unit. |
+| Rollback boundary | Remove `submission-preflight.ts` and its test; revert only the transport/parse exports in `intake-boundary.ts` and this U7-A5 progress/status. Preserve S01-U7-A4 and task 3.1 unchecked. |
+
+### U7-A5 Verification, Cleanup, and Revision Input
+
+- Combined command: exit 0; 5 files and 73/73 tests passed. App typecheck: exit 0, no diagnostics. Exact base-relative five-path `git diff --check`: exit 0, no output.
+- Authored path/budget proof: 383 additions, 7 deletions, 390 total; only `submission-preflight.ts`, its test, `intake-boundary.ts`, and this cumulative progress file changed; `intake-boundary.test.ts` remained unchanged.
+- Cleanup/process: all commands ran in the foreground and exited; no formatter, dependency, manifest, lockfile, generated artifact, environment, credential, child process, service, container, volume, temporary artifact, remote operation, or unrelated file changed or remained.
+- SHA-256: `submission-preflight.ts=4f6cb61637f3cf31c3f4f92c81a6332f684e75a2f7b37aaf9ce672e99218e637`; `submission-preflight.test.ts=6a6383c010d11dd1755433af3c586824479d317a9865e3be3fc65f678ec17631`; `intake-boundary.ts=efc05771864f3dc79c69731f06334312116277b5eaa0d5da785ac054dfd8d930`.
+- Deterministic revision input: canonical `tb113-apply-evidence.v1` JSON over change/work-unit identity, exact branch/base and parent-owned attempt token, the three hashes above, RED/intermediate/GREEN/combined/typecheck/diff outcomes, sorted changed paths, 383 additions/7 deletions, unchecked task 3.1, runtime harness boundary, and cleanup disposition; evidence revision `sha256:aeb5ac5c7247f7a5c197ca94c0433a2e1846cfbac290a1be8373dc344ac31f85`. Parent owns settlement.
