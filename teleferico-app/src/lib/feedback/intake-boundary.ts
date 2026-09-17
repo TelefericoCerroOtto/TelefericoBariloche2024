@@ -160,9 +160,9 @@ function validateFields(body: Record<string, unknown>): BoundaryResult<Submissio
   return { ok: true, value: body as SubmissionEnvelope };
 }
 
-export function validateIntakeEnvelope(
+export function validateIntakeTransport(
   input: IntakeEnvelopeInput,
-): BoundaryResult<SubmissionEnvelope> {
+): BoundaryResult<null> {
   if (input.method !== "POST") return failure(405, "METHOD_NOT_ALLOWED");
   if (!isUtf8Json(input.contentType)) {
     return failure(415, "UNSUPPORTED_MEDIA_TYPE");
@@ -187,8 +187,23 @@ export function validateIntakeEnvelope(
   );
   if (!lengthResult.ok) return lengthResult;
 
-  const bodyResult = parseBody(input.body);
+  return { ok: true, value: null };
+}
+
+export function parseSubmissionEnvelope(
+  body: Uint8Array,
+): BoundaryResult<SubmissionEnvelope> {
+  const bodyResult = parseBody(body);
   if (!bodyResult.ok) return bodyResult;
 
   return validateFields(bodyResult.value);
+}
+
+export function validateIntakeEnvelope(
+  input: IntakeEnvelopeInput,
+): BoundaryResult<SubmissionEnvelope> {
+  const transportResult = validateIntakeTransport(input);
+  if (!transportResult.ok) return transportResult;
+
+  return parseSubmissionEnvelope(input.body);
 }
