@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; U6 complete and two bounded U7 foundations are implemented
+- Apply mode: Strict TDD; U6 complete and three bounded U7 foundations are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
-- Review budget: S12 remains below the 400 authored-line ceiling; no size exception applies
-- Current slice/work unit: `S12-U7-qr-session-contract`; U7 remains incomplete
+- Review budget: U7-A3 remains below the 400 authored-line ceiling; no size exception applies
+- Current slice/work unit: `U7-A3-answer-domain-validation`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -477,7 +477,7 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 - Scope: injected-record resolution of only an active QR point plus the current published version, and an HMAC-SHA256 session token bound to point, hashed code, version/revision, capability, nonce, issuance, and exact two-hour expiry.
 - Fail-closed coverage includes unavailable QR/version state, malformed or tampered tokens, expiry, future issuance, wrong context/revision, and wrong capability. Signing material is accepted only as function input.
-- Task 3.1 remains unchecked. Answer validation, grace handling, guards/idempotency/acceptance, drafts/UI, Route Handlers, transports, persistence, and E2E remain deferred.
+- Task 3.1 remains unchecked. Grace handling, guards/idempotency/acceptance, drafts/UI, Route Handlers, transports, persistence, and E2E remain deferred.
 
 ### S12 TDD Cycle Evidence
 | Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
@@ -497,3 +497,24 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - No formatter, dependency, manifest, lockfile, environment, credential, network, persistence, process, container, volume, temporary artifact, Route Handler, or remote operation changed or remained.
 - Implementation SHA-256: `qr-session.ts=0f4690ce79079e3d34f24cb22b310bdaf6d13d4c7343cefba91a4f7aaf8f8332`; `qr-session.test.ts=531ab9807ca41e909625a8bfeb82fa86fcc69e28fb9fbe6d6bd266be3b8b168a`.
 - Evidence revision: `sha256:65de30b6e598ed421cdb1a43d0245451ee067622b6f1b7754cf9b503a2b6bd7c`; passed partial-slice diagnosis, runtime harness exercised, parent owns settlement.
+
+## U7-A3 Answer Domain Validation — U7 Remains Open
+
+- Scope: pure validation of D15-D18 against injected active-version definitions. It accepts integer ratings 1-5, one to three combined unique selections, explicit sentiments, separated bounded `other` and comment text, then returns locale-specific snapshots ordered by `sortOrder,aspectKey`.
+- Failures aggregate sorted safe field paths for malformed shapes, unknown/duplicate/reserved keys, invalid sentiments, cardinality, locale, rating, nested unknown fields, and text bounds. No I/O or mutation occurs.
+- Deferred: version grace, security/CAPTCHA, Route Handlers, CMS transport, persistence, idempotency, Redis/guards, acceptance/receipt, drafts/UI, browser behavior, and E2E. Task 3.1 remains unchecked.
+
+### U7-A3 TDD Cycle Evidence
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `U7-A3-answer-domain-validation` | `src/lib/feedback/answer-validation.test.ts` | Pure unit | S11+S12 37/37 passed | Missing `./answer-validation`; exit 1, 0 tests | 1/1 passed | 8/10 failed before generalization; final 10/10 passed across valid snapshots and malformed/bounded cases | No structural extraction needed; rerun 10/10 passed |
+
+### U7-A3 Work Unit and Settlement Evidence
+- Focused: `pnpm --dir teleferico-app exec vitest run src/lib/feedback/answer-validation.test.ts`; exit 0, 1 file, 10/10 passed.
+- Combined safety: `pnpm --dir teleferico-app exec vitest run src/lib/feedback/intake-boundary.test.ts src/lib/feedback/qr-session.test.ts src/lib/feedback/answer-validation.test.ts`; exit 0, 3 files, 47/47 passed.
+- Typecheck: `pnpm --dir teleferico-app run typecheck`; exit 0, no diagnostics. `git diff --check`: exit 0, no output.
+- Runtime harness: N/A — the final implementation is deterministic pure TypeScript with injected data and no network, persistence, process, browser, CMS, environment, clock, crypto, or other I/O boundary.
+- Rollback boundary: remove `answer-validation.ts`, its focused test, `src/types/api/feedback.d.ts`, and only this U7-A3 status/evidence update; preserve S01-S12 and task 3.1 unchecked.
+- Cleanup/process: all commands ran in the foreground and exited; no formatter, dependency, manifest, lockfile, generated artifact, environment, credential, service, child process, container, volume, temporary artifact, remote operation, S11, or S12 file changed or remained.
+- Authored scope: 383 changed lines (379 additions, 4 deletions). SHA-256: `answer-validation.ts=6273c3349c0e54fe68413ddc97e58db191ed9c859112833181b3b30100dd9ca2`; `answer-validation.test.ts=3c68e20fdfdf1d871734d30efa48e53442da8e5b6eb624c54ac66e77ba7a825b`; `feedback.d.ts=7f797347bce0a52bf0e86bde414170e648b66452c28760aa843598e317061eae`.
+- Evidence revision: `sha256:0483d3d5b2f8ee2c245a5e0e6ddb501a601faa9f6e5d012752e5f63f5df04492`, from canonical `tb113-apply-evidence.v1` implementation hashes, verification outcomes, unchecked task state, runtime/cleanup disposition, branch/base, and authored count. Proposed settlement diagnosis: passed partial U7 slice; harness N/A; parent owns settlement.
