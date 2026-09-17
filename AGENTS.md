@@ -125,8 +125,16 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 ## Implementation PR finalization
 
 - `/implementation-pr` is an explicit, single-invocation shortcut for one implementation branch snapshot. Load `.agents/skills/implementation-pr/SKILL.md`; it composes the active commit and PR contracts without replacing them.
-- It may commit, non-force-push, create one PR to `development`, apply required PR metadata, and observe checks. It never authorizes promotion PRs, later changes, force pushes, branch changes, merges, issue closure, branch deletion, or releases.
-- `.github/scripts/wait-for-implementation-governance.js` is the sole implementation for polling and classifying implementation PR checks. It waits only for repository governance and convention checks with a bounded timeout, while reporting Cloud Build and other functional checks separately.
+- It may commit, non-force-push, create one PR from a validated typed publication plan, apply required PR metadata, and observe checks. The default plan targets `development`; `stacked-to-main` may instead create a draft child against the exact immediate parent branch. It never accepts an arbitrary base or authorizes promotion PRs, later changes, force pushes, branch changes, merges, issue closure, branch deletion, or releases.
+- Mechanical repository, publication, and native SDD fact discovery is delegated to `.opencode/agents/delivery-state-mapper.md`. The mapper is read-only except for an explicitly authorized fetch, emits one bounded versioned snapshot, and never decides policy or authorization.
+- `.github/scripts/wait-for-implementation-governance.js` is the sole implementation for polling and classifying implementation PR checks. Default mode is strict for `development`; explicit stacked-preview mode binds the exact base SHA and draft state, observes governance only, and defers Cloud Build/functional CI until retargeting.
+
+## Automatic SDD slice transitions
+
+- Load `.agents/skills/sdd-slice-transition/SKILL.md` only at a native SDD implementation/apply boundary where one bounded work unit is complete and verified or reviewed, implementation remains, and sequential chained delivery is already selected.
+- At that boundary, reconstruct local facts through `delivery-state-mapper` and automatically present the skill's one closed candidate-scoped decision. Do not require a `/next-slice` command.
+- Do not activate this workflow for ordinary interaction, planning, incomplete work, final SDD completion, or strict-TDD decisions. Strict TDD is independent of delivery transitions.
+- Publication remains owned by `implementation-pr`; next-slice implementation remains owned by the native SDD apply actor. Child work may continue from the exact published parent commit. Before the parent merges, it may be published only as a same-repository draft `stacked-to-main` preview against that immediate parent branch with exact Chain Context and governance-only observation. After the parent merges, retarget the existing child PR to `development` under fresh candidate-scoped authorization; never create a duplicate PR or automate ancestry repair.
 
 ## Change intake preflight
 

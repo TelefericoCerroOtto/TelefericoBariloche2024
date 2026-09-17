@@ -13,8 +13,10 @@ const DEFAULTS = {
   githubIssueChannel: "GitHub Issue",
   noFormalIssuesToken: "Formal issues: none",
   noBacklogItemDeclaration: "Backlog item: none",
+  stackedPreviewStrategy: "stacked-to-main",
   maxExplicitReferences: 100,
   maxIncludedPullRequests: 100,
+  maxPullRequestFiles: 3000,
   issueFetchConcurrency: 5,
   commentPageSize: 100,
   commitFilePageSize: 100,
@@ -46,6 +48,16 @@ const PROMOTION_BODY_CONTRACT = {
     },
   },
 };
+
+const CHAIN_CONTEXT_CONTRACT = Object.freeze({
+  heading: "Chain Context",
+  fields: Object.freeze({
+    strategy: "Strategy",
+    parentPullRequest: "Parent PR",
+    parentBranch: "Parent branch",
+    parentHeadSha: "Parent head SHA",
+  }),
+});
 
 async function main() {
   const command = process.argv[2];
@@ -81,8 +93,11 @@ function getConfig() {
       action: process.env.PR_ACTION || "opened",
       body: process.env.PR_BODY || "",
       headSha: process.env.PR_HEAD_SHA || "",
+      baseSha: process.env.PR_BASE_SHA || "",
+      draft: parseBoolean(process.env.PR_DRAFT),
       merged: parseBoolean(process.env.PR_MERGED),
       headRepository: process.env.PR_HEAD_REPOSITORY || "",
+      baseRepository: process.env.PR_BASE_REPOSITORY || "",
     },
     validateCommitMessages: (process.env.GITHUB_EVENT_NAME || "") === "pull_request_target" && Boolean(normalizeNumber(process.env.PR_NUMBER)),
   };
@@ -94,12 +109,22 @@ async function validatePrPolicy(config) {
   const document = await renderPrBody(config, config.pullRequest.body);
   const closingRefs = extractClosingReferences(document);
   const advancingRefs = extractAdvancingReferences(document);
-  await validatePullRequestCommitMessages(config);
   if (pr.type === "implementation") {
+    await validatePullRequestCommitMessages(config);
     validateImplementationBody(document, closingRefs);
     return ensureImplementationTracking(config, branch, extractRefsNumbers(document), document);
   }
+  if (pr.type === "stacked-child-preview") {
+    const chainContext = parseChainContext(document);
+    validateStackedPreviewRuntime(config, chainContext);
+    validateImplementationBody(document, closingRefs);
+    await validateStackedPreviewParent(config, chainContext);
+    await validateFocusedPullRequestDiff(config);
+    await validatePullRequestCommitMessages(config);
+    return;
+  }
   if (pr.type === "promotion-to-staging" || pr.type === "promotion-to-main") {
+    await validatePullRequestCommitMessages(config);
     const promotion = evaluatePromotionBody(document, pr.type);
     if (pr.type === "promotion-to-staging" && closingRefs.length) {
       throw new Error("Promotion PRs from development to staging must NOT close issues.");
@@ -146,6 +171,10 @@ async function validateTrackedItem(config, item, refsNumbers) {
 async function syncPrMutations(config) {
   if (!isTrustedMutation(config)) { console.warn("Skipping privileged synchronization for an untrusted PR head."); return; }
   const pr = repositoryPolicy.classifyPullRequest(config.pullRequest.headRef, config.pullRequest.baseRef);
+  if (pr.type === "stacked-child-preview") {
+    console.warn("Skipping privileged synchronization for a stacked child preview.");
+    return;
+  }
   if (config.pullRequest.action === "closed" && pr.type === "promotion-to-main") {
     await syncMergedMainPromotion(config);
     return;
@@ -430,6 +459,87 @@ function containsNoFormalIssuesToken(document) {
 function validateImplementationBody(document, closingRefs = extractClosingReferences(document)) {
   if (closingRefs.length) throw new Error("Implementation PRs to development must reference issues without closing them.");
   return extractRefsNumbers(document);
+}
+
+function parseChainContext(document) {
+  const sections = document.sections.filter((section) => section.heading === CHAIN_CONTEXT_CONTRACT.heading);
+  if (!sections.length) throw new Error("Stacked child previews require one visible '## Chain Context' section.");
+  if (sections.length > 1) throw new Error("Stacked child previews must not duplicate the visible '## Chain Context' section.");
+  const values = {};
+  for (const [key, label] of Object.entries(CHAIN_CONTEXT_CONTRACT.fields)) {
+    const lines = sections[0].content.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.startsWith(`${label}:`));
+    if (!lines.length) throw new Error(`Stacked child previews require '${label}: ...' in visible '## Chain Context'.`);
+    if (lines.length > 1) throw new Error(`Stacked child previews must not duplicate '${label}:' in visible '## Chain Context'.`);
+    const value = lines[0].slice(label.length + 1).trim();
+    if (!value) throw new Error(`Stacked child previews require a non-empty '${label}: ...' in visible '## Chain Context'.`);
+    values[key] = value;
+  }
+  if (values.strategy !== DEFAULTS.stackedPreviewStrategy) {
+    throw new Error(`Stacked child previews require 'Strategy: ${DEFAULTS.stackedPreviewStrategy}' in visible '## Chain Context'.`);
+  }
+  const parentMatch = values.parentPullRequest.match(/^#([1-9]\d*)$/);
+  if (!parentMatch) throw new Error("Stacked child previews require 'Parent PR: #<number>' in visible '## Chain Context'.");
+  if (!isFullSha(values.parentHeadSha)) throw new Error("Stacked child previews require a full 40-character 'Parent head SHA: <sha>' in visible '## Chain Context'.");
+  repositoryPolicy.validateImplementationBranchName(values.parentBranch);
+  return { ...values, parentPullRequestNumber: Number(parentMatch[1]) };
+}
+
+function validateStackedPreviewRuntime(config, chainContext) {
+  const pullRequest = config.pullRequest;
+  if (!pullRequest.draft) throw new Error("Stacked child previews must remain draft pull requests.");
+  if (!pullRequest.number) throw new Error("Stacked child previews require a pull request number from runtime metadata.");
+  if (pullRequest.number === chainContext.parentPullRequestNumber) throw new Error("A stacked child preview cannot name itself as its parent PR.");
+  if (!isFullSha(pullRequest.headSha) || !isFullSha(pullRequest.baseSha)) {
+    throw new Error("Stacked child previews require full head and base SHAs from runtime metadata.");
+  }
+  if (pullRequest.headRepository !== config.repository.slug || pullRequest.baseRepository !== config.repository.slug) {
+    throw new Error(`Stacked child previews require same-repository head and base metadata for '${config.repository.slug}'.`);
+  }
+  if (pullRequest.baseRef !== chainContext.parentBranch) {
+    throw new Error(`Stacked child preview base '${pullRequest.baseRef}' must match declared parent branch '${chainContext.parentBranch}'.`);
+  }
+  if (pullRequest.baseSha.toLowerCase() !== chainContext.parentHeadSha.toLowerCase()) {
+    throw new Error(`Stacked child preview base SHA '${pullRequest.baseSha}' must match declared parent head SHA '${chainContext.parentHeadSha}'.`);
+  }
+}
+
+async function validateStackedPreviewParent(config, chainContext) {
+  const parent = await fetchGitHubPullRequest(config, chainContext.parentPullRequestNumber);
+  const parentHeadRepository = parent.head?.repo?.full_name || "";
+  const parentBaseRepository = parent.base?.repo?.full_name || "";
+  if (parent.state !== "open") throw new Error(`Stacked child preview parent PR #${parent.number} must be open.`);
+  if (parentHeadRepository !== config.repository.slug || parentBaseRepository !== config.repository.slug) {
+    throw new Error(`Stacked child preview parent PR #${parent.number} must use same-repository head and base.`);
+  }
+  if (parent.head?.ref !== chainContext.parentBranch || parent.head?.sha?.toLowerCase() !== chainContext.parentHeadSha.toLowerCase()) {
+    throw new Error(`Stacked child preview parent PR #${parent.number} does not match the declared parent branch and head SHA.`);
+  }
+  if (repositoryPolicy.classifyPullRequest(parent.head.ref, parent.base?.ref).type !== "implementation") {
+    throw new Error(`Stacked child preview parent PR #${parent.number} must be an implementation PR targeting development.`);
+  }
+  repositoryPolicy.validateImplementationBranchName(parent.head.ref);
+}
+
+async function validateFocusedPullRequestDiff(config) {
+  const files = await listPullRequestFiles(config, config.pullRequest.number);
+  if (!files.length) throw new Error("Stacked child previews require a non-empty diff against the immediate parent branch.");
+  return files;
+}
+
+async function listPullRequestFiles(config, pullRequestNumber) {
+  const files = [];
+  for (let page = 1; ; page += 1) {
+    const currentPage = await githubRequest(config, `/repos/${config.repository.owner}/${config.repository.repo}/pulls/${pullRequestNumber}/files?per_page=100&page=${page}`, { method: "GET" });
+    if (!Array.isArray(currentPage)) throw new Error(`GitHub files response for pull request #${pullRequestNumber} must be an array.`);
+    for (const file of currentPage) {
+      if (!file || typeof file.filename !== "string" || !file.filename) throw new Error(`GitHub files response for pull request #${pullRequestNumber} contains malformed file metadata.`);
+    }
+    files.push(...currentPage);
+    if (files.length >= DEFAULTS.maxPullRequestFiles) {
+      throw new Error(`GitHub files response for pull request #${pullRequestNumber} reaches the ${DEFAULTS.maxPullRequestFiles}-file API cap and cannot prove a focused, non-truncated parent diff.`);
+    }
+    if (currentPage.length < 100) return files;
+  }
 }
 
 function evaluatePromotionBody(document, promotionType) {
@@ -760,6 +870,7 @@ module.exports = {
   extractClosingReferences,
   extractAdvancingReferences,
   evaluatePromotionBody,
+  parseChainContext,
   parseGitHubRenderedDocument,
   renderPrBody,
   validateExplicitlyUntrackedBody,
@@ -769,8 +880,12 @@ module.exports = {
   findNotionPageByIssueUrl,
   listPullRequestCommits,
   fetchGitHubCommitWithFiles,
+  listPullRequestFiles,
   pathsFromCommitFiles,
   validatePrPolicy,
+  validateStackedPreviewRuntime,
+  validateStackedPreviewParent,
+  validateFocusedPullRequestDiff,
   validatePullRequestCommitMessages,
   syncPrMutations,
   syncIssuePrReference,

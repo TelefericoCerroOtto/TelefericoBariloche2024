@@ -14,11 +14,11 @@ delivery_strategy: ask-on-risk — resolved to chained/sequential delivery
 chain_strategy: stacked-to-main
 size:exception: accepted for S05b only; maximum 807 changed lines
 
-The review-workload/topology decision is resolved. `stacked-to-main` is adapted to repository governance as sequential PRs targeting `development`: P00/#282 must merge before a planning-finalization PR is prepared, and every later planning or implementation slice waits for the prior PR to merge before it targets `development`. The maintainer explicitly extended the candidate-specific S05b `size:exception` from 800 to exactly 807 complete changed lines. Agents never merge; every subsequent finalization requires fresh explicit authorization. Runtime, provider, dependency, schema/auth, environment, IAM, deployment, and operational approvals remain per-slice blockers.
+The review-workload/topology decision is resolved as `stacked-to-main`. A completed child may be published before its parent merges only as a validated draft preview against the exact immediate-parent branch. After the parent merges, the existing child PR is retargeted to `development` under fresh authorization and normal implementation governance restarts. The maintainer explicitly extended the candidate-specific S05b `size:exception` from 800 to exactly 807 complete changed lines. Agents never merge or repair ancestry; every publication or retarget requires fresh explicit authorization. Runtime, provider, dependency, schema/auth, environment, IAM, deployment, and operational approvals remain per-slice blockers.
 
 ## Sequential-to-Development Chain Plan
 
-P00/#282 is the planning baseline and already targets `development`. After it merges, the next planning-finalization PR targets `development`; S01 follows only after that PR merges. S02-S24 each target `development` only after the preceding slice merges. Never open simultaneous slice PRs against intermediate bases under current governance. S05b alone uses the accepted `size:exception`; later slices require their own workload decision.
+P00/#282 is the planning baseline and already targets `development`. Each later slice ultimately targets `development`; while its immediate parent PR remains open, it may exist only as the governed draft preview described above. Retarget that same PR after the parent merges; never create a duplicate. S05b alone uses the accepted `size:exception`; later slices require their own workload decision.
 
 | Slice → target | Units; prerequisites | Start → finish | Verification; runtime harness | Rollback; review focus | LOC |
 |---|---|---|---|---|---:|

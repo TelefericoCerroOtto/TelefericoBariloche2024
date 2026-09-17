@@ -54,6 +54,31 @@ function item({ channel = "GitHub Issue", link = "https://github.com/acme/telefe
 }
 
 function renderedRelated(content = "Refs #191") { return `<h2>Related Issues</h2>\n<p>${content}</p>`; }
+function renderedChainContext({
+  strategy = "stacked-to-main",
+  parentPullRequest = "#41",
+  parentBranch = "feat/root-tb-102-parent",
+  parentHeadSha = "b".repeat(40),
+} = {}) {
+  return `<h2>Chain Context</h2><p>Strategy: ${strategy}\nParent PR: ${parentPullRequest}\nParent branch: ${parentBranch}\nParent head SHA: ${parentHeadSha}</p>`;
+}
+function stackedPreviewConfig(overrides = {}) {
+  return config({
+    ...overrides,
+    pullRequest: {
+      number: 42,
+      headRef: branch,
+      baseRef: "feat/root-tb-102-parent",
+      headSha: "a".repeat(40),
+      baseSha: "b".repeat(40),
+      draft: true,
+      headRepository: repository.slug,
+      baseRepository: repository.slug,
+      ...overrides.pullRequest,
+    },
+    renderMarkdown: overrides.renderMarkdown || (async () => renderedChainContext()),
+  });
+}
 function mockFetch(handler) { global.fetch = async (url, options = {}) => handler(String(url), options); }
 function renderedPromotion({
   environment = "staging",
@@ -297,6 +322,76 @@ test("no-backlog branches require the visible tracking declaration without query
   })), /visible ## Tracking/);
 });
 
+test("stacked child previews require the exact visible Chain Context contract", () => {
+  assert.deepEqual(governance.parseChainContext(governance.parseGitHubRenderedDocument(renderedChainContext())), {
+    strategy: "stacked-to-main",
+    parentPullRequest: "#41",
+    parentBranch: "feat/root-tb-102-parent",
+    parentHeadSha: "b".repeat(40),
+    parentPullRequestNumber: 41,
+  });
+  for (const [name, html, expected] of [
+    ["missing", "<p>No chain metadata.</p>", /require one visible/],
+    ["duplicate section", `${renderedChainContext()}${renderedChainContext()}`, /must not duplicate the visible/],
+    ["duplicate field", renderedChainContext().replace("Strategy: stacked-to-main", "Strategy: stacked-to-main\nStrategy: stacked-to-main"), /must not duplicate 'Strategy:'/],
+    ["wrong strategy", renderedChainContext({ strategy: "feature-branch-chain" }), /Strategy: stacked-to-main/],
+    ["malformed parent", renderedChainContext({ parentPullRequest: "41" }), /Parent PR: #<number>/],
+  ]) {
+    assert.throws(() => governance.parseChainContext(governance.parseGitHubRenderedDocument(html)), expected, name);
+  }
+});
+
+test("stacked child preview validation binds draft, repository, parent, base SHA, and focused diff", async () => {
+  const requests = [];
+  mockFetch((url) => {
+    requests.push(url);
+    if (url.endsWith("/pulls/41")) return response(200, {
+      number: 41,
+      state: "open",
+      head: { ref: "feat/root-tb-102-parent", sha: "b".repeat(40), repo: { full_name: repository.slug } },
+      base: { ref: "development", sha: "c".repeat(40), repo: { full_name: repository.slug } },
+    });
+    if (url.includes("/pulls/42/files?")) return response(200, [{ filename: ".github/scripts/repository-policy.js" }]);
+    throw new Error(`Unexpected request ${url}`);
+  });
+  await governance.validatePrPolicy(stackedPreviewConfig());
+  assert.equal(requests.some((url) => url.includes("api.notion.com")), false);
+  assert.equal(requests.some((url) => url.endsWith("/pulls/41")), true);
+  assert.equal(requests.some((url) => url.includes("/pulls/42/files?")), true);
+});
+
+test("stacked child preview runtime rejects stale or privileged topology before parent reads", async () => {
+  const chainContext = governance.parseChainContext(governance.parseGitHubRenderedDocument(renderedChainContext()));
+  const cases = [
+    ["ready", { draft: false }, /must remain draft/],
+    ["fork head", { headRepository: "fork/teleferico" }, /same-repository/],
+    ["wrong base", { baseRef: "feat/root-tb-999-other" }, /must match declared parent branch/],
+    ["stale base SHA", { baseSha: "d".repeat(40) }, /must match declared parent head SHA/],
+  ];
+  for (const [name, pullRequest, expected] of cases) {
+    assert.throws(() => governance.validateStackedPreviewRuntime(stackedPreviewConfig({ pullRequest }), chainContext), expected, name);
+  }
+});
+
+test("stacked child preview rejects stale parent state and truncated parent-relative diffs", async () => {
+  mockFetch((url) => {
+    if (url.endsWith("/pulls/41")) return response(200, {
+      number: 41,
+      state: "closed",
+      head: { ref: "feat/root-tb-102-parent", sha: "b".repeat(40), repo: { full_name: repository.slug } },
+      base: { ref: "development", repo: { full_name: repository.slug } },
+    });
+    throw new Error(`Unexpected request ${url}`);
+  });
+  await assert.rejects(governance.validatePrPolicy(stackedPreviewConfig()), /parent PR #41 must be open/);
+
+  mockFetch((url) => {
+    if (url.includes("/pulls/42/files?")) return response(200, Array.from({ length: 100 }, (_, index) => ({ filename: `file-${index}.js` })));
+    throw new Error(`Unexpected request ${url}`);
+  });
+  await assert.rejects(governance.listPullRequestFiles(stackedPreviewConfig(), 42), /3000-file API cap/);
+});
+
 test("missing no-backlog markers, malformed markers, and unknown prefixes fail before external requests", async () => {
   const cases = [
     ["missing marker", "fix/root-legacy-governance"],
@@ -490,6 +585,13 @@ test("untrusted metadata cannot start GitHub or Notion mutations", async () => {
   assert.equal(calls, 0);
 });
 
+test("trusted stacked child previews explicitly no-op before any mutation read", async () => {
+  let calls = 0;
+  mockFetch(() => { calls += 1; return response(200, {}); });
+  await governance.syncPrMutations(stackedPreviewConfig());
+  assert.equal(calls, 0);
+});
+
 test("managed comments are idempotent and never PATCH issue bodies", async () => {
   const marker = governance.managedIssueCommentMarker(191, 42, "Related PR");
   const requests = [];
@@ -617,10 +719,14 @@ test("workflow serializes only trusted sync runs for the same PR", () => {
   assert.doesNotMatch(workflow, /^concurrency:/m);
   assert.match(validateJob, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
   assert.match(validateJob, /PR_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \|\| inputs\.pr_head_sha \}\}/);
+  assert.match(validateJob, /PR_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \|\| inputs\.pr_base_sha \}\}/);
+  assert.match(validateJob, /PR_DRAFT: \$\{\{ github\.event\.pull_request\.draft \|\| inputs\.pr_draft \}\}/);
+  assert.match(validateJob, /PR_BASE_REPOSITORY: \$\{\{ github\.event\.pull_request\.base\.repo\.full_name \|\| inputs\.pr_base_repository \}\}/);
   assert.match(syncJob, /if: github\.event_name == 'pull_request_target' && github\.event\.pull_request\.head\.repo\.full_name == github\.repository/);
   assert.match(syncJob, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
   assert.match(syncJob, /needs: \[governance-tests, validate-pr-policy\]/);
   assert.match(workflow, /name: Governance tests/);
+  assert.match(workflow, /types: \[opened, reopened, edited, synchronize, converted_to_draft, ready_for_review, closed\]/);
 });
 
 test("documentation identifies append-only issue comments as authoritative", () => {

@@ -78,11 +78,26 @@ function isImplementationBranchCandidate(branchName) {
   return typeof branchName === "string" && BRANCH_TYPES.some((type) => branchName.startsWith(`${type}/`));
 }
 
+function isGovernedImplementationBranch(branchName) {
+  if (!isImplementationBranchCandidate(branchName)) return false;
+  try {
+    validateImplementationBranchName(branchName);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function classifyPullRequest(headRef, baseRef) {
   if (headRef === "development" && baseRef === "staging") return { type: "promotion-to-staging" };
   if (headRef === "staging" && baseRef === "main") return { type: "promotion-to-main" };
   if (baseRef === "development") return { type: "implementation" };
-  if (isImplementationBranchCandidate(headRef)) return { type: "unsupported-implementation-target" };
+  if (isGovernedImplementationBranch(headRef) && isGovernedImplementationBranch(baseRef)) {
+    return { type: "stacked-child-preview" };
+  }
+  if (isImplementationBranchCandidate(headRef) || isGovernedImplementationBranch(baseRef)) {
+    return { type: "unsupported-implementation-target" };
+  }
   return { type: "other" };
 }
 
@@ -167,6 +182,7 @@ module.exports = {
   classifyPullRequest,
   deriveDirectoryFromPaths,
   directoryForPath,
+  isGovernedImplementationBranch,
   isImplementationBranchCandidate,
   validateCommitMessage,
   validateCommitMessageAgainstPaths,

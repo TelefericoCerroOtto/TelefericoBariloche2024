@@ -16,7 +16,24 @@ on:
         required: false
         type: string
       pr_head_sha:
-        description: PR head commit SHA; required for staging-to-main validation
+        description: PR head commit SHA; required for stacked previews and staging-to-main validation
+        required: false
+        type: string
+      pr_base_sha:
+        description: PR base commit SHA; required for stacked previews
+        required: false
+        type: string
+      pr_draft:
+        description: Whether the PR is a draft; stacked previews require true
+        required: false
+        default: false
+        type: boolean
+      pr_head_repository:
+        description: Head OWNER/REPO; required for stacked-preview validation
+        required: false
+        type: string
+      pr_base_repository:
+        description: Base OWNER/REPO; required for stacked-preview validation
         required: false
         type: string
       pr_action:
@@ -49,7 +66,7 @@ on:
       - docs/todo-workflow.md
       - docs/CI-AUTOMATION.md
   pull_request_target:
-    types: [opened, reopened, edited, synchronize, ready_for_review, closed]
+    types: [opened, reopened, edited, synchronize, converted_to_draft, ready_for_review, closed]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -96,7 +113,10 @@ jobs:
           PR_MERGED: ${{ github.event.pull_request.merged || inputs.pr_merged }}
           PR_BODY: ${{ github.event.pull_request.body || inputs.pr_body }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.pr_head_sha }}
-          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || '' }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.pr_base_sha }}
+          PR_DRAFT: ${{ github.event.pull_request.draft || inputs.pr_draft }}
+          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || inputs.pr_head_repository }}
+          PR_BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name || inputs.pr_base_repository }}
         run: node .github/scripts/github-notion-sync.js validate-pr-policy
 
   trusted-pr-sync:
@@ -134,5 +154,9 @@ jobs:
           PR_ACTION: ${{ github.event.action || inputs.pr_action }}
           PR_MERGED: ${{ github.event.pull_request.merged || inputs.pr_merged }}
           PR_BODY: ${{ github.event.pull_request.body || inputs.pr_body }}
-          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.pr_head_sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.pr_base_sha }}
+          PR_DRAFT: ${{ github.event.pull_request.draft || inputs.pr_draft }}
+          PR_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || inputs.pr_head_repository }}
+          PR_BASE_REPOSITORY: ${{ github.event.pull_request.base.repo.full_name || inputs.pr_base_repository }}
         run: node .github/scripts/github-notion-sync.js sync-pr-mutations
