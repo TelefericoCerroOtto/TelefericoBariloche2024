@@ -3,7 +3,7 @@ import { Socket, connect as connectNet } from "net";
 import { connect as connectTls, TLSSocket } from "tls";
 
 type RedisScalar = string | number | null;
-type RedisResponse = RedisScalar | RedisResponse[];
+export type RedisResponse = RedisScalar | RedisResponse[];
 
 type RateEntry = {
   hits: number;
@@ -48,7 +48,10 @@ const REDIS_RATE_LIMIT_SCRIPT = [
 class InMemoryRateLimitStore implements RateLimitStore {
   private readonly store = new Map<string, RateEntry>();
 
-  async increment(key: string, windowMs: number): Promise<RateLimitIncrementResult> {
+  async increment(
+    key: string,
+    windowMs: number,
+  ): Promise<RateLimitIncrementResult> {
     if (this.store.size > 10_000) {
       this.store.clear();
     }
@@ -83,11 +86,16 @@ class RedisRateLimitStore implements RateLimitStore {
     this.options = options;
   }
 
-  async increment(key: string, windowMs: number): Promise<RateLimitIncrementResult> {
+  async increment(
+    key: string,
+    windowMs: number,
+  ): Promise<RateLimitIncrementResult> {
     const url = new URL(this.options.url);
-    const responses = await runRedisCommands(url, this.options.connectTimeoutMs, [
-      [REDIS_RATE_LIMIT_SCRIPT, "1", key, String(windowMs)],
-    ]);
+    const responses = await runRedisCommands(
+      url,
+      this.options.connectTimeoutMs,
+      [[REDIS_RATE_LIMIT_SCRIPT, "1", key, String(windowMs)]],
+    );
 
     const evalResponse = responses.at(-1);
     if (!Array.isArray(evalResponse)) {
@@ -196,7 +204,7 @@ function createSocket(url: URL): Promise<Socket | TLSSocket> {
   });
 }
 
-async function runRedisCommands(
+export async function runRedisCommands(
   url: URL,
   connectTimeoutMs: number,
   commands: Array<[script: string, keysCount: string, ...args: string[]]>,
@@ -252,9 +260,7 @@ async function runRedisCommands(
       const authArgs = url.username
         ? [decodeURIComponent(url.username), decodeURIComponent(url.password)]
         : [decodeURIComponent(url.password)];
-      commandParts.push(
-        encodeRedisCommand("AUTH", authArgs),
-      );
+      commandParts.push(encodeRedisCommand("AUTH", authArgs));
     }
 
     if (url.pathname && url.pathname !== "/") {
@@ -264,7 +270,9 @@ async function runRedisCommands(
     }
 
     for (const [script, keysCount, ...args] of commands) {
-      commandParts.push(encodeRedisCommand("EVAL", [script, keysCount, ...args]));
+      commandParts.push(
+        encodeRedisCommand("EVAL", [script, keysCount, ...args]),
+      );
     }
 
     socket.write(commandParts.join(""));
@@ -275,11 +283,15 @@ export function createMemoryRateLimitStore(): RateLimitStore {
   return new InMemoryRateLimitStore();
 }
 
-export function createRedisRateLimitStore(options: RedisStoreOptions): RateLimitStore {
+export function createRedisRateLimitStore(
+  options: RedisStoreOptions,
+): RateLimitStore {
   return new RedisRateLimitStore(options);
 }
 
-export function createUnavailableRateLimitStore(message: string): RateLimitStore {
+export function createUnavailableRateLimitStore(
+  message: string,
+): RateLimitStore {
   return {
     async increment() {
       throw new Error(message);
@@ -306,7 +318,11 @@ export function createConfiguredRateLimitStore(
   });
 }
 
-export function buildRateLimitKey(namespace: string, form: string, identity: string): string {
+export function buildRateLimitKey(
+  namespace: string,
+  form: string,
+  identity: string,
+): string {
   return [
     "public-form",
     namespace,

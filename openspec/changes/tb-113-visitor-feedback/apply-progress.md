@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; U6 complete and six bounded U7 foundations are implemented
+- Apply mode: Strict TDD; U6 complete and U7 foundations through U7-B2 are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
-- Review budget: candidate-specific `size:exception` permits U7-B1 up to 800 authored changed lines and authorizes no later unit
-- Current slice/work unit: `U7-B1-persistence-adapter`; U7 remains incomplete
+- Review budget: candidate-specific `size:exception` permits U7-B2 up to 800 authored changed lines and authorizes no later unit
+- Current slice/work unit: `U7-B2-guard-degradation`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -24,7 +24,7 @@
 
 ## Remaining tasks
 
-- [ ] 3.1 U7 — Durable idempotency/acceptance core is complete; adapters, guards/Redis, drafts/UI, Route Handler, and E2E remain.
+- [ ] 3.1 U7 — Durable acceptance, persistence, and browser guard/Redis degradation are complete; HTTP composition, drafts/UI, and E2E remain.
 - [ ] 3.2 U8
 - [ ] 3.3 U9
 - [ ] 4.1 U10
@@ -671,3 +671,44 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Harness disposition: reused and extended without invalidation. Every foreground process exited; Strapi was destroyed and owned Docker container/volume queries were empty.
 - No dependency, manifest, lockfile, schema, permission, migration, generated type, environment, credential, remote, Redis, route, UI, or deployment change occurred.
 - Authored scope: 332 changed lines (307 additions, 25 deletions), including the retained planning delta and cumulative OpenSpec evidence; candidate-specific `size:exception` is accepted up to 800 lines for U7-B1 only. Deterministic revision `sha256:255ff84cf5c97db1272338f81b751199f0839de1351bea26c70d41de98f41ca1` uses canonical `tb113-apply-evidence.v1` JSON with apply-progress normalized out of its self-reference. Parent owns native attempt settlement.
+
+## U7-B2 Browser Guard Degradation — U7 Remains Open
+
+- Scope: added the 24-hour cross-point browser guard port, Redis lookup/persistence adapter, fail-open degradation, and bounded degradation telemetry without adding Route Handlers, cookies, environment configuration, UI, drafts, or E2E behavior.
+- Durable replay remains first. A fresh request checks Redis only after the durable `(sessionNonceHash,idempotencyKey)` lookup; an accepted insert commits before Redis persistence begins. Identical replay neither reads nor extends Redis state.
+- Redis keys contain a second SHA-256 projection rather than the persisted browser token hash. Telemetry contains only event identity, operation, reason, backend, and a double-hashed identity; backend error details and browser hashes are excluded.
+- Redis lookup or persistence failure accepts after authoritative validation and persistence. Telemetry failure is also nonblocking. Expired guard deadlines are not recreated.
+- Task 3.1/U7 stays unchecked. U7-B3 HTTP composition, U7-B4 form/draft/UI, and U7-B5 visitor E2E remain deferred.
+
+### U7-B2 TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `U7-B2-guard-degradation` | `browser-guard.test.ts`; `submission-acceptance.test.ts` | Unit + local TCP/RESP runtime | Acceptance and form guards exited 0, 14/14 passed | Focused exit 1: missing `browser-guard`; acceptance had 2 failures because post-commit persistence was absent and lookup failure returned 503 | Focused exit 0, 14/14 passed after minimal guard adapter and acceptance ordering | Final focused exit 0, 16/16 passed across Redis inactive/active, protocol errors, lookup/persist degradation, telemetry failure, expiry, post-commit order, replay, and active guard | Extracted one nonthrowing `FeedbackBrowserGuard` port around the Redis store; final 16/16 and full 90/90 remained green |
+
+### U7-B2 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/browser-guard.test.ts src/lib/feedback/submission-acceptance.test.ts`; exit 0; 2 files and 16/16 tests passed. |
+| Runtime harness command/scenario and exact result | The focused browser-guard suite opened loopback-only ephemeral TCP servers, exercised the production RESP/EVAL socket path for inactive lookup, 24-hour PX persistence, active lookup, and Redis protocol errors, then closed every server. Success and failure/degradation paths passed 5/5. No external Redis, container, dependency, credential, or remote service was used. |
+| Rollback boundary | Remove `browser-guard.ts` and its test; revert the two Redis command exports, the browser-guard port/order additions in `submission-acceptance.ts`, their focused tests, and only this U7-B2 status/evidence. Preserve U7-A1 through U7-B1 and keep task 3.1 unchecked. |
+
+### U7-B2 Verification, Cleanup, and Revision
+
+- Focused guard/acceptance: exit 0, 2 files and 16/16 passed. Full feedback suite: exit 0, 7 files and 90/90 passed.
+- App typecheck: exit 0, no diagnostics. Prettier check for all five implementation/test paths: exit 0. `git diff --check`: exit 0, no output. Modified-guard regression selector: exit 0, 3 files and 22/22 passed. Package-wide `pnpm --dir teleferico-app run test`: exit 1 with 245/247 passing; two unrelated existing `form-protection.test.ts` assertions expect `TOO_MANY_REQUESTS` while unchanged production returns `EMAIL_LIMIT_EXCEEDED`. The U7-B2 files are absent from both failures and no out-of-scope correction was attempted.
+- CMS suite: N/A because no CMS file changed. Browser/UI E2E: deferred to U7-B5 by the approved slice boundary.
+- Cleanup/process: all Vitest, TypeScript, and formatting processes exited; the loopback TCP fixtures closed in `afterEach`; no Redis server, child process, container, volume, dependency, lockfile, manifest, generated artifact, environment value, credential, remote operation, or temporary artifact was created or remained.
+- Authored scope: 591 additions and 60 deletions = 651 lines, including cumulative OpenSpec persistence, within the candidate-specific 800-line U7-B2 exception. Implementation SHA-256: `browser-guard.ts=16c3d8c181567354ad6e025cfe00e8be66c96b95a5c512418770db94a309224c`; `browser-guard.test.ts=9df0e128fc2608196edc7441f085344cc7bf5ef72bdd1db61164503598c9b7f1`; `submission-acceptance.ts=694d3c2b61be6159ba3710fc9acafec15341c3ff9919a247c298b2b473d30bc8`; `submission-acceptance.test.ts=450a99a00c97682ae9c7ed23838eba0827d59871e9f240d3ead43b9b0cd1b1b9`; `rate-limit.ts=ef8e4080c29f70de62dcdf12ca8000f7639e92d29865e19c9eef07b3920b2cdf`. Deterministic revision: `sha256:0d4475bce7f73c97969d99120ae908c65a426be08b3a7e1bd1d3ec3ef958e4c5`, derived from canonical `tb113-apply-evidence.v1` JSON over branch/base, sorted implementation paths, all exact verification outcomes including the package-wide non-U7 failure, runtime/cleanup outcomes, authored count, and unchecked task 3.1. Parent owns native attempt settlement.
+
+## U7-B2 Independent Baseline Validation Correction
+
+- Correction remediates failed evidence revision `sha256:0d4475bce7f73c97969d99120ae908c65a426be08b3a7e1bd1d3ec3ef958e4c5`; parent retains attempt `sha256:da657cd875f39d14a947406bbb63562c598098e0f06c1b2b47b6da0275ec8523` and owns settlement with the exact remediated revision.
+- Independent read-only validation classified the package-suite failure as `base-only`. `src/lib/services/form-protection.ts` and `src/lib/services/__tests__/form-protection.test.ts` are byte-identical to base HEAD `380ca97631325c173f01cc838422c95502bbaeef`; ancestor commit `7220e728` changed production to `EMAIL_LIMIT_EXCEEDED` without updating the two assertions.
+- Exact baseline confirmation: `pnpm exec vitest run src/lib/services/__tests__/form-protection.test.ts -t "email limit" --reporter=verbose`; exit 1; exactly 2 selected tests failed and 2 were skipped. Both failures expected `TOO_MANY_REQUESTS` and received `EMAIL_LIMIT_EXCEEDED`; no additional failure occurred.
+- The package-wide app suite remains red at 245/247 and MUST NOT be described as passing. Its only accepted failures are `blocks contact email limit after five submissions in 24 hours` and `blocks postulation email limit after two submissions in 30 days`.
+- Correction verification: focused U7-B2 exit 0, 2 files and 16/16 passed; full feedback exit 0, 7 files and 90/90 passed; app typecheck exit 0; `git diff --check` exit 0. No production or test behavior changed.
+- Task 3.1/U7 remains unchecked. U7-B3 HTTP composition, U7-B4 form/draft/UI, and U7-B5 visitor E2E remain deferred.
+- Runtime/cleanup and rollback boundaries remain those recorded for U7-B2. The correction candidate changes cumulative evidence only; no owned process, Redis server, container, volume, or temporary artifact remains.
+- Corrected authored scope: 602 additions and 60 deletions = 662 lines, including cumulative OpenSpec evidence, within the approved 800-line U7-B2 exception. Corrected evidence revision: `sha256:dd4882f3ad430c396bdf00ccd88f5aae539cd8f466c4f02bb15f29289cbe0fe8`, derived from canonical `tb113-apply-evidence.v1` JSON binding the `base-only` diagnosis, failed revision `sha256:0d4475bce7f73c97969d99120ae908c65a426be08b3a7e1bd1d3ec3ef958e4c5`, branch/base, unchanged implementation hashes, exact correction verification, runtime/cleanup state, authored count, and unchecked task 3.1. Parent owns settlement.
