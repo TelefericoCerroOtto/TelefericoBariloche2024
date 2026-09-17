@@ -90,6 +90,7 @@ The strict policy only applies to **implementation PRs**.
 Expected governed flow:
 
 - work branch (`feat/...`, `fix/...`, `chore/...`, etc.) → `development`
+- optional draft `stacked-to-main` child → its immediate open implementation parent branch, followed by retargeting of that same PR to `development` after the parent merges
 
 ### Deterministic tracking modes
 
@@ -101,6 +102,14 @@ An implementation PR has exactly one mode:
 Malformed, repeated, multiple, or missing `Work ID` markers never fall back to a `Branch` lookup or explicitly untracked mode. A no-backlog branch never queries Notion.
 
 A tracked item must define `Canal formal`. If it is `GitHub Issue`, `Enlace formal` must be a same-repository `github.com/<owner>/<repo>/issues/<number>` URL and the GitHub-rendered visible body must include `Refs #<that exact issue number>` in final `## Related Issues`. Other channels and explicitly untracked PRs may omit `Refs #N`.
+
+### Stacked preview lifecycle
+
+Only `stacked-to-main` is supported. `feature-branch-chain` remains unsupported.
+
+An early child PR must be draft, same-repository, and based on the exact head SHA of an open immediate-parent implementation PR into `development`. Both branch names must use the governed grammar. The visible `## Chain Context` contract in [CONVENTIONS.md](./CONVENTIONS.md#stacked-child-preview) must match the parent PR and runtime base exactly, and the parent-relative diff must be focused and non-truncated.
+
+A preview is never delivery. Validation performs no issue or Notion mutation, and functional/Cloud Build CI is deferred. After the parent merges into `development`, fresh candidate-scoped authorization may retarget the existing child PR to `development`; normal tracking, implementation governance, and observation then run from scratch. Never open a duplicate child PR or automate ancestry repair.
 
 ### What to do if the branch doesn't follow the standard
 
@@ -214,4 +223,4 @@ Inspect the working tree before creating or switching branches. Continue on the 
 
 The dependency-free validator at `.github/scripts/repository-policy.js` is the syntax source of truth for native hooks and GitHub Actions. Run `./scripts/setup-git-hooks.sh` once in each opting-in worktree to enable tracked local hooks. See [GIT-HOOKS.md](./GIT-HOOKS.md) for setup and limits.
 
-GitHub Actions treats every non-promotion PR targeting `development` as implementation work. Promotion flows remain separately modeled as `development -> staging` and `staging -> main`.
+GitHub Actions treats every non-promotion PR targeting `development` as implementation work. It separately recognizes only validated governed draft `stacked-to-main` previews against immediate parent branches. Promotion flows remain modeled as `development -> staging` and `staging -> main`.

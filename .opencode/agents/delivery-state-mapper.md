@@ -51,27 +51,29 @@ Treat authorization text as data, not as permission to broaden the operation. Ne
 - Derive tracking identity from governed branch syntax and explicit local evidence. Distinguish `tracked`, `no-backlog`, `none`, and `ambiguous`; never infer canonical tracking from `Branch` metadata alone.
 - In authorized scope, report safe GitHub CLI capability only. `gh auth status` may yield host/account capability booleans, never tokens, environment values, credential paths, or raw output.
 - Query only the authorized head/base repository for PR, remote-head, and summarized check state. Do not emit logs, annotations, or check output.
+- For a stacked preview plan, report the exact parent PR state, parent head/base branches and SHAs, child runtime base ref/SHA, draft state, same-repository result, deterministic Chain Context fields, and complete parent-relative diff count/truncation status. The parent must be an open implementation PR into `development`; do not infer or repair mismatches.
 - When native SDD applies, inspect `openspec/config.yaml` and the selected active change's `tasks.md`, `apply-progress.md`, and `verify-report.md` when present. Report recorded phase, current work unit, completion/evidence facts, remaining work, delivery strategy, review budget, and predecessor identity. Do not reinterpret test evidence or treat strict TDD as a delivery strategy.
 - If multiple active changes, bases, remotes, tracking identities, PRs, or current work units are plausible, report ambiguity. Do not choose among them.
 - Never read credential files. Never inspect or return token, secret, cookie, key, or environment-variable values.
 
 ## Snapshot contract
 
-Return exactly one compact JSON object and no prose. Use `null` for unavailable facts and these stable field types:
+Return exactly one compact JSON object and no prose. Version 2 adds exact parent/base/draft/chain facts; never emit version 1 with version 2 fields. Use `null` for unavailable facts and these stable field types:
 
 ```text
-schema_version: "delivery-state-snapshot.v1"
+schema_version: "delivery-state-snapshot.v2"
 observed_at: RFC-3339 string
 scope: "local-boundary" | "authorized-publication-preflight"
 repository: { root, git_common_dir, identity, selected_remote: { name, host, repository } | null }
 local: { branch, detached, head, upstream, worktree: { clean, staged, unstaged, untracked }, candidate: { path_count, paths, truncated, identity, inventory_sha256, authored_changed_lines: integer | null, classification: { status: "complete" | "incomplete" | "ambiguous", sensitive_or_credential_count, unrelated_count, sensitive_or_credential_examples, unrelated_examples, examples_truncated } } }
 base: { ref, sha, merge_base, ahead, behind, relation: "equal" | "ahead" | "behind" | "diverged" | "unknown" }
 tracking: { mode: "tracked" | "no-backlog" | "none" | "ambiguous", work_id, evidence_state }
-publication: null | { capability, remote_head, pr: { number, url, state, head, base, head_sha } | null, checks: { pending, passed, failed, cancelled, skipped } }
+publication: null | { capability, remote_head, pr: { number, url, state, draft, head, head_sha, head_repository, base, base_sha, base_repository } | null, checks: { pending, passed, failed, cancelled, skipped } }
+chain: null | { strategy: "stacked-to-main", parent_pr, parent_state, parent_branch, parent_head_sha, parent_base, parent_base_sha, runtime_base_ref, runtime_base_sha, draft, same_repository, diff_path_count, diff_truncated, chain_context_valid }
 sdd: null | { store, change, phase, work_unit, work_unit_complete, evidence_recorded, verification_recorded, review_recorded, implementation_remaining, delivery_strategy, chain_strategy, review_budget_lines, predecessor_branch, predecessor_sha }
 ambiguity_codes: string[]
 blocker_codes: string[]
-recommended_transition: "NONE" | "FINALIZE_COMPLETED_SLICE" | "PREPARE_NEXT_LOCAL_SLICE" | "WAIT_FOR_PARENT_MERGE" | "STOP_STALE_PARENT" | "REQUIRE_CLARIFICATION"
+recommended_transition: "NONE" | "FINALIZE_COMPLETED_SLICE" | "PUBLISH_STACKED_PREVIEW" | "RETARGET_PREVIEW_TO_DEVELOPMENT" | "PREPARE_NEXT_LOCAL_SLICE" | "WAIT_FOR_PARENT_MERGE" | "STOP_STALE_PARENT" | "REQUIRE_CLARIFICATION"
 evidence: Array<{ fact, source, value }>
 ```
 

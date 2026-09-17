@@ -14,7 +14,9 @@ const pr = {
   url: "https://github.com/acme/teleferico/pull/278",
   headRefOid: headSha,
   headRefName: "fix/root-tb-128-governance-wait",
+  baseRefOid: "b".repeat(40),
   baseRefName: "development",
+  isDraft: false,
 };
 
 function workflowRun(overrides = {}) {
@@ -125,14 +127,16 @@ test("functional metadata matches the separate Cloud Build workflow", () => {
   }
 });
 
-test("accepts a PR number or URL and bounded polling options", () => {
-  assert.deepEqual(observer.parseArguments(["278"]), { timeoutSeconds: 300, intervalSeconds: 5, repo: undefined, reference: "278" });
+test("accepts a PR number or URL, explicit observation mode, and bounded polling options", () => {
+  assert.deepEqual(observer.parseArguments(["278"]), { timeoutSeconds: 300, intervalSeconds: 5, mode: "implementation", repo: undefined, reference: "278" });
   assert.deepEqual(observer.parseArguments([pr.url, "--timeout-seconds", "0", "--interval-seconds", "0.25"]), {
     timeoutSeconds: 0,
     intervalSeconds: 0.25,
+    mode: "implementation",
     repo: undefined,
     reference: pr.url,
   });
+  assert.equal(observer.parseArguments(["278", "--mode", "stacked-preview"]).mode, "stacked-preview");
   assert.equal(observer.repositoryFromPullRequestUrl(pr.url), "acme/teleferico");
 });
 
@@ -143,6 +147,7 @@ test("rejects ambiguous references and invalid polling bounds", () => {
   assert.throws(() => observer.parseArguments(["278", "279"]), /exactly one/);
   assert.throws(() => observer.parseArguments(["278", "--timeout-seconds", "-1"]), /non-negative/);
   assert.throws(() => observer.parseArguments(["278", "--interval-seconds", "0"]), /positive/);
+  assert.throws(() => observer.parseArguments(["278", "--mode", "feature-branch-chain"]), /--mode must be one of/);
   assert.throws(() => observer.parseArguments([pr.url, "--repo", "other/repo"]), /does not match/);
 });
 
@@ -279,6 +284,44 @@ test("failed dispatch-and-wait is separate from governance exit status", async (
   assert.match(observer.formatReport(result), /Governance result: PASSED/);
 });
 
+test("stacked-preview mode observes governance only and reports functional CI as deferred", async () => {
+  const functional = execution("dispatch-and-wait", "fail", { workflow: observer.FUNCTIONAL_WORKFLOW, jobId: 5 });
+  const result = await observer.waitForGovernance({
+    readObservation: async () => observation([...governanceSet(), functional]),
+    timeoutMs: 100,
+    intervalMs: 10,
+    mode: "stacked-preview",
+  });
+  assert.equal(result.outcome, "passed");
+  assert.equal(result.functional.status, "deferred");
+  assert.match(observer.formatReport(result), /Preview mode observes governance only/);
+});
+
+test("stacked-preview live observation does not read functional or external checks", async () => {
+  const previewPr = {
+    ...pr,
+    baseRefName: "feat/root-tb-127-parent",
+    isDraft: true,
+  };
+  let externalReads = 0;
+  const run = workflowRun();
+  const read = observer.createLiveObservationReader("278", "acme/teleferico", previewPr, {
+    resolvePullRequest: () => previewPr,
+    readWorkflowRuns: () => [run],
+    readJobsForRuns: () => new Map([["100:1", jobsFor(100)]]),
+    readExternalCheckRuns: () => { externalReads += 1; return []; },
+  }, "stacked-preview");
+  const result = await read();
+  assert.equal(observer.evaluateGovernance(result.executions).status, "passed");
+  assert.equal(externalReads, 0);
+});
+
+test("pull request identity includes exact base SHA and draft state", () => {
+  assert.equal(observer.samePullRequest(pr, { ...pr }), true);
+  assert.equal(observer.samePullRequest(pr, { ...pr, baseRefOid: "c".repeat(40) }), false);
+  assert.equal(observer.samePullRequest(pr, { ...pr, isDraft: true }), false);
+});
+
 test("external Cloud Build adapter selects the greatest stable check-run id", () => {
   const executions = observer.adaptExternalCheckRuns([
     { id: 100, name: "Trigger: old", status: "completed", conclusion: "failure", started_at: "2026-09-10T12:00:00Z" },
@@ -327,7 +370,7 @@ test("live reader rejects a head change before observation", async () => {
     readJobsForRuns: () => new Map(),
     readExternalCheckRuns: () => [],
   });
-  await assert.rejects(read(), /head changed before governance observation/);
+  await assert.rejects(read(), /head, base, or draft state changed before governance observation/);
   assert.equal(workflowReads, 0);
 });
 
@@ -340,7 +383,7 @@ test("live reader rejects a head change between observation and final identity r
     readJobsForRuns: () => new Map(),
     readExternalCheckRuns: () => [],
   });
-  await assert.rejects(read(), /head changed while GitHub run identities were being read/);
+  await assert.rejects(read(), /head, base, or draft state changed while GitHub run identities were being read/);
 });
 
 test("malformed stable identities fail closed", () => {
