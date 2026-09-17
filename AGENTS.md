@@ -126,7 +126,15 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 
 - `/implementation-pr` is an explicit, single-invocation shortcut for one implementation branch snapshot. Load `.agents/skills/implementation-pr/SKILL.md`; it composes the active commit and PR contracts without replacing them.
 - It may commit, non-force-push, create one PR to `development`, apply required PR metadata, and observe checks. It never authorizes promotion PRs, later changes, force pushes, branch changes, merges, issue closure, branch deletion, or releases.
+- Mechanical repository, publication, and native SDD fact discovery is delegated to `.opencode/agents/delivery-state-mapper.md`. The mapper is read-only except for an explicitly authorized fetch, emits one bounded versioned snapshot, and never decides policy or authorization.
 - `.github/scripts/wait-for-implementation-governance.js` is the sole implementation for polling and classifying implementation PR checks. It waits only for repository governance and convention checks with a bounded timeout, while reporting Cloud Build and other functional checks separately.
+
+## Automatic SDD slice transitions
+
+- Load `.agents/skills/sdd-slice-transition/SKILL.md` only at a native SDD implementation/apply boundary where one bounded work unit is complete and verified or reviewed, implementation remains, and sequential chained delivery is already selected.
+- At that boundary, reconstruct local facts through `delivery-state-mapper` and automatically present the skill's one closed candidate-scoped decision. Do not require a `/next-slice` command.
+- Do not activate this workflow for ordinary interaction, planning, incomplete work, final SDD completion, or strict-TDD decisions. Strict TDD is independent of delivery transitions.
+- Publication remains owned by `implementation-pr`; next-slice implementation remains owned by the native SDD apply actor. Child work may continue locally from the exact published parent commit, but stays unpushed and without a PR until that parent merges into `development`.
 
 ## Change intake preflight
 
