@@ -3,11 +3,11 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; U6 complete and five bounded U7 foundations are implemented
+- Apply mode: Strict TDD; U6 complete and six bounded U7 foundations are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
-- Review budget: U7-A5 remains below the 400 authored-line ceiling; no size exception applies
-- Current slice/work unit: `U7-A5-pre-persistence-security-pipeline`; U7 remains incomplete
+- Review budget: U7-A6 remains below the 400 authored-line ceiling; no size exception applies
+- Current slice/work unit: `U7-A6-durable-idempotency-acceptance`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -24,7 +24,7 @@
 
 ## Remaining tasks
 
-- [ ] 3.1 U7 — Pre-persistence security composition is complete; persistence, idempotency, guards/Redis, receipt, drafts/UI, Route Handler, and E2E remain.
+- [ ] 3.1 U7 — Durable idempotency/acceptance core is complete; adapters, guards/Redis, drafts/UI, Route Handler, and E2E remain.
 - [ ] 3.2 U8
 - [ ] 3.3 U9
 - [ ] 4.1 U10
@@ -605,3 +605,29 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Cleanup/process: all commands ran in the foreground and exited; no formatter, dependency, manifest, lockfile, generated artifact, environment, credential, child process, service, container, volume, temporary artifact, remote operation, or unrelated file changed or remained.
 - SHA-256: `submission-preflight.ts=4f6cb61637f3cf31c3f4f92c81a6332f684e75a2f7b37aaf9ce672e99218e637`; `submission-preflight.test.ts=6a6383c010d11dd1755433af3c586824479d317a9865e3be3fc65f678ec17631`; `intake-boundary.ts=efc05771864f3dc79c69731f06334312116277b5eaa0d5da785ac054dfd8d930`.
 - Deterministic revision input: canonical `tb113-apply-evidence.v1` JSON over change/work-unit identity, exact branch/base and parent-owned attempt token, the three hashes above, RED/intermediate/GREEN/combined/typecheck/diff outcomes, sorted changed paths, 383 additions/7 deletions, unchecked task 3.1, runtime harness boundary, and cleanup disposition; evidence revision `sha256:aeb5ac5c7247f7a5c197ca94c0433a2e1846cfbac290a1be8373dc344ac31f85`. Parent owns settlement.
+
+## U7-A6 Durable Idempotency and Acceptance — U7 Remains Open
+
+- Scope: transaction-port contract for pair locking, canonical SHA-256 payload identity excluding the signed token, authoritative receipt/time/context, identical replay, conflict, guard ordering, and rollback-safe persistence failure.
+- The adapter must lock an absent or existing `(sessionNonceHash,idempotencyKey)` pair. Redis, rate limiting, cookies, CMS transport, Route Handlers, drafts/UI, and E2E remain deferred.
+- Task 3.1/U7 remains unchecked.
+
+### U7-A6 TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `U7-A6-durable-idempotency-acceptance` | `src/lib/feedback/submission-acceptance.test.ts` | Unit + transactional runtime harness | Five U7 files 74/74 | Missing module; exit 1, 0 tests | Focused 6/6 | Claim-order RED 1/7, then 7/7; replay/conflict/concurrency/guard/failure paths | Pair-lock port named explicitly; 7/7 remained green |
+
+### U7-A6 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/submission-acceptance.test.ts`; exit 0; 1 file, 7/7 passed. |
+| Runtime harness command/scenario and exact result | Vitest exercised a serialized transactional store with commit/rollback behavior, concurrent identical retries, stable receipts, guard ordering, and injected persistence failure; 7/7 passed. No external CMS/Redis/network process was used. |
+| Rollback boundary | Remove `submission-acceptance.ts` and its focused test, then revert only this U7-A6 progress/status. Preserve S01-U7-A5 and task 3.1 unchecked. |
+
+### U7-A6 Verification and Cleanup
+
+- Cumulative U7 intake suite: exit 0; 6 files and 81/81 tests passed. Typecheck and diff checks passed. Authored scope: 388 additions, 4 deletions, 392 total; no size exception.
+- Cleanup: foreground commands exited; no formatter, dependency, manifest, lockfile, generated artifact, environment, credential, service, child process, container, volume, temporary artifact, remote operation, or unrelated change remained.
+- Implementation SHA-256: `submission-acceptance.ts=ec70d1dc0be657857ab561e163e78abe4f717aeaf1bdf349471a42489b9981ee`; test `d19ac9d05721ffb7bc2727b1048bd508edd36184465a24e454aaae19825ade2c`. Settled evidence revision: `sha256:2c6888824b4623e0393aab1e572a22e49306249bfb451b23f2494dda229ddd2b`; native attempt state `complete`.
