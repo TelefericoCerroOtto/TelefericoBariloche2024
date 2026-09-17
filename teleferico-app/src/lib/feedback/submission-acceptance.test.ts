@@ -159,6 +159,25 @@ describe("submission acceptance", () => {
     expect(harness.rows()).toHaveLength(1);
   });
 
+  it("binds canonical payload identity to the browser hash but not Strapi document ids", async () => {
+    const harness = createStore();
+    const deps = dependencies(harness.store);
+    await acceptSubmission(input(), deps);
+
+    const documentReplay = await acceptSubmission(input({
+      pointDocumentId: "replacement-point-document",
+      versionDocumentId: "replacement-version-document",
+    }), deps);
+    const browserConflict = await acceptSubmission(input({ browserTokenHash: "d".repeat(64) }), deps);
+
+    expect(documentReplay.ok && documentReplay.status).toBe(200);
+    expect(browserConflict).toEqual({
+      ok: false,
+      error: { status: 409, code: "IDEMPOTENCY_CONFLICT" },
+    });
+    expect(harness.rows()).toHaveLength(1);
+  });
+
   it("serializes concurrent identical retries into one submission and one receipt", async () => {
     const harness = createStore();
     const deps = dependencies(harness.store);
