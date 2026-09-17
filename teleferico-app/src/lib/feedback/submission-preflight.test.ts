@@ -66,7 +66,7 @@ function request(
 
 function execute(
   body: Uint8Array,
-  verifyCaptcha: (token: string) => Promise<unknown> = vi.fn(async () => ({
+  verifyCaptcha: (_token: string) => Promise<unknown> = vi.fn(async () => ({
     success: true,
   })),
   options: {
