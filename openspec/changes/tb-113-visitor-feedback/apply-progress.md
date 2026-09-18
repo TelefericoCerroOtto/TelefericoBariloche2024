@@ -3,15 +3,15 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; U6 complete and U7 foundations through U7-B3b are implemented
+- Apply mode: Strict TDD; U6 complete and U7 foundations through U7-B5 are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
 - Review budget: mandatory sequential B3a/B3b split; default autonomous ceiling is 800 authored lines, with an explicit one-time 1,600-line exception for the Prettier-normalized U7-B4 candidate only
-- Current slice/work unit: `U7-B5-visitor-e2e`; U7 is complete
-- Progress: 7 of 15 tasks complete
+- Current slice/work unit: `U8-A-response-cap-removal`; complete within the inherited change-level review budget
+- Progress: 7 of 15 parent tasks complete; U8-A subtask complete and U8 parent/UI work remains pending
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
-- Apply outcome: U7-B5 visitor E2E is complete and ready for independent verification; the 306-line E2E candidate remains below the 400-line autonomous ceiling
+- Apply outcome: U8-A response-cap successor is complete and ready for independent verification; U8 parent remains unchecked because UI, write/generation/download commands, and admin E2E are separate work units
 
 ## Completed tasks
 
@@ -834,4 +834,100 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 - App typecheck: exit 0 with no diagnostics. Changed-file ESLint: exit 0. Changed-file Prettier check: exit 0. `git diff --check`: exit 0 with no output.
 - The implementation candidate contains 306 authored additions and 0 deletions; it remains below the 400-line autonomous review ceiling. The task/evidence persistence additions stay within the same bounded slice.
-- U7 is complete. U8 and later tasks remain unchecked and were not implemented.
+- U7 is complete. U8 task 3.2 remains unchecked and incomplete; later tasks remain unchecked and were not implemented.
+
+## U8-A Admin Read Routes Evidence
+
+- Scope: route-scoped admin read contracts, bounded filter parsing, authenticated Next.js mediation, CMS reader, focused unit/Route Handler tests, and the authenticated synthetic-data runtime harness. No UI, report commands, generation mutation, download route, CMS schema, dependency, environment, or deployment work was added.
+- Security boundary: admin reads run trusted-origin validation, CSRF-bound Auth.js session validation, capability checks, and server-held JWT mediation. Upstream errors are mapped to bounded `UPSTREAM_UNAVAILABLE` responses.
+- TDD cycle: RED focused test `pnpm --dir teleferico-app exec vitest run src/lib/feedback/admin-read.test.ts` failed before implementation with the expected missing `./admin-read` module; GREEN/REFACTOR focused selector passed 13 files and 121 tests after the route harness was added; typecheck and changed-file ESLint passed.
+
+### U8-A TDD Cycle Evidence
+
+| Task | Test file | Layer | RED | GREEN | REFACTOR |
+| --- | --- | --- | --- | --- | --- |
+| U8-A filter/projection contracts | `src/lib/feedback/admin-read.test.ts` | Pure Vitest | Exit 1: expected unresolved `./admin-read` import before implementation | 3/3 passed | 3/3 remained green after bounded date/filter and projection refinements |
+| U8-A authenticated read routes | `src/app/api/admin/feedback/summary/route.test.ts` | Route Handler/Vitest | Initial route test was added before the shared route/reader implementation | 4/4 passed | 4/4 remained green after CSRF, safe-error, and capability enforcement refinements |
+| U8-A route matrix harness | `src/app/api/admin/feedback/runtime-harness.test.ts` | Authenticated synthetic-data route runtime | Initial route matrix had no implementation to load | 1/1 scenario passed across 5/5 read routes | 1/1 remained green after all route wrappers and JWT mediation assertions |
+
+### U8-A Work Unit Evidence
+
+| Evidence | Exact value |
+| --- | --- |
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback src/app/api/admin/feedback`; exit 0; 13 test files, 121 tests passed, 0 failed/skipped. |
+| Runtime harness command/scenario and exact result | `pnpm --dir teleferico-app exec vitest run src/app/api/admin/feedback/runtime-harness.test.ts`; exit 0; 1 authenticated synthetic-data scenario passed across Summary, Aspects, QR-points comparison, Comments, and Reports. The harness used a synthetic CSRF-bound session/JWT, synthetic feedback envelopes, capability checks, and no external service. |
+| Rollback boundary | Remove `teleferico-app/src/app/api/admin/feedback/**`, `teleferico-app/src/lib/feedback/admin-read.*`, `teleferico-app/src/lib/feedback/admin-reader.ts`, `teleferico-app/src/lib/feedback/admin-route.ts`, `teleferico-app/src/types/api/admin/feedback.d.ts`, the admin barrel export, and U8-A focused tests; revert only the U8-A task/evidence additions. Preserve U7 and all prior evidence. |
+
+### U8-A Verification and Boundary
+
+- App typecheck: exit 0 with no diagnostics.
+- Changed-file ESLint: exit 0 with no diagnostics.
+- Candidate-scoped explicit Prettier check: exit 0 across all 13 U8-A code files. The broader historical feedback glob still reports exactly 16 pre-existing files outside U8-A; none were modified.
+- `git diff --check`: exit 0 with no output.
+- Full app Vitest: exit 1, 300/302 passed; the two failures are unchanged `src/lib/services/__tests__/form-protection.test.ts` expectations for `TOO_MANY_REQUESTS` versus actual `EMAIL_LIMIT_EXCEEDED`. No U8-A test failed.
+- Authored implementation/test scope: 1,158 lines. This is within the inherited change-level `review_budget_lines: 1600`; no obsolete per-slice exception was requested or used.
+- Incidental `services/survey-report-worker/poc/poc-result.json` test output was restored exactly and is not part of the candidate.
+- U8-A is complete. The U8 parent remains unchecked: UI, write/generation/download commands, and admin E2E remain for later work units.
+
+## U8-A Reliability Remediation — Complete
+
+- Scope: corrected exactly the three acknowledged non-blocking reliability findings without changing the U8 parent task or adding UI, write/generation/download commands, CMS schema, dependencies, environment, deployment, or remote behavior.
+- Duplicate single-valued query parameters now fail closed instead of becoming omitted/default values. Repeatable ratings and QR comparison point keys remain accepted and normalized.
+- The CMS reader now requires object data, object filters, and bounded nonnegative safe-integer population counts in the `feedback-admin.v1` envelope. Upstream fetches use a 10-second `AbortSignal` deadline; aborts remain mapped to `UPSTREAM_UNAVAILABLE` without exposing details.
+- The generated `services/survey-report-worker/poc/poc-result.json` mutation from the package-wide test run was restored exactly with `git restore`; it is absent from the final worktree delta.
+
+### U8-A Reliability Remediation TDD Cycle Evidence
+
+| Task | Test file | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Reject ambiguous single-valued query parameters | `src/lib/feedback/admin-read.test.ts` | Pure Vitest | Existing selector: 3/3 passed | 3 new duplicate-parameter cases failed; each returned an accepted default/omitted filter | Focused remediation selector: 12/12 passed after rejecting repeated `pointKey`, `locale`, and `page` values | Final 14/14 also proves repeatable `rating` and QR `pointKeys` remain accepted | No structural extraction justified; final focused selector remained 14/14 after Prettier normalization |
+| Validate the minimum `feedback-admin.v1` runtime envelope | `src/lib/feedback/admin-reader.test.ts` | Node/Vitest reader integration | N/A — dedicated new test file | 4 malformed-shape cases failed to reject (including array data, missing filters, negative, and unsafe counts) | Reader selector: 5/5 passed after object/data/meta/population validation | Added fractional-count rejection and a valid bounded envelope; final reader coverage was 6/6 | Type guard was tightened to preserve strict TypeScript narrowing; final focused selector remained green |
+| Bound upstream fetches and map aborts safely | `src/lib/feedback/admin-reader.test.ts` | Node/Vitest transport integration | N/A — dedicated new test file | Abort mapping passed, but the fetch received no `AbortSignal` | Reader selector: 5/5 passed with a signal passed to fetch and `UPSTREAM_UNAVAILABLE` mapping | Re-ran through the combined 4-file selector and runtime harness; 19/19 and 1/1 passed | No additional transport abstraction was justified; final focused selector remained green |
+
+### U8-A Reliability Remediation Work Unit Evidence
+
+| Evidence | Exact value |
+| --- | --- |
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/admin-read.test.ts src/lib/feedback/admin-reader.test.ts src/app/api/admin/feedback/summary/route.test.ts src/app/api/admin/feedback/runtime-harness.test.ts`; exit 0; 4 files, 19/19 tests passed, 0 failed/skipped. |
+| Runtime harness command/scenario and exact result | `pnpm --dir teleferico-app exec vitest run src/app/api/admin/feedback/runtime-harness.test.ts`; exit 0; 1 authenticated synthetic-data scenario passed across Summary, Aspects, QR-points comparison, Comments, and Reports. |
+| Typecheck | `pnpm --dir teleferico-app run typecheck`; exit 0; TypeScript reported no errors. |
+| Changed-file ESLint | `pnpm --dir teleferico-app exec eslint src/lib/feedback/admin-read.ts src/lib/feedback/admin-read.test.ts src/lib/feedback/admin-reader.ts src/lib/feedback/admin-reader.test.ts`; exit 0; no diagnostics. |
+| Changed-file Prettier | `pnpm --dir teleferico-app exec prettier --check src/lib/feedback/admin-read.ts src/lib/feedback/admin-read.test.ts src/lib/feedback/admin-reader.ts src/lib/feedback/admin-reader.test.ts ../openspec/changes/tb-113-visitor-feedback/apply-progress.md`; exit 1 because the cumulative `apply-progress.md` is not Prettier-clean; all four TypeScript files passed. The HEAD baseline check also exited 1, so no broad historical Markdown restyle was applied. |
+| Package-wide test | `pnpm --dir teleferico-app test`; exit 1; 311/313 passed, with only the two acknowledged baseline `form-protection.test.ts` failures (`TOO_MANY_REQUESTS` expected versus `EMAIL_LIMIT_EXCEEDED` actual). No new failure occurred. |
+| Diff check and cleanup | `git diff --check`; exit 0 with no output after restoring `teleferico-app/services/survey-report-worker/poc/poc-result.json` exactly. |
+| Rollback boundary | Revert the duplicate-value checks in `admin-read.ts`, the envelope/deadline checks in `admin-reader.ts`, remove `admin-reader.test.ts`, revert the focused additions in `admin-read.test.ts`, and remove only this remediation evidence. Preserve the prior U8-A read routes, tests, types, and cumulative evidence; keep U8 unchecked. |
+
+### U8-A Reliability Remediation Boundary
+
+- Complete authored remediation impact: 255 lines — 223 implementation/test lines plus 32 cumulative evidence lines — with no dependency, lockfile, CMS, environment, infrastructure, credential, generated-type, remote, branch, commit, push, PR, or U8-parent change.
+- The subtask `3.2a` remains checked from the prior U8-A slice. The U8 parent task remains unchecked; UI, write/generation/download commands, and admin E2E are still pending.
+
+## U8-A Response-Cap Removal Successor Evidence
+
+- Scope: removed the arbitrary manual response-size cap from the authenticated CMS reader while preserving the 10-second upstream timeout and existing `feedback-admin.v1` envelope validation. No streaming complexity, configurable cap, UI, write/generation/download command, CMS schema, dependency, environment, deployment, or U8-parent change was added.
+- The reader now delegates body decoding to `Response.json()`. Malformed JSON and invalid envelopes still fail closed as `FeedbackAdminReaderError`; valid JSON larger than 1 MiB is accepted.
+
+### U8-A Response-Cap Removal TDD Cycle Evidence
+
+| Task | Test file | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Remove the arbitrary upstream response-size cap | `src/lib/feedback/admin-reader.test.ts` | Node/Vitest reader integration | Existing selector: 9/9 passed | Exit 1: 10 tests, 9 passed, 1 failed because the valid response larger than 1 MiB was rejected by the finite cap | Exit 0: 10/10 passed after removing the manual cap | Final cases cover a valid bounded envelope, five invalid envelope shapes, malformed JSON, a valid response larger than 1 MiB, and the exact 10-second timeout signal | Exit 0: combined reader/route selector 15/15; no additional abstraction was justified |
+
+### U8-A Response-Cap Removal Work Unit Evidence
+
+| Evidence | Exact value |
+| --- | --- |
+| Focused test command and exact result | `pnpm exec vitest run src/lib/feedback/admin-reader.test.ts src/app/api/admin/feedback/summary/route.test.ts src/app/api/admin/feedback/runtime-harness.test.ts`; exit 0; 3 files, 15/15 tests passed, 0 failed/skipped. |
+| Runtime harness command/scenario and exact result | `pnpm exec vitest run src/app/api/admin/feedback/runtime-harness.test.ts`; exit 0; 1/1 authenticated synthetic-data route scenario passed across the five read routes. |
+| Rollback boundary | Revert only `teleferico-app/src/lib/feedback/admin-reader.ts`, `teleferico-app/src/lib/feedback/admin-reader.test.ts`, this successor evidence, and the U8-A line-total wording in `tasks.md`; restore the prior finite-cap behavior only if explicitly required. Preserve the preceding U8-A routes, adapters, types, tests, and cumulative evidence; keep U8 unchecked. |
+
+### U8-A Response-Cap Removal Verification and Cleanup
+
+- Full Vitest: exit 1, 314/316 passed; only the two acknowledged base-only form-protection failures remained (`TOO_MANY_REQUESTS` expected versus `EMAIL_LIMIT_EXCEEDED` actual). No new failure occurred.
+- TypeScript: `pnpm exec tsc --noEmit` exit 0 with no output.
+- Changed-file ESLint: `pnpm exec eslint src/lib/feedback/admin-reader.ts src/lib/feedback/admin-reader.test.ts` exit 0 with no output.
+- Changed-file Prettier: `pnpm exec prettier --check src/lib/feedback/admin-reader.ts src/lib/feedback/admin-reader.test.ts` exit 0; both files matched.
+- `git diff --check`: exit 0 with no output.
+- The full Vitest run changed `teleferico-app/services/survey-report-worker/poc/poc-result.json`; it was restored exactly. SHA-256 before and after cleanup: `d0a02f73fa29ade5d68725960bd433d7e733d60477920d82a4da83bc91f81ff4`.
+- Successor authored impact: 44 changed implementation/test lines (22 additions, 22 deletions); cumulative U8-A authored changed implementation/test scope is 1,425 lines, within the inherited 1,600-line budget. No process, credential, remote, branch, commit, push, PR, dependency, lockfile, CMS, environment, or generated-type mutation occurred.
+- The native attempt authority is retained unchanged: `sha256:97f0b624f8eca2155623bf6741d2b580aa0a1cc7d498fed6ac2e9e8c87d172ea`.
