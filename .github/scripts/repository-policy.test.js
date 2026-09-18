@@ -40,12 +40,16 @@ test("rejects bypass-shaped branches and invalid directory grammar", () => {
   for (const branch of cases) assert.throws(() => policy.validateImplementationBranchName(branch), undefined, branch);
 });
 
-test("classifies every non-promotion PR targeting development as implementation", () => {
+test("classifies implementation, promotion, and governed stacked-preview routes", () => {
   assert.equal(policy.classifyPullRequest("feature/root-tb-82-governance", "development").type, "implementation");
   assert.equal(policy.classifyPullRequest("legacy-branch", "development").type, "implementation");
   assert.equal(policy.classifyPullRequest("development", "staging").type, "promotion-to-staging");
   assert.equal(policy.classifyPullRequest("staging", "main").type, "promotion-to-main");
+  assert.equal(policy.classifyPullRequest("fix/root-tb-83-child", "feat/root-tb-82-parent").type, "stacked-child-preview");
   assert.equal(policy.classifyPullRequest("fix/root-tb-82-governance", "staging").type, "unsupported-implementation-target");
+  assert.equal(policy.classifyPullRequest("fix/root-tb-83-child", "feature/root-tb-82-tracker").type, "unsupported-implementation-target");
+  assert.equal(policy.classifyPullRequest("feature/root-tb-83-child", "feat/root-tb-82-parent").type, "unsupported-implementation-target");
+  assert.equal(policy.classifyPullRequest("legacy-child", "feat/root-tb-82-parent").type, "unsupported-implementation-target");
 });
 
 test("validates conventional commit messages without enforcing recommended length", () => {

@@ -1,0 +1,72 @@
+{
+  "kind": "collectionType",
+  "collectionName": "survey_report_generations",
+  "info": {
+    "singularName": "survey-report-generation",
+    "pluralName": "survey-report-generations",
+    "displayName": "Survey report generation"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "reportRunId": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 36,
+      "maxLength": 36,
+      "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "periodStart": { "type": "date", "required": true },
+    "periodEnd": { "type": "date", "required": true },
+    "dataCutoffAt": { "type": "datetime", "required": true },
+    "overlapOverrideAccepted": { "type": "boolean", "required": true, "default": false },
+    "overlapDigest": { "type": "string", "minLength": 64, "maxLength": 64, "regex": "^[a-f0-9]{64}$" },
+    "snapshotDigest": { "type": "string", "required": true, "minLength": 64, "maxLength": 64, "regex": "^[a-f0-9]{64}$" },
+    "sourceRevision": { "type": "string", "required": true, "minLength": 1, "maxLength": 128 },
+    "snapshotJson": { "type": "json", "required": true, "private": true },
+    "checkpointsJson": { "type": "json", "required": true, "private": true },
+    "modelConfigJson": { "type": "json", "required": true, "private": true },
+    "usageJson": { "type": "json", "required": true, "private": true },
+    "pricingSnapshotJson": { "type": "json", "required": true, "private": true },
+    "status": {
+      "type": "enumeration",
+      "enum": ["queued", "running", "succeeded", "failed"],
+      "required": true,
+      "default": "queued"
+    },
+    "stateVersion": { "type": "integer", "required": true, "min": 1, "default": 1 },
+    "attemptCount": { "type": "integer", "required": true, "min": 0, "default": 0 },
+    "dispatchAttemptCount": { "type": "integer", "required": true, "min": 0, "default": 0 },
+    "cumulativeCostMicros": { "type": "biginteger", "required": true, "min": 0, "default": "0" },
+    "taskName": { "type": "string", "unique": true, "private": true, "maxLength": 500 },
+    "claimedAt": { "type": "datetime", "private": true },
+    "completedAt": { "type": "datetime", "private": true },
+    "failureCode": { "type": "string", "private": true, "maxLength": 64 },
+    "safeFailureMessage": { "type": "string", "private": true, "maxLength": 500 },
+    "terminalAlertedAt": { "type": "datetime", "private": true },
+    "costAlertedAt": { "type": "datetime", "private": true },
+    "requestedBy": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "private": true
+    },
+    "retryOfGeneration": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::survey-report-generation.survey-report-generation",
+      "private": true
+    },
+    "report": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::survey-report.survey-report",
+      "mappedBy": "sourceGeneration",
+      "private": true
+    },
+    "fixtureMarker": { "type": "string", "private": true, "maxLength": 64 }
+  }
+}

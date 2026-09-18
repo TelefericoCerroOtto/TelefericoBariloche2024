@@ -1,5 +1,7 @@
 'use strict';
 
+const tb113Constraints = require('../database/migrations/2026.09.11T0001-tb113-constraints');
+
 module.exports = {
   /**
    * An asynchronous register function that runs before
@@ -16,7 +18,14 @@ module.exports = {
    * This gives you an opportunity to set up your data model,
    * run jobs, or perform some special logic.
    */
-  bootstrap({ strapi }) {
+  async bootstrap({ strapi }) {
+    const constraintsApplied = await strapi.db.transaction(({ trx }) =>
+      tb113Constraints.up(trx),
+    );
+    if (!constraintsApplied) {
+      throw new Error('TB-113 schema synchronization did not create the required columns');
+    }
+
     /**
      * Patch the GCS upload provider's getSignedUrl to strip query params
      * before computing the GCS object path.

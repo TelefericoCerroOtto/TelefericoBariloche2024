@@ -1,0 +1,64 @@
+{
+  "kind": "collectionType",
+  "collectionName": "survey_reports",
+  "info": {
+    "singularName": "survey-report",
+    "pluralName": "survey-reports",
+    "displayName": "Survey report"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "reportId": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 36,
+      "maxLength": 36,
+      "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "generationRunId": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 36,
+      "maxLength": 36,
+      "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "periodStart": { "type": "date", "required": true },
+    "periodEnd": { "type": "date", "required": true },
+    "dataCutoffAt": { "type": "datetime", "required": true },
+    "snapshotDigest": { "type": "string", "required": true, "minLength": 64, "maxLength": 64, "regex": "^[a-f0-9]{64}$" },
+    "sourceRevision": { "type": "string", "required": true, "minLength": 1, "maxLength": 128 },
+    "validatedAnalysisJson": { "type": "json", "required": true, "private": true },
+    "analysisContractVersion": { "type": "string", "required": true, "minLength": 1, "maxLength": 64 },
+    "analysisDigest": { "type": "string", "required": true, "minLength": 64, "maxLength": 64, "regex": "^[a-f0-9]{64}$" },
+    "rendererVersion": { "type": "string", "required": true, "minLength": 1, "maxLength": 128 },
+    "objectKey": { "type": "string", "required": true, "private": true, "minLength": 1, "maxLength": 500 },
+    "artifactSha256": { "type": "string", "required": true, "minLength": 64, "maxLength": 64, "regex": "^[a-f0-9]{64}$" },
+    "artifactSize": { "type": "biginteger", "required": true, "min": 1 },
+    "mimeType": {
+      "type": "enumeration",
+      "enum": ["application/pdf"],
+      "required": true,
+      "default": "application/pdf"
+    },
+    "sourceGeneration": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::survey-report-generation.survey-report-generation",
+      "inversedBy": "report",
+      "required": true,
+      "private": true
+    },
+    "generatedBy": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "private": true
+    },
+    "fixtureMarker": { "type": "string", "private": true, "maxLength": 64 }
+  }
+}

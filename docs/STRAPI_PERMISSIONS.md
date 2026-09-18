@@ -67,6 +67,8 @@ The Strapi `Public` role must not be used to make the public website work. Publi
 
 This token is for server-side content reads from `teleferico-app`. It must not grant write, delete, user-management or role-management permissions.
 
+The Playwright real-auth harness creates one narrower ephemeral custom token in its disposable CMS. It grants only `api::service-state.service-state.find`, the single dashboard runtime read exercised by this capability; it intentionally does not reproduce the persistent profile below. Its name and description are bound to the run marker. Only bounded non-secret ownership metadata is stored; plaintext is handed once to the lifecycle through anonymous file descriptor 3, supplied only to the Turbopack Next dev process, and revoked only after ownership and permission scope are revalidated during cleanup.
+
 | Content type            | `find` | `findOne` | `create` | `update` | `delete` |
 | ----------------------- | :----: | :-------: | :------: | :------: | :------: |
 | `activity`              |   ✅   |    ✅     |    —     |    —     |    —     |
@@ -116,6 +118,19 @@ No Strapi Upload API permission is required for this token.
 ## Users & Permissions roles
 
 These roles belong to the Users & Permissions plugin and are separate from Strapi Admin Panel roles.
+
+### Ephemeral Playwright real-auth roles
+
+The real-auth harness creates run-scoped role equivalents with the exact application-visible names `Administrator` and `Media Manager`. Their unique role types and descriptions contain the synthetic run marker; they never replace or update persistent roles. Provisioning fails if either exact name already belongs to another role in the disposable database.
+
+| Synthetic role | `users-permissions.role.find` | `users-permissions.user.me` | `postulation.find` | `service-state.update` |
+| --- | :---: | :---: | :---: | :---: |
+| `Administrator` | ✅ | ✅ | ✅ | ✅ |
+| `Media Manager` | ✅ | ✅ | — | — |
+
+`users-permissions.role.find` is required for Strapi to retain the populated role relation when sanitizing `/users/me?populate=*`; it does not grant role mutation. The Strapi JWT remains server-only.
+
+The default synthetic-database `Public` role must already expose `users-permissions.auth.callback`; the provisioner verifies it and does not modify that role. No delete, user/role-management, upload, Strapi Admin, or unused permission is granted. Confirmed/unblocked users, one service-state, one sector, and one marker-owned postulation exist only for the run. A bounded `0600` manifest stores only resource IDs and deterministic selectors. Cleanup restores service state first and deletes only records whose exact ownership is proven. Final PostgreSQL container removal is the interruption-recovery boundary.
 
 ### `Public`
 
@@ -182,6 +197,53 @@ Admin panel credentials must never be documented in this repository.
 
 Anything not listed in this document is not part of the expected permission model.
 
+### TB-113 current baseline
+
+The disabled survey catalog (`survey-version`, `survey-settings`, `survey-qr-point`,
+`survey-submission`, `survey-report-generation`, and `survey-report`) has zero
+Content API actions and zero API-token or Users & Permissions grants. Public,
+Authenticated, and every other application role are denied. Strapi Super Admin
+remains unchanged because Admin Panel users are a separate actor class. The
+generic collection CRUD remains outside the access model.
+
+This differs deliberately from Strapi's default core controllers and routers,
+which expose generic CRUD actions. Every survey route module instead exports an
+empty Content API route array and every survey controller exports no actions.
+S06a creates no permission command or mutation path.
+
+### Future application capabilities
+
+These names are application-level capabilities for later U8 mapping and
+enforcement. They are not current Strapi action IDs or durable Users &
+Permissions rows.
+
+| Future capability | Future operation | Route owner |
+| --- | --- | --- |
+| `feedback.read` | Summary, aspect, and QR analytics | U8 administration routes |
+| `feedback.comments.read` | Filtered comments | U8 administration routes |
+| `feedback.reports.read` | Reports and generations | U8 administration routes |
+| `feedback.reports.generate` | Generate and retry | U8 administration routes |
+| `feedback.reports.download` | Mediated report download | U8 administration routes |
+
+Exact intake, administration, and worker actions and grants remain owned by U7,
+U8, and U10 respectively. Each route-owning slice must add only its registered
+actions and update this document. No current grant or permission mutation is
+part of S06a.
+
+Verify the baseline with:
+
+```bash
+npm --prefix teleferico-cms test -- feedback/permissions
+```
+
+The test uses only an isolated local PostgreSQL database. It reads registered
+actions, application roles, role permissions, and API-token permission actions;
+it never reads Admin Panel roles or mutates roles, permissions, or tokens. Strapi
+and all owned processes, containers, and volumes are cleaned up even on failure.
+Rollback removes the focused tests, their runner selector, and this S06a section;
+no data rollback exists. Never copy credential values into diagnostics or this
+document.
+
 In particular, public-facing application tokens must not grant:
 
 - write permissions unless explicitly listed for the token;
@@ -204,6 +266,7 @@ Use this checklist when creating or rebuilding a Strapi environment.
 - [ ] Confirm the `Public` role matches the default permissions listed above.
 - [ ] Confirm the `Authenticated` role matches the default permissions listed above.
 - [ ] Confirm the `Administrator` role matches the permissions listed above.
+- [ ] Run the TB-113 permission test and confirm every survey action/grant count is zero.
 - [ ] Configure the `image-asset` Entry Title as `name` in each environment.
 - [ ] Confirm Strapi Admin Panel access is limited to the expected `Super Admin` maintainer/developer account.
 - [ ] For migrations only, create a `Local → Remote Data Migration` transfer token with type `Push` and duration `7 days`.
@@ -214,4 +277,6 @@ Use this checklist when creating or rebuilding a Strapi environment.
 
 | Change | Date | Result | Evidence |
 | --- | --- | --- | --- |
+| `tb-113-visitor-feedback` S06a deny baseline | 2026-09-16 | Documented and tested the existing deny baseline; no grants or mutation. | Focused direct tests cover application roles, API tokens, route/controller inventory, read-only inspection, and isolated Strapi/PostgreSQL cleanup. |
+| `tb-113-visitor-feedback` S04 foundation | 2026-09-15 | Added disabled definition/QR schemas with no permission grants. | Catalog tests verify disabled defaults and the approved model subset; permission bootstrap remains out of scope. |
 | `tb-71-form-protection` | 2026-05-20 | Added `form-protection-submission` collection and token delta; existing `postulation` contract stays intact. | Verified `teleferico-cms/src/api/postulation/content-types/postulation/schema.json` stayed unchanged, added `teleferico-cms/src/api/form-protection-submission/**`, expanded `Public Forms (Next.js)` token to `form-protection-submission.find/create`, and kept `teleferico-app/src/lib/services/{contact,postulation}.ts` as server-only internal callers using `Origin`, `x-internal-api-key`, and optional `x-client-ip` without exposing Strapi access client-side. |

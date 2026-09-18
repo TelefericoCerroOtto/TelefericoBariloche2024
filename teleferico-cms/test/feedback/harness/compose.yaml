@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16.8
+    pull_policy: never
+    environment:
+      POSTGRES_DB: tb113_test_feedback
+      POSTGRES_PASSWORD: tb113_test_local_only
+      POSTGRES_USER: tb113_test_runner
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tb113_test_runner -d tb113_test_feedback"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1::5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

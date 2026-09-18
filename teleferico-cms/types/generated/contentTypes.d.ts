@@ -1239,6 +1239,558 @@ export interface ApiStationStation extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiSurveyQrPointSurveyQrPoint
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'survey_qr_points';
+  info: {
+    displayName: 'Survey QR point';
+    pluralName: 'survey-qr-points';
+    singularName: 'survey-qr-point';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    displayName: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+        minLength: 1;
+      }>;
+    fixtureMarker: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+      }>;
+    inactiveAt: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::survey-qr-point.survey-qr-point'
+    > &
+      Schema.Attribute.Private;
+    pointKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 1;
+      }>;
+    publicCode: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 128;
+        minLength: 32;
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    sortOrder: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    status: Schema.Attribute.Enumeration<['active', 'inactive']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'active'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSurveyReportGenerationSurveyReportGeneration
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'survey_report_generations';
+  info: {
+    displayName: 'Survey report generation';
+    pluralName: 'survey-report-generations';
+    singularName: 'survey-report-generation';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    attemptCount: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    checkpointsJson: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    claimedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    completedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    costAlertedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    cumulativeCostMicros: Schema.Attribute.BigInteger &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<'0'>;
+    dataCutoffAt: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    dispatchAttemptCount: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    failureCode: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+      }>;
+    fixtureMarker: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+      }>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::survey-report-generation.survey-report-generation'
+    > &
+      Schema.Attribute.Private;
+    modelConfigJson: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    overlapDigest: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 64;
+      }>;
+    overlapOverrideAccepted: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    periodEnd: Schema.Attribute.Date & Schema.Attribute.Required;
+    periodStart: Schema.Attribute.Date & Schema.Attribute.Required;
+    pricingSnapshotJson: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    report: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::survey-report.survey-report'
+    > &
+      Schema.Attribute.Private;
+    reportRunId: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 36;
+        minLength: 36;
+      }>;
+    requestedBy: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    > &
+      Schema.Attribute.Private;
+    retryOfGeneration: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::survey-report-generation.survey-report-generation'
+    > &
+      Schema.Attribute.Private;
+    safeFailureMessage: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
+    snapshotDigest: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 64;
+      }>;
+    snapshotJson: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    sourceRevision: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 128;
+        minLength: 1;
+      }>;
+    stateVersion: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 1;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<1>;
+    status: Schema.Attribute.Enumeration<
+      ['queued', 'running', 'succeeded', 'failed']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'queued'>;
+    taskName: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
+    terminalAlertedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    usageJson: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSurveyReportSurveyReport
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'survey_reports';
+  info: {
+    displayName: 'Survey report';
+    pluralName: 'survey-reports';
+    singularName: 'survey-report';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    analysisContractVersion: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 1;
+      }>;
+    analysisDigest: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 64;
+      }>;
+    artifactSha256: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 64;
+      }>;
+    artifactSize: Schema.Attribute.BigInteger &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 1;
+        },
+        number
+      >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dataCutoffAt: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    fixtureMarker: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+      }>;
+    generatedBy: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    > &
+      Schema.Attribute.Private;
+    generationRunId: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 36;
+        minLength: 36;
+      }>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::survey-report.survey-report'
+    > &
+      Schema.Attribute.Private;
+    mimeType: Schema.Attribute.Enumeration<['application/pdf']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'application/pdf'>;
+    objectKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+        minLength: 1;
+      }>;
+    periodEnd: Schema.Attribute.Date & Schema.Attribute.Required;
+    periodStart: Schema.Attribute.Date & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    rendererVersion: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 128;
+        minLength: 1;
+      }>;
+    reportId: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 36;
+        minLength: 36;
+      }>;
+    snapshotDigest: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 64;
+      }>;
+    sourceGeneration: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::survey-report-generation.survey-report-generation'
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+    sourceRevision: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 128;
+        minLength: 1;
+      }>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    validatedAnalysisJson: Schema.Attribute.JSON &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSurveySettingsSurveySettings
+  extends Struct.SingleTypeSchema {
+  collectionName: 'survey_settings';
+  info: {
+    displayName: 'Survey settings';
+    pluralName: 'survey-settings-list';
+    singularName: 'survey-settings';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    activeSurveyVersion: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::survey-version.survey-version'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    generationEnabled: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    intakeEnabled: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::survey-settings.survey-settings'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    settingsRevision: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 1;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<1>;
+    singletonKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.DefaultTo<'default'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSurveySubmissionSurveySubmission
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'survey_submissions';
+  info: {
+    displayName: 'Survey submission';
+    pluralName: 'survey-submissions';
+    singularName: 'survey-submission';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    acceptedAt: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    browserTokenHash: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 64;
+      }>;
+    comment: Schema.Attribute.Text &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 2000;
+      }>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    fixtureMarker: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+      }>;
+    idempotencyKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 128;
+        minLength: 16;
+      }>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::survey-submission.survey-submission'
+    > &
+      Schema.Attribute.Private;
+    overallRating: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 5;
+          min: 1;
+        },
+        number
+      >;
+    payloadDigest: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 64;
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    qrPoint: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::survey-qr-point.survey-qr-point'
+    > &
+      Schema.Attribute.Required;
+    ratings: Schema.Attribute.Component<'survey.aspect-rating', true> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 3;
+          min: 1;
+        },
+        number
+      >;
+    receipt: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 36;
+        minLength: 36;
+      }>;
+    sessionNonceHash: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 64;
+      }>;
+    source: Schema.Attribute.Enumeration<['valid_qr']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'valid_qr'>;
+    surveyVersion: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::survey-version.survey-version'
+    > &
+      Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSurveyVersionSurveyVersion
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'survey_versions';
+  info: {
+    displayName: 'Survey version';
+    pluralName: 'survey-versions';
+    singularName: 'survey-version';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    aspects: Schema.Attribute.Component<'survey.aspect-definition', true> &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 64;
+          min: 1;
+        },
+        number
+      >;
+    copyEn: Schema.Attribute.JSON & Schema.Attribute.Required;
+    copyEs: Schema.Attribute.JSON & Schema.Attribute.Required;
+    copyPt: Schema.Attribute.JSON & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    fixtureMarker: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+      }>;
+    lastActivatedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    lastSupersededAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    lifecyclePublishedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::survey-version.survey-version'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    status: Schema.Attribute.Enumeration<['draft', 'published']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'draft'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    versionKey: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+        minLength: 1;
+      }>;
+  };
+}
+
 export interface ApiTicketTicket extends Struct.CollectionTypeSchema {
   collectionName: 'tickets';
   info: {
@@ -1965,6 +2517,12 @@ declare module '@strapi/strapi' {
       'api::service-state.service-state': ApiServiceStateServiceState;
       'api::station-translation.station-translation': ApiStationTranslationStationTranslation;
       'api::station.station': ApiStationStation;
+      'api::survey-qr-point.survey-qr-point': ApiSurveyQrPointSurveyQrPoint;
+      'api::survey-report-generation.survey-report-generation': ApiSurveyReportGenerationSurveyReportGeneration;
+      'api::survey-report.survey-report': ApiSurveyReportSurveyReport;
+      'api::survey-settings.survey-settings': ApiSurveySettingsSurveySettings;
+      'api::survey-submission.survey-submission': ApiSurveySubmissionSurveySubmission;
+      'api::survey-version.survey-version': ApiSurveyVersionSurveyVersion;
       'api::ticket.ticket': ApiTicketTicket;
       'api::zone-translation.zone-translation': ApiZoneTranslationZoneTranslation;
       'api::zone.zone': ApiZoneZone;

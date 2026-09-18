@@ -1,0 +1,47 @@
+{
+  "collectionName": "components_survey_aspect_definitions",
+  "info": {
+    "displayName": "Survey aspect definition"
+  },
+  "options": {},
+  "attributes": {
+    "ownerVersionKey": {
+      "type": "string",
+      "required": true,
+      "private": true,
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "aspectKey": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 64,
+      "regex": "^[a-z0-9][a-z0-9._-]*$"
+    },
+    "sortOrder": {
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "max": 63
+    },
+    "labelEs": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "labelEn": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "labelPt": {
+      "type": "string",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 120
+    }
+  }
+}

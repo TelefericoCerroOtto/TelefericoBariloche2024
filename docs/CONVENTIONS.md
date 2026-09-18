@@ -97,7 +97,7 @@ Follow these strict rules:
 
 ### PR types
 
-This project distinguishes between **two PR types**. They serve different review goals and therefore must not reuse the same body blindly.
+This project distinguishes between implementation, stacked-preview, and promotion PRs. They serve different review goals and therefore must not reuse the same body blindly.
 
 #### 1. Implementation PR
 
@@ -122,9 +122,36 @@ Use a promotion PR when moving already-reviewed code from one environment branch
   - what validation already happened and what still needs to be validated
   - rollback expectations if the promotion fails
 
+#### Stacked child preview
+
+A `stacked-to-main` child may be opened early only as a draft against its immediate parent implementation branch. It is a review preview, not delivery: it receives repository governance only and cannot create issue comments, update Notion, close work, or claim functional/Cloud Build completion.
+
+The parent must be an open same-repository implementation PR into `development`. The child must use governed branch syntax, share the repository with its base, bind the exact runtime head/base SHAs, and expose a complete non-truncated diff against that parent. Its body requires exactly one visible section with each field exactly once:
+
+```md
+## Chain Context
+
+Strategy: stacked-to-main
+Parent PR: #<number>
+Parent branch: <governed-parent-branch>
+Parent head SHA: <40-character-sha>
+```
+
+`feature-branch-chain` and arbitrary tracker topology remain unsupported. After the parent merges into `development`, fresh candidate-scoped authorization may retarget the existing child PR to `development`. Governance then restarts as normal implementation governance; never create a duplicate PR or automate rebase, force-push, merge, ready-for-review, branch deletion, or ancestry repair.
+
 ### Direct implementation finalization shortcut
 
-`/implementation-pr` is an explicit, single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR to `development`, apply required metadata, and watch required checks.
+`/implementation-pr` is an explicit, single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR from a typed publication plan, apply required metadata, and observe repository governance with a bounded timeout. The default plan targets `development`; only a validated `stacked-to-main` plan may select the exact parent branch and draft state.
+
+After PR creation, invoke:
+
+```bash
+node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url>
+```
+
+The helper is the sole source of check identities, polling, duplicate-run handling, and exit semantics. It waits for `Governance tests`, `validate-pr-policy`, and `trusted-pr-sync`; Cloud Build and other functional checks are reported separately and never change the governance exit status. A governance pass is not a claim that the PR is fully validated while application tests are still running.
+
+Use `--mode stacked-preview` only while observing a draft child against its parent branch. This mode binds the exact head SHA, base branch/SHA, and draft state; functional and Cloud Build checks are explicitly deferred until retargeting to `development`. The default mode remains strict about `base=development`.
 
 It does not authorize later changes, force pushes, branch changes, rebases, merges, issue closure, branch deletion, or releases. It is not a promotion workflow: continue to use the separate `development -> staging` and `staging -> main` promotion flow and its release/closure rules.
 
@@ -180,6 +207,7 @@ Use GitHub Issues as the formal artifact, but distinguish between the PR that
 | PR type | Typical branch flow | How to reference the issue | Purpose |
 |---|---|---|---|
 | Implementation PR | `<type>/<dir>-tb-<digits>-<slug>` or `<type>/<dir>-no-backlog-<slug>` -> `development` | `Refs #N` in `## Related Issues` when tracked by a GitHub Issue; optional for other tracked channels and explicitly untracked work | Preserve the technical story of the actual code change |
+| Stacked child preview | governed child -> governed immediate parent branch | Chain Context only; no issue/Notion synchronization | Early review before final implementation delivery |
 | Promotion PR to staging | `development -> staging` | Optional mention of `#N` or included implementation PRs | Track validation scope; do not close the issue here |
 | Promotion PR to main | `staging -> main` | `Closes #N`, `Advances #N`, or explicit `Formal issues: none` | Close completed issues, record partial delivery for open issues, or declare that no formal issues are included |
 

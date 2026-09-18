@@ -50,7 +50,7 @@ The following changes are sensitive and must be explicitly called out in a propo
 - The current `teleferico-app` automated-test inventory includes Vitest unit, component, guard, and Route Handler coverage plus Playwright E2E coverage. Vitest discovers only `src/**/*.{test,spec}.{ts,tsx}`; tests outside `src` and JavaScript or JSX test files do not join automatically.
 - **Forms and security:** If you modify public forms, rate limiters, or their security layers, you MUST maintain and expand their test coverage using the existing Vitest suite.
 - **Other areas:** The long-term goal is to gradually expand testing coverage across all packages. Introduce tests progressively as new features or critical refactors are made.
-- **Cloud Build Playwright baseline:** `cloudbuild.playwright-e2e.json` fails closed unless `COMMIT_SHA^{commit}` equals `/workspace` `HEAD^{commit}` and accepts only `smoke` (safe default) or `full`. Trusted same-repository implementation PRs to `development` derive smoke; the internal `development -> staging` route derives full and unrelated staging heads skip before OIDC. PR #270 proved manual same-SHA full-suite parity at `317483acb566fbeb6077a0c10a8c70f721e1c2ca` through GitHub run `34399083297` and Cloud Build `b2639432-a76e-4c65-b2f3-5c6fd779afc6`. PR #273 then proved automatic staging OIDC full dispatch for exact head SHA `16fab46f3781088ea4b310d6bb4e265c170372a9`: GitHub dispatcher run `34409554758` and Cloud Build `dcf5a6e9-b9b1-430d-a41e-cf98a9e84ade` succeeded with matching source revision and `COMMIT_SHA`, `_PLAYWRIGHT_SUITE=full`, and the parallel GitHub full suite and governance checks passing before merge commit `983c933f9b0a77ccdbb8472d0bcecd3bc425eb8e`. After maintainer acceptance, the redundant GitHub-hosted `chromium-smoke` and `chromium-full` jobs and their `pull_request` trigger were removed; `production-public-smoke` remains unchanged. Preserve keyless OIDC, pinned images, `pnpm@10.33.0`, frozen installs, synthetic fixtures, the Cloud Build dispatcher/executor, and the disabled legacy trigger. Production-smoke migration, authenticated real-stack E2E completion, diagnostic artifacts, and legacy-trigger cleanup remain pending under #261. Do not treat this cutover as completion of TB-122 or authorization for deployment or further GCP/IAM changes.
+- **Cloud Build Playwright baseline:** `cloudbuild.playwright-e2e.json` fails closed unless `COMMIT_SHA^{commit}` equals `/workspace` `HEAD^{commit}` and accepts only `smoke` (safe default) or `full`. Every accepted legacy profile runs the fixture suite, independent real-stack readiness, and then the blocking real-auth acceptance step. Real-auth success requires exactly three discovered, non-skipped scenarios to pass; synthetic verification and cleanup, service cleanup, outer final readiness, container cleanup, and absence checks must then succeed before the outer finalizer emits `TB122 real-auth acceptance=scenarios:3/3` with selected exit `0`. A successful build on the exact PR SHA is still required before merge. Trusted same-repository implementation PRs to `development` derive smoke; the internal `development -> staging` route derives full and unrelated staging heads skip before OIDC. Preserve keyless OIDC, pinned images, `pnpm@10.33.0`, frozen installs, synthetic fixtures, bounded cleanup, the Cloud Build dispatcher/executor, and the disabled legacy trigger. This repository activation does not itself prove the runtime gate. Production-smoke migration, diagnostic artifacts, legacy-trigger cleanup, deployment, and further GCP/IAM changes remain outside this slice under #261.
 
 ## GCP CLI operational rules
 
@@ -114,10 +114,27 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 - Business domain context (zones, facilities, organization, operations): `docs/cerro-otto-business-context.md`
 - Content authoring guide (component catalog, tone, translation vocabulary, content restrictions): `docs/content-components-guide.md`
 
+## Business context sources
+
+- `docs/cerro-otto-business-context.md` is the curated repository reference. Do not change it merely to mirror Notion; changes require an explicit request and must be relevant to repository or product context.
+- When current or live organizational context is required, use the Notion MCP and start from `00 — LEER PRIMERO — Notion Teleférico Cerro Otto`: `https://app.notion.com/p/3dca58c3fefc81f89064cc55729b7ec5`.
+- MCP-first behavior belongs in repository-agent governance, not in external ChatGPT project instructions.
+- If the Notion MCP is unavailable, report the limitation and do not claim to have read or written Notion.
+- Do not automatically overwrite either source or enforce literal bilingual parity between them.
+
 ## Implementation PR finalization
 
 - `/implementation-pr` is an explicit, single-invocation shortcut for one implementation branch snapshot. Load `.agents/skills/implementation-pr/SKILL.md`; it composes the active commit and PR contracts without replacing them.
-- It may commit, non-force-push, create one PR to `development`, apply required PR metadata, and watch checks. It never authorizes promotion PRs, later changes, force pushes, branch changes, merges, issue closure, branch deletion, or releases.
+- It may commit, non-force-push, create one PR from a validated typed publication plan, apply required PR metadata, and observe checks. The default plan targets `development`; `stacked-to-main` may instead create a draft child against the exact immediate parent branch. It never accepts an arbitrary base or authorizes promotion PRs, later changes, force pushes, branch changes, merges, issue closure, branch deletion, or releases.
+- Mechanical repository, publication, and native SDD fact discovery is delegated to `.opencode/agents/delivery-state-mapper.md`. The mapper is read-only except for an explicitly authorized fetch, emits one bounded versioned snapshot, and never decides policy or authorization.
+- `.github/scripts/wait-for-implementation-governance.js` is the sole implementation for polling and classifying implementation PR checks. Default mode is strict for `development`; explicit stacked-preview mode binds the exact base SHA and draft state, observes governance only, and defers Cloud Build/functional CI until retargeting.
+
+## Automatic SDD slice transitions
+
+- Load `.agents/skills/sdd-slice-transition/SKILL.md` only at a native SDD implementation/apply boundary where one bounded work unit is complete and verified or reviewed, implementation remains, and sequential chained delivery is already selected.
+- At that boundary, reconstruct local facts through `delivery-state-mapper` and automatically present the skill's one closed candidate-scoped decision. Do not require a `/next-slice` command.
+- Do not activate this workflow for ordinary interaction, planning, incomplete work, final SDD completion, or strict-TDD decisions. Strict TDD is independent of delivery transitions.
+- Publication remains owned by `implementation-pr`; next-slice implementation remains owned by the native SDD apply actor. Child work may continue from the exact published parent commit. Before the parent merges, it may be published only as a same-repository draft `stacked-to-main` preview against that immediate parent branch with exact Chain Context and governance-only observation. After the parent merges, retarget the existing child PR to `development` under fresh candidate-scoped authorization; never create a duplicate PR or automate ancestry repair.
 
 ## Change intake preflight
 
@@ -172,8 +189,8 @@ Do not treat documentation as a follow-up task; outdated docs actively mislead a
 
 When an agent is instructed to create or update a Pull Request, it MUST NOT consider the task finished just by opening it. Because this repository enforces strict semantic checks via GitHub Actions (`backlog-governance.yml`), the agent MUST proactively ensure the PR passes CI:
 
-1. After creating/updating the PR, immediately run `gh pr checks --watch`.
-2. If the checks pass, the task is complete.
-3. If the checks fail—especially `Governance tests`, `validate-pr-policy`, or `trusted-pr-sync`—the agent MUST fetch the failed run logs using the GitHub CLI.
+1. After creating/updating an implementation PR, immediately run `node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url>`. Do not replace it with an unfiltered `gh pr checks --watch`.
+2. Treat exit `0` as governance completion only. Report functional and Cloud Build checks separately; they may still be running or may have failed, and the PR must not be described as fully validated while they are nonterminal.
+3. If a governance check fails—especially `Governance tests`, `validate-pr-policy`, or `trusted-pr-sync`—the agent MUST fetch the failed run logs using the GitHub CLI.
 4. Analyze the logs against `docs/CONVENTIONS.md` to find the exact semantic violation (e.g., missing issue linkage, wrong title format, wrong PR type).
-5. Fix the PR using `gh pr edit` and repeat the watch process until the checks pass.
+5. Fix PR metadata using `gh pr edit` only when the current authorization permits it, then invoke the helper again. Code failures require a new implementation/finalization invocation.

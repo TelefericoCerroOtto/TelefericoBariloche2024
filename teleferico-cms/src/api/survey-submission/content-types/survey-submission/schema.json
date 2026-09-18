@@ -1,0 +1,106 @@
+{
+  "kind": "collectionType",
+  "collectionName": "survey_submissions",
+  "info": {
+    "singularName": "survey-submission",
+    "pluralName": "survey-submissions",
+    "displayName": "Survey submission"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "receipt": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 36,
+      "maxLength": 36,
+      "regex": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "acceptedAt": {
+      "type": "datetime",
+      "required": true
+    },
+    "source": {
+      "type": "enumeration",
+      "enum": ["valid_qr"],
+      "required": true,
+      "default": "valid_qr"
+    },
+    "locale": {
+      "type": "enumeration",
+      "enum": ["es", "en", "pt"],
+      "required": true
+    },
+    "overallRating": {
+      "type": "integer",
+      "required": true,
+      "min": 1,
+      "max": 5
+    },
+    "surveyVersion": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::survey-version.survey-version",
+      "required": true
+    },
+    "qrPoint": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::survey-qr-point.survey-qr-point",
+      "required": true
+    },
+    "ratings": {
+      "type": "component",
+      "component": "survey.aspect-rating",
+      "repeatable": true,
+      "required": true,
+      "min": 1,
+      "max": 3
+    },
+    "comment": {
+      "type": "text",
+      "maxLength": 2000,
+      "private": true
+    },
+    "sessionNonceHash": {
+      "type": "string",
+      "required": true,
+      "private": true,
+      "minLength": 64,
+      "maxLength": 64,
+      "regex": "^[a-f0-9]{64}$"
+    },
+    "payloadDigest": {
+      "type": "string",
+      "required": true,
+      "private": true,
+      "minLength": 64,
+      "maxLength": 64,
+      "regex": "^[a-f0-9]{64}$"
+    },
+    "browserTokenHash": {
+      "type": "string",
+      "required": true,
+      "private": true,
+      "minLength": 64,
+      "maxLength": 64,
+      "regex": "^[a-f0-9]{64}$"
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "required": true,
+      "private": true,
+      "minLength": 16,
+      "maxLength": 128,
+      "regex": "^[A-Za-z0-9._~-]+$"
+    },
+    "fixtureMarker": {
+      "type": "string",
+      "private": true,
+      "maxLength": 64
+    }
+  }
+}
