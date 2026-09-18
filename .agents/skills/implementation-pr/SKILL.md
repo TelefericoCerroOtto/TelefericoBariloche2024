@@ -22,14 +22,14 @@ Load only when the user explicitly invokes `/implementation-pr`, explicitly name
 - Default to a typed standalone plan with `strategy=standalone`, `remote=origin`, and `base=development`. Accept `strategy=stacked-to-main` only from a `chained-pr`-validated plan that binds the immediate parent PR, parent branch, parent head SHA, runtime base SHA, and draft creation. Never accept an arbitrary base string.
 - Never authorize later fixes or commits, force pushes, branch switches, rebases, merges, issue closure, branch deletion, promotion PRs, or release actions.
 - Stop at the failed phase. Never create a PR after a commit or push failure.
-- Treat mapper output as stale immediately. Revalidate branch, `HEAD`, worktree/candidate identity, selected remote, and the relevant remote head just before each mutation.
+- Treat mapper output as stale immediately. Revalidate branch, `HEAD`, the exact sorted candidate path set, selected remote, and the relevant remote head just before each mutation.
 
 ## Decision Gates
 
 | Condition | Action |
 | --- | --- |
 | Detached, integration, promotion, invalid, or ambiguous branch | Stop before mutation. |
-| Full candidate classification is not `complete`, sensitive/credential-like or unrelated counts are nonzero, findings are truncated, or inventory digest is missing | Stop before mutation. |
+| Full candidate classification is not `complete`, the exact candidate path list is missing or truncated, sensitive/credential-like or unrelated counts are nonzero, or findings are truncated | Stop before mutation. |
 | Open PR for the head branch | Stop; do not create a duplicate. |
 | Stacked plan lacks exact parent PR/branch/head SHA, same-repository proof, open parent PR into `development`, focused non-truncated parent diff, or draft creation | Stop before mutation. |
 | Clean tree with no committed diff from `origin/development` | Stop. |
@@ -41,9 +41,9 @@ Load only when the user explicitly invokes `/implementation-pr`, explicitly name
 
 1. Resolve the active contracts and capture the complete candidate-scoped invocation snapshot before mutation. Explicitly record the GitHub destination, fetch/read/publication operation, and credential/session authorization.
 2. Invoke `delivery-state-mapper` with `scope=authorized-publication-preflight`, `remote=origin`, and the typed publication plan. It owns repository identity, worktree/base/tracking facts, the specifically authorized `git fetch origin`, safe GitHub capability, open head PR, remote head, PR/check state, parent facts, focused diff facts, and native SDD discovery. Accept only `delivery-state-snapshot.v2`.
-3. Apply this workflow's policy to the snapshot. Require complete full-inventory classification and its SHA-256 fingerprint; reject `main`, `development`, `staging`, promotion flows, stale/ambiguous facts, invalid tracking, an open head PR, any sensitive/unrelated count, truncated findings, or unmet checks required by affected surfaces. For a clean tree, skip the commit only when a non-empty committed diff against `origin/development` exists.
-4. Immediately revalidate branch, `HEAD`, worktree/candidate identity including the full-inventory fingerprint, and selected `origin` before commit. When changes exist, invoke `commit-planner` auto mode for only the captured snapshot. Require a clean tree and verify the commit matches that snapshot before continuing.
-5. Revalidate branch, `HEAD`, clean candidate identity, selected `origin`, and the plan's exact remote base head. Push only with `git push -u origin HEAD`, then verify the remote head SHA equals local `HEAD`.
+3. Apply this workflow's policy to the snapshot. Require `classification.status=complete`, a complete non-truncated exact candidate path list, and zero sensitive/credential-like or unrelated paths; reject `main`, `development`, `staging`, promotion flows, stale/ambiguous facts, invalid tracking, an open head PR, truncated findings, or unmet checks required by affected surfaces. For a clean tree, skip the commit only when a non-empty committed diff against `origin/development` exists.
+4. Immediately before commit, re-read the complete sorted candidate path set and require exact set equality with the snapshot while revalidating branch, `HEAD`, and selected `origin`. When changes exist, invoke `commit-planner` auto mode for only the captured snapshot. Require a clean tree and verify the commit matches that snapshot before continuing.
+5. Revalidate branch, `HEAD`, the exact candidate path set, selected `origin`, and the plan's exact remote base head. Push only with `git push -u origin HEAD`, then verify the remote head SHA equals local `HEAD`.
 6. Revalidate local head, remote head, and the complete typed plan again. Invoke `branch-pr` create mode only after that verification. A standalone plan creates one PR to `development`. A stacked plan creates one draft PR to the exact immediate parent branch and appends the deterministic visible `## Chain Context` contract. If creation is ambiguous, read back the PR state before retrying.
 7. Apply only repository-required PR metadata. For standalone delivery run `node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url>`. For a stacked preview add `--mode stacked-preview`. The helper is the sole polling and classification implementation. Preview success covers governance only; functional and Cloud Build checks remain deferred until retargeting to `development`.
 

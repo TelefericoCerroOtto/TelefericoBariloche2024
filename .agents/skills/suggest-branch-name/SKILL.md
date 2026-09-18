@@ -22,6 +22,7 @@ Also support branch suggestion from a backlog item when there are no local chang
 - The branch name SHOULD include the scope if it is clear from the changes. Use the directory conventions from `docs/CONVENTIONS.md` if applicable (`app`, `cms`, `tools`, `root`).
 - If the work is linked to a backlog row with `Work ID`, use `<type>/<dir>-tb-<digits>-<slug>`. Otherwise, use `<type>/<dir>-no-backlog-<slug>` only when work is deliberately without a Notion item.
 - Keep the branch name concise but descriptive.
+- Validate every recommendation with `node .github/scripts/repository-policy.js validate-branch <branch>` before returning it.
 
 ## Execution Steps
 
@@ -30,9 +31,10 @@ Also support branch suggestion from a backlog item when there are no local chang
 3. Determine the primary type of the change (`feat`, `fix`, `chore`, etc.).
 4. Determine the primary directory/scope (`app`, `cms`, `tools`, `root`, etc.).
 5. If there are no meaningful local changes but a backlog item is provided, derive type/dir/slug from that item.
-6. Formulate 3 options using either `<type>/<dir>-tb-<digits>-<slug>` or the explicit `<type>/<dir>-no-backlog-<slug>` form. Never suggest legacy fallback shapes.
-7. Present the options to the user with a brief explanation of why they were chosen.
+6. Formulate one recommendation using either `<type>/<dir>-tb-<digits>-<slug>` or the explicit `<type>/<dir>-no-backlog-<slug>` form. Never suggest legacy fallback shapes.
+7. Return multiple alternatives only when type, directory, tracking mode, or slug remains materially ambiguous; name the unresolved dimension.
+8. Run the repository-policy branch validator for every returned name and omit any invalid candidate.
 
 ## Output Contract
 
-Return a bulleted list of 3 branch name suggestions, starting with the most appropriate one. Include a brief explanation for each.
+Return one validated recommended branch name with a brief explanation. Return multiple validated alternatives only for material ambiguity.
