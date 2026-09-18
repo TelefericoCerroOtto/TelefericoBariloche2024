@@ -100,8 +100,9 @@ module.exports = {
     }
     try {
       const result = await persistence.accept(command);
-      ctx.status = result.status;
-      ctx.body = result;
+      const { status, ...body } = result;
+      ctx.status = status;
+      ctx.body = body;
     } catch (error) {
       if (error.code === 'IDEMPOTENCY_CONFLICT') return ctx.conflict('IDEMPOTENCY_CONFLICT');
       if (error.code === 'SURVEY_UNAVAILABLE') return ctx.gone('SURVEY_UNAVAILABLE');
