@@ -129,13 +129,15 @@ function payloadDigest(input: SubmissionAcceptanceInput): string {
   );
 }
 
-function acceptedValue(submission: Pick<StoredSubmission, "receipt" | "acceptedAt">): AcceptedValue {
+function acceptedValue(submission: Pick<StoredSubmission, "receipt" | "acceptedAt">): AcceptedValue | null {
+  const acceptedAt = new Date(submission.acceptedAt);
+  if (Number.isNaN(acceptedAt.getTime()) || acceptedAt.toISOString() !== submission.acceptedAt) {
+    return null;
+  }
   return {
     submissionReceipt: submission.receipt,
     acceptedAt: submission.acceptedAt,
-    guardUntil: new Date(
-      new Date(submission.acceptedAt).getTime() + GUARD_DURATION_MILLISECONDS,
-    ).toISOString(),
+    guardUntil: new Date(acceptedAt.getTime() + GUARD_DURATION_MILLISECONDS).toISOString(),
   };
 }
 
@@ -154,9 +156,12 @@ export async function acceptSubmission(
         input.idempotencyKey,
       );
       if (existing) {
-        return existing.payloadDigest === digest
-          ? { ok: true, status: 200, value: acceptedValue(existing) }
-          : { ok: false, error: { status: 409, code: "IDEMPOTENCY_CONFLICT" } };
+        if (existing.payloadDigest !== digest) {
+          return { ok: false, error: { status: 409, code: "IDEMPOTENCY_CONFLICT" } };
+        }
+        const replay = acceptedValue(existing);
+        if (!replay) throw new Error("Invalid authoritative replay");
+        return { ok: true, status: 200, value: replay };
       }
 
       if (await dependencies.browserGuard.isActive(input.browserTokenHash)) {
@@ -181,11 +186,16 @@ export async function acceptSubmission(
         versionDocumentId: input.versionDocumentId,
       };
       await transaction.insert(submission);
-      return { ok: true, status: 201, value: acceptedValue(submission) };
+      const accepted = acceptedValue(submission);
+      if (!accepted) throw new Error("Invalid acceptance timestamp");
+      return { ok: true, status: 201, value: accepted };
     });
   } catch (error) {
     if (error instanceof IdempotencyReplayError) {
-      return { ok: true, status: 200, value: acceptedValue(error) };
+      const replay = acceptedValue(error);
+      return replay
+        ? { ok: true, status: 200, value: replay }
+        : { ok: false, error: { status: 503, code: "UPSTREAM_UNAVAILABLE" } };
     }
     if (typeof error === "object" && error !== null && "code" in error) {
       if (error.code === "IDEMPOTENCY_CONFLICT") {

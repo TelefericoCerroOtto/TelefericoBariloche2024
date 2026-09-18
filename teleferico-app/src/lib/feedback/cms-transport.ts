@@ -44,6 +44,12 @@ function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): 
   return Object.keys(value).length === expected.size && Object.keys(value).every((key) => expected.has(key));
 }
 
+function isCanonicalTimestamp(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const timestamp = new Date(value);
+  return !Number.isNaN(timestamp.getTime()) && timestamp.toISOString() === value;
+}
+
 function isLabels(value: unknown): boolean {
   return isRecord(value) && hasExactKeys(value, ["es", "en", "pt"]) &&
     [value.es, value.en, value.pt].every((label) => typeof label === "string");
@@ -131,7 +137,10 @@ export function createFeedbackCmsTransport(options: Options) {
               if (!response.ok) throw new Error("CMS unavailable");
               if (response.status === 200) {
                 const value = await readJson(response);
-                if (!isRecord(value) || typeof value.submissionReceipt !== "string" || typeof value.acceptedAt !== "string") {
+                if (!isRecord(value) ||
+                    !hasExactKeys(value, ["submissionReceipt", "acceptedAt"]) ||
+                    typeof value.submissionReceipt !== "string" ||
+                    !isCanonicalTimestamp(value.acceptedAt)) {
                   throw new Error("Invalid CMS response");
                 }
                 throw new IdempotencyReplayError(

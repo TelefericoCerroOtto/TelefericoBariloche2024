@@ -2,7 +2,11 @@
 
 import { NextRequest } from "next/server";
 import { describe, expect, it, vi } from "vitest";
-import type { AcceptanceStore, StoredSubmission } from "@/lib/feedback/submission-acceptance";
+import {
+  IdempotencyReplayError,
+  type AcceptanceStore,
+  type StoredSubmission,
+} from "@/lib/feedback/submission-acceptance";
 import {
   createSubmissionHandler,
   createSurveyHandler,
@@ -94,6 +98,42 @@ function createStore(): AcceptanceStore {
       });
     },
   };
+}
+
+async function submitWithStore(store: AcceptanceStore): Promise<Response> {
+  const getHandler = createSurveyHandler({
+    resolveSurvey: async () => surveyContext,
+    signingKey: SIGNING_KEY,
+    now: () => NOW,
+    randomBytes: () => Buffer.alloc(32, 7),
+  });
+  const getResponse = await getHandler(
+    request(`https://example.test/api/feedback/surveys/${PUBLIC_CODE}`),
+    { params: Promise.resolve({ publicCode: PUBLIC_CODE }) },
+  );
+  const publicSurvey = await getResponse.json();
+  const handler = createSubmissionHandler({
+    resolveSurvey: async () => surveyContext,
+    signingKey: SIGNING_KEY,
+    verifyCaptcha: vi.fn(async () => ({ success: true })),
+    store,
+    browserGuard: { isActive: vi.fn(async () => false), persist: vi.fn() },
+    now: () => NOW,
+    extraAllowedOrigins: new Set(["https://example.test"]),
+    createReceipt: () => crypto.randomUUID(),
+  });
+  const body = JSON.stringify(submissionBody(publicSurvey.sessionToken));
+  return handler(request("https://example.test/api/feedback/submissions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "content-length": String(Buffer.byteLength(body)),
+      origin: "https://example.test",
+      "sec-fetch-site": "same-origin",
+      cookie: cookiesFrom(getResponse),
+    },
+    body,
+  }));
 }
 
 describe("public feedback Route Handler composition", () => {
@@ -481,5 +521,39 @@ describe("public feedback Route Handler composition", () => {
 
     expect(response.status).toBe(410);
     await expect(response.json()).resolves.toEqual({ error: { code: "SURVEY_UNAVAILABLE" } });
+  });
+
+  it.each([
+    {
+      case: "identical replay",
+      error: new IdempotencyReplayError("authoritative-receipt", NOW.toISOString()),
+      status: 200,
+      body: {
+        submissionReceipt: "authoritative-receipt",
+        acceptedAt: NOW.toISOString(),
+        guardUntil: "2026-09-18T12:00:00.000Z",
+      },
+    },
+    {
+      case: "different-payload race",
+      error: Object.assign(new Error("conflict"), { code: "IDEMPOTENCY_CONFLICT" }),
+      status: 409,
+      body: { error: { code: "IDEMPOTENCY_CONFLICT" } },
+    },
+    {
+      case: "genuine upstream failure",
+      error: new Error("upstream unavailable"),
+      status: 503,
+      body: { error: { code: "UPSTREAM_UNAVAILABLE" } },
+    },
+  ])("maps a commit-time $case to the bounded public contract", async ({ error, status, body }) => {
+    const response = await submitWithStore({
+      async withTransaction() {
+        throw error;
+      },
+    });
+
+    expect(response.status).toBe(status);
+    await expect(response.json()).resolves.toEqual(body);
   });
 });

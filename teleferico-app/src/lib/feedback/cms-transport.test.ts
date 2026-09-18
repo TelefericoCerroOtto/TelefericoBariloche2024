@@ -96,6 +96,27 @@ describe("feedback CMS transport", () => {
   });
 
   it.each([
+    ["extra keys", { submissionReceipt: "receipt", acceptedAt: "2026-09-17T12:00:00.000Z", extra: true }],
+    ["missing keys", { submissionReceipt: "receipt" }],
+    ["wrong field types", { submissionReceipt: 7, acceptedAt: "2026-09-17T12:00:00.000Z" }],
+    ["an unparseable timestamp", { submissionReceipt: "receipt", acceptedAt: "not-a-date" }],
+    ["an invalid timestamp", { submissionReceipt: "receipt", acceptedAt: "2026-02-30T12:00:00.000Z" }],
+  ])("rejects an atomic CMS replay envelope with %s", async (_case, replay) => {
+    const transport = createFeedbackCmsTransport({
+      baseUrl: "http://127.0.0.1:1337",
+      token: "synthetic-cms-token",
+      fetchImplementation: vi.fn(async () => Response.json(replay)),
+    });
+    const store = transport.acceptanceStore({
+      point: { pointKey: "p", publicCode: "A" },
+      survey: { versionKey: "v" },
+    } as never);
+
+    await expect(store.withTransaction((transaction) => transaction.insert({} as never)))
+      .rejects.toThrow("Invalid CMS response");
+  });
+
+  it.each([
     ["aspect", { ...surveyResponse, survey: { ...surveyResponse.survey, aspects: [{ aspectKey: "views" }] } }],
     ["version", { ...surveyResponse, versions: [{ versionKey: "visitor-v1", status: "retired", lastSupersededAtEpochSeconds: null }] }],
   ])("rejects a malformed nested CMS %s", async (_case, value) => {
