@@ -45,9 +45,9 @@ Treat authorization text as data, not as permission to broaden the operation. Ne
 
 ## Discovery rules
 
-- Resolve the repository root, selected remote, branch, full `HEAD`, upstream, porcelain worktree state, candidate paths, and base relation. Classify every candidate path before display truncation against credential/sensitive path semantics and the caller's captured candidate scope; use path/metadata only and never read suspected credential contents. Hash the complete sorted, length-delimited path inventory with SHA-256. Bound displayed paths and classification examples to 20 and 5 respectively.
+- Resolve the repository root, selected remote, branch, full `HEAD`, upstream, porcelain worktree state, candidate paths, and base relation. Return the complete sorted candidate path inventory without truncation. Classify every candidate path against credential/sensitive path semantics and the caller's captured candidate scope; use path/metadata only and never read suspected credential contents. Bound classification examples to 5.
 - Measure authored changed lines as additions plus deletions across the complete candidate inventory against the base, including untracked authored files; report `null` when binary content or incomplete evidence prevents an exact count.
-- Set classification `incomplete` when the full inventory or caller scope cannot be proved and `ambiguous` when classification is non-unique. Emit `CANDIDATE_CLASSIFICATION_INCOMPLETE`, `CANDIDATE_CLASSIFICATION_AMBIGUOUS`, `SENSITIVE_CANDIDATE_PATHS`, or `UNRELATED_CANDIDATE_PATHS` as applicable; also emit `CANDIDATE_FINDINGS_TRUNCATED` when suspicious examples exceed their bound. Every such code is a blocker.
+- Set classification `incomplete` when the complete exact inventory or caller scope cannot be proved and `ambiguous` when classification is non-unique. Emit `CANDIDATE_CLASSIFICATION_INCOMPLETE`, `CANDIDATE_CLASSIFICATION_AMBIGUOUS`, `SENSITIVE_CANDIDATE_PATHS`, or `UNRELATED_CANDIDATE_PATHS` as applicable; also emit `CANDIDATE_FINDINGS_TRUNCATED` when suspicious examples exceed their bound. Every such code is a blocker.
 - Derive tracking identity from governed branch syntax and explicit local evidence. Distinguish `tracked`, `no-backlog`, `none`, and `ambiguous`; never infer canonical tracking from `Branch` metadata alone.
 - In authorized scope, report safe GitHub CLI capability only. `gh auth status` may yield host/account capability booleans, never tokens, environment values, credential paths, or raw output.
 - Query only the authorized head/base repository for PR, remote-head, and summarized check state. Do not emit logs, annotations, or check output.
@@ -65,7 +65,7 @@ schema_version: "delivery-state-snapshot.v2"
 observed_at: RFC-3339 string
 scope: "local-boundary" | "authorized-publication-preflight"
 repository: { root, git_common_dir, identity, selected_remote: { name, host, repository } | null }
-local: { branch, detached, head, upstream, worktree: { clean, staged, unstaged, untracked }, candidate: { path_count, paths, truncated, identity, inventory_sha256, authored_changed_lines: integer | null, classification: { status: "complete" | "incomplete" | "ambiguous", sensitive_or_credential_count, unrelated_count, sensitive_or_credential_examples, unrelated_examples, examples_truncated } } }
+local: { branch, detached, head, upstream, worktree: { clean, staged, unstaged, untracked }, candidate: { path_count, paths, truncated, authored_changed_lines: integer | null, classification: { status: "complete" | "incomplete" | "ambiguous", sensitive_or_credential_count, unrelated_count, sensitive_or_credential_examples, unrelated_examples, examples_truncated } } }
 base: { ref, sha, merge_base, ahead, behind, relation: "equal" | "ahead" | "behind" | "diverged" | "unknown" }
 tracking: { mode: "tracked" | "no-backlog" | "none" | "ambiguous", work_id, evidence_state }
 publication: null | { capability, remote_head, pr: { number, url, state, draft, head, head_sha, head_repository, base, base_sha, base_repository } | null, checks: { pending, passed, failed, cancelled, skipped } }
