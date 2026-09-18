@@ -34,7 +34,7 @@ export type SubmissionPreflightInput = {
   readonly activeVersionKey: unknown;
   readonly versions: unknown;
   readonly extraAllowedOrigins?: Set<string>;
-  readonly verifyCaptcha: (token: string) => Promise<CaptchaResult>;
+  readonly verifyCaptcha: (_token: string) => Promise<CaptchaResult>;
 };
 
 type PreflightSuccess = {
