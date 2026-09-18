@@ -82,10 +82,11 @@ type AcceptanceResult =
   | {
       readonly ok: false;
       readonly error: {
-        readonly status: 409 | 503;
+        readonly status: 409 | 410 | 503;
         readonly code:
           | "IDEMPOTENCY_CONFLICT"
           | "GUARD_ACTIVE"
+          | "SURVEY_UNAVAILABLE"
           | "UPSTREAM_UNAVAILABLE";
       };
     };
@@ -185,6 +186,14 @@ export async function acceptSubmission(
   } catch (error) {
     if (error instanceof IdempotencyReplayError) {
       return { ok: true, status: 200, value: acceptedValue(error) };
+    }
+    if (typeof error === "object" && error !== null && "code" in error) {
+      if (error.code === "IDEMPOTENCY_CONFLICT") {
+        return { ok: false, error: { status: 409, code: "IDEMPOTENCY_CONFLICT" } };
+      }
+      if (error.code === "SURVEY_UNAVAILABLE") {
+        return { ok: false, error: { status: 410, code: "SURVEY_UNAVAILABLE" } };
+      }
     }
     return { ok: false, error: { status: 503, code: "UPSTREAM_UNAVAILABLE" } };
   }

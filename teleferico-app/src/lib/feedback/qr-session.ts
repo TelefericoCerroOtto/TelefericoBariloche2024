@@ -185,6 +185,14 @@ export function verifyQrSessionToken(
   token: string,
   input: VerifyInput,
 ): { readonly ok: true; readonly value: QrSessionClaims } | InvalidSession {
+  const session = verifyQrSessionAuthenticity(token, input);
+  return session.ok ? verifyQrSessionBinding(session.value, input.expected) : session;
+}
+
+export function verifyQrSessionAuthenticity(
+  token: string,
+  input: Omit<VerifyInput, "expected">,
+): { readonly ok: true; readonly value: QrSessionClaims } | InvalidSession {
   const claims = parseClaims(token, input.signingKey);
   if (!claims || claims.iat > input.now || claims.exp !== claims.iat + QR_SESSION_TTL_SECONDS) {
     return { ok: false, error: { status: 401, code: "INVALID_SESSION" } };
@@ -192,8 +200,13 @@ export function verifyQrSessionToken(
   if (input.now >= claims.exp) {
     return { ok: false, error: { status: 410, code: "SESSION_EXPIRED" } };
   }
+  return { ok: true, value: claims };
+}
 
-  const expected = input.expected;
+export function verifyQrSessionBinding(
+  claims: QrSessionClaims,
+  expected: QrSessionContext,
+): { readonly ok: true; readonly value: QrSessionClaims } | InvalidSession {
   if (
     claims.pointKey !== expected.pointKey ||
     claims.publicCodeHash !== publicCodeHash(expected.publicCode) ||
