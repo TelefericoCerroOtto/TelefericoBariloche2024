@@ -35,15 +35,15 @@ export type StoredSubmission = {
 export type SubmissionTransaction = {
   // The adapter must lock this pair whether or not a row already exists.
   lockAndFindByIdempotency(
-    sessionNonceHash: string,
-    idempotencyKey: string,
+    _sessionNonceHash: string,
+    _idempotencyKey: string,
   ): Promise<StoredSubmission | null>;
-  insert(submission: StoredSubmission): Promise<void>;
+  insert(_submission: StoredSubmission): Promise<void>;
 };
 
 export type AcceptanceStore = {
   withTransaction<T>(
-    operation: (transaction: SubmissionTransaction) => Promise<T>,
+    _operation: (_transaction: SubmissionTransaction) => Promise<T>,
   ): Promise<T>;
 };
 
