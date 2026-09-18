@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { ValidatedFeedbackAnswers } from "@/types/api/feedback";
+import type { FeedbackBrowserGuard } from "./browser-guard";
 import type { QrSessionClaims } from "./qr-session";
 
 const GUARD_DURATION_MILLISECONDS = 24 * 60 * 60 * 1_000;
@@ -41,12 +42,14 @@ export type SubmissionTransaction = {
 };
 
 export type AcceptanceStore = {
-  withTransaction<T>(_operation: (_transaction: SubmissionTransaction) => Promise<T>): Promise<T>;
+  withTransaction<T>(
+    _operation: (_transaction: SubmissionTransaction) => Promise<T>,
+  ): Promise<T>;
 };
 
 type AcceptanceDependencies = {
   readonly store: AcceptanceStore;
-  readonly isBrowserGuardActive: (_browserTokenHash: string) => Promise<boolean>;
+  readonly browserGuard: FeedbackBrowserGuard;
   readonly now: () => Date;
   readonly createReceipt: () => string;
 };
@@ -58,12 +61,19 @@ type AcceptedValue = {
 };
 
 type AcceptanceResult =
-  | { readonly ok: true; readonly status: 200 | 201; readonly value: AcceptedValue }
+  | {
+      readonly ok: true;
+      readonly status: 200 | 201;
+      readonly value: AcceptedValue;
+    }
   | {
       readonly ok: false;
       readonly error: {
         readonly status: 409 | 503;
-        readonly code: "IDEMPOTENCY_CONFLICT" | "GUARD_ACTIVE" | "UPSTREAM_UNAVAILABLE";
+        readonly code:
+          | "IDEMPOTENCY_CONFLICT"
+          | "GUARD_ACTIVE"
+          | "UPSTREAM_UNAVAILABLE";
       };
     };
 
@@ -75,7 +85,9 @@ function payloadDigest(input: SubmissionAcceptanceInput): string {
   const standardRatings = input.answers.ratings
     .filter((rating) => rating.aspectKey !== "other")
     .map(({ aspectKey, rating }) => ({ aspectKey, rating }));
-  const other = input.answers.ratings.find((rating) => rating.aspectKey === "other");
+  const other = input.answers.ratings.find(
+    (rating) => rating.aspectKey === "other",
+  );
   const session = {
     v: input.session.v,
     pointKey: input.session.pointKey,
@@ -87,18 +99,20 @@ function payloadDigest(input: SubmissionAcceptanceInput): string {
     iat: input.session.iat,
     exp: input.session.exp,
   };
-  return sha256(JSON.stringify({
-    contractVersion: input.contractVersion,
-    session,
-    browserTokenHash: input.browserTokenHash,
-    locale: input.answers.locale,
-    overallRating: input.answers.overallRating,
-    aspects: standardRatings,
-    otherAspect: other
-      ? { customText: other.customText, rating: other.rating }
-      : null,
-    comment: input.answers.comment ?? null,
-  }));
+  return sha256(
+    JSON.stringify({
+      contractVersion: input.contractVersion,
+      session,
+      browserTokenHash: input.browserTokenHash,
+      locale: input.answers.locale,
+      overallRating: input.answers.overallRating,
+      aspects: standardRatings,
+      otherAspect: other
+        ? { customText: other.customText, rating: other.rating }
+        : null,
+      comment: input.answers.comment ?? null,
+    }),
+  );
 }
 
 function acceptedValue(submission: StoredSubmission): AcceptedValue {
@@ -118,8 +132,9 @@ export async function acceptSubmission(
   const sessionNonceHash = sha256(input.session.nonce);
   const digest = payloadDigest(input);
 
+  let result: AcceptanceResult;
   try {
-    return await dependencies.store.withTransaction(async (transaction) => {
+    result = await dependencies.store.withTransaction(async (transaction) => {
       const existing = await transaction.lockAndFindByIdempotency(
         sessionNonceHash,
         input.idempotencyKey,
@@ -130,7 +145,7 @@ export async function acceptSubmission(
           : { ok: false, error: { status: 409, code: "IDEMPOTENCY_CONFLICT" } };
       }
 
-      if (await dependencies.isBrowserGuardActive(input.browserTokenHash)) {
+      if (await dependencies.browserGuard.isActive(input.browserTokenHash)) {
         return { ok: false, error: { status: 409, code: "GUARD_ACTIVE" } };
       }
 
@@ -141,7 +156,9 @@ export async function acceptSubmission(
         locale: input.answers.locale,
         overallRating: input.answers.overallRating,
         ratings: input.answers.ratings,
-        ...(input.answers.comment === undefined ? {} : { comment: input.answers.comment }),
+        ...(input.answers.comment === undefined
+          ? {}
+          : { comment: input.answers.comment }),
         sessionNonceHash,
         payloadDigest: digest,
         browserTokenHash: input.browserTokenHash,
@@ -155,4 +172,13 @@ export async function acceptSubmission(
   } catch {
     return { ok: false, error: { status: 503, code: "UPSTREAM_UNAVAILABLE" } };
   }
+
+  if (result.ok && result.status === 201) {
+    await dependencies.browserGuard.persist(
+      input.browserTokenHash,
+      result.value.guardUntil,
+    );
+  }
+
+  return result;
 }
