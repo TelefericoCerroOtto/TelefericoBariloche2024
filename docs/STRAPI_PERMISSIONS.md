@@ -103,6 +103,15 @@ Curriculum files are not uploaded to Strapi. The Next.js route handler stores th
 
 No Strapi Upload API permission is required for this token.
 
+### `Visitor Feedback CMS Transport (Next.js)`
+
+This server-only token is used exclusively by the visitor feedback CMS transport. It grants the two custom `survey-submission` actions below and no generic collection CRUD, administration, user-management, or role-management actions. The submission action accepts only the closed `feedback-cms-submission.v1` lookup and acceptance commands.
+
+| Custom action | Access |
+| --- | :---: |
+| `survey-submission.resolveSurvey` | ✅ |
+| `survey-submission.submit` | ✅ |
+
 ## Transfer tokens
 
 ### `Local → Remote Data Migration`
@@ -199,17 +208,11 @@ Anything not listed in this document is not part of the expected permission mode
 
 ### TB-113 current baseline
 
-The disabled survey catalog (`survey-version`, `survey-settings`, `survey-qr-point`,
-`survey-submission`, `survey-report-generation`, and `survey-report`) has zero
-Content API actions and zero API-token or Users & Permissions grants. Public,
-Authenticated, and every other application role are denied. Strapi Super Admin
-remains unchanged because Admin Panel users are a separate actor class. The
-generic collection CRUD remains outside the access model.
-
-This differs deliberately from Strapi's default core controllers and routers,
-which expose generic CRUD actions. Every survey route module instead exports an
-empty Content API route array and every survey controller exports no actions.
-S06a creates no permission command or mutation path.
+The survey catalog (`survey-version`, `survey-settings`, `survey-qr-point`,
+`survey-submission`, `survey-report-generation`, and `survey-report`) remains
+disabled by default. U7-B3a adds only the two token-authenticated
+`survey-submission` actions listed above for Next.js mediation. Public,
+Authenticated, and every other application role remain denied; generic collection CRUD remains outside the access model. Other survey route modules continue to export empty Content API route arrays.
 
 ### Future application capabilities
 

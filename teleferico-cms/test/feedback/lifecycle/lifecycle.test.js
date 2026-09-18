@@ -258,7 +258,7 @@ test('survey APIs expose no generic CRUD routes while lifecycle services stay al
     'survey-report',
   ];
 
-  for (const name of names) {
+  for (const name of names.filter((candidate) => candidate !== 'survey-submission')) {
     const routes = require(path.join(
       '../../../src/api',
       name,
@@ -278,6 +278,34 @@ test('survey APIs expose no generic CRUD routes while lifecycle services stay al
       'services',
       `${name}.js`,
     )));
+  }
+
+  const intakeRoutes = require('../../../src/api/survey-submission/routes/survey-submission');
+  assert.deepEqual(intakeRoutes.routes.map(({ method, handler }) => [method, handler]), [
+    ['GET', 'survey-submission.resolveSurvey'],
+    ['POST', 'survey-submission.submit'],
+  ]);
+});
+
+test('submission controller rejects malformed and unknown versioned commands before persistence', async () => {
+  const controller = require('../../../src/api/survey-submission/controllers/survey-submission');
+  const previous = global.strapi;
+  global.strapi = new Proxy({}, { get() { throw new Error('persistence reached'); } });
+  try {
+    for (const body of [
+      { contractVersion: 'feedback-cms-submission.v0', operation: 'lookup' },
+      { contractVersion: 'feedback-cms-submission.v1', operation: 'unknown' },
+    ]) {
+      const ctx = {
+        request: { body },
+        badRequest(code) { this.status = 400; this.body = { error: { code } }; },
+      };
+      await controller.submit(ctx);
+      assert.equal(ctx.status, 400);
+      assert.deepEqual(ctx.body, { error: { code: 'INVALID_COMMAND' } });
+    }
+  } finally {
+    global.strapi = previous;
   }
 });
 

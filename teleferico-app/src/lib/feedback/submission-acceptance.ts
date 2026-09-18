@@ -37,7 +37,7 @@ export type SubmissionTransaction = {
   lockAndFindByIdempotency(
     sessionNonceHash: string,
     idempotencyKey: string,
-  ): Promise<StoredSubmission | null>;
+  ): Promise<Pick<StoredSubmission, "receipt" | "acceptedAt" | "payloadDigest"> | null>;
   insert(submission: StoredSubmission): Promise<void>;
 };
 
@@ -46,6 +46,19 @@ export type AcceptanceStore = {
     operation: (transaction: SubmissionTransaction) => Promise<T>,
   ): Promise<T>;
 };
+
+export class IdempotencyReplayError extends Error {
+  readonly code = "IDEMPOTENCY_REPLAY";
+  readonly receipt: string;
+  readonly acceptedAt: string;
+
+  constructor(receipt: string, acceptedAt: string) {
+    super("The submission was already accepted");
+    this.name = "IdempotencyReplayError";
+    this.receipt = receipt;
+    this.acceptedAt = acceptedAt;
+  }
+}
 
 type AcceptanceDependencies = {
   readonly store: AcceptanceStore;
@@ -115,7 +128,7 @@ function payloadDigest(input: SubmissionAcceptanceInput): string {
   );
 }
 
-function acceptedValue(submission: StoredSubmission): AcceptedValue {
+function acceptedValue(submission: Pick<StoredSubmission, "receipt" | "acceptedAt">): AcceptedValue {
   return {
     submissionReceipt: submission.receipt,
     acceptedAt: submission.acceptedAt,
@@ -169,7 +182,10 @@ export async function acceptSubmission(
       await transaction.insert(submission);
       return { ok: true, status: 201, value: acceptedValue(submission) };
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof IdempotencyReplayError) {
+      return { ok: true, status: 200, value: acceptedValue(error) };
+    }
     return { ok: false, error: { status: 503, code: "UPSTREAM_UNAVAILABLE" } };
   }
 

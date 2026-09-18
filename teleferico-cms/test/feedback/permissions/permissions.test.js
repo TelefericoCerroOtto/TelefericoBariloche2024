@@ -19,8 +19,8 @@ const FUTURE_CAPABILITIES = [
   'feedback.reports.download',
 ];
 
-test('all survey route and controller modules expose no Content API actions', () => {
-  for (const api of SURVEY_APIS) {
+test('survey routes expose only the mediated intake family', () => {
+  for (const api of SURVEY_APIS.filter((candidate) => candidate !== 'survey-submission')) {
     const root = path.resolve(__dirname, `../../../src/api/${api}`);
     const routes = require(path.join(root, `routes/${api}`));
     const controller = require(path.join(root, `controllers/${api}`));
@@ -28,6 +28,13 @@ test('all survey route and controller modules expose no Content API actions', ()
     assert.deepEqual(routes, { type: 'content-api', routes: [] }, api);
     assert.deepEqual(controller, {}, api);
   }
+
+  const root = path.resolve(__dirname, '../../../src/api/survey-submission');
+  const actions = require(path.join(root, 'routes/survey-submission')).routes.map(({ handler }) => handler);
+  assert.deepEqual(actions, [
+    'survey-submission.resolveSurvey',
+    'survey-submission.submit',
+  ]);
 });
 
 test('documents D31 names only as future application capabilities', () => {

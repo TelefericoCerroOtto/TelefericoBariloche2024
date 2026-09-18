@@ -10,6 +10,7 @@ import {
   type SubmissionAcceptanceInput,
   type SubmissionTransaction,
 } from "./submission-acceptance";
+import { createFeedbackCmsTransport } from "./cms-transport";
 
 const ACCEPTED_AT = "2026-09-17T12:00:00.000Z";
 
@@ -240,6 +241,47 @@ describe("submission acceptance", () => {
     expect([first.status, second.status].sort()).toEqual([200, 201]);
     expect(first.value).toEqual(second.value);
     expect(harness.rows()).toHaveLength(1);
+  });
+
+  it("returns the authoritative CMS receipt when commit races with an identical submission", async () => {
+    const fetchImplementation = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(null))
+      .mockResolvedValueOnce(
+        Response.json({
+          submissionReceipt: "authoritative-receipt",
+          acceptedAt: ACCEPTED_AT,
+        }),
+      );
+    const transport = createFeedbackCmsTransport({
+      baseUrl: "http://127.0.0.1:1337",
+      token: "synthetic-cms-token",
+      fetchImplementation,
+    });
+    const store = transport.acceptanceStore({
+      pointDocumentId: "point-document",
+      versionDocumentId: "version-document",
+      point: { pointKey: "summit", publicCode: "A".repeat(32) },
+      survey: { versionKey: "visitor-v1" },
+    } as never);
+    const persistGuard = vi.fn(async () => undefined);
+
+    const result = await acceptSubmission(
+      input(),
+      dependencies(store, vi.fn(async () => false), persistGuard),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      value: {
+        submissionReceipt: "authoritative-receipt",
+        acceptedAt: ACCEPTED_AT,
+        guardUntil: "2026-09-18T12:00:00.000Z",
+      },
+    });
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+    expect(persistGuard).not.toHaveBeenCalled();
   });
 
   it("checks the authoritative browser guard only after durable idempotency", async () => {
