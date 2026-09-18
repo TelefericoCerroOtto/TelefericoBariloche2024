@@ -37,10 +37,10 @@ Consent is candidate-scoped and invokes `implementation-pr`; it is not reusable.
 
 ## Execution Steps
 
-1. Consume one local mapper snapshot. Verify the activation contract, candidate identity, authored changed-line count, predecessor state, recorded evidence, remaining work, and inherited change-level review budget.
+1. Consume one local mapper snapshot. Verify the activation contract, complete exact sorted candidate path set and candidate state, authored changed-line count, predecessor state, recorded evidence, remaining work, and inherited change-level review budget.
 2. Ask the single-select decision and stop. Do not mutate before the user's selection.
 3. On decline, return unchanged state. On consent, invoke `implementation-pr` with the exact candidate plus explicit destination, operation, and credential/session authorization from the decision.
-4. After publication, minimally revalidate branch, published `HEAD`, clean candidate identity, selected remote, remote head, PR base, base SHA, and draft state. Stop if any differs.
+4. After publication, minimally revalidate branch, published `HEAD`, clean candidate/worktree state, selected remote, remote head, PR base, base SHA, and draft state. Stop if any differs.
 5. Create or continue only the named next local branch when it is unambiguous and rooted at the exact published commit. An existing child must match the expected ancestry and publication state; otherwise stop.
 6. Invoke the native SDD apply actor only for that next work unit. Functional checks for the parent may continue concurrently.
 7. Before any later publication or retarget prompt, obtain fresh candidate-scoped authorization for remote read/fetch observation; prior consent is non-reusable. Use `authorized-publication-preflight` to prove exact parent and child identities. Retarget the existing child only after the parent PR is merged into `development` at the expected SHA. Never create a duplicate PR or repair stale ancestry automatically.
