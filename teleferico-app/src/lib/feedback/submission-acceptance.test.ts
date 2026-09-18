@@ -10,6 +10,7 @@ import {
   type SubmissionAcceptanceInput,
   type SubmissionTransaction,
 } from "./submission-acceptance";
+import { createFeedbackCmsTransport } from "./cms-transport";
 
 const ACCEPTED_AT = "2026-09-17T12:00:00.000Z";
 
@@ -102,12 +103,12 @@ function createStore(trace: string[] = []) {
 
 function dependencies(
   store: AcceptanceStore,
-  guard: (browserTokenHash: string) => Promise<boolean> = vi.fn(
+  guard: (_browserTokenHash: string) => Promise<boolean> = vi.fn(
     async () => false,
   ),
   persistGuard: (
-    browserTokenHash: string,
-    guardUntil: string,
+    _browserTokenHash: string,
+    _guardUntil: string,
   ) => Promise<void> = vi.fn(async () => undefined),
 ) {
   let receipts = 0;
@@ -240,6 +241,118 @@ describe("submission acceptance", () => {
     expect([first.status, second.status].sort()).toEqual([200, 201]);
     expect(first.value).toEqual(second.value);
     expect(harness.rows()).toHaveLength(1);
+  });
+
+  it("returns the authoritative CMS receipt when commit races with an identical submission", async () => {
+    const fetchImplementation = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(null))
+      .mockResolvedValueOnce(
+        Response.json({
+          submissionReceipt: "authoritative-receipt",
+          acceptedAt: ACCEPTED_AT,
+        }),
+      );
+    const transport = createFeedbackCmsTransport({
+      baseUrl: "http://127.0.0.1:1337",
+      token: "synthetic-cms-token",
+      fetchImplementation,
+    });
+    const store = transport.acceptanceStore({
+      pointDocumentId: "point-document",
+      versionDocumentId: "version-document",
+      point: { pointKey: "summit", publicCode: "A".repeat(32) },
+      survey: { versionKey: "visitor-v1" },
+    } as never);
+    const persistGuard = vi.fn(async () => undefined);
+
+    const result = await acceptSubmission(
+      input(),
+      dependencies(store, vi.fn(async () => false), persistGuard),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      status: 200,
+      value: {
+        submissionReceipt: "authoritative-receipt",
+        acceptedAt: ACCEPTED_AT,
+        guardUntil: "2026-09-18T12:00:00.000Z",
+      },
+    });
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+    expect(persistGuard).not.toHaveBeenCalled();
+  });
+
+  it("maps a different-payload commit race to the typed idempotency conflict", async () => {
+    const transport = createFeedbackCmsTransport({
+      baseUrl: "http://127.0.0.1:1337",
+      token: "synthetic-cms-token",
+      fetchImplementation: vi
+        .fn()
+        .mockResolvedValueOnce(Response.json(null))
+        .mockResolvedValueOnce(new Response(null, { status: 409 })),
+    });
+    const store = transport.acceptanceStore({
+      pointDocumentId: "point-document",
+      versionDocumentId: "version-document",
+      point: { pointKey: "summit", publicCode: "A".repeat(32) },
+      survey: { versionKey: "visitor-v1" },
+    } as never);
+
+    const result = await acceptSubmission(input(), dependencies(store));
+
+    expect(result).toEqual({
+      ok: false,
+      error: { status: 409, code: "IDEMPOTENCY_CONFLICT" },
+    });
+  });
+
+  it("bounds a malformed authoritative replay timestamp as upstream unavailable", async () => {
+    const transport = createFeedbackCmsTransport({
+      baseUrl: "http://127.0.0.1:1337",
+      token: "synthetic-cms-token",
+      fetchImplementation: vi
+        .fn()
+        .mockResolvedValueOnce(Response.json(null))
+        .mockResolvedValueOnce(Response.json({
+          submissionReceipt: "authoritative-receipt",
+          acceptedAt: "not-a-date",
+        })),
+    });
+    const store = transport.acceptanceStore({
+      pointDocumentId: "point-document",
+      versionDocumentId: "version-document",
+      point: { pointKey: "summit", publicCode: "A".repeat(32) },
+      survey: { versionKey: "visitor-v1" },
+    } as never);
+
+    await expect(acceptSubmission(input(), dependencies(store))).resolves.toEqual({
+      ok: false,
+      error: { status: 503, code: "UPSTREAM_UNAVAILABLE" },
+    });
+  });
+
+  it("maps a genuine commit-time CMS failure to upstream unavailable", async () => {
+    const transport = createFeedbackCmsTransport({
+      baseUrl: "http://127.0.0.1:1337",
+      token: "synthetic-cms-token",
+      fetchImplementation: vi
+        .fn()
+        .mockResolvedValueOnce(Response.json(null))
+        .mockResolvedValueOnce(new Response(null, { status: 503 })),
+    });
+    const store = transport.acceptanceStore({
+      pointDocumentId: "point-document",
+      versionDocumentId: "version-document",
+      point: { pointKey: "summit", publicCode: "A".repeat(32) },
+      survey: { versionKey: "visitor-v1" },
+    } as never);
+
+    await expect(acceptSubmission(input(), dependencies(store))).resolves.toEqual({
+      ok: false,
+      error: { status: 503, code: "UPSTREAM_UNAVAILABLE" },
+    });
   });
 
   it("checks the authoritative browser guard only after durable idempotency", async () => {

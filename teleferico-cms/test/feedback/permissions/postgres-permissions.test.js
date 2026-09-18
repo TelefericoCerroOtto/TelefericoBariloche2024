@@ -126,7 +126,10 @@ test('real isolated Strapi has no survey actions, grants, or inspection writes',
         const tokenPermissions = await strapi.db.connection('strapi_api_token_permissions').select('action');
 
         assert.equal(surveyApis.length, 6);
-        assert.deepEqual(registeredActions, []);
+        assert.deepEqual(registeredActions, [
+          'survey-submission.resolveSurvey',
+          'survey-submission.submit',
+        ]);
         assert.ok(roles.some(({ name }) => name === 'Public'));
         assert.ok(roles.some(({ name }) => name === 'Authenticated'));
         assert.equal(roles.some(({ name }) => name === 'Super Admin'), false);

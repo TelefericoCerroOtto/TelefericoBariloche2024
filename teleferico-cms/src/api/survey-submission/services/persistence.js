@@ -77,7 +77,23 @@ function createSubmissionPersistence(strapi) {
     });
   }
 
-  return Object.freeze({ accept, resolveContext });
+  async function lookup(command) {
+    const existing = await strapi.db.connection('survey_submissions')
+      .select('receipt', 'accepted_at', 'payload_digest')
+      .where({
+        session_nonce_hash: command.sessionNonceHash,
+        idempotency_key: command.idempotencyKey,
+      })
+      .first();
+    if (!existing) return null;
+    return {
+      receipt: existing.receipt,
+      acceptedAt: new Date(existing.accepted_at).toISOString(),
+      payloadDigest: existing.payload_digest,
+    };
+  }
+
+  return Object.freeze({ accept, lookup, resolveContext });
 }
 
 module.exports = { createSubmissionPersistence };

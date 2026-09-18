@@ -3,15 +3,15 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; U6 complete and U7 foundations through U7-B2 are implemented
+- Apply mode: Strict TDD; U6 complete and U7 foundations through U7-B3a are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
-- Review budget: candidate-specific `size:exception` permits U7-B2 up to 800 authored changed lines and authorizes no later unit
-- Current slice/work unit: `U7-B2-guard-degradation`; U7 remains incomplete
+- Review budget: mandatory sequential B3a/B3b split; each autonomous candidate has a hard 800-authored-line ceiling
+- Current slice/work unit: `U7-B3a-cms-transport-contract`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
-- Size exception: former 800-line attempt settled failed at evidence revision `sha256:c57930a7430e91880415ef1d9c6633220e91dcd0852f343246f5ffabe5c8e264`; maintainer explicitly approved the distinct 807-line correction candidate; later slices require a new workload decision
+- Apply outcome: U7-B3a complete and ready for independent verification; B3b HTTP composition remains pending
 
 ## Completed tasks
 
@@ -24,7 +24,7 @@
 
 ## Remaining tasks
 
-- [ ] 3.1 U7 — Durable acceptance, persistence, and browser guard/Redis degradation are complete; HTTP composition, drafts/UI, and E2E remain.
+- [ ] 3.1 U7 — U7-B3a CMS transport is complete; U7-B3b HTTP composition, U7-B4 drafts/UI, and U7-B5 E2E remain.
 - [ ] 3.2 U8
 - [ ] 3.3 U9
 - [ ] 4.1 U10
@@ -712,3 +712,58 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Task 3.1/U7 remains unchecked. U7-B3 HTTP composition, U7-B4 form/draft/UI, and U7-B5 visitor E2E remain deferred.
 - Runtime/cleanup and rollback boundaries remain those recorded for U7-B2. The correction candidate changes cumulative evidence only; no owned process, Redis server, container, volume, or temporary artifact remains.
 - Corrected authored scope: 602 additions and 60 deletions = 662 lines, including cumulative OpenSpec evidence, within the approved 800-line U7-B2 exception. Corrected evidence revision: `sha256:dd4882f3ad430c396bdf00ccd88f5aae539cd8f466c4f02bb15f29289cbe0fe8`, derived from canonical `tb113-apply-evidence.v1` JSON binding the `base-only` diagnosis, failed revision `sha256:0d4475bce7f73c97969d99120ae908c65a426be08b3a7e1bd1d3ec3ef958e4c5`, branch/base, unchanged implementation hashes, exact correction verification, runtime/cleanup state, authored count, and unchecked task 3.1. Parent owns settlement.
+## U7-B3a CMS Transport Contract Evidence
+
+- Scope: closed `feedback-cms-submission.v1` lookup/acceptance commands; exactly survey GET and submission POST CMS routes; authoritative lookup, replay/conflict, and atomic acceptance; deny-by-default token-family documentation; one server-only app transport with bounded streamed responses, strict nested validation, and bounded status/code mapping.
+- The B3b Route Handlers, public composition/runtime, ordered public ingress, stable browser-cookie behavior, CAPTCHA logging, public status mapping, and signing-key configuration were removed. U7-A1 through U7-B2 remain unchanged.
+- Task 3.1 remains unchecked. U7-B3b, U7-B4, and U7-B5 remain deferred. No dependency, lockfile, schema, migration, generated type, deployment, remote, credential, GCP, or IAM change occurred.
+
+### U7-B3a TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| CMS transport/command contract | `cms-transport.test.ts`; CMS lifecycle/permission/persistence tests | Unit + isolated Strapi/PostgreSQL integration | Transport 7/7 and retained CMS baseline passed before the streaming correction | Original B3 correction failed transport/CMS contract cases before the closed command and exact route surface; final bounded-stream RED failed 1/8 because the response reader was not cancelled | Transport 8/8; app transport plus acceptance 19/19; CMS feedback harness 53/53 | Oversized declared/materialized/streamed bodies, malformed top-level/nested responses, unavailable survey, lookup/accept commands, replay, conflict/gone mapping, malformed/unknown commands, permission registration, and atomic persistence | Survey context moved to the centralized API type boundary and streamed response reading replaced post-buffer measurement; focused tests remained 19/19 |
+
+### U7-B3a Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm exec vitest run src/lib/feedback/cms-transport.test.ts src/lib/feedback/submission-acceptance.test.ts`; exit 0, 2 files and 19/19 passed. `pnpm typecheck`; exit 0, no diagnostics. `git diff --check`; exit 0, no output. |
+| Runtime harness command/scenario and exact result | `npm test -- feedback`; final exit 0, 53/53 passed. The isolated real Strapi/PostgreSQL path proved exact registered actions, malformed/unknown command rejection, authoritative lookup, replay/conflict, atomic acceptance, and deterministic process/container/volume cleanup. An intermediate run failed only the documentation line-wrap assertion and was corrected before the final full rerun. |
+| Rollback boundary | Remove `cms-transport.ts` and its focused test; revert the centralized survey-context types, partial acceptance-store port, `FEEDBACK_STRAPI_TOKEN` example, CMS controller/routes/persistence deltas and their tests, permission documentation, B3a/B3b task split, and this evidence. Preserve U7-A1 through U7-B2. |
+
+### U7-B3a Verification and Boundary
+
+- Complete authored scope: 545 additions and 27 deletions = 572 lines. This is below the mandatory 800-line ceiling; no size exception is used.
+- Fresh corrected evidence revision: `sha256:644a6d4c51fedcb3a7eca26f4c15ab42833911cd921dc747c28674045065db63`, explicitly remediating failed combined revision `sha256:e17422b6dcad9326282955939c3b850653598708e86c0b8f122b325d6d5db2c8` through the autonomous B3a/B3b split.
+- Intended review boundary starts after U7-B2 and ends with the independently usable CMS transport contract. B3b starts from this exact boundary and owns all public HTTP composition.
+
+## U7-B3a Commit-Time Replay Correction
+
+- This correction remediates failed evidence revision `sha256:4b706c73f2c2ec49085bf432cf4d0a2af2a041e6630d6ce93f1675209a39ccb7` under native attempt `sha256:e47e8b7a1f2750a6ffaa809f4f6239f74410e40a8a5dd5877d274aad9deb6566`; the parent retains settlement authority.
+- Root cause: the CMS transport represented a successful commit-time identical replay as an ad hoc thrown object, while `acceptSubmission` mapped every thrown transaction result to `503 UPSTREAM_UNAVAILABLE`.
+- Correction: `IdempotencyReplayError` is now the explicit stable typed adapter/domain contract. The acceptance service maps only that class to status 200 with the authoritative CMS receipt and timestamp; unrelated persistence failures retain the generic 503 result. No error-message matching is used.
+- Task 3.1/U7 remains unchecked. B3b Route Handlers, public composition/runtime, stable browser cookies, public status mapping, and signing-key configuration remain absent.
+
+### U7-B3a Correction TDD Cycle Evidence
+
+| Task | Test File | Safety Net | RED | GREEN | REFACTOR |
+|---|---|---|---|---|---|
+| Commit-time identical replay | `submission-acceptance.test.ts`; `cms-transport.test.ts` | Focused pre-change selector passed 2 files and 19/19 tests | Composed acceptance/CMS regression exited 1 with exactly 1 failed and 11 skipped: expected authoritative status 200 and received `503 UPSTREAM_UNAVAILABLE` | Exact RED selector passed 1/1; focused transport/acceptance passed 2 files and 20/20 | Replaced the ad hoc replay object with one exported typed error carrying a stable code, receipt, and timestamp; focused tests remained 20/20 |
+
+### U7-B3a Correction Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/cms-transport.test.ts src/lib/feedback/submission-acceptance.test.ts`; exit 0, 2 files and 20/20 passed. |
+| Runtime harness command/scenario and exact result | `npm test -- feedback` in `teleferico-cms`; exit 0, 53/53 passed, including isolated Strapi/PostgreSQL acceptance, replay, rollback, and deterministic container/volume cleanup. The generated POC result touched by the harness was restored exactly and is absent from the candidate. |
+| Rollback boundary | Revert the `IdempotencyReplayError` contract and catch mapping in `submission-acceptance.ts`, restore the transport's previous replay throw in `cms-transport.ts`, and remove only the composed regression from `submission-acceptance.test.ts`. Preserve all other B3a work and U7-A1 through U7-B2. |
+
+### U7-B3a Correction Verification and Identity
+
+- Broader feedback regression: `pnpm --dir teleferico-app exec vitest run src/lib/feedback`; exit 0, 8 files and 99/99 passed. App typecheck: `pnpm --dir teleferico-app run typecheck`; exit 0, no diagnostics. `git diff --check`; exit 0, no output.
+- An attempted safety-net invocation through `pnpm --dir teleferico-app run test -- ...` ran the package suite rather than the requested selector and exited 1 with 253/255 passing. Its only failures were the already evidenced base-only `form-protection.test.ts` expectations for `TOO_MANY_REQUESTS` versus unchanged `EMAIL_LIMIT_EXCEEDED`; the corrected focused selector then passed 19/19 before RED.
+- A non-gating Prettier readback reports the four pre-existing B3a app source/test files are not format-clean. No broad restyle was performed because it would exceed this autonomous remediation boundary and the hard review ceiling; the correction hunks follow the surrounding TypeScript style.
+- Candidate path set: 15 paths including this cumulative evidence artifact; every path has Git mode `100644`. Candidate implementation identity excluding this self-referential evidence file: `sha256:5d994ac8abe7dc44ba6ae85912399c4fb746bdebba840f86d528e116d9856d5e`, derived from canonical `tb113-candidate.v1` JSON over branch, base, sorted path, mode, and content SHA-256.
+- Complete base-relative authored scope: 637 additions and 28 deletions = 665 lines. This remains below the mandatory 800-line ceiling and preserves the autonomous B3a boundary.
+- Fresh correction evidence revision: `sha256:60ac871db4142dbe1bde52e78a407288a5b36020d880f9bec37373bafe0cb048`, derived from canonical `tb113-apply-evidence.v1` JSON binding the failed revision, native attempt, prior B3a revision, candidate identity, exact RED/GREEN/focused/broader/typecheck/CMS/diff outcomes, package-suite baseline diagnosis, formatting readback, final authored count, rollback boundary, and unchecked task 3.1. Parent owns settlement.

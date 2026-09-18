@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
 const path = require('node:path');
 const test = require('node:test');
 
@@ -258,7 +259,7 @@ test('survey APIs expose no generic CRUD routes while lifecycle services stay al
     'survey-report',
   ];
 
-  for (const name of names) {
+  for (const name of names.filter((candidate) => candidate !== 'survey-submission')) {
     const routes = require(path.join(
       '../../../src/api',
       name,
@@ -278,6 +279,68 @@ test('survey APIs expose no generic CRUD routes while lifecycle services stay al
       'services',
       `${name}.js`,
     )));
+  }
+
+  const intakeRoutes = require('../../../src/api/survey-submission/routes/survey-submission');
+  assert.deepEqual(intakeRoutes.routes.map(({ method, handler }) => [method, handler]), [
+    ['GET', 'survey-submission.resolveSurvey'],
+    ['POST', 'survey-submission.submit'],
+  ]);
+});
+
+test('submission controller rejects malformed and unknown versioned commands before persistence', async () => {
+  const controller = require('../../../src/api/survey-submission/controllers/survey-submission');
+  const previous = global.strapi;
+  global.strapi = new Proxy({}, { get() { throw new Error('persistence reached'); } });
+  try {
+    for (const body of [
+      { contractVersion: 'feedback-cms-submission.v0', operation: 'lookup' },
+      { contractVersion: 'feedback-cms-submission.v1', operation: 'unknown' },
+    ]) {
+      const ctx = {
+        request: { body },
+        badRequest(code) { this.status = 400; this.body = { error: { code } }; },
+      };
+      await controller.submit(ctx);
+      assert.equal(ctx.status, 400);
+      assert.deepEqual(ctx.body, { error: { code: 'INVALID_COMMAND' } });
+    }
+  } finally {
+    global.strapi = previous;
+  }
+});
+
+test('submission controller keeps replay status out of the public response body', async () => {
+  const controller = require('../../../src/api/survey-submission/controllers/survey-submission');
+  const previous = global.strapi;
+  const acceptedAt = '2026-09-17T12:00:00.000Z';
+  const publicCode = 'A'.repeat(32);
+  global.strapi = {
+    documents(uid) {
+      return { findOne: async () => (
+        uid.includes('qr-point')
+          ? { documentId: 'point', status: 'active', pointKey: 'summit', publicCode }
+          : { documentId: 'version', status: 'published', versionKey: 'v1' }
+      ) };
+    },
+    db: { transaction: async () => ({ status: 200, submissionReceipt: 'receipt', acceptedAt }) },
+  };
+  try {
+    const ctx = { request: { body: {
+      contractVersion: 'feedback-cms-submission.v1', operation: 'accept', pointDocumentId: 'point', versionDocumentId: 'version',
+      claims: { pointKey: 'summit', publicCodeHash: createHash('sha256').update(publicCode).digest('hex'), versionKey: 'v1' },
+      submission: {
+        receipt: 'receipt', acceptedAt, source: 'valid_qr', locale: 'en', overallRating: 5,
+        ratings: [{ aspectKey: 'views', label: 'Views', sortOrder: 1, rating: 'positive' }],
+        sessionNonceHash: 'a'.repeat(64), payloadDigest: 'b'.repeat(64), browserTokenHash: 'c'.repeat(64),
+        idempotencyKey: 'idem-key-0000001', pointDocumentId: 'point', versionDocumentId: 'version',
+      },
+    } } };
+    await controller.submit(ctx);
+    assert.equal(ctx.status, 200);
+    assert.deepEqual(ctx.body, { submissionReceipt: 'receipt', acceptedAt });
+  } finally {
+    global.strapi = previous;
   }
 });
 
