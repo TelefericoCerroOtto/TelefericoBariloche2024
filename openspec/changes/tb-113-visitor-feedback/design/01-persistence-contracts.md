@@ -1,6 +1,14 @@
 # Normative Persistence Contracts
 
-All types set `draftAndPublish:false`. `fixtureMarker` is private nullable string(64), local/test-seed only. Custom services own writes; generic application CRUD and Public/Authenticated survey permissions are disabled.
+All types set `draftAndPublish:false`. `fixtureMarker` is private nullable string(64), local/test-seed only. Public survey writes remain disabled unless a specific contract authorizes them.
+
+## Strapi Application Boundary
+
+Business rules, request orchestration, validation, and browser-facing error mapping belong in authenticated `teleferico-app` Route Handlers by default. `teleferico-cms` exposes Strapi core controllers and services with empty factory definitions unless a narrower custom boundary is explicitly required.
+
+Access control uses Strapi's native Roles or API Tokens. A feature MUST NOT add a custom CMS controller, route, service, or parallel permission mechanism merely to duplicate behavior that a core Strapi endpoint and native permission can provide.
+
+Custom CMS code is allowed only when an identified invariant cannot be enforced safely through the core API, such as an atomic transaction, lock, compare-and-swap transition, or persistence operation that must remain indivisible. The owning design and task MUST name that invariant and explain why native Strapi behavior is insufficient. Any exception MUST keep the custom surface minimal; unrelated business decisions and response presentation remain in `teleferico-app`.
 
 ## Models
 
