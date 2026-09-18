@@ -15,7 +15,7 @@ const BROWSER_COOKIE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const COOKIE_OPTIONS = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/" };
 
 type SharedDependencies = {
-  readonly resolveSurvey: (publicCode: string) => Promise<FeedbackSurveyContext | null>;
+  readonly resolveSurvey: (_publicCode: string) => Promise<FeedbackSurveyContext | null>;
   readonly signingKey: string | Uint8Array;
   readonly now: () => Date;
   readonly extraAllowedOrigins?: Set<string>;
@@ -56,7 +56,7 @@ function sessionContext(context: FeedbackSurveyContext): QrSessionContext {
 }
 
 export function createSurveyHandler(
-  dependencies: SharedDependencies & { readonly randomBytes?: (size: number) => Buffer },
+  dependencies: SharedDependencies & { readonly randomBytes?: (_size: number) => Buffer },
 ) {
   return async (request: NextRequest, route: { params: Promise<{ publicCode: string }> }) => {
     const { publicCode } = await route.params;
@@ -98,8 +98,8 @@ export function createSurveyHandler(
 
 export function createSubmissionHandler(
   dependencies: SharedDependencies & {
-    readonly verifyCaptcha: (token: string) => Promise<unknown>;
-    readonly store: AcceptanceStore | ((context: FeedbackSurveyContext) => AcceptanceStore);
+    readonly verifyCaptcha: (_token: string) => Promise<unknown>;
+    readonly store: AcceptanceStore | ((_context: FeedbackSurveyContext) => AcceptanceStore);
     readonly browserGuard: FeedbackBrowserGuard;
     readonly createReceipt: () => string;
   },
