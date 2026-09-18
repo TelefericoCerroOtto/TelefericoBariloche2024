@@ -167,8 +167,9 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 ## Issue context resolution governance
 
 - The canonical GitHub issue contract lives in `docs/issue-context-contract.md`.
-- When a user mentions `TB-###`, `#123`, a Notion URL, a GitHub issue URL, or a governed branch containing `tb-###`, agents should resolve linked artifacts automatically.
-- Resolution should include Work ID ↔ Notion row ↔ GitHub issue and governed branch association when available.
+- When a user mentions `TB-###`, `#123`, a Notion URL, a GitHub issue URL, or a governed branch containing `tb-###`, use that artifact as the first reliable anchor.
+- For informational or read-only questions, follow links only as far as needed for an accurate answer. Do not require full cross-system traversal by default.
+- Reconcile Work ID ↔ Notion row ↔ GitHub issue ↔ PR ↔ governed branch deterministically for implementation, follow-up/regression decisions, tracking mutations, delivery operations, ambiguous identity, or an explicit recap/context snapshot. Mutation-sensitive ambiguity fails closed.
 - This lookup is **silent by default** while the agent executes the requested task.
 - A structured recap/context snapshot should be emitted **only** when the user explicitly asks for a summary.
 - For operational resolution workflow, load `.agents/skills/issue-context-harness/SKILL.md` alongside backlog-governance rules when applicable.

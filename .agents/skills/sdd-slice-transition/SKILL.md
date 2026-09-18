@@ -16,8 +16,10 @@ Load automatically only when native SDD is in implementation/apply, one bounded 
 ## Hard Rules
 
 - Delegate local facts to `delivery-state-mapper` with `scope=local-boundary`. Decide eligibility here; the mapper never decides policy.
-- Fail closed on every ambiguity, stale predecessor, changed parent branch/SHA, uncertain candidate, over-budget candidate, or missing evidence.
-- Preserve the 400 authored changed-line ceiling unless a fresh candidate-specific exception exists. Slice by work unit; never code-golf, remove tests/docs, or compress code to fit.
+- Fail closed on every ambiguity, stale predecessor, changed parent branch/SHA, uncertain candidate, candidate exceeding its recorded hard budget, or missing evidence.
+- Treat the active change's `review_budget_lines` as its sole size declaration. Every slice inherits it automatically; never request size approval again at a slice or publication boundary.
+- Without a recorded change-level budget, report 400 authored changed lines as an advisory warning only. It is not a blocking gate or consent prompt.
+- If a candidate exceeds the recorded change-level hard budget, stop and name work-unit splitting or scope reduction as the exit. Do not offer another exception prompt. Always report the honest count; never code-golf, remove tests/docs, or compress code to fit.
 - Never duplicate `implementation-pr` or SDD apply internals. `implementation-pr` owns completed-slice publication; SDD apply owns next-slice implementation.
 - Never auto merge, rebase, cherry-pick, force-push, mark ready for review, delete branches, or repair ancestry. A pre-merge child may be published only as a validated draft `stacked-to-main` preview against its immediate parent branch.
 
@@ -31,11 +33,11 @@ At an eligible boundary, present exactly one closed single-select decision with 
 
 Name the candidate branch/head SHA, base branch/SHA, parent PR/branch/head SHA when applicable, draft state, proposed next work unit, authorized GitHub session, exact mutations, and consequences. A decline performs no mutation.
 
-Consent is candidate-scoped and invokes `implementation-pr`; it is not reusable. Require a fresh decision at every later boundary.
+Consent is candidate-scoped and invokes `implementation-pr`; it is not reusable. Require a fresh action decision at every later boundary without reopening the change-level size declaration.
 
 ## Execution Steps
 
-1. Consume one local mapper snapshot. Verify the activation contract, candidate identity, authored changed-line count, predecessor state, recorded evidence, remaining work, and review budget.
+1. Consume one local mapper snapshot. Verify the activation contract, candidate identity, authored changed-line count, predecessor state, recorded evidence, remaining work, and inherited change-level review budget.
 2. Ask the single-select decision and stop. Do not mutate before the user's selection.
 3. On decline, return unchanged state. On consent, invoke `implementation-pr` with the exact candidate plus explicit destination, operation, and credential/session authorization from the decision.
 4. After publication, minimally revalidate branch, published `HEAD`, clean candidate identity, selected remote, remote head, PR base, base SHA, and draft state. Stop if any differs.
