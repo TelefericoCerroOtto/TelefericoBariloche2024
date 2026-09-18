@@ -7,11 +7,11 @@
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
 - Review budget: mandatory sequential B3a/B3b split; default autonomous ceiling is 800 authored lines, with an explicit one-time 1,600-line exception for the Prettier-normalized U7-B4 candidate only
-- Current slice/work unit: `U7-B4-form-draft-ui`; U7 remains incomplete
-- Progress: 6 of 15 tasks complete
+- Current slice/work unit: `U7-B5-visitor-e2e`; U7 is complete
+- Progress: 7 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
-- Apply outcome: U7-B4 form/draft/UI is complete and ready for independent verification under its one-time 1,600-line exception; U7-B5 E2E remains pending
+- Apply outcome: U7-B5 visitor E2E is complete and ready for independent verification; the 306-line E2E candidate remains below the 400-line autonomous ceiling
 
 ## Completed tasks
 
@@ -24,7 +24,7 @@
 
 ## Remaining tasks
 
-- [ ] 3.1 U7 — U7-B3a CMS transport and U7-B3b HTTP composition are complete; U7-B4 drafts/UI is complete under its explicit exception; U7-B5 E2E remains.
+- [x] 3.1 U7 — U7-B3a CMS transport and U7-B3b HTTP composition are complete; U7-B4 drafts/UI is complete under its explicit exception; U7-B5 E2E is complete.
 - [ ] 3.2 U8
 - [ ] 3.3 U9
 - [ ] 4.1 U10
@@ -809,3 +809,29 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - The Prettier-normalized implementation/test/style scope is 1,573 additions and 5 deletions, 1,578 changed lines total, within the explicit candidate-scoped 1,600-line exception. The generated POC result mutated by the browser harness was restored exactly and is not part of the candidate.
 - This continuation remediates failed evidence revision `sha256:f39ada3653113924c09cfd323c03ba5b58cd4e8d32bb2709457863befb0ab7d7` under parent-owned attempt token `sha256:12e8f9094e83d301bde2d831eaf35cfade9ca28ccc735d3ae85d50fd5dabf63d`. Fresh evidence revision: `sha256:7d44b2db2c62c9582bd8090f4b72b0d33b14e83cb588589945525ccb01a1d17f`, derived from canonical `tb113-apply-evidence.v1` JSON over the 10 implementation/test/style paths, exact command outcomes, base-only diagnosis, cumulative task state, rollback boundary, and final line count. Parent owns native settlement.
 - The normalized successor must remediate evidence revision `sha256:4815722e51b422431303858c524d0868111bf089aec81b48ec8495dface5d462`; its final evidence revision and settlement remain parent-owned after verification.
+
+## U7-B5 Visitor E2E Evidence
+
+- Scope: added the focused Playwright acceptance spec `teleferico-app/tests/e2e/visitor-feedback.spec.ts` for the QR-only public visitor journey. The fixture stack intercepts the synthetic survey and submission contracts, injects synthetic reCAPTCHA callbacks, captures browser requests, and never contacts CMS, worker, or external QR services.
+- Coverage: mobile Chromium proves QR-only entry, no public links, ES-to-EN locale switching, Q1-Q4 completion, comment submission, authoritative receipt success, payload shape, synthetic CAPTCHA, and the absence of direct CMS/worker calls. Desktop Chromium proves unavailable-code handling, back navigation, verification/privacy presentation, and no horizontal overflow at 1440×900.
+- No production, dependency, lockfile, CMS, schema, migration, generated type, environment, credential, deployment, remote, GCP, or IAM change occurred.
+
+### U7-B5 TDD Cycle Evidence
+
+| Task | Test File | Layer | RED | GREEN | REFACTOR |
+| --- | --- | --- | --- | --- | --- |
+| Visitor QR-only acceptance | `tests/e2e/visitor-feedback.spec.ts` | Chromium Playwright with synthetic QR/CMS/CAPTCHA stack | Initial focused run exited 1 because the new spec could not find the visitor heading before the fixture-driven implementation was complete | Exact focused command exited 0; 2 tests passed | Replaced automatic CAPTCHA timing with an explicit synthetic callback, aligned unavailable-survey copy, and retained 2/2 after typecheck, ESLint, Prettier, and diff checks |
+
+### U7-B5 Work Unit Evidence
+
+| Evidence | Exact value |
+| --- | --- |
+| Focused test command and exact result | `CI=1 pnpm --dir teleferico-app exec playwright test tests/e2e/visitor-feedback.spec.ts`; exit 0; 2 passed, 0 failed, 0 skipped. |
+| Runtime harness command/scenario and exact result | The same Chromium command ran the mobile and desktop scenarios against synthetic survey/submission routes and synthetic CAPTCHA. The assertions proved QR-only browser behavior, payload/receipt flow, unavailable-code mapping, back navigation, privacy/verification UI, and responsive overflow safety; no external service was contacted. |
+| Rollback boundary | Remove `teleferico-app/tests/e2e/visitor-feedback.spec.ts`, revert the U7-B5 checkbox and this evidence/status addition, and preserve U7-B4 production/UI behavior plus all prior U7-A1–B4 evidence. |
+
+### U7-B5 Verification and Boundary
+
+- App typecheck: exit 0 with no diagnostics. Changed-file ESLint: exit 0. Changed-file Prettier check: exit 0. `git diff --check`: exit 0 with no output.
+- The implementation candidate contains 306 authored additions and 0 deletions; it remains below the 400-line autonomous review ceiling. The task/evidence persistence additions stay within the same bounded slice.
+- U7 is complete. U8 and later tasks remain unchecked and were not implemented.
