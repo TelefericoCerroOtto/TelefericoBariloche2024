@@ -90,6 +90,7 @@ function payloadDigest(input: SubmissionAcceptanceInput): string {
   return sha256(JSON.stringify({
     contractVersion: input.contractVersion,
     session,
+    browserTokenHash: input.browserTokenHash,
     locale: input.answers.locale,
     overallRating: input.answers.overallRating,
     aspects: standardRatings,

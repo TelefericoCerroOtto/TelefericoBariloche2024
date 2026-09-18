@@ -6,8 +6,8 @@
 - Apply mode: Strict TDD; U6 complete and six bounded U7 foundations are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
-- Review budget: U7-A6 remains below the 400 authored-line ceiling; no size exception applies
-- Current slice/work unit: `U7-A6-durable-idempotency-acceptance`; U7 remains incomplete
+- Review budget: candidate-specific `size:exception` permits U7-B1 up to 800 authored changed lines and authorizes no later unit
+- Current slice/work unit: `U7-B1-persistence-adapter`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
@@ -631,3 +631,43 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Cumulative U7 intake suite: exit 0; 6 files and 81/81 tests passed. Typecheck and diff checks passed. Authored scope: 388 additions, 4 deletions, 392 total; no size exception.
 - Cleanup: foreground commands exited; no formatter, dependency, manifest, lockfile, generated artifact, environment, credential, service, child process, container, volume, temporary artifact, remote operation, or unrelated change remained.
 - Implementation SHA-256: `submission-acceptance.ts=ec70d1dc0be657857ab561e163e78abe4f717aeaf1bdf349471a42489b9981ee`; test `d19ac9d05721ffb7bc2727b1048bd508edd36184465a24e454aaae19825ade2c`. Settled evidence revision: `sha256:2c6888824b4623e0393aab1e572a22e49306249bfb451b23f2494dda229ddd2b`; native attempt state `complete`.
+
+## Remaining-work planning state
+
+- PR #318 was retargeted to `development`, and implementation governance passed. No functional or Cloud Build evidence is claimed by this planning record.
+- The 22-slice remaining-work baseline in `tasks.md` replaces legacy S11–S24 for future work only. Historical S01–S10 and completed U7 foundation evidence remain unchanged.
+- The next proposed unit is U7-B1 persistence adapter on `feat/app-cms-tb-113-feedback-persistence-adapter`, with U7-A6/PR #318 as predecessor.
+- Canonical payload identity includes stable signed session/domain claims, `browserTokenHash`, locale, standard aspects, optional other aspect, and comment. It excludes `sessionToken`, `pointDocumentId`, and `versionDocumentId`; the persistence IDs must resolve and validate against signed stable point/version claims before transaction/insert.
+- No remaining `size:exception` has been granted. Every concrete 401–800-line candidate requires fresh explicit candidate-scoped approval; forecasts or final counts above 800 stop and require reslicing.
+- This passive planning edit completes no U7–U15 task and records no implementation progress.
+
+## U7-B1 Persistence Adapter — U7 Remains Open
+
+- Scope: corrected durable identity to include `browserTokenHash` while keeping signed token and Strapi document IDs excluded, then added the concrete Strapi transaction adapter behind the existing custom submission service.
+- The adapter resolves point/version documents before opening the transaction and validates active point key/code hash plus published version key against signed stable claims.
+- PostgreSQL advisory transaction locking serializes absent and existing nonce/idempotency pairs. Equal digests replay the original receipt/time; differing digests fail with `IDEMPOTENCY_CONFLICT`.
+- A new row atomically persists server-authored identity, source, browser/nonce/digest binding, point/version relations, and ordered immutable answer snapshots. Generic CRUD routes and survey grants remain absent.
+- Redis, browser-token issuance, rate limiting, Route Handler composition, UI/drafts, and E2E remain deferred. Task 3.1/U7 stays unchecked.
+
+### U7-B1 TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|---|---|---|---|---|---|---|---|
+| `U7-B1-persistence-adapter` | `submission-acceptance.test.ts`; `submission/postgres-submission.test.js` | Unit + isolated PostgreSQL/real Strapi | App 7/7; CMS lifecycle 10/10 | App 1/8 failed on missing browser binding; CMS exited 1 on missing adapter; aggregate CMS selector rejected | Focused app 8/8 and CMS adapter 1/1 passed | Document-ID-independent replay, browser conflict, concurrent replay, digest conflict, claim mismatch, relation/snapshot integrity, and duplicate-snapshot rollback | Active-point validation and full CMS selector were retained; all focused tests remained green |
+
+### U7-B1 Work Unit Evidence
+
+| Evidence | Exact value |
+|---|---|
+| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/submission-acceptance.test.ts`: exit 0, 1 file and 8/8 passed. `npm --prefix teleferico-cms test -- feedback/submission`: exit 0, 1/1 passed. |
+| Runtime harness command/scenario and exact result | The CMS selector started an isolated PostgreSQL 16.8 container, loaded real Strapi, created real point/version/component rows, issued concurrent identical accepts, verified one submission with both relations and ordered snapshots, exercised replay/conflict/domain mismatch and transactional component failure, destroyed Strapi, and proved zero owned containers/volumes. |
+| Rollback boundary | Revert `persistence.js`, its custom-service wiring, submission selector/test, the one-line browser digest correction and focused test, and this U7-B1 evidence/exception update. Preserve U7-A1–A6 and keep task 3.1 unchecked. |
+
+### U7-B1 Verification and Cleanup
+
+- Required CMS suite: `npm --prefix teleferico-cms test -- feedback`; exit 0, 52/52 passed.
+- Required app suite: `pnpm --dir teleferico-app exec vitest run src/lib/feedback`; exit 0, 6 files and 82/82 passed.
+- App typecheck: exit 0 with no diagnostics. `git diff --check`: exit 0 with no output.
+- Harness disposition: reused and extended without invalidation. Every foreground process exited; Strapi was destroyed and owned Docker container/volume queries were empty.
+- No dependency, manifest, lockfile, schema, permission, migration, generated type, environment, credential, remote, Redis, route, UI, or deployment change occurred.
+- Authored scope: 332 changed lines (307 additions, 25 deletions), including the retained planning delta and cumulative OpenSpec evidence; candidate-specific `size:exception` is accepted up to 800 lines for U7-B1 only. Deterministic revision `sha256:255ff84cf5c97db1272338f81b751199f0839de1351bea26c70d41de98f41ca1` uses canonical `tb113-apply-evidence.v1` JSON with apply-progress normalized out of its self-reference. Parent owns native attempt settlement.

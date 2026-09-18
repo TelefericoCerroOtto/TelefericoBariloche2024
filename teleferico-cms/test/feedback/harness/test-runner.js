@@ -16,7 +16,9 @@ const TESTS_BY_SELECTOR = {
     path.join(__dirname, '../seed/seed.test.js'),
     path.join(__dirname, '../seed/postgres-seed.test.js'),
   ],
+  'feedback/submission': path.join(__dirname, '../submission/postgres-submission.test.js'),
 };
+TESTS_BY_SELECTOR.feedback = [...new Set(Object.values(TESTS_BY_SELECTOR).flat())];
 const selector = process.argv[2];
 
 if (!(selector in TESTS_BY_SELECTOR)) {

@@ -35,7 +35,7 @@ COMMIT;
 
 Isolated PostgreSQL proves indexes, component links, and cardinalities; guessed provider metadata cannot ship.
 
-Idempotency canonicalizes contract, token claims, locale, standard `aspects`, optional `otherAspect`, and `comment` separately, excluding `sessionToken`. One transaction locks/queries `(sessionNonceHash,idempotencyKey)`: absent→validate/insert; equal digest→original receipt/time; different digest→`IDEMPOTENCY_CONFLICT`. Resolve replay before Redis guard; set Redis only after commit.
+Idempotency canonicalizes the contract version, stable signed session/domain claims, `browserTokenHash`, locale, standard `aspects`, optional `otherAspect`, and `comment` into the payload digest. The digest excludes `sessionToken`, `pointDocumentId`, and `versionDocumentId`. Before transaction/insert, the persistence adapter MUST resolve those document IDs and validate them against the signed stable point/version claims. This keeps digest identity independent of internal Strapi identifiers while preserving browser-context binding. One transaction locks/queries `(sessionNonceHash,idempotencyKey)`: absent→validate/insert; equal digest→original receipt/time; different digest→`IDEMPOTENCY_CONFLICT`. Resolve replay before Redis guard; set Redis only after commit.
 
 `snapshotJson=SnapshotV1`; other closed JSON follows Appendices 03–04. Usage stores ordered stage tokens/cost and totals; pricing stores ordered SKU input/output micros per million. Values are nonnegative USD.
 
