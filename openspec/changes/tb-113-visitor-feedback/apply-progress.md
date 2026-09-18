@@ -3,15 +3,15 @@
 ## Status
 
 - Change: `tb-113-visitor-feedback`
-- Apply mode: Strict TDD; U6 complete and U7 foundations through U7-B3a are implemented
+- Apply mode: Strict TDD; U6 complete and U7 foundations through U7-B3b are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
 - Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
-- Review budget: mandatory sequential B3a/B3b split; each autonomous candidate has a hard 800-authored-line ceiling
-- Current slice/work unit: `U7-B3a-cms-transport-contract`; U7 remains incomplete
+- Review budget: mandatory sequential B3a/B3b split; default autonomous ceiling is 800 authored lines, with an explicit one-time 1,600-line exception for the Prettier-normalized U7-B4 candidate only
+- Current slice/work unit: `U7-B4-form-draft-ui`; U7 remains incomplete
 - Progress: 6 of 15 tasks complete
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
-- Apply outcome: U7-B3a complete and ready for independent verification; B3b HTTP composition remains pending
+- Apply outcome: U7-B4 form/draft/UI is complete and ready for independent verification under its one-time 1,600-line exception; U7-B5 E2E remains pending
 
 ## Completed tasks
 
@@ -24,7 +24,7 @@
 
 ## Remaining tasks
 
-- [ ] 3.1 U7 — U7-B3a CMS transport is complete; U7-B3b HTTP composition, U7-B4 drafts/UI, and U7-B5 E2E remain.
+- [ ] 3.1 U7 — U7-B3a CMS transport and U7-B3b HTTP composition are complete; U7-B4 drafts/UI is complete under its explicit exception; U7-B5 E2E remains.
 - [ ] 3.2 U8
 - [ ] 3.3 U9
 - [ ] 4.1 U10
@@ -44,17 +44,17 @@
 
 ### S06a TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                                       | Test File                                                              | Layer                                             | Safety Net                                         | RED                                                                                                                                           | GREEN                         | TRIANGULATE                                                                                                                                                                                                                     | REFACTOR                                                          |
+| ------------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | `s06a-permission-deny-baseline-tests-docs` | `test/feedback/permissions/{permissions,postgres-permissions}.test.js` | Static contract + isolated PostgreSQL/real Strapi | Lifecycle 10/10, catalog 6/6, harness 21/21 passed | Interrupted script-based candidate exited 1, 4/5; revised direct suite then exited 1, 2/4 on stale docs and unavailable plugin query metadata | Direct selector exited 0, 4/4 | Intermediate REDs exposed multiline ownership wording, query count assumptions, and Knex non-write query methods; assertions now cover every route/controller, all application permission rows, token rows, and failure cleanup | Shared inspection cleanup was extracted; final 4/4 remained green |
 
 ### S06a Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/permissions`; exit 0; 4/4 passed, 0 failed/skipped/cancelled/todo. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `npm --prefix teleferico-cms test -- feedback/permissions`; exit 0; 4/4 passed, 0 failed/skipped/cancelled/todo.                                                                                                                                                                                                                                                                                                                                            |
 | Runtime harness command/scenario and exact result | The focused selector started only local PostgreSQL project `tb113_test_permissions`, synchronized real Strapi against `tb113_test_feedback`, directly registered Strapi, proved zero survey/D31 action rows across registered routes, all application-role permissions, and API-token permissions, then destroyed Strapi and ended with zero owned containers/volumes. The inspection query ledger contained no write or Admin Panel role/permission query. |
-| Rollback boundary | Remove the two focused test files and their selector registration; revert the S06a permissions documentation, S06 split amendments, and this S06a evidence. Preserve all S01-S05b implementation and evidence. |
+| Rollback boundary                                 | Remove the two focused test files and their selector registration; revert the S06a permissions documentation, S06 split amendments, and this S06a evidence. Preserve all S01-S05b implementation and evidence.                                                                                                                                                                                                                                              |
 
 ### S06a Verification
 
@@ -71,17 +71,17 @@
 
 ### S06b TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                            | Test File                                         | Layer                                  | Safety Net                        | RED                                                                                  | GREEN                               | TRIANGULATE                                                                                               | REFACTOR                   |
+| ------------------------------- | ------------------------------------------------- | -------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------- |
 | `s06b-seed-fixtures` correction | `test/feedback/seed/{seed,postgres-seed}.test.js` | Unit + isolated PostgreSQL/real Strapi | Seed 7/7 passed before correction | Exit 1: status/synthetic mismatches were accepted and `runProductionSeed` was absent | Final seed selector exited 0, 10/10 | Production CLI create/replay, failure cleanup, and both omitted ownership fields exercised distinct paths | Final 10/10 remained green |
 
 ### S06b Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/seed`; exit 0; 10/10 passed, 0 failed/skipped/cancelled/todo. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Focused test command and exact result             | `npm --prefix teleferico-cms test -- feedback/seed`; exit 0; 10/10 passed, 0 failed/skipped/cancelled/todo.                                                                                                                          |
 | Runtime harness command/scenario and exact result | Local project `tb113_test_seed` ran the direct production CLI twice against real Strapi/PostgreSQL, observed create then replay with one version/14 aspects, and ended with zero owned containers, volumes, or seed child processes. |
-| Rollback boundary | Remove `teleferico-cms/scripts/seed-surveys.js`, `teleferico-cms/test/feedback/seed/**`, and only the `feedback/seed` selector; revert task 2.2 and this S06b evidence while preserving S01-S06a. |
+| Rollback boundary                                 | Remove `teleferico-cms/scripts/seed-surveys.js`, `teleferico-cms/test/feedback/seed/**`, and only the `feedback/seed` selector; revert task 2.2 and this S06b evidence while preserving S01-S06a.                                    |
 
 ### S06b Verification
 
@@ -92,12 +92,12 @@
 
 ## TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
-| 1.1 | Inline Python S01 structural validator | Documentation contract | RED/pre-completion PASS: diff clean; 93 decisions; 15 tasks with 0 checked; 24 slices | PASS: validator failed with `missing S01 verification-gates.md` before creation | PASS: 9 complete gates; required sections and blockers present | Skipped: this is a structural evidence artifact with one required document contract and no production branching | None needed; the first complete document structure passed |
-| 1.2 | `teleferico-cms/test/feedback/harness/process-boundary.test.js` | Unit plus local PostgreSQL integration | N/A (new harness); prior attempt established the missing canonical test script | PASS: exact focused command entered Node 22 test execution and failed with `MODULE_NOT_FOUND` for `./postgres-harness`; 0 passing, 1 failing | PASS: exact focused command completed 21/21 tests with 0 failures | PASS: 21 cases cover local/remote targets, marker rejection, seven metacharacter paths, alternate Compose path, fixed arrays, stale cleanup, child failure, SIGTERM cleanup, and orphan detection | PASS: 21/21 after local-socket isolation and stale-resource runtime refinement |
-| 1.3 | `src/components/administration/feedback/__tests__/renderer-poc.test.ts` | Unit + local Chromium/PDF integration | PASS: package-policy 4/4; exact dependency commands succeeded; typecheck passed | PASS: missing `renderer-poc` import failed; digest/artifact triangulation later failed on absent fields | PASS: 2/2; all nine criteria true | PASS: zero/one, five charts, null/zero/negative, long ES/PT labels, and 200-point scatter | PASS: 2/2 after Node-environment cleanup |
-| 2.1 | `teleferico-cms/test/feedback/lifecycle/{lifecycle,postgres-lifecycle}.test.js` | Unit + local PostgreSQL integration | PASS: catalog 6/6 and harness 21/21 before production edits | PASS: lifecycle selector exited 1 with missing migration; later REDs proved missing routes and submission lifecycle | PASS: final lifecycle selector exited 0 with 9/9 tests | PASS: complete/incomplete publication, activation/repoint, QR deactivate/reactivate, valid/invalid submissions, CAS/terminal transitions, idempotent migration, duplicate/range/check rollback paths | PASS: final 9/9 after route/service alignment and PostgreSQL cleanup assertions |
+| Task | Test File                                                                       | Layer                                  | Safety Net                                                                            | RED                                                                                                                                          | GREEN                                                             | TRIANGULATE                                                                                                                                                                                          | REFACTOR                                                                        |
+| ---- | ------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 1.1  | Inline Python S01 structural validator                                          | Documentation contract                 | RED/pre-completion PASS: diff clean; 93 decisions; 15 tasks with 0 checked; 24 slices | PASS: validator failed with `missing S01 verification-gates.md` before creation                                                              | PASS: 9 complete gates; required sections and blockers present    | Skipped: this is a structural evidence artifact with one required document contract and no production branching                                                                                      | None needed; the first complete document structure passed                       |
+| 1.2  | `teleferico-cms/test/feedback/harness/process-boundary.test.js`                 | Unit plus local PostgreSQL integration | N/A (new harness); prior attempt established the missing canonical test script        | PASS: exact focused command entered Node 22 test execution and failed with `MODULE_NOT_FOUND` for `./postgres-harness`; 0 passing, 1 failing | PASS: exact focused command completed 21/21 tests with 0 failures | PASS: 21 cases cover local/remote targets, marker rejection, seven metacharacter paths, alternate Compose path, fixed arrays, stale cleanup, child failure, SIGTERM cleanup, and orphan detection    | PASS: 21/21 after local-socket isolation and stale-resource runtime refinement  |
+| 1.3  | `src/components/administration/feedback/__tests__/renderer-poc.test.ts`         | Unit + local Chromium/PDF integration  | PASS: package-policy 4/4; exact dependency commands succeeded; typecheck passed       | PASS: missing `renderer-poc` import failed; digest/artifact triangulation later failed on absent fields                                      | PASS: 2/2; all nine criteria true                                 | PASS: zero/one, five charts, null/zero/negative, long ES/PT labels, and 200-point scatter                                                                                                            | PASS: 2/2 after Node-environment cleanup                                        |
+| 2.1  | `teleferico-cms/test/feedback/lifecycle/{lifecycle,postgres-lifecycle}.test.js` | Unit + local PostgreSQL integration    | PASS: catalog 6/6 and harness 21/21 before production edits                           | PASS: lifecycle selector exited 1 with missing migration; later REDs proved missing routes and submission lifecycle                          | PASS: final lifecycle selector exited 0 with 9/9 tests            | PASS: complete/incomplete publication, activation/repoint, QR deactivate/reactivate, valid/invalid submissions, CAS/terminal transitions, idempotent migration, duplicate/range/check rollback paths | PASS: final 9/9 after route/service alignment and PostgreSQL cleanup assertions |
 
 ### Test Summary
 
@@ -135,11 +135,11 @@ python3 -c 'from pathlib import Path;p=Path("docs/infra/survey-reporting/verific
 
 ## Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | The RED/GREEN command above is the smallest structural/traceability check for S01. Final result: exit 0; 9 complete gates with all required sections, evidence fields, and dependency blockers present. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | The RED/GREEN command above is the smallest structural/traceability check for S01. Final result: exit 0; 9 complete gates with all required sections, evidence fields, and dependency blockers present.                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Runtime harness command/scenario and exact result | The approved manual/safe/sensitive evidence path was executed. The manual Vertex `countTokens` result was not rerun: transport exit 0, HTTP/error code 404, `NOT_FOUND`, no token totals. At `2026-09-12T00:55:51Z`, each approved GCP read was attempted exactly once: four named Cloud Run describes succeeded (`ingress=all`, shared-identity boolean true); filtered regional inventory returned 0 queues and 0 services; both bucket describes returned `SOUTHAMERICA-EAST1`, empty lifecycle, and null locationType/UBLA/PAP projections; both bucket IAM projections returned empty binding arrays and were classified as inconclusive. |
-| Rollback boundary | Revert the S01 document, this apply-progress artifact, and only the task 1.1 checkbox while preserving the other task text. The autonomous branch boundary also includes the seven authorized pre-existing topology corrections: `design.md`, `design/04-ai-worker-infrastructure.md`, `design/06-migration-testing-rollout.md`, `design/08-d01-d93-traceability.md`, `specs/survey-worker-operations/spec.md`, `specs/vertex-feedback-analysis/spec.md`, and `tasks.md`. No runtime resource or behavior changed. |
+| Rollback boundary                                 | Revert the S01 document, this apply-progress artifact, and only the task 1.1 checkbox while preserving the other task text. The autonomous branch boundary also includes the seven authorized pre-existing topology corrections: `design.md`, `design/04-ai-worker-infrastructure.md`, `design/06-migration-testing-rollout.md`, `design/08-d01-d93-traceability.md`, `specs/survey-worker-operations/spec.md`, `specs/vertex-feedback-analysis/spec.md`, and `tasks.md`. No runtime resource or behavior changed.                                                                                                                             |
 
 ## Approved probe commands
 
@@ -162,11 +162,11 @@ No other GCP command was executed.
 
 ### S02 RED, GREEN, and REFACTOR
 
-| Phase | Command | Exact result |
-|---|---|---|
-| RED | `npm --prefix teleferico-cms test -- feedback/harness` | Exit 1 after Node 22 test execution began: 0 passing, 1 failing; `MODULE_NOT_FOUND` for `./postgres-harness`. This replaced the prior missing-script failure with a valid behavioral RED. |
-| GREEN | `npm --prefix teleferico-cms test -- feedback/harness` | Exit 0; 21 tests, 21 passed, 0 failed, 0 cancelled, 0 skipped, 0 todo. |
-| REFACTOR | `npm --prefix teleferico-cms test -- feedback/harness` | Exit 0 after fixed local-socket isolation and stale-runtime refinement; 21 tests, 21 passed, 0 failed, 0 cancelled, 0 skipped, 0 todo. |
+| Phase    | Command                                                | Exact result                                                                                                                                                                              |
+| -------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RED      | `npm --prefix teleferico-cms test -- feedback/harness` | Exit 1 after Node 22 test execution began: 0 passing, 1 failing; `MODULE_NOT_FOUND` for `./postgres-harness`. This replaced the prior missing-script failure with a valid behavioral RED. |
+| GREEN    | `npm --prefix teleferico-cms test -- feedback/harness` | Exit 0; 21 tests, 21 passed, 0 failed, 0 cancelled, 0 skipped, 0 todo.                                                                                                                    |
+| REFACTOR | `npm --prefix teleferico-cms test -- feedback/harness` | Exit 0 after fixed local-socket isolation and stale-runtime refinement; 21 tests, 21 passed, 0 failed, 0 cancelled, 0 skipped, 0 todo.                                                    |
 
 ### S02 Runtime and Cleanup Evidence
 
@@ -182,11 +182,11 @@ The subprocess boundary uses `/usr/local/bin/docker` with argument arrays and `s
 
 ## S02 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/harness`; final exit 0; 21/21 passed with 0 failures. |
-| Runtime harness command/scenario and exact result | The runtime command above completed against local PostgreSQL 16.8; one stale container and volume existed before the harness, the database identity was `tb113_test_feedback`, no remote target was present, and cleanup ended at 0 containers/0 volumes. |
-| Rollback boundary | Revert `teleferico-cms/test/feedback/harness/**`, remove only `scripts.test` from `teleferico-cms/package.json`, revert only task 1.2's checkbox, and remove only the S02 additions/status changes from this cumulative apply-progress artifact. Preserve S01 and all other task text. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `npm --prefix teleferico-cms test -- feedback/harness`; final exit 0; 21/21 passed with 0 failures.                                                                                                                                                                                    |
+| Runtime harness command/scenario and exact result | The runtime command above completed against local PostgreSQL 16.8; one stale container and volume existed before the harness, the database identity was `tb113_test_feedback`, no remote target was present, and cleanup ended at 0 containers/0 volumes.                              |
+| Rollback boundary                                 | Revert `teleferico-cms/test/feedback/harness/**`, remove only `scripts.test` from `teleferico-cms/package.json`, revert only task 1.2's checkbox, and remove only the S02 additions/status changes from this cumulative apply-progress artifact. Preserve S01 and all other task text. |
 
 ### S02 Review Boundary
 
@@ -206,11 +206,11 @@ The subprocess boundary uses `/usr/local/bin/docker` with argument arrays and `s
 
 ## S03 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/components/administration/feedback/__tests__/renderer-poc.test.ts`; RED unresolved production import, triangulation RED missing six required digests/artifacts, final GREEN/REFACTOR exit 0 with 2/2 passed and all nine criteria true. Package-policy 4/4, typecheck, and `git diff --check` also passed. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/components/administration/feedback/__tests__/renderer-poc.test.ts`; RED unresolved production import, triangulation RED missing six required digests/artifacts, final GREEN/REFACTOR exit 0 with 2/2 passed and all nine criteria true. Package-policy 4/4, typecheck, and `git diff --check` also passed.                                                                                                                                                                                                                                 |
 | Runtime harness command/scenario and exact result | The focused command rendered five synthetic charts through Recharts and ECharts SVG SSR, launched pinned Chromium five times (353/283/280/279/307 ms; p95 353 ms), produced one PDF semantic digest and one pagination digest across five renders, extracted every label, found 0 clipping and 0 serious/critical structural violations, emitted 290 selectable SVG text nodes and no chart raster images, excluded worker imports from the public source graph, measured 184,720,835 compressed candidate-worker bytes (<750 MiB), closed all browsers, and removed temporary artifacts. |
-| Rollback boundary | Revert the four exact dependency entries and generated lockfile delta; remove `services/survey-report-worker/poc/**`, the parity fixture, and renderer POC test; revert only task 1.3 and S03 evidence/status here. Preserve S01/S02 and G03 reconciliation. |
+| Rollback boundary                                 | Revert the four exact dependency entries and generated lockfile delta; remove `services/survey-report-worker/poc/**`, the parity fixture, and renderer POC test; revert only task 1.3 and S03 evidence/status here. Preserve S01/S02 and G03 reconciliation.                                                                                                                                                                                                                                                                                                                              |
 
 ## S04 Partial Work Unit Evidence
 
@@ -220,19 +220,19 @@ The subprocess boundary uses `/usr/local/bin/docker` with argument arrays and `s
 
 ### S04 RED, GREEN, and REFACTOR
 
-| Phase | Command | Exact result |
-|---|---|---|
-| RED | `npm --prefix teleferico-cms test -- feedback/catalog` | Exit 1; 4 tests failed because the required foundation schema files did not exist. |
-| GREEN | `npm --prefix teleferico-cms test -- feedback/catalog` | Exit 0; 4 tests passed, 0 failed, 0 skipped. |
+| Phase    | Command                                                | Exact result                                                                               |
+| -------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| RED      | `npm --prefix teleferico-cms test -- feedback/catalog` | Exit 1; 4 tests failed because the required foundation schema files did not exist.         |
+| GREEN    | `npm --prefix teleferico-cms test -- feedback/catalog` | Exit 0; 4 tests passed, 0 failed, 0 skipped.                                               |
 | REFACTOR | `npm --prefix teleferico-cms test -- feedback/catalog` | Exit 0; no production refactor was needed after the cohesive schema/test structure passed. |
 
 ### S04 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/catalog`; exit 0; 4/4 passed with 0 failures. Tests prove approved identities, forbidden identity exclusion, disabled defaults, bounded multilingual definition fields, and constrained QR identity/lifecycle fields. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Focused test command and exact result             | `npm --prefix teleferico-cms test -- feedback/catalog`; exit 0; 4/4 passed with 0 failures. Tests prove approved identities, forbidden identity exclusion, disabled defaults, bounded multilingual definition fields, and constrained QR identity/lifecycle fields.                                                            |
 | Runtime harness command/scenario and exact result | `npm --prefix teleferico-cms test -- feedback/harness`; exit 0; 21/21 passed with 0 failures. No PostgreSQL process was started for this static schema subset because migrations and runtime services are explicitly deferred; the harness boundary remains healthy and no cleanup-owned process/container/volume was created. |
-| Rollback boundary | Remove the four new schema JSON files and `teleferico-cms/test/feedback/catalog/schema-catalog.test.js`; revert only the selector mapping in `test-runner.js`, the TB-113 no-grant note in `docs/STRAPI_PERMISSIONS.md`, and this S04 partial evidence/status. Preserve all S01-S03 files, evidence, and task checkboxes. |
+| Rollback boundary                                 | Remove the four new schema JSON files and `teleferico-cms/test/feedback/catalog/schema-catalog.test.js`; revert only the selector mapping in `test-runner.js`, the TB-113 no-grant note in `docs/STRAPI_PERMISSIONS.md`, and this S04 partial evidence/status. Preserve all S01-S03 files, evidence, and task checkboxes.      |
 
 ### S04 Review Boundary
 
@@ -268,17 +268,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### S05a Remediation TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                           | Test File                                | Layer                                                         | Safety Net                                                                                                                                                                                  | RED                                                                                          | GREEN                                                                                                 | TRIANGULATE                                                                                                                                                                                   | REFACTOR                                                                                    |
+| ------------------------------ | ---------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `s05a-cloud-build-remediation` | `.github/scripts/playwright-e2e.test.js` | Repository contract test over the real Playwright spec/config | `node --test .github/scripts/playwright-real-stack-lifecycle.test.js .github/scripts/playwright-e2e.test.js .github/scripts/playwright-real-auth-provisioner.test.js`: exit 0, 61/61 passed | Focused command exited 1, 0/1 passed; the login navigation had no independent timeout budget | Focused command exited 0, 1/1 passed after separate navigation and hydration budgets were implemented | The same test reproduces the observed branch: 75,000 − 74,659 = 341 ms, then proves the independent hydration budget exceeds that remainder and the global timeout exceeds both phase budgets | Focused command exited 0, 1/1 passed after adding the observed-duration boundary assertions |
 
 ### S05a Remediation Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `node --test --test-name-pattern="real-auth login reserves independent navigation and hydration budgets" .github/scripts/playwright-e2e.test.js`; final exit 0, 1/1 passed, 0 failed. RED was exit 1, 0/1 passed, with `The login navigation must have its own timeout budget.` |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `node --test --test-name-pattern="real-auth login reserves independent navigation and hydration budgets" .github/scripts/playwright-e2e.test.js`; final exit 0, 1/1 passed, 0 failed. RED was exit 1, 0/1 passed, with `The login navigation must have its own timeout budget.`                                                                                                                             |
 | Runtime harness command/scenario and exact result | `PLAYWRIGHT_REAL_AUTH_BASE_URL=http://127.0.0.1:3200 <synthetic required contract variables> pnpm --dir teleferico-app exec playwright test --config=playwright.real-auth.config.ts --list`; exit 0, exactly 3 tests discovered in the one real-auth file. Full PostgreSQL/Strapi/Next.js execution was not rerun because reproducing Cloud Build is the independently authorized remote verification step. |
-| Rollback boundary | Revert only `.github/scripts/playwright-e2e.test.js` and `teleferico-app/tests/e2e-real-auth/real-auth.spec.ts`, then remove this remediation section/status adjustment. Preserve the S01-S05a persistence candidate and all historical evidence. |
+| Rollback boundary                                 | Revert only `.github/scripts/playwright-e2e.test.js` and `teleferico-app/tests/e2e-real-auth/real-auth.spec.ts`, then remove this remediation section/status adjustment. Preserve the S01-S05a persistence candidate and all historical evidence.                                                                                                                                                           |
 
 ### S05a Remediation Verification
 
@@ -298,21 +298,21 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### S05b RED, GREEN, TRIANGULATE, and REFACTOR
 
-| Phase | Command | Exact result |
-|---|---|---|
-| Safety net | `npm --prefix teleferico-cms test -- feedback/catalog` and `npm --prefix teleferico-cms test -- feedback/harness` | Before production edits: catalog exit 0, 6/6 passed; harness exit 0, 21/21 passed. |
-| RED | `npm --prefix teleferico-cms test -- feedback/lifecycle` | Exit 1, 0 passing/1 failing because `2026.09.11T0001-tb113-constraints` did not exist. Later scoped REDs failed on missing route modules and missing submission lifecycle preparation. |
-| GREEN | `npm --prefix teleferico-cms test -- feedback/lifecycle` | Final exit 0; 9 tests passed, 0 failed/skipped/cancelled/todo. |
-| TRIANGULATE | Same lifecycle selector | Covered complete and incomplete publication, duplicate ordering, activation/repoint/no-op predecessor, QR deactivate/reactivate/invalid status, standard plus `other` snapshots, duplicate selections, CAS conflict, valid/invalid terminal transitions, migration statement ownership, idempotent rerun, uniqueness conflicts, range/terminal checks, and transaction rollback. |
-| REFACTOR | Same lifecycle selector after route/service alignment and runtime cleanup assertions | Exit 0; 9/9 remained green. |
+| Phase       | Command                                                                                                           | Exact result                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Safety net  | `npm --prefix teleferico-cms test -- feedback/catalog` and `npm --prefix teleferico-cms test -- feedback/harness` | Before production edits: catalog exit 0, 6/6 passed; harness exit 0, 21/21 passed.                                                                                                                                                                                                                                                                                               |
+| RED         | `npm --prefix teleferico-cms test -- feedback/lifecycle`                                                          | Exit 1, 0 passing/1 failing because `2026.09.11T0001-tb113-constraints` did not exist. Later scoped REDs failed on missing route modules and missing submission lifecycle preparation.                                                                                                                                                                                           |
+| GREEN       | `npm --prefix teleferico-cms test -- feedback/lifecycle`                                                          | Final exit 0; 9 tests passed, 0 failed/skipped/cancelled/todo.                                                                                                                                                                                                                                                                                                                   |
+| TRIANGULATE | Same lifecycle selector                                                                                           | Covered complete and incomplete publication, duplicate ordering, activation/repoint/no-op predecessor, QR deactivate/reactivate/invalid status, standard plus `other` snapshots, duplicate selections, CAS conflict, valid/invalid terminal transitions, migration statement ownership, idempotent rerun, uniqueness conflicts, range/terminal checks, and transaction rollback. |
+| REFACTOR    | Same lifecycle selector after route/service alignment and runtime cleanup assertions                              | Exit 0; 9/9 remained green.                                                                                                                                                                                                                                                                                                                                                      |
 
 ### S05b Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/lifecycle`; exit 0; 9/9 passed. The selector includes unit contracts plus a real PostgreSQL 16.8 migration/invariant test. |
-| Runtime harness command/scenario and exact result | The lifecycle selector started only local Compose project `tb113_test_lifecycle` against database `tb113_test_feedback`, applied and reapplied the migration, observed `8|4|1` for indexes/constraints/disabled singleton, proved duplicate submission and active-range rejection, proved failed multi-write rollback (`1|0`), and exited 0. Post-run Docker container and volume queries for `tb113_test_lifecycle` and `tb113_test_runtime_stale` were empty. |
-| Rollback boundary | Remove `teleferico-cms/database/migrations/2026.09.11T0001-tb113-constraints.js`; remove only the new `controllers`, `routes`, and `services` directories under the six survey APIs; remove `teleferico-cms/test/feedback/lifecycle/**`; revert only the catalog/test-runner changes, task 2.1 checkbox, and this S05b evidence. Preserve all S01-S05a definitions, generated declarations, permissions documentation, and evidence. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `npm --prefix teleferico-cms test -- feedback/lifecycle`; exit 0; 9/9 passed. The selector includes unit contracts plus a real PostgreSQL 16.8 migration/invariant test.                                                                                                                                                                                                                                                             |
+| Runtime harness command/scenario and exact result | The lifecycle selector started only local Compose project `tb113_test_lifecycle` against database `tb113_test_feedback`, applied and reapplied the migration, observed `8                                                                                                                                                                                                                                                            | 4   | 1` for indexes/constraints/disabled singleton, proved duplicate submission and active-range rejection, proved failed multi-write rollback (`1 | 0`), and exited 0. Post-run Docker container and volume queries for `tb113_test_lifecycle`and`tb113_test_runtime_stale` were empty. |
+| Rollback boundary                                 | Remove `teleferico-cms/database/migrations/2026.09.11T0001-tb113-constraints.js`; remove only the new `controllers`, `routes`, and `services` directories under the six survey APIs; remove `teleferico-cms/test/feedback/lifecycle/**`; revert only the catalog/test-runner changes, task 2.1 checkbox, and this S05b evidence. Preserve all S01-S05a definitions, generated declarations, permissions documentation, and evidence. |
 
 ### S05b Required Verification
 
@@ -336,17 +336,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### Remediation TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
-| `s05b-cloud-build-remediation` | `test/feedback/lifecycle/{lifecycle,postgres-lifecycle}.test.js` | Unit + isolated PostgreSQL/real Strapi startup | Lifecycle 9/9 passed before edits | Fresh-start test exited 1 with the exact `TB-113 schema mismatch` missing-column list; migration deferral unit test also exited 1 before implementation | Focused fresh-start test exited 0, 1/1; migration deferral test exited 0, 1/1 | Full lifecycle covers both fresh startup and pre-existing schema paths; 10/10 passed with catalog `8|4|1` | 10/10 remained green after minimal environment and dynamic loopback-port hardening |
+| Task                           | Test File                                                        | Layer                                          | Safety Net                        | RED                                                                                                                                                     | GREEN                                                                         | TRIANGULATE                                                                                          | REFACTOR |
+| ------------------------------ | ---------------------------------------------------------------- | ---------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------- | --- | ---------------------------------------------------------------------------------- |
+| `s05b-cloud-build-remediation` | `test/feedback/lifecycle/{lifecycle,postgres-lifecycle}.test.js` | Unit + isolated PostgreSQL/real Strapi startup | Lifecycle 9/9 passed before edits | Fresh-start test exited 1 with the exact `TB-113 schema mismatch` missing-column list; migration deferral unit test also exited 1 before implementation | Focused fresh-start test exited 0, 1/1; migration deferral test exited 0, 1/1 | Full lifecycle covers both fresh startup and pre-existing schema paths; 10/10 passed with catalog `8 | 4        | 1`  | 10/10 remained green after minimal environment and dynamic loopback-port hardening |
 
 ### Remediation Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `npm --prefix teleferico-cms test -- feedback/lifecycle`; exit 0; 10/10 passed, including a real empty-database Strapi startup and the existing-database invariant path. |
-| Runtime harness command/scenario and exact result | The lifecycle selector started PostgreSQL 16.8 in `tb113_test_lifecycle`, launched real `strapi start` against the empty database, reached `/admin/init`, and observed `8|4|1`. Final owned container, volume, and process checks were empty. |
-| Rollback boundary | Revert only the migration readiness gate, post-sync bootstrap application, loopback-only random PostgreSQL test port, fresh-start regression test, and this remediation evidence. Preserve U4 schemas, lifecycle behavior, indexes/checks, singleton semantics, and all prior S01-S05b evidence. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --- | ----------------------------------------------------------------- |
+| Focused test command and exact result             | `npm --prefix teleferico-cms test -- feedback/lifecycle`; exit 0; 10/10 passed, including a real empty-database Strapi startup and the existing-database invariant path.                                                                                                                         |
+| Runtime harness command/scenario and exact result | The lifecycle selector started PostgreSQL 16.8 in `tb113_test_lifecycle`, launched real `strapi start` against the empty database, reached `/admin/init`, and observed `8                                                                                                                        | 4   | 1`. Final owned container, volume, and process checks were empty. |
+| Rollback boundary                                 | Revert only the migration readiness gate, post-sync bootstrap application, loopback-only random PostgreSQL test port, fresh-start regression test, and this remediation evidence. Preserve U4 schemas, lifecycle behavior, indexes/checks, singleton semantics, and all prior S01-S05b evidence. |
 
 ### Remediation Verification
 
@@ -361,30 +361,35 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### S07a TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                                                  | Test File                                                   | Layer     | Safety Net        | RED                                                                                                     | GREEN                               | TRIANGULATE                                                                                          | REFACTOR                                                                                  |
+| ----------------------------------------------------- | ----------------------------------------------------------- | --------- | ----------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `U6-S07a-package-test-boundary-and-contracts-periods` | `packages/survey-reporting-core/src/reporting-core.test.ts` | Pure unit | N/A — new package | Missing `canonical-json` suite failed before implementation; day-bucket triangulation later failed 1/11 | Final package selector passed 11/11 | Exact routes, valid/invalid canonical values, equal previous range, and clipped day/week/month paths | Final 11/11 remained green after scalar-validation correction and package export boundary |
 
 ### S07a Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run --config packages/survey-reporting-core/vitest.config.ts`; exit 0; 1 file and 11/11 tests passed. |
-| Runtime harness command/scenario and exact result | N/A — pure dependency-free library; no runtime boundary in S07. |
-| Rollback boundary | Remove only `teleferico-app/packages/survey-reporting-core/**` and this S07a evidence/status update; preserve S01-S06 and task 2.3 unchecked. |
+| Evidence                                          | Exact value                                                                                                                                   |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run --config packages/survey-reporting-core/vitest.config.ts`; exit 0; 1 file and 11/11 tests passed.  |
+| Runtime harness command/scenario and exact result | N/A — pure dependency-free library; no runtime boundary in S07.                                                                               |
+| Rollback boundary                                 | Remove only `teleferico-app/packages/survey-reporting-core/**` and this S07a evidence/status update; preserve S01-S06 and task 2.3 unchecked. |
 
 ## Corrected S08 Partial U6 Evidence
+
 - Rescope remediation for failed revision `sha256:1aa9c7cccfee066fbd775fb5dc867db74229b14f7341e4066239ce8b50a03491`: eligible populations plus exact KPI, aspect, related-rating, day/week/month trend, threshold, dominance, matrix, association, and `other` formulas; S09 snapshots, chart models, formatting, and empty states remain deferred, so task 2.3 stays unchecked.
+
 ### S08 TDD Cycle Evidence
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+
+| Task                       | Test File             | Layer     | Safety Net                                                             | RED                                                          | GREEN      | TRIANGULATE                                                                                                                                                                                          | REFACTOR                                          |
+| -------------------------- | --------------------- | --------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | `U6-S08-reporting-metrics` | `src/metrics.test.ts` | Pure unit | Correction baseline 16/16 passed; original RED was missing `./metrics` | Corrective trend assertion failed because `trend` was absent | 5/5 passed | Related-rating cohort count/average; Buenos Aires day/week/month buckets and sentiment denominators; no S09 result keys; all original arithmetic/population/aspect/matrix/association cases retained | 5/5 remained green after cohesive helper refactor |
+
 ### S08 Work Unit Evidence
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/metrics.test.ts --config packages/survey-reporting-core/vitest.config.ts`; corrective RED exit 1 with absent trend; final exit 0, 1 file and 5/5 passed. |
-| Runtime harness command/scenario and exact result | N/A — S08 remains a dependency-free pure TypeScript library with no runtime, I/O, framework, browser, CMS, or Node boundary. |
-| Rollback boundary | Remove `src/metrics.ts` and `src/metrics.test.ts`, revert the metrics barrel export and only this S08 status/evidence; preserve S07 and keep task 2.3 unchecked. |
+
+| Evidence                                          | Exact value                                                                                                                                                                                             |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/metrics.test.ts --config packages/survey-reporting-core/vitest.config.ts`; corrective RED exit 1 with absent trend; final exit 0, 1 file and 5/5 passed. |
+| Runtime harness command/scenario and exact result | N/A — S08 remains a dependency-free pure TypeScript library with no runtime, I/O, framework, browser, CMS, or Node boundary.                                                                            |
+| Rollback boundary                                 | Remove `src/metrics.ts` and `src/metrics.test.ts`, revert the metrics barrel export and only this S08 status/evidence; preserve S07 and keep task 2.3 unchecked.                                        |
 
 ## S09 Snapshot Slice Evidence — U6 Remains Open
 
@@ -394,17 +399,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### S09 TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                         | Test File              | Layer     | Safety Net                            | RED                                                                    | GREEN                               | TRIANGULATE                                                                                                                                                                                                      | REFACTOR                                                                                  |
+| ---------------------------- | ---------------------- | --------- | ------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `U6-S09-reporting-snapshots` | `src/snapshot.test.ts` | Pure unit | Package baseline exit 0, 16/16 passed | Exit 1 before production code: missing `./snapshot`; 0 tests collected | Focused selector exit 0, 3/3 passed | Non-empty and empty populations, both periods, canonical digest fixture, altered digest rejection, five ordered charts, accessible tables, unavailable values, signed percentages, and half-up rating formatting | Full package exit 0, 19/19 passed after runtime-neutral SHA-256 and chart-kind refinement |
 
 ### S09 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run packages/survey-reporting-core/src/snapshot.test.ts --config packages/survey-reporting-core/vitest.config.ts`; exit 0; 1 file and 3/3 tests passed. |
-| Runtime harness command/scenario and exact result | N/A — S09 is a pure dependency-free TypeScript library with no I/O, framework, browser, CMS, Node, process, or remote boundary. |
-| Rollback boundary | Remove `src/snapshot.ts` and `src/snapshot.test.ts`, revert their barrel export, task 2.3 checkbox, and this S09/status evidence; preserve all S07/S08 behavior and evidence. |
+| Evidence                                          | Exact value                                                                                                                                                                                    |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run packages/survey-reporting-core/src/snapshot.test.ts --config packages/survey-reporting-core/vitest.config.ts`; exit 0; 1 file and 3/3 tests passed. |
+| Runtime harness command/scenario and exact result | N/A — S09 is a pure dependency-free TypeScript library with no I/O, framework, browser, CMS, Node, process, or remote boundary.                                                                |
+| Rollback boundary                                 | Remove `src/snapshot.ts` and `src/snapshot.test.ts`, revert their barrel export, task 2.3 checkbox, and this S09/status evidence; preserve all S07/S08 behavior and evidence.                  |
 
 ### S09 Verification and Cleanup
 
@@ -420,17 +425,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### S10 TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                          | Test File                                            | Layer     | Safety Net                          | RED                                                                                                     | GREEN                                                                                    | TRIANGULATE                                                                                                                                                                                                             | REFACTOR                                                                             |
+| ----------------------------- | ---------------------------------------------------- | --------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `S10-D64-D67-report-evidence` | `packages/survey-reporting-core/src/metrics.test.ts` | Pure unit | Focused baseline exit 0, 5/5 passed | Exit 1, 3/8 failed because both new production exports were absent; the existing 5 tests remained green | Focused exit 0, 8/8 passed after the minimum threshold and classification implementation | Covered 0/500/501/1,001 eligible-comment boundaries, 21-ref recurrence, four-ref minority, recurrent overlap precedence, duplicate refs, three-ref weakness, absent required categories, and current/previous isolation | Extracted the signal decision into one pure rule; focused exit 0, 8/8 remained green |
 
 ### S10 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run packages/survey-reporting-core/src/metrics.test.ts --config packages/survey-reporting-core/vitest.config.ts`; exit 0; 1 file, 8/8 passed. |
-| Runtime harness command/scenario and exact result | N/A — this slice changes a dependency-free pure TypeScript calculation with no runtime, I/O, framework, browser, CMS, process, or remote boundary. |
-| Rollback boundary | Revert only the evidence contracts/functions in `src/metrics.ts`, the D64-D67 tests in `src/metrics.test.ts`, task 2.3's checkbox, and this S10 evidence/status. Preserve every S07-S09 contract, metric, snapshot, chart, and test behavior. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                   |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run packages/survey-reporting-core/src/metrics.test.ts --config packages/survey-reporting-core/vitest.config.ts`; exit 0; 1 file, 8/8 passed.                                                          |
+| Runtime harness command/scenario and exact result | N/A — this slice changes a dependency-free pure TypeScript calculation with no runtime, I/O, framework, browser, CMS, process, or remote boundary.                                                                                            |
+| Rollback boundary                                 | Revert only the evidence contracts/functions in `src/metrics.ts`, the D64-D67 tests in `src/metrics.test.ts`, task 2.3's checkbox, and this S10 evidence/status. Preserve every S07-S09 contract, metric, snapshot, chart, and test behavior. |
 
 ### S10 Verification and Cleanup
 
@@ -452,17 +457,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### S11 TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                          | Test File                                  | Layer     | Safety Net                                    | RED                                                                              | GREEN                        | TRIANGULATE                                                                                                                                                  | REFACTOR                                                             |
+| ----------------------------- | ------------------------------------------ | --------- | --------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
 | `S11-U7-intake-http-boundary` | `src/lib/feedback/intake-boundary.test.ts` | Pure unit | Public-form route baseline exit 0, 4/4 passed | Exit 1 before production code; unresolved `./intake-boundary`, 0 tests collected | Focused exit 0, 22/22 passed | Canonical and encoded/malformed/overlong/dot/extra-segment identifiers; valid envelope plus method/media/charset/query/size/length/UTF-8/JSON/field branches | Unified path validation helper; focused exit 0, 22/22 remained green |
 
 ### S11 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/intake-boundary.test.ts`; exit 0; 1 file, 22/22 passed. |
-| Runtime harness command/scenario and exact result | N/A — this slice is a pure request-boundary library with no Route Handler, network, persistence, process, browser, CMS, or other runtime integration. |
-| Rollback boundary | Remove `src/lib/feedback/intake-boundary.ts` and its focused test, then remove only this S11 progress/status update; preserve S01-S10 and keep task 3.1 unchecked. |
+| Evidence                                          | Exact value                                                                                                                                                        |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/intake-boundary.test.ts`; exit 0; 1 file, 22/22 passed.                                                |
+| Runtime harness command/scenario and exact result | N/A — this slice is a pure request-boundary library with no Route Handler, network, persistence, process, browser, CMS, or other runtime integration.              |
+| Rollback boundary                                 | Remove `src/lib/feedback/intake-boundary.ts` and its focused test, then remove only this S11 progress/status update; preserve S01-S10 and keep task 3.1 unchecked. |
 
 ### S11 Verification, Cleanup, and Settlement Evidence
 
@@ -480,18 +485,21 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Task 3.1 remains unchecked. Grace handling, guards/idempotency/acceptance, drafts/UI, Route Handlers, transports, persistence, and E2E remain deferred.
 
 ### S12 TDD Cycle Evidence
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+
+| Task                         | Test File                             | Layer                      | Safety Net                   | RED                                     | GREEN        | TRIANGULATE                                                                                                                 | REFACTOR                                          |
+| ---------------------------- | ------------------------------------- | -------------------------- | ---------------------------- | --------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | `S12-U7-qr-session-contract` | `src/lib/feedback/qr-session.test.ts` | Unit + Node crypto runtime | Intake boundary 22/22 passed | Missing `./qr-session`; exit 1, 0 tests | 15/15 passed | Active/unavailable records; valid/last-second/expired/future/tampered/malformed; wrong QR/point/version/revision/capability | Deterministic tamper helper; 15/15 remained green |
 
 ### S12 Work Unit Evidence
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/qr-session.test.ts`; exit 0; 1 file, 15/15 passed. |
+
+| Evidence                                          | Exact value                                                                                                                                                                 |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/qr-session.test.ts`; exit 0; 1 file, 15/15 passed.                                                              |
 | Runtime harness command/scenario and exact result | The focused suite executed Node `crypto` HMAC-SHA256, SHA-256, and constant-time signature comparison across valid and adversarial session scenarios; exit 0, 15/15 passed. |
-| Rollback boundary | Remove `qr-session.ts`, `qr-session.test.ts`, and this S12 evidence/status update; preserve S01-S11 and keep task 3.1 unchecked. |
+| Rollback boundary                                 | Remove `qr-session.ts`, `qr-session.test.ts`, and this S12 evidence/status update; preserve S01-S11 and keep task 3.1 unchecked.                                            |
 
 ### S12 Verification, Cleanup, and Settlement Evidence
+
 - Focused: 15/15; S11+S12 safety suite: 37/37; app typecheck: exit 0; `git diff --check`: exit 0.
 - Authored scope: 395 changed lines (392 additions, 3 deletions), including OpenSpec persistence; no size exception.
 - No formatter, dependency, manifest, lockfile, environment, credential, network, persistence, process, container, volume, temporary artifact, Route Handler, or remote operation changed or remained.
@@ -505,11 +513,13 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Deferred: version grace, security/CAPTCHA, Route Handlers, CMS transport, persistence, idempotency, Redis/guards, acceptance/receipt, drafts/UI, browser behavior, and E2E. Task 3.1 remains unchecked.
 
 ### U7-A3 TDD Cycle Evidence
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+
+| Task                             | Test File                                    | Layer     | Safety Net           | RED                                            | GREEN      | TRIANGULATE                                                                                              | REFACTOR                                            |
+| -------------------------------- | -------------------------------------------- | --------- | -------------------- | ---------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | `U7-A3-answer-domain-validation` | `src/lib/feedback/answer-validation.test.ts` | Pure unit | S11+S12 37/37 passed | Missing `./answer-validation`; exit 1, 0 tests | 1/1 passed | 8/10 failed before generalization; final 10/10 passed across valid snapshots and malformed/bounded cases | No structural extraction needed; rerun 10/10 passed |
 
 ### U7-A3 Work Unit and Settlement Evidence
+
 - Focused: `pnpm --dir teleferico-app exec vitest run src/lib/feedback/answer-validation.test.ts`; exit 0, 1 file, 10/10 passed.
 - Combined safety: `pnpm --dir teleferico-app exec vitest run src/lib/feedback/intake-boundary.test.ts src/lib/feedback/qr-session.test.ts src/lib/feedback/answer-validation.test.ts`; exit 0, 3 files, 47/47 passed.
 - Typecheck: `pnpm --dir teleferico-app run typecheck`; exit 0, no diagnostics. `git diff --check`: exit 0, no output.
@@ -527,17 +537,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### U7-A4 TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                             | Test File                                      | Layer     | Safety Net                                     | RED                                                        | GREEN                                               | TRIANGULATE                                                                                                                                                              | REFACTOR                                                                           |
+| -------------------------------- | ---------------------------------------------- | --------- | ---------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | `U7-A4-version-grace-validation` | `src/lib/feedback/version-eligibility.test.ts` | Pure unit | S11+S12+U7-A3 exit 0, 3 files and 47/47 passed | Missing `./version-eligibility`; exit 1, 0 tests collected | Initial current-version behavior exit 0, 1/1 passed | Expanded suite first exited 1 with 5/14 failures, then final 14/14 passed across exact grace, expiry, unavailable context, malformed lifecycle, and duplicate identities | No further structural extraction was justified; focused rerun remained 14/14 green |
 
 ### U7-A4 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/version-eligibility.test.ts`; exit 0; 1 file, 14/14 passed. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/version-eligibility.test.ts`; exit 0; 1 file, 14/14 passed.                                                                                                        |
 | Runtime harness command/scenario and exact result | N/A — the final implementation is deterministic pure TypeScript with injected lifecycle records and an injected epoch-second clock, with no I/O, network, persistence, process, browser, CMS, environment, or crypto boundary. |
-| Rollback boundary | Remove `version-eligibility.ts`, its focused test, and only this U7-A4 status/evidence update; preserve S01-U7-A3 and keep task 3.1 unchecked. |
+| Rollback boundary                                 | Remove `version-eligibility.ts`, its focused test, and only this U7-A4 status/evidence update; preserve S01-U7-A3 and keep task 3.1 unchecked.                                                                                 |
 
 ### U7-A4 Verification, Cleanup, and Settlement Evidence
 
@@ -555,17 +565,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### U7-A4 Correction TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                                        | Test File                                      | Layer     | Safety Net                            | RED                                                                                                                                      | GREEN                                                                                        | TRIANGULATE                                                                                                                                                                  | REFACTOR                                                                          |
+| ------------------------------------------- | ---------------------------------------------- | --------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `U7-A4-version-grace-validation-correction` | `src/lib/feedback/version-eligibility.test.ts` | Pure unit | Focused baseline exit 0, 14/14 passed | Focused exit 1, 1/15 failed: current version with a future supersession timestamp returned `current` instead of 410 `SURVEY_UNAVAILABLE` | Focused exit 0, 15/15 passed after timestamp validation moved before current-version success | Existing current-version success and superseded-version future-timestamp rejection exercise distinct valid and invalid paths; no additional production branch was introduced | No structural refactor justified; final focused verification remained 15/15 green |
 
 ### U7-A4 Correction Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/version-eligibility.test.ts`; exit 0; 1 file, 15/15 passed. |
-| Runtime harness command/scenario and exact result | N/A — deterministic pure TypeScript over injected lifecycle records and an injected epoch-second clock; no runtime, I/O, network, persistence, process, browser, CMS, environment, or crypto boundary exists. |
-| Rollback boundary | Revert only the future-current-version test, restore the prior current-version return ordering in `version-eligibility.ts`, and remove this correction evidence; preserve the original U7-A4 slice, S01-U7-A3, and task 3.1 unchecked. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                            |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/version-eligibility.test.ts`; exit 0; 1 file, 15/15 passed.                                                                                                                |
+| Runtime harness command/scenario and exact result | N/A — deterministic pure TypeScript over injected lifecycle records and an injected epoch-second clock; no runtime, I/O, network, persistence, process, browser, CMS, environment, or crypto boundary exists.                          |
+| Rollback boundary                                 | Revert only the future-current-version test, restore the prior current-version return ordering in `version-eligibility.ts`, and remove this correction evidence; preserve the original U7-A4 slice, S01-U7-A3, and task 3.1 unchecked. |
 
 ### U7-A4 Correction Verification, Cleanup, and Revision Input
 
@@ -586,17 +596,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### U7-A5 TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                                      | Test File                                       | Layer                                    | Safety Net                                   | RED                                               | GREEN                        | TRIANGULATE                                                                                                                                                      | REFACTOR                                                                                              |
+| ----------------------------------------- | ----------------------------------------------- | ---------------------------------------- | -------------------------------------------- | ------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `U7-A5-pre-persistence-security-pipeline` | `src/lib/feedback/submission-preflight.test.ts` | Unit + synthetic NextRequest/Node crypto | Four foundation files exited 0, 62/62 passed | Missing `./submission-preflight`; exit 1, 0 tests | Focused exit 0, 11/11 passed | Intermediate run exited 1, 8/11; final cases prove each ordered stop, absent/cross-site fetch metadata, CAPTCHA rejection, QR failure, grace expiry, and success | Split transport from parsing without changing the existing composed API; focused 11/11 remained green |
 
 ### U7-A5 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/submission-preflight.test.ts`; exit 0; 1 file, 11/11 passed. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/submission-preflight.test.ts`; exit 0; 1 file, 11/11 passed.                                                                                                                                                          |
 | Runtime harness command/scenario and exact result | Node/Vitest constructed synthetic request metadata, executed real origin/fetch-site and HMAC session checks, and used injected mock CAPTCHA verification; no external network, credential, CMS, Redis, browser, container, or persistence boundary exists in this preflight unit. |
-| Rollback boundary | Remove `submission-preflight.ts` and its test; revert only the transport/parse exports in `intake-boundary.ts` and this U7-A5 progress/status. Preserve S01-U7-A4 and task 3.1 unchecked. |
+| Rollback boundary                                 | Remove `submission-preflight.ts` and its test; revert only the transport/parse exports in `intake-boundary.ts` and this U7-A5 progress/status. Preserve S01-U7-A4 and task 3.1 unchecked.                                                                                         |
 
 ### U7-A5 Verification, Cleanup, and Revision Input
 
@@ -614,17 +624,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### U7-A6 TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                                   | Test File                                        | Layer                                | Safety Net          | RED                             | GREEN       | TRIANGULATE                                                                    | REFACTOR                                            |
+| -------------------------------------- | ------------------------------------------------ | ------------------------------------ | ------------------- | ------------------------------- | ----------- | ------------------------------------------------------------------------------ | --------------------------------------------------- |
 | `U7-A6-durable-idempotency-acceptance` | `src/lib/feedback/submission-acceptance.test.ts` | Unit + transactional runtime harness | Five U7 files 74/74 | Missing module; exit 1, 0 tests | Focused 6/6 | Claim-order RED 1/7, then 7/7; replay/conflict/concurrency/guard/failure paths | Pair-lock port named explicitly; 7/7 remained green |
 
 ### U7-A6 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/submission-acceptance.test.ts`; exit 0; 1 file, 7/7 passed. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                   |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/submission-acceptance.test.ts`; exit 0; 1 file, 7/7 passed.                                                                                                                       |
 | Runtime harness command/scenario and exact result | Vitest exercised a serialized transactional store with commit/rollback behavior, concurrent identical retries, stable receipts, guard ordering, and injected persistence failure; 7/7 passed. No external CMS/Redis/network process was used. |
-| Rollback boundary | Remove `submission-acceptance.ts` and its focused test, then revert only this U7-A6 progress/status. Preserve S01-U7-A5 and task 3.1 unchecked. |
+| Rollback boundary                                 | Remove `submission-acceptance.ts` and its focused test, then revert only this U7-A6 progress/status. Preserve S01-U7-A5 and task 3.1 unchecked.                                                                                               |
 
 ### U7-A6 Verification and Cleanup
 
@@ -651,17 +661,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### U7-B1 TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                        | Test File                                                                 | Layer                                  | Safety Net                   | RED                                                                                                         | GREEN                                      | TRIANGULATE                                                                                                                                                        | REFACTOR                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------- | -------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
 | `U7-B1-persistence-adapter` | `submission-acceptance.test.ts`; `submission/postgres-submission.test.js` | Unit + isolated PostgreSQL/real Strapi | App 7/7; CMS lifecycle 10/10 | App 1/8 failed on missing browser binding; CMS exited 1 on missing adapter; aggregate CMS selector rejected | Focused app 8/8 and CMS adapter 1/1 passed | Document-ID-independent replay, browser conflict, concurrent replay, digest conflict, claim mismatch, relation/snapshot integrity, and duplicate-snapshot rollback | Active-point validation and full CMS selector were retained; all focused tests remained green |
 
 ### U7-B1 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/submission-acceptance.test.ts`: exit 0, 1 file and 8/8 passed. `npm --prefix teleferico-cms test -- feedback/submission`: exit 0, 1/1 passed. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/submission-acceptance.test.ts`: exit 0, 1 file and 8/8 passed. `npm --prefix teleferico-cms test -- feedback/submission`: exit 0, 1/1 passed.                                                                                                                                                                         |
 | Runtime harness command/scenario and exact result | The CMS selector started an isolated PostgreSQL 16.8 container, loaded real Strapi, created real point/version/component rows, issued concurrent identical accepts, verified one submission with both relations and ordered snapshots, exercised replay/conflict/domain mismatch and transactional component failure, destroyed Strapi, and proved zero owned containers/volumes. |
-| Rollback boundary | Revert `persistence.js`, its custom-service wiring, submission selector/test, the one-line browser digest correction and focused test, and this U7-B1 evidence/exception update. Preserve U7-A1–A6 and keep task 3.1 unchecked. |
+| Rollback boundary                                 | Revert `persistence.js`, its custom-service wiring, submission selector/test, the one-line browser digest correction and focused test, and this U7-B1 evidence/exception update. Preserve U7-A1–A6 and keep task 3.1 unchecked.                                                                                                                                                   |
 
 ### U7-B1 Verification and Cleanup
 
@@ -682,17 +692,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### U7-B2 TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                      | Test File                                                | Layer                         | Safety Net                                        | RED                                                                                                                                           | GREEN                                                                            | TRIANGULATE                                                                                                                                                                          | REFACTOR                                                                                                                |
+| ------------------------- | -------------------------------------------------------- | ----------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | `U7-B2-guard-degradation` | `browser-guard.test.ts`; `submission-acceptance.test.ts` | Unit + local TCP/RESP runtime | Acceptance and form guards exited 0, 14/14 passed | Focused exit 1: missing `browser-guard`; acceptance had 2 failures because post-commit persistence was absent and lookup failure returned 503 | Focused exit 0, 14/14 passed after minimal guard adapter and acceptance ordering | Final focused exit 0, 16/16 passed across Redis inactive/active, protocol errors, lookup/persist degradation, telemetry failure, expiry, post-commit order, replay, and active guard | Extracted one nonthrowing `FeedbackBrowserGuard` port around the Redis store; final 16/16 and full 90/90 remained green |
 
 ### U7-B2 Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/browser-guard.test.ts src/lib/feedback/submission-acceptance.test.ts`; exit 0; 2 files and 16/16 tests passed. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/browser-guard.test.ts src/lib/feedback/submission-acceptance.test.ts`; exit 0; 2 files and 16/16 tests passed.                                                                                                                                                                                                      |
 | Runtime harness command/scenario and exact result | The focused browser-guard suite opened loopback-only ephemeral TCP servers, exercised the production RESP/EVAL socket path for inactive lookup, 24-hour PX persistence, active lookup, and Redis protocol errors, then closed every server. Success and failure/degradation paths passed 5/5. No external Redis, container, dependency, credential, or remote service was used. |
-| Rollback boundary | Remove `browser-guard.ts` and its test; revert the two Redis command exports, the browser-guard port/order additions in `submission-acceptance.ts`, their focused tests, and only this U7-B2 status/evidence. Preserve U7-A1 through U7-B1 and keep task 3.1 unchecked. |
+| Rollback boundary                                 | Remove `browser-guard.ts` and its test; revert the two Redis command exports, the browser-guard port/order additions in `submission-acceptance.ts`, their focused tests, and only this U7-B2 status/evidence. Preserve U7-A1 through U7-B1 and keep task 3.1 unchecked.                                                                                                         |
 
 ### U7-B2 Verification, Cleanup, and Revision
 
@@ -712,6 +722,7 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Task 3.1/U7 remains unchecked. U7-B3 HTTP composition, U7-B4 form/draft/UI, and U7-B5 visitor E2E remain deferred.
 - Runtime/cleanup and rollback boundaries remain those recorded for U7-B2. The correction candidate changes cumulative evidence only; no owned process, Redis server, container, volume, or temporary artifact remains.
 - Corrected authored scope: 602 additions and 60 deletions = 662 lines, including cumulative OpenSpec evidence, within the approved 800-line U7-B2 exception. Corrected evidence revision: `sha256:dd4882f3ad430c396bdf00ccd88f5aae539cd8f466c4f02bb15f29289cbe0fe8`, derived from canonical `tb113-apply-evidence.v1` JSON binding the `base-only` diagnosis, failed revision `sha256:0d4475bce7f73c97969d99120ae908c65a426be08b3a7e1bd1d3ec3ef958e4c5`, branch/base, unchanged implementation hashes, exact correction verification, runtime/cleanup state, authored count, and unchecked task 3.1. Parent owns settlement.
+
 ## U7-B3a CMS Transport Contract Evidence
 
 - Scope: closed `feedback-cms-submission.v1` lookup/acceptance commands; exactly survey GET and submission POST CMS routes; authoritative lookup, replay/conflict, and atomic acceptance; deny-by-default token-family documentation; one server-only app transport with bounded streamed responses, strict nested validation, and bounded status/code mapping.
@@ -720,17 +731,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### U7-B3a TDD Cycle Evidence
 
-| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
-|---|---|---|---|---|---|---|---|
+| Task                           | Test File                                                           | Layer                                         | Safety Net                                                                     | RED                                                                                                                                                                                             | GREEN                                                                          | TRIANGULATE                                                                                                                                                                                                                                   | REFACTOR                                                                                                                                               |
+| ------------------------------ | ------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | CMS transport/command contract | `cms-transport.test.ts`; CMS lifecycle/permission/persistence tests | Unit + isolated Strapi/PostgreSQL integration | Transport 7/7 and retained CMS baseline passed before the streaming correction | Original B3 correction failed transport/CMS contract cases before the closed command and exact route surface; final bounded-stream RED failed 1/8 because the response reader was not cancelled | Transport 8/8; app transport plus acceptance 19/19; CMS feedback harness 53/53 | Oversized declared/materialized/streamed bodies, malformed top-level/nested responses, unavailable survey, lookup/accept commands, replay, conflict/gone mapping, malformed/unknown commands, permission registration, and atomic persistence | Survey context moved to the centralized API type boundary and streamed response reading replaced post-buffer measurement; focused tests remained 19/19 |
 
 ### U7-B3a Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm exec vitest run src/lib/feedback/cms-transport.test.ts src/lib/feedback/submission-acceptance.test.ts`; exit 0, 2 files and 19/19 passed. `pnpm typecheck`; exit 0, no diagnostics. `git diff --check`; exit 0, no output. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm exec vitest run src/lib/feedback/cms-transport.test.ts src/lib/feedback/submission-acceptance.test.ts`; exit 0, 2 files and 19/19 passed. `pnpm typecheck`; exit 0, no diagnostics. `git diff --check`; exit 0, no output.                                                                                                                                                                      |
 | Runtime harness command/scenario and exact result | `npm test -- feedback`; final exit 0, 53/53 passed. The isolated real Strapi/PostgreSQL path proved exact registered actions, malformed/unknown command rejection, authoritative lookup, replay/conflict, atomic acceptance, and deterministic process/container/volume cleanup. An intermediate run failed only the documentation line-wrap assertion and was corrected before the final full rerun. |
-| Rollback boundary | Remove `cms-transport.ts` and its focused test; revert the centralized survey-context types, partial acceptance-store port, `FEEDBACK_STRAPI_TOKEN` example, CMS controller/routes/persistence deltas and their tests, permission documentation, B3a/B3b task split, and this evidence. Preserve U7-A1 through U7-B2. |
+| Rollback boundary                                 | Remove `cms-transport.ts` and its focused test; revert the centralized survey-context types, partial acceptance-store port, `FEEDBACK_STRAPI_TOKEN` example, CMS controller/routes/persistence deltas and their tests, permission documentation, B3a/B3b task split, and this evidence. Preserve U7-A1 through U7-B2.                                                                                 |
 
 ### U7-B3a Verification and Boundary
 
@@ -747,17 +758,17 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 
 ### U7-B3a Correction TDD Cycle Evidence
 
-| Task | Test File | Safety Net | RED | GREEN | REFACTOR |
-|---|---|---|---|---|---|
+| Task                         | Test File                                                | Safety Net                                                 | RED                                                                                                                                                         | GREEN                                                                                | REFACTOR                                                                                                                                     |
+| ---------------------------- | -------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Commit-time identical replay | `submission-acceptance.test.ts`; `cms-transport.test.ts` | Focused pre-change selector passed 2 files and 19/19 tests | Composed acceptance/CMS regression exited 1 with exactly 1 failed and 11 skipped: expected authoritative status 200 and received `503 UPSTREAM_UNAVAILABLE` | Exact RED selector passed 1/1; focused transport/acceptance passed 2 files and 20/20 | Replaced the ad hoc replay object with one exported typed error carrying a stable code, receipt, and timestamp; focused tests remained 20/20 |
 
 ### U7-B3a Correction Work Unit Evidence
 
-| Evidence | Exact value |
-|---|---|
-| Focused test command and exact result | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/cms-transport.test.ts src/lib/feedback/submission-acceptance.test.ts`; exit 0, 2 files and 20/20 passed. |
-| Runtime harness command/scenario and exact result | `npm test -- feedback` in `teleferico-cms`; exit 0, 53/53 passed, including isolated Strapi/PostgreSQL acceptance, replay, rollback, and deterministic container/volume cleanup. The generated POC result touched by the harness was restored exactly and is absent from the candidate. |
-| Rollback boundary | Revert the `IdempotencyReplayError` contract and catch mapping in `submission-acceptance.ts`, restore the transport's previous replay throw in `cms-transport.ts`, and remove only the composed regression from `submission-acceptance.test.ts`. Preserve all other B3a work and U7-A1 through U7-B2. |
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/lib/feedback/cms-transport.test.ts src/lib/feedback/submission-acceptance.test.ts`; exit 0, 2 files and 20/20 passed.                                                                                                                                  |
+| Runtime harness command/scenario and exact result | `npm test -- feedback` in `teleferico-cms`; exit 0, 53/53 passed, including isolated Strapi/PostgreSQL acceptance, replay, rollback, and deterministic container/volume cleanup. The generated POC result touched by the harness was restored exactly and is absent from the candidate.               |
+| Rollback boundary                                 | Revert the `IdempotencyReplayError` contract and catch mapping in `submission-acceptance.ts`, restore the transport's previous replay throw in `cms-transport.ts`, and remove only the composed regression from `submission-acceptance.test.ts`. Preserve all other B3a work and U7-A1 through U7-B2. |
 
 ### U7-B3a Correction Verification and Identity
 
@@ -767,3 +778,34 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Candidate path set: 15 paths including this cumulative evidence artifact; every path has Git mode `100644`. Candidate implementation identity excluding this self-referential evidence file: `sha256:5d994ac8abe7dc44ba6ae85912399c4fb746bdebba840f86d528e116d9856d5e`, derived from canonical `tb113-candidate.v1` JSON over branch, base, sorted path, mode, and content SHA-256.
 - Complete base-relative authored scope: 637 additions and 28 deletions = 665 lines. This remains below the mandatory 800-line ceiling and preserves the autonomous B3a boundary.
 - Fresh correction evidence revision: `sha256:60ac871db4142dbe1bde52e78a407288a5b36020d880f9bec37373bafe0cb048`, derived from canonical `tb113-apply-evidence.v1` JSON binding the failed revision, native attempt, prior B3a revision, candidate identity, exact RED/GREEN/focused/broader/typecheck/CMS/diff outcomes, package-suite baseline diagnosis, formatting readback, final authored count, rollback boundary, and unchecked task 3.1. Parent owns settlement.
+
+## U7-B4 Form, Draft, and UI — Normalized Complete Candidate / U7 Remains Open
+
+- Scope implemented: QR-bound visitor page and root layout, responsive Q1–Q4 journey, ES/EN/PT semantic copy fallback telemetry, ordered validation and focus/status feedback, client-only expiring drafts keyed by survey version/point/pseudonymous browser context, privacy notice without a consent event, real reCAPTCHA verification, and authoritative receipt/guard success gating.
+- Scope explicitly deferred: U7-B5 visitor acceptance E2E and any U8+ work. The B4-only responsive browser harness below is included; task 3.1 remains unchecked.
+- Implementation files are limited to `teleferico-app/src/app/qr/**`, `teleferico-app/src/lib/feedback/{draft,ui-contract}.*`, and the feedback component styles in `src/app/globals.css`. No dependency, lockfile, CMS, schema, migration, generated type, environment, deployment, credential, or remote change occurred.
+
+### U7-B4 TDD Cycle Evidence
+
+| Task                            | Test File                                                | Layer                   | Safety Net                                | RED                                                                                                              | GREEN                                                                                                                     | REFACTOR                                                                    |
+| ------------------------------- | -------------------------------------------------------- | ----------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Draft lifecycle and UI contract | `src/lib/feedback/{draft,ui-contract}.test.ts`           | Pure Vitest             | Existing feedback selector 129/129 passed | Missing `draft` and `ui-contract` modules; 0 tests collected                                                     | 2 files, 6/6 passed                                                                                                       | 6/6 remained green after validation, expiry, and fallback refinements       |
+| Responsive visitor form         | `src/app/qr/feedback/[publicCode]/FeedbackForm.test.tsx` | jsdom component/Vitest  | Pure contract selector 6/6 passed         | Missing `FeedbackForm` module; 0 tests collected                                                                 | 1 file, 2/2 passed                                                                                                        | 2/2 remained green after the explicit `other` aspect control and lint fixes |
+| B4 responsive browser harness   | `tests/e2e/feedback-ui-responsive.spec.ts`               | Chromium mobile/desktop | Component selector 2/2 passed             | First browser run exited 1: mobile draft assertion targeted a hidden Q1 control after reload; desktop 1/1 passed | Focused browser selector exited 0, 2/2 passed after asserting the persisted draft envelope and preserving the stage check | 2/2 remained green after typecheck/ESLint and the required smoke invocation |
+
+### U7-B4 Work Unit Evidence
+
+| Evidence                                          | Exact value                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused test command and exact result             | `pnpm --dir teleferico-app exec vitest run src/lib/feedback 'src/app/qr/feedback/[publicCode]/FeedbackForm.test.tsx'`; exit 0; 11 files, 115/115 passed.                                                                                                                                                                                                                                                                                                          |
+| Runtime harness command/scenario and exact result | B4 selector `pnpm --dir teleferico-app exec playwright test tests/e2e/feedback-ui-responsive.spec.ts --project=chromium`; exit 0; 2/2 passed, proving mobile draft restoration at 390×844 and desktop verification/privacy layout at 1440×900. Required command `pnpm --dir teleferico-app run test:e2e:smoke -- --grep "visitor feedback"`; exit 0; 7/7 Chromium smoke tests passed, including both B4 scenarios. U7-B5 visitor acceptance E2E remains deferred. |
+| Rollback boundary                                 | Remove `src/app/qr/layout.tsx`, `src/app/qr/feedback/[publicCode]/**`, `src/lib/feedback/draft.*`, `src/lib/feedback/ui-contract.*`, and the feedback component rules appended to `src/app/globals.css`. Preserve all U7-A1–B3b behavior and the cumulative SDD evidence.                                                                                                                                                                                         |
+
+### U7-B4 Verification and Size Boundary
+
+- App typecheck: exit 0 with no diagnostics. Changed-file ESLint: exit 0. `git diff --check`: exit 0.
+- Package Vitest: exit 1; 292/294 passed. The only failures are the pre-existing `form-protection.test.ts` expectations for `TOO_MANY_REQUESTS` versus unchanged `EMAIL_LIMIT_EXCEEDED`; no U7-B4 test failed.
+- Build: route compilation succeeded; the build stopped at the unchanged B3b `src/lib/feedback/browser-guard.ts` unused-parameter lint findings. No new B4 lint finding remains.
+- The Prettier-normalized implementation/test/style scope is 1,573 additions and 5 deletions, 1,578 changed lines total, within the explicit candidate-scoped 1,600-line exception. The generated POC result mutated by the browser harness was restored exactly and is not part of the candidate.
+- This continuation remediates failed evidence revision `sha256:f39ada3653113924c09cfd323c03ba5b58cd4e8d32bb2709457863befb0ab7d7` under parent-owned attempt token `sha256:12e8f9094e83d301bde2d831eaf35cfade9ca28ccc735d3ae85d50fd5dabf63d`. Fresh evidence revision: `sha256:7d44b2db2c62c9582bd8090f4b72b0d33b14e83cb588589945525ccb01a1d17f`, derived from canonical `tb113-apply-evidence.v1` JSON over the 10 implementation/test/style paths, exact command outcomes, base-only diagnosis, cumulative task state, rollback boundary, and final line count. Parent owns native settlement.
+- The normalized successor must remediate evidence revision `sha256:4815722e51b422431303858c524d0868111bf089aec81b48ec8495dface5d462`; its final evidence revision and settlement remain parent-owned after verification.
