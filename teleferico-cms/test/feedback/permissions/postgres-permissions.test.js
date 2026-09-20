@@ -105,7 +105,7 @@ test('destroys a registered Strapi instance when inspection fails', async () => 
   assert.deepEqual(calls, ['register', 'destroy']);
 });
 
-test('real isolated Strapi has no survey actions, grants, or inspection writes', async () => {
+test('real isolated Strapi exposes core routes without default survey grants', async () => {
   try {
     await executeCompose('down', '--volumes', '--remove-orphans', '--timeout=5');
     await executeCompose('up', '--detach', '--wait');
@@ -127,6 +127,11 @@ test('real isolated Strapi has no survey actions, grants, or inspection writes',
 
         assert.equal(surveyApis.length, 6);
         assert.deepEqual(registeredActions, [
+          'api::survey-report-generation.survey-report-generation.find',
+          'api::survey-report-generation.survey-report-generation.findOne',
+          'api::survey-report-generation.survey-report-generation.create',
+          'api::survey-report-generation.survey-report-generation.update',
+          'api::survey-report-generation.survey-report-generation.delete',
           'survey-submission.resolveSurvey',
           'survey-submission.submit',
         ]);

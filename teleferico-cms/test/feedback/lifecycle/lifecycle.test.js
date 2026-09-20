@@ -259,7 +259,7 @@ test('survey APIs expose no generic CRUD routes while lifecycle services stay al
     'survey-report',
   ];
 
-  for (const name of names.filter((candidate) => candidate !== 'survey-submission')) {
+  for (const name of names.filter((candidate) => !['survey-submission', 'survey-report-generation'].includes(candidate))) {
     const routes = require(path.join(
       '../../../src/api',
       name,

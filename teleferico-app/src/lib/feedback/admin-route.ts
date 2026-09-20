@@ -10,11 +10,18 @@ import {
   FeedbackAdminReaderError,
 } from "./admin-reader";
 import {
+  FeedbackAdminCommandError,
+  getFeedbackAdminCommandTransport,
+  parseGenerateCommand,
+  parseRetryCommand,
+} from "./admin-command";
+import {
   parseFeedbackAdminFilters,
   type FeedbackAdminQuery,
 } from "./admin-read";
 import type {
   FeedbackAdminCapability,
+  FeedbackAdminOverlapDetails,
   FeedbackAdminReadRoute,
 } from "@/types/api/admin/feedback";
 import { NextRequest, NextResponse } from "next/server";
@@ -24,23 +31,55 @@ function errorResponse(
     | "UNAUTHORIZED"
     | "FORBIDDEN"
     | "VALIDATION_FAILED"
-    | "UPSTREAM_UNAVAILABLE",
+    | "PAYLOAD_TOO_LARGE"
+    | "UPSTREAM_UNAVAILABLE"
+    | "OVERLAP_REQUIRES_OVERRIDE"
+    | "ACTIVE_RANGE_CONFLICT"
+    | "INVALID_STATE"
+    | "INTERNAL_ERROR",
+  statusOverride?: number,
+  details?: FeedbackAdminOverlapDetails,
 ) {
   const status =
-    code === "UNAUTHORIZED"
+    statusOverride ??
+    (code === "UNAUTHORIZED"
       ? 401
       : code === "FORBIDDEN"
         ? 403
         : code === "VALIDATION_FAILED"
           ? 400
-          : 503;
+          : code === "PAYLOAD_TOO_LARGE"
+            ? 413
+            : code === "OVERLAP_REQUIRES_OVERRIDE" ||
+                code === "ACTIVE_RANGE_CONFLICT" ||
+                code === "INVALID_STATE"
+              ? 409
+              : code === "INTERNAL_ERROR"
+                ? 500
+                : 503);
   const message = {
     UNAUTHORIZED: "Authentication is required",
     FORBIDDEN: "The requested feedback capability is not available",
     VALIDATION_FAILED: "The feedback filters are invalid",
+    PAYLOAD_TOO_LARGE: "The feedback request body is too large",
     UPSTREAM_UNAVAILABLE: "Feedback administration is temporarily unavailable",
+    OVERLAP_REQUIRES_OVERRIDE:
+      "The requested report range overlaps existing history",
+    ACTIVE_RANGE_CONFLICT:
+      "A report generation is already active for this range",
+    INVALID_STATE: "The report generation is not in a retryable state",
+    INTERNAL_ERROR: "Feedback administration failed",
   }[code];
-  return NextResponse.json({ error: { code, message } }, { status });
+  return NextResponse.json(
+    { error: { code, message, ...(details ? { details } : {}) } },
+    { status },
+  );
+}
+
+function commandErrorResponse(error: unknown) {
+  if (error instanceof FeedbackAdminCommandError)
+    return errorResponse(error.code, error.status, error.details);
+  return errorResponse("UPSTREAM_UNAVAILABLE");
 }
 
 function capabilities(session: ServerSession): readonly string[] {
@@ -99,5 +138,54 @@ export async function handleFeedbackAdminRead(
     if (!(error instanceof FeedbackAdminReaderError))
       console.error("[admin/feedback] read failed", error);
     return errorResponse("UPSTREAM_UNAVAILABLE");
+  }
+}
+
+async function readBody(req: NextRequest): Promise<unknown> {
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await req.arrayBuffer());
+  } catch {
+    throw new FeedbackAdminCommandError("VALIDATION_FAILED", 400);
+  }
+  if (bytes.byteLength > 16 * 1024)
+    throw new FeedbackAdminCommandError("PAYLOAD_TOO_LARGE", 413);
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    throw new FeedbackAdminCommandError("VALIDATION_FAILED", 400);
+  }
+}
+
+export async function handleFeedbackAdminGenerate(req: NextRequest) {
+  try {
+    const auth = await authenticate(req, "feedback.reports.generate");
+    if (!auth.ok) return auth.response;
+    const parsed = parseGenerateCommand(await readBody(req));
+    if (!parsed.ok) return errorResponse(parsed.code);
+    const result = await getFeedbackAdminCommandTransport(
+      auth.session.jwt,
+    ).generate(parsed.value);
+    return NextResponse.json(result, { status: 202 });
+  } catch (error) {
+    return commandErrorResponse(error);
+  }
+}
+
+export async function handleFeedbackAdminRetry(
+  req: NextRequest,
+  reportRunId: string,
+) {
+  try {
+    const auth = await authenticate(req, "feedback.reports.generate");
+    if (!auth.ok) return auth.response;
+    const parsed = parseRetryCommand(await readBody(req));
+    if (!parsed.ok) return errorResponse(parsed.code);
+    const result = await getFeedbackAdminCommandTransport(
+      auth.session.jwt,
+    ).retry(reportRunId, parsed.value);
+    return NextResponse.json(result, { status: 202 });
+  } catch (error) {
+    return commandErrorResponse(error);
   }
 }

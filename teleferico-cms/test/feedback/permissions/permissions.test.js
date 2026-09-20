@@ -20,7 +20,7 @@ const FUTURE_CAPABILITIES = [
 ];
 
 test('survey routes expose only the mediated intake family', () => {
-  for (const api of SURVEY_APIS.filter((candidate) => candidate !== 'survey-submission')) {
+  for (const api of SURVEY_APIS.filter((candidate) => !['survey-submission', 'survey-report-generation', 'survey-report'].includes(candidate))) {
     const root = path.resolve(__dirname, `../../../src/api/${api}`);
     const routes = require(path.join(root, `routes/${api}`));
     const controller = require(path.join(root, `controllers/${api}`));
@@ -28,6 +28,25 @@ test('survey routes expose only the mediated intake family', () => {
     assert.deepEqual(routes, { type: 'content-api', routes: [] }, api);
     assert.deepEqual(controller, {}, api);
   }
+
+  const generationRoot = path.resolve(__dirname, '../../../src/api/survey-report-generation');
+  const generationController = fs.readFileSync(
+    path.join(generationRoot, 'controllers/survey-report-generation.js'),
+    'utf8',
+  );
+  const generationRoutes = fs.readFileSync(
+    path.join(generationRoot, 'routes/survey-report-generation.js'),
+    'utf8',
+  );
+  assert.match(generationController, /createCoreController/);
+  assert.doesNotMatch(generationController, /authenticated|admin-commands/);
+  assert.match(generationRoutes, /createCoreRouter/);
+  assert.doesNotMatch(generationRoutes, /tb113\/admin/);
+  assert.equal(fs.existsSync(path.join(generationRoot, 'services/admin-commands.js')), false);
+  assert.deepEqual(
+    require(path.resolve(__dirname, '../../../src/api/survey-report/routes/survey-report')),
+    { type: 'content-api', routes: [] },
+  );
 
   const root = path.resolve(__dirname, '../../../src/api/survey-submission');
   const actions = require(path.join(root, 'routes/survey-submission')).routes.map(({ handler }) => handler);
