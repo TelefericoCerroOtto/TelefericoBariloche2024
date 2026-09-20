@@ -7,12 +7,14 @@ This is the canonical contract for deciding whether and how to prepare repositor
 For an explicit implementation request, complete this sequence before editing:
 
 1. Classify the user's intent.
-2. Search the canonical Notion backlog.
-3. Resolve related GitHub issues, pull requests, and branches.
-4. Inspect the current Git branch and working tree.
-5. Create or reuse tracking when appropriate and authorized.
-6. Establish the correct implementation branch.
-7. Only then edit files.
+2. For continuation or follow-up work with a concrete existing-change anchor, resolve that anchor and inspect its change-local entrypoint or routing instructions.
+3. Select the implementation route from those instructions before invoking any generic workflow preflight.
+4. Search the canonical Notion backlog.
+5. Resolve related GitHub issues, pull requests, and branches.
+6. Inspect the current Git branch and working tree.
+7. Create or reuse tracking when appropriate and authorized.
+8. Establish the correct implementation branch.
+9. Only then edit files.
 
 Never implement on `development` first and formalize afterward.
 
@@ -28,6 +30,15 @@ Never implement on `development` first and formalize afterward.
 | Delivery operation already in progress | Resolve from the current branch or PR. Do not create parallel tracking. |
 
 If intent remains materially ambiguous, ask one short question and stop.
+
+## Route Resolution Gate
+
+For continuation or follow-up work with a concrete existing-change anchor, resolve the anchor and read its change-local entrypoint or routing instructions before selecting an implementation route or invoking any generic workflow preflight.
+
+- Change-local routing decides whether ordinary work uses direct implementation, delegated direct work, or explicit formal SDD.
+- OpenSpec or SDD artifacts, including historical SDD work, do not by themselves select SDD for the current request.
+- Only an explicit current request for a formal SDD lifecycle operation overrides a change-local direct route.
+- If route instructions are missing or contradictory and the choice would change what executes, ask one concise clarification and stop.
 
 ## Canonical Backlog
 
