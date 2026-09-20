@@ -59,6 +59,14 @@ Every route uses the shared analyzed range and previous equal-duration compariso
 
 POST `generations` requires generate capability: no overlap→202 queued; overlap without matching digest→409 `OVERLAP_REQUIRES_OVERRIDE` with all intersections ordered start/run, digest, adjustment; active exact-range race→409 `ACTIVE_RANGE_CONFLICT` plus run. POST `generations/{run}/retry` accepts only `{contractVersion:"feedback-admin.v1"}` for failed source and returns a new queued run/lineage; otherwise 409 `INVALID_STATE`. GET `reports/{id}/download` requires download capability and streams PDF with attachment disposition, SHA-256 ETag, private/no-store, no URL. Mapping: 400 `VALIDATION_FAILED`; 401 `UNAUTHORIZED`; 403 `FORBIDDEN`; 404 `NOT_FOUND`; named 409; 413 `PAYLOAD_TOO_LARGE`; 503 `UPSTREAM_UNAVAILABLE`; 500 `INTERNAL_ERROR`.
 
+U8-B owns only the generate/retry command boundary through authenticated Next.js
+and native Strapi core generation endpoints. The application helper performs
+validation, overlap disclosure, and retry decisions before using core CRUD;
+U8-A owns report reads/history; U9 owns active-range races,
+retry lineage/state-machine behavior, and worker cutoffs; U12-A owns PDF artifact
+storage and download mediation. Those later contracts remain normative, but are
+not implemented in this slice.
+
 ## CMS and Worker
 
 No browser/CRUD. Intake token: GET `/api/tb113/public/surveys/:publicCode`, POST `/api/tb113/public/submissions`; user JWT mirrors admin. Worker outputs omit prompts/comments/credentials/signed URLs/unvalidated model output.

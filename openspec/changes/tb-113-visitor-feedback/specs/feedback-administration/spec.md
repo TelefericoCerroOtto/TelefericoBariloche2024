@@ -4,6 +4,14 @@
 
 Define application-user authorization and browser-facing administrative resource contracts.
 
+## Slice ownership
+
+U8-B implements only the authenticated generate/retry command boundary and its
+browser-facing validation, capability checks, and overlap disclosure transport.
+U8-A owns report reads/history. Lifecycle races, state transitions, retry
+lineage, and cutoff semantics belong to U9. PDF artifact storage and download
+belong to U12-A (`deterministic-report-pdf`) and are not implemented by U8-B.
+
 ## Requirements
 
 ### Requirement: Distinct actors and exact capabilities
@@ -84,7 +92,11 @@ The administration MUST NOT display an invitation, scan, or response rate until 
 
 ### Requirement: Global report visibility and audit attribution
 
-Reports MUST be global to every user holding the relevant capability. `requestedBy` on a generation and `generatedBy` on a report MUST be immutable audit relations to application users when available; they MUST NOT confer ownership, hide records, or authorize access. (Primary: D30)
+Reports MUST be global to every user holding the relevant capability. U8-B uses
+native Strapi core create/read operations with a selected application role or
+API-token actor; it MUST NOT synthesize `requestedBy` through custom CMS code.
+The nullable `requestedBy` relation therefore remains null for this slice and
+MUST NOT confer ownership, hide records, or authorize access. (Primary: D30)
 
 #### Scenario: Read another requester's report
 - GIVEN an authorized report reader and a report requested by another user

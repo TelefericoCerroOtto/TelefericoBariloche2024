@@ -13,6 +13,40 @@ export type FeedbackAdminReadRoute =
   | "comments"
   | "reports";
 
+export type FeedbackAdminCommandStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed";
+
+export type FeedbackAdminGenerateCommand = {
+  readonly contractVersion: "feedback-admin.v1";
+  readonly period: FeedbackAdminDateRange;
+  readonly override: {
+    readonly accepted: boolean;
+    readonly overlapDigest: string | null;
+  };
+};
+
+export type FeedbackAdminRetryCommand = {
+  readonly contractVersion: "feedback-admin.v1";
+};
+
+export type FeedbackAdminCommandResult = {
+  readonly reportRunId: string;
+  readonly status: FeedbackAdminCommandStatus;
+};
+
+export type FeedbackAdminOverlapDetails = {
+  readonly overlaps: readonly {
+    readonly reportRunId: string;
+    readonly period: FeedbackAdminDateRange;
+    readonly intersection: FeedbackAdminDateRange;
+  }[];
+  readonly overlapDigest: string;
+  readonly adjustment: string;
+};
+
 export type FeedbackAdminDateRange = {
   readonly from: string;
   readonly to: string;

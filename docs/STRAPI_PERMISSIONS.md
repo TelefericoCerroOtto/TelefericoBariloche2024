@@ -211,14 +211,22 @@ Anything not listed in this document is not part of the expected permission mode
 The survey catalog (`survey-version`, `survey-settings`, `survey-qr-point`,
 `survey-submission`, `survey-report-generation`, and `survey-report`) remains
 disabled by default. U7-B3a adds only the two token-authenticated
-`survey-submission` actions listed above for Next.js mediation. Public,
-Authenticated, and every other application role remain denied; generic collection CRUD remains outside the access model. Other survey route modules continue to export empty Content API route arrays.
+`survey-submission` actions listed above for Next.js mediation. U8-B uses the
+native Strapi core routes for `survey-report-generation`; the selected native
+application role or API token may receive only the `find` and `create` actions
+needed by the server-side command helper. Report history remains owned by U8-A,
+and PDF artifact storage/download remains deferred to U12. The isolated
+permission harness provisions those native grants only inside its test database;
+no production permission mutation or custom CMS command code is added.
+Anonymous requests and ungranted actions remain denied. Application-level
+capabilities are enforced by the Next.js administration routes, and the
+`update`/`delete` core actions remain outside the U8-B access model.
 
 ### Future application capabilities
 
-These names are application-level capabilities for later U8 mapping and
-enforcement. They are not current Strapi action IDs or durable Users &
-Permissions rows.
+These names are application-level capabilities enforced by the Next.js
+administration routes. They are not current Strapi action IDs or durable Users
+& Permissions rows.
 
 | Future capability | Future operation | Route owner |
 | --- | --- | --- |
@@ -226,12 +234,12 @@ Permissions rows.
 | `feedback.comments.read` | Filtered comments | U8 administration routes |
 | `feedback.reports.read` | Reports and generations | U8 administration routes |
 | `feedback.reports.generate` | Generate and retry | U8 administration routes |
-| `feedback.reports.download` | Mediated report download | U8 administration routes |
+| `feedback.reports.download` | Mediated report download | U12 deterministic delivery |
 
 Exact intake, administration, and worker actions and grants remain owned by U7,
 U8, and U10 respectively. Each route-owning slice must add only its registered
-actions and update this document. No current grant or permission mutation is
-part of S06a.
+actions and update this document. U8-B adds no durable Strapi grant or
+permission mutation.
 
 Verify the baseline with:
 
