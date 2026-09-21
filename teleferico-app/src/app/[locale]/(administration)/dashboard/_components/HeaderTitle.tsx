@@ -22,6 +22,7 @@ const titles: Record<
   PRICES: { path: ADMIN_ROUTES.PRICES, title: "Tarifas" },
   RECRUITMENT: { path: ADMIN_ROUTES.RECRUITMENT, title: "Trabajo" },
   FAQS: { path: ADMIN_ROUTES.FAQS, title: "Preguntas Frecuentes" },
+  FEEDBACK: { path: ADMIN_ROUTES.FEEDBACK, title: "Opiniones" },
   NEW_FAQ: { path: ADMIN_ROUTES.NEW_FAQ, title: "Nueva Pregunta Frecuente" },
   ZONES: { path: ADMIN_ROUTES.ZONES, title: "Horarios Zonas" },
   NEW_ACTIVITY_TICKET: {

@@ -82,37 +82,41 @@ export type FeedbackAdminFilters =
       readonly pageSize: number;
     } & FeedbackAdminDateRange);
 
-export type FeedbackAdminPeriod = {
-  readonly submissionCount: number;
-  readonly [key: string]: unknown;
+export type FeedbackAdminSnapshot = SnapshotV1;
+export type FeedbackAdminPeriod = SnapshotV1["metrics"]["current"];
+export type FeedbackAdminAspect = SnapshotV1["metrics"]["aspects"][number];
+export type FeedbackAdminPoint = SnapshotV1["metrics"]["qrPoints"][number];
+export type FeedbackAdminCalendarBucket =
+  SnapshotV1["metrics"]["calendar"][number];
+
+export type FeedbackAdminSummaryData = {
+  readonly current: FeedbackAdminPeriod;
+  readonly previous: FeedbackAdminPeriod;
+  readonly deltas: SnapshotV1["metrics"]["deltas"];
+  readonly calendar: SnapshotV1["metrics"]["calendar"];
+  readonly strengths: readonly string[];
+  readonly opportunities: readonly string[];
+  readonly aspects: SnapshotV1["metrics"]["aspects"];
+  readonly availablePoints: SnapshotV1["metrics"]["qrPoints"];
+  readonly latestSuccessfulReport: FeedbackAdminReport | null;
 };
 
-export type FeedbackAdminSnapshot = {
-  readonly population: {
-    readonly currentSubmissionCount: number;
-    readonly previousSubmissionCount: number;
-    readonly [key: string]: unknown;
-  };
-  readonly metrics: {
-    readonly current: FeedbackAdminPeriod;
-    readonly previous: FeedbackAdminPeriod;
-    readonly deltas: {
-      readonly submissionCount: number;
-      readonly submissionPercentBps: number | null;
-      readonly [key: string]: unknown;
-    };
-    readonly calendar: readonly unknown[];
-    readonly aspects: readonly unknown[];
-    readonly classifications: {
-      readonly strengths: readonly string[];
-      readonly opportunities: readonly string[];
-    };
-    readonly matrix: readonly unknown[];
-    readonly fiveStarAssociation: readonly unknown[];
-    readonly otherAspects: readonly unknown[];
-    readonly qrPoints: readonly unknown[];
-  };
-  readonly comments: readonly unknown[];
+export type FeedbackAdminAspectsData = Pick<
+  SnapshotV1["metrics"],
+  | "current"
+  | "previous"
+  | "deltas"
+  | "aspects"
+  | "matrix"
+  | "fiveStarAssociation"
+  | "otherAspects"
+>;
+
+export type FeedbackAdminQrData = {
+  readonly view: "comparison" | "detail";
+  readonly points: SnapshotV1["metrics"]["qrPoints"];
+  readonly calendar: SnapshotV1["metrics"]["calendar"];
+  readonly aspects: SnapshotV1["metrics"]["aspects"];
 };
 
 export type FeedbackAdminComment = {
@@ -163,3 +167,4 @@ export type FeedbackAdminReadEnvelope<T> = {
     readonly total?: number;
   };
 };
+import type { SnapshotV1 } from "../../../../packages/survey-reporting-core/src";

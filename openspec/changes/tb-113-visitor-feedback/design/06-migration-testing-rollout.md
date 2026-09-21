@@ -49,7 +49,11 @@ Blocking execution order is isolated CMS PostgreSQL suite and cleanup, core/app/
 - Current administration evidence: OpenDesign project `teleferico-cerro-otto-design-system`, file `feedback-dashboard.html`.
 - Public-form evolution evidence: OpenDesign project `teleferico-cerro-otto-design-system-evolution`, file `feedback-form.html`.
 
-These responsive prototypes are non-normative design evidence only. They do not override specs, Appendices 01-03, server security, production limits, fixture populations, persisted ordering, or calculations. In particular, implementation MUST reject the prototype's static/inconsistent Summary values, non-recalculating aspect point filter, unsorted comments, hard-coded latest report, synthetic six-aspect QR subset, range-anchored 7/30-day buckets, mock verification checkbox, 800-character comment limit, and demo-text downloads. Prototype omission does not remove QR-only access or the two-hour QR-bound draft/resume contract.
+Before writing any design-significant U8 administration or public-form UI, implementation MUST inspect the exact corresponding OpenDesign file above. It MUST reconcile the implementation against that evidence for layout and information hierarchy, responsive behavior, visual vocabulary, chart and table presentation, controls and navigation, states, and accessibility cues. Record a concise visual-reconciliation result in `../direct-implementation-ledger.md`: artifact identity and revision when available, reviewed visual decisions, intentional divergences, and the reason for each divergence.
+
+These responsive prototypes are non-normative design evidence only. Specifications and design appendices remain the normative behavior, data, and security authority; no prototype may override them. In particular, implementation MUST reject the prototype's static/inconsistent Summary values, non-recalculating aspect point filter, unsorted comments, hard-coded latest report, synthetic six-aspect QR subset, range-anchored 7/30-day buckets, mock verification checkbox, 800-character comment limit, and demo-text downloads. Prototype omission does not remove QR-only access or the two-hour QR-bound draft/resume contract.
+
+**Stop condition:** If the corresponding reference artifact is unavailable, or an intended divergence is material and has not been explicitly decided, stop before writing UI and report the blocker or obtain an explicit decision. Do not invent visual details.
 
 ## Rollout and Rollback
 
