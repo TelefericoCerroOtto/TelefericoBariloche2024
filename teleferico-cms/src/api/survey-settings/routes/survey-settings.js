@@ -1,5 +1,3 @@
 'use strict';
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
-
-module.exports = createCoreRouter('api::survey-settings.survey-settings');
+module.exports = { type: 'content-api', routes: [] };

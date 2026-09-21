@@ -1,6 +1,17 @@
 'use strict';
 
+const SETTINGS_UID = 'api::survey-settings.survey-settings';
+const POINT_UID = 'api::survey-qr-point.survey-qr-point';
+const VERSION_UID = 'api::survey-version.survey-version';
 const { createSubmissionPersistence } = require('../services/persistence');
+
+function aspect(value) {
+  return {
+    aspectKey: value.aspectKey,
+    sortOrder: value.sortOrder,
+    labels: { es: value.labelEs, en: value.labelEn, pt: value.labelPt },
+  };
+}
 
 function closed(value, required, optional = []) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -46,13 +57,37 @@ function validCommand(command) {
   return command.operation === 'lookup' ? validLookup(command) : command.operation === 'accept' && validAcceptance(command);
 }
 
-const customController = {
-  async find(ctx) {
-    return strapi.service('api::survey-submission.survey-submission').find(ctx.query);
-  },
-
-  async findOne(ctx) {
-    return strapi.service('api::survey-submission.survey-submission').findOne(ctx.params.id, ctx.query);
+module.exports = {
+  async resolveSurvey(ctx) {
+    const [point, settings, versions] = await Promise.all([
+      strapi.documents(POINT_UID).findFirst({ filters: { publicCode: ctx.params.publicCode } }),
+      strapi.documents(SETTINGS_UID).findFirst({ populate: { activeSurveyVersion: { populate: ['aspects'] } } }),
+      strapi.documents(VERSION_UID).findMany(),
+    ]);
+    const version = settings?.activeSurveyVersion;
+    if (!settings?.intakeEnabled || point?.status !== 'active' || version?.status !== 'published') {
+      return ctx.notFound();
+    }
+    ctx.body = {
+      contractVersion: 'feedback-cms-public.v1',
+      pointDocumentId: point.documentId,
+      versionDocumentId: version.documentId,
+      point: { pointKey: point.pointKey, publicCode: point.publicCode, displayName: point.displayName },
+      survey: {
+        versionKey: version.versionKey,
+        versionRevision: settings.settingsRevision,
+        translations: { es: version.copyEs, en: version.copyEn, pt: version.copyPt },
+        aspects: version.aspects.map(aspect).sort((a, b) => a.sortOrder - b.sortOrder || a.aspectKey.localeCompare(b.aspectKey)),
+      },
+      activeVersionKey: version.versionKey,
+      versions: versions.map((candidate) => ({
+        versionKey: candidate.versionKey,
+        status: candidate.status,
+        lastSupersededAtEpochSeconds: candidate.lastSupersededAt
+          ? Math.floor(new Date(candidate.lastSupersededAt).getTime() / 1000)
+          : null,
+      })),
+    };
   },
 
   async submit(ctx) {
@@ -75,5 +110,3 @@ const customController = {
     }
   },
 };
-
-module.exports = customController;

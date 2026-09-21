@@ -127,29 +127,13 @@ test('real isolated Strapi exposes core routes without default survey grants', a
 
         assert.equal(surveyApis.length, 6);
         assert.deepEqual(registeredActions, [
-          'api::survey-qr-point.survey-qr-point.find',
-          'api::survey-qr-point.survey-qr-point.findOne',
-          'api::survey-qr-point.survey-qr-point.create',
-          'api::survey-qr-point.survey-qr-point.update',
-          'api::survey-qr-point.survey-qr-point.delete',
-          'api::survey-report.survey-report.find',
-          'api::survey-report.survey-report.findOne',
           'api::survey-report-generation.survey-report-generation.find',
           'api::survey-report-generation.survey-report-generation.findOne',
           'api::survey-report-generation.survey-report-generation.create',
           'api::survey-report-generation.survey-report-generation.update',
           'api::survey-report-generation.survey-report-generation.delete',
-          'api::survey-settings.survey-settings.find',
-          'api::survey-settings.survey-settings.update',
-          'api::survey-settings.survey-settings.delete',
-          'api::survey-submission.survey-submission.find',
-          'api::survey-submission.survey-submission.findOne',
+          'survey-submission.resolveSurvey',
           'survey-submission.submit',
-          'api::survey-version.survey-version.find',
-          'api::survey-version.survey-version.findOne',
-          'api::survey-version.survey-version.create',
-          'api::survey-version.survey-version.update',
-          'api::survey-version.survey-version.delete',
         ]);
         assert.ok(roles.some(({ name }) => name === 'Public'));
         assert.ok(roles.some(({ name }) => name === 'Authenticated'));

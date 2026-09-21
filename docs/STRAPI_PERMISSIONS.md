@@ -12,9 +12,6 @@ Every Strapi collection that is relevant to API tokens or application roles must
 
 Anything not listed remains outside the expected permission model.
 
-generic collection CRUD remains outside the access model unless a focused
-application boundary documents the exact read or command action.
-
 ## Summary
 
 | Access profile                  | Kind                     | Used by                      | Purpose                                                                                                                             | Duration  | Type       |
@@ -108,15 +105,11 @@ No Strapi Upload API permission is required for this token.
 
 ### `Visitor Feedback CMS Transport (Next.js)`
 
-This server-only token is used exclusively by the visitor feedback CMS transport. Public survey resolution reads the native Strapi REST surfaces for `survey-settings`, `survey-version`, and `survey-qr-point`; submission persistence remains the closed `survey-submission` command family below. It grants no administration, user-management, or role-management actions.
+This server-only token is used exclusively by the visitor feedback CMS transport. It grants the two custom `survey-submission` actions below and no generic collection CRUD, administration, user-management, or role-management actions. The submission action accepts only the closed `feedback-cms-submission.v1` lookup and acceptance commands.
 
-| Native/custom action | Access |
+| Custom action | Access |
 | --- | :---: |
-| `survey-settings.find` / `findOne` | ✅ |
-| `survey-version.find` / `findOne` | ✅ |
-| `survey-qr-point.find` / `findOne` | ✅ |
-| `survey-submission.find` / `findOne` | ✅ for admin readers only |
-| `survey-report.find` / `findOne` | ✅ for admin readers only |
+| `survey-submission.resolveSurvey` | ✅ |
 | `survey-submission.submit` | ✅ |
 
 ## Transfer tokens
@@ -217,9 +210,8 @@ Anything not listed in this document is not part of the expected permission mode
 
 The survey catalog (`survey-version`, `survey-settings`, `survey-qr-point`,
 `survey-submission`, `survey-report-generation`, and `survey-report`) remains
-disabled by default. The feedback transport uses only bounded native `find`/
-`findOne` reads for the survey catalog plus the token-authenticated
-`survey-submission` command listed above. U8-B uses the
+disabled by default. U7-B3a adds only the two token-authenticated
+`survey-submission` actions listed above for Next.js mediation. U8-B uses the
 native Strapi core routes for `survey-report-generation`; the selected native
 application role or API token may receive only the `find` and `create` actions
 needed by the server-side command helper. Report history remains owned by U8-A,

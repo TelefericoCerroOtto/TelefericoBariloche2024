@@ -249,7 +249,7 @@ test('migration defers on an empty database and executes through one ready trans
   await assert.rejects(migration.down(), /no destructive rollback/);
 });
 
-test('survey APIs expose native read routes and keep transactional intake custom', () => {
+test('survey APIs expose no generic CRUD routes while lifecycle services stay aligned', () => {
   const names = [
     'survey-version',
     'survey-settings',
@@ -259,11 +259,20 @@ test('survey APIs expose native read routes and keep transactional intake custom
     'survey-report',
   ];
 
-  for (const name of names.filter((candidate) => ['survey-version', 'survey-settings', 'survey-qr-point'].includes(candidate))) {
-    const routes = require('node:fs').readFileSync(path.join(__dirname, '../../../src/api', name, 'routes', `${name}.js`), 'utf8');
-    const controller = require('node:fs').readFileSync(path.join(__dirname, '../../../src/api', name, 'controllers', `${name}.js`), 'utf8');
-    assert.match(routes, /createCoreRouter/);
-    assert.match(controller, /createCoreController/);
+  for (const name of names.filter((candidate) => !['survey-submission', 'survey-report-generation'].includes(candidate))) {
+    const routes = require(path.join(
+      '../../../src/api',
+      name,
+      'routes',
+      `${name}.js`,
+    ));
+    assert.deepEqual(routes, { type: 'content-api', routes: [] });
+    assert.deepEqual(require(path.join(
+      '../../../src/api',
+      name,
+      'controllers',
+      `${name}.js`,
+    )), {});
     assert.doesNotThrow(() => require(path.join(
       '../../../src/api',
       name,
@@ -273,11 +282,10 @@ test('survey APIs expose native read routes and keep transactional intake custom
   }
 
   const intakeRoutes = require('../../../src/api/survey-submission/routes/survey-submission');
-  assert.ok(intakeRoutes.routes.some(({ method, handler }) => method === 'POST' && handler === 'survey-submission.submit'));
-  assert.match(
-    require('node:fs').readFileSync(path.join(__dirname, '../../../src/api/survey-submission/routes/native.js'), 'utf8'),
-    /createCoreRouter/,
-  );
+  assert.deepEqual(intakeRoutes.routes.map(({ method, handler }) => [method, handler]), [
+    ['GET', 'survey-submission.resolveSurvey'],
+    ['POST', 'survey-submission.submit'],
+  ]);
 });
 
 test('submission controller rejects malformed and unknown versioned commands before persistence', async () => {

@@ -18,9 +18,7 @@ import {
 import {
   parseFeedbackAdminFilters,
   projectAspects,
-  projectComments,
   projectQrPoints,
-  projectReports,
   projectSummary,
   type FeedbackAdminQuery,
 } from "./admin-read";
@@ -128,21 +126,11 @@ function query(req: NextRequest): FeedbackAdminQuery {
 }
 
 function projectAnalytics(data: unknown, filters: FeedbackAdminFilters) {
-  if (
-    typeof data !== "object" ||
-    data === null ||
-    !("snapshot" in data) ||
-    !("comments" in data) ||
-    !("reports" in data)
-  )
-    return data;
   const source = data as FeedbackAdminSource;
   if (filters.route === "summary") return projectSummary(source);
   if (filters.route === "aspects") return projectAspects(source);
   if (filters.route === "qr-comparison" || filters.route === "qr-detail")
     return projectQrPoints(source, filters);
-  if (filters.route === "comments") return projectComments(source, filters);
-  if (filters.route === "reports") return projectReports(source, filters);
   return data;
 }
 

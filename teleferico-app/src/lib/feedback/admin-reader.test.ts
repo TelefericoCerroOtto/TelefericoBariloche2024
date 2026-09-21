@@ -14,29 +14,11 @@ function responseFor(body: unknown): Response {
   });
 }
 
-type NativeBodies = {
-  submissions: unknown;
-  points: unknown;
-  versions: unknown;
-  reports: unknown;
-};
-
-const nativeBodies: NativeBodies = {
-  submissions: { data: [] },
-  points: { data: [] },
-  versions: { data: [] },
-  reports: { data: [] },
-};
-
-function nativeResponseFor(
-  input: string,
-  body: NativeBodies = nativeBodies,
-): unknown {
-  const path = new URL(input).pathname;
-  if (path.endsWith("survey-submissions")) return body.submissions;
-  if (path.endsWith("survey-qr-points")) return body.points;
-  if (path.endsWith("survey-versions")) return body.versions;
-  return body.reports;
+function malformedResponse(): Response {
+  return new Response('{"contractVersion":', {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 const filters = {
@@ -45,61 +27,122 @@ const filters = {
   to: "2026-08-20",
 };
 
+const validEnvelope = {
+  contractVersion: "feedback-admin.v1",
+  data: { current: { submissionCount: 3 } },
+  meta: {
+    filters,
+    population: { currentSubmissionCount: 3, previousSubmissionCount: 2 },
+  },
+};
+
+const LARGE_VALID_PAYLOAD_SIZE = 32 * 1024;
+const OVERSIZED_PAYLOAD_SIZE = 1024 * 1024;
+
 describe("feedback administration CMS reader", () => {
-  it("rejects malformed native collection responses", async () => {
-    const body = { ...nativeBodies, submissions: { malformed: true } };
+  it.each([
+    ["array data", { ...validEnvelope, data: [] }],
+    [
+      "missing filters",
+      { ...validEnvelope, meta: { population: validEnvelope.meta.population } },
+    ],
+    [
+      "negative population",
+      {
+        ...validEnvelope,
+        meta: {
+          ...validEnvelope.meta,
+          population: {
+            currentSubmissionCount: -1,
+            previousSubmissionCount: 2,
+          },
+        },
+      },
+    ],
+    [
+      "fractional population",
+      {
+        ...validEnvelope,
+        meta: {
+          ...validEnvelope.meta,
+          population: {
+            currentSubmissionCount: 1.5,
+            previousSubmissionCount: 2,
+          },
+        },
+      },
+    ],
+    [
+      "unsafe population",
+      {
+        ...validEnvelope,
+        meta: {
+          ...validEnvelope.meta,
+          population: {
+            currentSubmissionCount: Number.MAX_SAFE_INTEGER + 1,
+            previousSubmissionCount: 2,
+          },
+        },
+      },
+    ],
+  ] as const)(
+    "rejects invalid feedback-admin.v1 shape: %s",
+    async (_name, body) => {
+      const reader = createFeedbackAdminReader({
+        baseUrl: "https://cms.example.test",
+        token: "synthetic-token",
+        fetchImplementation: vi.fn(async () => responseFor(body)),
+      });
+
+      await expect(reader.read(filters)).rejects.toBeInstanceOf(
+        FeedbackAdminReaderError,
+      );
+    },
+  );
+
+  it("returns a valid object data envelope with bounded population counts", async () => {
     const reader = createFeedbackAdminReader({
       baseUrl: "https://cms.example.test",
       token: "synthetic-token",
-      fetchImplementation: vi.fn(async (input) =>
-        responseFor(nativeResponseFor(String(input), body)),
-      ),
+      fetchImplementation: vi.fn(async () => responseFor(validEnvelope)),
     });
 
-    await expect(reader.read(filters)).rejects.toBeInstanceOf(
-      FeedbackAdminReaderError,
-    );
+    await expect(reader.read(filters)).resolves.toEqual(validEnvelope);
   });
 
-  it("builds a bounded native snapshot envelope", async () => {
+  it("accepts a valid permitted envelope larger than 16 KiB", async () => {
+    const largeEnvelope = {
+      ...validEnvelope,
+      data: { comments: [{ text: "x".repeat(LARGE_VALID_PAYLOAD_SIZE) }] },
+    };
     const reader = createFeedbackAdminReader({
       baseUrl: "https://cms.example.test",
       token: "synthetic-token",
-      fetchImplementation: vi.fn(async (input) =>
-        responseFor(nativeResponseFor(String(input))),
-      ),
+      fetchImplementation: vi.fn(async () => responseFor(largeEnvelope)),
     });
 
-    await expect(reader.read(filters)).resolves.toMatchObject({
-      contractVersion: "feedback-admin.v1",
-      data: { snapshot: { contractVersion: "survey-snapshot.v1" } },
-      meta: { filters },
-    });
+    await expect(reader.read(filters)).resolves.toEqual(largeEnvelope);
   });
 
-  it("maps malformed JSON before native snapshot construction", async () => {
+  it("accepts a valid JSON response larger than 1 MiB", async () => {
+    const oversizedEnvelope = {
+      ...validEnvelope,
+      data: { comments: [{ text: "x".repeat(OVERSIZED_PAYLOAD_SIZE) }] },
+    };
     const reader = createFeedbackAdminReader({
       baseUrl: "https://cms.example.test",
       token: "synthetic-token",
-      fetchImplementation: vi.fn(async (input) =>
-        new URL(String(input)).pathname.endsWith("survey-submissions")
-          ? new Response('{"malformed":', { status: 200 })
-          : responseFor(nativeResponseFor(String(input))),
-      ),
+      fetchImplementation: vi.fn(async () => responseFor(oversizedEnvelope)),
     });
 
-    await expect(reader.read(filters)).rejects.toBeInstanceOf(
-      FeedbackAdminReaderError,
-    );
+    await expect(reader.read(filters)).resolves.toEqual(oversizedEnvelope);
   });
 
-  it("rejects non-JSON native responses", async () => {
+  it("rejects malformed JSON before envelope validation", async () => {
     const reader = createFeedbackAdminReader({
       baseUrl: "https://cms.example.test",
       token: "synthetic-token",
-      fetchImplementation: vi.fn(
-        async () => new Response("not-json", { status: 200 }),
-      ),
+      fetchImplementation: vi.fn(async () => malformedResponse()),
     });
 
     await expect(reader.read(filters)).rejects.toBeInstanceOf(
