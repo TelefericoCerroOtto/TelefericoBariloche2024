@@ -17,6 +17,14 @@ const validGenerate = {
 const validResult = {
   reportRunId: "00000000-0000-4000-8000-000000000001",
   status: "queued",
+  dispatch: {
+    contractVersion: "survey-dispatch-command.v1",
+    status: "queued",
+    disposition: "dispatcher-unavailable",
+    taskName: "tb113-report-00000000000040008000000000000001",
+    dispatchAttemptCount: 0,
+    failureCode: "DISPATCH_UNAVAILABLE",
+  },
 } as const;
 const validCoreRow = {
   documentId: "generation-document-1",
@@ -84,6 +92,36 @@ describe("feedback administration command contracts", () => {
     await expect(transport.generate(validGenerate)).resolves.toEqual(
       validResult,
     );
+  });
+
+  it("passes a deterministic task name through the dispatcher seam", async () => {
+    const dispatch = vi.fn(async ({ taskName }: { taskName: string }) => ({
+      contractVersion: "survey-dispatch-command.v1" as const,
+      status: "dispatched" as const,
+      taskName,
+      dispatchAttemptCount: 1,
+    }));
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      dispatcher: { dispatch },
+      fetchImplementation: vi.fn(async (_input, init) =>
+        init?.method === "POST"
+          ? Response.json({ data: validCoreRow }, { status: 201 })
+          : Response.json({ data: [] }, { status: 200 }),
+      ),
+    });
+
+    await expect(transport.generate(validGenerate)).resolves.toMatchObject({
+      dispatch: {
+        status: "dispatched",
+        taskName: "tb113-report-00000000000040008000000000000001",
+      },
+    });
+    expect(dispatch).toHaveBeenCalledWith({
+      reportRunId: validResult.reportRunId,
+      taskName: "tb113-report-00000000000040008000000000000001",
+    });
   });
 
   it("maps native core conflicts without leaking upstream details", async () => {
