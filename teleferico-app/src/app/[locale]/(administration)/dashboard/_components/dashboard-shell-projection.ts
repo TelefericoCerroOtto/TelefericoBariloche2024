@@ -80,7 +80,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     allowedRoles: ["Administrator", "Media Manager"],
   },
   {
-    name: "Opiniones",
+    name: "Feedback del público",
     url: ADMIN_ROUTES.FEEDBACK,
     icon: "feedback",
     implemented: true,
