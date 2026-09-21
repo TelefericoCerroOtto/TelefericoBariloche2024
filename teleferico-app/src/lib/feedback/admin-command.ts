@@ -4,6 +4,11 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import {
+  createUnavailableFeedbackDispatcher,
+  type FeedbackReportDispatcher,
+  type FeedbackDispatchResult,
+} from "./dispatch";
+import {
   normalizePeriod,
   REPORTING_TIME_ZONE,
 } from "../../../packages/survey-reporting-core/src/index";
@@ -29,6 +34,7 @@ type CommandResult =
 type RetryResult =
   | { readonly ok: true; readonly value: FeedbackAdminRetryCommand }
   | { readonly ok: false; readonly code: "VALIDATION_FAILED" };
+type CoreCommandResult = Omit<FeedbackAdminCommandResult, "dispatch">;
 type CoreGeneration = FeedbackAdminDateRange & {
   readonly documentId: string;
   readonly reportRunId: string;
@@ -200,7 +206,7 @@ function asCoreGeneration(value: unknown): CoreGeneration | undefined {
   };
 }
 
-function coreResult(value: unknown): FeedbackAdminCommandResult {
+function coreResult(value: unknown): CoreCommandResult {
   if (!isRecord(value))
     throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
   const row = asCoreGeneration(value.data);
@@ -232,10 +238,13 @@ type Options = {
   readonly baseUrl: string;
   readonly token: string;
   readonly fetchImplementation?: typeof fetch;
+  readonly dispatcher?: FeedbackReportDispatcher;
 };
 
 export function createFeedbackAdminCommandTransport(options: Options) {
   const fetchImplementation = options.fetchImplementation ?? fetch;
+  const dispatcher =
+    options.dispatcher ?? createUnavailableFeedbackDispatcher();
   const request = (path: string, init: RequestInit = {}) =>
     fetchImplementation(`${options.baseUrl.replace(/\/$/, "")}${path}`, {
       ...init,
@@ -326,12 +335,17 @@ export function createFeedbackAdminCommandTransport(options: Options) {
         ? { retryOfGeneration: { connect: [source.documentId] } }
         : {}),
     };
-    return coreResult(
+    const result = coreResult(
       await coreRequest(GENERATION_ENDPOINT, {
         method: "POST",
         body: JSON.stringify({ data }),
       }),
     );
+    const dispatch: FeedbackDispatchResult = await dispatcher.dispatch({
+      reportRunId: result.reportRunId,
+      taskName: `tb113-report-${result.reportRunId.replaceAll("-", "")}`,
+    });
+    return { ...result, dispatch };
   };
 
   return {

@@ -35,6 +35,21 @@ export type FeedbackAdminRetryCommand = {
 export type FeedbackAdminCommandResult = {
   readonly reportRunId: string;
   readonly status: FeedbackAdminCommandStatus;
+  readonly dispatch:
+    | {
+        readonly contractVersion: "survey-dispatch-command.v1";
+        readonly status: "dispatched";
+        readonly taskName: string;
+        readonly dispatchAttemptCount: number;
+      }
+    | {
+        readonly contractVersion: "survey-dispatch-command.v1";
+        readonly status: "queued";
+        readonly disposition: "dispatcher-unavailable";
+        readonly taskName: string;
+        readonly dispatchAttemptCount: number;
+        readonly failureCode: "DISPATCH_UNAVAILABLE";
+      };
 };
 
 export type FeedbackAdminOverlapDetails = {

@@ -69,7 +69,11 @@ not implemented in this slice.
 
 ## CMS and Worker
 
-No browser/CRUD. Intake token: GET `/api/tb113/public/surveys/:publicCode`, POST `/api/tb113/public/submissions`; user JWT mirrors admin. Worker outputs omit prompts/comments/credentials/signed URLs/unvalidated model output.
+No browser/CRUD. The app-owned public resolver reads the native Strapi REST
+surfaces for `survey-qr-points`, `survey-settings`, and `survey-versions` with
+the server-held feedback token. Transactional intake remains
+`POST /api/tb113/public/submissions`; user JWT mirrors admin. Worker outputs
+omit prompts/comments/credentials/signed URLs/unvalidated model output.
 
 ```ts
 // Normative
@@ -100,3 +104,24 @@ Paths: `W=/api/tb113/worker/generations/:reportRunId`; `A=/api/tb113/admin/gener
 All six add 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `RUN_NOT_FOUND`, and safe 500 `INTERNAL_ERROR`. Claim alone reads checkpoints. Identical checkpoint/terminal replay precedes stale CAS; differing replay conflicts. Appendix 04 validates completion. Only snapshot carries D50-D51 raw comments to the private worker, never browsers; others omit comments and raw prompt/model responses.
 
 Cloud Run only exposes POST `/internal/v1/report-runs:execute` with `{commandVersion:"survey-report-command.v1",reportRunId}`; raw >4 KiB returns 413 `PAYLOAD_TOO_LARGE`. Auth precedes dependencies. Deadline-bounded 200: `{contractVersion:"survey-worker-execution.v1",reportRunId,status:"succeeded"|"failed",disposition:"completed"|"terminal-replay",failureCode?:RuntimeFailureCodeV1|"QUEUE_ENQUEUE_EXHAUSTED"}`. Failures: 400 `INVALID_COMMAND`, 401 `INVALID_OIDC`, 403 `FORBIDDEN_INVOKER`, 404 `RUN_NOT_FOUND`, 409 `INVALID_STATE`, retryable 503 `RETRYABLE_EXECUTION`, safe 500 `INTERNAL_ERROR`. Responses omit checkpoints/sensitive/raw content.
+
+## Direct implementation runtime boundary
+
+The app-owned direct implementation now provides the local worker/PDF boundary
+without claiming external task or storage execution:
+
+- `teleferico-app/services/survey-report-worker/src/` owns typed CMS seams,
+  immutable snapshot validation, checkpoint/CAS orchestration, deterministic
+  ChartViewModel-to-SVG/HTML rendering, PDF metadata, and terminal failure
+  handling.
+- `teleferico-app/src/lib/feedback/dispatch.ts` is the admin dispatcher seam.
+  Its default result is explicit `DISPATCH_UNAVAILABLE` with the generation
+  left visibly queued; it never claims that Cloud Tasks or Cloud Run ran.
+- Final artifact publication is represented only by the injected CMS
+  completion adapter. The local artifact adapter stages bytes and cannot make
+  a report downloadable before successful completion.
+
+Cloud Tasks, Cloud Run/OIDC, Vertex, GCS, production worker-image readiness,
+and authenticated integrated execution remain external validation and
+deployment gates. They are intentionally not configured or inferred by this
+slice.
