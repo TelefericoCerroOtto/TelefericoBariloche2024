@@ -6,6 +6,7 @@ type SidebarIconName =
   | "admin-users"
   | "buses"
   | "faqs"
+  | "feedback"
   | "news"
   | "prices"
   | "recruitment"
@@ -77,6 +78,14 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     implemented: true,
     tooltip: "Gestionar preguntas frecuentes del sitio web",
     allowedRoles: ["Administrator", "Media Manager"],
+  },
+  {
+    name: "Feedback del público",
+    url: ADMIN_ROUTES.FEEDBACK,
+    icon: "feedback",
+    implemented: true,
+    tooltip: "Analizar las opiniones de visitantes",
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Trabajo",

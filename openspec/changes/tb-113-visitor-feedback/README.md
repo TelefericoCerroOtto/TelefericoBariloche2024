@@ -5,6 +5,7 @@ Ordinary future implementation work for TB-113 uses direct implementation by def
 ## Required route
 
 - Read the [proposal](./proposal.md), [specifications](./specs/), [design](./design.md), and [tasks](./tasks.md) as the normative scope, requirement, design, and work-breakdown references.
+- Before writing design-significant U8 administration or public-form UI, complete the required OpenDesign inspection and visual reconciliation in the [UI Design Evidence Boundary](./design/06-migration-testing-rollout.md#ui-design-evidence-boundary). Stop when the artifact is unavailable or a material divergence remains undecided; report the blocker or obtain an explicit decision rather than inventing visual details.
 - Implement the selected work unit directly and record its evidence in the [direct implementation ledger](./direct-implementation-ledger.md).
 - Do not dispatch `sdd-apply`, `sdd-verify`, `sdd-archive`, or any other SDD phase for ordinary implementation. The presence of OpenSpec artifacts does not authorize or imply that dispatch.
 - Use a formal SDD lifecycle operation only when the user explicitly requests one, such as formal verification, remediation, or archive.
@@ -23,6 +24,7 @@ Ordinary future implementation work for TB-113 uses direct implementation by def
 ## Evidence rules
 
 - Report only checks that were actually executed and their exact observed results.
+- For design-significant U8 administration or public-form work, record the visual-reconciliation result in the ledger: OpenDesign artifact identity and revision when available, reviewed visual decisions, intentional divergences, and reasons.
 - Never claim a deferred check as passed. Record it as `not run` with the exact deferred command or scenario and the reason.
 - Treat direct implementation evidence as an implementation bridge only. It does not become retroactive native SDD attempt state, receipts, review authority, or formal verification evidence.
 - Keep formal task completion, verification, and archive claims pending until the corresponding formal evidence is executed and admitted by the formal workflow.

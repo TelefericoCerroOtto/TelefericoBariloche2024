@@ -17,12 +17,17 @@ import {
 } from "./admin-command";
 import {
   parseFeedbackAdminFilters,
+  projectAspects,
+  projectQrPoints,
+  projectSummary,
   type FeedbackAdminQuery,
 } from "./admin-read";
 import type {
   FeedbackAdminCapability,
+  FeedbackAdminFilters,
   FeedbackAdminOverlapDetails,
   FeedbackAdminReadRoute,
+  FeedbackAdminSource,
 } from "@/types/api/admin/feedback";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -120,6 +125,15 @@ function query(req: NextRequest): FeedbackAdminQuery {
   return result;
 }
 
+function projectAnalytics(data: unknown, filters: FeedbackAdminFilters) {
+  const source = data as FeedbackAdminSource;
+  if (filters.route === "summary") return projectSummary(source);
+  if (filters.route === "aspects") return projectAspects(source);
+  if (filters.route === "qr-comparison" || filters.route === "qr-detail")
+    return projectQrPoints(source, filters);
+  return data;
+}
+
 export async function handleFeedbackAdminRead(
   req: NextRequest,
   route: FeedbackAdminReadRoute | "qr-points",
@@ -133,7 +147,10 @@ export async function handleFeedbackAdminRead(
     const result = await getFeedbackAdminReader(auth.session.jwt).read(
       filters.value,
     );
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json(
+      { ...result, data: projectAnalytics(result.data, filters.value) },
+      { status: 200 },
+    );
   } catch (error) {
     if (!(error instanceof FeedbackAdminReaderError))
       console.error("[admin/feedback] read failed", error);

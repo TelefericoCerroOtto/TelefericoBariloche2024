@@ -372,6 +372,7 @@ export function projectSummary(source: FeedbackAdminSource) {
     strengths: classifications.strengths,
     opportunities: classifications.opportunities,
     aspects,
+    availablePoints: source.snapshot.metrics.qrPoints,
     matrix,
     fiveStarAssociation,
     otherAspects,
@@ -407,6 +408,11 @@ export function projectQrPoints(
     { route: "qr-comparison" | "qr-detail" }
   >,
 ) {
+  if (
+    filters.route === "qr-detail" &&
+    source.snapshot.population.filters.pointKey !== filters.pointKey
+  )
+    throw new TypeError("QR detail requires a point-scoped snapshot");
   const points = source.snapshot.metrics.qrPoints.filter((point) => {
     if (typeof point !== "object" || point === null || !("pointKey" in point))
       return false;
@@ -417,5 +423,9 @@ export function projectQrPoints(
   return {
     view: filters.route === "qr-comparison" ? "comparison" : "detail",
     points,
+    calendar:
+      filters.route === "qr-detail" ? source.snapshot.metrics.calendar : [],
+    aspects:
+      filters.route === "qr-detail" ? source.snapshot.metrics.aspects : [],
   };
 }
