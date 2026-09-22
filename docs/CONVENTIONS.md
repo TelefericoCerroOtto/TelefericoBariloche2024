@@ -155,6 +155,26 @@ Use `--mode stacked-preview` only while observing a draft child against its pare
 
 It does not authorize later changes, force pushes, branch changes, rebases, merges, issue closure, branch deletion, or releases. It is not a promotion workflow: continue to use the separate `development -> staging` and `staging -> main` promotion flow and its release/closure rules.
 
+#### Maintainer mixed-scope override
+
+The only mixed-scope override is the explicit invocation `/implementation-pr --allow-mixed-scope "<reason>"`.
+
+- Empty `/implementation-pr` remains strict. Missing, blank, unknown, or extra arguments fail closed.
+- The override is bound to the complete exact invocation snapshot, selected `origin`, typed base plan, destination, and current authenticated Git/GitHub session authorization. A later generic follow-up cannot reuse it.
+- It permits only non-sensitive paths that the mapper classifies as otherwise unrelated after recording their complete exact sorted inventory. The mapper continues to report the real `unrelated_count` and examples. Sensitive paths, ambiguity, truncation, candidate changes, and binding changes remain blockers.
+- When active, the implementation PR body must contain one visible English section with this shape:
+
+```md
+## Scope Exception
+
+Reason: <non-empty maintainer reason>
+
+Exceptional paths/work units:
+- Path: <exact path> | Work unit: <non-empty work-unit description>
+```
+
+The entries must enumerate every exceptional path exactly once. Prefer separate coherent commits/work units when possible; the override permits one mixed-scope PR under maintainer authority but does not weaken any other publication restriction.
+
 ### Content rules by PR type
 
 #### Implementation PR

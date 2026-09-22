@@ -149,6 +149,12 @@ Obey an explicit safe user instruction. Never manufacture a commit as a recovery
 - Do not stash, reset, rebase, restore, or move dirty-tree changes without explicit authorization.
 - Do not reopen issues or silently correct ambiguous tracking contradictions.
 
+### Implementation publication scope override
+
+The only maintainer mixed-scope override is `/implementation-pr --allow-mixed-scope "<reason>"`. Empty invocation remains strict; missing, blank, unknown, and extra arguments fail closed. This is not a branch, base, tracking, or promotion override.
+
+The override must bind the complete exact candidate snapshot, selected `origin`, typed base plan, destination, and current authenticated Git/GitHub session authorization. It permits only non-sensitive paths classified as otherwise unrelated after exact sorted inventory capture and requires visible English `## Scope Exception` disclosure in the implementation PR with the reason and exact exceptional paths/work units. Sensitive paths, ambiguity, truncation, candidate changes, binding changes, force pushes, rebases, merges, issue closure, branch deletion, promotions, releases, arbitrary bases, and destructive operations remain forbidden.
+
 ## Runtime Report
 
 Do not dump the full context snapshot by default. Return at most four or five short lines using simple labels and explanations in the user's current conversation language:

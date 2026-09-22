@@ -8,8 +8,19 @@ Read `.agents/skills/implementation-pr/SKILL.md` FIRST. Follow it as the control
 
 The shortcut may be invoked with `/implementation-pr` or with an explicit natural-language request that names the `implementation-pr` shortcut or workflow and asks to run its mutation scope; slash syntax is not required. Vague or anaphoric follow-ups such as `do it again`, `go again`, `hazlo de vuelta`, or `dale de nuevo` do not invoke this workflow or reuse prior authorization unless they unambiguously identify the shortcut and mutation scope.
 
+## Argument contract
+
+Parse the complete invocation before any discovery or mutation:
+
+- `/implementation-pr` has strict scope behavior.
+- The only accepted override is `/implementation-pr --allow-mixed-scope "<reason>"`.
+- The reason must be one non-blank, single-line value. Reject a missing reason, blank quotes, unknown options, extra arguments, and alternate spellings.
+- The override is not a general authorization. Bind it to the exact candidate snapshot, selected `origin`, typed base plan, destination, and current authenticated Git/GitHub session authorization.
+
 This command explicitly authorizes only these three mutation classes for the current invocation snapshot: commit through the active `commit-planner` auto contract, non-force-push `HEAD` to `origin`, and create one implementation PR through the active `branch-pr` create contract, including required PR metadata. The default typed plan targets `development`; a draft `stacked-to-main` preview requires a validated typed plan and never accepts an arbitrary base string.
+
+With the valid override, the mapper may authorize inclusion of all non-sensitive paths it classifies as otherwise unrelated only after recording their complete exact sorted inventory. It must continue to report the real `unrelated_count` and examples, but must not emit `UNRELATED_CANDIDATE_PATHS` as a blocker for that unchanged binding. Sensitive or credential-like paths, ambiguity, truncation, candidate changes, and binding changes still block. The PR body must include one visible English `## Scope Exception` section with the reason and exact exceptional `Path: <path> | Work unit: <work unit>` entries.
 
 After PR creation, invoke `node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url>`. Add `--mode stacked-preview` only for the validated draft preview path. It is the sole polling and filtering implementation. Preview mode observes governance only; functional and Cloud Build checks are deferred until retargeting to `development`.
 
-Do not carry this authorization to later work. Do not force-push, switch branches, rebase, merge, close issues, delete branches, create or regenerate promotion PRs, or perform release actions.
+Do not carry this authorization to later work. A same-invocation clarification may resume only when the exact snapshot, destination, plan, and credential/session binding remain unchanged and no terminal mutation or failure ended the invocation. Generic later follow-ups remain non-authorizing. Do not force-push, switch branches, rebase, merge, close issues, delete branches, create or regenerate promotion PRs, or perform release actions.

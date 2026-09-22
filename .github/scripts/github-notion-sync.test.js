@@ -154,6 +154,38 @@ test("uses GitHub-rendered visible semantics for adversarial GFM cases", () => {
   assert.deepEqual(governance.extractAdvancingReferences(governance.parseGitHubRenderedDocument("<pre><code>Advances #204</code></pre><p>Advances #205</p>")), [{ keyword: "Advances", issueNumber: 205 }]);
 });
 
+test("validates visible scope exception disclosures without accepting hidden content", () => {
+  const document = governance.parseGitHubRenderedDocument([
+    "<h2>Scope Exception</h2>",
+    "<p>Reason: Release the coupled governance updates together.</p>",
+    "<p>Exceptional paths/work units:</p>",
+    "<ul><li>Path: docs/CONVENTIONS.md | Work unit: publication contract</li>",
+    "<li>Path: AGENTS.md | Work unit: agent guardrails</li></ul>",
+  ].join(""));
+  assert.deepEqual(governance.validateScopeExceptionBody(document), {
+    reason: "Release the coupled governance updates together.",
+    entries: [
+      { path: "docs/CONVENTIONS.md", workUnit: "publication contract" },
+      { path: "AGENTS.md", workUnit: "agent guardrails" },
+    ],
+  });
+
+  assert.equal(
+    governance.validateScopeExceptionBody(
+      governance.parseGitHubRenderedDocument("<div hidden><h2>Scope Exception</h2><p>Reason: hidden</p><p>Exceptional paths/work units:</p><p>- Path: secret | Work unit: hidden</p></div>"),
+    ),
+    null,
+  );
+  assert.throws(
+    () => governance.validateScopeExceptionBody(governance.parseGitHubRenderedDocument("<h2>Scope Exception</h2><p>Reason: </p><p>Exceptional paths/work units:</p>")),
+    /one non-empty 'Reason/,
+  );
+  assert.throws(
+    () => governance.validateScopeExceptionBody(governance.parseGitHubRenderedDocument("<h2>Scope Exception</h2><p>Reason: reason</p><p>Exceptional paths/work units:</p><p>- Path: docs/CONVENTIONS.md | Work unit: one</p><p>- Path: docs/CONVENTIONS.md | Work unit: duplicate</p>")),
+    /must not duplicate exceptional paths/,
+  );
+});
+
 test("main promotion validation supports phased delivery declarations", async () => {
   mockIncludedPullRequests();
   const cases = [
