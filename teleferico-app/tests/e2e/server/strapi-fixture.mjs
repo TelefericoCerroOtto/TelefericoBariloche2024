@@ -29,17 +29,78 @@ const serviceState = {
   state: "normal",
 };
 
+const syntheticJwt = "synthetic-strapi-jwt";
+const syntheticUser = {
+  id: 113,
+  documentId: "e2e-admin-user",
+  username: "e2e-admin",
+  email: "e2e-admin@local.invalid",
+  provider: "local",
+  confirmed: true,
+  blocked: false,
+  name: "Synthetic",
+  surname: "Administrator",
+  createdAt: timestamp,
+  updatedAt: timestamp,
+  publishedAt: timestamp,
+  role: {
+    id: 1,
+    documentId: "e2e-administrator-role",
+    name: "Administrator",
+    description: "Synthetic E2E administrator",
+    type: "administrator",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    publishedAt: timestamp,
+    locale: null,
+  },
+  faved_postulations: [],
+};
+
+function requestBody(request) {
+  return new Promise((resolve) => {
+    let body = "";
+    request.on("data", (chunk) => {
+      body += chunk;
+    });
+    request.on("end", () => resolve(body ? JSON.parse(body) : {}));
+  });
+}
+
 function json(response, status, body) {
   response.writeHead(status, { "Content-Type": "application/json" });
   response.end(JSON.stringify(body));
 }
 
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://127.0.0.1:${port}`);
 
   if (url.pathname === "/health") {
     response.writeHead(204);
     response.end();
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/auth/local") {
+    const body = await requestBody(request);
+    if (
+      body.identifier !== syntheticUser.email ||
+      body.password !== "e2e-admin-password"
+    ) {
+      json(response, 401, { error: { message: "Invalid credentials" } });
+      return;
+    }
+    const { role, ...loginUser } = syntheticUser;
+    json(response, 200, { jwt: syntheticJwt, user: loginUser });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/users/me") {
+    if (request.headers.authorization !== `Bearer ${syntheticJwt}`) {
+      json(response, 401, { error: { message: "Unauthorized" } });
+      return;
+    }
+    json(response, 200, syntheticUser);
     return;
   }
 
