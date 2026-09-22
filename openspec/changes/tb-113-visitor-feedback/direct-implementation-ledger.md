@@ -445,3 +445,48 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
 - **Formal SDD reconstruction:**
   - Status: `pending`
   - Evidence: `pending`
+
+### `U8-E: Admin Playwright E2E`
+
+- **Identity and scope:** Added authenticated Chromium coverage for the complete U8 administration journey: module navigation, shared responsive semantics, Summary/Aspects/QR transitions, comments filters/results/pagination/detail, independent report generation and retry, immutable history presentation, explicit empty states, and deterministic local fixture isolation. Production bypasses, CMS/application behavior, dependencies, auth middleware, infrastructure, and remote resources remain excluded.
+- **Requirements references:** `specs/feedback-administration/spec.md` fixed module order, responsive parity, comments filters/order/pagination/detail, independent generation, immutable report history, empty states, and mediated download boundary.
+- **Design references:** `design/06-migration-testing-rollout.md` RED-first E2E contract and synthetic-only browser boundary; `design/02-http-contracts.md` versioned admin resource and command surfaces.
+- **Task references:** `tasks.md` U8-E row and task 3.2 browser acceptance.
+- **Dependencies:** U8-D merged UI, existing Chromium-only Playwright config, and the local synthetic Strapi fixture.
+- **Changed paths and reasons:**
+  - `teleferico-app/tests/e2e/feedback-admin.spec.ts` — authenticates through the local synthetic fixture, stubs only browser-facing admin responses, and verifies desktop/mobile U8-E behavior and request isolation.
+  - `teleferico-app/tests/e2e/server/strapi-fixture.mjs` — adds deterministic local-only credentials and `/api/users/me` responses required by the real Auth.js session path.
+  - `openspec/changes/tb-113-visitor-feedback/direct-implementation-ledger.md` — records U8-E evidence, deferrals, risks, and rollback boundary.
+- **Implementation:**
+  - Status: `passed`
+  - Revision: `pending`
+  - Pull request: `pending`
+  - Merge evidence: `pending`
+- **Focused tests:**
+  - Command: `pnpm exec playwright test tests/e2e/feedback-admin.spec.ts`
+  - Status: `passed`
+  - Exact result: exit 0; 2 tests passed in 1.2 minutes with one Chromium worker.
+- **Intentionally deferred validation:**
+  - Exact command or scenario: `pnpm run typecheck`, `pnpm run lint`, the broad Playwright smoke/maintenance suites, real-auth acceptance, integrated `development` validation, and staging/production checks.
+  - Status: `not run`
+  - Reason: The direct U8-E contract authorizes the focused synthetic Playwright command only; no remote or production resource is authorized.
+  - Intended future checkpoint: implementation PR CI and integrated validation on `development`.
+  - Owner: implementation PR CI, TB-113 implementer, and reviewer.
+- **Acceptance criteria:**
+  - Authenticated Administrator reaches the feedback dashboard through the real local Auth.js session path: `passed` by the focused Playwright run.
+  - Desktop module order, analytics transitions, comments filters/pagination/detail, independent generation, retry, history, and download boundary: `passed` by the focused Playwright run.
+  - Mobile module order, empty comments/reports states, and no horizontal overflow: `passed` by the focused Playwright run.
+  - Browser remains isolated from the fixture origin and legacy `/api/tb113/` paths: `passed` by the focused Playwright assertions.
+- **Residual risks:** Focused browser coverage uses synthetic browser-facing admin responses; it does not prove real CMS projection compatibility, lifecycle races, PDF delivery, package-wide type safety, lint, or integrated deployment behavior. The local synthetic login fixture is intentionally not a production authentication path.
+- **Rollback boundary:** Revert `feedback-admin.spec.ts`, the synthetic auth additions in `strapi-fixture.mjs`, and this ledger entry together; preserve U8-D application behavior and existing non-feedback E2E coverage.
+- **Later integrated validation:**
+  - Status: `not run`
+  - Evidence: `pending implementation PR CI and integrated development validation`.
+- **Correction or follow-up:**
+  - Trigger: Initial focused attempts exposed login hydration timing and an ambiguous rating-filter locator after the candidate rendered both desktop and mobile result markup.
+  - Status: `passed`
+  - Fix evidence: Added bounded login hydration readiness with one local reload retry and selected the rating checkbox by role in `feedback-admin.spec.ts`; no application behavior was changed.
+  - Revalidation evidence: `pnpm exec playwright test tests/e2e/feedback-admin.spec.ts` — exit 0; 2 tests passed in 1.2 minutes.
+- **Formal SDD reconstruction:**
+  - Status: `pending`
+  - Evidence: `pending`
