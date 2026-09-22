@@ -101,6 +101,14 @@ An implementation PR has exactly one mode:
 
 Malformed, repeated, multiple, or missing `Work ID` markers never fall back to a `Branch` lookup or explicitly untracked mode. A no-backlog branch never queries Notion.
 
+### Maintainer mixed-scope publication override
+
+The implementation workflow remains strict unless the caller uses the exact `/implementation-pr --allow-mixed-scope "<reason>"` syntax. The reason must be non-empty and the only override argument; missing, blank, unknown, or extra arguments fail closed. This is an agent-owned publication contract; repository CI cannot infer whether the override was active.
+
+The override is candidate-scoped and binds the complete exact snapshot, selected `origin`, typed base plan, destination, and current authenticated Git/GitHub session authorization. It may include all non-sensitive paths classified as otherwise unrelated only after the mapper records their complete exact sorted inventory. It does not authorize sensitive paths, ambiguous or truncated findings, candidate or binding changes, arbitrary bases, promotions, releases, or destructive operations. The real `unrelated_count` remains in `delivery-state-snapshot.v2`; only `UNRELATED_CANDIDATE_PATHS` may be suppressed as a blocker for the unchanged valid binding.
+
+An active override requires the agent-generated implementation PR body to contain one visible English `## Scope Exception` section with the exact non-empty reason and every exceptional entry as `Path: <exact path> | Work unit: <non-empty description>`. `implementation-pr` passes and reads back this exact disclosure before governance observation; a mismatch is terminal unless separately authorized. Strict invocations omit the section. Same-invocation clarification may resume only when the mapper, branch, target/base, destination, remote, and credential/session bindings remain unchanged and no terminal mutation or failure ended the invocation. Generic later follow-ups are not authorizing.
+
 A tracked item must define `Canal formal`. If it is `GitHub Issue`, `Enlace formal` must be a same-repository `github.com/<owner>/<repo>/issues/<number>` URL and the GitHub-rendered visible body must include `Refs #<that exact issue number>` in final `## Related Issues`. Other channels and explicitly untracked PRs may omit `Refs #N`.
 
 ### Stacked preview lifecycle
