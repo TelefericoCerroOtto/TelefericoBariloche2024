@@ -151,6 +151,31 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
   - Status: `pending`
   - Evidence: `pending`
 
+## U8-D reliability follow-up — period reset and deterministic timestamps
+
+- **Scope:** Reset comment pagination to page 1 when the selected reporting period changes; format displayed comment timestamps using `America/Argentina/Buenos_Aires` and 24-hour output.
+- **Implementation:** Added the period reset beside the existing reports reset and made `dateTime` pass an explicit reporting timezone and `hour12: false`.
+- **Focused evidence:** Added component coverage for settled page-1 requests/UI after a period change and for a UTC-boundary timestamp rendering as `19/9/2026, 23:30:00` in Argentina.
+- **Deferred:** U8-E, U9 lifecycle/race coverage, U12-A download delivery, package-wide typecheck/lint, authenticated browser validation, and integrated `development` validation remain outside this correction.
+
+### `U8-D audit and correction follow-up`
+
+- **Audit basis:** Reconciled the current UI against `specs/feedback-administration/spec.md`, `design/02-http-contracts.md`, `design/06-migration-testing-rollout.md`, the U8-D task row, U8-A read pagination, U8-B command boundaries, and the Version 101 OpenDesign evidence recorded above.
+- **UI-owned corrections:** Added report-history pagination using the bounded reports projection, reset report pagination when the shared period changes, rejected empty/reversed independent report ranges before dispatch, disabled duplicate generation/retry submissions while a command is in flight, and added Escape dismissal plus focus restoration for comment detail.
+- **Accepted ownership boundaries:** Active-range races, lifecycle polling/state refresh, retry lineage, persisted failed-generation history, and download artifact/storage/streaming remain deferred to U9 and U12-A as required by the contracts. The combined comments/reports read remains a parallel request with a shared module-level loading/error state because both resources render as one U8-D surface.
+- **Revalidation:** Focused dashboard test command passed with exit 0; 1 file and 11 tests passed. Authenticated runtime/command test command passed with exit 0; 2 files and 8 tests passed. `git diff --check` passed with exit 0 and no output.
+- **Authored count:** `330` additions plus deletions against `b141588`, including untracked files (none present at audit time), remaining below the U8-D 550–750 forecast and the change-level ceiling.
+- **Status:** Audit corrections passed focused verification; full typecheck/lint, authenticated responsive browser validation, U8-E Playwright, U9 lifecycle validation, and U12-A download validation remain intentionally deferred.
+
+### `U8-D audit correction follow-up: independent reads and mediated download`
+
+- **Independent read correction:** Split comments and report-history reads into sibling effects with separate `loading|ready|error` state, data clearing at request start, and resource-specific retry counters. Comment filters and comment pagination now reload only comments; report period and report pagination reload only reports. A failed or loading resource no longer displays its stale rows or blocks the sibling resource.
+- **Download correction:** The repository has no implemented `/api/admin/feedback/reports/[reportId]/download` route. U8-D now keeps `REPORT_DOWNLOAD_ROUTE_AVAILABLE = false`, renders no live download link even when a read projection contains `canDownload: true`, and displays an unavailable message naming U12-A as the owner. The earlier U8-D download evidence means capability presentation only; it must not be read as proof that the endpoint exists or that PDF delivery works. U12-A must add and verify the mediated route before this flag can be enabled.
+- **Overlap correction:** A 409 overlap response blocks repeat submission until the explicit confirmation checkbox is selected. Changing either independent report date clears the overlap disclosure and confirmation state immediately.
+- **Proof expansion:** Component coverage now proves all comment query dimensions and OR rating serialization, independent comment/report pagination, no report refetch on comment changes, sibling failure/retry isolation, invalid ranges, duplicate-command prevention, overlap gating/reset, empty and low-data states, Escape/focus restoration, and absence of a live download link before U12-A.
+- **Revalidation:** Focused dashboard test command passed with exit 0; 1 file and 17 tests passed. Authenticated runtime/command test command passed with exit 0; 2 files and 8 tests passed. `git diff --check` passed with exit 0 and no output.
+- **Current authored count:** `514` additions plus deletions against `b141588`, including untracked files (none present), below the U8-D 550–750 forecast and the change-level ceiling.
+
 ### `U8-C-R1: OpenDesign reconciliation corrections`
 
 - **Identity and scope:** Reconciled the existing Summary, Aspects, and QR analytics UI with the authorized visual evidence without adding Comments/reports behavior, new metrics, dependencies, CMS, environment, infrastructure, or deployment work.
@@ -359,6 +384,61 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
   - Evidence: approved private worker HTTP harness, Cloud Run/Tasks/OIDC readback, Vertex validation, private artifact completion/download, and exact revision evidence.
 - **Correction or follow-up:**
   - Trigger: `none observed` in the focused local run.
+  - Status: `pending`
+  - Fix evidence: `pending`
+  - Revalidation evidence: `pending`
+- **Formal SDD reconstruction:**
+  - Status: `pending`
+  - Evidence: `pending`
+
+### `U8-D: Admin comments and reports UI`
+
+- **Identity and scope:** Added the combined Comments and reports administration module after Summary, Aspects, and QR points. Comments support text-only search, single aspect, OR star filters, QR point, language, 25-item pagination, bounded results, responsive table/cards, detail with per-aspect evaluations, and explicit empty/error states. Reports support independent-range generation through U8-B, immutable successful history, mediated download controls, overlap confirmation, and queued/retry status display. U8-E, U9 lifecycle/races, provider/runtime/storage, CMS schema/auth, environment, infrastructure, and deployment remain excluded.
+- **Requirements references:** `specs/feedback-administration/spec.md` comments/report filters, order, pagination, detail, independent generation, immutable history, and fixed module order; `specs/authoritative-survey-metrics/spec.md` anonymous comments, deterministic metrics, and explicit low/empty states.
+- **Design references:** `design/02-http-contracts.md` administration routes and `design/06-migration-testing-rollout.md` UI evidence boundary.
+- **Task references:** `tasks.md` row U8-D and task 3.2.
+- **Dependencies:** U8-A read projections, U8-B generation/retry command routes, U8-C dashboard shell and period control, existing authenticated internal fetch.
+- **Visual reconciliation:** OpenDesign project `teleferico-cerro-otto-design-system`, `feedback-dashboard.html`, Version 101, revision `6b6de75a-82a9-483c-a1aa-0ed64b1007ec`, SHA-256 `7fcb81d46b1cb7aa56e41f1e3dce9abe346a324568bdb09b5cfc56c5ec4fa5ce`. Kept the combined hierarchy, sticky desktop header, bounded internal results viewport, responsive mobile cards, semantic tables, neutral report sections, anonymous-by-design wording, independent report ranges, and immutable history explanation. Download remains a capability-gated control only; artifact storage and route implementation stay with U12-A.
+- **Changed paths and reasons:**
+  - `teleferico-app/src/components/administration/feedback/FeedbackDashboard.tsx` — adds the combined comments/reports module, filters, pagination, detail dialog, generation/retry command controls, history, download links, and responsive/accessibility states.
+  - `teleferico-app/src/components/administration/feedback/FeedbackDashboard.test.tsx` — covers comments/detail/history/download and independent generation payload behavior.
+  - `teleferico-app/src/types/api/admin/feedback.d.ts` — adds typed paginated comments and reports projections.
+  - `openspec/changes/tb-113-visitor-feedback/direct-implementation-ledger.md` — records this direct implementation evidence.
+- **Implementation:**
+  - Status: `passed`
+  - Revision: `pending`
+  - Pull request: `pending`
+  - Merge evidence: `pending`
+  - Authored additions plus deletions against `b141588`, including untracked files: `271`.
+- **Focused tests:**
+  - Command: `pnpm --dir teleferico-app exec vitest run 'src/components/administration/feedback/FeedbackDashboard.test.tsx'`
+  - Status: `passed`
+  - Exact result: exit 0; 1 file passed; 10 tests passed.
+  - Command: `pnpm --dir teleferico-app exec vitest run 'src/app/api/admin/feedback/runtime-harness.test.ts' 'src/lib/feedback/admin-command.test.ts'`
+  - Status: `passed`
+  - Exact result: exit 0; 2 files passed; 8 tests passed.
+  - Command: `git diff --check`
+  - Status: `passed`
+  - Exact result: exit 0 with no output.
+- **Intentionally deferred validation:**
+  - Exact command or scenario: `pnpm --dir teleferico-app run typecheck`, package-wide lint, authenticated desktop/mobile browser validation, and U8-E Playwright E2E.
+  - Status: `not run`
+  - Reason: Explicit direct-route scope defers broad checks and U8-E; no source-mutating formatter or dependency operation was authorized.
+  - Intended future checkpoint: implementation PR CI, integrated human validation on `development`, and U8-E.
+  - Owner: implementation PR CI, TB-113 implementer, and reviewer.
+- **Acceptance criteria:**
+  - Combined module follows Summary, Aspects, QR points: `passed` by component test and existing navigation test.
+  - Comment filter controls, bounded 25-item result surface, responsive semantic parity, detail, and empty/error states: `passed` by implementation and existing projection tests; authenticated browser parity remains deferred.
+  - Reports use an independent generation range and existing command boundary: `passed` by component test and existing command tests.
+  - Anonymous comments, deterministic metrics, previous-period comparison, filter independence, and immutable snapshots are clarified in UI copy: `passed` by component test; integrated report-content validation remains deferred.
+  - Download is capability-gated by persisted `canDownload` and does not expose storage URLs: `passed` by component test; U12-A download endpoint remains pending.
+- **Residual risks:** Full typecheck/lint and authenticated responsive browser behavior remain unverified. The current read contract exposes successful report rows only, so retry is shown for a locally returned failed command but failed persisted-generation history remains a U9/read-contract concern. UI copy remains Spanish within the existing administration convention.
+- **Rollback boundary:** Revert the U8-D additions in `FeedbackDashboard.tsx`, its focused test additions, the paginated projection types, and this ledger entry together; preserve U8-C analytics, U8-A reads, and U8-B command transports.
+- **Later integrated validation:**
+  - Status: `pending`
+  - Evidence: authenticated API/browser validation of filters, pagination, detail focus/scroll behavior, independent generation, and mediated download on the integrated `development` revision.
+- **Correction or follow-up:**
+  - Trigger: `none observed` in focused local verification.
   - Status: `pending`
   - Fix evidence: `pending`
   - Revalidation evidence: `pending`

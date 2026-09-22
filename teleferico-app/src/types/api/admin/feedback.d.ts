@@ -148,6 +148,13 @@ export type FeedbackAdminComment = {
   readonly text: string;
 };
 
+export type FeedbackAdminCommentsData = {
+  readonly items: readonly FeedbackAdminComment[];
+  readonly total: number;
+  readonly page: number;
+  readonly pageSize: number;
+};
+
 export type FeedbackAdminReport = {
   readonly reportId: string;
   readonly reportRunId: string;
@@ -163,6 +170,13 @@ export type FeedbackAdminReport = {
   readonly canDownload: boolean;
   readonly artifactSize: number;
   readonly artifactSha256: string;
+};
+
+export type FeedbackAdminReportsData = {
+  readonly items: readonly FeedbackAdminReport[];
+  readonly total: number;
+  readonly page: number;
+  readonly pageSize: number;
 };
 
 export type FeedbackAdminSource = {
