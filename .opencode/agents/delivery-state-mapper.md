@@ -6,6 +6,8 @@ permission:
   external_directory: deny
   task: deny
   webfetch: deny
+  model: openai/gpt-5.6-luna
+  reasoningEffort: high
   bash:
     "*": deny
     "date -u*": allow
