@@ -59,12 +59,6 @@ const CHAIN_CONTEXT_CONTRACT = Object.freeze({
   }),
 });
 
-const SCOPE_EXCEPTION_CONTRACT = Object.freeze({
-  heading: "Scope Exception",
-  reasonLabel: "Reason",
-  entriesLabel: "Exceptional paths/work units:",
-});
-
 async function main() {
   const command = process.argv[2];
   const config = getConfig();
@@ -118,14 +112,12 @@ async function validatePrPolicy(config) {
   if (pr.type === "implementation") {
     await validatePullRequestCommitMessages(config);
     validateImplementationBody(document, closingRefs);
-    validateScopeExceptionBody(document);
     return ensureImplementationTracking(config, branch, extractRefsNumbers(document), document);
   }
   if (pr.type === "stacked-child-preview") {
     const chainContext = parseChainContext(document);
     validateStackedPreviewRuntime(config, chainContext);
     validateImplementationBody(document, closingRefs);
-    validateScopeExceptionBody(document);
     await validateStackedPreviewParent(config, chainContext);
     await validateFocusedPullRequestDiff(config);
     await validatePullRequestCommitMessages(config);
@@ -467,35 +459,6 @@ function containsNoFormalIssuesToken(document) {
 function validateImplementationBody(document, closingRefs = extractClosingReferences(document)) {
   if (closingRefs.length) throw new Error("Implementation PRs to development must reference issues without closing them.");
   return extractRefsNumbers(document);
-}
-
-function validateScopeExceptionBody(document) {
-  const sections = document.sections.filter((section) => section.heading === SCOPE_EXCEPTION_CONTRACT.heading);
-  if (!sections.length) return null;
-  if (sections.length > 1) throw new Error("Implementation PRs must not duplicate the visible '## Scope Exception' section.");
-
-  const lines = sections[0].content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const reasonLines = lines.filter((line) => line.startsWith(`${SCOPE_EXCEPTION_CONTRACT.reasonLabel}:`));
-  if (reasonLines.length !== 1 || !reasonLines[0].slice(SCOPE_EXCEPTION_CONTRACT.reasonLabel.length + 1).trim()) {
-    throw new Error("Visible '## Scope Exception' requires one non-empty 'Reason: ...' line.");
-  }
-  if (!lines.includes(SCOPE_EXCEPTION_CONTRACT.entriesLabel)) {
-    throw new Error("Visible '## Scope Exception' requires 'Exceptional paths/work units:'.");
-  }
-
-  const entries = lines.filter((line) => line.startsWith("Path:") || line.startsWith("- Path:"));
-  if (!entries.length) throw new Error("Visible '## Scope Exception' requires at least one exceptional path/work-unit entry.");
-  const parsedEntries = entries.map((line) => {
-    const match = line.match(/^-?\s*Path:\s*(.+?)\s+\|\s+Work unit:\s+(\S.*)$/);
-    if (!match) throw new Error("Visible '## Scope Exception' entries must use 'Path: <exact path> | Work unit: <description>'.");
-    return { path: match[1], workUnit: match[2] };
-  });
-  const paths = parsedEntries.map(({ path }) => path);
-  if (new Set(paths).size !== paths.length) throw new Error("Visible '## Scope Exception' must not duplicate exceptional paths.");
-  return {
-    reason: reasonLines[0].slice(SCOPE_EXCEPTION_CONTRACT.reasonLabel.length + 1).trim(),
-    entries: parsedEntries,
-  };
 }
 
 function parseChainContext(document) {
@@ -903,7 +866,6 @@ if (require.main === module) {
 
 module.exports = {
   DEFAULTS,
-  SCOPE_EXCEPTION_CONTRACT,
   extractRefsNumbers,
   extractClosingReferences,
   extractAdvancingReferences,
@@ -913,7 +875,6 @@ module.exports = {
   renderPrBody,
   validateExplicitlyUntrackedBody,
   validateImplementationBody,
-  validateScopeExceptionBody,
   validateIncludedPullRequests,
   parseFormalIssueUrl,
   findNotionPageByIssueUrl,
