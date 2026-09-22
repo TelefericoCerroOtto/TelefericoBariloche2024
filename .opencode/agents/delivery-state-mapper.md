@@ -1,13 +1,13 @@
 ---
 description: Reconstructs bounded repository, delivery, and native SDD facts without deciding policy or mutating source/delivery state.
 mode: subagent
+model: openai/gpt-5.6-luna
+reasoningEffort: high
 permission:
   edit: deny
   external_directory: deny
   task: deny
   webfetch: deny
-  model: openai/gpt-5.6-luna
-  reasoningEffort: high
   bash:
     "*": deny
     "date -u*": allow
