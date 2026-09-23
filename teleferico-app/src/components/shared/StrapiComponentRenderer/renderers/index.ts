@@ -1,4 +1,5 @@
 export * from "./carrousel";
+export * from "./editorial-alert";
 export * from "./faq-section";
 export * from "./hero";
 export * from "./hours-overview";

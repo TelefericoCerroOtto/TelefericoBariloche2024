@@ -937,6 +937,7 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
         'page-components.hours-overview',
         'page-components.policies-callout',
         'page-components.title-desc-block',
+        'page-components.editorial-alert',
         'page-components.faq-section',
         'page-components.spacer',
         'page-components.schedules',
