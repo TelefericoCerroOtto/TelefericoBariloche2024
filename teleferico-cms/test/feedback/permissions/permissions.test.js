@@ -38,10 +38,15 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     path.join(generationRoot, 'routes/survey-report-generation.js'),
     'utf8',
   );
+  const generationAdminRoutes = require(path.join(generationRoot, 'routes/admin')).routes;
   assert.match(generationController, /createCoreController/);
-  assert.doesNotMatch(generationController, /authenticated|admin-commands/);
+  assert.match(generationController, /dispatchFailure/);
   assert.match(generationRoutes, /createCoreRouter/);
   assert.doesNotMatch(generationRoutes, /tb113\/admin/);
+  assert.deepEqual(generationAdminRoutes.map(({ method, path: routePath, handler }) => [method, routePath, handler]), [
+    ['POST', '/tb113/admin/generations/:reportRunId/dispatch-failure', 'survey-report-generation.dispatchFailure'],
+  ]);
+  assert.notEqual(generationAdminRoutes[0].config?.auth, false);
   assert.equal(fs.existsSync(path.join(generationRoot, 'services/admin-commands.js')), false);
   const reportRoutes = fs.readFileSync(path.resolve(__dirname, '../../../src/api/survey-report/routes/survey-report.js'), 'utf8');
   assert.match(reportRoutes, /createCoreRouter/);

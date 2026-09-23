@@ -29,6 +29,7 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 const GENERATION_ENDPOINT = "/api/survey-report-generations";
+const DISPATCH_FAILURE_ENDPOINT = "/api/tb113/admin/generations";
 
 type RecordValue = Record<string, unknown>;
 type CommandResult =
@@ -42,7 +43,31 @@ type CoreGeneration = FeedbackAdminDateRange & {
   readonly documentId: string;
   readonly reportRunId: string;
   readonly status: FeedbackAdminCommandStatus;
+  readonly stateVersion?: number;
 };
+
+function isVerifiedDispatchExhaustion(
+  value: unknown,
+  reportRunId: string,
+): value is Extract<FeedbackDispatchResult, { status: "exhausted" }> {
+  return (
+    isRecord(value) &&
+    exact(value, [
+      "contractVersion",
+      "status",
+      "noTaskCreated",
+      "taskName",
+      "dispatchAttemptCount",
+      "failureCode",
+    ]) &&
+    value.contractVersion === "survey-dispatch-command.v1" &&
+    value.status === "exhausted" &&
+    value.noTaskCreated === true &&
+    value.taskName === `tb113-report-${reportRunId.replaceAll("-", "")}` &&
+    value.dispatchAttemptCount === 3 &&
+    value.failureCode === "QUEUE_ENQUEUE_EXHAUSTED"
+  );
+}
 
 export class FeedbackAdminCommandError extends Error {
   readonly code:
@@ -166,6 +191,9 @@ function asCoreGeneration(value: unknown): CoreGeneration | undefined {
     from: attributes.periodStart,
     to: attributes.periodEnd,
     status: attributes.status as FeedbackAdminCommandStatus,
+    ...(Number.isSafeInteger(attributes.stateVersion)
+      ? { stateVersion: attributes.stateVersion as number }
+      : {}),
   };
 }
 
@@ -174,7 +202,11 @@ function coreResult(value: unknown): CoreCommandResult {
     throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
   const row = asCoreGeneration(value.data);
   if (!row) throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
-  return { reportRunId: row.reportRunId, status: row.status };
+  return {
+    reportRunId: row.reportRunId,
+    status: row.status,
+    ...(row.stateVersion === undefined ? {} : { stateVersion: row.stateVersion }),
+  };
 }
 
 const ERROR_CODES = new Set<FeedbackAdminCommandError["code"]>([
@@ -219,7 +251,11 @@ export function createFeedbackAdminCommandTransport(options: Options) {
       },
     });
 
-  const coreRequest = async (path: string, init: RequestInit = {}) => {
+  const coreRequest = async (
+    path: string,
+    init: RequestInit = {},
+    conflictCode: "ACTIVE_RANGE_CONFLICT" | "INVALID_STATE" = "ACTIVE_RANGE_CONFLICT",
+  ) => {
     let response: Response;
     try {
       response = await request(path, init);
@@ -241,13 +277,77 @@ export function createFeedbackAdminCommandTransport(options: Options) {
               : response.status === 400
                 ? "VALIDATION_FAILED"
                 : response.status === 409
-                  ? "ACTIVE_RANGE_CONFLICT"
+                  ? conflictCode
                   : response.status === 413
                     ? "PAYLOAD_TOO_LARGE"
                     : "UPSTREAM_UNAVAILABLE";
       throw new FeedbackAdminCommandError(errorCode, response.status);
     }
     return value;
+  };
+
+  const dispatch = async (result: CoreCommandResult, dispatchResult: FeedbackDispatchResult) => {
+    if (
+      !isRecord(dispatchResult) ||
+      dispatchResult.contractVersion !== "survey-dispatch-command.v1"
+    )
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    if (dispatchResult.status !== "exhausted") {
+      if (dispatchResult.status !== "queued" && dispatchResult.status !== "dispatched")
+        throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+      return { ...result, dispatch: dispatchResult };
+    }
+    if (!isVerifiedDispatchExhaustion(dispatchResult, result.reportRunId))
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    if (!Number.isSafeInteger(result.stateVersion) || result.stateVersion! < 1)
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    const response = await coreRequest(
+      `${DISPATCH_FAILURE_ENDPOINT}/${result.reportRunId}/dispatch-failure`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          contractVersion: "survey-dispatch-command.v1",
+          expectedStateVersion: result.stateVersion,
+          taskName: dispatchResult.taskName,
+          dispatchAttemptCount: dispatchResult.dispatchAttemptCount,
+          failureCode: dispatchResult.failureCode,
+        }),
+      },
+      "INVALID_STATE",
+    );
+    if (
+      !isRecord(response) ||
+      response.contractVersion !== "survey-dispatch-command.v1" ||
+      response.reportRunId !== result.reportRunId ||
+      response.status !== "failed" ||
+      response.failureCode !== "QUEUE_ENQUEUE_EXHAUSTED" ||
+      typeof response.replayed !== "boolean" ||
+      !Number.isSafeInteger(response.stateVersion)
+    )
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    return {
+      ...result,
+      status: "failed" as const,
+      dispatch: {
+        contractVersion: "survey-dispatch-command.v1" as const,
+        status: "failed" as const,
+        failureCode: "QUEUE_ENQUEUE_EXHAUSTED" as const,
+        replayed: response.replayed,
+      },
+    };
+  };
+
+  const dispatchCreated = async (result: CoreCommandResult) => {
+    let dispatchResult: FeedbackDispatchResult;
+    try {
+      dispatchResult = await dispatcher.dispatch({
+        reportRunId: result.reportRunId,
+        taskName: `tb113-report-${result.reportRunId.replaceAll("-", "")}`,
+      });
+    } catch {
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    }
+    return dispatch(result, dispatchResult);
   };
 
   const list = async (period: FeedbackAdminDateRange) => {
@@ -297,11 +397,7 @@ export function createFeedbackAdminCommandTransport(options: Options) {
         body: JSON.stringify({ data }),
       }),
     );
-    const dispatch: FeedbackDispatchResult = await dispatcher.dispatch({
-      reportRunId: result.reportRunId,
-      taskName: `tb113-report-${result.reportRunId.replaceAll("-", "")}`,
-    });
-    return { ...result, dispatch };
+    return dispatchCreated(result);
   };
 
   return {
@@ -360,11 +456,7 @@ export function createFeedbackAdminCommandTransport(options: Options) {
           body: JSON.stringify({ data }),
         }),
       );
-      const dispatch = await dispatcher.dispatch({
-        reportRunId: result.reportRunId,
-        taskName: `tb113-report-${result.reportRunId.replaceAll("-", "")}`,
-      });
-      return { ...result, dispatch };
+      return dispatchCreated(result);
     },
   };
 }

@@ -35,6 +35,7 @@ export type FeedbackAdminRetryCommand = {
 export type FeedbackAdminCommandResult = {
   readonly reportRunId: string;
   readonly status: FeedbackAdminCommandStatus;
+  readonly stateVersion?: number;
   readonly dispatch:
     | {
         readonly contractVersion: "survey-dispatch-command.v1";
@@ -49,6 +50,12 @@ export type FeedbackAdminCommandResult = {
         readonly taskName: string;
         readonly dispatchAttemptCount: number;
         readonly failureCode: "DISPATCH_UNAVAILABLE";
+      }
+    | {
+        readonly contractVersion: "survey-dispatch-command.v1";
+        readonly status: "failed";
+        readonly failureCode: "QUEUE_ENQUEUE_EXHAUSTED";
+        readonly replayed: boolean;
       };
 };
 

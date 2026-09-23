@@ -121,12 +121,14 @@ test('real isolated Strapi exposes core routes without default survey grants', a
         const registeredActions = surveyApis
           .flatMap(([, api]) => Object.values(api.routes).flatMap((route) => route.routes ?? route))
           .map((route) => route.handler);
+        const dispatchActions = registeredActions.filter((action) => action.endsWith('.dispatchFailure'));
         const roles = await strapi.db.connection('up_roles').select('name');
         const permissions = await strapi.db.connection('up_permissions').select('action');
         const tokenPermissions = await strapi.db.connection('strapi_api_token_permissions').select('action');
 
         assert.equal(surveyApis.length, 6);
-        assert.deepEqual(registeredActions, [
+        assert.equal(dispatchActions.length, 1);
+        assert.deepEqual(registeredActions.filter((action) => !action.endsWith('.dispatchFailure')), [
           'api::survey-qr-point.survey-qr-point.find',
           'api::survey-qr-point.survey-qr-point.findOne',
           'api::survey-qr-point.survey-qr-point.create',

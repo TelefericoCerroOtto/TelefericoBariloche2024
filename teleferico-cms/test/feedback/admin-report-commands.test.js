@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const http = require("node:http");
 const test = require("node:test");
 const {
   COMPOSE_FILE,
@@ -17,6 +18,20 @@ const compose = (...args) =>
     OWNER,
     ...args,
   ]);
+
+function postChunked(url, headers, body) {
+  return new Promise((resolve, reject) => {
+    const request = http.request(url, { method: "POST", headers }, (response) => {
+      let text = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => { text += chunk; });
+      response.on("end", () => resolve({ status: response.statusCode, body: JSON.parse(text) }));
+    });
+    request.once("error", reject);
+    request.write(body);
+    request.end();
+  });
+}
 
 function generationData() {
   return {
@@ -123,6 +138,75 @@ test("native role authorization creates only through the core generation endpoin
     const readBody = await read.json();
     assert.equal(readBody.data.length, 1);
     assert.equal(readBody.data[0].reportRunId, REPORT_RUN_ID);
+
+    const dispatchFailureUrl = `http://127.0.0.1:${port}/api/tb113/admin/generations/${REPORT_RUN_ID}/dispatch-failure`;
+    const dispatchFailure = {
+      contractVersion: "survey-dispatch-command.v1",
+      expectedStateVersion: 1,
+      taskName: `tb113-report-${REPORT_RUN_ID.replaceAll("-", "")}`,
+      dispatchAttemptCount: 3,
+      failureCode: "QUEUE_ENQUEUE_EXHAUSTED",
+    };
+    const anonymousFailure = await fetch(dispatchFailureUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(dispatchFailure),
+    });
+    assert.ok([401, 403].includes(anonymousFailure.status));
+    const forbidden = await fetch(dispatchFailureUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(dispatchFailure),
+    });
+    assert.equal(forbidden.status, 403);
+
+    await grant(strapi, role.id, "api::survey-report-generation.survey-report-generation.dispatchFailure");
+    const oversizedBody = `${JSON.stringify(dispatchFailure)}${" ".repeat(68_197)}`;
+    const oversized = await fetch(dispatchFailureUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: oversizedBody,
+    });
+    assert.equal(oversized.status, 413);
+    assert.equal((await oversized.json()).error.code, "PAYLOAD_TOO_LARGE");
+
+    const chunked = await postChunked(
+      dispatchFailureUrl,
+      { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      oversizedBody,
+    );
+    assert.equal(chunked.status, 413);
+    assert.equal(chunked.body.error.code, "PAYLOAD_TOO_LARGE");
+    const stillQueued = await fetch(
+      `${endpoint}?filters[reportRunId][$eq]=${REPORT_RUN_ID}`,
+      { headers: { authorization: `Bearer ${jwt}` } },
+    );
+    assert.equal((await stillQueued.json()).data[0].status, "queued");
+
+    const sendDispatchFailure = () => fetch(dispatchFailureUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(dispatchFailure),
+    });
+    const concurrent = await Promise.all([sendDispatchFailure(), sendDispatchFailure()]);
+    assert.deepEqual(concurrent.map(({ status }) => status), [200, 200]);
+    const results = await Promise.all(concurrent.map((response) => response.json()));
+    assert.deepEqual(results.map(({ replayed }) => replayed).sort(), [false, true]);
+    assert.deepEqual(results.find(({ replayed }) => !replayed), {
+      contractVersion: "survey-dispatch-command.v1",
+      reportRunId: REPORT_RUN_ID,
+      stateVersion: 2,
+      status: "failed",
+      failureCode: "QUEUE_ENQUEUE_EXHAUSTED",
+      replayed: false,
+    });
+    const versionConflict = await fetch(dispatchFailureUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...dispatchFailure, expectedStateVersion: 3 }),
+    });
+    assert.equal(versionConflict.status, 409);
+    assert.equal((await versionConflict.json()).error.code, "STATE_VERSION_CONFLICT");
 
     const update = await fetch(`${endpoint}/${body.data.documentId}`, {
       method: "PUT",

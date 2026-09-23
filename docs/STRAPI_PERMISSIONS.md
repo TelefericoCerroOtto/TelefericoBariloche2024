@@ -219,16 +219,19 @@ The survey catalog (`survey-version`, `survey-settings`, `survey-qr-point`,
 `survey-submission`, `survey-report-generation`, and `survey-report`) remains
 disabled by default. The feedback transport uses only bounded native `find`/
 `findOne` reads for the survey catalog plus the token-authenticated
-`survey-submission` command listed above. U8-B uses the
-native Strapi core routes for `survey-report-generation`; the selected native
-application role or API token may receive only the `find` and `create` actions
-needed by the server-side command helper. Report history remains owned by U8-A,
-and PDF artifact storage/download remains deferred to U12. The isolated
-permission harness provisions those native grants only inside its test database;
-no production permission mutation or custom CMS command code is added.
+`survey-submission` command listed above. U8-B uses the native Strapi core
+routes for `survey-report-generation` through the server-mediated application
+user JWT from the Auth.js session. The corresponding Users & Permissions role
+may receive only the native `find` and `create` actions needed by the command
+helper, plus the explicit `survey-report-generation.dispatchFailure` action for
+verified pre-enqueue exhaustion compensation. That custom action is denied
+unless separately granted; the isolated HTTP harness grants it only to its
+synthetic test role. This flow does not use an API token.
+Report history remains owned by U8-A, and PDF artifact storage/download remains
+deferred to U12. No production permission mutation is performed.
 Anonymous requests and ungranted actions remain denied. Application-level
 capabilities are enforced by the Next.js administration routes, and the
-`update`/`delete` core actions remain outside the U8-B access model.
+`update`/`delete` core actions remain outside the command access model.
 
 ### Future application capabilities
 
@@ -245,9 +248,12 @@ administration routes. They are not current Strapi action IDs or durable Users
 | `feedback.reports.download` | Mediated report download | U12 deterministic delivery |
 
 Exact intake, administration, and worker actions and grants remain owned by U7,
-U8, and U10 respectively. Each route-owning slice must add only its registered
-actions and update this document. U8-B adds no durable Strapi grant or
-permission mutation.
+U8, and U10 respectively. U9-A1 adds only the registered
+`api::survey-report-generation.survey-report-generation.dispatchFailure` action;
+the app calls it with the server-mediated application user JWT only for a typed,
+verified enqueue-exhaustion result. That user's Users & Permissions role must
+explicitly grant the action for compensation to be available. No API token or
+generic `update`/`delete` action is required or permitted by this boundary.
 
 Verify the baseline with:
 
