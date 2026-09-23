@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const { measureDispatchFailureRequestBody } = require("../../../src/api/survey-report-generation/services/dispatch-failure-request");
 const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration } = require("../../../src/api/survey-report-generation/services/lifecycle");
 function store(initial) {
   const generations = new Map([[initial.reportRunId, { ...initial }]]);
@@ -34,20 +35,26 @@ function store(initial) {
 }
 test("dispatch compensation and retry preserve lifecycle ownership", async () => {
   const queued = store({
-    reportRunId: "run-1",
+    reportRunId: "00000000-0000-4000-8000-000000000001",
     status: "queued",
     stateVersion: 1,
     taskName: null,
   });
   const lifecycle = createGenerationLifecycle({ withTransaction: queued.withTransaction, now: () => "2026-09-22T15:04:05.000Z" });
-  await lifecycle.compensateDispatchFailure({ reportRunId: "run-1", expectedStateVersion: 1 });
-  assert.deepEqual(queued.generation("run-1"), {
-    reportRunId: "run-1",
+  await lifecycle.compensateDispatchFailure({
+    reportRunId: "00000000-0000-4000-8000-000000000001",
+    expectedStateVersion: 1,
+    taskName: "tb113-report-00000000000040008000000000000001",
+    dispatchAttemptCount: 3,
+  });
+  assert.deepEqual(queued.generation("00000000-0000-4000-8000-000000000001"), {
+    reportRunId: "00000000-0000-4000-8000-000000000001",
     status: "failed",
     stateVersion: 2,
     taskName: null,
     completedAt: "2026-09-22T15:04:05.000Z",
     failureCode: "QUEUE_ENQUEUE_EXHAUSTED",
+    dispatchAttemptCount: 3,
   });
   const failed = store({
     reportRunId: "run-2",
@@ -106,16 +113,70 @@ test("completion commits generation and report as one transaction", async () => 
   assert.deepEqual(value.reports[0].sourceGeneration, { connect: ["generation-document-4"] });
   });
 test("pure preparation rejects stale, terminal, incomplete, and invalid transitions", () => {
-  assert.deepEqual(prepareDispatchFailure({ status: "queued", stateVersion: 2, taskName: null }, 2, "now"),
+  assert.deepEqual(prepareDispatchFailure({ status: "queued", stateVersion: 2, taskName: null }, 2, "now", 3),
     {
       status: "failed",
       stateVersion: 3,
       completedAt: "now",
       failureCode: "QUEUE_ENQUEUE_EXHAUSTED",
+      dispatchAttemptCount: 3,
     },
   );
   assert.throws(() => prepareRetryGeneration({ status: "succeeded" }), {
     code: "INVALID_STATE",
   });
   assert.throws(() => prepareAtomicCompletion({ status: "running", stateVersion: 1 }, 2, { checkpoints: [] }), { code: "STATE_VERSION_CONFLICT" });
+});
+
+test("dispatch compensation replays identically and rejects altered, claimed, or stale generations", async () => {
+  const value = store({ reportRunId: "00000000-0000-4000-8000-000000000001", status: "queued", stateVersion: 1, taskName: null, claimedAt: null, dispatchAttemptCount: 0 });
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction, now: () => "2026-09-22T15:04:05.000Z" });
+  const command = { reportRunId: "00000000-0000-4000-8000-000000000001", expectedStateVersion: 1, taskName: "tb113-report-00000000000040008000000000000001", dispatchAttemptCount: 3 };
+  assert.deepEqual(await lifecycle.compensateDispatchFailure(command), {
+    reportRunId: command.reportRunId, stateVersion: 2, status: "failed", failureCode: "QUEUE_ENQUEUE_EXHAUSTED", replayed: false,
+  });
+  assert.equal((await lifecycle.compensateDispatchFailure(command)).replayed, true);
+  await assert.rejects(lifecycle.compensateDispatchFailure({ ...command, dispatchAttemptCount: 2 }), { code: "STATE_VERSION_CONFLICT" });
+  await assert.rejects(lifecycle.compensateDispatchFailure({ ...command, expectedStateVersion: 0 }), { code: "STATE_VERSION_CONFLICT" });
+
+  const claimed = store({ reportRunId: "00000000-0000-4000-8000-000000000002", status: "queued", stateVersion: 1, taskName: null, claimedAt: "2026-09-22T15:00:00.000Z" });
+  const claimedLifecycle = createGenerationLifecycle({ withTransaction: claimed.withTransaction });
+  await assert.rejects(claimedLifecycle.compensateDispatchFailure({
+    ...command,
+    reportRunId: "00000000-0000-4000-8000-000000000002",
+    taskName: "tb113-report-00000000000040008000000000000002",
+  }), { code: "INVALID_STATE" });
+
+  const taskCreated = store({ reportRunId: "00000000-0000-4000-8000-000000000003", status: "queued", stateVersion: 1, taskName: "tb113-report-00000000000040008000000000000003" });
+  const taskLifecycle = createGenerationLifecycle({ withTransaction: taskCreated.withTransaction });
+  await assert.rejects(taskLifecycle.compensateDispatchFailure({
+    ...command,
+    reportRunId: "00000000-0000-4000-8000-000000000003",
+    taskName: "tb113-report-00000000000040008000000000000003",
+  }), { code: "TASK_ALREADY_CREATED" });
+});
+
+test("dispatch-failure request size fails closed without raw bytes or bounded Content-Length", () => {
+  const body = Buffer.from("{}" + " ".repeat(68_197), "utf8");
+  assert.ok(body.byteLength > 16 * 1024);
+  assert.equal(
+    measureDispatchFailureRequestBody({ rawBody: body, headers: {} }),
+    body.byteLength,
+  );
+  assert.equal(
+    measureDispatchFailureRequestBody({ headers: { "content-length": String(body.byteLength) } }),
+    body.byteLength,
+  );
+  assert.equal(
+    measureDispatchFailureRequestBody({ headers: { "transfer-encoding": "chunked" } }),
+    null,
+  );
+  assert.equal(
+    measureDispatchFailureRequestBody({ headers: {} }),
+    null,
+  );
+  assert.equal(
+    measureDispatchFailureRequestBody({ headers: { "content-length": "68197", "transfer-encoding": "chunked" } }),
+    null,
+  );
 });

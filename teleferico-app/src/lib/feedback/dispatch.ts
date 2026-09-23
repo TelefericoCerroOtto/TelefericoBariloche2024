@@ -17,6 +17,14 @@ export type FeedbackDispatchResult =
       readonly taskName: string;
       readonly dispatchAttemptCount: number;
       readonly failureCode: "DISPATCH_UNAVAILABLE";
+    }
+  | {
+      readonly contractVersion: "survey-dispatch-command.v1";
+      readonly status: "exhausted";
+      readonly noTaskCreated: true;
+      readonly taskName: string;
+      readonly dispatchAttemptCount: 3;
+      readonly failureCode: "QUEUE_ENQUEUE_EXHAUSTED";
     };
 
 export interface FeedbackReportDispatcher {

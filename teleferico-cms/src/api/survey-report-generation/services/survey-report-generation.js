@@ -1,14 +1,76 @@
 'use strict';
 const { createCoreService } = require('@strapi/strapi').factories;
 const lifecycle = require('./lifecycle');
+const UID = 'api::survey-report-generation.survey-report-generation';
+
+function createTransaction(strapi) {
+  return (operation) =>
+    strapi.db.transaction(async ({ trx }) => {
+    let lockedRunId;
+    return operation({
+      async lockGeneration(reportRunId) {
+        lockedRunId = reportRunId;
+        const row = await trx('survey_report_generations')
+          .select(
+            'report_run_id',
+            'status',
+            'state_version',
+            'task_name',
+            'claimed_at',
+            'failure_code',
+            'dispatch_attempt_count',
+          )
+          .where({ report_run_id: reportRunId })
+          .forUpdate()
+          .first();
+        return (
+          row && {
+            reportRunId: row.report_run_id,
+            status: row.status,
+            stateVersion: row.state_version,
+            taskName: row.task_name,
+            claimedAt: row.claimed_at,
+            failureCode: row.failure_code,
+            dispatchAttemptCount: row.dispatch_attempt_count,
+          }
+        );
+      },
+      async updateGeneration(patch) {
+        const changed = await trx('survey_report_generations')
+          .where({
+            report_run_id: lockedRunId,
+            state_version: patch.stateVersion - 1,
+            status: 'queued',
+          })
+          .update({
+            status: patch.status,
+            state_version: patch.stateVersion,
+            completed_at: patch.completedAt,
+            failure_code: patch.failureCode,
+            dispatch_attempt_count: patch.dispatchAttemptCount,
+          });
+        if (changed !== 1)
+          throw Object.assign(new Error('STATE_VERSION_CONFLICT'), {
+            code: 'STATE_VERSION_CONFLICT',
+          });
+      },
+    });
+    });
+}
+
 module.exports = createCoreService(
-  'api::survey-report-generation.survey-report-generation',
-  () => ({
+  UID,
+  ({ strapi }) => ({
     assertReportCreation: lifecycle.assertReportCreation,
     createLifecycle: lifecycle.createGenerationLifecycle,
     prepareCompletion: lifecycle.prepareAtomicCompletion,
     prepareDispatchFailure: lifecycle.prepareDispatchFailure,
     prepareRetry: lifecycle.prepareRetryGeneration,
     prepareTransition: lifecycle.prepareGenerationTransition,
+    compensateDispatchFailure(input) {
+      return lifecycle.createGenerationLifecycle({
+        withTransaction: createTransaction(strapi),
+      }).compensateDispatchFailure(input);
+    },
   }),
 );

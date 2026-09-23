@@ -16,12 +16,15 @@ function prepareGenerationTransition(generation, expectedStateVersion, status, n
     ...(status === 'running' ? { claimedAt: now } : { completedAt: now }),
   });
 }
-function prepareDispatchFailure(generation, expectedStateVersion, now) {
+function prepareDispatchFailure(generation, expectedStateVersion, now, dispatchAttemptCount) {
   if (generation.stateVersion !== expectedStateVersion)
     throw domainError('STATE_VERSION_CONFLICT');
-  if (generation.status !== 'queued') throw domainError('TERMINAL_CONFLICT');
+  if (generation.status !== 'queued') throw domainError('INVALID_STATE');
+  if (generation.claimedAt) throw domainError('INVALID_STATE');
   if (generation.taskName) throw domainError('TASK_ALREADY_CREATED');
-  return { status: 'failed', stateVersion: expectedStateVersion + 1, completedAt: now, failureCode: 'QUEUE_ENQUEUE_EXHAUSTED' };
+  if (!Number.isSafeInteger(dispatchAttemptCount) || dispatchAttemptCount < 1 || dispatchAttemptCount > 3)
+    throw domainError('VALIDATION_FAILED');
+  return { status: 'failed', stateVersion: expectedStateVersion + 1, completedAt: now, failureCode: 'QUEUE_ENQUEUE_EXHAUSTED', dispatchAttemptCount };
 }
 function prepareRetryGeneration(generation, now, createReportRunId = () => require('node:crypto').randomUUID()) {
   if (generation.status !== 'failed' || !generation.documentId) throw domainError('INVALID_STATE');
@@ -89,12 +92,18 @@ function prepareAtomicCompletion(input, expectedStateVersion, details) {
 function createGenerationLifecycle({ withTransaction, now = () => new Date().toISOString(), createReportRunId } = {}) {
   if (typeof withTransaction !== 'function') throw new TypeError('withTransaction is required');
   return {
-    async compensateDispatchFailure({ reportRunId, expectedStateVersion }) {
+    async compensateDispatchFailure({ reportRunId, expectedStateVersion, taskName, dispatchAttemptCount }) {
       return withTransaction(async (transaction) => {
         const generation = await transaction.lockGeneration(reportRunId);
-        const patch = prepareDispatchFailure(generation, expectedStateVersion, now());
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+        if (generation.status === 'failed' && generation.failureCode === 'QUEUE_ENQUEUE_EXHAUSTED' &&
+            generation.stateVersion === expectedStateVersion + 1 && generation.dispatchAttemptCount === dispatchAttemptCount &&
+            taskName === `tb113-report-${reportRunId.replaceAll('-', '')}`)
+          return { reportRunId, stateVersion: generation.stateVersion, status: 'failed', failureCode: 'QUEUE_ENQUEUE_EXHAUSTED', replayed: true };
+        if (taskName !== `tb113-report-${reportRunId.replaceAll('-', '')}`) throw domainError('VALIDATION_FAILED');
+        const patch = prepareDispatchFailure(generation, expectedStateVersion, now(), dispatchAttemptCount);
         await transaction.updateGeneration(patch);
-        return patch;
+        return { reportRunId, stateVersion: patch.stateVersion, status: 'failed', failureCode: patch.failureCode, replayed: false };
       });
     },
     async retry({ sourceRunId }) {

@@ -103,6 +103,23 @@ Paths: `W=/api/tb113/worker/generations/:reportRunId`; `A=/api/tb113/admin/gener
 
 All six add 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `RUN_NOT_FOUND`, and safe 500 `INTERNAL_ERROR`. Claim alone reads checkpoints. Identical checkpoint/terminal replay precedes stale CAS; differing replay conflicts. Appendix 04 validates completion. Only snapshot carries D50-D51 raw comments to the private worker, never browsers; others omit comments and raw prompt/model responses.
 
+`A/dispatch-failure` is a CMS-authenticated command action, granted explicitly
+to the corresponding Users & Permissions role for the server-mediated
+application user JWT from the Auth.js session; no API token is used for this
+call, and browser/public callers never receive the CMS credential. It accepts
+only the exact `DispatchFailureV1` shape within 16 KiB. CMS performs
+the state/version check and update under one row-locking transaction; identical
+exhaustion replay is recognized before stale-version rejection. Running/claimed,
+task-created, terminal, altered, and stale requests fail closed. The app invokes
+it only when its dispatcher returns the typed `noTaskCreated: true` exhaustion
+outcome; malformed or unmeasurable request bodies fail closed with 413 before
+the service is read. When raw bytes are not exposed by the runtime, the action
+requires a valid bounded `Content-Length` and rejects chunked/unmeasurable
+bodies. Thrown/ambiguous dispatcher outcomes and `DISPATCH_UNAVAILABLE` do not
+invoke compensation. The current default dispatcher remains unavailable and
+leaves runs queued. `taskName` pre-reservation and real enqueue/retry proof remain
+deferred to U10.
+
 Cloud Run only exposes POST `/internal/v1/report-runs:execute` with `{commandVersion:"survey-report-command.v1",reportRunId}`; raw >4 KiB returns 413 `PAYLOAD_TOO_LARGE`. Auth precedes dependencies. Deadline-bounded 200: `{contractVersion:"survey-worker-execution.v1",reportRunId,status:"succeeded"|"failed",disposition:"completed"|"terminal-replay",failureCode?:RuntimeFailureCodeV1|"QUEUE_ENQUEUE_EXHAUSTED"}`. Failures: 400 `INVALID_COMMAND`, 401 `INVALID_OIDC`, 403 `FORBIDDEN_INVOKER`, 404 `RUN_NOT_FOUND`, 409 `INVALID_STATE`, retryable 503 `RETRYABLE_EXECUTION`, safe 500 `INTERNAL_ERROR`. Responses omit checkpoints/sensitive/raw content.
 
 ## Direct implementation runtime boundary

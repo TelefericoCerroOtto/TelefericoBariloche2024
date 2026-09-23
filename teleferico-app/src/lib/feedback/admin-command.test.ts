@@ -124,6 +124,163 @@ describe("feedback administration command contracts", () => {
     });
   });
 
+  it("compensates verified exhaustion after generation when no reports overlap", async () => {
+    const exhaustion = (taskName: string) => ({
+      contractVersion: "survey-dispatch-command.v1" as const,
+      status: "exhausted" as const,
+      noTaskCreated: true as const,
+      taskName,
+      dispatchAttemptCount: 3 as const,
+      failureCode: "QUEUE_ENQUEUE_EXHAUSTED" as const,
+    });
+    const fetchImplementation = vi.fn(async (_input, init) => {
+      const url = String(_input);
+      if (url.includes("dispatch-failure"))
+        return Response.json({
+          contractVersion: "survey-dispatch-command.v1",
+          reportRunId: url.split("/").at(-2),
+          stateVersion: 2,
+          status: "failed",
+          failureCode: "QUEUE_ENQUEUE_EXHAUSTED",
+          replayed: false,
+        });
+      if (init?.method === "POST")
+        return Response.json({ data: { ...validCoreRow, reportRunId: JSON.parse(String(init.body)).data.reportRunId, stateVersion: 1 } }, { status: 201 });
+      return Response.json({ data: [] });
+    });
+    const dispatcher = { dispatch: vi.fn(async ({ taskName }: { taskName: string }) => exhaustion(taskName)) };
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      dispatcher,
+      fetchImplementation,
+    });
+
+    await expect(transport.generate(validGenerate)).resolves.toMatchObject({
+      status: "failed",
+      dispatch: { status: "failed", failureCode: "QUEUE_ENQUEUE_EXHAUSTED" },
+    });
+    expect(fetchImplementation.mock.calls.filter(([url]) =>
+      String(url).includes("dispatch-failure"),
+    )).toHaveLength(1);
+  });
+
+  it("compensates verified exhaustion after retrying a failed source", async () => {
+    const fetchImplementation = vi.fn(async (_input, init) => {
+      const url = String(_input);
+      if (url.includes("dispatch-failure"))
+        return Response.json({
+          contractVersion: "survey-dispatch-command.v1",
+          reportRunId: url.split("/").at(-2),
+          stateVersion: 2,
+          status: "failed",
+          failureCode: "QUEUE_ENQUEUE_EXHAUSTED",
+          replayed: false,
+        });
+      if (init?.method === "POST")
+        return Response.json({ data: { ...validCoreRow, reportRunId: JSON.parse(String(init.body)).data.reportRunId, stateVersion: 1 } }, { status: 201 });
+      return Response.json({ data: [{ ...validCoreRow, status: "failed" }] });
+    });
+    const dispatcher = {
+      dispatch: vi.fn(async ({ taskName }: { taskName: string }) => ({
+        contractVersion: "survey-dispatch-command.v1" as const,
+        status: "exhausted" as const,
+        noTaskCreated: true as const,
+        taskName,
+        dispatchAttemptCount: 3 as const,
+        failureCode: "QUEUE_ENQUEUE_EXHAUSTED" as const,
+      })),
+    };
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      dispatcher,
+      fetchImplementation,
+    });
+
+    await expect(transport.retry(validResult.reportRunId, {
+      contractVersion: "feedback-admin.v1",
+    })).resolves.toMatchObject({
+      status: "failed",
+      dispatch: { status: "failed", failureCode: "QUEUE_ENQUEUE_EXHAUSTED" },
+    });
+    expect(fetchImplementation.mock.calls.filter(([url]) =>
+      String(url).includes("dispatch-failure"),
+    )).toHaveLength(1);
+    expect(dispatcher.dispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["contract version", { contractVersion: "survey-dispatch-command.v0" }],
+    ["failure code", { failureCode: "DISPATCH_UNAVAILABLE" }],
+    ["attempt count", { dispatchAttemptCount: 2 }],
+    ["task name", { taskName: "tb113-report-another-run" }],
+  ])("does not compensate an exhaustion result with an invalid %s", async (_case, override) => {
+    const fetchImplementation = vi.fn(async (_input, init) =>
+      init?.method === "POST"
+        ? Response.json({ data: { ...validCoreRow, stateVersion: 1 } }, { status: 201 })
+        : Response.json({ data: [] }, { status: 200 }),
+    );
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      dispatcher: {
+        dispatch: async ({ taskName }) => ({
+          contractVersion: "survey-dispatch-command.v1",
+          status: "exhausted",
+          noTaskCreated: true,
+          taskName,
+          dispatchAttemptCount: 3,
+          failureCode: "QUEUE_ENQUEUE_EXHAUSTED",
+          ...override,
+        } as never),
+      },
+      fetchImplementation,
+    });
+
+    await expect(transport.generate(validGenerate)).rejects.toMatchObject({
+      code: "UPSTREAM_UNAVAILABLE",
+      status: 503,
+    });
+    expect(fetchImplementation.mock.calls.some(([url]) =>
+      String(url).includes("dispatch-failure"),
+    )).toBe(false);
+  });
+
+  it("leaves the queued generation untouched when dispatch is unavailable or throws", async () => {
+    const unavailable = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      fetchImplementation: vi.fn(async (_input, init) =>
+        init?.method === "POST"
+          ? Response.json({ data: { ...validCoreRow, stateVersion: 1 } }, { status: 201 })
+          : Response.json({ data: [] }),
+      ),
+    });
+    await expect(unavailable.generate(validGenerate)).resolves.toMatchObject({
+      status: "queued",
+      dispatch: { failureCode: "DISPATCH_UNAVAILABLE" },
+    });
+
+    const fetchImplementation = vi.fn(async (_input, init) =>
+      init?.method === "POST"
+        ? Response.json({ data: { ...validCoreRow, stateVersion: 1 } }, { status: 201 })
+        : Response.json({ data: [] }),
+    );
+    const failing = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      dispatcher: { dispatch: async () => { throw new Error("ambiguous outcome"); } },
+      fetchImplementation,
+    });
+    await expect(failing.generate(validGenerate)).rejects.toMatchObject({
+      code: "UPSTREAM_UNAVAILABLE",
+    });
+    expect(fetchImplementation.mock.calls.some(([url]) =>
+      String(url).includes("dispatch-failure"),
+    )).toBe(false);
+  });
+
   it("maps native core conflicts without leaking upstream details", async () => {
     let call = 0;
     const transport = createFeedbackAdminCommandTransport({
