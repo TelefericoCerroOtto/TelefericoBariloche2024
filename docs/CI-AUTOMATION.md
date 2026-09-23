@@ -92,6 +92,12 @@ node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url> \
 
 Exit codes are stable: `0` means governance passed, `1` means governance failed, `2` means expected governance checks remained missing or pending until timeout, and `3` means usage, GitHub CLI, malformed-response, or PR-snapshot observation failed. Functional failures are reported but do not replace the governance exit code.
 
+### Post-creation app Vitest evidence
+
+File: `.github/scripts/implementation-pr-vitest.js`
+
+Until required PR CI adopts app Vitest, `/implementation-pr` invokes this dependency-free helper once after governance observation with `--pr-created` and every path from the complete candidate inventory as repeated `--candidate-path` arguments. The helper runs `pnpm run test` when an app candidate is not Markdown documentation (`.md`/`.mdx`); CMS/root-only and app Markdown-only inventories skip. Its JSON schema `implementation-pr-vitest.v1` reports scope, path count, run count, and child exit code. Completed suite failures exit `0` with JSON `status=failed` so the workflow can continue; callers must inspect the JSON. Argument/process errors emit `status=error` and exit nonzero. `--pr-created` and the candidate-path list are caller inputs tied to successful PR read-back and the accepted snapshot; the helper does not verify PR identity or inventory completeness. Failure records withhold all stdout/stderr and include only safe category/exit/signal fields plus an explicit withholding note. Failure attribution remains `unclassified`. When required PR CI adopts the full app suite, retire the local rule and helper in the same policy change. Focused contract tests cover scope classification, output withholding, exit semantics, and governance-before-Vitest instructions.
+
 ## Issue formalization boundary
 
 Issue creation/formalization is outside this workflow.
