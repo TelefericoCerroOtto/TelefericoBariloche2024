@@ -1,7 +1,5 @@
 import "server-only";
 
-import { createHash, randomUUID } from "node:crypto";
-
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import {
   createUnavailableFeedbackDispatcher,
@@ -20,6 +18,11 @@ import type {
   FeedbackAdminOverlapDetails,
   FeedbackAdminRetryCommand,
 } from "@/types/api/admin/feedback";
+import {
+  buildGenerationData,
+  buildOverlapDetails,
+  prepareRetryGeneration,
+} from "./generation-lifecycle";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const UUID_PATTERN =
@@ -111,46 +114,6 @@ function validDateRange(value: unknown): value is FeedbackAdminDateRange {
   } catch {
     return false;
   }
-}
-
-function overlapDetails(
-  rows: readonly CoreGeneration[],
-  requestedPeriod: FeedbackAdminDateRange,
-): FeedbackAdminOverlapDetails {
-  const overlaps = rows
-    .map((row) => ({
-      reportRunId: row.reportRunId,
-      period: { from: row.from, to: row.to },
-      intersection: {
-        from: row.from > requestedPeriod.from ? row.from : requestedPeriod.from,
-        to: row.to < requestedPeriod.to ? row.to : requestedPeriod.to,
-      },
-    }))
-    .sort(
-      (left, right) =>
-        left.intersection.from.localeCompare(right.intersection.from) ||
-        left.reportRunId.localeCompare(right.reportRunId),
-    );
-  const overlapDigest = createHash("sha256")
-    .update(
-      JSON.stringify(
-        rows
-          .map((row) => ({
-            reportRunId: row.reportRunId,
-            period: { from: row.from, to: row.to },
-            status: row.status,
-          }))
-          .sort((left, right) =>
-            left.reportRunId.localeCompare(right.reportRunId),
-          ),
-      ),
-    )
-    .digest("hex");
-  return {
-    overlaps,
-    overlapDigest,
-    adjustment: "Choose a range that excludes every listed intersection.",
-  };
 }
 
 export function parseGenerateCommand(value: unknown): CommandResult {
@@ -313,28 +276,21 @@ export function createFeedbackAdminCommandTransport(options: Options) {
   const create = async (
     command: FeedbackAdminGenerateCommand,
     source?: CoreGeneration,
+    cutoff = new Date(),
   ) => {
-    const period = source
-      ? { from: source.from, to: source.to }
-      : command.period;
-    const data: RecordValue = {
-      reportRunId: randomUUID(),
-      periodStart: period.from,
-      periodEnd: period.to,
-      dataCutoffAt: new Date().toISOString(),
-      overlapOverrideAccepted: source ? false : command.override.accepted,
-      ...(source ? {} : { overlapDigest: command.override.overlapDigest }),
-      snapshotDigest: "0".repeat(64),
-      sourceRevision: "feedback-admin.v1",
-      snapshotJson: {},
-      checkpointsJson: {},
-      modelConfigJson: {},
-      usageJson: {},
-      pricingSnapshotJson: {},
-      ...(source
-        ? { retryOfGeneration: { connect: [source.documentId] } }
-        : {}),
-    };
+    const data = buildGenerationData(
+      command,
+      cutoff,
+      undefined,
+      source
+        ? {
+            documentId: source.documentId,
+            reportRunId: source.reportRunId,
+            period: { from: source.from, to: source.to },
+            status: source.status,
+          }
+        : undefined,
+    );
     const result = coreResult(
       await coreRequest(GENERATION_ENDPOINT, {
         method: "POST",
@@ -350,6 +306,7 @@ export function createFeedbackAdminCommandTransport(options: Options) {
 
   return {
     async generate(value: FeedbackAdminGenerateCommand) {
+      const cutoff = new Date();
       const conflicts = await list(value.period);
       const active = conflicts.find(
         (row) =>
@@ -360,7 +317,15 @@ export function createFeedbackAdminCommandTransport(options: Options) {
       if (active)
         throw new FeedbackAdminCommandError("ACTIVE_RANGE_CONFLICT", 409);
       if (conflicts.length) {
-        const details = overlapDetails(conflicts, value.period);
+        const details = buildOverlapDetails(
+          conflicts.map((row) => ({
+            documentId: row.documentId,
+            reportRunId: row.reportRunId,
+            period: { from: row.from, to: row.to },
+            status: row.status,
+          })),
+          value.period,
+        );
         if (
           !value.override.accepted ||
           value.override.overlapDigest !== details.overlapDigest
@@ -371,22 +336,35 @@ export function createFeedbackAdminCommandTransport(options: Options) {
             details,
           );
       }
-      return create(value);
+      return create(value, undefined, cutoff);
     },
     async retry(reportRunId: string, _value: FeedbackAdminRetryCommand) {
       if (!UUID_PATTERN.test(reportRunId))
         throw new FeedbackAdminCommandError("VALIDATION_FAILED", 400);
+      const cutoff = new Date();
       const source = await find(reportRunId);
       if (!source || source.status !== "failed")
         throw new FeedbackAdminCommandError("INVALID_STATE", 409);
-      return create(
+      const data = prepareRetryGeneration(
         {
-          contractVersion: "feedback-admin.v1",
+          documentId: source.documentId,
+          reportRunId: source.reportRunId,
           period: { from: source.from, to: source.to },
-          override: { accepted: false, overlapDigest: null },
+          status: source.status,
         },
-        source,
+        cutoff,
       );
+      const result = coreResult(
+        await coreRequest(GENERATION_ENDPOINT, {
+          method: "POST",
+          body: JSON.stringify({ data }),
+        }),
+      );
+      const dispatch = await dispatcher.dispatch({
+        reportRunId: result.reportRunId,
+        taskName: `tb113-report-${result.reportRunId.replaceAll("-", "")}`,
+      });
+      return { ...result, dispatch };
     },
   };
 }

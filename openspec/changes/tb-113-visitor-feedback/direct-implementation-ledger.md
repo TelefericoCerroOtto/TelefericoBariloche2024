@@ -151,6 +151,18 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
   - Status: `pending`
   - Evidence: `pending`
 
+### `U9-A-CORRECTION-1: Completion contract and transaction proof`
+
+- **Correction trigger:** Review found that artifact spreads could overwrite report identity and lineage fields, completion preparation omitted required `survey-report` schema attributes, the PostgreSQL test used separate pool connections for transaction statements, and the retry fake replaced its source row.
+- **Scope:** Corrected only U9-A app/CMS completion preparation and its focused evidence. U9-A1 authenticated CMS/HTTP dispatch-failure compensation remains out of scope and unchanged.
+- **Fix:** Both completion helpers now whitelist artifact fields, preserve authoritative report/generation/cutoff identity, emit the schema's analysis, renderer, artifact metadata, and source-generation relation fields, and reject incomplete contract inputs. CMS retry tests now model distinct immutable source and queued retry rows. The PostgreSQL harness executes lifecycle completion through one checked-out transaction client and proves a database failure rolls back both report insertion and generation completion as observed from another connection.
+- **RED evidence:** `pnpm exec vitest run 'src/lib/feedback/generation-lifecycle.test.ts' 'src/lib/feedback/admin-command.test.ts'` — exit 1; the new app assertion observed artifact-provided `reportId`, `generationRunId`, and `dataCutoffAt` replacing authoritative values; 12 other tests passed. `npm test -- feedback/generation-lifecycle` — exit 1; the new CMS completion assertion observed artifact-provided `generationRunId`; the retry test also exposed that its fake replaced the source row. The prior PostgreSQL case passed but its separate `pool.query` transaction statements did not establish the claimed transaction rollback.
+- **GREEN evidence:** `pnpm exec vitest run 'src/lib/feedback/generation-lifecycle.test.ts' 'src/lib/feedback/admin-command.test.ts'` — exit 0; 2 files and 13 tests passed. `npm test -- feedback/generation-lifecycle` — exit 0; 4 tests passed, including isolated PostgreSQL active-range serialization, successful atomic completion, and failure rollback with independent-connection state assertions. `git diff --check` — exit 0, no output.
+- **Authored size:** `961` additions plus deletions, measured as `git diff --numstat HEAD` additions+deletions for tracked changes plus the line counts of every intended untracked text file; ceiling 1,000. The candidate contains the existing nine paths only.
+- **Status:** `passed` for local correction and listed focused evidence only. This is not native review approval, formal SDD verification, integrated app/CMS wiring, or delivery evidence.
+- **Residual risks:** Authenticated CMS/HTTP worker completion and integrated app/CMS behavior remain unverified and outside U9-A. U9-A1 remains deferred to its owner. Existing native review state remains terminal escalated/declined; no review lifecycle operation was invoked.
+- **Rollback boundary:** Revert this correction's changes within the existing nine U9-A candidate paths as one unit; retain the pre-existing U9-A1 boundary and all unrelated working-tree content.
+
 ## U8-D reliability follow-up — period reset and deterministic timestamps
 
 - **Scope:** Reset comment pagination to page 1 when the selected reporting period changes; format displayed comment timestamps using `America/Argentina/Buenos_Aires` and 24-hour output.
@@ -487,6 +499,68 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
   - Status: `passed`
   - Fix evidence: Added bounded login hydration readiness with one local reload retry and selected the rating checkbox by role in `feedback-admin.spec.ts`; no application behavior was changed.
   - Revalidation evidence: `pnpm exec playwright test tests/e2e/feedback-admin.spec.ts` — exit 0; 2 tests passed in 1.2 minutes.
+- **Formal SDD reconstruction:**
+  - Status: `pending`
+  - Evidence: `pending`
+
+### `U9-A: Generation lifecycle`
+
+- **Identity and scope:** Added the bounded generation lifecycle contract for overlap disclosure, immutable cutoff capture, compare-and-swap transitions, failed-run retry lineage, pre-claim enqueue compensation, and atomic generation/report completion. U10 dispatch/worker/provider behavior, U12-A PDF delivery/storage, schema/auth/permission changes, dependencies, infrastructure, deployment, and remote resources remain excluded.
+- **Requirements references:** `specs/report-generation-lifecycle/spec.md` separate process/report records, active-range concurrency, overlap override, retry lineage, and atomic terminal completion; D40 and D43-D48/D69-D71.
+- **Design references:** `design/01-persistence-contracts.md` lifecycle and transaction rules; `design/02-http-contracts.md` generation/retry and worker completion contracts; `design/03-metrics-snapshot-contracts.md` cutoff-before-read rule; `design/04-ai-worker-infrastructure.md` pre-claim compensation boundary; `design/06-migration-testing-rollout.md` RED-first lifecycle and concurrent PostgreSQL coverage.
+- **Task references:** `tasks.md` U9-A row and task 3.3.
+- **Dependencies:** U8-B native Strapi generation command boundary, U8-E local administration proof, U4 persistence constraints, and U6 reporting periods. No dependency or schema change was made.
+- **Changed paths and reasons:**
+  - `teleferico-app/src/lib/feedback/generation-lifecycle.ts` — owns pure app-side cutoff, overlap, retry, compensation, command-payload, and completion-contract preparation.
+  - `teleferico-app/src/lib/feedback/generation-lifecycle.test.ts` — covers overlap completeness/digest, cutoff, retry, compensation CAS, completion prerequisites, and queued command identity.
+  - `teleferico-app/src/lib/feedback/admin-command.ts` — reuses the lifecycle contract for overlap disclosure, cutoff payload construction, and retry lineage without changing the U8-B transport boundary.
+  - `teleferico-cms/src/api/survey-report-generation/services/lifecycle.js` — adds CMS-owned CAS compensation, retry preparation, atomic completion preparation, and transaction orchestration while preserving existing transition primitives.
+  - `teleferico-cms/src/api/survey-report-generation/services/survey-report-generation.js` — exposes the lifecycle primitives through the native generation service boundary.
+  - `teleferico-cms/test/feedback/generation-lifecycle/lifecycle.test.js` — verifies rollback-safe compensation/retry and one-transaction completion with a deterministic transaction fake.
+  - `teleferico-cms/test/feedback/generation-lifecycle/postgres.test.js` — proves concurrent active-range uniqueness and committed generation/report visibility against isolated local PostgreSQL.
+  - `teleferico-cms/test/feedback/harness/test-runner.js` — registers the `feedback/generation-lifecycle` selector.
+  - `openspec/changes/tb-113-visitor-feedback/direct-implementation-ledger.md` — records U9-A evidence and bounded deferrals.
+- **Implementation:**
+  - Status: `passed` for the bounded local implementation.
+  - Revision: `pending` (uncommitted by instruction).
+  - Pull request: `pending` (not authorized).
+  - Merge evidence: `pending` (not authorized).
+- **RED evidence:**
+  - App command: `pnpm exec vitest run 'src/lib/feedback/generation-lifecycle.test.ts' 'src/lib/feedback/admin-command.test.ts'` — exit 1; the new suite failed before collection because `./generation-lifecycle` did not exist; the existing admin command suite passed 7 tests.
+  - CMS command: `npm test -- feedback/generation-lifecycle` — exit 1; three unit tests failed because the lifecycle exports did not exist, and the initial PostgreSQL test failed during local pool startup with `Connection terminated unexpectedly` before assertions.
+- **GREEN focused tests:**
+  - Command: `pnpm exec vitest run 'src/lib/feedback/generation-lifecycle.test.ts' 'src/lib/feedback/admin-command.test.ts'`
+  - Status: `passed`
+  - Exact result: exit 0; 2 files passed; 13 tests passed.
+  - Command: `npm test -- feedback/generation-lifecycle`
+  - Status: `passed`
+  - Exact result: exit 0; 4 tests passed, including 3 unit lifecycle tests and 1 concurrent isolated PostgreSQL test; owned resources were cleaned up.
+- **Focused tests:**
+  - Command: `git diff --check`
+  - Status: `passed`
+  - Exact result: exit 0 with no output after the U9-A ledger append.
+- **Intentionally deferred validation:**
+  - Exact command or scenario: `pnpm run typecheck`, package-wide app tests, lint/format checks, full CMS feedback suites, full PostgreSQL/Strapi integration beyond the focused concurrent harness, authenticated browser validation, worker/provider/PDF/storage execution, implementation PR CI, integrated `development` validation, staging, and production checks.
+  - Status: `not run`
+  - Reason: The direct U9-A route authorizes focused app/CMS lifecycle evidence only; the user explicitly prohibited broad, remote, deployment, and later-unit checks.
+  - Intended future checkpoint: implementation PR CI for static checks; integrated `development` validation for cross-package lifecycle/worker behavior; U10/U12-A work units for worker and delivery execution; formal verification for deferred TB-113 evidence.
+  - Owner: TB-113 implementer/reviewer for CI and integrated validation; U10 owner for dispatch/worker; U12-A owner for PDF/storage; formal verification owner for closure evidence.
+- **Acceptance criteria:**
+  - All inclusive overlaps are disclosed with deterministic intersections and digest: `passed` by the app lifecycle test.
+  - Cutoff is captured as a valid UTC timestamp before downstream snapshot work and retry gets a fresh cutoff: `passed` by app lifecycle tests.
+  - Queued→failed compensation and lifecycle completion require expected state version and reject task/terminal/incomplete states: `passed` by app/CMS unit tests.
+  - Failed retry creates a new queued run with lineage while leaving the source run unchanged: `passed` by app/CMS unit tests.
+  - Concurrent identical active ranges admit one PostgreSQL row and successful completion exposes generation/report together after commit: `passed` by the isolated PostgreSQL harness; broader Strapi HTTP wiring remains deferred.
+- **Residual risks:** The native U8-B HTTP transport still performs browser-command validation before native CRUD; U9 transaction orchestration is exposed through the CMS service seam but is not yet wired to a new worker/admin route, which remains owned by U10 and the existing command boundary. The completion helper currently proves the direct required-stage set only; map/reduce checkpoint contracts remain a U10 concern. No external queue, worker, renderer, storage, or integrated authenticated CMS readback was executed.
+- **Rollback boundary:** Revert the U9-A lifecycle module/tests, the bounded imports and payload construction changes in `admin-command.ts`, the CMS lifecycle/service exports, the harness selector, and this ledger entry together. Preserve U8-A/U8-B readers and native command transport, existing U4 schemas/constraints, U6 core, and U8-E E2E fixtures.
+- **Later integrated validation:**
+  - Status: `not run`
+  - Evidence: pending authenticated Strapi/app transaction wiring, U10 dispatch/worker contract integration, and integrated `development` revision evidence.
+- **Correction or follow-up:**
+  - Trigger: pre-existing retry-dispatch orphan risk confirmed after the focused GREEN run; follow-up `U9-A1` owns only the authenticated CMS/HTTP CAS compensation after enqueue exhaustion, allowing only an untouched `queued` generation with the expected state version and no task claim to transition to `failed`; U9-A remains closed under its original generation-lifecycle definition.
+  - Status: `pending`
+  - Fix evidence: `pending`
+  - Revalidation evidence: `pending`
 - **Formal SDD reconstruction:**
   - Status: `pending`
   - Evidence: `pending`
