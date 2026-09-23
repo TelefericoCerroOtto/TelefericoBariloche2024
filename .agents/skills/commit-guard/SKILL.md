@@ -38,7 +38,8 @@ bash .agents/skills/commit-guard/scripts/commit_guard.sh
 
 - Do not modify files unless explicitly instructed by the user.
 - Do not stage/unstage automatically.
-- Only run `typecheck` in affected packages that expose a `typecheck` script. Check `package.json` files to determine this.
+- Only run `typecheck` in affected packages that expose a `typecheck` script. Parse each `package.json` as JSON so formatting and line breaks do not affect detection; malformed package configuration is an explicit failure, not `NOT_AVAILABLE`.
+- The read-only script's fixture contract can be checked with `bash .agents/skills/commit-guard/tests/commit_guard.test.sh`. Its fake package-manager executable verifies detection without running a real typecheck.
 
 ## Resources
 
