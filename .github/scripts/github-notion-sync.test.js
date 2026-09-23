@@ -60,7 +60,7 @@ function renderedChainContext({
   parentBranch = "feat/root-tb-102-parent",
   parentHeadSha = "b".repeat(40),
 } = {}) {
-  return `<h2>Chain Context</h2><p>Strategy: ${strategy}\nParent PR: ${parentPullRequest}\nParent branch: ${parentBranch}\nParent head SHA: ${parentHeadSha}</p>`;
+  return `<h2>Chain Context</h2><p>Strategy: ${strategy}\nParent PR: ${parentPullRequest}\nParent branch: ${parentBranch}\nParent head SHA: <a href="https://github.com/${repository.slug}/commit/${parentHeadSha}">${parentHeadSha}</a></p>`;
 }
 function stackedPreviewConfig(overrides = {}) {
   return config({

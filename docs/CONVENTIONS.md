@@ -134,8 +134,10 @@ The parent must be an open same-repository implementation PR into `development`.
 Strategy: stacked-to-main
 Parent PR: #<number>
 Parent branch: <governed-parent-branch>
-Parent head SHA: <40-character-sha>
+Parent head SHA: [<full SHA>](https://github.com/<owner>/<repo>/commit/<full SHA>)
 ```
+
+The commit link label must be the exact full 40-character parent head SHA. Its visible Markdown link text is what GitHub-rendered validation evaluates; do not use an abbreviated SHA or bare link URL.
 
 `feature-branch-chain` and arbitrary tracker topology remain unsupported. After the parent merges into `development`, fresh candidate-scoped authorization may retarget the existing child PR to `development`. Governance then restarts as normal implementation governance; never create a duplicate PR or automate rebase, force-push, merge, ready-for-review, branch deletion, or ancestry repair.
 
@@ -151,7 +153,7 @@ node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url>
 
 The helper is the sole source of check identities, polling, duplicate-run handling, and exit semantics. It waits for `Governance tests`, `validate-pr-policy`, and `trusted-pr-sync`; Cloud Build and other functional checks are reported separately and never change the governance exit status. A governance pass is not a claim that the PR is fully validated while application tests are still running.
 
-Until required PR CI adopts app Vitest, `/implementation-pr` runs the governance observer immediately after PR confirmation/read-back, then runs `pnpm run test` once when the complete candidate inventory contains an app path other than `.md`/`.mdx` documentation. App Markdown-only changes such as `teleferico-app/README.md`, and CMS/root-only changes, skip. Vitest runs even if governance fails or times out; governance exit semantics remain unchanged. The helper exits `0` for completed suite failures and reports JSON `status=failed`; argument/execution errors remain nonzero. It withholds raw stdout/stderr from failure JSON. Scope inputs are caller-provided paths tied to the accepted snapshot and PR read-back, not independently verified by the helper. Broad-suite failures are unrelated only when evidence proves that attribution; otherwise report candidate-caused or unknown. When required PR CI adopts the suite, retire the local rule and helper in the same policy change.
+Until required PR CI adopts app Vitest, `/implementation-pr` applies required PR metadata before governance observation, then runs `pnpm run test` once when the complete candidate inventory contains an app path other than `.md`/`.mdx` documentation. App Markdown-only changes such as `teleferico-app/README.md`, and CMS/root-only changes, skip. Vitest runs even if governance fails or times out; governance exit semantics remain unchanged. The Vitest subprocess has a 15-minute timeout; a timeout is an infrastructure error (`status=error`) and is not retried. The helper exits `0` for completed suite failures and reports JSON `status=failed`; argument/execution errors remain nonzero. It withholds raw stdout/stderr from failure JSON. Scope inputs are caller-provided paths tied to the accepted snapshot and PR read-back, not independently verified by the helper. Broad-suite failures are unrelated only when evidence proves that attribution; otherwise report candidate-caused or unknown. When required PR CI adopts the suite, retire the local rule and helper in the same policy change.
 
 Use `--mode stacked-preview` only while observing a draft child against its parent branch. This mode binds the exact head SHA, base branch/SHA, and draft state; functional and Cloud Build checks are explicitly deferred until retargeting to `development`. The default mode remains strict about `base=development`.
 

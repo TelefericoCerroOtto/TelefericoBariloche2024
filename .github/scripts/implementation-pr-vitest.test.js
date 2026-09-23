@@ -5,6 +5,7 @@ const test = require("node:test");
 const {
   APP_ROOT,
   WITHHELD_OUTPUT_NOTE,
+  VITEST_TIMEOUT_MS,
   classifyCandidateScope,
   main,
   parseArguments,
@@ -63,6 +64,7 @@ test("runs once for app source mixed with documentation and records a pass", () 
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0].slice(0, 2), ["pnpm", ["run", "test"]]);
   assert.equal(calls[0][2].cwd, APP_ROOT);
+  assert.equal(calls[0][2].timeout, VITEST_TIMEOUT_MS);
   assert.equal(report.status, "passed");
   assert.equal(report.runs, 1);
   assert.equal(report.exit_code, 0);
@@ -149,6 +151,28 @@ test("keeps execution infrastructure errors distinct and non-zero", () => {
   });
 });
 
+test("classifies a bounded Vitest timeout as infrastructure error without retrying", () => {
+  let calls = 0;
+  const report = runPostPrVitest({
+    prCreated: true,
+    candidatePaths: appSourceAndDocsPaths,
+    spawn: () => {
+      calls += 1;
+      return { status: null, signal: "SIGTERM", error: Object.assign(new Error("private timeout detail"), { code: "ETIMEDOUT" }) };
+    },
+  });
+
+  assert.equal(calls, 1);
+  assert.equal(report.status, "error");
+  assert.deepEqual(report.failure_evidence, {
+    spawn_category: "timeout",
+    signal: "SIGTERM",
+    exit_code: null,
+    note: WITHHELD_OUTPUT_NOTE,
+  });
+  assert.equal(JSON.stringify(report).includes("private timeout detail"), false);
+});
+
 test("implementation instructions run governance observation before post-PR Vitest", () => {
   const skill = fs.readFileSync(path.join(repositoryRoot, ".agents", "skills", "implementation-pr", "SKILL.md"), "utf8");
   const command = fs.readFileSync(path.join(repositoryRoot, ".opencode", "commands", "implementation-pr.md"), "utf8");
@@ -157,6 +181,25 @@ test("implementation instructions run governance observation before post-PR Vite
   assert.ok(skillExecution.indexOf("wait-for-implementation-governance.js") < skillExecution.indexOf("implementation-pr-vitest.js"));
   assert.ok(skillExecution.includes("regardless of the governance helper's exit code"));
   assert.ok(command.indexOf("wait-for-implementation-governance.js") < command.indexOf("implementation-pr-vitest.js"));
+  assert.ok(skillExecution.indexOf("Apply any required PR metadata") < skillExecution.indexOf("wait-for-implementation-governance.js"));
+  assert.ok(command.indexOf("apply any required PR metadata") < command.indexOf("wait-for-implementation-governance.js"));
+  assert.match(skillExecution, /active branch still equals the branch captured in the snapshot/);
+  assert.match(skillExecution, /captured typed plan/);
+});
+
+test("stacked-chain instructions use a visible Markdown full-SHA commit link", () => {
+  const conventions = fs.readFileSync(path.join(repositoryRoot, "docs", "CONVENTIONS.md"), "utf8");
+  const skill = fs.readFileSync(path.join(repositoryRoot, ".agents", "skills", "implementation-pr", "SKILL.md"), "utf8");
+  const command = fs.readFileSync(path.join(repositoryRoot, ".opencode", "commands", "implementation-pr.md"), "utf8");
+  const linkedShaShape = "Parent head SHA: [<full SHA>](https://github.com/<owner>/<repo>/commit/<full SHA>)";
+
+  for (const instruction of [conventions, skill, command]) {
+    assert.ok(instruction.includes(linkedShaShape), "expected the exact visible commit-link shape");
+    assert.ok(instruction.includes("Chain Context"));
+  }
+  assert.ok(conventions.includes("GitHub-rendered visible content"));
+  assert.ok(conventions.includes("Parent PR: #<number>"));
+  assert.ok(conventions.includes("same-repository"));
 });
 
 test("the CLI rejects execution without the post-creation signal", () => {

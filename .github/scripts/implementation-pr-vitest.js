@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const APP_ROOT = path.join(__dirname, "..", "..", "teleferico-app");
 const WITHHELD_OUTPUT_NOTE = "Detailed stdout/stderr intentionally withheld.";
+const VITEST_TIMEOUT_MS = 15 * 60 * 1000;
 
 function parseArguments(argv) {
   const options = { prCreated: false, candidatePaths: [] };
@@ -55,7 +56,7 @@ function classifyCandidateScope(candidatePaths) {
 
 function failureEvidence(result) {
   return {
-    spawn_category: result.error ? "spawn-error" : result.signal ? "signaled" : Number.isInteger(result.status) ? "process-exit" : "missing-status",
+    spawn_category: result.error?.code === "ETIMEDOUT" ? "timeout" : result.error ? "spawn-error" : result.signal ? "signaled" : Number.isInteger(result.status) ? "process-exit" : "missing-status",
     signal: result.signal || null,
     exit_code: Number.isInteger(result.status) ? result.status : null,
     note: WITHHELD_OUTPUT_NOTE,
@@ -81,6 +82,7 @@ function runPostPrVitest({ prCreated, candidatePaths, spawn = childProcess.spawn
     cwd: APP_ROOT,
     encoding: "utf8",
     maxBuffer: 10 * 1024 * 1024,
+    timeout: VITEST_TIMEOUT_MS,
   });
   const completed = !result.error && !result.signal && Number.isInteger(result.status);
   const succeeded = completed && result.status === 0;
@@ -120,6 +122,7 @@ if (require.main === module) process.exitCode = main();
 module.exports = {
   APP_ROOT,
   WITHHELD_OUTPUT_NOTE,
+  VITEST_TIMEOUT_MS,
   classifyCandidateScope,
   failureEvidence,
   isDocumentationPath,
