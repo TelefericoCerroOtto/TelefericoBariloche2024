@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { createSnapshot } from "../../../packages/survey-reporting-core/src";
 import {
   parseFeedbackAdminFilters,
   projectComments,
@@ -8,25 +9,16 @@ import {
 } from "./admin-read";
 
 const source: FeedbackAdminSource = {
-  snapshot: {
-    population: {
-      currentSubmissionCount: 3,
-      previousSubmissionCount: 2,
-    },
-    metrics: {
-      current: { submissionCount: 3 },
-      previous: { submissionCount: 2 },
-      deltas: { submissionCount: 1, submissionPercentBps: 5000 },
-      calendar: [],
-      aspects: [],
-      classifications: { strengths: [], opportunities: [] },
-      matrix: [],
-      fiveStarAssociation: [],
-      otherAspects: [],
-      qrPoints: [],
-    },
-    comments: [],
-  },
+  snapshot: createSnapshot({
+    sourceRevision: "admin-read-test",
+    createdAt: "2026-08-21T00:00:00.000Z",
+    dataCutoffAt: "2026-08-21T00:00:00.000Z",
+    range: { from: "2026-08-01", to: "2026-08-20" },
+    filters: { pointKey: null, versionKey: null },
+    submissions: [],
+    definitions: [],
+    points: [],
+  }).payload,
   comments: [
     {
       recordId: "comment-1",

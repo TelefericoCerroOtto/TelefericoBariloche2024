@@ -108,7 +108,7 @@ describe("feedback analytics UI projections", () => {
 
   it("renders authoritative matrix and five-star exact tables", () => {
     const aspectData = projectAspects(source);
-    const matrixData = { ...aspectData, matrix: [{ aspectKey: "views", xSelectionCount: 8, yNegativeRateBps: 4000, medianSelectionCountTimesTwo: 16, medianNegativeRateBpsTimesTwo: 8000, state: "classified", quadrant: "strength" }, { aspectKey: "other", xSelectionCount: 16, yNegativeRateBps: 8000, medianSelectionCountTimesTwo: 16, medianNegativeRateBpsTimesTwo: 8000, state: "excluded", quadrant: null }] as const };
+    const matrixData: typeof aspectData = { ...aspectData, matrix: [{ aspectKey: "views", xSelectionCount: 8, yNegativeRateBps: 4000, medianSelectionCountTimesTwo: 16, medianNegativeRateBpsTimesTwo: 8000, state: "classified", quadrant: "strength" }, { aspectKey: "other", xSelectionCount: 16, yNegativeRateBps: 8000, medianSelectionCountTimesTwo: 16, medianNegativeRateBpsTimesTwo: 8000, state: "excluded", quadrant: null }] };
     render(<AspectsModule data={matrixData} selectedKey="views" onSelect={noop} />);
     expect(screen.getByRole("img", { name: "Matriz de prioridades con ejes de relevancia y negatividad" })).not.toHaveAttribute("aria-hidden");
     expect(screen.getByTestId("matrix-point-views")).toHaveStyle({ left: "50%", bottom: "40%" });
@@ -234,12 +234,15 @@ describe("feedback analytics UI projections", () => {
 
   it("keeps temporal evolution out of comparison and in point detail", () => {
     const onMode = vi.fn();
-    const comparison = projectQrPoints(source, {
-      route: "qr-comparison",
-      from: "2026-09-11",
-      to: "2026-09-20",
-      pointKeys: ["base", "summit"],
-    });
+    const comparison = {
+      ...projectQrPoints(source, {
+        route: "qr-comparison",
+        from: "2026-09-11",
+        to: "2026-09-20",
+        pointKeys: ["base", "summit"],
+      }),
+      view: "comparison" as const,
+    };
     const view = render(
       <QrModule data={comparison} options={snapshot.metrics.qrPoints} mode="comparison" onMode={onMode} selectedKeys={["base", "summit"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />,
     );
@@ -253,8 +256,12 @@ describe("feedback analytics UI projections", () => {
     expect(onMode).toHaveBeenCalledWith("detail");
     expect(detailTab).toHaveFocus();
 
+    const detail = {
+      ...projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" }),
+      view: "detail" as const,
+    };
     view.rerender(
-      <QrModule data={projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" })} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base", "summit"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />,
+      <QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base", "summit"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />,
     );
     expect(screen.getByRole("heading", { name: "Evolución temporal del punto QR" })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Datos exactos de Base" })).toBeInTheDocument();
@@ -464,7 +471,7 @@ describe("feedback analytics UI projections", () => {
     const comments = { items: [], total: 0, page: 1, pageSize: 25 };
     const reports = { items: [], total: 0, page: 1, pageSize: 25 };
     const envelope = (data: unknown) => new Response(JSON.stringify({ contractVersion: "feedback-admin.v1", data, meta: {} }), { status: 200 });
-    let resolveCommand!: (response: Response) => void;
+    let resolveCommand!: (_response: Response) => void;
     const pendingCommand = new Promise<Response>((resolve) => { resolveCommand = resolve; });
     let generationCalls = 0;
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => {

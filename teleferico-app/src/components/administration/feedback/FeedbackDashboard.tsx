@@ -45,6 +45,7 @@ const MODULES: readonly { key: Module; label: (typeof FEEDBACK_MODULE_ORDER)[num
   { key: "qr", label: "Puntos QR" },
   { key: "comments", label: "Comentarios e informes" },
 ];
+const EMPTY_AVAILABLE_POINTS: FeedbackAdminSummaryData["availablePoints"] = [];
 
 const percent = (value: number | null) =>
   value === null ? "No disponible" : `${(value / 100).toFixed(1)}%`;
@@ -69,8 +70,12 @@ function initialPeriod(): Period {
   return { from: formatter.format(start), to: formatter.format(end) };
 }
 
-function query(period: Period, values: Record<string, string> = {}) {
-  return new URLSearchParams({ ...period, ...values }).toString();
+function query(period: Period, values: Record<string, string | undefined> = {}) {
+  const parameters = new URLSearchParams(period);
+  Object.entries(values).forEach(([key, value]) => {
+    if (value !== undefined) parameters.set(key, value);
+  });
+  return parameters.toString();
 }
 
 async function read<T>(path: string, signal: AbortSignal): Promise<FeedbackAdminReadEnvelope<T>> {
@@ -194,7 +199,7 @@ export function SummaryModule({ data }: { data: FeedbackAdminSummaryData }) {
 export function AspectsModule({ data, selectedKey, onSelect }: {
   data: FeedbackAdminAspectsData;
   selectedKey: string;
-  onSelect: (key: string) => void;
+  onSelect: (_key: string) => void;
 }) {
   const selected = data.aspects.find((item) => item.aspectKey === selectedKey) ?? data.aspects[0];
   if (!selected) return <EmptyState>No hay evidencia de aspectos disponible para este alcance.</EmptyState>;
@@ -235,11 +240,11 @@ export function QrModule({ data, options, mode, onMode, selectedKeys, onToggle, 
   data: FeedbackAdminQrData;
   options: readonly FeedbackAdminPoint[];
   mode: "comparison" | "detail";
-  onMode: (mode: "comparison" | "detail") => void;
+  onMode: (_mode: "comparison" | "detail") => void;
   selectedKeys: readonly string[];
-  onToggle: (key: string) => void;
+  onToggle: (_key: string) => void;
   detailKey: string;
-  onDetail: (key: string) => void;
+  onDetail: (_key: string) => void;
   onOpenAspects: () => void;
 }) {
   const detail = data.points.find((point) => point.pointKey === detailKey) ?? data.points[0];
@@ -565,7 +570,7 @@ export default function FeedbackDashboard() {
     return () => { requestActive = false; controller.abort(); };
   }, [aspectPoint, module, period, summaryPeriodKey, moduleRetry]);
 
-  const availablePoints = summary?.availablePoints ?? [];
+  const availablePoints = summary?.availablePoints ?? EMPTY_AVAILABLE_POINTS;
   const qrKeys = useMemo(() => selectedPoints.filter((key) => availablePoints.some((point) => point.pointKey === key)), [availablePoints, selectedPoints]);
   useEffect(() => {
     const periodKey = `${period.from}:${period.to}`;

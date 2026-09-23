@@ -28,7 +28,7 @@ export type FeedbackDispatchResult =
     };
 
 export interface FeedbackReportDispatcher {
-  dispatch(request: FeedbackDispatchRequest): Promise<FeedbackDispatchResult>;
+  dispatch(_request: FeedbackDispatchRequest): Promise<FeedbackDispatchResult>;
 }
 
 export function createUnavailableFeedbackDispatcher(
