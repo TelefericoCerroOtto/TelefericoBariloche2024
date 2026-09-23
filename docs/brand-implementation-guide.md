@@ -31,9 +31,13 @@ The most important color decision in this project is which red to use on which s
 
 **Do not introduce new reds outside this palette.**
 
+### Secondary / Complementary Brand Blue
+
+`#3B70CB` is the owner-approved secondary/complementary brand blue for the EditorialAlert `info` surface, paired with opaque white text. It is an editorial brand role, not an operational status color or a global CSS token.
+
 ### Status Colors
 
-These are feedback colors, not brand identity. Use them exclusively inside `AppAlert`.
+These are feedback colors, not brand identity. Use them exclusively inside `AppAlert`. The operational info blue remains `#0B4795`; it is distinct from the EditorialAlert brand blue `#3B70CB`.
 
 | Token | Value | Use |
 |---|---|---|

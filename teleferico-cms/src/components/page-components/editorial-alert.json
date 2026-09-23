@@ -1,0 +1,33 @@
+{
+  "collectionName": "components_page_components_editorial_alerts",
+  "info": {
+    "displayName": "EditorialAlert",
+    "icon": "information",
+    "description": "Compact editorial message with a semantic presentation"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "blocks",
+      "required": true
+    },
+    "variant": {
+      "type": "enumeration",
+      "enum": ["default", "promotion", "warning", "info"],
+      "default": "default",
+      "required": true
+    },
+    "epigraph": {
+      "type": "string"
+    },
+    "link": {
+      "type": "component",
+      "component": "utils-components.link",
+      "repeatable": false
+    }
+  }
+}

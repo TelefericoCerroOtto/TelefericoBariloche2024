@@ -132,6 +132,26 @@ export interface PageComponentsCarrousel extends Struct.ComponentSchema {
   };
 }
 
+export interface PageComponentsEditorialAlert extends Struct.ComponentSchema {
+  collectionName: 'components_page_components_editorial_alerts';
+  info: {
+    description: 'Compact editorial message with a semantic presentation';
+    displayName: 'EditorialAlert';
+    icon: 'information';
+  };
+  attributes: {
+    description: Schema.Attribute.Blocks & Schema.Attribute.Required;
+    epigraph: Schema.Attribute.String;
+    link: Schema.Attribute.Component<'utils-components.link', false>;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    variant: Schema.Attribute.Enumeration<
+      ['default', 'promotion', 'warning', 'info']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'default'>;
+  };
+}
+
 export interface PageComponentsFaqSection extends Struct.ComponentSchema {
   collectionName: 'components_page_components_faq_sections';
   info: {
@@ -505,6 +525,7 @@ declare module '@strapi/strapi' {
       'images-blocks.two-images': ImagesBlocksTwoImages;
       'page-components.activity-showcase': PageComponentsActivityShowcase;
       'page-components.carrousel': PageComponentsCarrousel;
+      'page-components.editorial-alert': PageComponentsEditorialAlert;
       'page-components.faq-section': PageComponentsFaqSection;
       'page-components.hero': PageComponentsHero;
       'page-components.hours-overview': PageComponentsHoursOverview;

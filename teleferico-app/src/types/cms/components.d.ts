@@ -75,6 +75,22 @@ export type PoliciesCallout = {
   id: number;
 };
 
+export type EditorialAlertVariant =
+  | "default"
+  | "promotion"
+  | "warning"
+  | "info";
+
+export type EditorialAlert = {
+  __component: "page-components.editorial-alert";
+  id: number;
+  title: string;
+  description: BlocksContent;
+  variant: EditorialAlertVariant;
+  epigraph?: string | null;
+  link?: Link | null;
+};
+
 export type OneImageVariant =
   | "single"
   | "poster"
@@ -192,6 +208,7 @@ export type RendereableBlocks =
   | Hero
   | HoursOverview
   | PoliciesCallout
+  | EditorialAlert
   | ImageTextBlock
   | TitleDescBlock
   | FaqSection
