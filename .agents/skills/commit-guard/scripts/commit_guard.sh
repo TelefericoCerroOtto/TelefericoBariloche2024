@@ -1,7 +1,34 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-ROOT_DIR="${1:-.}"
+TYPECHECK_ENABLED=0
+ROOT_DIR="."
+ROOT_DIR_SET=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --typecheck)
+      if [[ "$TYPECHECK_ENABLED" -eq 1 ]]; then
+        printf '%s\n' "ERROR: '--typecheck' may be specified only once." >&2
+        exit 2
+      fi
+      TYPECHECK_ENABLED=1
+      ;;
+    -* )
+      printf '%s\n' "ERROR: Unknown option '$arg'. Usage: commit_guard.sh [--typecheck] [ROOT_DIR]" >&2
+      exit 2
+      ;;
+    *)
+      if [[ "$ROOT_DIR_SET" -eq 1 ]]; then
+        printf '%s\n' "ERROR: Only one ROOT_DIR may be specified. Usage: commit_guard.sh [--typecheck] [ROOT_DIR]" >&2
+        exit 2
+      fi
+      ROOT_DIR="$arg"
+      ROOT_DIR_SET=1
+      ;;
+  esac
+done
+
 ROOT_DIR="$(cd "$ROOT_DIR" && pwd)"
 
 if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -202,6 +229,7 @@ run_typecheck_for_package() {
 # -----------------------------
 echo "=== Commit Guard Report ==="
 echo "Repository: $ROOT_DIR"
+echo "Branch: $(git -C "$ROOT_DIR" branch --show-current)"
 echo
 
 echo "Change inventory:"
@@ -282,11 +310,19 @@ fi
 
 echo
 echo "Typecheck results:"
-mapfile -t TYPECHECK_RESULTS < <(
-  run_typecheck_for_package "teleferico-app" "teleferico-app" "$APP_AFFECTED"
-  run_typecheck_for_package "teleferico-cms" "teleferico-cms" "$CMS_AFFECTED"
-  run_typecheck_for_package "tools/image-pipeline" "tools/image-pipeline" "$PIPELINE_AFFECTED"
-)
+if [[ "$TYPECHECK_ENABLED" -eq 1 ]]; then
+  mapfile -t TYPECHECK_RESULTS < <(
+    run_typecheck_for_package "teleferico-app" "teleferico-app" "$APP_AFFECTED"
+    run_typecheck_for_package "teleferico-cms" "teleferico-cms" "$CMS_AFFECTED"
+    run_typecheck_for_package "tools/image-pipeline" "tools/image-pipeline" "$PIPELINE_AFFECTED"
+  )
+else
+  TYPECHECK_RESULTS=()
+  [[ "$APP_AFFECTED" -eq 1 ]] && TYPECHECK_RESULTS+=("teleferico-app|NOT_RUN|Typecheck is opt-in; rerun with --typecheck for a deep diagnostic.")
+  [[ "$CMS_AFFECTED" -eq 1 ]] && TYPECHECK_RESULTS+=("teleferico-cms|NOT_RUN|Typecheck is opt-in; rerun with --typecheck for a deep diagnostic.")
+  [[ "$PIPELINE_AFFECTED" -eq 1 ]] && TYPECHECK_RESULTS+=("tools/image-pipeline|NOT_RUN|Typecheck is opt-in; rerun with --typecheck for a deep diagnostic.")
+  [[ "${#TYPECHECK_RESULTS[@]}" -gt 0 ]] || TYPECHECK_RESULTS+=("all packages|NOT_RUN|No package typecheck was requested.")
+fi
 
 TYPECHECK_FAILED=0
 CONFIG_FAILED=0
@@ -350,6 +386,9 @@ fi
 echo
 echo "Commit readiness:"
 echo "- Status: $STATUS"
+if [[ "$TYPECHECK_ENABLED" -eq 0 ]]; then
+  echo "- Typecheck: NOT_RUN (quick staging diagnostics do not verify TypeScript)."
+fi
 
 if [[ "${#REASONS[@]}" -eq 0 ]]; then
   echo "- Reasons: none"
