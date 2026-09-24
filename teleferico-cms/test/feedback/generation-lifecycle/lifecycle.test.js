@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { measureDispatchFailureRequestBody } = require("../../../src/api/survey-report-generation/services/dispatch-failure-request");
-const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration } = require("../../../src/api/survey-report-generation/services/lifecycle");
+const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration, validateWorkerClaimCommand } = require("../../../src/api/survey-report-generation/services/lifecycle");
 const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000001";
 const TASK_NAME = "tb113-report-00000000000040008000000000000001";
 function store(initial) {
@@ -128,6 +128,34 @@ test("pure preparation rejects stale, terminal, incomplete, and invalid transiti
     code: "INVALID_STATE",
   });
   assert.throws(() => prepareAtomicCompletion({ status: "running", stateVersion: 1 }, 2, { checkpoints: [] }), { code: "STATE_VERSION_CONFLICT" });
+});
+test("worker claim is atomic, resumable, and returns only minimal terminal replay", async () => {
+  const runId = "00000000-0000-4000-8000-000000000004";
+  const value = store({
+    reportRunId: runId, status: "queued", stateVersion: 1,
+    checkpointsJson: { version: "survey-checkpoints.v1", entries: [] },
+    modelConfigJson: { version: "survey-model-config.v1" },
+    pricingSnapshotJson: { version: "pricing.v1" },
+    comment: "must never be returned",
+  });
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction, now: () => "2026-09-24T12:00:00.000Z" });
+  assert.equal(validateWorkerClaimCommand({ commandVersion: "survey-report-command.v1" }), true);
+  assert.equal(validateWorkerClaimCommand({ commandVersion: "survey-report-command.v1", extra: true }), false);
+  assert.deepEqual(await lifecycle.claimWorker({ reportRunId: runId }), {
+    reportRunId: runId, stateVersion: 2, status: "running", disposition: "claimed",
+    checkpoints: { version: "survey-checkpoints.v1", entries: [] },
+    modelConfig: { version: "survey-model-config.v1" }, pricingSnapshot: { version: "pricing.v1" },
+  });
+  assert.deepEqual(await lifecycle.claimWorker({ reportRunId: runId }), {
+    reportRunId: runId, stateVersion: 2, status: "running", disposition: "resumed",
+    checkpoints: { version: "survey-checkpoints.v1", entries: [] },
+    modelConfig: { version: "survey-model-config.v1" }, pricingSnapshot: { version: "pricing.v1" },
+  });
+  const terminal = store({ reportRunId: runId, status: "failed", stateVersion: 4, checkpointsJson: { secret: "not returned" }, comment: "not returned" });
+  const terminalLifecycle = createGenerationLifecycle({ withTransaction: terminal.withTransaction });
+  assert.deepEqual(await terminalLifecycle.claimWorker({ reportRunId: runId }), {
+    reportRunId: runId, stateVersion: 4, status: "failed", disposition: "terminal-replay",
+  });
 });
 
 test("dispatch compensation replays identically and rejects altered, claimed, or stale generations", async () => {

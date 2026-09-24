@@ -2,7 +2,7 @@
 
 const { createCoreController } = require("@strapi/strapi").factories;
 const { measureDispatchFailureRequestBody } = require("../services/dispatch-failure-request");
-const { validateDispatchStateCommand } = require("../services/lifecycle");
+const { validateDispatchStateCommand, validateWorkerClaimCommand } = require("../services/lifecycle");
 
 function validDispatchFailure(value) {
   const keys = ["contractVersion", "expectedStateVersion", "taskName", "dispatchAttemptCount", "failureCode"];
@@ -75,6 +75,34 @@ module.exports = createCoreController(
         const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
         ctx.status = status;
         ctx.body = { error: { code: safeCode, message: status === 500 ? "The dispatch command failed" : "The dispatch command was rejected" } };
+      }
+    },
+    async workerClaim(ctx) {
+      const command = ctx.request.body;
+      const bodySize = measureDispatchFailureRequestBody(ctx.request);
+      if (bodySize === null || bodySize > 4 * 1024) {
+        ctx.status = 413;
+        ctx.body = { error: { code: "PAYLOAD_TOO_LARGE", message: "The worker command is too large" } };
+        return;
+      }
+      if (!validateWorkerClaimCommand(command) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ctx.params.reportRunId)) {
+        ctx.status = 400;
+        ctx.body = { error: { code: "INVALID_COMMAND", message: "The worker command is invalid" } };
+        return;
+      }
+      try {
+        const result = await strapi.service("api::survey-report-generation.survey-report-generation").claimWorker({
+          reportRunId: ctx.params.reportRunId,
+        });
+        ctx.status = 200;
+        ctx.body = { contractVersion: "survey-worker-cms.v1", ...result };
+      } catch (error) {
+        const code = error.code ?? "INTERNAL_ERROR";
+        const statuses = { RUN_NOT_FOUND: 404, STATE_VERSION_CONFLICT: 409, INVALID_STATE: 409 };
+        const status = statuses[code] ?? 500;
+        const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
+        ctx.status = status;
+        ctx.body = { error: { code: safeCode, message: status === 500 ? "The worker command failed" : "The worker command was rejected" } };
       }
     },
   }),

@@ -10,6 +10,7 @@ const {
 const OWNER = "tb113_test_admin_commands";
 const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000001";
 const DISPATCH_RUN_ID = "00000000-0000-4000-8000-000000000002";
+const WORKER_RUN_ID = "00000000-0000-4000-8000-000000000003";
 const compose = (...args) =>
   executeFixed(DOCKER_EXECUTABLE, [
     "compose",
@@ -382,6 +383,39 @@ test("native role authorization creates only through the core generation endpoin
       failureCode: null,
       replayed: true,
     });
+
+    const workerGeneration = await fetch(endpoint, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ data: generationData(WORKER_RUN_ID, "2026-10-01", "2026-10-20") }),
+    });
+    assert.equal(workerGeneration.status, 201);
+    const claimUrl = `http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_RUN_ID}/claim`;
+    const claimCommand = { commandVersion: "survey-report-command.v1" };
+    const anonymousClaim = await fetch(claimUrl, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(claimCommand),
+    });
+    assert.ok([401, 403].includes(anonymousClaim.status));
+    const ungrantedClaim = await fetch(claimUrl, {
+      method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(claimCommand),
+    });
+    assert.equal(ungrantedClaim.status, 403);
+    await grant(strapi, role.id, "api::survey-report-generation.survey-report-generation.workerClaim");
+    const claimed = await Promise.all([1, 2].map(() => fetch(claimUrl, {
+      method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(claimCommand),
+    })));
+    assert.deepEqual(claimed.map(({ status }) => status), [200, 200]);
+    const claimResults = await Promise.all(claimed.map((response) => response.json()));
+    assert.deepEqual(claimResults.map(({ disposition }) => disposition).sort(), ["claimed", "resumed"]);
+    assert.ok(claimResults.every((result) => result.status === "running" && result.stateVersion === 2));
+    assert.ok(claimResults.every((result) => !JSON.stringify(result).includes("comment")));
+    const oversizedClaim = await fetch(claimUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: `${JSON.stringify(claimCommand)}${" ".repeat(4_097)}`,
+    });
+    assert.equal(oversizedClaim.status, 413);
+    assert.equal((await oversizedClaim.json()).error.code, "PAYLOAD_TOO_LARGE");
 
     const update = await fetch(`${endpoint}/${body.data.documentId}`, {
       method: "PUT",

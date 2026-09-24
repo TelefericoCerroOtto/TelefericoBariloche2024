@@ -105,7 +105,16 @@ Paths: `W=/api/tb113/worker/generations/:reportRunId`; `A=/api/tb113/admin/gener
 | POST `A/dispatch-failure` | 200 `DispatchFailureResultV1`; identical replay 200/`replayed:true` | 400 `VALIDATION_FAILED`; 409 `STATE_VERSION_CONFLICT|INVALID_STATE|TASK_ALREADY_CREATED` | Possible: >16 KiB |
 | POST `A/dispatch-state` (`DispatchStateCommandV1`) | `reserve`: 200 `reserved`; `record(created|unknown)`: 200 queued; identical replay reports `replayed:true` | 400 `VALIDATION_FAILED` (including all `absent` outcomes); 404 `RUN_NOT_FOUND`; 409 `STATE_VERSION_CONFLICT|INVALID_STATE|TASK_ALREADY_CREATED|TASK_IDENTITY_CONFLICT` | Possible: >16 KiB |
 
-All seven add 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `RUN_NOT_FOUND`, and safe 500 `INTERNAL_ERROR`. Claim alone reads checkpoints. Identical checkpoint/terminal replay precedes stale CAS; differing replay conflicts. Appendix 04 validates completion. Only snapshot carries D50-D51 raw comments to the private worker, never browsers; others omit comments and raw prompt/model responses.
+All worker/admin command actions add 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `RUN_NOT_FOUND`, and safe 500 `INTERNAL_ERROR`. Claim alone reads checkpoints. Identical checkpoint/terminal replay precedes stale CAS; differing replay conflicts. Appendix 04 validates completion. Only snapshot carries D50-D51 raw comments to the private worker, never browsers; others omit comments and raw prompt/model responses.
+
+`POST W/claim` is a native authenticated Strapi action with no default role or
+API-token grant. It accepts only the exact command under the 4 KiB worker cap,
+locks the generation row, and atomically performs queued→running with one
+state-version increment and `claimedAt`. Running returns `resumed` without a
+write; succeeded/failed returns only the terminal replay identity/status/version.
+The running projection contains only checkpoints, model configuration, and
+pricing snapshot—never comments. Explicit worker credential provisioning and
+permission grants remain outside this local contract slice.
 
 `A/dispatch-failure` is a CMS-authenticated command action, granted explicitly
 to the corresponding Users & Permissions role for the server-mediated
