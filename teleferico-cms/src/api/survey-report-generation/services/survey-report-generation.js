@@ -45,6 +45,21 @@ function createTransaction(strapi) {
           }
         );
       },
+      async lockWorkerSnapshot(reportRunId) {
+        const row = await trx('survey_report_generations')
+          .select('report_run_id', 'status', 'state_version', 'snapshot_digest', 'source_revision', 'snapshot_json')
+          .where({ report_run_id: reportRunId })
+          .forUpdate()
+          .first();
+        return row && {
+          reportRunId: row.report_run_id,
+          status: row.status,
+          stateVersion: row.state_version,
+          snapshotDigest: row.snapshot_digest,
+          sourceRevision: row.source_revision,
+          snapshotJson: row.snapshot_json,
+        };
+      },
       async updateGeneration(patch) {
         const values = Object.fromEntries(
           Object.entries({
@@ -103,6 +118,11 @@ module.exports = createCoreService(
       return lifecycle.createGenerationLifecycle({
         withTransaction: createTransaction(strapi),
       }).claimWorker(input);
+    },
+    workerSnapshot(input) {
+      return lifecycle.createGenerationLifecycle({
+        withTransaction: createTransaction(strapi),
+      }).workerSnapshot(input);
     },
   }),
 );

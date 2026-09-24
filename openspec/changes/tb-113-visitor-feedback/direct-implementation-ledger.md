@@ -823,3 +823,43 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
 - **Rollback boundary:** Revert only the worker-claim lifecycle/controller/route/service changes, their four focused test changes, the workerClaim permission/HTTP contract documentation, and this entry together. Preserve all existing U9/U10 dispatch-state and compensation behavior.
 - **Later integrated validation:** `pending`; intended checkpoint is separately authorized U10-A worker credential/grant setup and private authenticated worker harness; owner is the TB-113 U10-A implementer/platform reviewer.
 - **Formal SDD reconstruction:** `pending`.
+
+### `U10-A4: Authenticated CMS worker snapshot read`
+
+- **Identity and scope:** Added the bodyless authenticated `GET /api/tb113/worker/generations/:reportRunId/snapshot` action. It returns a `survey-worker-cms.v1` `SnapshotResultV1` only for a running generation with a positive safe state version, supported `survey-snapshot.v1` payload and matching canonical SHA-256 digest. No worker credential, permission grant, schema, dependency, environment, queue, runtime, IAM, or deployment change.
+- **Requirements/design:** `tasks.md` U10 row and task 4.1; `design/02-http-contracts.md` worker snapshot route/result/failure contract; `design/03-metrics-snapshot-contracts.md` canonical `tb-json.v1` digest and `SnapshotEnvelopeV1`; `specs/survey-worker-operations/spec.md` private worker boundary.
+- **Changed paths:**
+  - `teleferico-cms/src/api/survey-report-generation/routes/admin.js` — registers the authenticated worker-only GET route.
+  - `teleferico-cms/src/api/survey-report-generation/controllers/survey-report-generation.js` — validates the run ID and maps safe 404/409/500 responses.
+  - `teleferico-cms/src/api/survey-report-generation/services/survey-report-generation.js` — locks and selects only generation snapshot state for the transaction.
+  - `teleferico-cms/src/api/survey-report-generation/services/lifecycle.js` — constructs the exact result envelope and rejects non-running, unsupported-version, invalid-state-version, and digest-invalid records.
+  - `teleferico-cms/test/feedback/{generation-lifecycle/lifecycle.test.js,admin-report-commands.test.js,permissions/permissions.test.js,permissions/postgres-permissions.test.js}` — verifies domain rejection, authenticated HTTP behavior, deterministic result, and deny-by-default route registration.
+  - `docs/STRAPI_PERMISSIONS.md` — documents the new separately granted worker action without creating a grant.
+  - `openspec/changes/tb-113-visitor-feedback/direct-implementation-ledger.md` — records this evidence.
+- **RED evidence:** `npm --prefix teleferico-cms test -- feedback/generation-lifecycle` — exit 1; 11 passed, 1 failed because `workerSnapshot` did not exist. `npm --prefix teleferico-cms test -- feedback/admin-report-commands` — exit 1; 0/1 passed because the new route was absent (404 instead of the required anonymous denial).
+- **Focused tests:**
+  - `npm --prefix teleferico-cms test -- feedback/generation-lifecycle` — passed; exit 0; 12 tests passed, including running-state/version/digest rejection and deterministic domain result.
+  - `npm --prefix teleferico-cms test -- feedback/admin-report-commands` — passed; exit 0; 1 authenticated Strapi/PostgreSQL HTTP test passed. Anonymous and ungranted snapshot requests were denied; the explicitly granted synthetic action returned the exact envelope including worker-only comments; repeated GET responses were structurally and byte-order deterministic; queued, unsupported-version, and digest-mismatch requests returned safe 409 responses. Harness cleanup and owned-container/volume absence assertions passed.
+  - `npm --prefix teleferico-cms test -- feedback/permissions` — final run passed; exit 0; 4 tests passed, including isolated Strapi route registration and confirmation that no default permission is created. The first run exposed the newly registered action missing from the deny-by-default action inventory; the test expectation was updated and this exact command passed on rerun.
+  - `git diff --check` — pending final check after this ledger append.
+- **Formatting:** A Prettier write across the existing compact CMS JavaScript files caused unrelated whole-file reflow and was reverted to keep the authored slice within its review boundary. The new code follows each file's existing formatting style; no generated files or dependencies changed.
+- **Implementation status:** `passed` for the bounded local authenticated CMS read contract only; revision, PR, merge, integrated worker runtime, and formal SDD reconstruction remain `pending`.
+- **Authored size:** `250` additions plus deletions against `6725652`, including this ledger entry; below the 400-line review boundary.
+- **Residual risks/deferred validation:** The endpoint reads the persisted private snapshot; this unit does not populate snapshots or wire the app coordinator. No approved worker credential or non-default production role grant exists. Private Cloud Run/OIDC-to-CMS execution, authenticated integrated worker harness, staging/production, and operational validation were not run and remain separately authorized checkpoints. The isolated HTTP test seeds the private snapshot row directly because the private fields are not part of the native content API write surface.
+- **Rollback boundary:** Revert only the worker snapshot route/controller/service/lifecycle read, its focused tests, the `workerSnapshot` permission documentation, and this entry. Preserve U10-A2 dispatch state, U10-A3 claim behavior, U9-A1 compensation, and all unrelated work.
+- **Later integrated validation:** `pending`; intended checkpoint is an approved private worker-authenticated CMS harness after separate credential/grant authorization; owner is the TB-113 U10-A implementer/platform reviewer.
+- **Formal SDD reconstruction:** `pending`.
+
+### `U10-A4 correction: Isolate private snapshot row projection`
+
+- **Correction trigger:** Independent review found that the shared `lockGeneration` query selected and mapped `snapshot_json` for dispatch and claim calls, although only `workerSnapshot` needs the private snapshot/comments.
+- **Correction:** Removed snapshot-specific columns from the shared lifecycle lock projection and added a narrow `lockWorkerSnapshot` query used exclusively by `workerSnapshot`. Dispatch, claim, and other lifecycle operations keep their prior projections and behavior.
+- **Focused regression evidence:** Before the service correction, `npm --prefix teleferico-cms test -- feedback/admin-report-commands` — exit 1; the new query assertion observed quoted `snapshot_json` in the dispatch-state reservation lock. After the correction, an intermediate assertion also matched the unrelated `pricing_snapshot_json` identifier; tightened the assertion to the exact quoted column name, then the final command passed.
+- **Required verification:**
+  - `npm --prefix teleferico-cms test -- feedback/generation-lifecycle` — passed; exit 0; 12 tests.
+  - `npm --prefix teleferico-cms test -- feedback/admin-report-commands` — passed; exit 0; 1 authenticated Strapi/PostgreSQL integration test, proving dispatch reservation and claim lock queries omit `"snapshot_json"`, while the snapshot read includes it and still returns the correct deterministic envelope.
+  - `npm --prefix teleferico-cms test -- feedback/permissions` — passed; exit 0; 4 tests, including no-default-grant route inspection.
+  - `git diff --check` — passed; exit 0 with no output after this correction and ledger append.
+- **Authored size:** `305` additions plus deletions against `6725652`, including this correction and ledger entry; within the 800-line unit ceiling.
+- **Status:** `passed` for the projection privacy correction and listed local checks; no route/auth contract changed. Credentialed worker integration, operational validation, PR/merge evidence, and formal SDD reconstruction remain `pending`.
+- **Rollback boundary:** Revert only `lockWorkerSnapshot`/its call-site, the projection assertions/fake transaction hook, and this correction entry; preserve the original U10-A4 route, digest checks, privacy boundary, and all U9/U10-A1–A3 behavior.

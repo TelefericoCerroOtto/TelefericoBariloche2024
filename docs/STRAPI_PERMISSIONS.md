@@ -235,6 +235,11 @@ application user JWT, not an API token. The worker
 `survey-report-generation.workerClaim` action is separately denied unless
 explicitly granted to an approved worker credential. This repository adds no
 role/token grant and does not define credential issuance or rotation.
+The worker `survey-report-generation.workerSnapshot` action is likewise denied
+unless separately granted to an approved worker credential. It returns the
+immutable snapshot only for a running generation and verifies the stored
+`survey-snapshot.v1` payload digest before exposing its private comments. No
+default permission is added.
 Report history remains owned by U8-A, and PDF artifact storage/download remains
 deferred to U12. No production permission mutation is performed.
 Anonymous requests and ungranted actions remain denied. Application-level
@@ -274,6 +279,13 @@ bounded worker claim command. It returns checkpoint/model/pricing state only to
 an authorized caller and omits comments; it has no default role or API-token
 grant. Credential provisioning and any non-default grant remain separately
 authorized operational work. No production role or token is changed here.
+U10-A4 registers
+`api::survey-report-generation.survey-report-generation.workerSnapshot` for the
+bodyless worker snapshot read. It requires an explicit grant, returns data only
+for running generations, and rejects unsupported snapshot versions or digest
+mismatches. The action does not grant native collection reads or expose the
+snapshot through a public/admin route. The isolated HTTP harness grants it only
+to its synthetic worker-role equivalent; no production role or token is changed.
 
 Verify the baseline with:
 
