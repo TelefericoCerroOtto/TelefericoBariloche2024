@@ -88,14 +88,18 @@ export function createLocalE2EConfig({
     webServer: [
       {
         command: "node tests/e2e/server/strapi-fixture.mjs",
+        name: "Strapi E2E fixture readiness",
         url: fixtureURL,
         reuseExistingServer: !process.env.CI,
+        timeout: 60_000,
         env: { E2E_FIXTURE_PORT: String(fixturePort) },
       },
       {
         command: `pnpm exec next dev --hostname ${appHost} --port ${appPort}`,
+        name: "Next.js E2E login readiness",
         url: loginURL,
         reuseExistingServer: !process.env.CI,
+        timeout: 180_000,
         env: testEnvironment,
       },
     ],
