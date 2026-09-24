@@ -2,6 +2,7 @@
 
 const { createCoreController } = require("@strapi/strapi").factories;
 const { measureDispatchFailureRequestBody } = require("../services/dispatch-failure-request");
+const { validateDispatchStateCommand } = require("../services/lifecycle");
 
 function validDispatchFailure(value) {
   const keys = ["contractVersion", "expectedStateVersion", "taskName", "dispatchAttemptCount", "failureCode"];
@@ -41,6 +42,35 @@ module.exports = createCoreController(
       } catch (error) {
         const code = error.code ?? "INTERNAL_ERROR";
         const statuses = { RUN_NOT_FOUND: 404, STATE_VERSION_CONFLICT: 409, INVALID_STATE: 409, TERMINAL_CONFLICT: 409, TASK_ALREADY_CREATED: 409, VALIDATION_FAILED: 400 };
+        const status = statuses[code] ?? 500;
+        const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
+        ctx.status = status;
+        ctx.body = { error: { code: safeCode, message: status === 500 ? "The dispatch command failed" : "The dispatch command was rejected" } };
+      }
+    },
+    async dispatchState(ctx) {
+      const command = ctx.request.body;
+      const bodySize = measureDispatchFailureRequestBody(ctx.request);
+      if (bodySize === null || bodySize > 16 * 1024) {
+        ctx.status = 413;
+        ctx.body = { error: { code: "PAYLOAD_TOO_LARGE", message: "The dispatch command is too large" } };
+        return;
+      }
+      if (!validateDispatchStateCommand(command, ctx.params.reportRunId)) {
+        ctx.status = 400;
+        ctx.body = { error: { code: "VALIDATION_FAILED", message: "The dispatch command is invalid" } };
+        return;
+      }
+      try {
+        const service = strapi.service("api::survey-report-generation.survey-report-generation");
+        const result = command.action === "reserve"
+          ? await service.reserveDispatch({ reportRunId: ctx.params.reportRunId, command })
+          : await service.recordDispatchOutcome({ reportRunId: ctx.params.reportRunId, command });
+        ctx.status = 200;
+        ctx.body = { contractVersion: "survey-dispatch-state.v1", ...result };
+      } catch (error) {
+        const code = error.code ?? "INTERNAL_ERROR";
+        const statuses = { RUN_NOT_FOUND: 404, STATE_VERSION_CONFLICT: 409, INVALID_STATE: 409, TASK_ALREADY_CREATED: 409, TASK_IDENTITY_CONFLICT: 409, VALIDATION_FAILED: 400 };
         const status = statuses[code] ?? 500;
         const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
         ctx.status = status;

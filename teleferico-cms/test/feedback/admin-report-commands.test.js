@@ -9,6 +9,7 @@ const {
 
 const OWNER = "tb113_test_admin_commands";
 const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000001";
+const DISPATCH_RUN_ID = "00000000-0000-4000-8000-000000000002";
 const compose = (...args) =>
   executeFixed(DOCKER_EXECUTABLE, [
     "compose",
@@ -33,11 +34,11 @@ function postChunked(url, headers, body) {
   });
 }
 
-function generationData() {
+function generationData(reportRunId = REPORT_RUN_ID, periodStart = "2026-08-01", periodEnd = "2026-08-20") {
   return {
-    reportRunId: REPORT_RUN_ID,
-    periodStart: "2026-08-01",
-    periodEnd: "2026-08-20",
+    reportRunId,
+    periodStart,
+    periodEnd,
     dataCutoffAt: "2026-08-21T00:00:00.000Z",
     snapshotDigest: "0".repeat(64),
     sourceRevision: "feedback-admin.v1",
@@ -207,6 +208,157 @@ test("native role authorization creates only through the core generation endpoin
     });
     assert.equal(versionConflict.status, 409);
     assert.equal((await versionConflict.json()).error.code, "STATE_VERSION_CONFLICT");
+
+    const dispatchGeneration = await fetch(endpoint, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ data: generationData(DISPATCH_RUN_ID, "2026-09-01", "2026-09-20") }),
+    });
+    assert.equal(dispatchGeneration.status, 201);
+    const dispatchTaskName = `tb113-report-${DISPATCH_RUN_ID.replaceAll("-", "")}`;
+    const dispatchStateUrl = `http://127.0.0.1:${port}/api/tb113/admin/generations/${DISPATCH_RUN_ID}/dispatch-state`;
+    const reserveCommand = {
+      contractVersion: "survey-dispatch-state.v1",
+      action: "reserve",
+      expectedStateVersion: 1,
+      taskName: dispatchTaskName,
+    };
+    const anonymousReserve = await fetch(dispatchStateUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(reserveCommand),
+    });
+    assert.ok([401, 403].includes(anonymousReserve.status));
+    const ungrantedReserve = await fetch(dispatchStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(reserveCommand),
+    });
+    assert.equal(ungrantedReserve.status, 403);
+    await grant(strapi, role.id, "api::survey-report-generation.survey-report-generation.dispatchState");
+
+    const oversizedStateBody = `${JSON.stringify(reserveCommand)}${" ".repeat(68_197)}`;
+    const oversizedState = await fetch(dispatchStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: oversizedStateBody,
+    });
+    assert.equal(oversizedState.status, 413);
+    const chunkedState = await postChunked(
+      dispatchStateUrl,
+      { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      oversizedStateBody,
+    );
+    assert.equal(chunkedState.status, 413);
+
+    const sendReserve = () => fetch(dispatchStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(reserveCommand),
+    });
+    const reservations = await Promise.all([sendReserve(), sendReserve()]);
+    assert.deepEqual(reservations.map(({ status }) => status), [200, 200]);
+    const reservationResults = await Promise.all(reservations.map((response) => response.json()));
+    assert.deepEqual(reservationResults.map(({ replayed }) => replayed).sort(), [false, true]);
+    assert.ok(reservationResults.every(({ dispatchState, stateVersion }) => dispatchState === "reserved" && stateVersion === 2));
+
+    const unknownCommand = {
+      contractVersion: "survey-dispatch-state.v1",
+      action: "record",
+      expectedStateVersion: 2,
+      taskName: dispatchTaskName,
+      outcome: "unknown",
+      dispatchAttemptCount: 1,
+      evidence: {
+        contractVersion: "survey-dispatch-evidence.v1",
+        outcome: "unknown",
+        taskName: dispatchTaskName,
+        dispatchAttemptCount: 1,
+        reasonCode: "AMBIGUOUS_RESPONSE",
+      },
+    };
+    const unknownResponse = await fetch(dispatchStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(unknownCommand),
+    });
+    assert.equal(unknownResponse.status, 200);
+    assert.deepEqual(await unknownResponse.json(), {
+      contractVersion: "survey-dispatch-state.v1",
+      reportRunId: DISPATCH_RUN_ID,
+      taskName: dispatchTaskName,
+      stateVersion: 3,
+      status: "queued",
+      dispatchState: "unknown",
+      dispatchAttemptCount: 1,
+      failureCode: null,
+      replayed: false,
+    });
+
+    const blindReserve = await fetch(dispatchStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...reserveCommand, expectedStateVersion: 3 }),
+    });
+    assert.equal(blindReserve.status, 409);
+    assert.equal((await blindReserve.json()).error.code, "TASK_ALREADY_CREATED");
+
+    const callerAssertedAbsence = {
+      contractVersion: "survey-dispatch-state.v1",
+      action: "record",
+      expectedStateVersion: 3,
+      taskName: dispatchTaskName,
+      outcome: "absent",
+      dispatchAttemptCount: 3,
+      evidence: {
+        contractVersion: "survey-dispatch-evidence.v1",
+        outcome: "absent",
+        taskName: dispatchTaskName,
+        dispatchAttemptCount: 3,
+        lookupResult: "not-found",
+        verifiedAt: "2026-09-23T22:00:00.000Z",
+      },
+    };
+    const rejectedAbsence = await fetch(dispatchStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(callerAssertedAbsence),
+    });
+    assert.equal(rejectedAbsence.status, 400);
+    assert.equal((await rejectedAbsence.json()).error.code, "VALIDATION_FAILED");
+
+    const legacyCompensationUrl = `http://127.0.0.1:${port}/api/tb113/admin/generations/${DISPATCH_RUN_ID}/dispatch-failure`;
+    const legacyCompensation = await fetch(legacyCompensationUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        contractVersion: "survey-dispatch-command.v1",
+        expectedStateVersion: 3,
+        taskName: dispatchTaskName,
+        dispatchAttemptCount: 3,
+        failureCode: "QUEUE_ENQUEUE_EXHAUSTED",
+      }),
+    });
+    assert.equal(legacyCompensation.status, 409);
+    assert.equal((await legacyCompensation.json()).error.code, "TASK_ALREADY_CREATED");
+
+    const unknownReplay = await fetch(dispatchStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(unknownCommand),
+    });
+    assert.equal(unknownReplay.status, 200);
+    assert.deepEqual(await unknownReplay.json(), {
+      contractVersion: "survey-dispatch-state.v1",
+      reportRunId: DISPATCH_RUN_ID,
+      taskName: dispatchTaskName,
+      stateVersion: 3,
+      status: "queued",
+      dispatchState: "unknown",
+      dispatchAttemptCount: 1,
+      failureCode: null,
+      replayed: true,
+    });
 
     const update = await fetch(`${endpoint}/${body.data.documentId}`, {
       method: "PUT",

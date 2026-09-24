@@ -8,5 +8,10 @@ module.exports = {
       path: "/tb113/admin/generations/:reportRunId/dispatch-failure",
       handler: "survey-report-generation.dispatchFailure",
     },
+    {
+      method: "POST",
+      path: "/tb113/admin/generations/:reportRunId/dispatch-state",
+      handler: "survey-report-generation.dispatchState",
+    },
   ],
 };

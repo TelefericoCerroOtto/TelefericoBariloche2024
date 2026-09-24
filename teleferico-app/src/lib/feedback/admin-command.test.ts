@@ -124,6 +124,29 @@ describe("feedback administration command contracts", () => {
     });
   });
 
+  it("rejects a malformed CMS run identifier before dispatch", async () => {
+    const dispatch = vi.fn();
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      dispatcher: { dispatch },
+      fetchImplementation: vi.fn(async (_input, init) =>
+        init?.method === "POST"
+          ? Response.json(
+              { data: { ...validCoreRow, reportRunId: "invalid-run-id" } },
+              { status: 201 },
+            )
+          : Response.json({ data: [] }, { status: 200 }),
+      ),
+    });
+
+    await expect(transport.generate(validGenerate)).rejects.toMatchObject({
+      code: "UPSTREAM_UNAVAILABLE",
+      status: 503,
+    });
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
   it("compensates verified exhaustion after generation when no reports overlap", async () => {
     const exhaustion = (taskName: string) => ({
       contractVersion: "survey-dispatch-command.v1" as const,

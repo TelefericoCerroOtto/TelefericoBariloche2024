@@ -2,6 +2,8 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { measureDispatchFailureRequestBody } = require("../../../src/api/survey-report-generation/services/dispatch-failure-request");
 const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration } = require("../../../src/api/survey-report-generation/services/lifecycle");
+const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000001";
+const TASK_NAME = "tb113-report-00000000000040008000000000000001";
 function store(initial) {
   const generations = new Map([[initial.reportRunId, { ...initial }]]);
   const reports = [];
@@ -153,6 +155,122 @@ test("dispatch compensation replays identically and rejects altered, claimed, or
     ...command,
     reportRunId: "00000000-0000-4000-8000-000000000003",
     taskName: "tb113-report-00000000000040008000000000000003",
+  }), { code: "TASK_ALREADY_CREATED" });
+});
+
+test("dispatch reservation records identity without treating it as a created task", async () => {
+  const value = store({ reportRunId: REPORT_RUN_ID, status: "queued", stateVersion: 1, taskName: null, dispatchState: "unreserved", dispatchAttemptCount: 0 });
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction });
+  const command = { contractVersion: "survey-dispatch-state.v1", action: "reserve", expectedStateVersion: 1, taskName: TASK_NAME };
+
+  assert.deepEqual(await lifecycle.reserveDispatch({ reportRunId: REPORT_RUN_ID, command }), {
+    reportRunId: REPORT_RUN_ID, taskName: TASK_NAME, stateVersion: 2, status: "queued", dispatchState: "reserved", replayed: false,
+  });
+  assert.equal((await lifecycle.reserveDispatch({ reportRunId: REPORT_RUN_ID, command })).replayed, true);
+  assert.deepEqual(value.generation(REPORT_RUN_ID), {
+    reportRunId: REPORT_RUN_ID, status: "queued", stateVersion: 2, taskName: TASK_NAME,
+    dispatchState: "reserved", dispatchEvidenceJson: null, dispatchAttemptCount: 0,
+  });
+
+  await assert.rejects(lifecycle.compensateDispatchFailure({
+    reportRunId: REPORT_RUN_ID, expectedStateVersion: 2, taskName: TASK_NAME, dispatchAttemptCount: 3,
+  }), { code: "TASK_ALREADY_CREATED" });
+  await assert.rejects(lifecycle.reserveDispatch({
+    reportRunId: REPORT_RUN_ID,
+    command: { ...command, expectedStateVersion: 2 },
+  }), { code: "TASK_ALREADY_CREATED" });
+});
+
+test("ambiguous dispatch remains queued and blocks blind re-enqueue", async () => {
+  const value = store({ reportRunId: REPORT_RUN_ID, status: "queued", stateVersion: 1, taskName: null, dispatchState: "unreserved", dispatchAttemptCount: 0 });
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction });
+  await lifecycle.reserveDispatch({
+    reportRunId: REPORT_RUN_ID,
+    command: { contractVersion: "survey-dispatch-state.v1", action: "reserve", expectedStateVersion: 1, taskName: TASK_NAME },
+  });
+  const command = {
+    contractVersion: "survey-dispatch-state.v1", action: "record", expectedStateVersion: 2,
+    taskName: TASK_NAME, outcome: "unknown", dispatchAttemptCount: 1,
+    evidence: {
+      contractVersion: "survey-dispatch-evidence.v1", outcome: "unknown", taskName: TASK_NAME,
+      dispatchAttemptCount: 1, reasonCode: "AMBIGUOUS_RESPONSE",
+    },
+  };
+
+  assert.deepEqual(await lifecycle.recordDispatchOutcome({ reportRunId: REPORT_RUN_ID, command }), {
+    reportRunId: REPORT_RUN_ID, taskName: TASK_NAME, stateVersion: 3, status: "queued",
+    dispatchState: "unknown", dispatchAttemptCount: 1, failureCode: null, replayed: false,
+  });
+  await assert.rejects(lifecycle.reserveDispatch({
+    reportRunId: REPORT_RUN_ID,
+    command: { contractVersion: "survey-dispatch-state.v1", action: "reserve", expectedStateVersion: 3, taskName: TASK_NAME },
+  }), { code: "TASK_ALREADY_CREATED" });
+  await assert.rejects(lifecycle.compensateDispatchFailure({
+    reportRunId: REPORT_RUN_ID, expectedStateVersion: 3, taskName: TASK_NAME, dispatchAttemptCount: 3,
+  }), { code: "TASK_ALREADY_CREATED" });
+});
+
+test("confirmed task creation cannot be compensated through the dispatch-state action", async () => {
+  const value = store({ reportRunId: REPORT_RUN_ID, status: "queued", stateVersion: 1, taskName: null, dispatchState: "unreserved", dispatchAttemptCount: 0 });
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction });
+  await lifecycle.reserveDispatch({
+    reportRunId: REPORT_RUN_ID,
+    command: { contractVersion: "survey-dispatch-state.v1", action: "reserve", expectedStateVersion: 1, taskName: TASK_NAME },
+  });
+  const created = {
+    contractVersion: "survey-dispatch-state.v1", action: "record", expectedStateVersion: 2,
+    taskName: TASK_NAME, outcome: "created", dispatchAttemptCount: 1,
+    evidence: {
+      contractVersion: "survey-dispatch-evidence.v1", outcome: "created", taskName: TASK_NAME,
+      dispatchAttemptCount: 1, verifiedAt: "2026-09-23T22:00:00.000Z",
+    },
+  };
+  await lifecycle.recordDispatchOutcome({ reportRunId: REPORT_RUN_ID, command: created });
+
+  assert.equal(value.generation(REPORT_RUN_ID).status, "queued");
+  assert.equal(value.generation(REPORT_RUN_ID).dispatchState, "created");
+  await assert.rejects(lifecycle.recordDispatchOutcome({
+    reportRunId: REPORT_RUN_ID,
+    command: {
+      ...created,
+      expectedStateVersion: 3,
+      outcome: "absent",
+      dispatchAttemptCount: 3,
+      evidence: {
+        contractVersion: "survey-dispatch-evidence.v1", outcome: "absent", taskName: TASK_NAME,
+        dispatchAttemptCount: 3, lookupResult: "not-found", verifiedAt: "2026-09-23T22:01:00.000Z",
+      },
+    },
+  }), { code: "VALIDATION_FAILED" });
+  await assert.rejects(lifecycle.compensateDispatchFailure({
+    reportRunId: REPORT_RUN_ID, expectedStateVersion: 3, taskName: TASK_NAME, dispatchAttemptCount: 3,
+  }), { code: "TASK_ALREADY_CREATED" });
+});
+
+test("dispatch-state rejects caller-asserted absence without changing reservation", async () => {
+  const value = store({ reportRunId: REPORT_RUN_ID, status: "queued", stateVersion: 1, taskName: null, dispatchState: "unreserved", dispatchAttemptCount: 0 });
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction });
+  await lifecycle.reserveDispatch({
+    reportRunId: REPORT_RUN_ID,
+    command: { contractVersion: "survey-dispatch-state.v1", action: "reserve", expectedStateVersion: 1, taskName: TASK_NAME },
+  });
+
+  const unverifiedAbsence = {
+    contractVersion: "survey-dispatch-state.v1", action: "record", expectedStateVersion: 2,
+    taskName: TASK_NAME, outcome: "absent", dispatchAttemptCount: 3,
+    evidence: {
+      contractVersion: "survey-dispatch-evidence.v1", outcome: "absent", taskName: TASK_NAME,
+      dispatchAttemptCount: 3, lookupResult: "not-found", verifiedAt: "2026-09-23T22:00:00.000Z",
+    },
+  };
+
+  await assert.rejects(lifecycle.recordDispatchOutcome({ reportRunId: REPORT_RUN_ID, command: unverifiedAbsence }), { code: "VALIDATION_FAILED" });
+  assert.deepEqual(value.generation(REPORT_RUN_ID), {
+    reportRunId: REPORT_RUN_ID, status: "queued", stateVersion: 2, taskName: TASK_NAME,
+    dispatchState: "reserved", dispatchEvidenceJson: null, dispatchAttemptCount: 0,
+  });
+  await assert.rejects(lifecycle.compensateDispatchFailure({
+    reportRunId: REPORT_RUN_ID, expectedStateVersion: 2, taskName: TASK_NAME, dispatchAttemptCount: 3,
   }), { code: "TASK_ALREADY_CREATED" });
 });
 

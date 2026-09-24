@@ -2,6 +2,7 @@ import "server-only";
 
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import {
+  createFeedbackTaskName,
   createUnavailableFeedbackDispatcher,
   type FeedbackReportDispatcher,
   type FeedbackDispatchResult,
@@ -63,7 +64,8 @@ function isVerifiedDispatchExhaustion(
     value.contractVersion === "survey-dispatch-command.v1" &&
     value.status === "exhausted" &&
     value.noTaskCreated === true &&
-    value.taskName === `tb113-report-${reportRunId.replaceAll("-", "")}` &&
+    createFeedbackTaskName(reportRunId) !== null &&
+    value.taskName === createFeedbackTaskName(reportRunId) &&
     value.dispatchAttemptCount === 3 &&
     value.failureCode === "QUEUE_ENQUEUE_EXHAUSTED"
   );
@@ -338,11 +340,14 @@ export function createFeedbackAdminCommandTransport(options: Options) {
   };
 
   const dispatchCreated = async (result: CoreCommandResult) => {
+    const taskName = createFeedbackTaskName(result.reportRunId);
+    if (!taskName)
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
     let dispatchResult: FeedbackDispatchResult;
     try {
       dispatchResult = await dispatcher.dispatch({
         reportRunId: result.reportRunId,
-        taskName: `tb113-report-${result.reportRunId.replaceAll("-", "")}`,
+        taskName,
       });
     } catch {
       throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
