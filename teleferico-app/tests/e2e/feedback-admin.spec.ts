@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createFeedbackAdminDiagnostics } from "./feedback-admin-diagnostics";
 
 const period = { from: "2026-09-01", to: "2026-09-10" };
 const population = {
@@ -180,6 +181,42 @@ function waitForSuccessfulAdminRead(
     });
 }
 
+const failureDiagnosticsByPage = new WeakMap<Page, () => string>();
+
+function observeFailureDiagnostics(page: Page) {
+  const diagnostics = createFeedbackAdminDiagnostics();
+  page.on("request", (request) =>
+    diagnostics.request(request.method(), request.url()),
+  );
+  page.on("response", (response) =>
+    diagnostics.response(
+      response.request().method(),
+      response.url(),
+      response.status(),
+    ),
+  );
+  page.on("requestfailed", (request) =>
+    diagnostics.requestFailed(
+      request.method(),
+      request.url(),
+      request.failure()?.errorText ?? "",
+    ),
+  );
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) diagnostics.navigation(frame.url());
+  });
+  failureDiagnosticsByPage.set(page, diagnostics.format);
+}
+
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status !== testInfo.expectedStatus) {
+    const diagnostics = failureDiagnosticsByPage.get(page);
+    if (diagnostics) {
+      console.error(`[feedback-admin-safe-diagnostic] ${diagnostics()}`);
+    }
+  }
+});
+
 async function installAdminStack(
   page: Page,
   empty = false,
@@ -284,6 +321,7 @@ async function loginAsSyntheticAdmin(page: Page) {
 test("authenticated admin can navigate analytics, filter comments, and run an independent report", async ({
   page,
 }) => {
+  observeFailureDiagnostics(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   const summaryBarrier = createResponseBarrier();
   const { requests, browserUrls } = await installAdminStack(
@@ -481,6 +519,7 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
 test("authenticated admin keeps module order and empty states on mobile", async ({
   page,
 }) => {
+  observeFailureDiagnostics(page);
   await page.setViewportSize({ width: 390, height: 844 });
   const { requests, browserUrls } = await installAdminStack(page, true);
   await loginAsSyntheticAdmin(page);
