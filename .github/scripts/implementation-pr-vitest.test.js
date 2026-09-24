@@ -455,6 +455,35 @@ test("publication contract permits only explicit natural-language scope approval
   assert.match(governance, /Do not autonomously repair metadata or repeat the governance observation in the same `\/implementation-pr` invocation/);
 });
 
+test("publication happy path uses one complete snapshot and binds one approval to the exact inventory", () => {
+  const skill = fs.readFileSync(path.join(repositoryRoot, ".agents", "skills", "implementation-pr", "SKILL.md"), "utf8");
+  const command = fs.readFileSync(path.join(repositoryRoot, ".opencode", "commands", "implementation-pr.md"), "utf8");
+  const mapper = fs.readFileSync(path.join(repositoryRoot, ".opencode", "agents", "delivery-state-mapper.md"), "utf8");
+  const policy = fs.readFileSync(path.join(repositoryRoot, "docs", "backlog-branch-pr-policy.md"), "utf8");
+
+  for (const contract of [skill, command, policy]) {
+    assert.match(contract, /one explicit (?:mixed-scope )?authorization[^\n]*(?:exact|covers)/i);
+    assert.match(contract, /(?:do not ask again for each path|not one approval per path|do not ask for separate approval per path)/i);
+  }
+  assert.match(skill, /one complete bounded delivery-state snapshot/);
+  assert.match(skill, /Do not repeat mapper discovery, fetch, or authentication probing/);
+  assert.match(skill, /never run `gh auth status`/);
+  assert.match(skill, /A direct implementation route[^\n]*does not trigger generic OpenSpec\/SDD discovery/);
+  assert.match(skill, /at most one bounded recapture of the complete snapshot/);
+  assert.match(skill, /Do not patch counts or retain facts from the rejected snapshot/);
+  assert.match(skill, /compatible PR-creation parts of the `branch-pr` contract/);
+  assert.match(mapper, /explicit `route` is a formal SDD lifecycle operation/);
+  assert.match(mapper, /For `route=direct`[^\n]*do not perform generic OpenSpec\/SDD discovery/);
+  assert.match(mapper, /never return a count-only correction/);
+  assert.match(mapper, /at most one bounded complete replacement/);
+  assert.match(mapper, /fresh authorization before publication can continue/);
+  assert.match(command, /one fetch when explicitly authorized/);
+  assert.match(mapper, /when no override was supplied/);
+  assert.match(mapper, /keep the blocker active until that authorization is validated/);
+  assert.match(mapper, /sensitive, truncation, ambiguity, candidate, branch, target\/base, remote, and credential\/session binding blockers remain unconditional/);
+  assert.match(skill, /Sensitive or credential-like paths, ambiguity, truncation, candidate changes, and binding mismatches remain unconditional blockers/);
+});
+
 test("stacked-chain instructions use a visible Markdown full-SHA commit link", () => {
   const conventions = fs.readFileSync(path.join(repositoryRoot, "docs", "CONVENTIONS.md"), "utf8");
   const skill = fs.readFileSync(path.join(repositoryRoot, ".agents", "skills", "implementation-pr", "SKILL.md"), "utf8");
