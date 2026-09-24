@@ -277,7 +277,8 @@ async function loginAsSyntheticAdmin(page: Page) {
   await page.getByLabel("Correo Electrónico").fill("e2e-admin@local.invalid");
   await page.getByLabel("Contraseña").fill("e2e-admin-password");
   await page.getByRole("button", { name: "Acceder" }).click();
-  await page.waitForURL(/\/es-AR\/dashboard$/);
+  await page.waitForURL(/\/es-AR\/dashboard$/, { waitUntil: "commit" });
+  await expect(page.getByRole("main")).toBeVisible();
 }
 
 test("authenticated admin can navigate analytics, filter comments, and run an independent report", async ({
@@ -293,7 +294,7 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
   await loginAsSyntheticAdmin(page);
   const summaryRead = waitForSuccessfulAdminRead(page, "summary");
   await page.goto("/es-AR/dashboard/feedback", {
-    waitUntil: "domcontentloaded",
+    waitUntil: "commit",
   });
   await expect(
     page.getByRole("heading", { name: "Feedback del público" }),
@@ -309,6 +310,9 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
   }
   await summaryRead;
   await expect(page.getByText("18", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Analizado:" }),
+  ).toBeVisible();
 
   const modules = page.getByRole("navigation", {
     name: "Módulos de Feedback del público",
@@ -482,7 +486,7 @@ test("authenticated admin keeps module order and empty states on mobile", async 
   await loginAsSyntheticAdmin(page);
   const summaryRead = waitForSuccessfulAdminRead(page, "summary");
   await page.goto("/es-AR/dashboard/feedback", {
-    waitUntil: "domcontentloaded",
+    waitUntil: "commit",
   });
   await summaryRead;
   await expect(
