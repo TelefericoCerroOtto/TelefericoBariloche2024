@@ -7,6 +7,7 @@ describe("getDashboardShellProjection", () => {
     const projection = getDashboardShellProjection({
       currentRole: "Administrator",
       isMaintenanceMode: true,
+      isFeedbackEnabled: false,
     });
 
     expect(projection.contentNavigation).toEqual([]);
@@ -19,6 +20,7 @@ describe("getDashboardShellProjection", () => {
     const projection = getDashboardShellProjection({
       currentRole: "Operations Supervisor",
       isMaintenanceMode: true,
+      isFeedbackEnabled: false,
     });
 
     expect(projection).toMatchObject({
@@ -34,6 +36,7 @@ describe("getDashboardShellProjection", () => {
     const projection = getDashboardShellProjection({
       currentRole: "Operations Supervisor",
       isMaintenanceMode: false,
+      isFeedbackEnabled: true,
     });
 
     expect(projection.contentNavigation.map((item) => item.url)).toEqual([
@@ -53,5 +56,19 @@ describe("getDashboardShellProjection", () => {
         .filter((item) => !item.isDisabled)
         .map((item) => item.url),
     ).toEqual([ADMIN_ROUTES.ZONES, ADMIN_ROUTES.PRICES, ADMIN_ROUTES.BUSES]);
+  });
+
+  it("hides feedback navigation while the server-side capability is closed", () => {
+    const projection = getDashboardShellProjection({
+      currentRole: "Administrator",
+      isMaintenanceMode: false,
+      isFeedbackEnabled: false,
+    });
+
+    expect(
+      projection.contentNavigation.some(
+        (item) => item.url === ADMIN_ROUTES.FEEDBACK,
+      ),
+    ).toBe(false);
   });
 });

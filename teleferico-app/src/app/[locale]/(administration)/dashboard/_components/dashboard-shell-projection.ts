@@ -124,13 +124,17 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
 export function getDashboardShellProjection({
   currentRole,
   isMaintenanceMode,
+  isFeedbackEnabled,
 }: {
   currentRole: UserRole["name"];
   isMaintenanceMode: boolean;
+  isFeedbackEnabled: boolean;
 }): DashboardShellProjection {
   const contentNavigation = isMaintenanceMode
     ? []
-    : CONTENT_ITEMS.map(({ allowedRoles, ...item }) => ({
+    : CONTENT_ITEMS.filter(
+        (item) => item.icon !== "feedback" || isFeedbackEnabled,
+      ).map(({ allowedRoles, ...item }) => ({
         ...item,
         isDisabled:
           !item.implemented ||

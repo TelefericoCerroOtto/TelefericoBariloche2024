@@ -31,6 +31,10 @@ import type {
   FeedbackAdminReadRoute,
   FeedbackAdminSource,
 } from "@/types/api/admin/feedback";
+import {
+  feedbackCapabilityUnavailableResponse,
+  isFeedbackCapabilityEnabled,
+} from "./capability-gate";
 import { NextRequest, NextResponse } from "next/server";
 
 function errorResponse(
@@ -151,6 +155,8 @@ export async function handleFeedbackAdminRead(
   route: FeedbackAdminReadRoute | "qr-points",
   capability: FeedbackAdminCapability,
 ) {
+  if (!isFeedbackCapabilityEnabled())
+    return feedbackCapabilityUnavailableResponse();
   try {
     const auth = await authenticate(req, capability);
     if (!auth.ok) return auth.response;
@@ -187,6 +193,8 @@ async function readBody(req: NextRequest): Promise<unknown> {
 }
 
 export async function handleFeedbackAdminGenerate(req: NextRequest) {
+  if (!isFeedbackCapabilityEnabled())
+    return feedbackCapabilityUnavailableResponse();
   try {
     const auth = await authenticate(req, "feedback.reports.generate");
     if (!auth.ok) return auth.response;
@@ -205,6 +213,8 @@ export async function handleFeedbackAdminRetry(
   req: NextRequest,
   reportRunId: string,
 ) {
+  if (!isFeedbackCapabilityEnabled())
+    return feedbackCapabilityUnavailableResponse();
   try {
     const auth = await authenticate(req, "feedback.reports.generate");
     if (!auth.ok) return auth.response;
