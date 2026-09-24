@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
 const path = require('node:path');
 const test = require('node:test');
 
@@ -248,7 +249,7 @@ test('migration defers on an empty database and executes through one ready trans
   await assert.rejects(migration.down(), /no destructive rollback/);
 });
 
-test('survey APIs expose no generic CRUD routes while lifecycle services stay aligned', () => {
+test('survey APIs expose native read routes and keep transactional intake custom', () => {
   const names = [
     'survey-version',
     'survey-settings',
@@ -258,26 +259,80 @@ test('survey APIs expose no generic CRUD routes while lifecycle services stay al
     'survey-report',
   ];
 
-  for (const name of names) {
-    const routes = require(path.join(
-      '../../../src/api',
-      name,
-      'routes',
-      `${name}.js`,
-    ));
-    assert.deepEqual(routes, { type: 'content-api', routes: [] });
-    assert.deepEqual(require(path.join(
-      '../../../src/api',
-      name,
-      'controllers',
-      `${name}.js`,
-    )), {});
+  for (const name of names.filter((candidate) => ['survey-version', 'survey-settings', 'survey-qr-point'].includes(candidate))) {
+    const routes = require('node:fs').readFileSync(path.join(__dirname, '../../../src/api', name, 'routes', `${name}.js`), 'utf8');
+    const controller = require('node:fs').readFileSync(path.join(__dirname, '../../../src/api', name, 'controllers', `${name}.js`), 'utf8');
+    assert.match(routes, /createCoreRouter/);
+    assert.match(controller, /createCoreController/);
     assert.doesNotThrow(() => require(path.join(
       '../../../src/api',
       name,
       'services',
       `${name}.js`,
     )));
+  }
+
+  const intakeRoutes = require('../../../src/api/survey-submission/routes/survey-submission');
+  assert.ok(intakeRoutes.routes.some(({ method, handler }) => method === 'POST' && handler === 'survey-submission.submit'));
+  assert.match(
+    require('node:fs').readFileSync(path.join(__dirname, '../../../src/api/survey-submission/routes/native.js'), 'utf8'),
+    /createCoreRouter/,
+  );
+});
+
+test('submission controller rejects malformed and unknown versioned commands before persistence', async () => {
+  const controller = require('../../../src/api/survey-submission/controllers/survey-submission');
+  const previous = global.strapi;
+  global.strapi = new Proxy({}, { get() { throw new Error('persistence reached'); } });
+  try {
+    for (const body of [
+      { contractVersion: 'feedback-cms-submission.v0', operation: 'lookup' },
+      { contractVersion: 'feedback-cms-submission.v1', operation: 'unknown' },
+    ]) {
+      const ctx = {
+        request: { body },
+        badRequest(code) { this.status = 400; this.body = { error: { code } }; },
+      };
+      await controller.submit(ctx);
+      assert.equal(ctx.status, 400);
+      assert.deepEqual(ctx.body, { error: { code: 'INVALID_COMMAND' } });
+    }
+  } finally {
+    global.strapi = previous;
+  }
+});
+
+test('submission controller keeps replay status out of the public response body', async () => {
+  const controller = require('../../../src/api/survey-submission/controllers/survey-submission');
+  const previous = global.strapi;
+  const acceptedAt = '2026-09-17T12:00:00.000Z';
+  const publicCode = 'A'.repeat(32);
+  global.strapi = {
+    documents(uid) {
+      return { findOne: async () => (
+        uid.includes('qr-point')
+          ? { documentId: 'point', status: 'active', pointKey: 'summit', publicCode }
+          : { documentId: 'version', status: 'published', versionKey: 'v1' }
+      ) };
+    },
+    db: { transaction: async () => ({ status: 200, submissionReceipt: 'receipt', acceptedAt }) },
+  };
+  try {
+    const ctx = { request: { body: {
+      contractVersion: 'feedback-cms-submission.v1', operation: 'accept', pointDocumentId: 'point', versionDocumentId: 'version',
+      claims: { pointKey: 'summit', publicCodeHash: createHash('sha256').update(publicCode).digest('hex'), versionKey: 'v1' },
+      submission: {
+        receipt: 'receipt', acceptedAt, source: 'valid_qr', locale: 'en', overallRating: 5,
+        ratings: [{ aspectKey: 'views', label: 'Views', sortOrder: 1, rating: 'positive' }],
+        sessionNonceHash: 'a'.repeat(64), payloadDigest: 'b'.repeat(64), browserTokenHash: 'c'.repeat(64),
+        idempotencyKey: 'idem-key-0000001', pointDocumentId: 'point', versionDocumentId: 'version',
+      },
+    } } };
+    await controller.submit(ctx);
+    assert.equal(ctx.status, 200);
+    assert.deepEqual(ctx.body, { submissionReceipt: 'receipt', acceptedAt });
+  } finally {
+    global.strapi = previous;
   }
 });
 

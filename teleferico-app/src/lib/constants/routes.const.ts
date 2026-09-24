@@ -40,6 +40,7 @@ export const ADMIN_ROUTES = {
   EDIT_FAQS: "/dashboard/faqs",
   EDIT_NEWS: "/dashboard/news",
   EDIT_BUS_TRIP: "/dashboard/buses",
+  FEEDBACK: "/dashboard/feedback",
   FAQS: "/dashboard/faqs",
   LOGIN: "/login",
   LOGOUT: "/logout",

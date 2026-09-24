@@ -8,6 +8,26 @@ export type FeedbackAspectDefinition = {
   readonly labels: Readonly<Record<FeedbackLocale, string>>;
 };
 
+export type FeedbackSurveyVersion = {
+  readonly versionKey: string;
+  readonly status: "draft" | "published";
+  readonly lastSupersededAtEpochSeconds: number | null;
+};
+
+export type FeedbackSurveyContext = {
+  readonly pointDocumentId: string;
+  readonly versionDocumentId: string;
+  readonly point: { readonly pointKey: string; readonly publicCode: string; readonly displayName: string };
+  readonly survey: {
+    readonly versionKey: string;
+    readonly versionRevision: number;
+    readonly translations: Readonly<Record<FeedbackLocale, unknown>>;
+    readonly aspects: readonly FeedbackAspectDefinition[];
+  };
+  readonly activeVersionKey: string;
+  readonly versions: readonly FeedbackSurveyVersion[];
+};
+
 export type FeedbackAnswerInput = {
   readonly locale: unknown;
   readonly overallRating: unknown;

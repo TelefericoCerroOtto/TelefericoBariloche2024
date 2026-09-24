@@ -7,12 +7,14 @@ This is the canonical contract for deciding whether and how to prepare repositor
 For an explicit implementation request, complete this sequence before editing:
 
 1. Classify the user's intent.
-2. Search the canonical Notion backlog.
-3. Resolve related GitHub issues, pull requests, and branches.
-4. Inspect the current Git branch and working tree.
-5. Create or reuse tracking when appropriate and authorized.
-6. Establish the correct implementation branch.
-7. Only then edit files.
+2. For continuation or follow-up work with a concrete existing-change anchor, resolve that anchor and inspect its change-local entrypoint or routing instructions.
+3. Select the implementation route from those instructions before invoking any generic workflow preflight.
+4. Search the canonical Notion backlog.
+5. Resolve related GitHub issues, pull requests, and branches.
+6. Inspect the current Git branch and working tree.
+7. Create or reuse tracking when appropriate and authorized.
+8. Establish the correct implementation branch.
+9. Only then edit files.
 
 Never implement on `development` first and formalize afterward.
 
@@ -28,6 +30,15 @@ Never implement on `development` first and formalize afterward.
 | Delivery operation already in progress | Resolve from the current branch or PR. Do not create parallel tracking. |
 
 If intent remains materially ambiguous, ask one short question and stop.
+
+## Route Resolution Gate
+
+For continuation or follow-up work with a concrete existing-change anchor, resolve the anchor and read its change-local entrypoint or routing instructions before selecting an implementation route or invoking any generic workflow preflight.
+
+- Change-local routing decides whether ordinary work uses direct implementation, delegated direct work, or explicit formal SDD.
+- OpenSpec or SDD artifacts, including historical SDD work, do not by themselves select SDD for the current request.
+- Only an explicit current request for a formal SDD lifecycle operation overrides a change-local direct route.
+- If route instructions are missing or contradictory and the choice would change what executes, ask one concise clarification and stop.
 
 ## Canonical Backlog
 
@@ -137,6 +148,12 @@ Obey an explicit safe user instruction. Never manufacture a commit as a recovery
 - Agents never merge or close PRs and never delete branches; those are human actions.
 - Do not stash, reset, rebase, restore, or move dirty-tree changes without explicit authorization.
 - Do not reopen issues or silently correct ambiguous tracking contradictions.
+
+### Implementation publication scope override
+
+The exact `/implementation-pr --allow-mixed-scope "<reason>"` form remains valid. An equally explicit natural-language request may authorize inclusion of unrelated, non-sensitive paths when it explicitly authorizes the publication mutations and gives a concrete explanation. The current request must identify the current credential/session authorization; destination and target may be unambiguously identified by context in that same request. The agent may draft a one-line English audit reason from the user's explanation, but must not invent consent or rationale. Empty invocation remains strict; missing or blank CLI reasons, unknown or extra arguments, and ambiguous authorization fail closed. This is not a branch, base, tracking, or promotion override.
+
+The override must bind the complete exact candidate snapshot, selected `origin`, branch, target/base plan, destination, and current authenticated Git/GitHub session authorization. Context can resolve the target only when it is unambiguous within the same current request; an instruction to merely continue does not grant consent. The override permits only non-sensitive paths classified as otherwise unrelated after exact sorted inventory capture. The agent passes the exact reason and path inventory to `branch-pr`, reads back the created PR, and compares the visible English `## Scope Exception` disclosure before governance observation; repository CI cannot infer whether the override was active. Sensitive paths, ambiguity, truncation, candidate changes, binding changes, force pushes, rebases, merges, issue closure, branch deletion, promotions, releases, arbitrary bases, and destructive operations remain forbidden. Strict invocations omit the section.
 
 ## Runtime Report
 

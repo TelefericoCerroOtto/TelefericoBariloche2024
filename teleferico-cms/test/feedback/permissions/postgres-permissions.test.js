@@ -105,7 +105,7 @@ test('destroys a registered Strapi instance when inspection fails', async () => 
   assert.deepEqual(calls, ['register', 'destroy']);
 });
 
-test('real isolated Strapi has no survey actions, grants, or inspection writes', async () => {
+test('real isolated Strapi exposes core routes without default survey grants', async () => {
   try {
     await executeCompose('down', '--volumes', '--remove-orphans', '--timeout=5');
     await executeCompose('up', '--detach', '--wait');
@@ -121,12 +121,43 @@ test('real isolated Strapi has no survey actions, grants, or inspection writes',
         const registeredActions = surveyApis
           .flatMap(([, api]) => Object.values(api.routes).flatMap((route) => route.routes ?? route))
           .map((route) => route.handler);
+        const dispatchActions = registeredActions.filter((action) => action.endsWith('.dispatchFailure') || action.endsWith('.dispatchState') || action.endsWith('.workerClaim') || action.endsWith('.workerSnapshot'));
         const roles = await strapi.db.connection('up_roles').select('name');
         const permissions = await strapi.db.connection('up_permissions').select('action');
         const tokenPermissions = await strapi.db.connection('strapi_api_token_permissions').select('action');
 
         assert.equal(surveyApis.length, 6);
-        assert.deepEqual(registeredActions, []);
+        assert.deepEqual(dispatchActions.sort(), [
+          'survey-report-generation.dispatchFailure',
+          'survey-report-generation.dispatchState',
+          'survey-report-generation.workerClaim',
+          'survey-report-generation.workerSnapshot',
+        ]);
+        assert.deepEqual(registeredActions.filter((action) => !action.endsWith('.dispatchFailure') && !action.endsWith('.dispatchState') && !action.endsWith('.workerClaim') && !action.endsWith('.workerSnapshot')), [
+          'api::survey-qr-point.survey-qr-point.find',
+          'api::survey-qr-point.survey-qr-point.findOne',
+          'api::survey-qr-point.survey-qr-point.create',
+          'api::survey-qr-point.survey-qr-point.update',
+          'api::survey-qr-point.survey-qr-point.delete',
+          'api::survey-report.survey-report.find',
+          'api::survey-report.survey-report.findOne',
+          'api::survey-report-generation.survey-report-generation.find',
+          'api::survey-report-generation.survey-report-generation.findOne',
+          'api::survey-report-generation.survey-report-generation.create',
+          'api::survey-report-generation.survey-report-generation.update',
+          'api::survey-report-generation.survey-report-generation.delete',
+          'api::survey-settings.survey-settings.find',
+          'api::survey-settings.survey-settings.update',
+          'api::survey-settings.survey-settings.delete',
+          'api::survey-submission.survey-submission.find',
+          'api::survey-submission.survey-submission.findOne',
+          'survey-submission.submit',
+          'api::survey-version.survey-version.find',
+          'api::survey-version.survey-version.findOne',
+          'api::survey-version.survey-version.create',
+          'api::survey-version.survey-version.update',
+          'api::survey-version.survey-version.delete',
+        ]);
         assert.ok(roles.some(({ name }) => name === 'Public'));
         assert.ok(roles.some(({ name }) => name === 'Authenticated'));
         assert.equal(roles.some(({ name }) => name === 'Super Admin'), false);

@@ -4,11 +4,18 @@
 
 Define report periods, concurrency, overlap approval, asynchronous states, retries, checkpoints, and atomic publication.
 
+U8-B does not implement this lifecycle. It exposes only the narrow validated
+generate/retry command boundary. Native Strapi Role/API Token authorization is
+the actor boundary for this slice, which stores `requestedBy: null` and does
+not synthesize application-user attribution;
+transactional overlap/race handling, retry lineage/state transitions, worker
+cutoffs, and atomic publication are deferred to U9.
+
 ## Requirements
 
 ### Requirement: Separate generation and report records
 
-`survey-report-generation` MUST be the mutable process record with unique immutable `reportRunId`, inclusive `periodStart`/`periodEnd`, `dataCutoffAt`, `status: queued|running|succeeded|failed`, `requestedBy`, nullable `retryOfGeneration`, snapshot identity, stage checkpoints, attempts, safe failure, and cost metadata. It MUST relate to at most one `survey-report`. A report MUST be created only on success with unique report identity, source generation, immutable period/cutoff/snapshot/validated-output/artifact metadata, `generatedBy`, and creation time. (Primary: D40, D71)
+`survey-report-generation` MUST be the mutable process record with unique immutable `reportRunId`, inclusive `periodStart`/`periodEnd`, `dataCutoffAt`, `status: queued|running|succeeded|failed`, nullable `requestedBy`, nullable `retryOfGeneration`, snapshot identity, stage checkpoints, attempts, safe failure, and cost metadata. It MUST relate to at most one `survey-report`. A report MUST be created only on success with unique report identity, source generation, immutable period/cutoff/snapshot/validated-output/artifact metadata, `generatedBy`, and creation time. (Primary: D40, D71)
 
 #### Scenario: Observe asynchronous history
 - GIVEN a queued generation whose requester leaves the page

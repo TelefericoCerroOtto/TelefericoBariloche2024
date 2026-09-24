@@ -62,6 +62,8 @@ export type IntakeEnvelopeInput = {
   readonly body: Uint8Array;
 };
 
+type IntakeHeadInput = Omit<IntakeEnvelopeInput, "body">;
+
 function invalidPath(field: "publicCode" | "draftId"): BoundaryResult<never> {
   return {
     ok: false,
@@ -163,6 +165,12 @@ function validateFields(body: Record<string, unknown>): BoundaryResult<Submissio
 export function validateIntakeTransport(
   input: IntakeEnvelopeInput,
 ): BoundaryResult<null> {
+  const head = validateIntakeRequestHead(input);
+  if (!head.ok) return head;
+  return validateIntakePayload(input.body, input.contentLength);
+}
+
+export function validateIntakeRequestHead(input: IntakeHeadInput): BoundaryResult<null> {
   if (input.method !== "POST") return failure(405, "METHOD_NOT_ALLOWED");
   if (!isUtf8Json(input.contentType)) {
     return failure(415, "UNSUPPORTED_MEDIA_TYPE");
@@ -177,14 +185,17 @@ export function validateIntakeTransport(
   if (url.search.length > 0) {
     return failure(400, "VALIDATION_FAILED", ["query"]);
   }
-  if (input.body.byteLength > INTAKE_BODY_LIMIT_BYTES) {
+  const declared = input.contentLength;
+  if (declared && /^(0|[1-9][0-9]*)$/.test(declared) && Number(declared) > INTAKE_BODY_LIMIT_BYTES) {
     return failure(413, "PAYLOAD_TOO_LARGE");
   }
 
-  const lengthResult = validateDeclaredLength(
-    input.contentLength,
-    input.body.byteLength,
-  );
+  return { ok: true, value: null };
+}
+
+export function validateIntakePayload(body: Uint8Array, contentLength?: string | null): BoundaryResult<null> {
+  if (body.byteLength > INTAKE_BODY_LIMIT_BYTES) return failure(413, "PAYLOAD_TOO_LARGE");
+  const lengthResult = validateDeclaredLength(contentLength, body.byteLength);
   if (!lengthResult.ok) return lengthResult;
 
   return { ok: true, value: null };

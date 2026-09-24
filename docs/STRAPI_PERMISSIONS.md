@@ -12,6 +12,9 @@ Every Strapi collection that is relevant to API tokens or application roles must
 
 Anything not listed remains outside the expected permission model.
 
+generic collection CRUD remains outside the access model unless a focused
+application boundary documents the exact read or command action.
+
 ## Summary
 
 | Access profile                  | Kind                     | Used by                      | Purpose                                                                                                                             | Duration  | Type       |
@@ -102,6 +105,19 @@ Curriculum files are not uploaded to Strapi. The Next.js route handler stores th
 | `sector`                       |   ✅   |     —     |    —     |    —     |    —     |
 
 No Strapi Upload API permission is required for this token.
+
+### `Visitor Feedback CMS Transport (Next.js)`
+
+This server-only token is used exclusively by the visitor feedback CMS transport. Public survey resolution reads the native Strapi REST surfaces for `survey-settings`, `survey-version`, and `survey-qr-point`; submission persistence remains the closed `survey-submission` command family below. It grants no administration, user-management, or role-management actions.
+
+| Native/custom action | Access |
+| --- | :---: |
+| `survey-settings.find` / `findOne` | ✅ |
+| `survey-version.find` / `findOne` | ✅ |
+| `survey-qr-point.find` / `findOne` | ✅ |
+| `survey-submission.find` / `findOne` | ✅ for admin readers only |
+| `survey-report.find` / `findOne` | ✅ for admin readers only |
+| `survey-submission.submit` | ✅ |
 
 ## Transfer tokens
 
@@ -199,23 +215,42 @@ Anything not listed in this document is not part of the expected permission mode
 
 ### TB-113 current baseline
 
-The disabled survey catalog (`survey-version`, `survey-settings`, `survey-qr-point`,
-`survey-submission`, `survey-report-generation`, and `survey-report`) has zero
-Content API actions and zero API-token or Users & Permissions grants. Public,
-Authenticated, and every other application role are denied. Strapi Super Admin
-remains unchanged because Admin Panel users are a separate actor class. The
-generic collection CRUD remains outside the access model.
-
-This differs deliberately from Strapi's default core controllers and routers,
-which expose generic CRUD actions. Every survey route module instead exports an
-empty Content API route array and every survey controller exports no actions.
-S06a creates no permission command or mutation path.
+The survey catalog (`survey-version`, `survey-settings`, `survey-qr-point`,
+`survey-submission`, `survey-report-generation`, and `survey-report`) remains
+disabled by default. The feedback transport uses only bounded native `find`/
+`findOne` reads for the survey catalog plus the token-authenticated
+`survey-submission` command listed above. U8-B uses the native Strapi core
+routes for `survey-report-generation` through the server-mediated application
+user JWT from the Auth.js session. The corresponding Users & Permissions role
+may receive only the native `find` and `create` actions needed by the command
+helper, plus the explicit `survey-report-generation.dispatchFailure` action for
+verified pre-enqueue exhaustion compensation. That custom action is denied
+unless separately granted; the isolated HTTP harness grants it only to its
+synthetic test role. U10-A adds the separate `survey-report-generation.dispatchState`
+action for server-mediated task-name reservation and bounded outcome recording;
+it is also denied unless separately granted and is not called by the app yet.
+It permits only reservation, created, and unknown states; it rejects claimed
+absence and cannot compensate a queued generation. These custom actions use the
+application user JWT, not an API token. The worker
+`survey-report-generation.workerClaim` action is separately denied unless
+explicitly granted to an approved worker credential. This repository adds no
+role/token grant and does not define credential issuance or rotation.
+The worker `survey-report-generation.workerSnapshot` action is likewise denied
+unless separately granted to an approved worker credential. It returns the
+immutable snapshot only for a running generation and verifies the stored
+`survey-snapshot.v1` payload digest before exposing its private comments. No
+default permission is added.
+Report history remains owned by U8-A, and PDF artifact storage/download remains
+deferred to U12. No production permission mutation is performed.
+Anonymous requests and ungranted actions remain denied. Application-level
+capabilities are enforced by the Next.js administration routes, and the
+`update`/`delete` core actions remain outside the command access model.
 
 ### Future application capabilities
 
-These names are application-level capabilities for later U8 mapping and
-enforcement. They are not current Strapi action IDs or durable Users &
-Permissions rows.
+These names are application-level capabilities enforced by the Next.js
+administration routes. They are not current Strapi action IDs or durable Users
+& Permissions rows.
 
 | Future capability | Future operation | Route owner |
 | --- | --- | --- |
@@ -223,12 +258,34 @@ Permissions rows.
 | `feedback.comments.read` | Filtered comments | U8 administration routes |
 | `feedback.reports.read` | Reports and generations | U8 administration routes |
 | `feedback.reports.generate` | Generate and retry | U8 administration routes |
-| `feedback.reports.download` | Mediated report download | U8 administration routes |
+| `feedback.reports.download` | Mediated report download | U12 deterministic delivery |
 
 Exact intake, administration, and worker actions and grants remain owned by U7,
-U8, and U10 respectively. Each route-owning slice must add only its registered
-actions and update this document. No current grant or permission mutation is
-part of S06a.
+U8, and U10 respectively. U9-A1 adds only the registered
+`api::survey-report-generation.survey-report-generation.dispatchFailure` action;
+the app calls it with the server-mediated application user JWT only for a typed,
+verified enqueue-exhaustion result. That user's Users & Permissions role must
+explicitly grant the action for compensation to be available. No API token or
+generic `update`/`delete` action is required or permitted by this boundary.
+U10-A adds the registered
+`api::survey-report-generation.survey-report-generation.dispatchState` action,
+which must be explicitly granted to the server-mediated application user for
+the future coordinator to reserve identities or record created/unknown outcomes.
+It does not expose an absence or compensation operation. The
+isolated HTTP test grants it only to its synthetic role. No production role is
+changed by this repository update. U10-A also registers
+`api::survey-report-generation.survey-report-generation.workerClaim` for the
+bounded worker claim command. It returns checkpoint/model/pricing state only to
+an authorized caller and omits comments; it has no default role or API-token
+grant. Credential provisioning and any non-default grant remain separately
+authorized operational work. No production role or token is changed here.
+U10-A4 registers
+`api::survey-report-generation.survey-report-generation.workerSnapshot` for the
+bodyless worker snapshot read. It requires an explicit grant, returns data only
+for running generations, and rejects unsupported snapshot versions or digest
+mismatches. The action does not grant native collection reads or expose the
+snapshot through a public/admin route. The isolated HTTP harness grants it only
+to its synthetic worker-role equivalent; no production role or token is changed.
 
 Verify the baseline with:
 

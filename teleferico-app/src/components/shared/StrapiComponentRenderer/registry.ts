@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import {
   renderCarrousel,
+  renderEditorialAlert,
   renderFaqSection,
   renderHero,
   renderHoursOverview,
@@ -28,6 +29,7 @@ export const strapiRenderers = {
   "page-components.hours-overview": renderHoursOverview,
   "page-components.policies-callout": renderPoliciesCallout,
   "page-components.title-desc-block": renderTitleDescBlock,
+  "page-components.editorial-alert": renderEditorialAlert,
   "page-components.image-text-block": renderImageTextBlock,
   "page-components.faq-section": renderFaqSection,
   "page-components.spacer": renderSpacer,

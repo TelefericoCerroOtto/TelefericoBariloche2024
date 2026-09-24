@@ -137,6 +137,11 @@ test('remaining persistence schemas preserve critical constraints and private ow
   assert.deepEqual(generation.attributes.status.enum, ['queued', 'running', 'succeeded', 'failed']);
   assert.equal(generation.attributes.status.default, 'queued');
   assert.equal(generation.attributes.stateVersion.min, 1);
+  assert.deepEqual(generation.attributes.dispatchState.enum, ['unreserved', 'reserved', 'created', 'unknown']);
+  assert.equal(generation.attributes.dispatchState.default, 'unreserved');
+  assert.equal(generation.attributes.dispatchState.private, true);
+  assert.equal(generation.attributes.dispatchEvidenceJson.type, 'json');
+  assert.equal(generation.attributes.dispatchEvidenceJson.private, true);
   for (const field of ['snapshotJson', 'checkpointsJson', 'modelConfigJson', 'usageJson', 'pricingSnapshotJson']) {
     assert.equal(generation.attributes[field].type, 'json');
     assert.equal(generation.attributes[field].required, true);

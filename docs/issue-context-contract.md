@@ -158,7 +158,9 @@ For identifier-free follow-ups or regressions, search the canonical Notion backl
 
 ### Default behavior (silent lookup)
 
-Agents should fetch and reconcile linked context silently by default while performing the requested task. For change intake, follow the decision and working-tree contract in `docs/change-intake-preflight.md`.
+Agents should use the supplied reference as the first reliable anchor and keep lookup silent while performing the requested task. For informational or read-only questions, follow related links only when needed for an accurate answer; full cross-system traversal is not the default.
+
+Reconcile `Work ID` ↔ Notion row ↔ GitHub issue ↔ PR ↔ governed branch deterministically for implementation, follow-up/regression decisions, tracking mutations, delivery operations, ambiguous identity, or an explicit recap/context snapshot. Fail closed when mutation-sensitive identity remains ambiguous. For change intake, follow the decision and working-tree contract in `docs/change-intake-preflight.md`.
 
 ### Explicit recap behavior
 

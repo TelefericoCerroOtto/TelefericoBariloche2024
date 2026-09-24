@@ -45,8 +45,8 @@ export async function verifyCaptchaToken(
     const captchaData = (await res.json()) as CaptchaResponse;
 
     return captchaData;
-  } catch (error) {
-    console.error("Error verifying captcha:", error);
+  } catch {
+    console.error("Captcha verification unavailable");
     return {
       success: false,
       "error-codes": ["connection-failed"],
