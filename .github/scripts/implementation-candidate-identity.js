@@ -20,13 +20,15 @@ function rejectSensitivePath(candidate) {
   const lower = candidate.toLowerCase();
   const segments = lower.split("/");
   const basename = segments.at(-1);
-  const safeEnvExample = /^\.env\.(?:example|sample|template)$/.test(basename);
+  const safeEnvExample = /^\.env\.(?:example|sample|template)$/.test(candidate.split("/").at(-1));
+  const ancestors = segments.slice(0, -1);
   if (
     segments.some((segment) => /^(?:\.npmrc|\.netrc|\.pypirc|\.ssh|\.aws)$/.test(segment)) ||
     segments.some((segment) =>
       /^(?:credentials?|secrets?|private[-_]?keys?|id_rsa|id_ed25519)$/.test(segment),
     ) ||
-    (!safeEnvExample && segments.some((segment) => /^\.env(?:\.|$)/.test(segment))) ||
+    ancestors.some((segment) => /^\.env/.test(segment)) ||
+    (!safeEnvExample && /^\.env/.test(basename)) ||
     /(?:^|[._-])(?:secret|credential|private[-_]?key|service[-_]?account|access[-_]?token|refresh[-_]?token|auth[-_]?token|token)(?:[._-]|$)/.test(basename)
   ) {
     throw new Error("sensitive-looking path");
@@ -121,11 +123,15 @@ function fingerprint(paths) {
   return crypto.createHash("sha256").update(records.join("\n")).digest("hex");
 }
 
-try {
-  const paths = process.argv.slice(2);
-  const digest = fingerprint(paths);
-  process.stdout.write(`${JSON.stringify({ status: "ok", fingerprint: digest })}\n`);
-} catch {
-  process.stdout.write('{"status":"rejected"}\n');
-  process.exitCode = 1;
+module.exports = { rejectSensitivePath };
+
+if (require.main === module) {
+  try {
+    const paths = process.argv.slice(2);
+    const digest = fingerprint(paths);
+    process.stdout.write(`${JSON.stringify({ status: "ok", fingerprint: digest })}\n`);
+  } catch {
+    process.stdout.write('{"status":"rejected"}\n');
+    process.exitCode = 1;
+  }
 }

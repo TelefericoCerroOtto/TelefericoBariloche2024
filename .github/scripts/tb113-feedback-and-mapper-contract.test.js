@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const { rejectSensitivePath } = require("./implementation-candidate-identity.js");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
 const read = (relativePath) =>
@@ -87,6 +88,36 @@ test("mapper Bash allow rules remain a finite read-oriented subset", () => {
     command.startsWith("date -u"),
   ));
   assert.match(mapper, /"\*": deny/);
+});
+
+test("example environment templates are path-safe only under non-sensitive ancestors", () => {
+  const allowed = [
+    "teleferico-app/.env.example",
+    "teleferico-app/config/.env.sample",
+    "docs/config/.env.template",
+  ];
+  const blocked = [
+    "teleferico-app/.env",
+    "teleferico-app/.env.production",
+    "teleferico-app/.envrc",
+    "teleferico-app/.ENV.EXAMPLE",
+    "teleferico-app/.env.production/.env.example",
+    "teleferico-app/secrets/.env.example",
+    "teleferico-app/.aws/.env.sample",
+    "teleferico-app/auth-token.env.template",
+  ];
+
+  for (const candidate of allowed) {
+    assert.doesNotThrow(() => rejectSensitivePath(candidate), candidate);
+  }
+  for (const candidate of blocked) {
+    assert.throws(() => rejectSensitivePath(candidate), /sensitive-looking path/, candidate);
+  }
+
+  const mapper = read(".opencode/agents/delivery-state-mapper.md");
+  assert.match(mapper, /tracked regular-file template whose basename is exactly `\.env\.example`, `\.env\.sample`, or `\.env\.template` is not sensitive solely because of that basename's `\.env` prefix/);
+  assert.match(mapper, /does not establish that file contents are safe/);
+  assert.match(mapper, /keep other environment-file names, secret-like basenames, sensitive ancestors, and any separately identified content concern blocked/);
 });
 
 function parseBashRules(mapper) {
