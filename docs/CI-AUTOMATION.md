@@ -135,7 +135,7 @@ Branch validation checks deterministic syntax and identity only. It does not jud
 
 1. requires governed head and immediate-parent branch names, same-repository head/base, draft state, and full runtime head/base SHAs
 2. requires one deterministic visible `## Chain Context` section declaring `Strategy`, `Parent PR`, `Parent branch`, and `Parent head SHA` exactly once
-3. verifies that the declared parent is an open same-repository implementation PR into `development` and that its branch/head SHA exactly match the runtime base
+3. iteratively verifies every declared parent through visible Chain Context until an open same-repository implementation PR into `development`; each open draft-preview ancestor must have governed head/base branches and a declared parent branch/head SHA matching its runtime base, and cycles or orphaned/malformed/hidden contexts fail closed
 4. verifies a non-empty parent-relative PR file list and fails closed at GitHub's 3,000-file truncation boundary
 5. runs commit governance but skips implementation tracking and explicitly no-ops `trusted-pr-sync`, so no GitHub issue or Notion mutation can occur
 6. does not dispatch or claim Cloud Build/functional CI; those checks remain deferred until the same PR is retargeted to `development`

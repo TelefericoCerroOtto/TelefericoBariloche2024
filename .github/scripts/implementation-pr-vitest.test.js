@@ -1,13 +1,21 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 const {
   APP_ROOT,
+  CLEANUP_FAILURE_NOTE,
+  DIAGNOSTICS_UNAVAILABLE_NOTE,
+  MAX_ASSERTIONS_PER_FILE,
+  MAX_DIAGNOSTIC_FILES,
+  MAX_REPORT_BYTES,
+  MAX_REPORT_FILES,
   WITHHELD_OUTPUT_NOTE,
   VITEST_TIMEOUT_MS,
   classifyCandidateScope,
   main,
+  parseFailureDiagnostics,
   parseArguments,
   runPostPrVitest,
 } = require("./implementation-pr-vitest.js");
@@ -57,18 +65,57 @@ test("runs once for app source mixed with documentation and records a pass", () 
     candidatePaths: appSourceAndDocsPaths,
     spawn: (...args) => {
       calls.push(args);
+      fs.writeFileSync(args[1].at(-1).slice("--outputFile=".length), JSON.stringify({ testResults: [] }));
       return { status: 0 };
     },
   });
 
   assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].slice(0, 2), ["pnpm", ["run", "test"]]);
+  assert.equal(calls[0][0], "pnpm");
+  assert.deepEqual(calls[0][1].slice(0, 3), ["run", "test", "--reporter=json"]);
+  assert.ok(calls[0][1][3].startsWith("--outputFile="));
   assert.equal(calls[0][2].cwd, APP_ROOT);
   assert.equal(calls[0][2].timeout, VITEST_TIMEOUT_MS);
   assert.equal(report.status, "passed");
   assert.equal(report.runs, 1);
   assert.equal(report.exit_code, 0);
   assert.equal(report.scope, "app-executable-or-unknown");
+  assert.equal(fs.existsSync(calls[0][1][3].slice("--outputFile=".length)), false);
+});
+
+test("cleanup failures do not replace completed Vitest results or expose cleanup details", () => {
+  const secretMarker = "private-cleanup-error-marker";
+  for (const [vitestStatus, expectedStatus, expectedVitestExit] of [
+    [1, "failed", 1],
+    [0, "passed", 0],
+  ]) {
+    let stdout = "";
+    let temporaryDirectory;
+    const previousWrite = process.stdout.write;
+    process.stdout.write = (chunk) => { stdout += chunk; return true; };
+    try {
+      const helperExit = main(["--pr-created", "--candidate-path", "teleferico-app/src/app/page.tsx"], {
+        spawn: () => ({ status: vitestStatus, stderr: secretMarker }),
+        removeTemporaryDirectory: (directory) => {
+          temporaryDirectory = directory;
+          throw new Error(`${secretMarker}: ${directory}`);
+        },
+      });
+      assert.equal(helperExit, 0);
+    } finally {
+      process.stdout.write = previousWrite;
+      if (temporaryDirectory) fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
+
+    const report = JSON.parse(stdout);
+    assert.equal(report.status, expectedStatus);
+    assert.equal(report.exit_code, expectedVitestExit);
+    assert.equal(report.cleanup_warning, CLEANUP_FAILURE_NOTE);
+    assert.equal(stdout.includes(secretMarker), false);
+    assert.equal(stdout.includes(temporaryDirectory), false);
+    assert.equal(fs.existsSync(temporaryDirectory), false);
+    if (expectedStatus === "passed") assert.equal("failure_evidence" in report, false);
+  }
 });
 
 test("unknown app file types conservatively trigger the app suite", () => {
@@ -90,24 +137,184 @@ test("rejects unsafe, duplicate, or empty candidate paths", () => {
   assert.throws(() => classifyCandidateScope([]), /complete non-empty candidate path inventory/);
 });
 
-test("withholds all raw process output from failure evidence", () => {
+test("reports only failed test file paths and counts, withholding process output and dynamic failure strings", () => {
   const secretMarker = "sensitive-test-output-marker";
+  let reportPath;
   const report = runPostPrVitest({
     prCreated: true,
     candidatePaths: appSourceAndDocsPaths,
-    spawn: () => ({ status: 1, stdout: `failure ${secretMarker}`, stderr: secretMarker }),
+    spawn: (_command, args) => {
+      reportPath = args.at(-1).slice("--outputFile=".length);
+      assert.equal(fs.statSync(path.dirname(reportPath)).mode & 0o777, 0o700);
+      fs.writeFileSync(reportPath, JSON.stringify({
+        testResults: [
+          {
+            name: path.join(APP_ROOT, "src", "lib", "passing.test.ts"),
+            status: "passed",
+            assertionResults: [{ status: "passed", title: secretMarker }],
+          },
+          {
+            name: path.join(APP_ROOT, "src", "lib", "failure.test.ts"),
+            status: "failed",
+            assertionResults: [
+              { status: "failed", title: secretMarker, failureMessages: [secretMarker] },
+              { status: "failed", title: secretMarker, failureMessages: [secretMarker] },
+            ],
+          },
+        ],
+      }));
+      return { status: 1, stdout: `failure ${secretMarker}`, stderr: secretMarker };
+    },
   });
 
   assert.equal(report.status, "failed");
   assert.equal(report.attribution, "unclassified");
   assert.equal(report.exit_code, 1);
-  assert.deepEqual(report.failure_evidence, {
-    spawn_category: "process-exit",
-    signal: null,
-    exit_code: 1,
-    note: WITHHELD_OUTPUT_NOTE,
+  assert.equal(report.failure_evidence.spawn_category, "process-exit");
+  assert.equal(report.failure_evidence.signal, null);
+  assert.equal(report.failure_evidence.exit_code, 1);
+  assert.equal(report.failure_evidence.note, WITHHELD_OUTPUT_NOTE);
+  assert.deepEqual(report.failure_evidence.diagnostics, {
+    status: "available",
+    failed_test_files: [{
+      file: "teleferico-app/src/lib/failure.test.ts",
+      failed_tests: 2,
+      failure_kind: "assertions",
+    }],
+    omitted_file_count: 0,
   });
   assert.equal(JSON.stringify(report).includes(secretMarker), false);
+  assert.equal(fs.existsSync(reportPath), false);
+});
+
+test("rejects diagnostic paths outside the repository without exposing path contents", () => {
+  const secretMarker = "private-runtime-value";
+  const report = runPostPrVitest({
+    prCreated: true,
+    candidatePaths: appSourceAndDocsPaths,
+    spawn: (_command, args) => {
+      fs.writeFileSync(args.at(-1).slice("--outputFile=".length), JSON.stringify({
+        testResults: [{
+          name: `/tmp/${secretMarker}.test.ts`,
+          status: "failed",
+          assertionResults: [{ status: "failed" }],
+        }],
+      }));
+      return { status: 1 };
+    },
+  });
+
+  assert.equal(report.failure_evidence.diagnostics.status, "unavailable");
+  assert.equal(JSON.stringify(report).includes(secretMarker), false);
+});
+
+test("reports failed files with zero assertions as collection failures and ignores passing files", () => {
+  const report = runPostPrVitest({
+    prCreated: true,
+    candidatePaths: appSourceAndDocsPaths,
+    spawn: (_command, args) => {
+      fs.writeFileSync(args.at(-1).slice("--outputFile=".length), JSON.stringify({
+        testResults: [
+          {
+            name: "teleferico-app/src/collection-error.test.ts",
+            status: "failed",
+            message: "Do not expose this arbitrary collection error text.",
+            assertionResults: [],
+          },
+          {
+            name: "teleferico-app/src/passing.test.ts",
+            status: "passed",
+            assertionResults: [{ status: "passed", title: "passed test" }],
+          },
+        ],
+      }));
+      return { status: 1 };
+    },
+  });
+
+  assert.deepEqual(report.failure_evidence.diagnostics.failed_test_files, [{
+    file: "teleferico-app/src/collection-error.test.ts",
+    failed_tests: 0,
+    failure_kind: "collection",
+  }]);
+  assert.equal(JSON.stringify(report).includes("arbitrary collection error text"), false);
+});
+
+test("marks missing and malformed failure reports unavailable while preserving the failed exit", () => {
+  for (const writeReport of [null, (reportPath) => fs.writeFileSync(reportPath, "not-json")]) {
+    const report = runPostPrVitest({
+      prCreated: true,
+      candidatePaths: appSourceAndDocsPaths,
+      spawn: (_command, args) => {
+        const reportPath = args.at(-1).slice("--outputFile=".length);
+        writeReport?.(reportPath);
+        return { status: 1 };
+      },
+    });
+
+    assert.equal(report.status, "failed");
+    assert.equal(report.exit_code, 1);
+    assert.deepEqual(report.failure_evidence.diagnostics, {
+      status: "unavailable",
+      note: DIAGNOSTICS_UNAVAILABLE_NOTE,
+    });
+  }
+});
+
+test("bounds diagnostic report size, file entries, and emitted failure paths", () => {
+  const oversizedReportPath = path.join(os.tmpdir(), `implementation-pr-vitest-oversized-${process.pid}.json`);
+  fs.writeFileSync(oversizedReportPath, " ".repeat(MAX_REPORT_BYTES + 1));
+  try {
+    assert.equal(parseFailureDiagnostics(oversizedReportPath), null);
+  } finally {
+    fs.rmSync(oversizedReportPath, { force: true });
+  }
+
+  const tooManyFilesPath = path.join(os.tmpdir(), `implementation-pr-vitest-many-${process.pid}.json`);
+  fs.writeFileSync(tooManyFilesPath, JSON.stringify({
+    testResults: Array.from({ length: MAX_REPORT_FILES + 1 }, (_, index) => ({
+      name: `teleferico-app/src/test-${index}.test.ts`,
+      status: "failed",
+      assertionResults: [{ status: "failed" }],
+    })),
+  }));
+  try {
+    assert.equal(parseFailureDiagnostics(tooManyFilesPath), null);
+  } finally {
+    fs.rmSync(tooManyFilesPath, { force: true });
+  }
+
+  const diagnostics = runPostPrVitest({
+    prCreated: true,
+    candidatePaths: appSourceAndDocsPaths,
+    spawn: (_command, args) => {
+      fs.writeFileSync(args.at(-1).slice("--outputFile=".length), JSON.stringify({
+        testResults: Array.from({ length: MAX_DIAGNOSTIC_FILES + 2 }, (_, index) => ({
+          name: `teleferico-app/src/failure-${index}.test.ts`,
+          status: "failed",
+          assertionResults: Array.from({ length: index + 1 }, () => ({ status: "failed" })),
+        })),
+      }));
+      return { status: 1 };
+    },
+  }).failure_evidence.diagnostics;
+
+  assert.equal(diagnostics.failed_test_files.length, MAX_DIAGNOSTIC_FILES);
+  assert.equal(diagnostics.omitted_file_count, 2);
+
+  const excessiveAssertionsPath = path.join(os.tmpdir(), `implementation-pr-vitest-assertions-${process.pid}.json`);
+  fs.writeFileSync(excessiveAssertionsPath, JSON.stringify({
+    testResults: [{
+      name: "teleferico-app/src/many-assertions.test.ts",
+      status: "failed",
+      assertionResults: Array.from({ length: MAX_ASSERTIONS_PER_FILE + 1 }, () => ({ status: "failed" })),
+    }],
+  }));
+  try {
+    assert.equal(parseFailureDiagnostics(excessiveAssertionsPath), null);
+  } finally {
+    fs.rmSync(excessiveAssertionsPath, { force: true });
+  }
 });
 
 test("reports Vitest failure in JSON but exits successfully so the workflow can continue", () => {
@@ -128,6 +335,10 @@ test("reports Vitest failure in JSON but exits successfully so the workflow can 
   assert.equal(report.exit_code, 1);
   assert.equal(report.runs, 1);
   assert.equal(stdout.includes("private detail"), false);
+  assert.deepEqual(report.failure_evidence.diagnostics, {
+    status: "unavailable",
+    note: DIAGNOSTICS_UNAVAILABLE_NOTE,
+  });
 });
 
 test("keeps execution infrastructure errors distinct and non-zero", () => {
@@ -148,6 +359,10 @@ test("keeps execution infrastructure errors distinct and non-zero", () => {
     signal: "SIGTERM",
     exit_code: null,
     note: WITHHELD_OUTPUT_NOTE,
+    diagnostics: {
+      status: "unavailable",
+      note: DIAGNOSTICS_UNAVAILABLE_NOTE,
+    },
   });
 });
 
@@ -169,6 +384,10 @@ test("classifies a bounded Vitest timeout as infrastructure error without retryi
     signal: "SIGTERM",
     exit_code: null,
     note: WITHHELD_OUTPUT_NOTE,
+    diagnostics: {
+      status: "unavailable",
+      note: DIAGNOSTICS_UNAVAILABLE_NOTE,
+    },
   });
   assert.equal(JSON.stringify(report).includes("private timeout detail"), false);
 });

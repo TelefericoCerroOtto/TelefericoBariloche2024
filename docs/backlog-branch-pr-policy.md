@@ -90,7 +90,7 @@ The strict policy only applies to **implementation PRs**.
 Expected governed flow:
 
 - work branch (`feat/...`, `fix/...`, `chore/...`, etc.) → `development`
-- optional draft `stacked-to-main` child → its immediate open implementation parent branch, followed by retargeting of that same PR to `development` after the parent merges
+- optional draft `stacked-to-main` child → its immediate open implementation parent into `development` or immediate open draft stacked-preview parent, followed by retargeting of that same PR to `development` after the parent merges
 
 ### Deterministic tracking modes
 
@@ -115,7 +115,9 @@ A tracked item must define `Canal formal`. If it is `GitHub Issue`, `Enlace form
 
 Only `stacked-to-main` is supported. `feature-branch-chain` remains unsupported.
 
-An early child PR must be draft, same-repository, and based on the exact head SHA of an open immediate-parent implementation PR into `development`. Both branch names must use the governed grammar. The visible `## Chain Context` contract in [CONVENTIONS.md](./CONVENTIONS.md#stacked-child-preview) must match the parent PR and runtime base exactly, and the parent-relative diff must be focused and non-truncated.
+An early child PR must be draft and same-repository, and its immediate parent must be either an open same-repository implementation PR into `development` or an open same-repository draft stacked-child preview. Bind the child base to the parent's exact head SHA. Both branch names must use the governed grammar. The visible `## Chain Context` contract in [CONVENTIONS.md](./CONVENTIONS.md#stacked-child-preview) must match the parent PR and runtime base exactly, and the parent-relative diff must be focused and non-truncated.
+
+Validation follows each draft-preview parent through its visible Chain Context to an open same-repository implementation PR into `development`. Every preview link must match its runtime base branch and SHA; orphaned links, cycles, or malformed, hidden, or missing ancestor context fail closed.
 
 A preview is never delivery. Validation performs no issue or Notion mutation, and functional/Cloud Build CI is deferred. After the parent merges into `development`, fresh candidate-scoped authorization may retarget the existing child PR to `development`; normal tracking, implementation governance, and observation then run from scratch. Never open a duplicate child PR or automate ancestry repair.
 
