@@ -40,6 +40,7 @@ export function createLocalE2EConfig({
 }: LocalSuiteOptions): PlaywrightTestConfig {
   const baseURL = `http://${appHost}:${appPort}`;
   const fixtureURL = `http://${fixtureHost}:${fixturePort}/health`;
+  const loginURL = `${baseURL}/es-AR/login`;
   const testEnvironment = createTestEnvironment(
     fixturePort,
     appPort,
@@ -93,7 +94,7 @@ export function createLocalE2EConfig({
       },
       {
         command: `pnpm exec next dev --hostname ${appHost} --port ${appPort}`,
-        url: `${baseURL}/api/auth/providers`,
+        url: loginURL,
         reuseExistingServer: !process.env.CI,
         env: testEnvironment,
       },

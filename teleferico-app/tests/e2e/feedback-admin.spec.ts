@@ -213,7 +213,7 @@ async function installAdminStack(page: Page, empty = false) {
 }
 
 async function loginAsSyntheticAdmin(page: Page) {
-  await page.goto("/es-AR/login", { waitUntil: "domcontentloaded" });
+  await page.goto("/es-AR/login", { waitUntil: "commit" });
   const form = page.locator("form[data-login-hydrated]");
   try {
     await expect(form).toHaveAttribute("data-login-hydrated", "true", {
