@@ -27,6 +27,7 @@ import {
   deriveEvidenceRef,
   stageConfigDigest,
   stageInputDigestV1,
+  validateWorkerStageCheckpointV1,
   verifyChunkMembership,
 } from "../../../services/survey-report-worker/src/checkpoint-contract";
 import { WorkerCmsConflictError } from "../../../services/survey-report-worker/src/contracts";
@@ -89,6 +90,10 @@ function checkpointSet(
   };
 }
 
+function checkpointOutputDigest(payload: unknown): string {
+  return createHash("sha256").update(canonicalizeJson(payload)).digest("hex");
+}
+
 function fakeCms(
   snapshotEnvelope: SnapshotEnvelopeV1,
   checkpoints: WorkerCheckpointSet = checkpointSet(snapshotEnvelope.digestHex),
@@ -96,6 +101,7 @@ function fakeCms(
   let stateVersion = 1;
   let terminal: "succeeded" | "failed" | null = null;
   const calls = { snapshot: 0, checkpoint: 0, complete: 0, fail: 0 };
+  const writtenCheckpoints: WorkerCheckpoint[] = [];
   const cms: WorkerCmsClient = {
     async claim(reportRunId) {
       if (terminal)
@@ -126,6 +132,7 @@ function fakeCms(
     },
     async checkpoint(reportRunId, command) {
       calls.checkpoint += 1;
+      writtenCheckpoints.push(command.checkpoint);
       if (command.expectedStateVersion !== stateVersion)
         throw new Error("unexpected state version");
       stateVersion += 1;
@@ -170,7 +177,7 @@ function fakeCms(
       };
     },
   };
-  return { cms, calls };
+  return { cms, calls, writtenCheckpoints };
 }
 
 function artifactStore() {
@@ -238,6 +245,234 @@ function syntheticModelConfig(evidenceKeyId: string) {
 
 describe("worker PDF boundary", () => {
   beforeEach(() => vi.restoreAllMocks());
+
+  it("validates closed render and store checkpoint metadata and payloads", () => {
+    const renderPayload = {
+      kind: "render",
+      rendererVersion: "test-renderer.v1",
+      pdfSha256: "a".repeat(64),
+      size: 128,
+    };
+    const renderCheckpoint = {
+      checkpointVersion: "survey-checkpoint.v1",
+      stageKey: "render",
+      stageIndex: 4,
+      route: "direct",
+      stageType: "render",
+      status: "valid",
+      inputDigest: "b".repeat(64),
+      outputDigest: checkpointOutputDigest(renderPayload),
+      attempts: 1,
+      completedAt: "2026-09-24T10:00:00.000Z",
+      payload: renderPayload,
+    };
+    expect(() =>
+      validateWorkerStageCheckpointV1(renderCheckpoint, {
+        reportRunId: "run-1",
+        route: "direct",
+      }),
+    ).not.toThrow();
+    for (const malformed of [
+      { ...renderCheckpoint, payload: { ...renderPayload, rawComments: ["private"] } },
+      { ...renderCheckpoint, payload: { ...renderPayload, signedUrl: "https://example.invalid" } },
+      { ...renderCheckpoint, outputDigest: "c".repeat(64) },
+      { ...renderCheckpoint, stageIndex: 0 },
+      { ...renderCheckpoint, route: "common" },
+      { ...renderCheckpoint, route: "map-reduce" },
+      { ...renderCheckpoint, extra: true },
+    ]) {
+      expect(() =>
+        validateWorkerStageCheckpointV1(malformed, {
+          reportRunId: "run-1",
+          route: "direct",
+        }),
+      ).toThrow();
+    }
+
+    const storePayload = {
+      kind: "store",
+      objectKey: "private/feedback-reports/staged/run-1/report.pdf",
+      artifactSha256: "d".repeat(64),
+      size: 128,
+      mimeType: "application/pdf",
+    };
+    const storeCheckpoint = {
+      ...renderCheckpoint,
+      stageKey: "store",
+      stageIndex: 5,
+      stageType: "store",
+      outputDigest: checkpointOutputDigest(storePayload),
+      payload: storePayload,
+    };
+    expect(() =>
+      validateWorkerStageCheckpointV1(storeCheckpoint, {
+        reportRunId: "run-1",
+        route: "direct",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateWorkerStageCheckpointV1(
+        { ...storeCheckpoint, payload: { ...storePayload, objectKey: "https://example.invalid/report.pdf" } },
+        { reportRunId: "run-1", route: "direct" },
+      ),
+    ).toThrow();
+  });
+
+  it("fails closed when a prior render checkpoint has a different input digest", async () => {
+    const envelope = snapshot();
+    const renderer = createDeterministicTestPdfRenderer();
+    const payload = {
+      kind: "render" as const,
+      rendererVersion: renderer.rendererVersion,
+      pdfSha256: "a".repeat(64),
+      size: 1,
+    };
+    const previous: WorkerCheckpoint = {
+      checkpointVersion: "survey-checkpoint.v1",
+      stageKey: "render",
+      stageIndex: 4,
+      route: "direct",
+      stageType: "render",
+      status: "valid",
+      inputDigest: "e".repeat(64),
+      outputDigest: checkpointOutputDigest(payload),
+      attempts: 1,
+      completedAt: "2026-09-24T10:00:00.000Z",
+      payload,
+    };
+    const fake = fakeCms(envelope, checkpointSet(envelope.digestHex, [previous]));
+    const artifacts = artifactStore();
+    const render = vi.spyOn(renderer, "render");
+    const result = await executeReportWorker("run-digest-mismatch", {
+      cms: fake.cms,
+      artifacts: artifacts.store,
+      renderer,
+      analysisProvider: async () => analysis(),
+    });
+    expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
+    expect(render).not.toHaveBeenCalled();
+    expect(fake.calls.checkpoint).toBe(0);
+    expect(artifacts.calls.stage).toBe(0);
+  });
+
+  it("rejects a prior render checkpoint with private extra fields before calling the provider", async () => {
+    const envelope = snapshot();
+    const payload = {
+      kind: "render" as const,
+      rendererVersion: "test-renderer.v1",
+      pdfSha256: "a".repeat(64),
+      size: 128,
+      rawComments: ["visitor-private-text"],
+    };
+    const checkpoint = {
+      checkpointVersion: "survey-checkpoint.v1" as const,
+      stageKey: "render" as const,
+      stageIndex: 4,
+      route: "direct" as const,
+      stageType: "render" as const,
+      status: "valid" as const,
+      inputDigest: "b".repeat(64),
+      outputDigest: checkpointOutputDigest(payload),
+      attempts: 1,
+      completedAt: "2026-09-24T10:00:00.000Z",
+      payload,
+    } as unknown as WorkerCheckpoint;
+    const fake = fakeCms(envelope, checkpointSet(envelope.digestHex, [checkpoint]));
+    const artifacts = artifactStore();
+    const provider = vi.fn(async () => analysis());
+    const result = await executeReportWorker("run-private-render", {
+      cms: fake.cms,
+      artifacts: artifacts.store,
+      renderer: createDeterministicTestPdfRenderer(),
+      analysisProvider: provider,
+    });
+    expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
+    expect(provider).not.toHaveBeenCalled();
+    expect(artifacts.calls.read).toBe(0);
+    expect(artifacts.calls.stage).toBe(0);
+  });
+
+  it("rejects a prior store checkpoint with a signed URL before calling the provider", async () => {
+    const envelope = snapshot();
+    const renderPayload = {
+      kind: "render" as const,
+      rendererVersion: "test-renderer.v1",
+      pdfSha256: "a".repeat(64),
+      size: 128,
+    };
+    const renderCheckpoint: WorkerCheckpoint = {
+      checkpointVersion: "survey-checkpoint.v1",
+      stageKey: "render",
+      stageIndex: 4,
+      route: "direct",
+      stageType: "render",
+      status: "valid",
+      inputDigest: "b".repeat(64),
+      outputDigest: checkpointOutputDigest(renderPayload),
+      attempts: 1,
+      completedAt: "2026-09-24T10:00:00.000Z",
+      payload: renderPayload,
+    };
+    const storePayload = {
+      kind: "store" as const,
+      objectKey: "private/feedback-reports/staged/run-private-store/report.pdf",
+      artifactSha256: "c".repeat(64),
+      size: 128,
+      mimeType: "application/pdf" as const,
+      signedUrl: "https://storage.example.invalid/private/report.pdf?token=synthetic",
+    };
+    const storeCheckpoint = {
+      checkpointVersion: "survey-checkpoint.v1" as const,
+      stageKey: "store" as const,
+      stageIndex: 5,
+      route: "direct" as const,
+      stageType: "store" as const,
+      status: "valid" as const,
+      inputDigest: "d".repeat(64),
+      outputDigest: checkpointOutputDigest(storePayload),
+      attempts: 1,
+      completedAt: "2026-09-24T10:00:00.000Z",
+      payload: storePayload,
+    } as unknown as WorkerCheckpoint;
+    const fake = fakeCms(
+      envelope,
+      checkpointSet(envelope.digestHex, [renderCheckpoint, storeCheckpoint]),
+    );
+    const artifacts = artifactStore();
+    const provider = vi.fn(async () => analysis());
+    const result = await executeReportWorker("run-private-store", {
+      cms: fake.cms,
+      artifacts: artifacts.store,
+      renderer: createDeterministicTestPdfRenderer(),
+      analysisProvider: provider,
+    });
+    expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
+    expect(provider).not.toHaveBeenCalled();
+    expect(artifacts.calls.read).toBe(0);
+    expect(artifacts.calls.stage).toBe(0);
+  });
+
+  it("does not treat the incomplete map-reduce graph as a supported worker route", async () => {
+    const envelope = snapshot();
+    const checkpoints = {
+      ...checkpointSet(envelope.digestHex),
+      route: "map-reduce" as const,
+      chunkCount: 1,
+    };
+    const fake = fakeCms(envelope, checkpoints);
+    const renderer = vi.fn(async () => new Uint8Array([1]));
+    const provider = vi.fn(async () => analysis());
+    const result = await executeReportWorker("run-map-reduce", {
+      cms: fake.cms,
+      artifacts: artifactStore().store,
+      renderer: { rendererVersion: "test", render: renderer },
+      analysisProvider: provider,
+    });
+    expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
+    expect(fake.calls.snapshot).toBe(0);
+    expect(provider).not.toHaveBeenCalled();
+    expect(renderer).not.toHaveBeenCalled();
+  });
 
   it("matches the synthetic CMS evidence-membership and stage-digest vectors", () => {
     const input = syntheticMembershipInput();
@@ -426,6 +661,16 @@ describe("worker PDF boundary", () => {
     });
     expect(fake.calls.snapshot).toBe(1);
     expect(artifacts.calls.stage).toBe(1);
+    expect(fake.writtenCheckpoints.map(({ stageKey, stageIndex, route }) => ({ stageKey, stageIndex, route }))).toEqual([
+      { stageKey: "render", stageIndex: 4, route: "direct" },
+      { stageKey: "store", stageIndex: 5, route: "direct" },
+    ]);
+    for (const value of fake.writtenCheckpoints) {
+      validateWorkerStageCheckpointV1(value, {
+        reportRunId: "run-1",
+        route: "direct",
+      });
+    }
   });
 
   it("refuses a stale checkpoint CAS without publishing an artifact", async () => {
@@ -467,12 +712,17 @@ describe("worker PDF boundary", () => {
     const existing = {
       checkpointVersion: "survey-checkpoint.v1" as const,
       stageKey: "render" as const,
-      stageIndex: 0,
-      route: "common" as const,
+      stageIndex: 4,
+      route: "direct" as const,
       stageType: "render" as const,
       status: "valid" as const,
       inputDigest: renderDigest,
-      outputDigest: "b".repeat(64),
+      outputDigest: checkpointOutputDigest({
+        kind: "render",
+        rendererVersion: renderer.rendererVersion,
+        pdfSha256: pdf.sha256,
+        size: pdf.size,
+      }),
       attempts: 1,
       completedAt: "2026-09-21T12:00:00.000Z",
       payload: {

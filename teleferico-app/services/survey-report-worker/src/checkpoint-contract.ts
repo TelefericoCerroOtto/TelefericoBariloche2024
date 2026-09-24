@@ -21,6 +21,33 @@ export type ChunkMembershipV1 = {
   readonly membershipDigest: string;
 };
 
+export type WorkerStageCheckpointV1 = {
+  readonly checkpointVersion: "survey-checkpoint.v1";
+  readonly stageKey: "render" | "store";
+  readonly stageIndex: number;
+  readonly route: "direct" | "map-reduce";
+  readonly stageType: "render" | "store";
+  readonly status: "valid";
+  readonly inputDigest: string;
+  readonly outputDigest: string;
+  readonly attempts: number;
+  readonly completedAt: string;
+  readonly payload:
+    | {
+        readonly kind: "render";
+        readonly rendererVersion: string;
+        readonly pdfSha256: string;
+        readonly size: number;
+      }
+    | {
+        readonly kind: "store";
+        readonly objectKey: string;
+        readonly artifactSha256: string;
+        readonly size: number;
+        readonly mimeType: "application/pdf";
+      };
+};
+
 type MembershipInput = {
   readonly reportRunId: string;
   readonly snapshotDigest: string;
@@ -93,6 +120,19 @@ const MODEL_CONFIG_KEYS = [
   "safetyHeadroomTokens",
   "sourceRevision",
 ] as const;
+const CHECKPOINT_KEYS = [
+  "checkpointVersion",
+  "stageKey",
+  "stageIndex",
+  "route",
+  "stageType",
+  "status",
+  "inputDigest",
+  "outputDigest",
+  "attempts",
+  "completedAt",
+  "payload",
+] as const;
 
 function exactKeys(
   value: unknown,
@@ -134,6 +174,79 @@ function validUtcInstant(value: string): boolean {
 
 function assertDigest(value: string): void {
   if (!DIGEST_PATTERN.test(value)) invalid();
+}
+
+function validCheckpointInstant(value: unknown): value is string {
+  if (typeof value !== "string" || !validUtcInstant(value)) return false;
+  return true;
+}
+
+function expectedRenderStoreIndex(
+  stageKey: "render" | "store",
+): number {
+  return stageKey === "render" ? 4 : 5;
+}
+
+/** Validates the only checkpoint payloads currently produced by the worker POC. */
+export function validateWorkerStageCheckpointV1(
+  value: unknown,
+  expected: {
+    readonly reportRunId: string;
+    readonly route: "direct";
+  },
+): asserts value is WorkerStageCheckpointV1 {
+  if (expected.route !== "direct") invalid();
+  if (!exactKeys(value, CHECKPOINT_KEYS)) invalid();
+  if (
+    value.checkpointVersion !== CHECKPOINT_CONTRACT_VERSIONS.checkpoint ||
+    (value.stageKey !== "render" && value.stageKey !== "store") ||
+    value.stageType !== value.stageKey ||
+    value.route !== expected.route ||
+    value.stageIndex !== expectedRenderStoreIndex(value.stageKey) ||
+    value.status !== "valid" ||
+    typeof value.inputDigest !== "string" ||
+    typeof value.outputDigest !== "string" ||
+    !Number.isSafeInteger(value.attempts) ||
+    Number(value.attempts) < 1 ||
+    !validCheckpointInstant(value.completedAt) ||
+    !exactKeys(
+      value.payload,
+      value.stageKey === "render"
+        ? ["kind", "rendererVersion", "pdfSha256", "size"]
+        : ["kind", "objectKey", "artifactSha256", "size", "mimeType"],
+    )
+  )
+    invalid();
+
+  const payload = value.payload;
+  if (
+    payload.kind !== value.stageKey ||
+    !Number.isSafeInteger(payload.size) ||
+    Number(payload.size) < 1
+  )
+    invalid();
+  if (payload.kind === "render") {
+    if (
+      typeof payload.rendererVersion !== "string" ||
+      payload.rendererVersion.length === 0 ||
+      typeof payload.pdfSha256 !== "string"
+    )
+      invalid();
+    assertDigest(payload.pdfSha256);
+  } else {
+    if (
+      typeof payload.objectKey !== "string" ||
+      payload.objectKey !==
+        `private/feedback-reports/staged/${expected.reportRunId}/report.pdf` ||
+      typeof payload.artifactSha256 !== "string" ||
+      payload.mimeType !== "application/pdf"
+    )
+      invalid();
+    assertDigest(payload.artifactSha256);
+  }
+  assertDigest(value.inputDigest);
+  assertDigest(value.outputDigest);
+  if (value.outputDigest !== sha256(payload)) invalid();
 }
 
 function assertRunId(value: string): void {

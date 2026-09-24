@@ -48,6 +48,14 @@ Identical valid-stage replay succeeds without state/attempt change; reuse of key
 
 **Foundation implementation gate:** App/CMS pure derivation and synthetic cross-runtime vectors are local foundations only. The authenticated CMS checkpoint route remains fail-closed with `UNKNOWN_VERSION` before transaction entry; no checkpoint write is accepted. No real verifier key is provisioned, no key ID is populated in generation rows, and no schema/auth/grant/dependency/IAM change is included. Before activation, wire an explicitly authorized runtime key provider by immutable per-run `evidenceKeyId`, validate complete nested output/evidence/privacy constraints, recompute all stage digests and dependencies inside CMS CAS, align app stage keys/indexes/payloads, and resolve the unchanged 4 KiB HTTP cap against validated map payload sizes. Byte weighting never substitutes for CountTokens or all-comment evidence validation.
 
+The local worker POC now validates only closed direct-route `render` and `store`
+metadata/payloads and their canonical output digests, and emits the normative
+direct indexes 4 and 5. This does not satisfy the stage-input binding gate: the
+worker claim still lacks the immutable model configuration and validated
+`validate` output needed to derive the complete v1 graph. Map/reduce output and
+claim semantics remain unsupported and fail closed; no nested AI output or
+evidence claim is accepted by this partial worker path.
+
 Cost/call=`ceil(input*inputRate/1e6)+ceil(output*outputRate/1e6)` for persisted SKU; cached tokens require explicit cached SKU. Missing usage/SKU is `CONFIGURATION`; never estimate; sum checked integer costs.
 
 ## Task, Identity, Alerts, and Storage
