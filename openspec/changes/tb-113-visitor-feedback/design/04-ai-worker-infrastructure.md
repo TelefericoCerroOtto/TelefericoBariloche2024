@@ -56,6 +56,19 @@ worker claim still lacks the immutable model configuration and validated
 claim semantics remain unsupported and fail closed; no nested AI output or
 evidence claim is accepted by this partial worker path.
 
+The worker also has a pure direct-analysis preflight. It checks the closed
+`DirectV1` shape and section order, evidence-ref syntax, uniqueness and
+membership derived from the supplied snapshot/run/key, recurrent/minority
+minimum counts, bounded scalar text, prohibited action/causal markers, and
+verbatim comment matches. A clean result is explicitly `incomplete`, never a
+validated analysis: the preflight cannot prove claim-to-metric entailment,
+semantic contradictions, provider-evidence meaning, or the versioned Spanish
+fallback text. The real evidence key is not provisioned or wired; synthetic
+test material is not an operational source, and immutable per-run key selection
+is not verified. `MapV1`, `ReduceV1`, checkpoint acceptance, and CMS validation
+remain unsupported. The authenticated CMS checkpoint route must continue to
+return `UNKNOWN_VERSION` before transaction entry.
+
 Cost/call=`ceil(input*inputRate/1e6)+ceil(output*outputRate/1e6)` for persisted SKU; cached tokens require explicit cached SKU. Missing usage/SKU is `CONFIGURATION`; never estimate; sum checked integer costs.
 
 ## Task, Identity, Alerts, and Storage
