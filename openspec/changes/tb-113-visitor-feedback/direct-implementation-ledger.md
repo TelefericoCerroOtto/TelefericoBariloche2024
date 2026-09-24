@@ -581,6 +581,80 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
 - **Later checkpoint and owner:** Implementation PR CI plus authenticated integrated development validation; TB-113 implementer/reviewer. U10 owns task-name pre-reservation and actual enqueue proof. Formal SDD reconstruction remains pending.
 - **Formal SDD reconstruction:** `pending`.
 
+### `U10-A2: Authenticated CMS dispatch-state seam`
+
+- **Identity and scope:** Added the minimal additive CMS contract for reserving a deterministic task identity and recording `created`, `absent`, or `unknown` outcomes. Verified absence is the only route from a reserved task to dispatch-exhaustion compensation; unknown remains queued and prevents blind re-reservation. No queue adapter, scheduler, worker endpoint, operational reconciliation, infrastructure, or deployment behavior was added.
+- **Requirements references:** `tasks.md` U10-A row; `specs/survey-worker-operations/spec.md` private idempotent task execution.
+- **Design references:** `design/02-http-contracts.md` dispatch state request/evidence/result contracts; `design/04-ai-worker-infrastructure.md` task identity, retry, and compensation boundaries.
+- **Changed paths and reasons:**
+  - `teleferico-cms/src/api/survey-report-generation/content-types/survey-report-generation/schema.json` — adds private `dispatchState` and bounded private `dispatchEvidenceJson` fields; state is separate from reserved `taskName`.
+  - `teleferico-cms/src/api/survey-report-generation/services/lifecycle.js` — validates closed v1 commands/evidence; implements reservation and created/unknown/absent CAS transitions; preserves the U9-A1 guard; recognizes identical terminal replay before stale-version rejection.
+  - `teleferico-cms/src/api/survey-report-generation/services/survey-report-generation.js` — reads and updates state/evidence in the existing row-locked transaction.
+  - `teleferico-cms/src/api/survey-report-generation/controllers/survey-report-generation.js` and `routes/admin.js` — add the bounded authenticated `dispatch-state` content API action; it requires an explicit Users & Permissions action grant.
+  - `teleferico-cms/test/feedback/generation-lifecycle/lifecycle.test.js` and `postgres.test.js` — cover reservation, ambiguity, confirmed creation, verified-absence compensation, replay, stale CAS, and database transaction compatibility.
+  - `teleferico-cms/test/feedback/admin-report-commands.test.js` — covers anonymous/ungranted denial, body limits, concurrent reservation/replay, queued unknown state, no blind re-enqueue, and absence compensation with a fake queue map.
+  - `teleferico-cms/test/feedback/catalog/schema-catalog.test.js`, `test/feedback/permissions/permissions.test.js`, and `test/feedback/permissions/postgres-permissions.test.js` — verify the additive private schema and authenticated route registration with no default permission grant.
+  - `docs/STRAPI_PERMISSIONS.md`, TB-113 `design/02-http-contracts.md`, `design/04-ai-worker-infrastructure.md`, and `teleferico-app/README.md` — document the access boundary, evidence contract, and still-unconfigured provider boundary.
+  - `openspec/changes/tb-113-visitor-feedback/direct-implementation-ledger.md` — records this work unit and remaining U10-A scope.
+- **Implementation:**
+  - Status: `passed` for the local authenticated CMS contract seam only; U10-A remains incomplete.
+  - Revision: `pending` (uncommitted local candidate).
+  - Pull request: `pending` (not authorized).
+  - Merge evidence: `pending` (not authorized).
+- **Focused tests:**
+  - Command: `npm --prefix teleferico-cms test -- feedback/generation-lifecycle`
+  - Status: `passed`
+  - Exact result: exit 0; 10 tests passed, including PostgreSQL lifecycle transaction/rollback coverage.
+  - Command: `npm --prefix teleferico-cms test -- feedback/admin-report-commands`
+  - Status: `passed`
+  - Exact result: exit 0; 1 authenticated Strapi/PostgreSQL HTTP test passed. Anonymous and ungranted callers were denied; oversized and unmeasurable bodies returned 413; identical concurrent reservation/outcome requests returned 200 with one replay; unknown stayed queued and re-reservation returned 409; matching fake-queue absence evidence committed failed once and replayed idempotently; generic update/delete remained denied. Harness cleanup completed.
+  - Command: `npm --prefix teleferico-cms test -- feedback/lifecycle`
+  - Status: `passed`
+  - Exact result: exit 0; 12 tests passed, including isolated PostgreSQL migration and fresh Strapi schema synchronization.
+  - Command: `npm --prefix teleferico-cms test -- feedback/catalog`
+  - Status: `passed`
+  - Exact result: exit 0; 6 tests passed, including private dispatch-state schema checks.
+  - Command: `npm --prefix teleferico-cms test -- feedback/permissions`
+  - Status: `passed`
+  - Exact result: exit 0; 4 tests passed, including isolated Strapi route/action denial-by-default inspection.
+  - Command: `pnpm --dir teleferico-app exec vitest run src/lib/feedback`
+  - Status: `passed`
+  - Exact result: exit 0; 16 files passed; 162 tests passed.
+- **Observed test corrections:**
+  - `npm --prefix teleferico-cms test -- feedback/admin-report-commands` initially failed because concurrent identical absent-outcome requests returned `[200,409]` instead of `[200,200]`. The replay comparison was corrected to compare the bounded persisted evidence independent of JSON serialization; the final command passed with `[200,200]` and one replay.
+  - `npm --prefix teleferico-cms test -- feedback/permissions` initially failed because Strapi's registered handler names were unqualified (`survey-report-generation.dispatchState`/`dispatchFailure`); the assertion was corrected to the observed registry values and the final command passed.
+- **Intentionally deferred validation:**
+  - Exact scenario: production Cloud Tasks create/retry, lookup/readback, same-name task reconciliation, and provider-confirmed absence after ambiguous outcomes.
+  - Status: `not run`
+  - Reason: No Cloud Tasks adapter or real provider call was implemented or authorized. The local fake queue test demonstrates the CMS contract only; it is not operational absence evidence.
+  - Intended future checkpoint: separately authorized U10-A provider adapter integration and private server harness.
+  - Owner: TB-113 U10-A implementer/platform reviewer.
+  - Exact scenario: app-side invocation of CMS reservation/outcome actions; worker HTTP OIDC authentication and CMS claim/snapshot/checkpoint/complete/fail integration.
+  - Status: `not run`
+  - Reason: Explicit scope here was the additive CMS contract only; U10-B owns the private worker runtime and no scheduler/automatic reconciliation was added.
+  - Intended future checkpoint: U10-A app/CMS integration followed by U10-B private worker harness.
+  - Owner: TB-113 U10-A/U10-B implementers and reviewer.
+  - Exact commands: `pnpm --dir teleferico-app run typecheck`, package-wide lint, and Playwright E2E.
+  - Status: `not run`
+  - Reason: Broad checks are deferred by the TB-113 direct implementation profile; focused feedback tests passed.
+  - Intended future checkpoint: implementation PR CI and integrated development validation.
+  - Owner: implementation PR CI and TB-113 implementer/reviewer.
+- **Acceptance criteria:**
+  - CMS persists reserved task identity separately from task creation outcome: `passed` by schema, lifecycle, and authenticated route tests.
+  - Reservation and state changes use row locking/CAS; identical requests replay while stale or conflicting requests fail closed: `passed` by local PostgreSQL-backed HTTP tests.
+  - Unknown outcomes remain queued and cannot be blindly reserved or compensated: `passed` by lifecycle and HTTP tests.
+  - Absence requires exact bounded evidence for the same task, exactly three attempts, and `not-found`; compensation and evidence persist atomically: `passed` against the local fake queue contract.
+  - Production Cloud Tasks behavior or live provider absence: `not run`; no operational claim is made.
+- **Residual risks:** The custom authenticated CMS action trusts the server-mediated app role to submit provider evidence. Local tests verify only the evidence contract using a fake queue map; a production adapter must obtain authoritative task lookup evidence and must not translate ambiguous responses into `absent`. The app still uses the unavailable dispatcher and does not call this action. The manually managed role grant is documented but was not changed in any environment. CMS generated type artifacts were not edited because package governance forbids manual generated-artifact changes and the app does not consume these custom dispatch fields.
+- **Rollback boundary:** Revert the new CMS dispatch schema fields, lifecycle/transaction/controller/route action, focused dispatch-state tests, corresponding permission/design/README documentation, and this entry together. Preserve the previous U10-A1 task identity helper, U9-A1 v1 compensation endpoint/guard, and all unrelated TB-113 work.
+- **Later integrated validation:** `pending`; no live Cloud Tasks, private worker, staging, production, deployment, IAM, or formal SDD evidence was produced.
+- **Correction or follow-up:**
+  - Trigger: U10-A provider adapter and app integration remain separate work; no blind retry is permitted from `unknown`.
+  - Status: `pending`
+  - Fix evidence: `pending`
+  - Revalidation evidence: `pending`
+- **Formal SDD reconstruction:** `pending`.
+
 ### `U9-A1 correction 1: Fail-closed body sizing and dispatch proof`
 
 - **Correction scope:** Corrected the measured-byte guard for dispatch-failure requests, validate the entire exhaustion result before CMS compensation, and align permission wording with the actual JWT/role flow. No schema, dependency, grant, infrastructure, or task-coordinator changes.
@@ -646,3 +720,77 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
 - **Residual risks:** Full Next.js build/lint validation was not run; exact four-file ESLint and app typecheck passed. Existing Prettier differences recorded above remain outside this follow-up.
 - **Rollback boundary:** Revert this follow-up's changes in the four listed app paths and remove this appended ledger entry; preserve the earlier typecheck-fix content and all other working-tree changes.
 - **Later integrated validation:** `pending`; PR CI and integrated validation remain unobserved.
+
+### `U10-A1: Fail-closed report task identity`
+
+- **Identity and scope:** Centralized deterministic task-name construction for valid report-run UUIDs and rejected malformed CMS run identifiers before dispatch. This is one local contract slice only; it does not implement task reservation, queue creation, worker HTTP authentication, or CMS worker actions.
+- **Requirements references:** `tasks.md` U10-A row; `specs/survey-worker-operations/spec.md` private idempotent task execution.
+- **Design references:** `design/02-http-contracts.md` worker/admin dispatch-failure contracts; `design/04-ai-worker-infrastructure.md` deterministic task name and pre-enqueue reservation.
+- **Changed paths and reasons:**
+  - `teleferico-app/src/lib/feedback/dispatch.ts` — creates task names only for canonical versioned UUIDs.
+  - `teleferico-app/src/lib/feedback/dispatch.test.ts` — covers stable identity and malformed UUID rejection.
+  - `teleferico-app/src/lib/feedback/admin-command.ts` — uses the shared task-name contract and fails safely before dispatcher invocation for invalid CMS IDs.
+  - `teleferico-app/src/lib/feedback/admin-command.test.ts` — proves invalid CMS IDs do not reach the dispatcher.
+  - `teleferico-app/README.md` — documents server-only identity and the unavailable default dispatcher behavior.
+  - `openspec/changes/tb-113-visitor-feedback/direct-implementation-ledger.md` — records bounded implementation evidence and remaining U10-A scope.
+- **Implementation:**
+  - Status: `passed` for the bounded task-identity contract only; U10-A remains pending.
+  - Revision: `pending` (local uncommitted changes only).
+  - Pull request: `pending` (not authorized).
+  - Merge evidence: `pending` (not authorized).
+- **Focused tests:**
+  - Command: `pnpm --dir teleferico-app exec vitest run src/lib/feedback`
+  - Status: `passed`
+  - Exact result: exit 0; 16 test files passed; 162 tests passed.
+- **Check-only validation:**
+  - Command: `git diff --check`
+  - Status: `passed`
+  - Exact result: exit 0; no output after the ledger append.
+- **Intentionally deferred validation:**
+  - Exact scenario: authenticated CMS task-name reservation and queue dispatch, including retry classification, same-name task reconciliation, and no-task-created exhaustion.
+  - Status: `not run`
+  - Reason: No CMS reservation or queue adapter is implemented in this bounded slice; Cloud Tasks credentials and infrastructure are explicitly outside scope.
+  - Intended future checkpoint: a separately bounded U10-A implementation with local authenticated CMS/fake-queue harness.
+  - Owner: TB-113 U10-A implementer and reviewer.
+  - Exact scenario: private worker HTTP endpoint authentication and CMS claim/snapshot/checkpoint/complete/fail actions, including resumable delivery.
+  - Status: `not run`
+  - Reason: No worker HTTP/CMS action contract exists in the current code; implementing public or credential-hardcoded substitutes would violate the security boundary.
+  - Intended future checkpoint: U10-A authenticated app/CMS contract tests before U10-B runtime integration.
+  - Owner: TB-113 U10-A implementer and reviewer.
+  - Exact commands: `pnpm --dir teleferico-app run typecheck`, `pnpm --dir teleferico-app run lint`, and authenticated private-server/E2E scenarios.
+  - Status: `not run`
+  - Reason: Broad checks and local runtime harnesses are intentionally deferred by the TB-113 direct implementation profile; they are not needed to prove this pure contract.
+  - Intended future checkpoint: implementation PR CI and integrated development validation.
+  - Owner: implementation PR CI and TB-113 implementer/reviewer.
+- **Acceptance criteria:**
+  - A valid report-run UUID maps to `tb113-report-<UUID without hyphens>`: `passed` by focused tests.
+  - Malformed CMS run identifiers fail before dispatcher invocation: `passed` by focused app feedback tests.
+  - CMS-backed durable reservation and actual queue creation: `pending` for remaining U10-A work.
+  - Worker authentication, CMS actions, and resumable task delivery: `pending` for remaining U10-A work.
+- **Residual risks:** This slice does not create or authenticate tasks. The existing U9-A1 compensation path rejects any generation with a stored `taskName`, while U10 design requires storing the deterministic name before enqueue. That contract conflict must be resolved and tested before adding durable reservation/queue behavior. The current unavailable dispatcher remains the production-safe fallback and leaves generations queued.
+- **Rollback boundary:** Revert only the task-name helper and its integrations/tests, the README paragraph, and this ledger entry; preserve prior lifecycle compensation and worker/PDF work.
+- **Later integrated validation:** `pending`; no CMS worker HTTP, private-server, queue, staging, production, or formal SDD validation was run.
+- **Correction or follow-up:**
+  - Trigger: U10-A still requires authenticated CMS reservation/worker actions and task delivery; resolve the taskName-versus-U9-A1-compensation contract conflict first.
+  - Status: `pending`
+  - Fix evidence: `pending`
+  - Revalidation evidence: `pending`
+- **Formal SDD reconstruction:** `pending`.
+
+### `U10-A2 correction: Reject unverified absence claims`
+
+- **Correction trigger:** Independent validation found that the prior U10-A2 implementation accepted caller-supplied `lookupResult: "not-found"` as proof and could commit queued→failed without an authoritative Cloud Tasks lookup. This append-only correction supersedes the previous U10-A2 absence/compensation acceptance claims; treat those claims as invalid.
+- **Correction scope:** The new `dispatch-state` action now accepts only `reserve`, `created`, and `unknown`. It rejects every `absent` outcome before the service/transaction; the reserved generation remains unchanged and queued. The U9-A1 v1 `dispatch-failure` route and guard were not modified.
+- **Changed paths:** `teleferico-cms/src/api/survey-report-generation/content-types/survey-report-generation/schema.json`, `teleferico-cms/src/api/survey-report-generation/services/lifecycle.js`, `teleferico-cms/test/feedback/generation-lifecycle/lifecycle.test.js`, `teleferico-cms/test/feedback/admin-report-commands.test.js`, `teleferico-cms/test/feedback/catalog/schema-catalog.test.js`, `docs/STRAPI_PERMISSIONS.md`, TB-113 `design/02-http-contracts.md`, `design/04-ai-worker-infrastructure.md`, `teleferico-app/README.md`, and this ledger.
+- **Implementation:** `passed` for the fail-closed correction; full U10-A remains incomplete. Revision, PR, and merge evidence remain `pending`.
+- **Focused tests:**
+  - `npm --prefix teleferico-cms test -- feedback/generation-lifecycle` — exit 0; 10 tests passed, including rejection of the absence claim without changing the reserved row.
+  - `npm --prefix teleferico-cms test -- feedback/admin-report-commands` — exit 0; 1 authenticated Strapi/PostgreSQL HTTP test passed. A caller-supplied `not-found` claim returned 400; the reservation remained queued/unknown and replay returned the same state. The unchanged legacy U9-A1 route returned 409 for the reserved task name.
+  - `npm --prefix teleferico-cms test -- feedback/catalog` — exit 0; 6 tests passed with the `dispatchState` enum excluding `absent`.
+  - `npm --prefix teleferico-cms test -- feedback/permissions` — exit 0; 4 tests passed; explicit custom-action registration and deny-by-default behavior remain intact.
+  - `pnpm --dir teleferico-app exec vitest run src/lib/feedback` — exit 0; 16 files and 162 tests passed.
+- **Check-only validation:** `git diff --check` — pending final check after this ledger append.
+- **Accepted state transitions:** Reservation, `created`, and `unknown` remain supported; `unknown` remains queued and cannot be re-reserved. `absent` has no accepted command, schema state, or compensation path in the new action.
+- **Residual risks and remaining U10-A:** No verified absence path, real dispatch, or app invocation exists. A future provider adapter must supply genuinely authoritative evidence before any compensation capability is added. Private worker/OIDC/CMS claim/snapshot/checkpoint/complete/fail work remains pending. No queue adapter, scheduler, provider credentials, GCP/IAM, deployment, dependency, or new collection was introduced.
+- **Rollback boundary:** Revert only this correction's removal of the `absent` state/validator/transition, its rejection tests, and the accompanying documentation/ledger correction; preserve reservation/created/unknown behavior, U10-A1, and U9-A1 v1 unchanged.
+- **Formal SDD reconstruction:** `pending`.

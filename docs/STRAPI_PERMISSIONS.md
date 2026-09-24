@@ -226,7 +226,12 @@ may receive only the native `find` and `create` actions needed by the command
 helper, plus the explicit `survey-report-generation.dispatchFailure` action for
 verified pre-enqueue exhaustion compensation. That custom action is denied
 unless separately granted; the isolated HTTP harness grants it only to its
-synthetic test role. This flow does not use an API token.
+synthetic test role. U10-A adds the separate `survey-report-generation.dispatchState`
+action for server-mediated task-name reservation and bounded outcome recording;
+it is also denied unless separately granted and is not called by the app yet.
+It permits only reservation, created, and unknown states; it rejects claimed
+absence and cannot compensate a queued generation. These custom actions use the
+application user JWT, not an API token.
 Report history remains owned by U8-A, and PDF artifact storage/download remains
 deferred to U12. No production permission mutation is performed.
 Anonymous requests and ungranted actions remain denied. Application-level
@@ -254,6 +259,13 @@ the app calls it with the server-mediated application user JWT only for a typed,
 verified enqueue-exhaustion result. That user's Users & Permissions role must
 explicitly grant the action for compensation to be available. No API token or
 generic `update`/`delete` action is required or permitted by this boundary.
+U10-A adds the registered
+`api::survey-report-generation.survey-report-generation.dispatchState` action,
+which must be explicitly granted to the server-mediated application user for
+the future coordinator to reserve identities or record created/unknown outcomes.
+It does not expose an absence or compensation operation. The
+isolated HTTP test grants it only to its synthetic role. No production role is
+changed by this repository update.
 
 Verify the baseline with:
 

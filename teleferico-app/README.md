@@ -94,6 +94,18 @@ If Google does not return `refresh_token`:
 
 ## Endpoint and form security architecture
 
+### Feedback report task identity
+
+The server-side feedback dispatch seam derives queue names only from valid
+report-run UUIDs: `tb113-report-<UUID without hyphens>`. Invalid CMS run
+identifiers fail closed before dispatch. This deterministic identity is not a
+browser contract or proof that a task was created. The CMS exposes an additive
+authenticated reservation/outcome contract, but the app does not yet use it
+and no Cloud Tasks adapter is configured. It records only reservation, created,
+or unknown states and rejects caller-asserted absence. The default dispatcher
+leaves the generation queued as `DISPATCH_UNAVAILABLE`; no verified absence or
+real dispatch path exists yet.
+
 Below describes how the **security architecture** is designed around:
 
 - public forms (like contact and applications),

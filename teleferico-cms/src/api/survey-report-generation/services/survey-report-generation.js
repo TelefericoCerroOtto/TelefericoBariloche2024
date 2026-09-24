@@ -16,6 +16,8 @@ function createTransaction(strapi) {
             'status',
             'state_version',
             'task_name',
+            'dispatch_state',
+            'dispatch_evidence_json',
             'claimed_at',
             'failure_code',
             'dispatch_attempt_count',
@@ -29,6 +31,8 @@ function createTransaction(strapi) {
             status: row.status,
             stateVersion: row.state_version,
             taskName: row.task_name,
+            dispatchState: row.dispatch_state,
+            dispatchEvidenceJson: row.dispatch_evidence_json,
             claimedAt: row.claimed_at,
             failureCode: row.failure_code,
             dispatchAttemptCount: row.dispatch_attempt_count,
@@ -36,19 +40,25 @@ function createTransaction(strapi) {
         );
       },
       async updateGeneration(patch) {
+        const values = Object.fromEntries(
+          Object.entries({
+            status: patch.status,
+            state_version: patch.stateVersion,
+            completed_at: patch.completedAt,
+            failure_code: patch.failureCode,
+            dispatch_attempt_count: patch.dispatchAttemptCount,
+            task_name: patch.taskName,
+            dispatch_state: patch.dispatchState,
+            dispatch_evidence_json: patch.dispatchEvidenceJson,
+          }).filter(([, value]) => value !== undefined),
+        );
         const changed = await trx('survey_report_generations')
           .where({
             report_run_id: lockedRunId,
             state_version: patch.stateVersion - 1,
             status: 'queued',
           })
-          .update({
-            status: patch.status,
-            state_version: patch.stateVersion,
-            completed_at: patch.completedAt,
-            failure_code: patch.failureCode,
-            dispatch_attempt_count: patch.dispatchAttemptCount,
-          });
+          .update(values);
         if (changed !== 1)
           throw Object.assign(new Error('STATE_VERSION_CONFLICT'), {
             code: 'STATE_VERSION_CONFLICT',
@@ -71,6 +81,16 @@ module.exports = createCoreService(
       return lifecycle.createGenerationLifecycle({
         withTransaction: createTransaction(strapi),
       }).compensateDispatchFailure(input);
+    },
+    reserveDispatch(input) {
+      return lifecycle.createGenerationLifecycle({
+        withTransaction: createTransaction(strapi),
+      }).reserveDispatch(input);
+    },
+    recordDispatchOutcome(input) {
+      return lifecycle.createGenerationLifecycle({
+        withTransaction: createTransaction(strapi),
+      }).recordDispatchOutcome(input);
     },
   }),
 );
