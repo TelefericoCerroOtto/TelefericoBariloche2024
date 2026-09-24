@@ -336,6 +336,7 @@ test("stacked child previews require the exact visible Chain Context contract", 
     ["duplicate field", renderedChainContext().replace("Strategy: stacked-to-main", "Strategy: stacked-to-main\nStrategy: stacked-to-main"), /must not duplicate 'Strategy:'/],
     ["wrong strategy", renderedChainContext({ strategy: "feature-branch-chain" }), /Strategy: stacked-to-main/],
     ["malformed parent", renderedChainContext({ parentPullRequest: "41" }), /Parent PR: #<number>/],
+    ["unsafe parent number", renderedChainContext({ parentPullRequest: "#9007199254740992" }), /safe positive integer/],
   ]) {
     assert.throws(() => governance.parseChainContext(governance.parseGitHubRenderedDocument(html)), expected, name);
   }
@@ -360,10 +361,139 @@ test("stacked child preview validation binds draft, repository, parent, base SHA
   assert.equal(requests.some((url) => url.includes("/pulls/42/files?")), true);
 });
 
+test("validates a grandchild draft through its preview parent to an implementation root", async () => {
+  const requests = [];
+  const ancestorBranch = "feat/root-tb-101-ancestor";
+  const ancestorSha = "c".repeat(40);
+  mockFetch((url, options) => {
+    requests.push({ url, method: options.method || "GET" });
+    if (url.endsWith("/pulls/41")) return response(200, {
+      number: 41,
+      state: "open",
+      draft: true,
+      head: { ref: "feat/root-tb-102-parent", sha: "b".repeat(40), repo: { full_name: repository.slug } },
+      base: { ref: ancestorBranch, sha: ancestorSha, repo: { full_name: repository.slug } },
+      body: "parent preview body",
+    });
+    if (url.endsWith("/pulls/40")) return response(200, {
+      number: 40,
+      state: "open",
+      head: { ref: ancestorBranch, sha: ancestorSha, repo: { full_name: repository.slug } },
+      base: { ref: "development", sha: "d".repeat(40), repo: { full_name: repository.slug } },
+    });
+    if (url.includes("/pulls/42/files?")) return response(200, [{ filename: ".github/scripts/repository-policy.js" }]);
+    throw new Error(`Unexpected request ${url}`);
+  });
+
+  await governance.validatePrPolicy(stackedPreviewConfig({
+    pullRequest: { body: "grandchild preview body" },
+    renderMarkdown: async (body) => body === "parent preview body"
+      ? renderedChainContext({ parentPullRequest: "#40", parentBranch: ancestorBranch, parentHeadSha: ancestorSha })
+      : renderedChainContext(),
+  }));
+
+  assert.deepEqual(requests.map(({ url }) => url), [
+    "https://api.github.com/repos/acme/teleferico/pulls/41",
+    "https://api.github.com/repos/acme/teleferico/pulls/40",
+    "https://api.github.com/repos/acme/teleferico/pulls/42/files?per_page=100&page=1",
+  ]);
+  assert.ok(requests.every(({ method }) => method === "GET"));
+  assert.equal(requests.some(({ url }) => url.includes("api.notion.com")), false);
+});
+
+test("stacked child ancestry rejects orphaned parents, cycles, and invalid visible ancestor contexts", async () => {
+  const ancestorBranch = "feat/root-tb-101-ancestor";
+  const ancestorSha = "c".repeat(40);
+  const parent = {
+    number: 41,
+    state: "open",
+    draft: true,
+    head: { ref: "feat/root-tb-102-parent", sha: "b".repeat(40), repo: { full_name: repository.slug } },
+    base: { ref: ancestorBranch, sha: ancestorSha, repo: { full_name: repository.slug } },
+    body: "parent preview body",
+  };
+  const cases = [
+    ["orphaned ancestor", renderedChainContext({ parentPullRequest: "#40", parentBranch: ancestorBranch, parentHeadSha: ancestorSha }), true, undefined, /status 404/],
+    ["cycle to current PR", renderedChainContext({ parentPullRequest: "#42", parentBranch: branch, parentHeadSha: "a".repeat(40) }), false, { base: { ...parent.base, ref: branch, sha: "a".repeat(40) } }, /ancestry contains a cycle at PR #42/],
+    ["missing visible context", "<h2>Summary</h2><p>No parent chain.</p>", false, undefined, /require one visible '## Chain Context'/],
+    ["hidden context", `<details>${renderedChainContext({ parentPullRequest: "#40", parentBranch: ancestorBranch, parentHeadSha: ancestorSha })}</details>`, false, undefined, /require one visible '## Chain Context'/],
+    ["malformed visible context", renderedChainContext({ parentPullRequest: "forty" }), false, undefined, /Parent PR: #<number>/],
+  ];
+
+  for (const [name, parentRenderedBody, isOrphan, parentOverrides, expected] of cases) {
+    const requests = [];
+    mockFetch((url, options) => {
+      requests.push({ url, method: options.method || "GET" });
+      if (url.endsWith("/pulls/41")) return response(200, { ...parent, ...parentOverrides });
+      if (url.endsWith("/pulls/40") && isOrphan) return response(404, {});
+      throw new Error(`Unexpected request ${url}`);
+    });
+    await assert.rejects(governance.validatePrPolicy(stackedPreviewConfig({
+      pullRequest: { body: "grandchild preview body" },
+      renderMarkdown: async (body) => body === "parent preview body" ? parentRenderedBody : renderedChainContext(),
+    })), expected, name);
+    assert.ok(requests.every(({ method }) => method === "GET"), name);
+    assert.equal(requests.some(({ url }) => url.includes("api.notion.com")), false, name);
+    assert.equal(requests.some(({ url }) => url.includes("/pulls/42/files?")), false, name);
+  }
+});
+
+test("stacked child ancestry rejects a preview whose base SHA disagrees with its visible parent", async () => {
+  const requests = [];
+  const parentBranch = "feat/root-tb-102-parent";
+  const parentSha = "b".repeat(40);
+  mockFetch((url, options) => {
+    requests.push({ url, method: options.method || "GET" });
+    if (url.endsWith("/pulls/41")) return response(200, {
+      number: 41,
+      state: "open",
+      draft: true,
+      head: { ref: parentBranch, sha: parentSha, repo: { full_name: repository.slug } },
+      base: { ref: "feat/root-tb-101-ancestor", sha: "d".repeat(40), repo: { full_name: repository.slug } },
+      body: "parent preview body",
+    });
+    throw new Error(`Unexpected request ${url}`);
+  });
+  await assert.rejects(governance.validatePrPolicy(stackedPreviewConfig({
+    pullRequest: { body: "grandchild preview body" },
+    renderMarkdown: async (body) => body === "parent preview body"
+      ? renderedChainContext({ parentPullRequest: "#40", parentBranch: "feat/root-tb-101-ancestor", parentHeadSha: "c".repeat(40) })
+      : renderedChainContext(),
+  })), /parent PR #41 base SHA must match its declared parent head SHA/);
+  assert.ok(requests.every(({ method }) => method === "GET"));
+  assert.equal(requests.some(({ url }) => url.includes("api.notion.com")), false);
+});
+
+test("stacked child previews reject non-draft preview parents and invalid parent identities", async () => {
+  const parent = {
+    number: 41,
+    state: "open",
+    draft: true,
+    head: { ref: "feat/root-tb-102-parent", sha: "b".repeat(40), repo: { full_name: repository.slug } },
+    base: { ref: "feat/root-tb-101-ancestor", sha: "c".repeat(40), repo: { full_name: repository.slug } },
+  };
+  const cases = [
+    ["non-draft preview parent", { ...parent, draft: false }, /must remain a draft stacked-child preview/],
+    ["unsupported parent route", { ...parent, base: { ...parent.base, ref: "release/candidate" } }, /must be an implementation PR targeting development or a draft stacked-child preview/],
+    ["wrong parent number", { ...parent, number: 40 }, /response for #41 is invalid/],
+    ["wrong parent branch", { ...parent, head: { ...parent.head, ref: "feat/root-tb-104-other" } }, /does not match the declared parent branch and head SHA/],
+    ["wrong parent head SHA", { ...parent, head: { ...parent.head, sha: "d".repeat(40) } }, /does not match the declared parent branch and head SHA/],
+  ];
+
+  for (const [name, responseBody, expected] of cases) {
+    mockFetch((url) => {
+      if (url.endsWith("/pulls/41")) return response(200, responseBody);
+      throw new Error(`Unexpected request ${url}`);
+    });
+    await assert.rejects(governance.validatePrPolicy(stackedPreviewConfig()), expected, name);
+  }
+});
+
 test("stacked child preview runtime rejects stale or privileged topology before parent reads", async () => {
   const chainContext = governance.parseChainContext(governance.parseGitHubRenderedDocument(renderedChainContext()));
   const cases = [
     ["ready", { draft: false }, /must remain draft/],
+    ["unsafe runtime PR number", { number: Number.MAX_SAFE_INTEGER + 1 }, /safe positive pull request number/],
     ["fork head", { headRepository: "fork/teleferico" }, /same-repository/],
     ["wrong base", { baseRef: "feat/root-tb-999-other" }, /must match declared parent branch/],
     ["stale base SHA", { baseSha: "d".repeat(40) }, /must match declared parent head SHA/],
