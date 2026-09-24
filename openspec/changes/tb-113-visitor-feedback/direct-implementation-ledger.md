@@ -981,3 +981,58 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
 - **Status:** `passed` for local typing, diagnostic redaction/bounds tests, and focused synthetic Chromium E2E only. No Cloud Build or PR check was triggered or observed; CI validation for this change remains `pending`.
 - **Residual uncertainty:** The diagnostic reports only browser events observed before an existing test failure. It cannot establish backend causation, identify a request outside the allowlist, or replace a Playwright trace; remote cause remains unknown until the next authorized CI execution.
 - **Rollback boundary:** Revert the failure-only recorder and call sites in the E2E spec, remove its focused helper/test, and remove this ledger entry. Preserve all existing assertions, auth security, waiters, timeouts, and retries.
+### `TB-113 feedback capability release lock`
+
+- **Identity and scope:** Added a fail-closed server-side release gate for feedback administration and anonymous visitor feedback while the capability remains incomplete. This is a reversible application boundary only; it does not finish pending formal tasks or enable production/staging.
+- **Requirements references:** `specs/feedback-administration/spec.md` authenticated Next.js mediation; `design/02-http-contracts.md` public and admin contracts; `tasks.md` pending U7/U8 acceptance.
+- **Changed paths and reasons:**
+  - `teleferico-app/src/lib/feedback/capability-gate.ts` and `.test.ts` — enforce an explicit server-only test/development opt-in and hard-deny production/staging.
+  - `teleferico-app/src/app/[locale]/(administration)/dashboard/(sections)/feedback/page.tsx` and `src/app/qr/feedback/[publicCode]/page.tsx` — return generic not-found pages while closed.
+  - `teleferico-app/src/app/api/feedback/{surveys/[publicCode]/route.ts,submissions/route.ts}` — deny before constructing feedback runtime dependencies.
+  - `teleferico-app/src/lib/feedback/admin-route.ts` — deny all five admin reads and both generation commands before origin/session checks or reader/command access.
+  - Dashboard layout, shell projection, and projection tests — hide the feedback navigation item using the same server gate, without changing global maintenance behavior.
+  - `teleferico-app/playwright.base.config.ts` and `.env.example` — configure/document fixture-only opt-in; production and staging remain closed if the variable is present.
+  - `teleferico-app/README.md`, this route README, and this ledger — document the release lock and evidence boundary.
+  - Focused public/admin route tests — cover closed direct requests, production flag spoofing, fixture opt-in, generic pages, no downstream calls, and enabled-path routing.
+- **Implementation:** `partial` for the local candidate; the required Vitest and TypeScript commands could not execute because this worktree has no installed `node_modules` (`vitest` and `tsc` are unavailable). No packages were installed.
+- **Focused tests:**
+  - Command: `pnpm --dir teleferico-app exec vitest run src/lib/feedback src/app/api/feedback src/app/api/admin/feedback 'src/app/qr/feedback/[publicCode]/FeedbackForm.test.tsx' 'src/app/[locale]/(administration)/dashboard/_components/dashboard-shell-projection.test.ts'`
+  - Status: `failed` before test collection.
+  - Exact result: exit nonzero; pnpm reported `Command "vitest" not found` and indicated the package `node_modules` directory is missing. No test assertion ran.
+- **Typecheck:**
+  - Command: `pnpm --dir teleferico-app run typecheck`
+  - Status: `failed` before TypeScript analysis.
+  - Exact result: exit nonzero; shell reported `tsc: not found`; pnpm confirmed package `node_modules` is missing.
+- **Check-only validation:** `git diff --check` — passed; exit 0 with no output.
+- **Authored size:** `329` additions plus deletions, measured as tracked `git diff --numstat HEAD` additions+deletions plus all three new source/test file line counts; no code-golf or size-driven scope reduction was applied.
+- **Intentionally deferred validation:**
+  - Exact scenario: `pnpm --dir teleferico-app exec playwright test tests/e2e/visitor-feedback.spec.ts tests/e2e/feedback-admin.spec.ts`.
+  - Status: `not run`.
+  - Reason: The user prohibited browser/CMS fixture execution because another session may be using those servers, ports, and resources. The fixture Next.js process is explicitly configured to opt in, preserving future feedback spec eligibility, but this was not executed here.
+  - Intended future checkpoint: isolated implementation PR CI or a later dedicated local browser validation with exclusive fixture resources.
+  - Owner: TB-113 implementer/reviewer.
+- **Acceptance criteria:** The gate source and test cases encode production/staging deny, direct-route denial, no runtime/CMS/mutation invocation, fixture opt-in, and hidden sidebar behavior; execution evidence remains `pending` because required test binaries are unavailable. Browser fixture eligibility is configured but not runtime-verified.
+- **Residual risks:** No local automated assertion or type analysis ran; integrated browser, CMS, locale rendering, staging, production, deployment, and formal SDD evidence remain unobserved. No unfinished UI is deliberately exposed when the page gate executes.
+- **Rollback boundary:** Revert the capability gate, page/API/sidebar wiring, fixture-only opt-in/documentation, focused tests, and this ledger entry together; preserve all existing feedback handlers and their auth/CSRF/origin/QR/rate-limit controls.
+- **Later integrated validation:** `pending`; run the stated isolated browser scenarios and required checks in a dependency-complete worktree, then validate the complete feedback runtime only through authorized integrated checkpoints.
+- **Formal SDD reconstruction:** `pending`; no task checkbox or formal completion claim was changed.
+
+### `TB-113 feedback capability release lock: offline verification follow-up`
+
+- **Correction:** Fixed two incorrect relative imports in `src/app/api/feedback/capability-gate.test.ts`; the initial focused run failed only when loading the admin generation/retry test routes from the sibling `api/admin` directory.
+- **Offline install:** `COREPACK_ENABLE_NETWORK=0 corepack pnpm install --offline --frozen-lockfile --ignore-scripts` — passed in `teleferico-app`, pnpm `10.33.0`; 991 packages reused from cache, zero downloaded. Lockfile remained frozen and lifecycle scripts were skipped.
+- **Focused verification:** The initial focused command exited 1 with 209/210 tests passing due to those bad relative imports. After the two-path correction, the exact rerun `COREPACK_ENABLE_NETWORK=0 corepack pnpm exec vitest run src/lib/feedback src/app/api/feedback src/app/api/admin/feedback 'src/app/qr/feedback/[publicCode]/FeedbackForm.test.tsx' 'src/app/[locale]/(administration)/dashboard/_components/dashboard-shell-projection.test.ts'` passed; exit 0, 24 files and 210 tests passed. This covers direct closed admin/public pages, all seven admin route operations, production flag spoofing, fixture opt-in, sidebar hiding, and existing public/admin security behavior.
+- **Typecheck:** `COREPACK_ENABLE_NETWORK=0 corepack pnpm run typecheck` exited 2. It reported missing existing `@/public/*` assets/declarations and missing generated `RouteContext` declarations in unchanged route files; it reported no diagnostics in the capability gate or `admin-route.ts`. No unrelated assets/types were changed.
+- **Final diff check:** `git diff --check` — passed; exit 0 with no output.
+- **Authored size:** `340` additions plus deletions, measured as tracked `git diff --numstat HEAD` additions+deletions plus the line counts of the three new source/test files; below 400, with no size exception needed.
+- **Deferred browser validation:** `pnpm --dir teleferico-app exec playwright test tests/e2e/visitor-feedback.spec.ts tests/e2e/feedback-admin.spec.ts` remains `not run` due shared-service contention risk; no E2E pass is claimed.
+- **Status:** `partial`; offline installation and focused Vitest passed, while package typecheck remains failed on diagnostics outside this candidate. No Playwright, Docker, SDD, remote, or deployment operation was run.
+
+### `TB-113 feedback capability release lock: synthetic typegen verification`
+
+- **Initial failures retained:** The earlier typecheck exited 2 with missing static `@/public/*` module declarations and `RouteContext` names; the first `next typegen` attempt failed before generating types because `images.remotePatterns[0]` was invalid without the required deployment environment values. Its numeric exit code was not captured. These results remain historical evidence, not the final verification status.
+- **Synthetic type generation:** `COREPACK_ENABLE_NETWORK=0 BUILD_STRAPI_BUCKET_HOSTNAME=example.invalid BUILD_STRAPI_BUCKET_PATHNAME='/uploads/**' BUILD_STRAPI_BASE_URL=https://example.invalid corepack pnpm exec next typegen` — exit 0; route types generated successfully. The synthetic non-secret values were scoped to this process; no `.env` file was read or written, and no network/build fallback was used.
+- **Final typecheck:** `COREPACK_ENABLE_NETWORK=0 corepack pnpm run typecheck` — exit 0; `tsc -p tsconfig.json --noEmit` emitted no diagnostics after type generation.
+- **E2E:** Visitor/admin Playwright specs remain `not run` because shared fixture resources may be in use by the independent smoke session; this typecheck result does not prove browser behavior.
+- **Current local verification status:** Focused Vitest (24 files, 210 tests), generated route types, typecheck, and `git diff --check` passed. E2E and integrated/staging/production validation remain unverified.
+- **Final candidate size:** 349 authored additions plus deletions against `e90f4b7764831b163aeb1044ee667596a9a116f0`, including the three new gate/test files and this entry; below the 400-line review budget.

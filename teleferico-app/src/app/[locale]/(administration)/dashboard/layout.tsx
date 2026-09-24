@@ -4,6 +4,7 @@ import Sidebar from "./_components/Sidebar";
 import SessionWatcher from "./_components/SessionWatcher";
 import { getDashboardShellProjection } from "./_components/dashboard-shell-projection";
 import { auth } from "@/auth";
+import { isFeedbackCapabilityEnabled } from "@/lib/feedback/capability-gate";
 import {
   ADMIN_LOGIN_REASONS,
   getAdminLoginUrl,
@@ -45,6 +46,7 @@ export default async function DashboardLayout({
   const projection = getDashboardShellProjection({
     currentRole: session.user.role.name,
     isMaintenanceMode,
+    isFeedbackEnabled: isFeedbackCapabilityEnabled(),
   });
 
   return (
