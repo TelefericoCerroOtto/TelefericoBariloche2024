@@ -46,6 +46,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
   assert.deepEqual(generationAdminRoutes.map(({ method, path: routePath, handler }) => [method, routePath, handler]), [
     ['POST', '/tb113/admin/generations/:reportRunId/dispatch-failure', 'survey-report-generation.dispatchFailure'],
     ['POST', '/tb113/admin/generations/:reportRunId/dispatch-state', 'survey-report-generation.dispatchState'],
+    ['POST', '/tb113/worker/generations/:reportRunId/claim', 'survey-report-generation.workerClaim'],
   ]);
   assert.ok(generationAdminRoutes.every(({ config }) => config?.auth !== false));
   assert.equal(fs.existsSync(path.join(generationRoot, 'services/admin-commands.js')), false);
@@ -71,5 +72,7 @@ test('documents D31 names only as future application capabilities', () => {
   assert.deepEqual(documentedCapabilities, FUTURE_CAPABILITIES);
   assert.match(documentation, /not current Strapi action IDs/);
   assert.match(documentation, /U7,\s+U8, and U10/);
+  assert.match(documentation, /workerClaim/);
+  assert.match(documentation, /no default role or API-token/);
   assert.doesNotMatch(documentation, /bootstrap-feedback-permissions|--plan|--verify|--apply/);
 });

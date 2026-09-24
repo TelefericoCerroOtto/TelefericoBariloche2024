@@ -121,7 +121,7 @@ test('real isolated Strapi exposes core routes without default survey grants', a
         const registeredActions = surveyApis
           .flatMap(([, api]) => Object.values(api.routes).flatMap((route) => route.routes ?? route))
           .map((route) => route.handler);
-        const dispatchActions = registeredActions.filter((action) => action.endsWith('.dispatchFailure') || action.endsWith('.dispatchState'));
+        const dispatchActions = registeredActions.filter((action) => action.endsWith('.dispatchFailure') || action.endsWith('.dispatchState') || action.endsWith('.workerClaim'));
         const roles = await strapi.db.connection('up_roles').select('name');
         const permissions = await strapi.db.connection('up_permissions').select('action');
         const tokenPermissions = await strapi.db.connection('strapi_api_token_permissions').select('action');
@@ -130,8 +130,9 @@ test('real isolated Strapi exposes core routes without default survey grants', a
         assert.deepEqual(dispatchActions.sort(), [
           'survey-report-generation.dispatchFailure',
           'survey-report-generation.dispatchState',
+          'survey-report-generation.workerClaim',
         ]);
-        assert.deepEqual(registeredActions.filter((action) => !action.endsWith('.dispatchFailure') && !action.endsWith('.dispatchState')), [
+        assert.deepEqual(registeredActions.filter((action) => !action.endsWith('.dispatchFailure') && !action.endsWith('.dispatchState') && !action.endsWith('.workerClaim')), [
           'api::survey-qr-point.survey-qr-point.find',
           'api::survey-qr-point.survey-qr-point.findOne',
           'api::survey-qr-point.survey-qr-point.create',

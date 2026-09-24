@@ -21,6 +21,9 @@ function createTransaction(strapi) {
             'claimed_at',
             'failure_code',
             'dispatch_attempt_count',
+            'checkpoints_json',
+            'model_config_json',
+            'pricing_snapshot_json',
           )
           .where({ report_run_id: reportRunId })
           .forUpdate()
@@ -36,6 +39,9 @@ function createTransaction(strapi) {
             claimedAt: row.claimed_at,
             failureCode: row.failure_code,
             dispatchAttemptCount: row.dispatch_attempt_count,
+            checkpointsJson: row.checkpoints_json,
+            modelConfigJson: row.model_config_json,
+            pricingSnapshotJson: row.pricing_snapshot_json,
           }
         );
       },
@@ -45,6 +51,7 @@ function createTransaction(strapi) {
             status: patch.status,
             state_version: patch.stateVersion,
             completed_at: patch.completedAt,
+            claimed_at: patch.claimedAt,
             failure_code: patch.failureCode,
             dispatch_attempt_count: patch.dispatchAttemptCount,
             task_name: patch.taskName,
@@ -91,6 +98,11 @@ module.exports = createCoreService(
       return lifecycle.createGenerationLifecycle({
         withTransaction: createTransaction(strapi),
       }).recordDispatchOutcome(input);
+    },
+    claimWorker(input) {
+      return lifecycle.createGenerationLifecycle({
+        withTransaction: createTransaction(strapi),
+      }).claimWorker(input);
     },
   }),
 );

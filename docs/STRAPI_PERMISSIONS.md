@@ -231,7 +231,10 @@ action for server-mediated task-name reservation and bounded outcome recording;
 it is also denied unless separately granted and is not called by the app yet.
 It permits only reservation, created, and unknown states; it rejects claimed
 absence and cannot compensate a queued generation. These custom actions use the
-application user JWT, not an API token.
+application user JWT, not an API token. The worker
+`survey-report-generation.workerClaim` action is separately denied unless
+explicitly granted to an approved worker credential. This repository adds no
+role/token grant and does not define credential issuance or rotation.
 Report history remains owned by U8-A, and PDF artifact storage/download remains
 deferred to U12. No production permission mutation is performed.
 Anonymous requests and ungranted actions remain denied. Application-level
@@ -265,7 +268,12 @@ which must be explicitly granted to the server-mediated application user for
 the future coordinator to reserve identities or record created/unknown outcomes.
 It does not expose an absence or compensation operation. The
 isolated HTTP test grants it only to its synthetic role. No production role is
-changed by this repository update.
+changed by this repository update. U10-A also registers
+`api::survey-report-generation.survey-report-generation.workerClaim` for the
+bounded worker claim command. It returns checkpoint/model/pricing state only to
+an authorized caller and omits comments; it has no default role or API-token
+grant. Credential provisioning and any non-default grant remain separately
+authorized operational work. No production role or token is changed here.
 
 Verify the baseline with:
 

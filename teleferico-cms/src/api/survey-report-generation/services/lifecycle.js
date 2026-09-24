@@ -113,6 +113,10 @@ function prepareDispatchOutcome(generation, command) {
     dispatchAttemptCount: command.dispatchAttemptCount,
   };
 }
+function validateWorkerClaimCommand(value) {
+  return exactKeys(value, ['commandVersion']) &&
+    value.commandVersion === 'survey-report-command.v1';
+}
 function prepareRetryGeneration(generation, now, createReportRunId = () => require('node:crypto').randomUUID()) {
   if (generation.status !== 'failed' || !generation.documentId) throw domainError('INVALID_STATE');
   return {
@@ -225,6 +229,35 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         return { reportRunId, taskName: command.taskName, stateVersion: patch.stateVersion, status: patch.status, dispatchState: patch.dispatchState, dispatchAttemptCount: patch.dispatchAttemptCount, failureCode: patch.failureCode ?? null, replayed: false };
       });
     },
+    async claimWorker({ reportRunId }) {
+      return withTransaction(async (transaction) => {
+        const generation = await transaction.lockGeneration(reportRunId);
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+        if (['succeeded', 'failed'].includes(generation.status))
+          return { reportRunId, stateVersion: generation.stateVersion, status: generation.status, disposition: 'terminal-replay' };
+
+        let disposition = 'resumed';
+        if (generation.status === 'queued') {
+          const patch = prepareGenerationTransition(generation, generation.stateVersion, 'running', now());
+          await transaction.updateGeneration(patch);
+          generation.status = patch.status;
+          generation.stateVersion = patch.stateVersion;
+          disposition = 'claimed';
+        } else if (generation.status !== 'running') {
+          throw domainError('INVALID_STATE');
+        }
+
+        return {
+          reportRunId,
+          stateVersion: generation.stateVersion,
+          status: 'running',
+          disposition,
+          checkpoints: generation.checkpointsJson,
+          modelConfig: generation.modelConfigJson,
+          pricingSnapshot: generation.pricingSnapshotJson,
+        };
+      });
+    },
     async retry({ sourceRunId }) {
       return withTransaction(async (transaction) => {
         const source = await transaction.lockGeneration(sourceRunId);
@@ -258,4 +291,5 @@ module.exports = {
   prepareGenerationTransition,
   prepareRetryGeneration,
   validateDispatchStateCommand,
+  validateWorkerClaimCommand,
 };

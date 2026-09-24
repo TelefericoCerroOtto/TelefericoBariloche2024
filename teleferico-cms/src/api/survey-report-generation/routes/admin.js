@@ -13,5 +13,10 @@ module.exports = {
       path: "/tb113/admin/generations/:reportRunId/dispatch-state",
       handler: "survey-report-generation.dispatchState",
     },
+    {
+      method: "POST",
+      path: "/tb113/worker/generations/:reportRunId/claim",
+      handler: "survey-report-generation.workerClaim",
+    },
   ],
 };
