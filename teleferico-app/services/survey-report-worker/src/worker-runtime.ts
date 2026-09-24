@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { validateWorkerStageCheckpointV1 } from "./checkpoint-contract";
 import {
   buildReportCharts,
   canonicalizeJson,
@@ -181,16 +182,17 @@ async function failSafely(
 }
 
 function checkpoint(
+  reportRunId: string,
   stageKey: WorkerCheckpoint["stageKey"],
   inputDigest: string,
   payload: WorkerCheckpoint["payload"],
   now: Date,
 ): WorkerCheckpoint {
-  return {
+  const value: WorkerCheckpoint = {
     checkpointVersion: "survey-checkpoint.v1",
     stageKey,
-    stageIndex: stageKey === "render" ? 0 : 1,
-    route: "common",
+    stageIndex: stageKey === "render" ? 4 : 5,
+    route: "direct",
     stageType: stageKey,
     status: "valid",
     inputDigest,
@@ -199,6 +201,11 @@ function checkpoint(
     completedAt: now.toISOString(),
     payload,
   };
+  validateWorkerStageCheckpointV1(value, {
+    reportRunId,
+    route: "direct",
+  });
+  return value;
 }
 
 async function writeCheckpoint(
@@ -253,6 +260,34 @@ export async function executeReportWorker(
   let stateVersion = claim.stateVersion;
   let staged: WorkerArtifact | null = null;
   try {
+    if (
+      claim.checkpoints.version !== "survey-checkpoints.v1" ||
+      claim.checkpoints.route !== "direct" ||
+      claim.checkpoints.chunkCount !== null
+    )
+      throw new TypeError("Unsupported worker checkpoint graph");
+    if (
+      claim.checkpoints.entries.some(
+        (value) => value.stageKey !== "render" && value.stageKey !== "store",
+      ) ||
+      new Set(claim.checkpoints.entries.map(({ stageKey }) => stageKey)).size !==
+        claim.checkpoints.entries.length ||
+      (claim.checkpoints.entries.some(({ stageKey }) => stageKey === "store") &&
+        !claim.checkpoints.entries.some(({ stageKey }) => stageKey === "render"))
+    )
+      throw new TypeError("Invalid worker checkpoint graph");
+    const priorRender = claim.checkpoints.entries.find(
+      (value) => value.stageKey === "render",
+    );
+    const priorStore = claim.checkpoints.entries.find(
+      (value) => value.stageKey === "store",
+    );
+    for (const priorCheckpoint of claim.checkpoints.entries) {
+      validateWorkerStageCheckpointV1(priorCheckpoint, {
+        reportRunId,
+        route: "direct",
+      });
+    }
     const snapshotResult = await classifyDependencyFailure(
       "CMS_TRANSIENT",
       () => dependencies.cms.snapshot(reportRunId),
@@ -260,6 +295,8 @@ export async function executeReportWorker(
     if (snapshotResult.stateVersion !== stateVersion)
       throw new WorkerCmsConflictError("Snapshot state version is stale");
     const snapshot = validateSnapshotEnvelope(snapshotResult.snapshot);
+    if (claim.checkpoints.snapshotDigest !== snapshotResult.snapshot.digestHex)
+      throw new TypeError("Worker checkpoint snapshot digest mismatch");
     const analysis = validatePublishedAnalysis(
       await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
         dependencies.analysisProvider(snapshot, claim.checkpoints),
@@ -280,6 +317,8 @@ export async function executeReportWorker(
       "render",
       renderInputDigest,
     );
+    if (priorRender && priorRender.inputDigest !== renderInputDigest)
+      throw new TypeError("Worker checkpoint input digest mismatch");
     let artifact: WorkerArtifact | null = null;
     if (existingRender && existingRender.payload.kind === "render") {
       const { pdfSha256, size } = existingRender.payload;
@@ -303,6 +342,7 @@ export async function executeReportWorker(
         dependencies.artifacts.stage(reportRunId, artifactToStage),
       );
       const renderCheckpoint = checkpoint(
+        reportRunId,
         "render",
         renderInputDigest,
         {
@@ -332,12 +372,15 @@ export async function executeReportWorker(
       "store",
       storeInputDigest,
     );
+    if (priorStore && priorStore.inputDigest !== storeInputDigest)
+      throw new TypeError("Worker checkpoint input digest mismatch");
     if (!existingStore) {
       stateVersion = await writeCheckpoint(
         dependencies,
         reportRunId,
         stateVersion,
         checkpoint(
+          reportRunId,
           "store",
           storeInputDigest,
           {

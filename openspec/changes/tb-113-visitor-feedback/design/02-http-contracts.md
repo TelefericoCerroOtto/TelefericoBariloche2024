@@ -164,6 +164,17 @@ without claiming external task or storage execution:
   completion adapter. The local artifact adapter stages bytes and cannot make
   a report downloadable before successful completion.
 
+The current worker checkpoint POC is deliberately narrower than the normative
+stage graph: it emits only direct-route `render`/`store` checkpoints at indexes
+4/5, validates their exact metadata and payload shapes, output digests, and
+private staged-object identity, and rejects a prior same-stage input-digest
+mismatch before reuse. Its existing stage-input digest is still the legacy POC
+projection; the worker claim does not yet supply immutable model configuration
+or validated `validate` output needed to reproduce the v1 graph. The worker
+therefore rejects map/reduce claims and does not assert v1 input-digest
+conformance. CMS checkpoint writes remain `UNKNOWN_VERSION` before transaction
+entry; no checkpoint is accepted or persisted.
+
 Cloud Tasks, Cloud Run/OIDC, Vertex, GCS, production worker-image readiness,
 and authenticated integrated execution remain external validation and
 deployment gates. They are intentionally not configured or inferred by this
