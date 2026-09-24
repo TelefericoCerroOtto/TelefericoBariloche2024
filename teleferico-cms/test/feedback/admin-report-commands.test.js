@@ -15,6 +15,7 @@ const WORKER_SNAPSHOT_RUN_ID = "00000000-0000-4000-8000-000000000004";
 const WORKER_QUEUED_RUN_ID = "00000000-0000-4000-8000-000000000005";
 const WORKER_VERSION_RUN_ID = "00000000-0000-4000-8000-000000000006";
 const WORKER_DIGEST_RUN_ID = "00000000-0000-4000-8000-000000000007";
+const WORKER_CHECKPOINT_RUN_ID = "00000000-0000-4000-8000-000000000008";
 const compose = (...args) =>
   executeFixed(DOCKER_EXECUTABLE, [
     "compose",
@@ -517,6 +518,70 @@ test("native role authorization creates only through the core generation endpoin
       assert.equal(invalidSnapshot.status, 409);
       assert.equal((await invalidSnapshot.json()).error.code, expectedCode);
     }
+
+    const checkpointSet = { version: "survey-checkpoints.v1", snapshotDigest: "a".repeat(64), route: "undecided", chunkCount: null, entries: [] };
+    const checkpointGeneration = await fetch(endpoint, {
+      method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ data: { ...generationData(WORKER_CHECKPOINT_RUN_ID, "2026-12-01", "2026-12-10"), snapshotDigest: checkpointSet.snapshotDigest, checkpointsJson: checkpointSet } }),
+    });
+    assert.equal(checkpointGeneration.status, 201);
+    await strapi.db.connection("survey_report_generations").where({ report_run_id: WORKER_CHECKPOINT_RUN_ID })
+      .update({ snapshot_digest: checkpointSet.snapshotDigest, checkpoints_json: checkpointSet });
+    const checkpointRoot = `http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_CHECKPOINT_RUN_ID}`;
+    const checkpointClaim = await fetch(`${checkpointRoot}/claim`, {
+      method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(claimCommand),
+    });
+    assert.equal(checkpointClaim.status, 200);
+    const checkpointUrl = `${checkpointRoot}/checkpoints/redact`;
+    const payload = { kind: "redact", recordCount: 0, redactionVersion: "redaction.v1" };
+    const checkpoint = {
+      checkpointVersion: "survey-checkpoint.v1", stageKey: "redact", stageIndex: 0,
+      route: "common", stageType: "redact", status: "valid", inputDigest: "b".repeat(64),
+      outputDigest: require("node:crypto").createHash("sha256").update(canonicalizeJson(payload)).digest("hex"),
+      attempts: 1, completedAt: "2026-09-24T12:00:00.000Z", payload,
+    };
+    const checkpointCommand = { contractVersion: "survey-worker-cms.v1", expectedStateVersion: 2, checkpoint };
+    const anonymousCheckpoint = await fetch(checkpointUrl, {
+      method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
+    });
+    assert.ok([401, 403].includes(anonymousCheckpoint.status));
+    const ungrantedCheckpoint = await fetch(checkpointUrl, {
+      method: "PUT", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
+    });
+    assert.equal(ungrantedCheckpoint.status, 403);
+    await grant(strapi, role.id, "api::survey-report-generation.survey-report-generation.workerCheckpoint");
+    const checkpointResponse = await fetch(checkpointUrl, {
+      method: "PUT", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
+    });
+    assert.deepEqual({ status: checkpointResponse.status, body: await checkpointResponse.json() }, { status: 400, body: {
+      error: { code: "UNKNOWN_VERSION", message: "The worker checkpoint was rejected" },
+    } });
+    const checkpointReplay = await fetch(checkpointUrl, {
+      method: "PUT", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
+    });
+    assert.deepEqual(await checkpointReplay.json(), {
+      error: { code: "UNKNOWN_VERSION", message: "The worker checkpoint was rejected" },
+    });
+    const alteredCheckpoint = await fetch(checkpointUrl, {
+      method: "PUT", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...checkpointCommand, checkpoint: { ...checkpoint, attempts: 2 } }),
+    });
+    assert.equal(alteredCheckpoint.status, 400);
+    assert.equal((await alteredCheckpoint.json()).error.code, "UNKNOWN_VERSION");
+    const oversizedCheckpoint = await fetch(checkpointUrl, {
+      method: "PUT", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: `${JSON.stringify(checkpointCommand)}${" ".repeat(4_097)}`,
+    });
+    assert.equal(oversizedCheckpoint.status, 413);
+    assert.equal((await oversizedCheckpoint.json()).error.code, "PAYLOAD_TOO_LARGE");
+    const privateCheckpointProjection = await captureQueries(strapi, async () => strapi.db.connection("survey_report_generations")
+      .where({ report_run_id: WORKER_CHECKPOINT_RUN_ID }).select("checkpoints_json").first());
+    const persistedCheckpoints = typeof privateCheckpointProjection.result.checkpoints_json === "string"
+      ? JSON.parse(privateCheckpointProjection.result.checkpoints_json)
+      : privateCheckpointProjection.result.checkpoints_json;
+    assert.deepEqual(persistedCheckpoints.entries, []);
+    assert.equal((await strapi.db.connection("survey_report_generations").where({ report_run_id: WORKER_CHECKPOINT_RUN_ID }).first()).state_version, 2);
 
     const update = await fetch(`${endpoint}/${body.data.documentId}`, {
       method: "PUT",

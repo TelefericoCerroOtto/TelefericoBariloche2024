@@ -23,5 +23,10 @@ module.exports = {
       path: "/tb113/worker/generations/:reportRunId/snapshot",
       handler: "survey-report-generation.workerSnapshot",
     },
+    {
+      method: "PUT",
+      path: "/tb113/worker/generations/:reportRunId/checkpoints/:stageKey",
+      handler: "survey-report-generation.workerCheckpoint",
+    },
   ],
 };

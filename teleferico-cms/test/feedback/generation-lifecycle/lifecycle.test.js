@@ -2,8 +2,47 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { measureDispatchFailureRequestBody } = require("../../../src/api/survey-report-generation/services/dispatch-failure-request");
 const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration, validateWorkerClaimCommand } = require("../../../src/api/survey-report-generation/services/lifecycle");
+const { CHECKPOINT_CONTRACT_VERSIONS, deriveChunkMembership, deriveEvidenceRef, stageConfigDigest, stageInputDigestV1, verifyChunkMembership } = require("../../../src/api/survey-report-generation/services/checkpoint-contract");
 const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000001";
 const TASK_NAME = "tb113-report-00000000000040008000000000000001";
+function canonicalize(value) {
+  return Array.isArray(value) ? `[${value.map(canonicalize).join(",")}]`
+    : value && typeof value === "object" ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(",")}}`
+      : JSON.stringify(value);
+}
+function syntheticMembershipInput() {
+  return {
+    reportRunId: "00000000-0000-4000-8000-000000000113",
+    snapshotDigest: "a".repeat(64), evidenceKeyId: "test-only-2026-01",
+    evidenceKey: "tb113 synthetic-only evidence key v1", chunkCount: 2,
+    comments: [
+      { recordId: "r-3", receipt: "receipt-3", period: "current", acceptedAt: "2026-09-24T10:02:00.000Z", locale: "es", versionKey: "v1", pointKey: "p1", overallRating: 4, aspectRatings: [], text: "Buena vista" },
+      { recordId: "r-1", receipt: "receipt-1", period: "previous", acceptedAt: "2026-09-23T10:00:00.000Z", locale: "es", versionKey: "v1", pointKey: "p1", overallRating: 5, aspectRatings: [], text: "Qué hermoso 🚡" },
+      { recordId: "r-2", receipt: "receipt-2", period: "current", acceptedAt: "2026-09-24T10:01:00.000Z", locale: "en", versionKey: "v1", pointKey: "p2", overallRating: 3, aspectRatings: [], text: "Very nice" },
+    ],
+  };
+}
+function projectionFor(input) {
+  return {
+    version: "survey-stage-config.v1", stageKey: "map.1-of-2",
+    evidenceKeyId: input.evidenceKeyId, rendererVersion: null,
+    modelConfig: syntheticModelConfig(input.evidenceKeyId),
+  };
+}
+function syntheticModelConfig(evidenceKeyId) {
+  return {
+    version: "survey-model-config.v1", evidenceKeyId, provider: "vertex-ai",
+    vertexProjectId: "teleferico-bariloche-2024", vertexLocation: "us",
+    vertexApiEndpoint: "aiplatform.us.rep.googleapis.com", model: "gemini-3.8-flash",
+    temperature: 0, reasoning: "LOW", grounding: false, promptVersion: "prompt.v1",
+    mapSchemaVersion: "survey-map.v1", analysisSchemaVersion: "survey-analysis.v1",
+    redactionVersion: "redaction.v1", validatorVersion: "validator.v1", chunkVersion: "chunk.v1",
+    verifiedInputTokenLimit: 8192,
+    map: { targetMin: 600, targetMax: 1200, hardMax: 4000 },
+    directReduce: { targetMin: 1800, targetMax: 3000, hardMax: 8000 },
+    safetyHeadroomTokens: 2048, sourceRevision: "test-source",
+  };
+}
 function store(initial) {
   const generations = new Map([[initial.reportRunId, { ...initial }]]);
   const reports = [];
@@ -194,6 +233,102 @@ test("worker snapshot returns the deterministic v1 envelope only for running val
     const invalidLifecycle = createGenerationLifecycle({ withTransaction: invalidStore.withTransaction });
     await assert.rejects(invalidLifecycle.workerSnapshot({ reportRunId: REPORT_RUN_ID }), { code });
   }
+});
+
+test("worker checkpoint writes fail closed until CMS can verify checkpoint bindings", async () => {
+  const runId = "00000000-0000-4000-8000-000000000008";
+  const initial = {
+    reportRunId: runId,
+    status: "running",
+    stateVersion: 2,
+    sourceRevision: "feedback-admin.v1",
+    snapshotDigest: "a".repeat(64),
+    checkpointsJson: {
+      version: "survey-checkpoints.v1",
+      snapshotDigest: "a".repeat(64),
+      route: "undecided",
+      chunkCount: null,
+      entries: [],
+    },
+  };
+  const value = store(initial);
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction });
+  const payload = { kind: "redact", recordCount: 0, redactionVersion: "redaction.v1" };
+  const command = {
+    contractVersion: "survey-worker-cms.v1",
+    expectedStateVersion: 2,
+    checkpoint: {
+      checkpointVersion: "survey-checkpoint.v1",
+      stageKey: "redact",
+      stageIndex: 0,
+      route: "common",
+      stageType: "redact",
+      status: "valid",
+      inputDigest: "b".repeat(64),
+      outputDigest: require("node:crypto").createHash("sha256").update(canonicalize(payload)).digest("hex"),
+      attempts: 1,
+      completedAt: "2026-09-24T12:00:00.000Z",
+      payload,
+    },
+  };
+
+  await assert.rejects(lifecycle.writeWorkerCheckpoint({ reportRunId: runId, stageKey: "redact", command }), {
+    code: "UNKNOWN_VERSION",
+  });
+  assert.deepEqual(value.generation(runId), initial);
+});
+
+test("CMS matches the worker synthetic evidence-membership and stage-digest vectors", () => {
+  const input = syntheticMembershipInput();
+  const memberships = deriveChunkMembership(input);
+  assert.equal(deriveEvidenceRef({ reportRunId: input.reportRunId, recordId: "r-1", evidenceKey: input.evidenceKey }), "e_3uu4ks66il7pihr5iwyc");
+  assert.deepEqual(memberships, [
+    { evidenceKeyId: "test-only-2026-01", chunkIndex: 1, chunkCount: 2, coveredRefs: ["e_rahjw52nxuyppbb45gh3", "e_3uu4ks66il7pihr5iwyc"], membershipDigest: "c5935102850b59e161216f0748b25ac61c2d72d2569ff7db7456ff9003a28b03" },
+    { evidenceKeyId: "test-only-2026-01", chunkIndex: 2, chunkCount: 2, coveredRefs: ["e_k6lijsqcwjyjvs6ztpgs"], membershipDigest: "2c9a2139ad235c11e34a867e5781e0ef27eba9919aa592edae2d5121209351df" },
+  ]);
+  const refs = memberships.flatMap(({ coveredRefs }) => coveredRefs);
+  assert.equal(refs.length, input.comments.length);
+  assert.equal(new Set(refs).size, input.comments.length);
+  assert.equal(refs.every((reference) => /^e_[a-z2-7]{20}$/.test(reference)), true);
+  assert.equal(memberships.every(({ membershipDigest }) => /^[a-f0-9]{64}$/.test(membershipDigest)), true);
+  assert.deepEqual(deriveChunkMembership({ ...input, comments: [...input.comments].reverse() }), memberships);
+  assert.equal(JSON.stringify(memberships).includes("Qué hermoso"), false);
+  assert.equal(JSON.stringify(memberships).includes("r-1"), false);
+  assert.equal(JSON.stringify(memberships).includes(input.evidenceKey), false);
+  const projection = projectionFor(input);
+  const configDigest = stageConfigDigest(projection);
+  assert.equal(configDigest, "79ee5e80eb4d3d2546b25885a22b7018342b47326cbc3030419a6ce5cddd0613");
+  const stageInput = { stageKey: "map.1-of-2", stageIndex: 2, route: "map-reduce", snapshotDigest: input.snapshotDigest, sourceRevision: "test-source", contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest: configDigest, orderedDependencyOutputDigests: ["b".repeat(64), "c".repeat(64)], chunkMembershipDigest: memberships[0].membershipDigest };
+  assert.equal(stageInputDigestV1(stageInput), "ae8cc9b362b0983c70bd3ae386542a0973e74633feba1a034b0048a0f584cea4");
+  assert.notEqual(stageInputDigestV1({ ...stageInput, orderedDependencyOutputDigests: [...stageInput.orderedDependencyOutputDigests].reverse() }), stageInputDigestV1(stageInput));
+});
+
+test("CMS rejects altered membership, version/config bindings, and invalid Unicode", () => {
+  const input = syntheticMembershipInput();
+  const membership = deriveChunkMembership(input)[0];
+  const changedId = { ...input, comments: input.comments.map((record) => record.recordId === "r-2" ? { ...record, recordId: "r-4" } : record) };
+  assert.equal(verifyChunkMembership(changedId, membership), false);
+  for (const coveredRefs of [[...membership.coveredRefs].reverse(), membership.coveredRefs.slice(1), [...membership.coveredRefs, membership.coveredRefs[0]], [...membership.coveredRefs, "e_foreignreference123456"]]) {
+    assert.equal(verifyChunkMembership(input, { ...membership, coveredRefs }), false);
+  }
+  for (const changed of [
+    { ...input, evidenceKeyId: "test-only-2026-02" },
+    { ...input, evidenceKey: "different synthetic key" },
+    { ...input, evidenceKey: "short" },
+    { ...input, chunkCount: 3 },
+    { ...input, snapshotDigest: "b".repeat(64) },
+  ]) assert.equal(verifyChunkMembership(changed, membership), false);
+  assert.throws(() => deriveChunkMembership({ ...input, comments: [...input.comments, { ...input.comments[0], recordId: "r-1" }], chunkCount: 2 }));
+  assert.notEqual(stageConfigDigest({ ...projectionFor(input), modelConfig: { ...projectionFor(input).modelConfig, model: "different-model" } }), stageConfigDigest(projectionFor(input)));
+  assert.throws(() => deriveChunkMembership({ ...input, comments: [{ ...input.comments[0], text: "\uD800" }] }));
+  assert.throws(() => deriveChunkMembership({ ...input, comments: [{ ...input.comments[0], acceptedAt: "2026-02-30T10:00:00.000Z" }] }));
+  const decomposed = { ...input, comments: input.comments.map((record) => record.recordId === "r-1" ? { ...record, text: "Que\u0301 hermoso 🚡" } : record) };
+  assert.equal(verifyChunkMembership(decomposed, membership), false);
+  assert.throws(() => stageInputDigestV1({
+    stageKey: "map.1-of-2", stageIndex: 2, route: "map-reduce", snapshotDigest: input.snapshotDigest,
+    sourceRevision: "test-source", contractVersions: { ...CHECKPOINT_CONTRACT_VERSIONS, unknown: "bad" },
+    stageConfigDigest: "d".repeat(64), orderedDependencyOutputDigests: [], chunkMembershipDigest: membership.membershipDigest,
+  }));
 });
 
 test("dispatch compensation replays identically and rejects altered, claimed, or stale generations", async () => {

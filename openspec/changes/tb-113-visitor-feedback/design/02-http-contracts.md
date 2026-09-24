@@ -107,6 +107,8 @@ Paths: `W=/api/tb113/worker/generations/:reportRunId`; `A=/api/tb113/admin/gener
 
 All worker/admin command actions add 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `RUN_NOT_FOUND`, and safe 500 `INTERNAL_ERROR`. Claim alone reads checkpoints. Identical checkpoint/terminal replay precedes stale CAS; differing replay conflicts. Appendix 04 validates completion. Only snapshot carries D50-D51 raw comments to the private worker, never browsers; others omit comments and raw prompt/model responses.
 
+The checkpoint route is currently fail-closed: bounded requests return 400 `UNKNOWN_VERSION` before opening a transaction; raw bodies over 4 KiB retain the existing 413 behavior. The 4 KiB cap is unchanged, but validated map payloads may exceed it. Before activation, define and test a bounded request-size contract against complete valid map payloads; this foundation does not claim every valid checkpoint fits the current cap. See Appendix 04 for the remaining activation gates.
+
 `POST W/claim` is a native authenticated Strapi action with no default role or
 API-token grant. It accepts only the exact command under the 4 KiB worker cap,
 locks the generation row, and atomically performs queued→running with one

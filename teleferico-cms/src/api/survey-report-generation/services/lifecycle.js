@@ -288,7 +288,7 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         let disposition = 'resumed';
         if (generation.status === 'queued') {
           const patch = prepareGenerationTransition(generation, generation.stateVersion, 'running', now());
-          await transaction.updateGeneration(patch);
+          await transaction.updateGeneration({ ...patch, expectedStatus: 'queued' });
           generation.status = patch.status;
           generation.stateVersion = patch.stateVersion;
           disposition = 'claimed';
@@ -313,6 +313,9 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         if (!generation) throw domainError('RUN_NOT_FOUND');
         return prepareWorkerSnapshot(generation);
       });
+    },
+    async writeWorkerCheckpoint() {
+      throw domainError('UNKNOWN_VERSION');
     },
     async retry({ sourceRunId }) {
       return withTransaction(async (transaction) => {

@@ -24,6 +24,7 @@ function createTransaction(strapi) {
             'checkpoints_json',
             'model_config_json',
             'pricing_snapshot_json',
+            'snapshot_digest',
           )
           .where({ report_run_id: reportRunId })
           .forUpdate()
@@ -42,6 +43,7 @@ function createTransaction(strapi) {
             checkpointsJson: row.checkpoints_json,
             modelConfigJson: row.model_config_json,
             pricingSnapshotJson: row.pricing_snapshot_json,
+            snapshotDigest: row.snapshot_digest,
           }
         );
       },
@@ -72,13 +74,14 @@ function createTransaction(strapi) {
             task_name: patch.taskName,
             dispatch_state: patch.dispatchState,
             dispatch_evidence_json: patch.dispatchEvidenceJson,
+            checkpoints_json: patch.checkpointsJson,
           }).filter(([, value]) => value !== undefined),
         );
         const changed = await trx('survey_report_generations')
           .where({
             report_run_id: lockedRunId,
             state_version: patch.stateVersion - 1,
-            status: 'queued',
+            status: patch.expectedStatus ?? 'queued',
           })
           .update(values);
         if (changed !== 1)
@@ -123,6 +126,11 @@ module.exports = createCoreService(
       return lifecycle.createGenerationLifecycle({
         withTransaction: createTransaction(strapi),
       }).workerSnapshot(input);
+    },
+    writeWorkerCheckpoint(input) {
+      return lifecycle.createGenerationLifecycle({
+        withTransaction: createTransaction(strapi),
+      }).writeWorkerCheckpoint(input);
     },
   }),
 );

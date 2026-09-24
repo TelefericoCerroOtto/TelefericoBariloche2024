@@ -21,6 +21,14 @@ import {
   executeReportWorker,
   stageInputDigest,
 } from "../../../services/survey-report-worker/src/worker-runtime";
+import {
+  CHECKPOINT_CONTRACT_VERSIONS,
+  deriveChunkMembership,
+  deriveEvidenceRef,
+  stageConfigDigest,
+  stageInputDigestV1,
+  verifyChunkMembership,
+} from "../../../services/survey-report-worker/src/checkpoint-contract";
 import { WorkerCmsConflictError } from "../../../services/survey-report-worker/src/contracts";
 import type {
   CompleteCommand,
@@ -187,8 +195,96 @@ function artifactStore() {
   return { store, staged, calls };
 }
 
+function syntheticMembershipInput() {
+  return {
+    reportRunId: "00000000-0000-4000-8000-000000000113",
+    snapshotDigest: "a".repeat(64),
+    evidenceKeyId: "test-only-2026-01",
+    evidenceKey: "tb113 synthetic-only evidence key v1",
+    chunkCount: 2,
+    comments: [
+      { recordId: "r-3", receipt: "receipt-3", period: "current", acceptedAt: "2026-09-24T10:02:00.000Z", locale: "es", versionKey: "v1", pointKey: "p1", overallRating: 4, aspectRatings: [], text: "Buena vista" },
+      { recordId: "r-1", receipt: "receipt-1", period: "previous", acceptedAt: "2026-09-23T10:00:00.000Z", locale: "es", versionKey: "v1", pointKey: "p1", overallRating: 5, aspectRatings: [], text: "Qué hermoso 🚡" },
+      { recordId: "r-2", receipt: "receipt-2", period: "current", acceptedAt: "2026-09-24T10:01:00.000Z", locale: "en", versionKey: "v1", pointKey: "p2", overallRating: 3, aspectRatings: [], text: "Very nice" },
+    ],
+  };
+}
+
+function syntheticModelConfig(evidenceKeyId: string) {
+  return {
+    version: "survey-model-config.v1",
+    evidenceKeyId,
+    provider: "vertex-ai",
+    vertexProjectId: "teleferico-bariloche-2024",
+    vertexLocation: "us",
+    vertexApiEndpoint: "aiplatform.us.rep.googleapis.com",
+    model: "gemini-3.8-flash",
+    temperature: 0,
+    reasoning: "LOW",
+    grounding: false,
+    promptVersion: "prompt.v1",
+    mapSchemaVersion: "survey-map.v1",
+    analysisSchemaVersion: "survey-analysis.v1",
+    redactionVersion: "redaction.v1",
+    validatorVersion: "validator.v1",
+    chunkVersion: "chunk.v1",
+    verifiedInputTokenLimit: 8192,
+    map: { targetMin: 600, targetMax: 1200, hardMax: 4000 },
+    directReduce: { targetMin: 1800, targetMax: 3000, hardMax: 8000 },
+    safetyHeadroomTokens: 2048,
+    sourceRevision: "test-source",
+  } as const;
+}
+
 describe("worker PDF boundary", () => {
   beforeEach(() => vi.restoreAllMocks());
+
+  it("matches the synthetic CMS evidence-membership and stage-digest vectors", () => {
+    const input = syntheticMembershipInput();
+    const memberships = deriveChunkMembership(input);
+    expect(deriveEvidenceRef({ reportRunId: input.reportRunId, recordId: "r-1", evidenceKey: input.evidenceKey })).toBe("e_3uu4ks66il7pihr5iwyc");
+    expect(memberships).toEqual([
+      { evidenceKeyId: "test-only-2026-01", chunkIndex: 1, chunkCount: 2, coveredRefs: ["e_rahjw52nxuyppbb45gh3", "e_3uu4ks66il7pihr5iwyc"], membershipDigest: "c5935102850b59e161216f0748b25ac61c2d72d2569ff7db7456ff9003a28b03" },
+      { evidenceKeyId: "test-only-2026-01", chunkIndex: 2, chunkCount: 2, coveredRefs: ["e_k6lijsqcwjyjvs6ztpgs"], membershipDigest: "2c9a2139ad235c11e34a867e5781e0ef27eba9919aa592edae2d5121209351df" },
+    ]);
+    const refs = memberships.flatMap(({ coveredRefs }) => coveredRefs);
+    expect(refs).toHaveLength(input.comments.length);
+    expect(new Set(refs).size).toBe(input.comments.length);
+    expect(refs.every((reference) => /^e_[a-z2-7]{20}$/.test(reference))).toBe(true);
+    expect(memberships.every(({ membershipDigest }) => /^[a-f0-9]{64}$/.test(membershipDigest))).toBe(true);
+    expect(deriveChunkMembership({ ...input, comments: [...input.comments].reverse() })).toEqual(memberships);
+    expect(JSON.stringify(memberships)).not.toContain("Qué hermoso");
+    expect(JSON.stringify(memberships)).not.toContain("r-1");
+    expect(JSON.stringify(memberships)).not.toContain(input.evidenceKey);
+    const projection = { version: "survey-stage-config.v1" as const, stageKey: "map.1-of-2", evidenceKeyId: input.evidenceKeyId, rendererVersion: null, modelConfig: syntheticModelConfig(input.evidenceKeyId) };
+    const configDigest = stageConfigDigest(projection);
+    expect(configDigest).toBe("79ee5e80eb4d3d2546b25885a22b7018342b47326cbc3030419a6ce5cddd0613");
+    expect(stageInputDigestV1({ stageKey: "map.1-of-2", stageIndex: 2, route: "map-reduce", snapshotDigest: input.snapshotDigest, sourceRevision: "test-source", contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest: configDigest, orderedDependencyOutputDigests: ["b".repeat(64), "c".repeat(64)], chunkMembershipDigest: memberships[0]!.membershipDigest })).toBe("ae8cc9b362b0983c70bd3ae386542a0973e74633feba1a034b0048a0f584cea4");
+  });
+
+  it("rejects changed IDs, refs, key IDs, chunk counts, config, and invalid Unicode", () => {
+    const input = syntheticMembershipInput();
+    const membership = deriveChunkMembership(input)[0]!;
+    const changedId = { ...input, comments: input.comments.map((record) => record.recordId === "r-2" ? { ...record, recordId: "r-4" } : record) };
+    expect(verifyChunkMembership(changedId, membership)).toBe(false);
+    for (const coveredRefs of [[...membership.coveredRefs].reverse(), membership.coveredRefs.slice(1), [...membership.coveredRefs, membership.coveredRefs[0]], [...membership.coveredRefs, "e_foreignreference123456"]]) {
+      expect(verifyChunkMembership(input, { ...membership, coveredRefs })).toBe(false);
+    }
+    expect(verifyChunkMembership({ ...input, evidenceKeyId: "test-only-2026-02" }, membership)).toBe(false);
+    expect(verifyChunkMembership({ ...input, evidenceKey: "different synthetic key" }, membership)).toBe(false);
+    expect(verifyChunkMembership({ ...input, evidenceKey: "short" }, membership)).toBe(false);
+    expect(verifyChunkMembership({ ...input, chunkCount: 3 }, membership)).toBe(false);
+    expect(verifyChunkMembership({ ...input, snapshotDigest: "b".repeat(64) }, membership)).toBe(false);
+    expect(() => deriveChunkMembership({ ...input, comments: [...input.comments, { ...input.comments[0], recordId: "r-1" }], chunkCount: 2 })).toThrow();
+    const projection = { version: "survey-stage-config.v1" as const, stageKey: "map.1-of-2", evidenceKeyId: input.evidenceKeyId, rendererVersion: null, modelConfig: syntheticModelConfig(input.evidenceKeyId) };
+    expect(stageConfigDigest({ ...projection, modelConfig: { ...projection.modelConfig, model: "other-model" } })).not.toBe(stageConfigDigest(projection));
+    expect(stageConfigDigest({ ...projection, evidenceKeyId: "test-only-2026-02", modelConfig: { ...projection.modelConfig, evidenceKeyId: "test-only-2026-02" } })).not.toBe(stageConfigDigest(projection));
+    const stageInput = { stageKey: "map.1-of-2", stageIndex: 2, route: "map-reduce" as const, snapshotDigest: input.snapshotDigest, sourceRevision: "test-source", contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest: stageConfigDigest(projection), orderedDependencyOutputDigests: ["b".repeat(64), "c".repeat(64)], chunkMembershipDigest: membership.membershipDigest };
+    expect(stageInputDigestV1({ ...stageInput, orderedDependencyOutputDigests: [...stageInput.orderedDependencyOutputDigests].reverse() })).not.toBe(stageInputDigestV1(stageInput));
+    expect(stageInputDigestV1({ ...stageInput, stageConfigDigest: "d".repeat(64) })).not.toBe(stageInputDigestV1(stageInput));
+    expect(() => deriveChunkMembership({ ...input, comments: [{ ...input.comments[0], text: "\uD800" }] })).toThrow();
+    expect(verifyChunkMembership({ ...input, comments: input.comments.map((record) => record.recordId === "r-1" ? { ...record, text: "Que\u0301 hermoso 🚡" } : record) }, membership)).toBe(false);
+  });
 
   it("keeps PDF metadata deterministic and preserves chart semantics", async () => {
     const envelope = snapshot();
