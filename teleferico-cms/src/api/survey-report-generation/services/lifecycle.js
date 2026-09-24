@@ -1,7 +1,56 @@
 'use strict';
+const { createHash } = require('node:crypto');
 function domainError(code) { return Object.assign(new Error(code), { code }); }
 const REPORT_RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DISPATCH_EVIDENCE_VERSION = 'survey-dispatch-evidence.v1';
+const SNAPSHOT_CONTRACT_VERSION = 'survey-snapshot.v1';
+
+function compareCodePoints(left, right) {
+  const a = Array.from(left, (value) => value.codePointAt(0));
+  const b = Array.from(right, (value) => value.codePointAt(0));
+  for (let index = 0; index < Math.min(a.length, b.length); index += 1) if (a[index] !== b[index]) return a[index] - b[index];
+  return a.length - b.length;
+}
+function assertUnicodeScalarString(value) {
+  for (let index = 0; index < value.length; index += 1) {
+    const unit = value.charCodeAt(index);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) throw domainError('DIGEST_MISMATCH');
+      index += 1;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) throw domainError('DIGEST_MISMATCH');
+  }
+}
+function canonicalizeJson(value) {
+  if (value === null || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string') { assertUnicodeScalarString(value); return JSON.stringify(value); }
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) throw domainError('DIGEST_MISMATCH');
+    return String(value);
+  }
+  if (Array.isArray(value)) return `[${value.map(canonicalizeJson).join(',')}]`;
+  if (!value || typeof value !== 'object' || (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)) throw domainError('DIGEST_MISMATCH');
+  return `{${Object.keys(value).sort(compareCodePoints).map((key) => { assertUnicodeScalarString(key); return `${JSON.stringify(key)}:${canonicalizeJson(value[key])}`; }).join(',')}}`;
+}
+function prepareWorkerSnapshot(generation) {
+  if (generation.status !== 'running') throw domainError('INVALID_STATE');
+  let payload = generation.snapshotJson;
+  if (typeof payload === 'string') {
+    try { payload = JSON.parse(payload); } catch { throw domainError('DIGEST_MISMATCH'); }
+  }
+  if (!Number.isSafeInteger(generation.stateVersion) || generation.stateVersion < 1 ||
+      typeof generation.sourceRevision !== 'string' || !generation.sourceRevision || generation.sourceRevision.length > 128 ||
+      !payload || typeof payload !== 'object' || Array.isArray(payload) ||
+      payload.contractVersion !== SNAPSHOT_CONTRACT_VERSION || payload.sourceRevision !== generation.sourceRevision)
+    throw domainError('INVALID_STATE');
+  if (!/^[a-f0-9]{64}$/.test(generation.snapshotDigest ?? '')) throw domainError('DIGEST_MISMATCH');
+  let digestHex;
+  try { digestHex = createHash('sha256').update(canonicalizeJson(payload)).digest('hex'); }
+  catch (error) { if (error.code) throw error; throw domainError('DIGEST_MISMATCH'); }
+  if (digestHex !== generation.snapshotDigest) throw domainError('DIGEST_MISMATCH');
+  return { reportRunId: generation.reportRunId, stateVersion: generation.stateVersion,
+    snapshot: { canonicalization: 'tb-json.v1', algorithm: 'sha256', digestHex, payload } };
+}
 
 function exactKeys(value, keys) {
   return value && typeof value === 'object' && !Array.isArray(value) &&
@@ -258,6 +307,13 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         };
       });
     },
+    async workerSnapshot({ reportRunId }) {
+      return withTransaction(async (transaction) => {
+        const generation = await transaction.lockWorkerSnapshot(reportRunId);
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+        return prepareWorkerSnapshot(generation);
+      });
+    },
     async retry({ sourceRunId }) {
       return withTransaction(async (transaction) => {
         const source = await transaction.lockGeneration(sourceRunId);
@@ -290,6 +346,7 @@ module.exports = {
   prepareDispatchReservation,
   prepareGenerationTransition,
   prepareRetryGeneration,
+  prepareWorkerSnapshot,
   validateDispatchStateCommand,
   validateWorkerClaimCommand,
 };

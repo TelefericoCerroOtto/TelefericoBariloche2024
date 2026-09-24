@@ -18,5 +18,10 @@ module.exports = {
       path: "/tb113/worker/generations/:reportRunId/claim",
       handler: "survey-report-generation.workerClaim",
     },
+    {
+      method: "GET",
+      path: "/tb113/worker/generations/:reportRunId/snapshot",
+      handler: "survey-report-generation.workerSnapshot",
+    },
   ],
 };

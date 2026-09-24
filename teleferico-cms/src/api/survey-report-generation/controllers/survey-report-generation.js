@@ -105,5 +105,24 @@ module.exports = createCoreController(
         ctx.body = { error: { code: safeCode, message: status === 500 ? "The worker command failed" : "The worker command was rejected" } };
       }
     },
+    async workerSnapshot(ctx) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ctx.params.reportRunId)) {
+        ctx.status = 400;
+        ctx.body = { error: { code: "VALIDATION_FAILED", message: "The worker snapshot request is invalid" } };
+        return;
+      }
+      try {
+        const result = await strapi.service("api::survey-report-generation.survey-report-generation").workerSnapshot({ reportRunId: ctx.params.reportRunId });
+        ctx.status = 200;
+        ctx.body = { contractVersion: "survey-worker-cms.v1", ...result };
+      } catch (error) {
+        const code = error.code ?? "INTERNAL_ERROR";
+        const statuses = { RUN_NOT_FOUND: 404, INVALID_STATE: 409, DIGEST_MISMATCH: 409 };
+        const status = statuses[code] ?? 500;
+        const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
+        ctx.status = status;
+        ctx.body = { error: { code: safeCode, message: status === 500 ? "The worker snapshot could not be read" : "The worker snapshot was rejected" } };
+      }
+    },
   }),
 );

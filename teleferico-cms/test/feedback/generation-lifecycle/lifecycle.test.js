@@ -18,6 +18,9 @@ function store(initial) {
             lockedRunId = runId;
             return { ...generations.get(runId) };
           },
+          async lockWorkerSnapshot(runId) {
+            return { ...generations.get(runId) };
+          },
           async updateGeneration(patch) {
             const run = generations.get(lockedRunId);
             generations.set(run.reportRunId, { ...run, ...patch });
@@ -156,6 +159,41 @@ test("worker claim is atomic, resumable, and returns only minimal terminal repla
   assert.deepEqual(await terminalLifecycle.claimWorker({ reportRunId: runId }), {
     reportRunId: runId, stateVersion: 4, status: "failed", disposition: "terminal-replay",
   });
+});
+
+test("worker snapshot returns the deterministic v1 envelope only for running valid state", async () => {
+  const { createHash } = require("node:crypto");
+  const payload = {
+    contractVersion: "survey-snapshot.v1", sourceRevision: "feedback-admin.v1",
+    createdAt: "2026-09-24T12:00:00.000Z",
+    population: { currentSubmissionCount: 0, previousSubmissionCount: 0 },
+    metrics: { current: { submissionCount: 0 }, previous: { submissionCount: 0 } },
+    comments: [{ text: "private worker comment" }],
+  };
+  const canonicalize = (value) => Array.isArray(value) ? `[${value.map(canonicalize).join(",")}]`
+    : value && typeof value === "object" ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(",")}}`
+      : JSON.stringify(value);
+  const digestHex = createHash("sha256").update(canonicalize(payload)).digest("hex");
+  const generation = { reportRunId: REPORT_RUN_ID, status: "running", stateVersion: 3,
+    sourceRevision: "feedback-admin.v1", snapshotDigest: digestHex, snapshotJson: payload,
+    comment: "must not be returned outside the snapshot" };
+  const value = store(generation);
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction });
+  const result = await lifecycle.workerSnapshot({ reportRunId: REPORT_RUN_ID });
+  assert.deepEqual(result, { reportRunId: REPORT_RUN_ID, stateVersion: 3,
+    snapshot: { canonicalization: "tb-json.v1", algorithm: "sha256", digestHex, payload } });
+  assert.deepEqual(await lifecycle.workerSnapshot({ reportRunId: REPORT_RUN_ID }), result);
+  assert.equal(JSON.stringify(result).includes("must not be returned outside"), false);
+  for (const [invalid, code] of [
+    [{ ...generation, status: "queued" }, "INVALID_STATE"],
+    [{ ...generation, snapshotJson: { ...payload, contractVersion: "survey-snapshot.v2" } }, "INVALID_STATE"],
+    [{ ...generation, snapshotDigest: "0".repeat(64) }, "DIGEST_MISMATCH"],
+    [{ ...generation, stateVersion: 0 }, "INVALID_STATE"],
+  ]) {
+    const invalidStore = store(invalid);
+    const invalidLifecycle = createGenerationLifecycle({ withTransaction: invalidStore.withTransaction });
+    await assert.rejects(invalidLifecycle.workerSnapshot({ reportRunId: REPORT_RUN_ID }), { code });
+  }
 });
 
 test("dispatch compensation replays identically and rejects altered, claimed, or stale generations", async () => {

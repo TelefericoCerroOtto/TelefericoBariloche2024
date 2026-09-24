@@ -11,6 +11,10 @@ const OWNER = "tb113_test_admin_commands";
 const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000001";
 const DISPATCH_RUN_ID = "00000000-0000-4000-8000-000000000002";
 const WORKER_RUN_ID = "00000000-0000-4000-8000-000000000003";
+const WORKER_SNAPSHOT_RUN_ID = "00000000-0000-4000-8000-000000000004";
+const WORKER_QUEUED_RUN_ID = "00000000-0000-4000-8000-000000000005";
+const WORKER_VERSION_RUN_ID = "00000000-0000-4000-8000-000000000006";
+const WORKER_DIGEST_RUN_ID = "00000000-0000-4000-8000-000000000007";
 const compose = (...args) =>
   executeFixed(DOCKER_EXECUTABLE, [
     "compose",
@@ -51,10 +55,33 @@ function generationData(reportRunId = REPORT_RUN_ID, periodStart = "2026-08-01",
   };
 }
 
+function canonicalizeJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalizeJson).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalizeJson(value[key])}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+
 async function grant(strapi, roleId, action) {
   await strapi.db.query("plugin::users-permissions.permission").create({
     data: { action, role: roleId },
   });
+}
+
+async function captureQueries(strapi, operation) {
+  const queries = [];
+  const listener = ({ sql }) => queries.push(sql);
+  strapi.db.connection.on("query", listener);
+  try {
+    return { result: await operation(), queries };
+  } finally {
+    strapi.db.connection.off("query", listener);
+  }
+}
+
+function generationLockQuery(queries) {
+  const query = queries.find((sql) => /select\b/i.test(sql) && /survey_report_generations/i.test(sql) && /for update/i.test(sql));
+  assert.ok(query, "expected the operation to lock its generation row");
+  return query;
 }
 
 test("native role authorization creates only through the core generation endpoint", async () => {
@@ -257,8 +284,10 @@ test("native role authorization creates only through the core generation endpoin
       headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
       body: JSON.stringify(reserveCommand),
     });
-    const reservations = await Promise.all([sendReserve(), sendReserve()]);
+    const capturedReservations = await captureQueries(strapi, () => Promise.all([sendReserve(), sendReserve()]));
+    const reservations = capturedReservations.result;
     assert.deepEqual(reservations.map(({ status }) => status), [200, 200]);
+    assert.doesNotMatch(generationLockQuery(capturedReservations.queries), /"snapshot_json"/i);
     const reservationResults = await Promise.all(reservations.map((response) => response.json()));
     reservationResults.sort((left, right) => Number(left.replayed) - Number(right.replayed));
     assert.deepEqual(reservationResults, [
@@ -401,10 +430,12 @@ test("native role authorization creates only through the core generation endpoin
     });
     assert.equal(ungrantedClaim.status, 403);
     await grant(strapi, role.id, "api::survey-report-generation.survey-report-generation.workerClaim");
-    const claimed = await Promise.all([1, 2].map(() => fetch(claimUrl, {
+    const capturedClaims = await captureQueries(strapi, () => Promise.all([1, 2].map(() => fetch(claimUrl, {
       method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(claimCommand),
-    })));
+    }))));
+    const claimed = capturedClaims.result;
     assert.deepEqual(claimed.map(({ status }) => status), [200, 200]);
+    assert.doesNotMatch(generationLockQuery(capturedClaims.queries), /"snapshot_json"/i);
     const claimResults = await Promise.all(claimed.map((response) => response.json()));
     assert.deepEqual(claimResults.map(({ disposition }) => disposition).sort(), ["claimed", "resumed"]);
     assert.ok(claimResults.every((result) => result.status === "running" && result.stateVersion === 2));
@@ -416,6 +447,76 @@ test("native role authorization creates only through the core generation endpoin
     });
     assert.equal(oversizedClaim.status, 413);
     assert.equal((await oversizedClaim.json()).error.code, "PAYLOAD_TOO_LARGE");
+
+    const snapshotPayload = {
+      contractVersion: "survey-snapshot.v1", sourceRevision: "feedback-admin.v1",
+      createdAt: "2026-09-24T12:00:00.000Z",
+      population: { currentSubmissionCount: 0, previousSubmissionCount: 0 },
+      metrics: { current: { submissionCount: 0 }, previous: { submissionCount: 0 } },
+      comments: [{ text: "worker-only private comment" }],
+    };
+    const snapshotDigest = require("node:crypto").createHash("sha256").update(canonicalizeJson(snapshotPayload)).digest("hex");
+    const snapshotGeneration = await fetch(endpoint, {
+      method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ data: { ...generationData(WORKER_SNAPSHOT_RUN_ID, "2026-10-21", "2026-10-31"), snapshotDigest, snapshotJson: snapshotPayload } }),
+    });
+    assert.equal(snapshotGeneration.status, 201);
+    await strapi.db.connection("survey_report_generations").where({ report_run_id: WORKER_SNAPSHOT_RUN_ID })
+      .update({ snapshot_digest: snapshotDigest, snapshot_json: snapshotPayload });
+    const snapshotClaimUrl = `http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_SNAPSHOT_RUN_ID}/claim`;
+    const snapshotClaim = await fetch(snapshotClaimUrl, {
+      method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(claimCommand),
+    });
+    assert.equal(snapshotClaim.status, 200);
+    const snapshotUrl = `http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_SNAPSHOT_RUN_ID}/snapshot`;
+    const anonymousSnapshot = await fetch(snapshotUrl);
+    assert.ok([401, 403].includes(anonymousSnapshot.status));
+    const ungrantedSnapshot = await fetch(snapshotUrl, { headers: { authorization: `Bearer ${jwt}` } });
+    assert.equal(ungrantedSnapshot.status, 403);
+    await grant(strapi, role.id, "api::survey-report-generation.survey-report-generation.workerSnapshot");
+    const capturedSnapshots = await captureQueries(strapi, () => fetch(snapshotUrl, { headers: { authorization: `Bearer ${jwt}` } }));
+    assert.match(generationLockQuery(capturedSnapshots.queries), /"snapshot_json"/i);
+    const snapshots = [capturedSnapshots.result, await fetch(snapshotUrl, { headers: { authorization: `Bearer ${jwt}` } })];
+    assert.deepEqual(snapshots.map(({ status }) => status), [200, 200]);
+    const snapshotBodies = await Promise.all(snapshots.map((response) => response.json()));
+    assert.deepEqual(snapshotBodies[0], {
+      contractVersion: "survey-worker-cms.v1", reportRunId: WORKER_SNAPSHOT_RUN_ID, stateVersion: 2,
+      snapshot: { canonicalization: "tb-json.v1", algorithm: "sha256", digestHex: snapshotDigest, payload: snapshotPayload },
+    });
+    assert.equal(JSON.stringify(snapshotBodies[1]), JSON.stringify(snapshotBodies[0]));
+    assert.equal(JSON.stringify(snapshotBodies[0]).includes("checkpoint"), false);
+
+    const queuedGeneration = await fetch(endpoint, {
+      method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ data: generationData(WORKER_QUEUED_RUN_ID, "2026-11-01", "2026-11-10") }),
+    });
+    assert.equal(queuedGeneration.status, 201);
+    const queuedSnapshot = await fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_QUEUED_RUN_ID}/snapshot`, { headers: { authorization: `Bearer ${jwt}` } });
+    assert.equal(queuedSnapshot.status, 409);
+    assert.equal((await queuedSnapshot.json()).error.code, "INVALID_STATE");
+
+    for (const [runId, snapshot, digest, expectedCode, periodStart, periodEnd] of [
+      [WORKER_VERSION_RUN_ID, { ...snapshotPayload, contractVersion: "survey-snapshot.v2" }, null, "INVALID_STATE", "2026-11-11", "2026-11-20"],
+      [WORKER_DIGEST_RUN_ID, snapshotPayload, "0".repeat(64), "DIGEST_MISMATCH", "2026-11-21", "2026-11-30"],
+    ]) {
+      const storedDigest = digest ?? require("node:crypto").createHash("sha256").update(canonicalizeJson(snapshot)).digest("hex");
+      const invalidGeneration = await fetch(endpoint, {
+        method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+        body: JSON.stringify({ data: { ...generationData(runId, periodStart, periodEnd), snapshotDigest: storedDigest, snapshotJson: snapshot } }),
+      });
+      assert.equal(invalidGeneration.status, 201);
+      await strapi.db.connection("survey_report_generations").where({ report_run_id: runId })
+        .update({ snapshot_digest: storedDigest, snapshot_json: snapshot });
+      const invalidClaim = await fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${runId}/claim`, {
+        method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+        body: JSON.stringify(claimCommand),
+      });
+      assert.equal(invalidClaim.status, 200);
+      const invalidSnapshot = await fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${runId}/snapshot`, { headers: { authorization: `Bearer ${jwt}` } });
+      assert.equal(invalidSnapshot.status, 409);
+      assert.equal((await invalidSnapshot.json()).error.code, expectedCode);
+    }
 
     const update = await fetch(`${endpoint}/${body.data.documentId}`, {
       method: "PUT",
