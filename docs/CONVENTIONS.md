@@ -143,7 +143,7 @@ The commit link label must be the exact full 40-character parent head SHA. Its v
 
 ### Direct implementation finalization shortcut
 
-`/implementation-pr` is an explicit, single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR from a typed publication plan, apply required metadata, and observe repository governance with a bounded timeout. The default plan targets `development`; only a validated `stacked-to-main` plan may select the exact parent branch and draft state.
+`/implementation-pr` is a single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR from a typed publication plan, apply required metadata, and observe repository governance with a bounded timeout. It accepts the slash command or an unambiguous natural-language authorization naming these mutations, the destination, and the current credential/session authorization. The default plan targets `development`; only a validated `stacked-to-main` plan may select the exact parent branch and draft state. An open PR for the head is an update path through `branch-pr` regenerate under fresh explicit authorization, never a duplicate create.
 
 After PR creation, invoke:
 
@@ -153,6 +153,8 @@ node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url>
 
 The helper is the sole source of check identities, polling, duplicate-run handling, and exit semantics. It waits for `Governance tests`, `validate-pr-policy`, and `trusted-pr-sync`; Cloud Build and other functional checks are reported separately and never change the governance exit status. A governance pass is not a claim that the PR is fully validated while application tests are still running.
 
+The first failed, timed-out, or errored observation is terminal for that invocation. Diagnose failures with authorized, repository-scoped GitHub CLI reads, but do not repair metadata or retry the observation in the same `/implementation-pr` invocation. Any later metadata-only repair and observation requires fresh explicit authorization and permission under the governing contracts. Never substitute unfiltered `gh pr checks --watch` for the repository helper.
+
 Until required PR CI adopts app Vitest, `/implementation-pr` applies required PR metadata before governance observation, then runs `pnpm run test` once when the complete candidate inventory contains an app path other than `.md`/`.mdx` documentation. App Markdown-only changes such as `teleferico-app/README.md`, and CMS/root-only changes, skip. Vitest runs even if governance fails or times out; governance exit semantics remain unchanged. The Vitest subprocess has a 15-minute timeout; a timeout is an infrastructure error (`status=error`) and is not retried. The helper exits `0` for completed suite failures and reports JSON `status=failed`; argument/execution errors remain nonzero. It withholds raw stdout/stderr from failure JSON. Scope inputs are caller-provided paths tied to the accepted snapshot and PR read-back, not independently verified by the helper. Broad-suite failures are unrelated only when evidence proves that attribution; otherwise report candidate-caused or unknown. When required PR CI adopts the suite, retire the local rule and helper in the same policy change.
 
 Use `--mode stacked-preview` only while observing a draft child against its parent branch. This mode binds the exact head SHA, base branch/SHA, and draft state; functional and Cloud Build checks are explicitly deferred until retargeting to `development`. The default mode remains strict about `base=development`.
@@ -161,7 +163,7 @@ It does not authorize later changes, force pushes, branch changes, rebases, merg
 
 #### Maintainer mixed-scope override
 
-The only mixed-scope override is the explicit invocation `/implementation-pr --allow-mixed-scope "<reason>"`.
+The exact `/implementation-pr --allow-mixed-scope "<reason>"` invocation remains valid. An equally explicit natural-language authorization may approve inclusion of unrelated, non-sensitive paths without that literal flag when it names the workflow's mutation scope, destination, and current credential/session authorization. The user's concrete explanation may be converted into a non-blank, one-line English audit reason; do not invent consent or rationale.
 
 - Empty `/implementation-pr` remains strict. Missing, blank, unknown, or extra arguments fail closed.
 - The override is bound to the complete exact invocation snapshot, selected `origin`, typed base plan, destination, and current authenticated Git/GitHub session authorization. A later generic follow-up cannot reuse it.

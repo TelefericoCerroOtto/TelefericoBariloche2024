@@ -12,18 +12,18 @@ const REDIS_PERSIST_SCRIPT = [
 ].join("\n");
 
 export type BrowserGuardStore = {
-  readonly isActive: (browserTokenHash: string) => Promise<boolean>;
+  readonly isActive: (_browserTokenHash: string) => Promise<boolean>;
   readonly persist: (
-    browserTokenHash: string,
-    ttlMilliseconds: number,
+    _browserTokenHash: string,
+    _ttlMilliseconds: number,
   ) => Promise<void>;
 };
 
 export type FeedbackBrowserGuard = {
-  readonly isActive: (browserTokenHash: string) => Promise<boolean>;
+  readonly isActive: (_browserTokenHash: string) => Promise<boolean>;
   readonly persist: (
-    browserTokenHash: string,
-    guardUntil: string,
+    _browserTokenHash: string,
+    _guardUntil: string,
   ) => Promise<void>;
 };
 
@@ -39,7 +39,7 @@ type BrowserGuardDegradationEvent = {
 type FeedbackBrowserGuardOptions = {
   readonly store: BrowserGuardStore;
   readonly now?: () => Date;
-  readonly emit?: (event: BrowserGuardDegradationEvent) => void;
+  readonly emit?: (_event: BrowserGuardDegradationEvent) => void;
 };
 
 type RedisBrowserGuardStoreOptions = {

@@ -608,3 +608,41 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
 - **RED evidence:** Immediately before this fixture correction, `npm test -- feedback/admin-report-commands` failed at this assertion: expected 409 but received 400 for `expectedStateVersion: 0`.
 - **GREEN evidence:** `./node_modules/.bin/vitest run 'src/lib/feedback/admin-command.test.ts' 'src/lib/feedback/generation-lifecycle.test.ts'` — 2 files, 20 tests passed. `npm test -- feedback/admin-report-commands` — 1 test passed, including 403 unauthenticated/ungranted denial, 413 Content-Length and chunked body rejection, unchanged queued state, concurrent compensation/replay, and safe 409 state-version conflict. `npm test -- feedback/generation-lifecycle` — 6/6 passed including PostgreSQL. `npm test -- feedback/permissions` — 4/4 passed.
 - **Cleanup and integrity:** The admin command harness’s built-in cleanup and post-test absence assertions passed. Final `git diff --check` passed. Complete candidate size is `710` additions plus deletions, measured by tracked `git diff --numstat HEAD` additions/deletions plus newline counts for all untracked `git ls-files --others --exclude-standard` paths; below the 800-line cap.
+
+### `TB-113 direct implementation: clear feedback typecheck diagnostics`
+
+- **Identity and scope:** Fixed the nine current app TypeScript diagnostics in the dashboard query serializer and its focused fixtures only; no production contract, schema, dependency, or behavior change beyond omitting absent optional query values.
+- **Changed paths:** `teleferico-app/src/components/administration/feedback/FeedbackDashboard.tsx`, `teleferico-app/src/components/administration/feedback/FeedbackDashboard.test.tsx`, `teleferico-app/src/lib/feedback/admin-read.test.ts`, and `teleferico-app/src/lib/feedback/generation-lifecycle.test.ts`.
+- **Implementation:** The query helper accepts optional values and adds only present parameters; the matrix fixture uses its mutable contract type, QR projections are tagged with their narrowed view literals, the admin-read fixture is built by `createSnapshot`, and the incomplete-checkpoint case supplies all other required completion fields.
+- **Checks actually run:**
+  - `pnpm run typecheck` from `teleferico-app` — passed; exit 0, no TypeScript diagnostics.
+  - `pnpm exec vitest run 'src/components/administration/feedback/FeedbackDashboard.test.tsx' 'src/lib/feedback/admin-read.test.ts' 'src/lib/feedback/generation-lifecycle.test.ts'` from `teleferico-app` — passed; exit 0, 3 files and 32 tests passed.
+  - `pnpm exec prettier --check 'src/components/administration/feedback/FeedbackDashboard.tsx' 'src/components/administration/feedback/FeedbackDashboard.test.tsx' 'src/lib/feedback/admin-read.test.ts' 'src/lib/feedback/generation-lifecycle.test.ts'` from `teleferico-app` — failed; check-only reported formatting differences in the dashboard component, dashboard test, and lifecycle test. No formatter write was applied.
+  - `git diff --check` from the repository root — passed; exit 0, no output after the final ledger append.
+- **Status:** `passed` for typecheck and the requested focused tests only; formatter convergence and broader/integrated validation are not claimed.
+- **Runtime harness:** `N/A` — type-contract and unit/component test cleanup; no external runtime boundary was changed.
+- **Rollback boundary:** Revert this entry and the four changed app source/test files together; no other files or behaviors are in scope.
+- **Later integrated validation:** `pending`; no PR CI, browser, CMS, staging, production, or formal SDD validation was run.
+
+### `TB-113 direct implementation: clear feedback build lint diagnostics`
+
+- **Identity and scope:** Cleared the 13 reported `no-unused-vars` errors and one `react-hooks/exhaustive-deps` warning from the four reported feedback paths. Existing typecheck-fix content in the dashboard files was preserved; the prior five-file working-tree change was not reverted or rewritten.
+- **Changed paths for this follow-up:**
+  - `teleferico-app/src/components/administration/feedback/FeedbackDashboard.test.tsx` — underscore-prefixes one unused parameter label in a Promise resolver type.
+  - `teleferico-app/src/components/administration/feedback/FeedbackDashboard.tsx` — underscore-prefixes four unused callback parameter labels in type signatures and uses a stable module-level empty available-points fallback.
+  - `teleferico-app/src/lib/feedback/browser-guard.ts` — underscore-prefixes unused type-only callback parameter labels without changing guard inputs, runtime dependencies, or behavior.
+  - `teleferico-app/src/lib/feedback/dispatch.ts` — underscore-prefixes the unused dispatcher interface parameter label only.
+  - `openspec/changes/tb-113-visitor-feedback/direct-implementation-ledger.md` — appends this evidence; all preceding entries remain unchanged.
+- **Initial reproduction:** The requested ESLint command reported 13 `no-unused-vars` errors and one `react-hooks/exhaustive-deps` warning across those four paths.
+- **Checks actually run:**
+  - `pnpm exec eslint 'src/components/administration/feedback/FeedbackDashboard.test.tsx' 'src/components/administration/feedback/FeedbackDashboard.tsx' 'src/lib/feedback/browser-guard.ts' 'src/lib/feedback/dispatch.ts'` from `teleferico-app` — passed; exit 0, no output.
+  - `pnpm run typecheck` from `teleferico-app` — passed; exit 0, `tsc -p tsconfig.json --noEmit` emitted no diagnostics.
+  - `pnpm exec vitest run 'src/components/administration/feedback/FeedbackDashboard.test.tsx' 'src/lib/feedback/admin-read.test.ts' 'src/lib/feedback/generation-lifecycle.test.ts' 'src/lib/feedback/browser-guard.test.ts'` from `teleferico-app` — passed; exit 0, 4 files and 37 tests passed.
+  - No dispatch-specific test file was present; the requested generation-lifecycle suite was included in the focused test run.
+  - `pnpm run build` — not run because `next build` loads the secret-bearing `.env.local`, which this task explicitly prohibits accessing.
+  - `git diff --check` from the repository root — passed; exit 0, no output after the final ledger append.
+- **Status:** `passed` for the targeted lint, typecheck, and focused tests; production build remains `not run` for the stated environment-safety reason.
+- **Runtime harness:** `N/A` — type-only label cleanup and a stable fallback reference; no browser-guard or dispatch contract behavior changed.
+- **Residual risks:** Full Next.js build/lint validation was not run; exact four-file ESLint and app typecheck passed. Existing Prettier differences recorded above remain outside this follow-up.
+- **Rollback boundary:** Revert this follow-up's changes in the four listed app paths and remove this appended ledger entry; preserve the earlier typecheck-fix content and all other working-tree changes.
+- **Later integrated validation:** `pending`; PR CI and integrated validation remain unobserved.

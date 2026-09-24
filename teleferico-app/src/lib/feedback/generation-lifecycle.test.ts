@@ -165,6 +165,9 @@ describe("report generation lifecycle contracts", () => {
           size: 12,
           mimeType: "application/pdf",
         },
+        validatedAnalysis: { schemaVersion: "survey-published-analysis.v1", sections: [] },
+        analysisDigest: "c".repeat(64),
+        rendererVersion: "renderer.v1",
         now: "now",
       }),
     ).toThrow("CHECKPOINT_SET_INCOMPLETE");
