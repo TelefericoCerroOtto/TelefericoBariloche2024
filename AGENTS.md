@@ -102,6 +102,7 @@ For each command, include:
 - Direct deployments from the console are prohibited.
 - The only operational path to deploy is through a merge of a pull request into the branch associated with the target environment.
 - The agent may prepare the pull request and supporting changes, but it must not decide, approve, or perform the merge.
+- Narrow exception: while TB-113 feedback remains incomplete, an operator may manually toggle only `FEEDBACK_CAPABILITY_ENABLED` on `app-staging-teleferico` or `app-production-teleferico` for a bounded test window, using the exact approved `gcloud run services update` command documented in `docs/INFRA.md`. The command still requires explicit approval for the exact environment and value, and all other direct deployment/environment changes remain prohibited. Set the flag back to `false` after testing; the next Cloud Build deployment also resets it to `false`.
 
 ### Practical default
 

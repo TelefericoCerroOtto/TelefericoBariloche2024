@@ -244,6 +244,26 @@ There may also be legacy triggers paused in the console. They are purposefully k
 
 Documentary snapshots of their configurations are versioned in [infra/cloud-build/README.md](infra/cloud-build/README.md).
 
+### Bounded TB-113 feedback test toggle
+
+While TB-113 feedback remains incomplete, every app staging and production Cloud Build deployment explicitly sets the runtime-only `FEEDBACK_CAPABILITY_ENABLED=false`. A deployment therefore closes the feature and resets any prior manual test window. Enabling the flag does not complete the feature or change the deployment default; changing that default requires a separate approved change after feature completion.
+
+A reviewed operator may temporarily enable or disable only this flag on the app service for a bounded test window. Each operation creates a new Cloud Run revision outside the normal PR-to-deploy path, so it requires explicit confirmation for the exact command, environment, and value before execution. No other environment variable, secret, image, service, or deployment setting is covered by this exception.
+
+```bash
+gcloud run services update app-staging-teleferico \
+  --project teleferico-bariloche-2024 \
+  --region southamerica-east1 \
+  --update-env-vars FEEDBACK_CAPABILITY_ENABLED=<true|false>
+
+gcloud run services update app-production-teleferico \
+  --project teleferico-bariloche-2024 \
+  --region southamerica-east1 \
+  --update-env-vars FEEDBACK_CAPABILITY_ENABLED=<true|false>
+```
+
+Production is high risk because enabling exposes the public QR feedback surface and the authenticated administration feature to production users; staging is medium risk and still changes a live service. After the test, execute the same approved command with `false`. Rollback is another revision setting the flag to `false`; the next Cloud Build deployment also resets it to `false`. This exception does not authorize arbitrary direct deployments, other environment changes, secret access, or changing either trigger's default.
+
 ### Application-test executor baseline
 
 `cloudbuild.playwright-e2e.json` is the repository-owned pre-merge executor. The active GitHub dispatcher submits the exact PR SHA through `playwright-e2e-dispatch`; the disabled legacy `playwright-e2e-pr` trigger references the same file and receives the safe default `smoke` suite. Every accepted legacy profile runs fixture-backed Playwright, independent real-stack readiness, and blocking real-auth acceptance. It does not deploy an application.

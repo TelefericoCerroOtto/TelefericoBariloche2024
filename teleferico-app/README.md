@@ -23,7 +23,7 @@ Frontend application of the project, implemented with Next.js (App Router).
 
 Playwright is Chromium-only in the initial browser test layer. Its local fixtures run as a separate HTTP server and are supplied to the Next.js server through `BUILD_STRAPI_BASE_URL`; no test route or production-accessible bypass is added to the application.
 
-Feedback pages and APIs are closed by default outside the feedback-capable runtime. The Playwright fixture app process explicitly sets the server-only `FEEDBACK_CAPABILITY_ENABLED=true` flag; the gate accepts it only when `NODE_ENV` is exactly `development` or `test`, so production and staging remain closed even if the flag is accidentally set.
+Feedback pages, APIs, and dashboard navigation are closed unless the server-side `FEEDBACK_CAPABILITY_ENABLED` value is exactly `true`. The same explicit flag controls local, staging, and production; no runtime or deployment label overrides it. Playwright's fixture app process opts in explicitly. The flag is server-only and must never use a `NEXT_PUBLIC_` name. While TB-113 remains incomplete, Cloud Build deployment snapshots explicitly reset it to `false`; an approved bounded operational test window may set it to `true`, but the next deployment resets it. A future, separately approved feature-completion change is required to make deployment defaults `true`.
 
 Agents run `pnpm run test:e2e` while implementing or diagnosing browser behavior. Developers are not required to run E2E commands manually, and no pre-commit or pre-push hook runs the suite.
 
