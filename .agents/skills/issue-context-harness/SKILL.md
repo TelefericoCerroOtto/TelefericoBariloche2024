@@ -20,30 +20,30 @@ This skill complements `notion-todo-governance`: it resolves context for executi
 - Treat `docs/issue-context-contract.md` as canonical for issue structure and artifact expectations.
 - Resolve references silently by default; do not emit unsolicited context dumps.
 - Emit a structured recap only when the user explicitly asks for summary/context snapshot/recap.
-- Prefer deterministic links: `Work ID` ↔ Notion row ↔ GitHub issue ↔ governed branch.
+- Use the supplied reference as the first reliable anchor. For informational or read-only questions, follow only the links needed for an accurate answer.
+- Reconcile `Work ID` ↔ Notion row ↔ GitHub issue ↔ PR ↔ governed branch deterministically for implementation, follow-up/regression decisions, tracking mutations, delivery operations, ambiguous identity, or an explicit recap.
 - Treat a unique valid `Work ID` as primary identity. A different or empty Notion `Branch` is metadata, not a linkage conflict.
-- If evidence conflicts, continue only when one identity remains uniquely supported. Otherwise report the ambiguity without reopening issues or correcting tracking.
+- For mutation-sensitive work, continue only when one identity remains uniquely supported. Otherwise fail closed and report the ambiguity without reopening issues or correcting tracking.
 
 ## Decision Gates
 
 | Signal | Action |
 | --- | --- |
-| `TB-###` present | Resolve Notion row by `Work ID`; then fetch linked issue/branch if available |
-| `#123` or GitHub issue URL | Resolve issue first; backtrack to Notion row and `Work ID` |
-| Notion row URL | Fetch row, then resolve linked issue and branch |
-| Governed branch with `tb-###` | Extract Work ID from branch, then resolve Notion and issue |
+| Informational/read-only request with an anchor | Read that anchor; follow related artifacts only when needed for accuracy |
+| Implementation, tracking mutation, or delivery operation | Reconcile the full deterministic artifact chain before acting |
+| `TB-###`, issue/Notion URL, or governed branch | Use the supplied artifact as the first anchor |
 | Follow-up/regression without IDs | Search canonical Notion, GitHub issues/PRs, and branch history semantically; reuse only on unique evidence |
-| User asks “summary/recap/context snapshot” | Return structured recap of resolved artifacts |
+| User asks “summary/recap/context snapshot” | Reconcile the full chain and return a structured recap |
 | User does not ask summary | Keep lookup silent and continue task |
 
 ## Execution Steps
 
-1. Detect references or follow-up/regression intent in the user request (`TB-###`, `#123`, Notion URL, issue URL, governed branch).
+1. Classify the task and detect references or follow-up/regression intent (`TB-###`, `#123`, Notion URL, issue URL, governed branch).
 2. Resolve the first reliable anchor artifact.
-3. Traverse related artifacts to complete linkage graph.
-4. Validate consistency (`Work ID`, URLs, and branch metadata) without allowing `Branch` to veto a unique Work ID association.
+3. For informational/read-only work, follow related links only as needed. For implementation, follow-up/regression decisions, mutations, delivery, ambiguous identity, or a recap, complete the deterministic linkage graph.
+4. Validate consistency to the required depth without allowing `Branch` to veto a unique Work ID association. Fail closed on mutation-sensitive ambiguity.
 5. Use resolved context during task execution without additional chatter.
-6. Only if explicitly requested, return a concise structured snapshot with: Work ID, Notion URL, issue URL, branch, status, and open gaps.
+6. Only if explicitly requested, return a concise structured snapshot with: Work ID, Notion URL, issue URL, PR URL, branch, status, and open gaps.
 
 ## Output Contract
 
@@ -52,7 +52,7 @@ Return one of two modes:
 - **Silent mode (default):** no dedicated context section; proceed with requested task.
 - **Summary mode (explicit request only):** emit a structured snapshot of resolved artifacts and mismatches.
 
-Always include unresolved links as `Unknown` rather than guessing.
+In summary mode, include unresolved links as `Unknown` rather than guessing.
 
 ## References
 

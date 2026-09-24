@@ -1,5 +1,7 @@
 # Proposal: TB-113 Visitor Feedback
 
+Before implementing any work unit, read [README.md](./README.md) for the TB-113 routing and evidence contract.
+
 ## Intent
 
 Deliver QR-only anonymous feedback, administration, and AI-assisted PDF reports while preserving D01-D93 and separating deterministic evidence from model interpretation.

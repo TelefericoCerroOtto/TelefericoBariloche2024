@@ -42,6 +42,14 @@
     "dispatchAttemptCount": { "type": "integer", "required": true, "min": 0, "default": 0 },
     "cumulativeCostMicros": { "type": "biginteger", "required": true, "min": 0, "default": "0" },
     "taskName": { "type": "string", "unique": true, "private": true, "maxLength": 500 },
+    "dispatchState": {
+      "type": "enumeration",
+      "enum": ["unreserved", "reserved", "created", "unknown"],
+      "required": true,
+      "default": "unreserved",
+      "private": true
+    },
+    "dispatchEvidenceJson": { "type": "json", "private": true },
     "claimedAt": { "type": "datetime", "private": true },
     "completedAt": { "type": "datetime", "private": true },
     "failureCode": { "type": "string", "private": true, "maxLength": 64 },

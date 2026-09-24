@@ -1,7 +1,34 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-ROOT_DIR="${1:-.}"
+TYPECHECK_ENABLED=0
+ROOT_DIR="."
+ROOT_DIR_SET=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --typecheck)
+      if [[ "$TYPECHECK_ENABLED" -eq 1 ]]; then
+        printf '%s\n' "ERROR: '--typecheck' may be specified only once." >&2
+        exit 2
+      fi
+      TYPECHECK_ENABLED=1
+      ;;
+    -* )
+      printf '%s\n' "ERROR: Unknown option '$arg'. Usage: commit_guard.sh [--typecheck] [ROOT_DIR]" >&2
+      exit 2
+      ;;
+    *)
+      if [[ "$ROOT_DIR_SET" -eq 1 ]]; then
+        printf '%s\n' "ERROR: Only one ROOT_DIR may be specified. Usage: commit_guard.sh [--typecheck] [ROOT_DIR]" >&2
+        exit 2
+      fi
+      ROOT_DIR="$arg"
+      ROOT_DIR_SET=1
+      ;;
+  esac
+done
+
 ROOT_DIR="$(cd "$ROOT_DIR" && pwd)"
 
 if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -143,8 +170,28 @@ run_typecheck_for_package() {
     return 0
   fi
 
-  # Must have explicit typecheck script; do not invent.
-  if ! rg -n --pcre2 '"scripts"\s*:\s*\{[\s\S]*?"typecheck"\s*:' "$package_json" >/dev/null 2>&1; then
+  # Parse JSON structurally so formatting/newlines cannot hide a declared script.
+  local script_state
+  if ! script_state="$(node -e '
+    const fs = require("node:fs");
+    try {
+      const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+      if (!pkg || typeof pkg !== "object" || Array.isArray(pkg)) throw new Error("root must be an object");
+      if (pkg.scripts === undefined) process.stdout.write("MISSING");
+      else if (!pkg.scripts || typeof pkg.scripts !== "object" || Array.isArray(pkg.scripts)) throw new Error("scripts must be an object");
+      else if (Object.hasOwn(pkg.scripts, "typecheck")) {
+        if (typeof pkg.scripts.typecheck !== "string" || !pkg.scripts.typecheck.trim()) throw new Error("scripts.typecheck must be a non-empty string");
+        process.stdout.write("PRESENT");
+      } else process.stdout.write("MISSING");
+    } catch (error) {
+      process.stderr.write(`Invalid package configuration: ${error.message}`);
+      process.exitCode = 2;
+    }
+  ' "$package_json" 2>&1)"; then
+    echo "$label|FAILED|Malformed package.json: $script_state"
+    return 0
+  fi
+  if [[ "$script_state" == "MISSING" ]]; then
     echo "$label|NOT_AVAILABLE|No typecheck script in package.json."
     return 0
   fi
@@ -182,6 +229,7 @@ run_typecheck_for_package() {
 # -----------------------------
 echo "=== Commit Guard Report ==="
 echo "Repository: $ROOT_DIR"
+echo "Branch: $(git -C "$ROOT_DIR" branch --show-current)"
 echo
 
 echo "Change inventory:"
@@ -215,11 +263,19 @@ fi
 
 echo
 echo "Patch sanity checks:"
-DIFF_CHECK_OUTPUT="$(git -C "$ROOT_DIR" diff --check || true)"
-if [[ -n "$DIFF_CHECK_OUTPUT" ]]; then
+CACHED_DIFF_CHECK_OUTPUT="$(git -C "$ROOT_DIR" diff --cached --check || true)"
+UNSTAGED_DIFF_CHECK_OUTPUT="$(git -C "$ROOT_DIR" diff --check || true)"
+if [[ -n "$CACHED_DIFF_CHECK_OUTPUT" ]]; then
+  echo "- git diff --cached --check: ISSUES"
+  echo "  (showing up to 10 lines)"
+  echo "$CACHED_DIFF_CHECK_OUTPUT" | head -n 10 | sed 's/^/  /'
+else
+  echo "- git diff --cached --check: OK"
+fi
+if [[ -n "$UNSTAGED_DIFF_CHECK_OUTPUT" ]]; then
   echo "- git diff --check: ISSUES"
   echo "  (showing up to 10 lines)"
-  echo "$DIFF_CHECK_OUTPUT" | head -n 10 | sed 's/^/  /'
+  echo "$UNSTAGED_DIFF_CHECK_OUTPUT" | head -n 10 | sed 's/^/  /'
 else
   echo "- git diff --check: OK"
 fi
@@ -254,18 +310,31 @@ fi
 
 echo
 echo "Typecheck results:"
-mapfile -t TYPECHECK_RESULTS < <(
-  run_typecheck_for_package "teleferico-app" "teleferico-app" "$APP_AFFECTED"
-  run_typecheck_for_package "teleferico-cms" "teleferico-cms" "$CMS_AFFECTED"
-  run_typecheck_for_package "tools/image-pipeline" "tools/image-pipeline" "$PIPELINE_AFFECTED"
-)
+if [[ "$TYPECHECK_ENABLED" -eq 1 ]]; then
+  mapfile -t TYPECHECK_RESULTS < <(
+    run_typecheck_for_package "teleferico-app" "teleferico-app" "$APP_AFFECTED"
+    run_typecheck_for_package "teleferico-cms" "teleferico-cms" "$CMS_AFFECTED"
+    run_typecheck_for_package "tools/image-pipeline" "tools/image-pipeline" "$PIPELINE_AFFECTED"
+  )
+else
+  TYPECHECK_RESULTS=()
+  [[ "$APP_AFFECTED" -eq 1 ]] && TYPECHECK_RESULTS+=("teleferico-app|NOT_RUN|Typecheck is opt-in; rerun with --typecheck for a deep diagnostic.")
+  [[ "$CMS_AFFECTED" -eq 1 ]] && TYPECHECK_RESULTS+=("teleferico-cms|NOT_RUN|Typecheck is opt-in; rerun with --typecheck for a deep diagnostic.")
+  [[ "$PIPELINE_AFFECTED" -eq 1 ]] && TYPECHECK_RESULTS+=("tools/image-pipeline|NOT_RUN|Typecheck is opt-in; rerun with --typecheck for a deep diagnostic.")
+  [[ "${#TYPECHECK_RESULTS[@]}" -gt 0 ]] || TYPECHECK_RESULTS+=("all packages|NOT_RUN|No package typecheck was requested.")
+fi
 
 TYPECHECK_FAILED=0
+CONFIG_FAILED=0
 for result in "${TYPECHECK_RESULTS[@]}"; do
   IFS='|' read -r pkg status message <<<"$result"
   echo "- $pkg: $status - $message"
   if [[ "$status" == "FAILED" ]]; then
-    TYPECHECK_FAILED=1
+    if [[ "$message" == Malformed\ package.json:* ]]; then
+      CONFIG_FAILED=1
+    else
+      TYPECHECK_FAILED=1
+    fi
   fi
 done
 
@@ -282,9 +351,14 @@ if [[ "$TYPECHECK_FAILED" -eq 1 ]]; then
   REASONS+=("At least one affected package failed typecheck.")
 fi
 
-if [[ -n "$DIFF_CHECK_OUTPUT" ]]; then
+if [[ "$CONFIG_FAILED" -eq 1 ]]; then
   STATUS="NOT READY"
-  REASONS+=("git diff --check reported whitespace/errors.")
+  REASONS+=("At least one affected package has malformed package configuration.")
+fi
+
+if [[ -n "$CACHED_DIFF_CHECK_OUTPUT" || -n "$UNSTAGED_DIFF_CHECK_OUTPUT" ]]; then
+  STATUS="NOT READY"
+  REASONS+=("git diff --cached --check or git diff --check reported whitespace/errors.")
 fi
 
 if [[ "$CONFLICT_FOUND" -eq 1 ]]; then
@@ -312,6 +386,9 @@ fi
 echo
 echo "Commit readiness:"
 echo "- Status: $STATUS"
+if [[ "$TYPECHECK_ENABLED" -eq 0 ]]; then
+  echo "- Typecheck: NOT_RUN (quick staging diagnostics do not verify TypeScript)."
+fi
 
 if [[ "${#REASONS[@]}" -eq 0 ]]; then
   echo "- Reasons: none"
@@ -343,8 +420,8 @@ else
   if [[ "$TYPECHECK_FAILED" -eq 1 ]]; then
     echo "- Fix typecheck failures in affected packages before committing."
   fi
-  if [[ -n "$DIFF_CHECK_OUTPUT" ]]; then
-    echo "- Fix whitespace/errors reported by git diff --check."
+  if [[ -n "$CACHED_DIFF_CHECK_OUTPUT" || -n "$UNSTAGED_DIFF_CHECK_OUTPUT" ]]; then
+    echo "- Fix whitespace/errors reported by git diff --cached --check and git diff --check."
   fi
   if [[ "$CONFLICT_FOUND" -eq 1 ]]; then
     echo "- Resolve merge conflict markers in the changed files."

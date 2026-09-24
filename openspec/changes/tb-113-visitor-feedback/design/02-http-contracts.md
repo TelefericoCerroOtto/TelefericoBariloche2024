@@ -59,9 +59,21 @@ Every route uses the shared analyzed range and previous equal-duration compariso
 
 POST `generations` requires generate capability: no overlap→202 queued; overlap without matching digest→409 `OVERLAP_REQUIRES_OVERRIDE` with all intersections ordered start/run, digest, adjustment; active exact-range race→409 `ACTIVE_RANGE_CONFLICT` plus run. POST `generations/{run}/retry` accepts only `{contractVersion:"feedback-admin.v1"}` for failed source and returns a new queued run/lineage; otherwise 409 `INVALID_STATE`. GET `reports/{id}/download` requires download capability and streams PDF with attachment disposition, SHA-256 ETag, private/no-store, no URL. Mapping: 400 `VALIDATION_FAILED`; 401 `UNAUTHORIZED`; 403 `FORBIDDEN`; 404 `NOT_FOUND`; named 409; 413 `PAYLOAD_TOO_LARGE`; 503 `UPSTREAM_UNAVAILABLE`; 500 `INTERNAL_ERROR`.
 
+U8-B owns only the generate/retry command boundary through authenticated Next.js
+and native Strapi core generation endpoints. The application helper performs
+validation, overlap disclosure, and retry decisions before using core CRUD;
+U8-A owns report reads/history; U9 owns active-range races,
+retry lineage/state-machine behavior, and worker cutoffs; U12-A owns PDF artifact
+storage and download mediation. Those later contracts remain normative, but are
+not implemented in this slice.
+
 ## CMS and Worker
 
-No browser/CRUD. Intake token: GET `/api/tb113/public/surveys/:publicCode`, POST `/api/tb113/public/submissions`; user JWT mirrors admin. Worker outputs omit prompts/comments/credentials/signed URLs/unvalidated model output.
+No browser/CRUD. The app-owned public resolver reads the native Strapi REST
+surfaces for `survey-qr-points`, `survey-settings`, and `survey-versions` with
+the server-held feedback token. Transactional intake remains
+`POST /api/tb113/public/submissions`; user JWT mirrors admin. Worker outputs
+omit prompts/comments/credentials/signed URLs/unvalidated model output.
 
 ```ts
 // Normative
@@ -76,9 +88,12 @@ type FailV1={contractVersion:"survey-worker-cms.v1";expectedStateVersion:number;
 type FailResultV1={contractVersion:"survey-worker-cms.v1";reportRunId:string;stateVersion:number;status:"failed";failureCode:RuntimeFailureCodeV1;replayed:boolean};
 type DispatchFailureV1={contractVersion:"survey-dispatch-command.v1";expectedStateVersion:number;taskName:string;dispatchAttemptCount:number;failureCode:"QUEUE_ENQUEUE_EXHAUSTED"};
 type DispatchFailureResultV1={contractVersion:"survey-dispatch-command.v1";reportRunId:string;stateVersion:number;status:"failed";failureCode:"QUEUE_ENQUEUE_EXHAUSTED";replayed:boolean};
+type DispatchStateCommandV1={contractVersion:"survey-dispatch-state.v1";action:"reserve";expectedStateVersion:number;taskName:string}|{contractVersion:"survey-dispatch-state.v1";action:"record";expectedStateVersion:number;taskName:string;outcome:"created"|"unknown";dispatchAttemptCount:1|2|3;evidence:DispatchEvidenceV1};
+type DispatchEvidenceV1={contractVersion:"survey-dispatch-evidence.v1";outcome:"created";taskName:string;dispatchAttemptCount:number;verifiedAt:string}|{contractVersion:"survey-dispatch-evidence.v1";outcome:"unknown";taskName:string;dispatchAttemptCount:number;reasonCode:"AMBIGUOUS_RESPONSE"|"PROVIDER_UNAVAILABLE"|"UNCLASSIFIED"};
+type DispatchStateResultV1={contractVersion:"survey-dispatch-state.v1";reportRunId:string;taskName:string;stateVersion:number;status:"queued";dispatchState:"reserved"|"created"|"unknown";dispatchAttemptCount:number;failureCode:null;replayed:boolean};
 ```
 
-Paths: `W=/api/tb113/worker/generations/:reportRunId`; `A=/api/tb113/admin/generations/:reportRunId`.
+Paths: `W=/api/tb113/worker/generations/:reportRunId`; `A=/api/tb113/admin/generations/:reportRunId`; dispatch state `POST /api/tb113/admin/generations/:reportRunId/dispatch-state`.
 
 | Method/path | First success; replay | Specific failures | 413 (raw > cap: `PAYLOAD_TOO_LARGE`) |
 |---|---|---|---|
@@ -88,7 +103,66 @@ Paths: `W=/api/tb113/worker/generations/:reportRunId`; `A=/api/tb113/admin/gener
 | POST `W/complete` | 201 `CompleteResultV1`; identical replay 200/`replayed:true` | 400 `VALIDATION_FAILED|UNKNOWN_VERSION`; 409 `STATE_VERSION_CONFLICT|CHECKPOINT_SET_INCOMPLETE|DIGEST_MISMATCH|TERMINAL_CONFLICT` | Possible: >4 KiB |
 | POST `W/fail` | 200 `FailResultV1`; identical replay 200/`replayed:true` | 400 `VALIDATION_FAILED`; 409 `STATE_VERSION_CONFLICT|TERMINAL_CONFLICT` | Possible: >4 KiB |
 | POST `A/dispatch-failure` | 200 `DispatchFailureResultV1`; identical replay 200/`replayed:true` | 400 `VALIDATION_FAILED`; 409 `STATE_VERSION_CONFLICT|INVALID_STATE|TASK_ALREADY_CREATED` | Possible: >16 KiB |
+| POST `A/dispatch-state` (`DispatchStateCommandV1`) | `reserve`: 200 `reserved`; `record(created|unknown)`: 200 queued; identical replay reports `replayed:true` | 400 `VALIDATION_FAILED` (including all `absent` outcomes); 404 `RUN_NOT_FOUND`; 409 `STATE_VERSION_CONFLICT|INVALID_STATE|TASK_ALREADY_CREATED|TASK_IDENTITY_CONFLICT` | Possible: >16 KiB |
 
-All six add 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `RUN_NOT_FOUND`, and safe 500 `INTERNAL_ERROR`. Claim alone reads checkpoints. Identical checkpoint/terminal replay precedes stale CAS; differing replay conflicts. Appendix 04 validates completion. Only snapshot carries D50-D51 raw comments to the private worker, never browsers; others omit comments and raw prompt/model responses.
+All worker/admin command actions add 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `RUN_NOT_FOUND`, and safe 500 `INTERNAL_ERROR`. Claim alone reads checkpoints. Identical checkpoint/terminal replay precedes stale CAS; differing replay conflicts. Appendix 04 validates completion. Only snapshot carries D50-D51 raw comments to the private worker, never browsers; others omit comments and raw prompt/model responses.
+
+`POST W/claim` is a native authenticated Strapi action with no default role or
+API-token grant. It accepts only the exact command under the 4 KiB worker cap,
+locks the generation row, and atomically performs queued→running with one
+state-version increment and `claimedAt`. Running returns `resumed` without a
+write; succeeded/failed returns only the terminal replay identity/status/version.
+The running projection contains only checkpoints, model configuration, and
+pricing snapshot—never comments. Explicit worker credential provisioning and
+permission grants remain outside this local contract slice.
+
+`A/dispatch-failure` is a CMS-authenticated command action, granted explicitly
+to the corresponding Users & Permissions role for the server-mediated
+application user JWT from the Auth.js session; no API token is used for this
+call, and browser/public callers never receive the CMS credential. It accepts
+only the exact `DispatchFailureV1` shape within 16 KiB. CMS performs
+the state/version check and update under one row-locking transaction; identical
+exhaustion replay is recognized before stale-version rejection. Running/claimed,
+task-created, terminal, altered, and stale requests fail closed. The app invokes
+it only when its dispatcher returns the typed `noTaskCreated: true` exhaustion
+outcome; malformed or unmeasurable request bodies fail closed with 413 before
+the service is read. When raw bytes are not exposed by the runtime, the action
+requires a valid bounded `Content-Length` and rejects chunked/unmeasurable
+bodies. Thrown/ambiguous dispatcher outcomes and `DISPATCH_UNAVAILABLE` do not
+invoke compensation. The current default dispatcher remains unavailable and
+leaves runs queued. The local CMS reservation/outcome contract is added below;
+app integration and real enqueue/retry proof remain deferred to U10.
+
+The additive U10-A CMS seam persists `dispatchState` separately from
+`taskName`: `unreserved` → `reserved` before enqueue, then `created` or
+`unknown`. The authenticated `A/dispatch-state` action uses state-version CAS
+and identical-command replay. `unknown` leaves the generation queued and blocks
+another reservation. The action rejects every `absent` outcome and cannot commit
+queued→failed; caller-supplied `not-found` text is not authoritative proof. The
+existing U9-A1 v1 compensation action remains unchanged and still rejects a
+reserved task name. Reservation/created/unknown behavior is locally tested, but
+there is no verified absence path or real dispatch; both remain pending for a
+future authorized provider adapter.
 
 Cloud Run only exposes POST `/internal/v1/report-runs:execute` with `{commandVersion:"survey-report-command.v1",reportRunId}`; raw >4 KiB returns 413 `PAYLOAD_TOO_LARGE`. Auth precedes dependencies. Deadline-bounded 200: `{contractVersion:"survey-worker-execution.v1",reportRunId,status:"succeeded"|"failed",disposition:"completed"|"terminal-replay",failureCode?:RuntimeFailureCodeV1|"QUEUE_ENQUEUE_EXHAUSTED"}`. Failures: 400 `INVALID_COMMAND`, 401 `INVALID_OIDC`, 403 `FORBIDDEN_INVOKER`, 404 `RUN_NOT_FOUND`, 409 `INVALID_STATE`, retryable 503 `RETRYABLE_EXECUTION`, safe 500 `INTERNAL_ERROR`. Responses omit checkpoints/sensitive/raw content.
+
+## Direct implementation runtime boundary
+
+The app-owned direct implementation now provides the local worker/PDF boundary
+without claiming external task or storage execution:
+
+- `teleferico-app/services/survey-report-worker/src/` owns typed CMS seams,
+  immutable snapshot validation, checkpoint/CAS orchestration, deterministic
+  ChartViewModel-to-SVG/HTML rendering, PDF metadata, and terminal failure
+  handling.
+- `teleferico-app/src/lib/feedback/dispatch.ts` is the admin dispatcher seam.
+  Its default result is explicit `DISPATCH_UNAVAILABLE` with the generation
+  left visibly queued; it never claims that Cloud Tasks or Cloud Run ran.
+- Final artifact publication is represented only by the injected CMS
+  completion adapter. The local artifact adapter stages bytes and cannot make
+  a report downloadable before successful completion.
+
+Cloud Tasks, Cloud Run/OIDC, Vertex, GCS, production worker-image readiness,
+and authenticated integrated execution remain external validation and
+deployment gates. They are intentionally not configured or inferred by this
+slice.

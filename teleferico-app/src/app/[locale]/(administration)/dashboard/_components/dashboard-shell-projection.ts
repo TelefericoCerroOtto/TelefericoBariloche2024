@@ -6,6 +6,7 @@ type SidebarIconName =
   | "admin-users"
   | "buses"
   | "faqs"
+  | "feedback"
   | "news"
   | "prices"
   | "recruitment"
@@ -79,6 +80,14 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     allowedRoles: ["Administrator", "Media Manager"],
   },
   {
+    name: "Feedback del público",
+    url: ADMIN_ROUTES.FEEDBACK,
+    icon: "feedback",
+    implemented: true,
+    tooltip: "Analizar las opiniones de visitantes",
+    allowedRoles: ["Administrator"],
+  },
+  {
     name: "Trabajo",
     url: ADMIN_ROUTES.RECRUITMENT,
     icon: "recruitment",
@@ -115,13 +124,17 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
 export function getDashboardShellProjection({
   currentRole,
   isMaintenanceMode,
+  isFeedbackEnabled,
 }: {
   currentRole: UserRole["name"];
   isMaintenanceMode: boolean;
+  isFeedbackEnabled: boolean;
 }): DashboardShellProjection {
   const contentNavigation = isMaintenanceMode
     ? []
-    : CONTENT_ITEMS.map(({ allowedRoles, ...item }) => ({
+    : CONTENT_ITEMS.filter(
+        (item) => item.icon !== "feedback" || isFeedbackEnabled,
+      ).map(({ allowedRoles, ...item }) => ({
         ...item,
         isDisabled:
           !item.implemented ||

@@ -200,6 +200,28 @@ Desktop and mobile versions can be provided separately. If only one is provided,
 
 ---
 
+### Editorial Alert
+
+Compact, reusable editorial message for short notices, promotions, warnings, or informational context. It is authored directly in the localized page dynamic zone and is independent of both `ImageTextBlock` and the fixed `PoliciesCallout` marker.
+
+| Field | Required | Description |
+|---|---|---|
+| `title` | Yes | Short heading for the message |
+| `description` | Yes | Rich text body; supports formatting and inline links |
+| `variant` | Yes | Semantic intent: `default`, `promotion`, `warning`, or `info` |
+| `epigraph` | No | Short contextual label above the heading |
+| `link` | No | Optional CTA using the existing Link component (label + URL) |
+
+**Content notes:**
+- Keep the message concise; use this block for a focused editorial notice rather than a full informational section.
+- Choose `variant` for meaning, not to customize appearance. The site derives icon and visual treatment from the variant; editors cannot set colors or icons.
+- Editorial Alert renders as a low-profile horizontal banner inside the standard wide content container, with a compact semantic icon tile and tighter corners. On narrow screens its content and optional CTA stack without a fixed height; on wide screens the CTA aligns at the right. All variants use the same compact rounded CTA geometry and bold 14px label, with focus styling and colors selected by visual intent. `default` alone keeps the white surface. `warning` uses the approved Deep Red (`#9F1212`) wide-banner treatment with opaque white icon and rich text and a dark CTA with white text; it is an editorial visitor consideration, not live status or danger feedback. `promotion` uses the near-black Ink surface and the owner-approved component-scoped Evolution `hsl(0 88% 49%)` CTA/focus surface with white text. Its calculated contrast is about 4.56:1; the global `--primary` remains unchanged. `info` uses the owner-approved secondary/complementary brand blue (`#3B70CB`) surface with opaque white text and a dark CTA with a white label. It is distinct from operational status blue (`#0B4795`) and is app-controlled rather than a CMS color setting. Repository PR and staging validation are still pending; visual approval is not release verification.
+- Add and translate the block independently in each required page locale because the page dynamic zone is localized.
+- Unsafe CTA URL schemes are omitted by the app renderer. Inline rich-text links use the existing localized link renderer.
+- This is editorial content, not a live service alert; it does not use live-alert accessibility semantics.
+
+---
+
 ### Carrousel
 
 A slider of rich content items. Each item is a full slide with its own image, text, and optional CTA.

@@ -23,6 +23,8 @@ Frontend application of the project, implemented with Next.js (App Router).
 
 Playwright is Chromium-only in the initial browser test layer. Its local fixtures run as a separate HTTP server and are supplied to the Next.js server through `BUILD_STRAPI_BASE_URL`; no test route or production-accessible bypass is added to the application.
 
+Feedback pages and APIs are closed by default outside the feedback-capable runtime. The Playwright fixture app process explicitly sets the server-only `FEEDBACK_CAPABILITY_ENABLED=true` flag; the gate accepts it only when `NODE_ENV` is exactly `development` or `test`, so production and staging remain closed even if the flag is accidentally set.
+
 Agents run `pnpm run test:e2e` while implementing or diagnosing browser behavior. Developers are not required to run E2E commands manually, and no pre-commit or pre-push hook runs the suite.
 
 Playwright writes failure traces, screenshots, videos, and HTML reports to `test-results/` and `playwright-report/`. Both paths are ignored by Git.
@@ -93,6 +95,18 @@ If Google does not return `refresh_token`:
 ---
 
 ## Endpoint and form security architecture
+
+### Feedback report task identity
+
+The server-side feedback dispatch seam derives queue names only from valid
+report-run UUIDs: `tb113-report-<UUID without hyphens>`. Invalid CMS run
+identifiers fail closed before dispatch. This deterministic identity is not a
+browser contract or proof that a task was created. The CMS exposes an additive
+authenticated reservation/outcome contract, but the app does not yet use it
+and no Cloud Tasks adapter is configured. It records only reservation, created,
+or unknown states and rejects caller-asserted absence. The default dispatcher
+leaves the generation queued as `DISPATCH_UNAVAILABLE`; no verified absence or
+real dispatch path exists yet.
 
 Below describes how the **security architecture** is designed around:
 

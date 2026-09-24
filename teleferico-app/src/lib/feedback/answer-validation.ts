@@ -157,3 +157,21 @@ export function validateFeedbackAnswers(
     },
   };
 }
+
+export function validateFeedbackAnswerShape(
+  input: FeedbackAnswerInput,
+): FeedbackAnswerValidationResult {
+  const definitions: FeedbackAspectDefinition[] = [];
+  if (Array.isArray(input.aspects)) {
+    for (const [sortOrder, candidate] of input.aspects.entries()) {
+      if (isRecord(candidate) && typeof candidate.aspectKey === "string" && candidate.aspectKey !== "other" &&
+          !definitions.some(({ aspectKey }) => aspectKey === candidate.aspectKey)) {
+        definitions.push({ aspectKey: candidate.aspectKey, sortOrder, labels: { es: "", en: "", pt: "" } });
+      }
+    }
+  }
+  if (input.otherAspect !== undefined) {
+    definitions.push({ aspectKey: "other", sortOrder: definitions.length, labels: { es: "", en: "", pt: "" } });
+  }
+  return validateFeedbackAnswers(input, definitions);
+}

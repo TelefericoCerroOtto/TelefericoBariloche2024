@@ -124,9 +124,11 @@ Use a promotion PR when moving already-reviewed code from one environment branch
 
 #### Stacked child preview
 
-A `stacked-to-main` child may be opened early only as a draft against its immediate parent implementation branch. It is a review preview, not delivery: it receives repository governance only and cannot create issue comments, update Notion, close work, or claim functional/Cloud Build completion.
+A `stacked-to-main` child may be opened early only as a draft against its immediate parent branch. Its parent may be an open same-repository implementation PR into `development` or an open same-repository draft stacked-child preview. It is a review preview, not delivery: it receives repository governance only and cannot create issue comments, update Notion, close work, or claim functional/Cloud Build completion.
 
-The parent must be an open same-repository implementation PR into `development`. The child must use governed branch syntax, share the repository with its base, bind the exact runtime head/base SHAs, and expose a complete non-truncated diff against that parent. Its body requires exactly one visible section with each field exactly once:
+The child and parent must use governed branch syntax and belong to the same repository. The child must bind the exact runtime head/base SHAs and expose a complete non-truncated diff against its immediate parent. Its body requires exactly one visible section with each field exactly once:
+
+Validation follows each open draft-preview parent through its visible `Chain Context` until it reaches an open same-repository implementation PR into `development`. Every preview's declared parent branch/head SHA must match that preview's runtime base; orphaned links, cycles, and missing, hidden, or malformed ancestor context fail closed.
 
 ```md
 ## Chain Context
@@ -134,14 +136,16 @@ The parent must be an open same-repository implementation PR into `development`.
 Strategy: stacked-to-main
 Parent PR: #<number>
 Parent branch: <governed-parent-branch>
-Parent head SHA: <40-character-sha>
+Parent head SHA: [<full SHA>](https://github.com/<owner>/<repo>/commit/<full SHA>)
 ```
+
+The commit link label must be the exact full 40-character parent head SHA. Its visible Markdown link text is what GitHub-rendered validation evaluates; do not use an abbreviated SHA or bare link URL.
 
 `feature-branch-chain` and arbitrary tracker topology remain unsupported. After the parent merges into `development`, fresh candidate-scoped authorization may retarget the existing child PR to `development`. Governance then restarts as normal implementation governance; never create a duplicate PR or automate rebase, force-push, merge, ready-for-review, branch deletion, or ancestry repair.
 
 ### Direct implementation finalization shortcut
 
-`/implementation-pr` is an explicit, single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR from a typed publication plan, apply required metadata, and observe repository governance with a bounded timeout. The default plan targets `development`; only a validated `stacked-to-main` plan may select the exact parent branch and draft state.
+`/implementation-pr` is a single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR from a typed publication plan, apply required metadata, and observe repository governance with a bounded timeout. It accepts the slash command or an unambiguous natural-language authorization naming these mutations, the destination, and the current credential/session authorization. The default plan targets `development`; only a validated `stacked-to-main` plan may select the exact parent branch and draft state. An open PR for the head is an update path through `branch-pr` regenerate under fresh explicit authorization, never a duplicate create.
 
 After PR creation, invoke:
 
@@ -151,9 +155,33 @@ node .github/scripts/wait-for-implementation-governance.js <pr-number-or-url>
 
 The helper is the sole source of check identities, polling, duplicate-run handling, and exit semantics. It waits for `Governance tests`, `validate-pr-policy`, and `trusted-pr-sync`; Cloud Build and other functional checks are reported separately and never change the governance exit status. A governance pass is not a claim that the PR is fully validated while application tests are still running.
 
+The first failed, timed-out, or errored observation is terminal for that invocation. Diagnose failures with authorized, repository-scoped GitHub CLI reads, but do not repair metadata or retry the observation in the same `/implementation-pr` invocation. Any later metadata-only repair and observation requires fresh explicit authorization and permission under the governing contracts. Never substitute unfiltered `gh pr checks --watch` for the repository helper.
+
+Until required PR CI adopts app Vitest, `/implementation-pr` applies required PR metadata before governance observation, then runs `pnpm run test` once when the complete candidate inventory contains an app path other than `.md`/`.mdx` documentation. App Markdown-only changes such as `teleferico-app/README.md`, and CMS/root-only changes, skip. Vitest runs even if governance fails or times out; governance exit semantics remain unchanged. The single Vitest subprocess has a 15-minute timeout; a timeout is an infrastructure error (`status=error`) and is not retried. The helper exits `0` for completed suite failures and reports JSON `status=failed`; argument/execution errors remain nonzero. On failure it reads a private temporary Vitest JSON report and emits only bounded, validated repository-relative failed test-file paths and counts; raw stdout/stderr, test names, failure messages, and stacks remain withheld. Missing, malformed, oversized, or unsupported reports make diagnostics unavailable without changing the test result. A temporary-directory cleanup failure after completion emits only a fixed `cleanup_warning` and preserves the observed Vitest status and exit code. Scope inputs are caller-provided paths tied to the accepted snapshot and PR read-back, not independently verified by the helper. Broad-suite failures are unrelated only when evidence proves that attribution; otherwise report candidate-caused or unknown. When required PR CI adopts the suite, retire the local rule and helper in the same policy change.
+
 Use `--mode stacked-preview` only while observing a draft child against its parent branch. This mode binds the exact head SHA, base branch/SHA, and draft state; functional and Cloud Build checks are explicitly deferred until retargeting to `development`. The default mode remains strict about `base=development`.
 
 It does not authorize later changes, force pushes, branch changes, rebases, merges, issue closure, branch deletion, or releases. It is not a promotion workflow: continue to use the separate `development -> staging` and `staging -> main` promotion flow and its release/closure rules.
+
+#### Maintainer mixed-scope override
+
+The exact `/implementation-pr --allow-mixed-scope "<reason>"` invocation remains valid. An equally explicit natural-language authorization may approve inclusion of unrelated, non-sensitive paths without that literal flag when it names the workflow's mutation scope, destination, and current credential/session authorization. The user's concrete explanation may be converted into a non-blank, one-line English audit reason; do not invent consent or rationale.
+
+- Empty `/implementation-pr` remains strict. Missing, blank, unknown, or extra arguments fail closed.
+- The override is bound to the complete exact invocation snapshot, selected `origin`, typed base plan, destination, and current authenticated Git/GitHub session authorization. A later generic follow-up cannot reuse it.
+- It permits only non-sensitive paths that the mapper classifies as otherwise unrelated after recording their complete exact sorted inventory. The mapper continues to report the real `unrelated_count` and examples. Sensitive paths, ambiguity, truncation, candidate changes, and binding changes remain blockers.
+- When active, the agent-generated implementation PR body must contain one visible English section with this shape. `implementation-pr` reads the created PR back and compares the exact reason and entries before governance observation; repository CI does not infer whether the agent override was active.
+
+```md
+## Scope Exception
+
+Reason: <non-empty maintainer reason>
+
+Exceptional paths/work units:
+- Path: <exact path> | Work unit: <non-empty work-unit description>
+```
+
+The entries must enumerate every exceptional path exactly once. Strict invocations omit this section. Prefer separate coherent commits/work units when possible; the override permits one mixed-scope PR under maintainer authority but does not weaken any other publication restriction.
 
 ### Content rules by PR type
 

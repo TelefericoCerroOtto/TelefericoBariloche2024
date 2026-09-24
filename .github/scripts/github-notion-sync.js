@@ -479,15 +479,21 @@ function parseChainContext(document) {
   }
   const parentMatch = values.parentPullRequest.match(/^#([1-9]\d*)$/);
   if (!parentMatch) throw new Error("Stacked child previews require 'Parent PR: #<number>' in visible '## Chain Context'.");
+  const parentPullRequestNumber = Number(parentMatch[1]);
+  if (!Number.isSafeInteger(parentPullRequestNumber)) {
+    throw new Error("Stacked child previews require a safe positive integer in visible 'Parent PR: #<number>'.");
+  }
   if (!isFullSha(values.parentHeadSha)) throw new Error("Stacked child previews require a full 40-character 'Parent head SHA: <sha>' in visible '## Chain Context'.");
   repositoryPolicy.validateImplementationBranchName(values.parentBranch);
-  return { ...values, parentPullRequestNumber: Number(parentMatch[1]) };
+  return { ...values, parentPullRequestNumber };
 }
 
 function validateStackedPreviewRuntime(config, chainContext) {
   const pullRequest = config.pullRequest;
   if (!pullRequest.draft) throw new Error("Stacked child previews must remain draft pull requests.");
-  if (!pullRequest.number) throw new Error("Stacked child previews require a pull request number from runtime metadata.");
+  if (!Number.isSafeInteger(pullRequest.number) || pullRequest.number <= 0) {
+    throw new Error("Stacked child previews require a safe positive pull request number from runtime metadata.");
+  }
   if (pullRequest.number === chainContext.parentPullRequestNumber) throw new Error("A stacked child preview cannot name itself as its parent PR.");
   if (!isFullSha(pullRequest.headSha) || !isFullSha(pullRequest.baseSha)) {
     throw new Error("Stacked child previews require full head and base SHAs from runtime metadata.");
@@ -504,20 +510,54 @@ function validateStackedPreviewRuntime(config, chainContext) {
 }
 
 async function validateStackedPreviewParent(config, chainContext) {
-  const parent = await fetchGitHubPullRequest(config, chainContext.parentPullRequestNumber);
-  const parentHeadRepository = parent.head?.repo?.full_name || "";
-  const parentBaseRepository = parent.base?.repo?.full_name || "";
-  if (parent.state !== "open") throw new Error(`Stacked child preview parent PR #${parent.number} must be open.`);
-  if (parentHeadRepository !== config.repository.slug || parentBaseRepository !== config.repository.slug) {
-    throw new Error(`Stacked child preview parent PR #${parent.number} must use same-repository head and base.`);
+  const visitedPullRequestNumbers = new Set([config.pullRequest.number]);
+  let expectedParent = chainContext;
+
+  while (true) {
+    const parentNumber = expectedParent.parentPullRequestNumber;
+    if (visitedPullRequestNumbers.has(parentNumber)) {
+      throw new Error(`Stacked child preview ancestry contains a cycle at PR #${parentNumber}.`);
+    }
+    visitedPullRequestNumbers.add(parentNumber);
+
+    const parent = await fetchGitHubPullRequest(config, parentNumber);
+    const parentHeadRepository = parent.head?.repo?.full_name || "";
+    const parentBaseRepository = parent.base?.repo?.full_name || "";
+    if (parent.state !== "open") throw new Error(`Stacked child preview parent PR #${parent.number} must be open.`);
+    if (parentHeadRepository !== config.repository.slug || parentBaseRepository !== config.repository.slug) {
+      throw new Error(`Stacked child preview parent PR #${parent.number} must use same-repository head and base.`);
+    }
+    if (parent.head?.ref !== expectedParent.parentBranch || parent.head?.sha?.toLowerCase() !== expectedParent.parentHeadSha.toLowerCase()) {
+      throw new Error(`Stacked child preview parent PR #${parent.number} does not match the declared parent branch and head SHA.`);
+    }
+
+    const parentType = repositoryPolicy.classifyPullRequest(parent.head.ref, parent.base?.ref).type;
+    if (parentType === "implementation") {
+      repositoryPolicy.validateImplementationBranchName(parent.head.ref);
+      return;
+    }
+    if (parentType !== "stacked-child-preview") {
+      throw new Error(`Stacked child preview parent PR #${parent.number} must be an implementation PR targeting development or a draft stacked-child preview.`);
+    }
+    if (parent.draft !== true) {
+      throw new Error(`Stacked child preview parent PR #${parent.number} must remain a draft stacked-child preview.`);
+    }
+
+    repositoryPolicy.validateImplementationBranchName(parent.head.ref);
+    const parentDocument = await renderPrBody(config, typeof parent.body === "string" ? parent.body : "");
+    const nextParent = parseChainContext(parentDocument);
+    if (nextParent.parentPullRequestNumber === parent.number) {
+      throw new Error(`Stacked child preview parent PR #${parent.number} cannot name itself as its parent.`);
+    }
+    if (parent.base?.ref !== nextParent.parentBranch) {
+      throw new Error(`Stacked child preview parent PR #${parent.number} base branch must match its declared parent branch.`);
+    }
+    if (!isFullSha(parent.base?.sha) || parent.base.sha.toLowerCase() !== nextParent.parentHeadSha.toLowerCase()) {
+      throw new Error(`Stacked child preview parent PR #${parent.number} base SHA must match its declared parent head SHA.`);
+    }
+
+    expectedParent = nextParent;
   }
-  if (parent.head?.ref !== chainContext.parentBranch || parent.head?.sha?.toLowerCase() !== chainContext.parentHeadSha.toLowerCase()) {
-    throw new Error(`Stacked child preview parent PR #${parent.number} does not match the declared parent branch and head SHA.`);
-  }
-  if (repositoryPolicy.classifyPullRequest(parent.head.ref, parent.base?.ref).type !== "implementation") {
-    throw new Error(`Stacked child preview parent PR #${parent.number} must be an implementation PR targeting development.`);
-  }
-  repositoryPolicy.validateImplementationBranchName(parent.head.ref);
 }
 
 async function validateFocusedPullRequestDiff(config) {

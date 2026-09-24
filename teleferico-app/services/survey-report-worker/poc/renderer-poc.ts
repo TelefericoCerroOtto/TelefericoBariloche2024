@@ -191,9 +191,10 @@ function documentHtml(chartsMarkup: string, fontBase64: string) {
   return `<!doctype html><html lang="es-AR"><head><meta charset="utf-8"><style>@font-face{font-family:Report;src:url(data:font/ttf;base64,${fontBase64})}*{box-sizing:border-box;animation:none!important;transition:none!important}body{font-family:Report,sans-serif;margin:0}section.report{break-before:page;min-height:260mm;padding:12mm}section.report:first-child{break-before:auto}.chart{break-inside:avoid}figure{margin:0}svg{max-width:100%;height:auto}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px}th,td{padding:2px;overflow-wrap:anywhere}th:first-child,td:first-child{width:65%}</style></head><body>${sections.map((title, index) => `<section class="report" data-section="${index}"><h1>${title}</h1>${index === 2 ? chartsMarkup : "<p>Contenido oficial validado.</p>"}</section>`).join("")}</body></html>`;
 }
 
-export async function runRendererPoc(charts: ChartViewModel[], edgeCases: EdgeCases) {
+// The optional path isolates automated runs; manual runs keep the existing POC artifact location.
+export async function runRendererPoc(charts: ChartViewModel[], edgeCases: EdgeCases, options: { resultPath?: string } = {}) {
   const workDirectory = await mkdtemp(join(tmpdir(), "tb113-renderer-poc-"));
-  const resultPath = join(pocDirectory, "poc-result.json");
+  const resultPath = options.resultPath ?? join(pocDirectory, "poc-result.json");
   const fontPath = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
   const font = await readFile(fontPath);
   const pdfRenderer = renderPdfCharts(charts);

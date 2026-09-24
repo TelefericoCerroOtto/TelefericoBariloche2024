@@ -1,6 +1,8 @@
 // @vitest-environment node
 
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -48,20 +50,31 @@ describe("renderer adoption POC", () => {
   it(
     "proves the complete Appendix-05 Chromium and PDF gate",
     async () => {
-      const result = await runRendererPoc(chartParityFixture, edgeCaseFixtures);
+      const temporaryDirectory = await mkdtemp(join(tmpdir(), "tb113-renderer-poc-test-"));
+      const temporaryResultPath = join(temporaryDirectory, "poc-result.json");
+      const trackedResultPath = new URL("../../../../../services/survey-report-worker/poc/poc-result.json", import.meta.url);
 
-      expect(result.criteria).toEqual(Object.fromEntries(Array.from({ length: 9 }, (_, index) => [String(index + 1), true])));
-      expect(new Set(result.pdf.semanticDigests).size).toBe(1);
-      expect(new Set(result.pdf.paginationDigests).size).toBe(1);
-      expect(result.accessibility.seriousOrCriticalViolations).toBe(0);
-      expect(result.browser.coldStartMilliseconds).toHaveLength(5);
-      expect(result.browser.p95ReadyMilliseconds).toBeLessThanOrEqual(15_000);
-      expect(result.worker.compressedGrowthBytes).toBeLessThanOrEqual(750 * 1024 * 1024);
-      expect(result.cleanup.browserProcessesAfter).toBe(0);
-      expect(Object.keys(result.digests).sort()).toEqual(["browser", "fixture", "font", "image", "lock", "runtime"]);
-      expect(result.artifacts).toEqual({ pdfSemantic: result.pdf.semanticDigests[0], pagination: result.pdf.paginationDigests[0] });
-      expect(result.edgeCases).toEqual({ dashboard: true, chromiumPdf: true });
-      expect(JSON.parse(await readFile(result.resultPath, "utf8"))).toMatchObject({ criteria: result.criteria });
+      try {
+        const trackedResultBefore = await readFile(trackedResultPath);
+        const result = await runRendererPoc(chartParityFixture, edgeCaseFixtures, { resultPath: temporaryResultPath });
+
+        expect(result.criteria).toEqual(Object.fromEntries(Array.from({ length: 9 }, (_, index) => [String(index + 1), true])));
+        expect(new Set(result.pdf.semanticDigests).size).toBe(1);
+        expect(new Set(result.pdf.paginationDigests).size).toBe(1);
+        expect(result.accessibility.seriousOrCriticalViolations).toBe(0);
+        expect(result.browser.coldStartMilliseconds).toHaveLength(5);
+        expect(result.browser.p95ReadyMilliseconds).toBeLessThanOrEqual(15_000);
+        expect(result.worker.compressedGrowthBytes).toBeLessThanOrEqual(750 * 1024 * 1024);
+        expect(result.cleanup.browserProcessesAfter).toBe(0);
+        expect(Object.keys(result.digests).sort()).toEqual(["browser", "fixture", "font", "image", "lock", "runtime"]);
+        expect(result.artifacts).toEqual({ pdfSemantic: result.pdf.semanticDigests[0], pagination: result.pdf.paginationDigests[0] });
+        expect(result.edgeCases).toEqual({ dashboard: true, chromiumPdf: true });
+        expect(resolve(result.resultPath)).toBe(temporaryResultPath);
+        expect(JSON.parse(await readFile(result.resultPath, "utf8"))).toMatchObject({ criteria: result.criteria });
+        expect(await readFile(trackedResultPath)).toEqual(trackedResultBefore);
+      } finally {
+        await rm(temporaryDirectory, { recursive: true, force: true });
+      }
     },
     120_000,
   );
