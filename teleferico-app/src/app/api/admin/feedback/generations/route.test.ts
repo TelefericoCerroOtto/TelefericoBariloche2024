@@ -60,6 +60,7 @@ function requestFor(
 
 describe("POST /api/admin/feedback/generations", () => {
   beforeEach(() => {
+    process.env.FEEDBACK_CAPABILITY_ENABLED = "true";
     vi.clearAllMocks();
     mocks.ensureTrustedBrowserRequest.mockReturnValue({
       ok: true,

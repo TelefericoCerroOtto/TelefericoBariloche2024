@@ -12,6 +12,12 @@ Ordinary future implementation work for TB-113 uses direct implementation by def
 
 **Stop condition:** If the request does not explicitly name a formal SDD lifecycle operation, remain on the direct implementation route.
 
+## Feedback capability release lock
+
+The feedback capability remains fail-closed in production and staging until its complete CMS/runtime boundary is ready. This lock applies to the localized administration page, the public QR page, public survey/submission APIs, every browser-facing administration read/command handler, and sidebar projection. A direct page request returns the framework's not-found response; disabled APIs return a bounded 503 before runtime creation, authentication, CMS access, or mutation. Global maintenance mode is not used for this capability.
+
+Local synthetic fixtures may opt in only through the server-side `FEEDBACK_CAPABILITY_ENABLED=true` flag configured in the fixture process. The gate additionally requires `NODE_ENV` to be exactly `development` or `test` and rejects explicit production/staging deployment labels. Production/staging remain closed if the flag is accidentally set. This is a release lock, not permission to complete pending formal tasks or claim a production rollout.
+
 ## Direct verification profile
 
 - Focused RED/GREEN tests for the selected behavior remain part of implementation.

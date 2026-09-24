@@ -40,6 +40,7 @@ function createRequest(
 
 describe("GET /api/admin/feedback/summary", () => {
   beforeEach(() => {
+    process.env.FEEDBACK_CAPABILITY_ENABLED = "true";
     vi.clearAllMocks();
     mocks.ensureTrustedBrowserRequest.mockReturnValue({
       ok: true,

@@ -23,6 +23,8 @@ Frontend application of the project, implemented with Next.js (App Router).
 
 Playwright is Chromium-only in the initial browser test layer. Its local fixtures run as a separate HTTP server and are supplied to the Next.js server through `BUILD_STRAPI_BASE_URL`; no test route or production-accessible bypass is added to the application.
 
+Feedback pages and APIs are closed by default outside the feedback-capable runtime. The Playwright fixture app process explicitly sets the server-only `FEEDBACK_CAPABILITY_ENABLED=true` flag; the gate accepts it only when `NODE_ENV` is exactly `development` or `test`, so production and staging remain closed even if the flag is accidentally set.
+
 Agents run `pnpm run test:e2e` while implementing or diagnosing browser behavior. Developers are not required to run E2E commands manually, and no pre-commit or pre-push hook runs the suite.
 
 Playwright writes failure traces, screenshots, videos, and HTML reports to `test-results/` and `playwright-report/`. Both paths are ignored by Git.

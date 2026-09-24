@@ -26,6 +26,7 @@ function createTestEnvironment(
     BUILD_STRAPI_BUCKET_HOSTNAME: fixtureHost,
     BUILD_STRAPI_BUCKET_PATHNAME: "/uploads/**",
     BUILD_STRAPI_CONTENT_TOKEN: "e2e-content-token",
+    FEEDBACK_CAPABILITY_ENABLED: "true",
     MAINTENANCE_MODE: maintenance ? "true" : "false",
     NEXT_PUBLIC_SITE_URL: baseURL,
   };

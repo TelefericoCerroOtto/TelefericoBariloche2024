@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createSnapshot } from "../../../../../packages/survey-reporting-core/src";
 import type {
@@ -79,6 +79,10 @@ function analyticsSource(pointKey: string | null, range: FeedbackAdminDateRange)
 }
 
 describe("U8-A authenticated synthetic-data runtime harness", () => {
+  beforeEach(() => {
+    process.env.FEEDBACK_CAPABILITY_ENABLED = "true";
+  });
+
   it("executes every read projection through the shared authenticated route boundary", async () => {
     mocks.read.mockImplementation(async (filters: FeedbackAdminFilters) => {
       const analytics = ["summary", "aspects", "qr-comparison", "qr-detail"].includes(filters.route);
