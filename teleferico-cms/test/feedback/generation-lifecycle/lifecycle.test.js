@@ -164,9 +164,13 @@ test("dispatch reservation records identity without treating it as a created tas
   const command = { contractVersion: "survey-dispatch-state.v1", action: "reserve", expectedStateVersion: 1, taskName: TASK_NAME };
 
   assert.deepEqual(await lifecycle.reserveDispatch({ reportRunId: REPORT_RUN_ID, command }), {
-    reportRunId: REPORT_RUN_ID, taskName: TASK_NAME, stateVersion: 2, status: "queued", dispatchState: "reserved", replayed: false,
+    reportRunId: REPORT_RUN_ID, taskName: TASK_NAME, stateVersion: 2, status: "queued",
+    dispatchState: "reserved", dispatchAttemptCount: 0, failureCode: null, replayed: false,
   });
-  assert.equal((await lifecycle.reserveDispatch({ reportRunId: REPORT_RUN_ID, command })).replayed, true);
+  assert.deepEqual(await lifecycle.reserveDispatch({ reportRunId: REPORT_RUN_ID, command }), {
+    reportRunId: REPORT_RUN_ID, taskName: TASK_NAME, stateVersion: 2, status: "queued",
+    dispatchState: "reserved", dispatchAttemptCount: 0, failureCode: null, replayed: true,
+  });
   assert.deepEqual(value.generation(REPORT_RUN_ID), {
     reportRunId: REPORT_RUN_ID, status: "queued", stateVersion: 2, taskName: TASK_NAME,
     dispatchState: "reserved", dispatchEvidenceJson: null, dispatchAttemptCount: 0,

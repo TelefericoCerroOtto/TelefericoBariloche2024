@@ -201,10 +201,10 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         if (!generation) throw domainError('RUN_NOT_FOUND');
         if (generation.dispatchState === 'reserved' && generation.taskName === command.taskName &&
             generation.stateVersion === command.expectedStateVersion + 1)
-          return { reportRunId, taskName: command.taskName, stateVersion: generation.stateVersion, status: generation.status, dispatchState: 'reserved', replayed: true };
+          return { reportRunId, taskName: command.taskName, stateVersion: generation.stateVersion, status: generation.status, dispatchState: 'reserved', dispatchAttemptCount: generation.dispatchAttemptCount ?? 0, failureCode: generation.failureCode ?? null, replayed: true };
         const patch = prepareDispatchReservation(generation, command.expectedStateVersion, command.taskName);
         await transaction.updateGeneration(patch);
-        return { reportRunId, taskName: command.taskName, stateVersion: patch.stateVersion, status: 'queued', dispatchState: 'reserved', replayed: false };
+        return { reportRunId, taskName: command.taskName, stateVersion: patch.stateVersion, status: 'queued', dispatchState: 'reserved', dispatchAttemptCount: generation.dispatchAttemptCount ?? 0, failureCode: generation.failureCode ?? null, replayed: false };
       });
     },
     async recordDispatchOutcome({ reportRunId, command }) {
