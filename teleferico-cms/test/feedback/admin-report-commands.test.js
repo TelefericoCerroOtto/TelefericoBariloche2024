@@ -259,8 +259,31 @@ test("native role authorization creates only through the core generation endpoin
     const reservations = await Promise.all([sendReserve(), sendReserve()]);
     assert.deepEqual(reservations.map(({ status }) => status), [200, 200]);
     const reservationResults = await Promise.all(reservations.map((response) => response.json()));
-    assert.deepEqual(reservationResults.map(({ replayed }) => replayed).sort(), [false, true]);
-    assert.ok(reservationResults.every(({ dispatchState, stateVersion }) => dispatchState === "reserved" && stateVersion === 2));
+    reservationResults.sort((left, right) => Number(left.replayed) - Number(right.replayed));
+    assert.deepEqual(reservationResults, [
+      {
+        contractVersion: "survey-dispatch-state.v1",
+        reportRunId: DISPATCH_RUN_ID,
+        taskName: dispatchTaskName,
+        stateVersion: 2,
+        status: "queued",
+        dispatchState: "reserved",
+        dispatchAttemptCount: 0,
+        failureCode: null,
+        replayed: false,
+      },
+      {
+        contractVersion: "survey-dispatch-state.v1",
+        reportRunId: DISPATCH_RUN_ID,
+        taskName: dispatchTaskName,
+        stateVersion: 2,
+        status: "queued",
+        dispatchState: "reserved",
+        dispatchAttemptCount: 0,
+        failureCode: null,
+        replayed: true,
+      },
+    ]);
 
     const unknownCommand = {
       contractVersion: "survey-dispatch-state.v1",
