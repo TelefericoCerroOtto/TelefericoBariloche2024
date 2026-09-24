@@ -124,5 +124,35 @@ module.exports = createCoreController(
         ctx.body = { error: { code: safeCode, message: status === 500 ? "The worker snapshot could not be read" : "The worker snapshot was rejected" } };
       }
     },
+    async workerCheckpoint(ctx) {
+      const command = ctx.request.body;
+      const bodySize = measureDispatchFailureRequestBody(ctx.request);
+      if (bodySize === null || bodySize > 4 * 1024) {
+        ctx.status = 413;
+        ctx.body = { error: { code: "PAYLOAD_TOO_LARGE", message: "The worker command is too large" } };
+        return;
+      }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ctx.params.reportRunId)) {
+        ctx.status = 400;
+        ctx.body = { error: { code: "VALIDATION_FAILED", message: "The worker checkpoint request is invalid" } };
+        return;
+      }
+      try {
+        const result = await strapi.service("api::survey-report-generation.survey-report-generation").writeWorkerCheckpoint({
+          reportRunId: ctx.params.reportRunId,
+          stageKey: ctx.params.stageKey,
+          command,
+        });
+        ctx.status = 200;
+        ctx.body = { contractVersion: "survey-worker-cms.v1", ...result };
+      } catch (error) {
+        const code = error.code ?? "INTERNAL_ERROR";
+        const statuses = { RUN_NOT_FOUND: 404, INVALID_STATE: 409, STATE_VERSION_CONFLICT: 409, CHECKPOINT_CONFLICT: 409, DEPENDENCY_NOT_READY: 409, DIGEST_MISMATCH: 409, UNKNOWN_VERSION: 400, VALIDATION_FAILED: 400 };
+        const status = statuses[code] ?? 500;
+        const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
+        ctx.status = status;
+        ctx.body = { error: { code: safeCode, message: status === 500 ? "The worker checkpoint could not be saved" : "The worker checkpoint was rejected" } };
+      }
+    },
   }),
 );

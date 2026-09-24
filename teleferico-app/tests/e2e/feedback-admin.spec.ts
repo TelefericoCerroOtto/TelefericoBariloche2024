@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { createFeedbackAdminDiagnostics } from "./feedback-admin-diagnostics";
 
 const period = { from: "2026-09-01", to: "2026-09-10" };
 const population = {
@@ -137,7 +138,90 @@ type RequestRecord = {
   body: unknown;
 };
 
-async function installAdminStack(page: Page, empty = false) {
+function createResponseBarrier() {
+  let releaseResponse!: () => void;
+  let markResponseReached!: () => void;
+  const responseReached = new Promise<void>((resolve) => {
+    markResponseReached = resolve;
+  });
+  const responseReleased = new Promise<void>((resolve) => {
+    releaseResponse = resolve;
+  });
+  return {
+    responseReached,
+    releaseResponse,
+    waitForRelease: async () => {
+      markResponseReached();
+      await responseReleased;
+    },
+  };
+}
+
+function waitForSuccessfulAdminRead(
+  page: Page,
+  resource: string,
+  matchesQuery: (query: URLSearchParams) => boolean = () => true,
+) {
+  return page
+    .waitForResponse((response) => {
+      const request = response.request();
+      const url = new URL(response.url());
+      return (
+        request.method() === "GET" &&
+        url.pathname === `/api/admin/feedback/${resource}` &&
+        matchesQuery(url.searchParams)
+      );
+    })
+    .then((response) => {
+      const url = new URL(response.url());
+      expect(
+        response.ok(),
+        `GET ${url.pathname}${url.search} returned HTTP ${response.status()}`,
+      ).toBe(true);
+    });
+}
+
+const failureDiagnosticsByPage = new WeakMap<Page, () => string>();
+
+function observeFailureDiagnostics(page: Page) {
+  const diagnostics = createFeedbackAdminDiagnostics();
+  page.on("request", (request) =>
+    diagnostics.request(request.method(), request.url()),
+  );
+  page.on("response", (response) =>
+    diagnostics.response(
+      response.request().method(),
+      response.url(),
+      response.status(),
+    ),
+  );
+  page.on("requestfailed", (request) =>
+    diagnostics.requestFailed(
+      request.method(),
+      request.url(),
+      request.failure()?.errorText ?? "",
+    ),
+  );
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) diagnostics.navigation(frame.url());
+  });
+  failureDiagnosticsByPage.set(page, diagnostics.format);
+}
+
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status !== testInfo.expectedStatus) {
+    const diagnostics = failureDiagnosticsByPage.get(page);
+    if (diagnostics) {
+      console.error(`[feedback-admin-safe-diagnostic] ${diagnostics()}`);
+    }
+  }
+});
+
+async function installAdminStack(
+  page: Page,
+  empty = false,
+  summaryBarrier?: ReturnType<typeof createResponseBarrier>,
+) {
   const requests: RequestRecord[] = [];
   const browserUrls: string[] = [];
   page.on("request", (request) => browserUrls.push(request.url()));
@@ -170,7 +254,8 @@ async function installAdminStack(page: Page, empty = false) {
       return json({ reportRunId: "run-failed", status: "failed" });
     if (request.method() === "POST" && url.pathname.endsWith("/retry"))
       return json({ reportRunId: "run-failed", status: "queued" });
-    if (url.pathname.endsWith("/summary"))
+    if (url.pathname.endsWith("/summary")) {
+      await summaryBarrier?.waitForRelease();
       return envelope(
         empty
           ? {
@@ -185,6 +270,7 @@ async function installAdminStack(page: Page, empty = false) {
             }
           : summary,
       );
+    }
     if (url.pathname.endsWith("/aspects")) return envelope(aspectsData);
     if (url.pathname.endsWith("/qr-points"))
       return envelope({
@@ -213,7 +299,7 @@ async function installAdminStack(page: Page, empty = false) {
 }
 
 async function loginAsSyntheticAdmin(page: Page) {
-  await page.goto("/es-AR/login", { waitUntil: "domcontentloaded" });
+  await page.goto("/es-AR/login", { waitUntil: "commit" });
   const form = page.locator("form[data-login-hydrated]");
   try {
     await expect(form).toHaveAttribute("data-login-hydrated", "true", {
@@ -228,22 +314,43 @@ async function loginAsSyntheticAdmin(page: Page) {
   await page.getByLabel("Correo Electrónico").fill("e2e-admin@local.invalid");
   await page.getByLabel("Contraseña").fill("e2e-admin-password");
   await page.getByRole("button", { name: "Acceder" }).click();
-  await page.waitForURL(/\/es-AR\/dashboard$/);
+  await page.waitForURL(/\/es-AR\/dashboard$/, { waitUntil: "commit" });
+  await expect(page.getByRole("main")).toBeVisible();
 }
 
 test("authenticated admin can navigate analytics, filter comments, and run an independent report", async ({
   page,
 }) => {
+  observeFailureDiagnostics(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  const { requests, browserUrls } = await installAdminStack(page);
+  const summaryBarrier = createResponseBarrier();
+  const { requests, browserUrls } = await installAdminStack(
+    page,
+    false,
+    summaryBarrier,
+  );
   await loginAsSyntheticAdmin(page);
+  const summaryRead = waitForSuccessfulAdminRead(page, "summary");
   await page.goto("/es-AR/dashboard/feedback", {
-    waitUntil: "domcontentloaded",
+    waitUntil: "commit",
   });
   await expect(
     page.getByRole("heading", { name: "Feedback del público" }),
   ).toBeVisible();
+  await summaryBarrier.responseReached;
+  try {
+    await expect(page.getByText("Cargando Feedback del público")).toBeVisible();
+    await expect(
+      page.getByText("18", { exact: true }).first(),
+    ).not.toBeVisible();
+  } finally {
+    summaryBarrier.releaseResponse();
+  }
+  await summaryRead;
   await expect(page.getByText("18", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Analizado:" }),
+  ).toBeVisible();
 
   const modules = page.getByRole("navigation", {
     name: "Módulos de Feedback del público",
@@ -254,17 +361,38 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
     "Puntos QR",
     "Comentarios e informes",
   ]);
+  const aspectsRead = waitForSuccessfulAdminRead(page, "aspects");
   await modules.getByRole("button", { name: "Aspectos", exact: true }).click();
+  await aspectsRead;
   await expect(
     page.getByRole("heading", { name: "Detalle del aspecto seleccionado" }),
   ).toBeVisible();
+  const valleyAspectsRead = waitForSuccessfulAdminRead(
+    page,
+    "aspects",
+    (query) => query.get("pointKey") === "valley",
+  );
   await page.getByLabel("Punto QR").selectOption("valley");
+  await valleyAspectsRead;
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Aspecto seleccionado: Vistas." }),
+  ).toBeVisible();
 
+  const qrComparisonRead = waitForSuccessfulAdminRead(page, "qr-points");
   await modules.getByRole("button", { name: "Puntos QR", exact: true }).click();
+  await qrComparisonRead;
   await expect(
     page.getByRole("heading", { name: "Puntos QR comparados" }),
   ).toBeVisible();
+  const qrDetailRead = waitForSuccessfulAdminRead(
+    page,
+    "qr-points",
+    (query) => query.get("view") === "detail",
+  );
   await page.getByRole("tab", { name: "Detalle" }).click();
+  await qrDetailRead;
   await expect(
     page.getByRole("heading", { name: "Detalle del punto QR" }),
   ).toBeVisible();
@@ -277,17 +405,35 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
     )
     .toBe(true);
 
+  const commentsRead = waitForSuccessfulAdminRead(page, "comments");
+  const reportsRead = waitForSuccessfulAdminRead(page, "reports");
   await modules
     .getByRole("button", { name: "Comentarios e informes", exact: true })
     .click();
+  await Promise.all([commentsRead, reportsRead]);
   await expect(
     page.getByRole("heading", { name: "Comentarios" }),
+  ).toBeVisible();
+  await expect(page.getByText("26 comentarios encontrados.")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Informe de experiencia" }),
   ).toBeVisible();
   await page.getByLabel("Buscar en el texto del comentario").fill("excelentes");
   await page.getByLabel("Aspecto").selectOption("views");
   await page.getByRole("checkbox", { name: "5 estrellas" }).check();
   await page.getByLabel("Punto QR").selectOption("summit");
+  const filteredCommentsRead = waitForSuccessfulAdminRead(
+    page,
+    "comments",
+    (query) =>
+      query.get("text") === "excelentes" &&
+      query.get("aspectKey") === "views" &&
+      query.getAll("rating").includes("5") &&
+      query.get("pointKey") === "summit" &&
+      query.get("locale") === "es",
+  );
   await page.getByLabel("Idioma").selectOption("es");
+  await filteredCommentsRead;
   await expect(
     page.getByRole("button", { name: "Las vistas fueron excelentes." }),
   ).toBeVisible();
@@ -303,7 +449,13 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
     )
     .toBe(true);
   await expect(page.getByText("Página 1 de 2")).toBeVisible();
+  const secondPageCommentsRead = waitForSuccessfulAdminRead(
+    page,
+    "comments",
+    (query) => query.get("page") === "2",
+  );
   await page.getByRole("button", { name: "Siguiente" }).first().click();
+  await secondPageCommentsRead;
   await expect
     .poll(() =>
       requests.some(
@@ -367,14 +519,20 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
 test("authenticated admin keeps module order and empty states on mobile", async ({
   page,
 }) => {
+  observeFailureDiagnostics(page);
   await page.setViewportSize({ width: 390, height: 844 });
   const { requests, browserUrls } = await installAdminStack(page, true);
   await loginAsSyntheticAdmin(page);
+  const summaryRead = waitForSuccessfulAdminRead(page, "summary");
   await page.goto("/es-AR/dashboard/feedback", {
-    waitUntil: "domcontentloaded",
+    waitUntil: "commit",
   });
+  await summaryRead;
   await expect(
     page.getByRole("heading", { name: "Feedback del público" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Analizado:" }),
   ).toBeVisible();
   const modules = page.getByRole("navigation", {
     name: "Módulos de Feedback del público",
@@ -385,9 +543,12 @@ test("authenticated admin keeps module order and empty states on mobile", async 
     "Puntos QR",
     "Comentarios e informes",
   ]);
+  const commentsRead = waitForSuccessfulAdminRead(page, "comments");
+  const reportsRead = waitForSuccessfulAdminRead(page, "reports");
   await modules
     .getByRole("button", { name: "Comentarios e informes", exact: true })
     .click();
+  await Promise.all([commentsRead, reportsRead]);
   await expect(
     page.getByText("No hay comentarios para estos filtros."),
   ).toBeVisible();

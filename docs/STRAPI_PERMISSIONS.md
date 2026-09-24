@@ -287,6 +287,17 @@ mismatches. The action does not grant native collection reads or expose the
 snapshot through a public/admin route. The isolated HTTP harness grants it only
 to its synthetic worker-role equivalent; no production role or token is changed.
 
+U10-A5 registers
+`api::survey-report-generation.survey-report-generation.workerCheckpoint` for
+the bounded worker checkpoint PUT, but the action is currently fail-closed:
+`writeWorkerCheckpoint` returns `UNKNOWN_VERSION` before opening a transaction.
+No checkpoint payload is persisted and no default or production grant exists.
+The action is separate from generic CRUD, and the route returns no persisted
+checkpoint payload. Future activation requires the versioned digest, independent
+membership and nested-output validation, runtime verifier-key provisioning, and
+resolution of the request-size limit documented in TB-113 design/04. The
+synthetic HTTP harness's temporary test grant is not a production grant.
+
 Verify the baseline with:
 
 ```bash
