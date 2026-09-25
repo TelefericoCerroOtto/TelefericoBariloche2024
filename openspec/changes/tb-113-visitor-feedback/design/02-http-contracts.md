@@ -148,6 +148,53 @@ future authorized provider adapter.
 
 Cloud Run only exposes POST `/internal/v1/report-runs:execute` with `{commandVersion:"survey-report-command.v1",reportRunId}`; raw >4 KiB returns 413 `PAYLOAD_TOO_LARGE`. Auth precedes dependencies. Deadline-bounded 200: `{contractVersion:"survey-worker-execution.v1",reportRunId,status:"succeeded"|"failed",disposition:"completed"|"terminal-replay",failureCode?:RuntimeFailureCodeV1|"QUEUE_ENQUEUE_EXHAUSTED"}`. Failures: 400 `INVALID_COMMAND`, 401 `INVALID_OIDC`, 403 `FORBIDDEN_INVOKER`, 404 `RUN_NOT_FOUND`, 409 `INVALID_STATE`, retryable 503 `RETRYABLE_EXECUTION`, safe 500 `INTERNAL_ERROR`. Responses omit checkpoints/sensitive/raw content.
 
+### Authenticated private CMS source pages
+
+The bounded CMS source reader is `POST /api/tb113/worker/report-source` and
+requires the exact
+`api::survey-report-generation.survey-report-generation.workerSourceRead` scope
+under Strapi's `content-api-token` strategy only. Users & Permissions is not a
+fallback strategy. The controller checks Strapi's actual auth result for the
+`content-api-token` strategy, `kind: "content-api"`, and `type: "custom"` before
+measuring or validating the request body or invoking the source service. In
+Strapi 5, the core content API auth middleware stores the selected strategy and
+credentials in `ctx.state.auth`; the installed token strategy supplies these
+fields after verifying the API token. The route has no native submission CRUD
+permission, and the service reads only its explicit raw SQL projection.
+
+The disposable HTTP harness proves anonymous denial, denial of an ordinary
+application-user JWT even with the same workerSourceRead Users & Permissions
+action granted, denial of a custom API token without this action, allow for a
+synthetic custom content API token with only this action, and denial of native
+`survey-submission.find` to both JWT and custom-token callers. The action and
+synthetic tokens are created only in the ephemeral test database. No persistent
+grant, real credential, schema, generated type, dependency, or environment
+change is part of this contract. Real worker custom-token provisioning remains
+a separately authorized operational step.
+
+```ts
+// Normative source-page request and response
+type GenerationSourceResourceV1 = "submissions" | "versions" | "points";
+type GenerationSourcePageRequestV1={contractVersion:"survey-generation-source.v1";resource:GenerationSourceResourceV1;acceptedAtGte:string;acceptedAtLte:string;dataCutoffAt:string;cursor:string|null;pageSize:number};
+type GenerationSourcePageResponseV1={contractVersion:"survey-generation-source.v1";resource:GenerationSourceResourceV1;cursor:string|null;nextCursor:string|null;total:number;items:unknown[]};
+```
+
+The request is closed, uses canonical UTC instants, restricts the inclusive
+window to at most 732 days, and accepts only page sizes `1..25`; measured request
+bodies above 4 KiB return 413. Cursors are opaque base64url values bound to the
+resource, time window, and immutable cutoff. Submission pages keyset on unique
+receipt order; version and point pages keyset on canonical document ID. Every
+page returns the same complete-set total; malformed cursors, unstable totals,
+missing relations/ratings, and query failures return a bounded failure, never a
+partial page success. Submission rows are restricted to `source=valid_qr` and
+the selected accepted-time window. The query intentionally does not filter by
+`dataCutoffAt`: rows after the frozen cutoff must reach the shared core so it
+can compute `excludedAfterCutoffCount`. Each submission explicitly includes
+nullable `comment`, lowercase `payloadDigest`, ratings, and canonical version/
+point IDs and keys. `survey-version` pages include definitions; `survey-qr-point`
+pages include point identity/display/order. Do not expose this projection through
+the browser, admin dashboard, generic native `find`, or public role/token.
+
 ## Direct implementation runtime boundary
 
 The app-owned direct implementation now provides the local worker/PDF boundary
