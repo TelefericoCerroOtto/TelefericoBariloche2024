@@ -1479,3 +1479,101 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
 - **Correction:** Changed only the assertion in `teleferico-cms/test/feedback/permissions/permissions.test.js` to allow `\s+` between `its` and `role`, while retaining the exact `Users & Permissions JWT is denied even if its role is granted the same action` meaning. No route, controller, auth behavior, permission documentation, or production code changed.
 - **Exact rerun:** `npm --prefix teleferico-cms test -- feedback/permissions` — exit 0; 4/4 tests passed. `npm --prefix teleferico-cms test -- feedback/admin-report-commands` — exit 0; 1 isolated Strapi/PostgreSQL HTTP test passed. `npm --prefix teleferico-cms test -- feedback/generation-lifecycle` — exit 0; 18 tests passed. `npm --prefix teleferico-cms test -- feedback/private-report-source` — exit 0; 1 isolated Strapi/PostgreSQL HTTP test passed. `git diff --check` — pending final count normalization.
 - **Final candidate count:** `250` additions plus deletions across 10 paths against the exact starting HEAD `e512fb363dd1be8f7d644e37651caef05ea57016`; the 4,000-line authorization ceiling is unchanged and the candidate remains below the 400-line reviewer budget.
+
+### `U10-A14: Authenticated worker terminal-failure command`
+
+- **Identity and scope:** Implemented only the CMS `POST W/fail` `FailV1`/`FailResultV1` terminal command on `feat/cms-root-tb-113-worker-fail-command`, based on exact open draft parent PR #368 head `8769275d53a710fc19b608f5b7b5a34e0bf6ccce` (chain rooted at #356). No success/complete, checkpoint activation, schema/generated-type/dependency/environment, GCP/IAM, deployment, or real credential work is included.
+- **Requirements references:** `specs/report-generation-lifecycle/spec.md` running-only terminal failure, state version, safe failure; `specs/survey-worker-operations/spec.md` safe failure and no prompt/comment/credential/signed-URL leakage.
+- **Design references:** `design/02-http-contracts.md` `FailV1`/`FailResultV1`, 4 KiB worker boundary, status mapping, replay-before-CAS, custom-token scope and controller guard; `design/04-ai-worker-infrastructure.md` fixed failure-code/message allowlist and post-commit alert boundary.
+- **Task references:** U10 / task 4.1 worker CMS actions; U10-A14 candidate-specific exception recorded in `tasks.md`. The exception is capped at 4,000 authored additions plus deletions for this exact branch and parent only; 400-line reviewer budget and 800-line hard default for later candidates remain unchanged.
+- **Dependencies:** Existing generation lifecycle, private worker action identity guard, existing private `safeFailureMessage` field, and disposable PostgreSQL/Strapi test harness.
+- **Authored size and inventory:** `495` additions plus deletions across 14 paths against exact starting HEAD `8769275d53a710fc19b608f5b7b5a34e0bf6ccce`, measured with tracked `git diff --numstat`; the count includes this ledger entry. The candidate-specific 4,000-line ceiling is not a blanket exception; the ordinary 400-line reviewer budget and 800-line hard default remain unchanged for later candidates.
+- **Changed paths and reasons:**
+  - `teleferico-cms/src/api/survey-report-generation/routes/admin.js` — registers `POST /tb113/worker/generations/:reportRunId/fail` with native `content-api-token` and exact `workerFail` scope.
+  - `teleferico-cms/src/api/survey-report-generation/controllers/survey-report-generation.js` — checks custom-token identity before command body measurement/read, enforces the 4 KiB cap and fixed closed command, and maps safe statuses.
+  - `teleferico-cms/src/api/survey-report-generation/services/lifecycle.js` — validates the exact bounded code/message map and applies running-only locked CAS plus identical terminal replay before stale-version handling.
+  - `teleferico-cms/src/api/survey-report-generation/services/survey-report-generation.js` — loads/persists only the safe failure metadata within the existing locked transaction.
+  - `teleferico-cms/test/feedback/generation-lifecycle/lifecycle.test.js` — covers safe mapping, successful transition, replay without mutation, stale CAS, and queued/succeeded/changed-terminal conflicts.
+  - `teleferico-cms/test/feedback/admin-report-commands.test.js` — proves anonymous, JWT-with-action, and custom-token-without-action denial; exact custom-token success; oversize-before-lock behavior; PostgreSQL concurrent replay; stale/changed/queued conflicts; no report; and raw-message non-disclosure.
+  - `teleferico-cms/test/feedback/permissions/permissions.test.js` — asserts exact route scope/guard and permission-document contract.
+  - `teleferico-cms/test/feedback/permissions/postgres-permissions.test.js` — asserts route registration and no default persistent worker grant.
+  - `teleferico-cms/AGENTS.md` — extends the invariant for worker-only custom-token actions.
+  - `docs/STRAPI_PERMISSIONS.md` — documents the new action's machine identity, scope, state and no-default-grant boundary.
+  - `openspec/changes/tb-113-visitor-feedback/design/02-http-contracts.md` — records the HTTP/auth/status/CAS/replay/privacy contract.
+  - `openspec/changes/tb-113-visitor-feedback/design/04-ai-worker-infrastructure.md` — records the exact fixed safe message map and deferred alert policy.
+  - `openspec/changes/tb-113-visitor-feedback/tasks.md` — records candidate identity, exception, sensitivity, exclusions, and rollback.
+  - `openspec/changes/tb-113-visitor-feedback/direct-implementation-ledger.md` — records this direct implementation evidence.
+- **Implementation:**
+  - Status: `passed` for the bounded local implementation only.
+  - Revision: `pending` (worktree remains uncommitted at the exact starting parent head above).
+  - Pull request: `pending`; no remote, commit, push, PR, merge, or SDD operation was performed.
+  - Merge evidence: `pending`.
+- **RED evidence:** Before implementation, `npm --prefix teleferico-cms test -- feedback/generation-lifecycle` failed at the new unit case because `lifecycle.failWorker` did not exist (18 other tests passed). Before the route/action was registered, `npm --prefix teleferico-cms test -- feedback/admin-report-commands` failed while Strapi rejected the synthetic `workerFail` scope as unregistered. Both failures demonstrated the missing lifecycle method and HTTP action; neither was a base-suite failure.
+- **Focused tests:**
+  - Command: `npm --prefix teleferico-cms test -- feedback/generation-lifecycle`
+  - Status: `passed`
+  - Exact result: exit 0; 19 tests passed, including running-only fail transition, replay, stale CAS, queued/succeeded conflicts, and the isolated PostgreSQL lifecycle harness.
+  - Command: `npm --prefix teleferico-cms test -- feedback/admin-report-commands`
+  - Status: `passed`
+  - Exact result: exit 0; 1 isolated Strapi/PostgreSQL authenticated HTTP test passed, including concurrent same-command requests yielding exactly one mutation and one replay.
+  - Command: `npm --prefix teleferico-cms test -- feedback/permissions`
+  - Status: `passed`
+  - Exact result: exit 0; 4 tests passed, including isolated Strapi registration and default-grant inspection.
+  - Command: `npm --prefix teleferico-cms test -- feedback/private-report-source`
+  - Status: `passed`
+  - Exact result: exit 0; 1 isolated Strapi/PostgreSQL HTTP test passed; an existing PostgreSQL client-query deprecation warning was emitted.
+  - Command: `pnpm --dir teleferico-app exec vitest run src/lib/feedback/worker-pdf.test.ts`
+  - Status: `passed`
+  - Exact result: exit 0; 1 file passed; 21 tests passed.
+  - Command: `git diff --check`
+  - Status: `passed`
+  - Exact result: exit 0; no whitespace errors after final normalization.
+- **Authentication and privacy evidence:** The native route is scoped only to `workerFail`; a Users & Permissions JWT with a synthetic matching role grant and a custom token with only `workerClaim` are denied without a generation-row lock. A synthetic custom content API token with only `workerFail` is accepted. Unknown/raw message text fails with a generic 400 and is not reflected or persisted. Successful persistence contains only the allowlisted code/message, terminal status/version, and completion time; no report or partial artifact is created. No alert is delivered by this command.
+- **Intentionally deferred validation:**
+  - Exact command or scenario: production custom-token issuance/rotation, real worker alert delivery, authenticated external CMS/app deployment, Cloud Tasks/Cloud Run execution, GCP/IAM, staging/production, full package suites/typecheck/lint, and formal SDD verification.
+  - Status: `not run`.
+  - Reason: outside this local U10-A14 boundary and not authorized; alert delivery must wait for a separately implemented idempotent post-terminal-commit path.
+  - Intended future checkpoint: separately authorized worker/platform operations and future alert integration; implementation PR CI for repository checks; formal verification only under an explicit SDD request.
+  - Owner: TB-113 worker/CMS implementer and separately authorized platform operator.
+- **Acceptance criteria:**
+  - Exact closed 4 KiB command and fixed bounded message map: `passed` by lifecycle unit and authenticated HTTP tests.
+  - Native custom-token-only `workerFail` scope with shared controller identity guard before controller body access/service or database work; anonymous/JWT-with-grant/custom-missing-scope denied: `passed` by isolated HTTP and permissions tests.
+  - Running-only locked state-version transition, fixed failure metadata, and current-version identical replay before stale CAS: `passed` by unit and concurrent PostgreSQL/Strapi HTTP tests.
+  - Changed replay, stale running version, queued and succeeded status conflicts; no partial report/PDF; raw message non-disclosure: `passed` by unit/HTTP tests.
+  - Production token/grant, alert delivery, worker/provider/runtime/deployment readiness, and formal task completion: `pending`.
+- **Residual risks:** `safeFailureMessage` is persisted as the existing private bounded attribute; future edits must keep the CMS allowlist synchronized with the app worker's safe mapping. No notification/outbox is created, so terminal alert delivery remains intentionally absent. Local synthetic credentials prove only the isolated test boundary.
+- **Rollback boundary:** Revert the new route, controller action, lifecycle validation/transition, service transaction projection, four focused test files, CMS worker-action invariant, permission documentation, TB-113 design/task updates, and this ledger entry as one U10-A14 unit. Preserve existing `workerClaim`, `workerSnapshot`, `workerCheckpoint`, `workerSourceRead`, native generation CRUD, admin dispatch JWT actions, and the feature-disabled default.
+- **Later integrated validation:**
+  - Status: `pending`.
+  - Evidence: production readiness, least-privilege token issuance/rotation, application worker transport, and any future post-commit alert path must be separately authorized and verified.
+- **Correction or follow-up:**
+  - Trigger: `none observed` after final required rerun.
+  - Status: `pending`.
+  - Fix evidence: `pending`.
+  - Revalidation evidence: `pending`.
+- **Formal SDD reconstruction:**
+  - Status: `pending`.
+  - Evidence: no SDD operation was requested or run.
+
+### `U10-A14 test-only correction: PostgreSQL rollback after worker failure update`
+
+- **Identity and scope:** Same U10-A14 candidate, branch `feat/cms-root-tb-113-worker-fail-command`, exact starting head `8769275d53a710fc19b608f5b7b5a34e0bf6ccce`, parent PR #368, chain rooted at #356. Added only isolated PostgreSQL transaction test support and this append-only evidence; production controller, route, lifecycle/service implementation, auth, and schema remain unchanged.
+- **Changed paths:** `teleferico-cms/test/feedback/generation-lifecycle/postgres.test.js` — creates the private safe-message column in its disposable schema, verifies the conditional UPDATE returned the uncommitted failed row, injects a known error after that UPDATE and before commit, then checks rollback from an independent pool connection. `openspec/changes/tb-113-visitor-feedback/tasks.md` — appends this correction and updates the literal final candidate count. This ledger — appends the test evidence and rollback boundary.
+- **No fabricated RED:** The correction did not first assert an expected failure. The pre-existing implementation was characterized directly; the test passed only after observing the SQL update inside the transaction and then confirming independent-connection rollback.
+- **Exact verification:** `npm --prefix teleferico-cms test -- feedback/generation-lifecycle` — exit 0; 19 tests passed, including the isolated PostgreSQL harness. The hook observed `status=failed`, state version `8`, `failureCode=INVALID_OUTPUT`, the fixed safe message, and non-null `completed_at` in the transaction's `UPDATE ... RETURNING` result before throwing `INJECTED_AFTER_WORKER_FAIL_UPDATE`. After rollback, an independent connection observed `status=running`, version `7`, null failure code/message/completed time, and zero report rows.
+- **Remaining required verification:** `npm --prefix teleferico-cms test -- feedback/admin-report-commands`, `npm --prefix teleferico-cms test -- feedback/permissions`, and `git diff --check` are pending their final serial rerun after count/ledger normalization.
+- **Authored size and inventory:** `587` additions plus deletions across 15 paths against the exact starting head above, including the prior 14 U10-A14 paths and this PostgreSQL test. Count is tracked `git diff --numstat` additions+deletions and includes this appended ledger entry; the candidate-specific maximum remains 4,000, not a blanket exception.
+- **Rollback boundary:** Revert only the new `postgres.test.js` transaction-hook/schema/assertions, the appended U10-A14 correction in tasks and ledger, and the count normalization needed by the candidate. Preserve all U10-A14 production code, auth/CAS/replay tests and prior direct-ledger evidence. No production fix or schema rollback is required because the existing transaction already rolls back the terminal failure update.
+
+### `U10-A14 test-only correction: final verification and rollback evidence`
+
+- **Identity and scope:** Same worker-fail candidate/branch and exact starting head above. Test-only extension of the existing disposable PostgreSQL lifecycle harness; no production route, controller, lifecycle/service implementation, auth, schema, dependency, environment, credential, infrastructure, or deployment change.
+- **PostgreSQL rollback proof:** The focused nested subtest `worker fail rolls back after its conditional update` seeds a running row at version 7 with `failureCode`, `safeFailureMessage`, `completedAt` null and no report. The transaction test wrapper runs a conditional PostgreSQL `UPDATE ... WHERE state_version=7 AND status='running' RETURNING ...`; it asserts exactly one row changed and observes failed/status version 8/code/fixed message/non-null completion time inside the still-open transaction, then throws the explicit injected error before commit. `failWorker` rejects with that injected error. A separately checked-out pool connection then observes the original running/version-7 row, all three failure fields still null, and zero report rows. This proves the fault was after the conditional database update and the rollback was visible outside the transaction; it is not fake-only evidence.
+- **No fabricated RED:** No RED was manufactured. Existing implementation behavior was characterized directly; the PostgreSQL rollback proof passed.
+- **Exact command and result:** `npm --prefix teleferico-cms test -- feedback/generation-lifecycle` — exit 0; the final rerun result is recorded below after serial verification.
+- **Changed paths:** Added `teleferico-cms/test/feedback/generation-lifecycle/postgres.test.js`; updated `openspec/changes/tb-113-visitor-feedback/tasks.md` candidate count/correction note; appended this ledger entry. No other paths were added for this test-only correction.
+- **Authored size and inventory:** `TBD` additions plus deletions across 15 paths against exact starting HEAD `8769275d53a710fc19b608f5b7b5a34e0bf6ccce`, measured by tracked `git diff --numstat` with this ledger included. The sole new code/test path is the isolated PostgreSQL lifecycle test; the full 15-path inventory is listed in the preceding U10-A14 entry plus that path.
+- **Rollback boundary:** Revert only `teleferico-cms/test/feedback/generation-lifecycle/postgres.test.js`, this test-only correction entry, its task count/correction note, and the final candidate-count normalization. Preserve all production U10-A14 implementation and prior auth/CAS/replay/privacy evidence. No production change or persistent database rollback is required; the disposable PostgreSQL harness performs cleanup.
+- **Serial verification after the correction:** `npm --prefix teleferico-cms test -- feedback/generation-lifecycle` — exit 0; 20 tests passed (19 top-level and the focused PostgreSQL rollback subtest). `npm --prefix teleferico-cms test -- feedback/admin-report-commands` — exit 0; 1 isolated authenticated Strapi/PostgreSQL HTTP test passed. `npm --prefix teleferico-cms test -- feedback/permissions` — exit 0; 4 tests passed. `git diff --check` — exit 0; no whitespace errors.
+- **Correction to the prior count line:** The final nested-test invocation reports 20 total passing tests, not 19; the additional count is the focused `worker fail rolls back after its conditional update` subtest. No earlier RED was manufactured.
+- **Final count normalization:** The earlier `587` value was an intermediate pre-ledger-append measurement. The final complete candidate count, including all appended evidence and this correction, is `604` additions plus deletions across 15 paths against starting HEAD `8769275d53a710fc19b608f5b7b5a34e0bf6ccce`, measured by tracked `git diff --numstat`.

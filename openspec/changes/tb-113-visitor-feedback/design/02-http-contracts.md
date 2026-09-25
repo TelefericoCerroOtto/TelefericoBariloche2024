@@ -107,16 +107,39 @@ Paths: `W=/api/tb113/worker/generations/:reportRunId`; `A=/api/tb113/admin/gener
 
 All worker/admin command actions add 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `RUN_NOT_FOUND`, and safe 500 `INTERNAL_ERROR`. Claim alone reads checkpoints. Identical checkpoint/terminal replay precedes stale CAS; differing replay conflicts. Appendix 04 validates completion. Only snapshot carries D50-D51 raw comments to the private worker, never browsers; others omit comments and raw prompt/model responses.
 
+`POST W/fail` is a CMS terminal-state command, not a client-provided diagnostic
+channel. It requires Strapi's native `content-api-token` strategy, the exact
+`api::survey-report-generation.survey-report-generation.workerFail` scope, and
+the shared controller identity guard before body measurement/reading or database
+access. Users & Permissions JWTs remain denied even if their role has this
+action. The exact closed `FailV1` body is capped at 4 KiB; `failureCode` must be
+a known `RuntimeFailureCodeV1` and `safeFailureMessage` must equal its fixed
+bounded mapping in Appendix 04. Caller comments, prompts, stack traces, signed
+URLs, and any non-mapped text are rejected without persistence or reflection.
+
+The lifecycle locks the generation row. Only `running` with the exact
+`expectedStateVersion` may transition to `failed`; the update increments
+`stateVersion` once and records only `failureCode`, the mapped safe message, and
+`completedAt`. It creates no report or partial PDF. Before stale-CAS handling,
+an identical already-failed command (same expected version, code, and mapped
+message) returns the current version with `replayed:true` and no mutation.
+Changed terminal replay and `queued`/`succeeded` states return 409
+`TERMINAL_CONFLICT`; a stale running version returns 409
+`STATE_VERSION_CONFLICT`. No alert is emitted by this endpoint; any later alert
+adapter may run only after the terminal commit succeeds and must deduplicate
+replays.
+
 The checkpoint route is currently fail-closed: bounded requests return 400 `UNKNOWN_VERSION` before opening a transaction; raw bodies over 4 KiB retain the existing 413 behavior. The 4 KiB cap is unchanged, but validated map payloads may exceed it. Before activation, define and test a bounded request-size contract against complete valid map payloads; this foundation does not claim every valid checkpoint fits the current cap. See Appendix 04 for the remaining activation gates.
 
-`POST W/claim`, `GET W/snapshot`, and `PUT W/checkpoints/:stageKey` require the
-native Strapi `content-api-token` strategy and their respective exact custom
-action scopes: `api::survey-report-generation.survey-report-generation.workerClaim`,
-`...workerSnapshot`, and `...workerCheckpoint`. A shared controller guard
+`POST W/claim`, `GET W/snapshot`, `PUT W/checkpoints/:stageKey`, and `POST
+W/fail` require the native Strapi `content-api-token` strategy and their
+respective exact custom action scopes:
+`api::survey-report-generation.survey-report-generation.workerClaim`,
+`...workerSnapshot`, `...workerCheckpoint`, and `...workerFail`. A shared controller guard
 checks Strapi's selected strategy and credential `kind: "content-api"` plus
-`type: "custom"` before claim/checkpoint body measurement or any service/database
+`type: "custom"` before worker body measurement/reading or any service/database
 access. No Users & Permissions JWT fallback is accepted, even when a role has
-the same worker action. Existing JWT grants for these three actions therefore
+the same worker action. Existing JWT grants for these worker actions therefore
 stop authorizing the worker endpoints; this is an intentional auth migration,
 not a global auth change. A separately approved worker owner must provision a
 custom content API token with only the exact action needed by its caller. This

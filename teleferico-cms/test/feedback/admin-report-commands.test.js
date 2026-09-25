@@ -16,6 +16,7 @@ const WORKER_QUEUED_RUN_ID = "00000000-0000-4000-8000-000000000005";
 const WORKER_VERSION_RUN_ID = "00000000-0000-4000-8000-000000000006";
 const WORKER_DIGEST_RUN_ID = "00000000-0000-4000-8000-000000000007";
 const WORKER_CHECKPOINT_RUN_ID = "00000000-0000-4000-8000-000000000008";
+const WORKER_FAIL_RUN_ID = "00000000-0000-4000-8000-000000000009";
 const compose = (...args) =>
   executeFixed(DOCKER_EXECUTABLE, [
     "compose",
@@ -150,6 +151,7 @@ test("native role authorization creates only through the core generation endpoin
       claim: `${generationUid}.workerClaim`,
       snapshot: `${generationUid}.workerSnapshot`,
       checkpoint: `${generationUid}.workerCheckpoint`,
+      fail: `${generationUid}.workerFail`,
     };
     const workerTokens = Object.fromEntries(await Promise.all(Object.entries(workerActions).map(async ([name, action]) => {
       const token = await contentApiTokens.create({
@@ -623,6 +625,118 @@ test("native role authorization creates only through the core generation endpoin
       : privateCheckpointProjection.result.checkpoints_json;
     assert.deepEqual(persistedCheckpoints.entries, []);
     assert.equal((await strapi.db.connection("survey_report_generations").where({ report_run_id: WORKER_CHECKPOINT_RUN_ID }).first()).state_version, 2);
+
+    const failGeneration = await fetch(endpoint, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ data: generationData(WORKER_FAIL_RUN_ID, "2027-01-01", "2027-01-10") }),
+    });
+    assert.equal(failGeneration.status, 201);
+    const failRoot = `http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_FAIL_RUN_ID}`;
+    const failUrl = `${failRoot}/fail`;
+    const failCommand = {
+      contractVersion: "survey-worker-cms.v1",
+      expectedStateVersion: 2,
+      failureCode: "INVALID_OUTPUT",
+      safeFailureMessage: "The report output did not satisfy its contract.",
+    };
+    const anonymousFail = await fetch(failUrl, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(failCommand),
+    });
+    assert.ok([401, 403].includes(anonymousFail.status));
+    await grant(strapi, role.id, workerActions.fail);
+    const capturedDeniedFail = await captureQueries(strapi, () => Promise.all([
+      fetch(failUrl, {
+        method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+        body: `${JSON.stringify(failCommand)}${" ".repeat(4_097)}`,
+      }),
+      fetch(failUrl, {
+        method: "POST", headers: { authorization: `Bearer ${workerTokens.claim}`, "content-type": "application/json" },
+        body: JSON.stringify(failCommand),
+      }),
+    ]));
+    assert.ok(capturedDeniedFail.result.every(({ status }) => [401, 403].includes(status)));
+    assert.equal(capturedDeniedFail.queries.some((sql) => /survey_report_generations[\s\S]*for update/i.test(sql)), false);
+
+    const claimedForFailure = await fetch(`${failRoot}/claim`, {
+      method: "POST", headers: { authorization: `Bearer ${workerTokens.claim}`, "content-type": "application/json" },
+      body: JSON.stringify(claimCommand),
+    });
+    assert.equal(claimedForFailure.status, 200);
+    const capturedOversizedFail = await captureQueries(strapi, () => fetch(failUrl, {
+      method: "POST", headers: { authorization: `Bearer ${workerTokens.fail}`, "content-type": "application/json" },
+      body: `${JSON.stringify(failCommand)}${" ".repeat(4_097)}`,
+    }));
+    assert.equal(capturedOversizedFail.result.status, 413);
+    assert.equal((await capturedOversizedFail.result.json()).error.code, "PAYLOAD_TOO_LARGE");
+    assert.equal(capturedOversizedFail.queries.some((sql) => /survey_report_generations[\s\S]*for update/i.test(sql)), false);
+    const staleRunningFail = await fetch(failUrl, {
+      method: "POST", headers: { authorization: `Bearer ${workerTokens.fail}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...failCommand, expectedStateVersion: 1 }),
+    });
+    assert.equal(staleRunningFail.status, 409);
+    assert.equal((await staleRunningFail.json()).error.code, "STATE_VERSION_CONFLICT");
+    const capturedFailAuth = await captureQueries(strapi, () => Promise.all([
+      fetch(failUrl, {
+        method: "POST", headers: { authorization: `Bearer ${workerTokens.fail}`, "content-type": "application/json" },
+        body: JSON.stringify(failCommand),
+      }),
+      fetch(failUrl, {
+        method: "POST", headers: { authorization: `Bearer ${workerTokens.fail}`, "content-type": "application/json" },
+        body: JSON.stringify(failCommand),
+      }),
+    ]));
+    assert.ok(generationLockQuery(capturedFailAuth.queries));
+    assert.deepEqual(capturedFailAuth.result.map(({ status }) => status), [200, 200]);
+    const failResults = await Promise.all(capturedFailAuth.result.map((response) => response.json()));
+    failResults.sort((left, right) => Number(left.replayed) - Number(right.replayed));
+    assert.deepEqual(failResults, [
+      {
+        contractVersion: "survey-worker-cms.v1", reportRunId: WORKER_FAIL_RUN_ID,
+        stateVersion: 3, status: "failed", failureCode: "INVALID_OUTPUT", replayed: false,
+      },
+      {
+        contractVersion: "survey-worker-cms.v1", reportRunId: WORKER_FAIL_RUN_ID,
+        stateVersion: 3, status: "failed", failureCode: "INVALID_OUTPUT", replayed: true,
+      },
+    ]);
+    assert.equal(JSON.stringify(failResults).includes("safeFailureMessage"), false);
+    const storedFailure = await strapi.db.connection("survey_report_generations")
+      .where({ report_run_id: WORKER_FAIL_RUN_ID })
+      .select("status", "state_version", "failure_code", "safe_failure_message", "completed_at").first();
+    assert.equal(storedFailure.status, "failed");
+    assert.equal(storedFailure.state_version, 3);
+    assert.equal(storedFailure.failure_code, "INVALID_OUTPUT");
+    assert.equal(storedFailure.safe_failure_message, failCommand.safeFailureMessage);
+    assert.ok(storedFailure.completed_at);
+    assert.equal(await strapi.db.connection("survey_reports").where({ generation_run_id: WORKER_FAIL_RUN_ID }).first(), undefined);
+
+    const changedReplay = await fetch(failUrl, {
+      method: "POST", headers: { authorization: `Bearer ${workerTokens.fail}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        ...failCommand,
+        failureCode: "INVARIANT",
+        safeFailureMessage: "The report state failed an integrity check.",
+      }),
+    });
+    assert.equal(changedReplay.status, 409);
+    assert.equal((await changedReplay.json()).error.code, "TERMINAL_CONFLICT");
+    const privateMessage = "Private visitor comment must never be persisted";
+    const rejectedPrivateMessage = await fetch(failUrl, {
+      method: "POST", headers: { authorization: `Bearer ${workerTokens.fail}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...failCommand, safeFailureMessage: privateMessage }),
+    });
+    assert.equal(rejectedPrivateMessage.status, 400);
+    const rejectedPrivateBody = await rejectedPrivateMessage.json();
+    assert.equal(rejectedPrivateBody.error.code, "VALIDATION_FAILED");
+    assert.equal(JSON.stringify(rejectedPrivateBody).includes(privateMessage), false);
+
+    const queuedFailure = await fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_QUEUED_RUN_ID}/fail`, {
+      method: "POST", headers: { authorization: `Bearer ${workerTokens.fail}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...failCommand, expectedStateVersion: 1 }),
+    });
+    assert.equal(queuedFailure.status, 409);
+    assert.equal((await queuedFailure.json()).error.code, "TERMINAL_CONFLICT");
 
     const update = await fetch(`${endpoint}/${body.data.documentId}`, {
       method: "PUT",

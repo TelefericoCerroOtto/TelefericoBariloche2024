@@ -45,7 +45,7 @@ As a consequence, this `AGENTS.md` intentionally has less structural depth than 
 - Do not modify `content-types`, `components`, `database/migrations` or `src/extensions/users-permissions` unless it is an explicit task.
 - Schema, role and permission changes are sensitive: review functional and contractual impact before assuming compatibility.
 - Do not introduce permission changes that expand public or administrative access without explicit requirement.
-- TB-113 worker-only `workerClaim`, `workerSnapshot`, `workerCheckpoint`, and `workerSourceRead` actions require Strapi's `content-api-token` strategy with exact custom-token action scopes and controller identity checks. Never authorize them through a Users & Permissions JWT, even if a role has the same action; keep default and persistent grants absent unless separately approved. Native generation CRUD and admin dispatch actions retain their documented JWT boundary.
+- TB-113 worker-only `workerClaim`, `workerSnapshot`, `workerCheckpoint`, `workerSourceRead`, and `workerFail` actions require Strapi's `content-api-token` strategy with exact custom-token action scopes and controller identity checks before controller body access or database work. Never authorize them through a Users & Permissions JWT, even if a role has the same action; keep default and persistent grants absent unless separately approved. Native generation CRUD and admin dispatch actions retain their documented JWT boundary.
 
 ### Permissions documentation sync
 

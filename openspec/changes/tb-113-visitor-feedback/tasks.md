@@ -113,6 +113,31 @@ U10-A12 now completes local real HTTP generation create and failed retry. In the
 
 U10-A13 worker action auth correction: on `fix/cms-root-tb-113-worker-actions-machine-auth`, based on exact open draft parent PR #367 head `e512fb363dd1be8f7d644e37651caef05ea57016` (chain rooted at #356), unify only `W/claim`, `W/snapshot`, and `W/checkpoints/:stageKey` under Strapi's native `content-api-token` strategy, each with its own exact custom action scope and a shared controller identity guard before body parsing/database access. The user approved a one-candidate `size:exception` cap of 4,000 authored additions plus deletions for this cohesive security work unit. Final measured candidate size: 250 additions plus deletions across 10 paths; this is below the ordinary 400-line reviewer budget, so the exception was not needed. The 800-line hard default remains unchanged, and code-golf or omission of tests/docs is not authorized. Keep native generation `find`/`create`, submission/report reads, and admin `dispatch-state`/`dispatch-failure` on their existing JWT contracts. Existing Users & Permissions JWT grants for the worker actions become ineffective by design; no production token/grant is provisioned.
 
+U10-A14 candidate-specific size exception: the user authorized one cohesive
+candidate capped at 4,000 authored additions plus deletions on
+`feat/cms-root-tb-113-worker-fail-command`, against exact open draft parent PR
+#368 head `8769275d53a710fc19b608f5b7b5a34e0bf6ccce` (chain rooted at #356).
+The exception covers only the authenticated CMS `POST W/fail` terminal command,
+its lifecycle/CAS behavior and isolated unit/Strapi/PostgreSQL HTTP tests, plus
+the matching permission, design, task, and direct-ledger documentation. It
+expires with this candidate and does not change the 400-line reviewer budget or
+800-line hard default for later work; no code-golf or test/documentation omission
+is authorized. This auth/permission boundary is sensitive. No schema, generated
+type, dependency, environment, production token/grant, GCP/IAM, deployment, or
+real credential changes are in scope. Rollback reverts this endpoint, lifecycle
+command, focused tests, and matching docs as one unit while preserving prior
+worker actions, the native JWT boundary, dispatch actions, and the disabled
+feature default. The pre-correction candidate measured `495` authored additions
+plus deletions across 14 paths against the exact starting head above; that
+measurement is superseded by the PostgreSQL rollback-proof correction below.
+
+U10-A14 PostgreSQL rollback-proof correction: on the same branch and exact
+parent, add only a real PostgreSQL rollback assertion for `failWorker`; no
+production logic, route, service, auth, or schema is changed. Final corrected
+candidate size is `604` authored additions plus deletions across 15 paths
+against the exact starting head above; the count includes the append-only ledger
+correction and is recorded with its complete inventory and method there.
+
 - [ ] 4.2 U11 Fake-provider RED→implement→GREEN explicit product-project/location Vertex initialization, fail-closed config, direct/map/reduce/redaction/validation/CountTokens/cost in `teleferico-app/services/survey-report-worker/src/**`; D:U1,U10; E:worker-Vitest/approved-staging-probe; R:D26,D51-D68,D75-D77,AI; B:adapter; A:provider/secrets; L:800,worker.
 - [ ] 4.3 U12 RED→implement→GREEN PDF/accessibility/eight-sections/five-charts/diagnostics/private-GCS in `teleferico-app/services/survey-report-worker/src/**`; D:passed-U3,U10-U11; E:golden/prohibited-content-Vitest+pinned-renderer; R:D78-D84,D89,delivery; B:renderer/objects; A:storage-lifecycle; L:700,worker.
 - [ ] 4.4 U13 Plan→approve→apply→GREEN product-project Tasks/private-Run/IAM, distinct task-invoker/worker-runtime service accounts, keyless service-identity attachment, explicit Vertex config, secrets/env/logging/alerts/labels in `teleferico-app/{cloudbuild.yaml,.env.example}`, `teleferico-cms/.env.example`, `docs/{INFRA.md,infra/survey-reporting/**}`; D:U1,U10-U12; E:`node docs/infra/survey-reporting/verify-config.test.mjs`+dry-runs; R:D35,D70,D72-D79,D89,operations; B:named-resources/grants; A:separate-staging/production; L:700,root/app/CMS/infra.

@@ -4,6 +4,20 @@ function domainError(code) { return Object.assign(new Error(code), { code }); }
 const REPORT_RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DISPATCH_EVIDENCE_VERSION = 'survey-dispatch-evidence.v1';
 const SNAPSHOT_CONTRACT_VERSION = 'survey-snapshot.v1';
+const WORKER_FAILURE_MESSAGES = Object.freeze({
+  PROVIDER_TRANSIENT: 'The report provider is temporarily unavailable.',
+  PROVIDER_RATE_LIMIT: 'The report provider is temporarily busy.',
+  PROVIDER_TIMEOUT: 'The report provider timed out.',
+  CMS_TRANSIENT: 'Report state could not be persisted.',
+  STORAGE_TRANSIENT: 'The report artifact could not be staged.',
+  INVALID_OUTPUT: 'The report output did not satisfy its contract.',
+  AUTHENTICATION: 'The report worker authentication failed.',
+  CONFIGURATION: 'Report generation is not configured.',
+  UNKNOWN_VERSION: 'The report contract version is not supported.',
+  INVARIANT: 'The report state failed an integrity check.',
+  PROHIBITED_CONTENT: 'The report output contained prohibited content.',
+  QUEUE_ENQUEUE_EXHAUSTED: 'The report could not be queued.',
+});
 
 function compareCodePoints(left, right) {
   const a = Array.from(left, (value) => value.codePointAt(0));
@@ -166,6 +180,13 @@ function validateWorkerClaimCommand(value) {
   return exactKeys(value, ['commandVersion']) &&
     value.commandVersion === 'survey-report-command.v1';
 }
+function validateWorkerFailCommand(value) {
+  return exactKeys(value, ['contractVersion', 'expectedStateVersion', 'failureCode', 'safeFailureMessage']) &&
+    value.contractVersion === 'survey-worker-cms.v1' &&
+    Number.isSafeInteger(value.expectedStateVersion) && value.expectedStateVersion > 0 &&
+    Object.hasOwn(WORKER_FAILURE_MESSAGES, value.failureCode) &&
+    value.safeFailureMessage === WORKER_FAILURE_MESSAGES[value.failureCode];
+}
 function prepareRetryGeneration(generation, now, createReportRunId = () => require('node:crypto').randomUUID()) {
   if (generation.status !== 'failed' || !generation.documentId) throw domainError('INVALID_STATE');
   return {
@@ -314,6 +335,48 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         return prepareWorkerSnapshot(generation);
       });
     },
+    async failWorker({ reportRunId, command }) {
+      if (!validateWorkerFailCommand(command)) throw domainError('VALIDATION_FAILED');
+      return withTransaction(async (transaction) => {
+        const generation = await transaction.lockGeneration(reportRunId);
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+
+        if (generation.status === 'failed' &&
+            generation.stateVersion === command.expectedStateVersion + 1 &&
+            generation.failureCode === command.failureCode &&
+            generation.safeFailureMessage === command.safeFailureMessage) {
+          return {
+            reportRunId,
+            stateVersion: generation.stateVersion,
+            status: 'failed',
+            failureCode: generation.failureCode,
+            replayed: true,
+          };
+        }
+        if (generation.status !== 'running') throw domainError('TERMINAL_CONFLICT');
+
+        const transition = prepareGenerationTransition(
+          generation,
+          command.expectedStateVersion,
+          'failed',
+          now(),
+        );
+        const patch = {
+          ...transition,
+          expectedStatus: 'running',
+          failureCode: command.failureCode,
+          safeFailureMessage: command.safeFailureMessage,
+        };
+        await transaction.updateGeneration(patch);
+        return {
+          reportRunId,
+          stateVersion: patch.stateVersion,
+          status: 'failed',
+          failureCode: patch.failureCode,
+          replayed: false,
+        };
+      });
+    },
     async writeWorkerCheckpoint() {
       throw domainError('UNKNOWN_VERSION');
     },
@@ -352,4 +415,5 @@ module.exports = {
   prepareWorkerSnapshot,
   validateDispatchStateCommand,
   validateWorkerClaimCommand,
+  validateWorkerFailCommand,
 };

@@ -227,6 +227,39 @@ Cost/call=`ceil(input*inputRate/1e6)+ceil(output*outputRate/1e6)` for persisted 
 
 ## Task, Identity, Alerts, and Storage
 
+### Worker terminal failure command policy
+
+The authenticated `POST W/fail` command accepts only the closed 4 KiB `FailV1`
+shape. The CMS allowlist below is the sole accepted relationship between a
+failure code and `safeFailureMessage`; message matching is exact and
+case-sensitive. These bounded messages contain no caller data:
+
+| `failureCode` | `safeFailureMessage` |
+| --- | --- |
+| `PROVIDER_TRANSIENT` | `The report provider is temporarily unavailable.` |
+| `PROVIDER_RATE_LIMIT` | `The report provider is temporarily busy.` |
+| `PROVIDER_TIMEOUT` | `The report provider timed out.` |
+| `CMS_TRANSIENT` | `Report state could not be persisted.` |
+| `STORAGE_TRANSIENT` | `The report artifact could not be staged.` |
+| `INVALID_OUTPUT` | `The report output did not satisfy its contract.` |
+| `AUTHENTICATION` | `The report worker authentication failed.` |
+| `CONFIGURATION` | `Report generation is not configured.` |
+| `UNKNOWN_VERSION` | `The report contract version is not supported.` |
+| `INVARIANT` | `The report state failed an integrity check.` |
+| `PROHIBITED_CONTENT` | `The report output contained prohibited content.` |
+| `QUEUE_ENQUEUE_EXHAUSTED` | `The report could not be queued.` |
+
+Only a `running` row with the exact expected state version can fail. CMS locks
+the generation row, commits `status=failed`, `stateVersion+1`, `failureCode`,
+the mapped message, and `completedAt` atomically, and creates no report or
+partial PDF. A same-command replay is recognized before stale-CAS rejection
+only when the persisted failed row has `stateVersion=expectedStateVersion+1`
+and the same code and mapped message; it returns the current version and makes
+no write. Changed terminal commands, queued rows, and succeeded rows return a
+safe terminal conflict; stale running commands return a state-version conflict.
+The endpoint does not emit an alert. Any future terminal alert must occur only
+after commit and use an idempotent deduplication key; replay cannot re-alert.
+
 Task name=`tb113-report-`+run UUID without hyphens, stored by CMS before enqueue; body/route are Appendix 02. The authorized Next.js `GenerationDispatchCoordinator` alone creates tasks: three attempts, deterministic 1s then 2s delay, transient transport/rate/5xx only. Same-name succeeds only for the same stored run/name. Auth/config rejection or third-attempt exhaustion before claim invokes Appendix-02 dispatch-failure CAS; CMS alone commits queued→failed `QUEUE_ENQUEUE_EXHAUSTED`. Replay is idempotent; running/terminal races conflict; no report/object is created.
 
 U9-A1 supplies only the authenticated CMS dispatch-failure CAS endpoint and
