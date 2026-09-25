@@ -129,13 +129,13 @@ Changed terminal replay and `queued`/`succeeded` states return 409
 adapter may run only after the terminal commit succeeds and must deduplicate
 replays.
 
-The checkpoint route is currently fail-closed: bounded requests return 400 `UNKNOWN_VERSION` before opening a transaction; raw bodies over 4 KiB retain the existing 413 behavior. The 4 KiB cap is unchanged, but validated map payloads may exceed it. Before activation, define and test a bounded request-size contract against complete valid map payloads; this foundation does not claim every valid checkpoint fits the current cap. See Appendix 04 for the remaining activation gates.
+The checkpoint route accepts only the CMS-verified zero-comment direct execution graph described in Appendix 04. It validates each candidate against the immutable snapshot and full prior checkpoint graph under the generation row lock before state-version CAS. Map/reduce and nonempty-comment semantic outputs remain fail-closed with `UNKNOWN_VERSION`; the 4 KiB raw request limit is unchanged. `W/complete` independently rechecks all six persisted stages, the fixed no-claim publication, renderer/artifact bindings, and state version before atomically creating the report and succeeding the generation. Both actions require their own exact custom content API token scope and have no default grant.
 
-`POST W/claim`, `GET W/snapshot`, `PUT W/checkpoints/:stageKey`, and `POST
-W/fail` require the native Strapi `content-api-token` strategy and their
+`POST W/claim`, `GET W/snapshot`, `PUT W/checkpoints/:stageKey`, `POST
+W/complete`, and `POST W/fail` require the native Strapi `content-api-token` strategy and their
 respective exact custom action scopes:
 `api::survey-report-generation.survey-report-generation.workerClaim`,
-`...workerSnapshot`, `...workerCheckpoint`, and `...workerFail`. A shared controller guard
+`...workerSnapshot`, `...workerCheckpoint`, `...workerComplete`, and `...workerFail`. A shared controller guard
 checks Strapi's selected strategy and credential `kind: "content-api"` plus
 `type: "custom"` before worker body measurement/reading or any service/database
 access. No Users & Permissions JWT fallback is accepted, even when a role has
@@ -152,8 +152,10 @@ succeeded/failed returns only the terminal replay identity/status/version. The
 running projection contains only checkpoints, model configuration, and pricing
 snapshot—never comments. Snapshot remains running-only, byte-equivalent on replay,
 and validates the immutable snapshot digest before exposing private comments.
-Checkpoint remains fail-closed: even a correctly scoped token reaches the
-existing `UNKNOWN_VERSION` response before the lifecycle transaction.
+Checkpoint writes are accepted only after CMS graph/input/output digest
+recomputation and compare-and-swap. Completion revalidates that persisted graph
+and the fixed zero-comment analysis before report creation. Other semantic
+analysis and map/reduce candidates remain fail-closed.
 
 `A/dispatch-failure` is a CMS-authenticated command action, granted explicitly
 to the corresponding Users & Permissions role for the server-mediated
@@ -509,6 +511,36 @@ control, egress restriction, operational token, persistent grant, worker runtime
 GCP/IAM, or deployment was exercised. Those operational gates remain pending.
 The correction changes no auth/access expectations, so `docs/STRAPI_PERMISSIONS.md`
 requires no update.
+
+### U10-A17 local zero-comment direct execution
+
+The local executor now starts from the normal CMS-created `route: "undecided"`
+claim. An explicitly injected CountTokens analogue receives the closed,
+canonical request containing the exact model configuration, instruction/schema
+segments, immutable metrics, and sanitized comments. Its integer segment result
+is accepted only when the request digest recomputes in CMS, the output
+reservation/headroom sum fits `verifiedInputTokenLimit`, and the CMS checkpoint
+CAS transitions the checkpoint set to `route: "direct"`. The executor does not
+infer a direct route or map/reduce fallback.
+
+This executable local analysis is intentionally limited to snapshots with zero
+eligible comments. The fake analysis provider can emit only the exact ordered
+`survey-analysis.v1` shape with no claims and `insufficient_evidence` in every
+section; CMS verifies it and the fixed published Spanish fallback against the
+locked snapshot before accepting `direct`/`validate` checkpoints. Nonempty
+comment analysis and all map/reduce execution remain blocked because complete
+semantic/evidence validation and the smallest-fitting CountTokens chunk proof
+are not implemented.
+
+The authenticated `PUT W/checkpoints/:stageKey` uses only the exact custom
+`workerCheckpoint` token scope and persists the CMS-recomputed stage graph under
+row lock/CAS. `POST W/complete` uses its separate `workerComplete` scope, checks
+all six persisted stages, analysis and artifact digests, private final object
+key, and state version, then creates the report and succeeds the generation in
+one transaction. The report ID is a deterministic UUID derived from run ID and
+PDF digest; identical delivery replays the same completion. The synthetic
+app↔Strapi test uses in-memory PDF bytes and test-only tokens; it proves no
+Vertex/GCS/Cloud Tasks operation, production permission, or capability enablement.
 
 ## Direct implementation runtime boundary
 

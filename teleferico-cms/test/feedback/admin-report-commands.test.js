@@ -651,22 +651,22 @@ test("native role authorization creates only through the core generation endpoin
       method: "PUT", headers: { authorization: `Bearer ${workerTokens.checkpoint}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
     }));
     const checkpointResponse = capturedCheckpoint.result;
-    assert.equal(capturedCheckpoint.queries.some((sql) => /survey_report_generations[\s\S]*for update/i.test(sql)), false);
-    assert.deepEqual({ status: checkpointResponse.status, body: await checkpointResponse.json() }, { status: 400, body: {
-      error: { code: "UNKNOWN_VERSION", message: "The worker checkpoint was rejected" },
+    assert.equal(capturedCheckpoint.queries.some((sql) => /survey_report_generations[\s\S]*for update/i.test(sql)), true);
+    assert.deepEqual({ status: checkpointResponse.status, body: await checkpointResponse.json() }, { status: 409, body: {
+      error: { code: "INVALID_STATE", message: "The worker checkpoint was rejected" },
     } });
     const checkpointReplay = await fetch(checkpointUrl, {
       method: "PUT", headers: { authorization: `Bearer ${workerTokens.checkpoint}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
     });
     assert.deepEqual(await checkpointReplay.json(), {
-      error: { code: "UNKNOWN_VERSION", message: "The worker checkpoint was rejected" },
+      error: { code: "INVALID_STATE", message: "The worker checkpoint was rejected" },
     });
     const alteredCheckpoint = await fetch(checkpointUrl, {
       method: "PUT", headers: { authorization: `Bearer ${workerTokens.checkpoint}`, "content-type": "application/json" },
       body: JSON.stringify({ ...checkpointCommand, checkpoint: { ...checkpoint, attempts: 2 } }),
     });
-    assert.equal(alteredCheckpoint.status, 400);
-    assert.equal((await alteredCheckpoint.json()).error.code, "UNKNOWN_VERSION");
+    assert.equal(alteredCheckpoint.status, 409);
+    assert.equal((await alteredCheckpoint.json()).error.code, "INVALID_STATE");
     const oversizedCheckpoint = await fetch(checkpointUrl, {
       method: "PUT", headers: { authorization: `Bearer ${workerTokens.checkpoint}`, "content-type": "application/json" },
       body: `${JSON.stringify(checkpointCommand)}${" ".repeat(4_097)}`,

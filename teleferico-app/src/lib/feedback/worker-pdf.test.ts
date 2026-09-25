@@ -18,8 +18,9 @@ import {
   renderCharts,
 } from "../../../services/survey-report-worker/src/renderer";
 import {
-  executeReportWorker,
+  executeReportWorker as executeReportWorkerWithDependencies,
 } from "../../../services/survey-report-worker/src/worker-runtime";
+import { EMPTY_EVIDENCE_PARAGRAPH } from "../../../services/survey-report-worker/src/direct-execution-plan";
 import {
   CHECKPOINT_CONTRACT_VERSIONS,
   deriveChunkMembership,
@@ -74,7 +75,7 @@ function analysis(): PublishedAnalysisV1 {
     ].map((key) => ({
       key,
       status: "insufficient_evidence" as const,
-      paragraphsEs: ["No hay evidencia suficiente para esta sección."],
+      paragraphsEs: [EMPTY_EVIDENCE_PARAGRAPH],
     })) as unknown as PublishedAnalysisV1["sections"],
   };
 }
@@ -86,10 +87,20 @@ function checkpointSet(
   return {
     version: "survey-checkpoints.v1",
     snapshotDigest,
-    route: "direct",
+    route: entries.length === 0 ? "undecided" : "direct",
     chunkCount: null,
     entries,
   };
+}
+
+async function executeReportWorker(
+  reportRunId: string,
+  dependencies: Parameters<typeof executeReportWorkerWithDependencies>[1],
+) {
+  return executeReportWorkerWithDependencies(reportRunId, {
+    countTokens: async () => ({ instructions: 100, schema: 100, metrics: 100, comments: 0 }),
+    ...dependencies,
+  });
 }
 
 function checkpointOutputDigest(payload: unknown): string {
@@ -575,6 +586,113 @@ describe("worker PDF boundary", () => {
     expect(renderer).not.toHaveBeenCalled();
   });
 
+  it("selects and checkpoints the direct route only after injected CountTokens fits", async () => {
+    const envelope = snapshot();
+    const checkpoints = {
+      ...checkpointSet(envelope.digestHex),
+      route: "undecided" as const,
+    };
+    const fake = fakeCms(envelope, checkpoints);
+    const artifacts = artifactStore();
+    const provider = vi.fn(async () => analysis());
+    const renderer = vi.fn(async () => new Uint8Array([1]));
+    const countTokens = vi.fn(async (request) => {
+      expect(request.contractVersion).toBe("survey-count-request.v1");
+      expect(request.segments.comments).toBe("[]");
+      expect(request.modelConfig.model).toBe("gemini-3.8-flash");
+      if (countTokens.mock.calls.length < 3) throw new Error("synthetic transient CountTokens error");
+      return { instructions: 100, schema: 100, metrics: 100, comments: 0 };
+    });
+
+    const result = await executeReportWorker("run-undecided", {
+      cms: fake.cms,
+      artifacts: artifacts.store,
+      renderer: { rendererVersion: "test", render: renderer },
+      analysisProvider: provider,
+      countTokens,
+    });
+
+    expect(result).toMatchObject({ status: "succeeded", reportId: "report-1" });
+    expect(countTokens).toHaveBeenCalledTimes(3);
+    expect(fake.calls.snapshot).toBe(1);
+    expect(fake.calls.checkpoint).toBe(6);
+    expect(fake.calls.complete).toBe(1);
+    expect(provider).not.toHaveBeenCalled();
+    expect(renderer).toHaveBeenCalledTimes(1);
+    expect(artifacts.calls.stage).toBe(1);
+    expect(fake.writtenCheckpoints.map(({ stageKey, stageIndex, route }) => ({ stageKey, stageIndex, route }))).toEqual([
+      { stageKey: "redact", stageIndex: 0, route: "common" },
+      { stageKey: "count", stageIndex: 1, route: "common" },
+      { stageKey: "direct", stageIndex: 2, route: "direct" },
+      { stageKey: "validate", stageIndex: 3, route: "direct" },
+      { stageKey: "render", stageIndex: 4, route: "direct" },
+      { stageKey: "store", stageIndex: 5, route: "direct" },
+    ]);
+    const countCheckpoint = fake.writtenCheckpoints.find(({ stageKey }) => stageKey === "count");
+    expect(countCheckpoint?.payload.kind).toBe("count");
+    expect(countCheckpoint?.payload.kind === "count" ? countCheckpoint.payload.requestDigest : null).toBe(
+      createHash("sha256").update(canonicalizeJson(countTokens.mock.calls[2]![0])).digest("hex"),
+    );
+  });
+
+  it("keeps nonempty semantic analysis and over-budget direct plans fail-closed", async () => {
+    const populated = createSnapshot({
+      sourceRevision: "test-source",
+      createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z",
+      range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: [{
+        recordId: "synthetic-record",
+        receipt: "00000000-0000-4000-8000-000000000113",
+        acceptedAt: "2026-09-01T12:00:00.000Z",
+        source: "valid_qr",
+        versionKey: "v1",
+        pointKey: "point-a",
+        overallRating: 4,
+        locale: "es",
+        commentText: "Synthetic comment",
+        payloadDigest: "a".repeat(64),
+        aspects: [],
+      }],
+      definitions: [{ aspectKey: "other", sortOrder: 99 }],
+      points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
+    });
+    const populatedFake = fakeCms(populated);
+    const populatedCount = vi.fn(async () => ({ instructions: 1, schema: 1, metrics: 1, comments: 1 }));
+    const populatedProvider = vi.fn(async () => analysis());
+    const populatedRenderer = vi.fn(async () => new Uint8Array([1]));
+    const populatedResult = await executeReportWorker("run-populated-local", {
+      cms: populatedFake.cms,
+      artifacts: artifactStore().store,
+      renderer: { rendererVersion: "test", render: populatedRenderer },
+      countTokens: populatedCount,
+      analysisProvider: populatedProvider,
+    });
+    expect(populatedResult).toMatchObject({ status: "failed", failureCode: "UNKNOWN_VERSION" });
+    expect(populatedCount).not.toHaveBeenCalled();
+    expect(populatedProvider).not.toHaveBeenCalled();
+    expect(populatedRenderer).not.toHaveBeenCalled();
+
+    const empty = snapshot();
+    const overBudgetFake = fakeCms(empty);
+    const overBudgetCount = vi.fn(async () => ({ instructions: 6_000, schema: 100, metrics: 100, comments: 0 }));
+    const overBudgetProvider = vi.fn(async () => analysis());
+    const overBudgetRenderer = vi.fn(async () => new Uint8Array([1]));
+    const overBudgetResult = await executeReportWorker("run-over-budget-local", {
+      cms: overBudgetFake.cms,
+      artifacts: artifactStore().store,
+      renderer: { rendererVersion: "test", render: overBudgetRenderer },
+      countTokens: overBudgetCount,
+      analysisProvider: overBudgetProvider,
+    });
+    expect(overBudgetResult).toMatchObject({ status: "failed", failureCode: "UNKNOWN_VERSION" });
+    expect(overBudgetCount).toHaveBeenCalledTimes(1);
+    expect(overBudgetProvider).not.toHaveBeenCalled();
+    expect(overBudgetRenderer).not.toHaveBeenCalled();
+    expect(overBudgetFake.writtenCheckpoints.map(({ stageKey }) => stageKey)).toEqual(["redact"]);
+  });
+
   it("fails closed before snapshot/provider work when claim model config is absent", async () => {
     const envelope = snapshot();
     const fake = fakeCms(
@@ -797,21 +915,20 @@ describe("worker PDF boundary", () => {
     expect(artifacts.calls.stage).toBe(0);
   });
 
-  it("keeps unrecognized provider and CMS failures retryable", async () => {
+  it("skips model analysis for empty evidence and keeps CMS snapshot failures retryable", async () => {
     const envelope = snapshot();
     const providerCms = fakeCms(envelope);
+    const provider = vi.fn(async () => {
+      throw new Error("synthetic provider must not be called for empty evidence");
+    });
     const providerResult = await executeReportWorker("run-provider-transient", {
       cms: providerCms.cms,
       artifacts: artifactStore().store,
       renderer: createDeterministicTestPdfRenderer(),
-      analysisProvider: async () => {
-        throw new Error("provider unavailable");
-      },
+      analysisProvider: provider,
     });
-    expect(providerResult).toMatchObject({
-      status: "failed",
-      failureCode: "PROVIDER_TRANSIENT",
-    });
+    expect(providerResult.status).toBe("succeeded");
+    expect(provider).not.toHaveBeenCalled();
     expect(providerCms.calls.fail).toBe(0);
 
     const cms = fakeCms(envelope);
@@ -888,6 +1005,10 @@ describe("worker PDF boundary", () => {
     expect(fake.calls.snapshot).toBe(1);
     expect(artifacts.calls.stage).toBe(1);
     expect(fake.writtenCheckpoints.map(({ stageKey, stageIndex, route }) => ({ stageKey, stageIndex, route }))).toEqual([
+      { stageKey: "redact", stageIndex: 0, route: "common" },
+      { stageKey: "count", stageIndex: 1, route: "common" },
+      { stageKey: "direct", stageIndex: 2, route: "direct" },
+      { stageKey: "validate", stageIndex: 3, route: "direct" },
       { stageKey: "render", stageIndex: 4, route: "direct" },
       { stageKey: "store", stageIndex: 5, route: "direct" },
     ]);
@@ -903,8 +1024,11 @@ describe("worker PDF boundary", () => {
     const envelope = snapshot();
     const fake = fakeCms(envelope);
     const artifacts = artifactStore();
-    vi.spyOn(fake.cms, "checkpoint").mockRejectedValue(
-      new WorkerCmsConflictError(),
+    const checkpoint = fake.cms.checkpoint.bind(fake.cms);
+    vi.spyOn(fake.cms, "checkpoint").mockImplementation((reportRunId, command) =>
+      command.checkpoint.stageKey === "render"
+        ? Promise.reject(new WorkerCmsConflictError())
+        : checkpoint(reportRunId, command),
     );
     const result = await executeReportWorker("run-2", {
       cms: fake.cms,
@@ -922,7 +1046,7 @@ describe("worker PDF boundary", () => {
     expect(artifacts.calls.discard).toBe(1);
   });
 
-  it("reuses a valid render checkpoint and stages no second render", async () => {
+  it("rejects an orphan render checkpoint without the preceding verified stage graph", async () => {
     const envelope = snapshot();
     const renderer = createDeterministicTestPdfRenderer();
     const pdf = await renderValidatedPdf(envelope, analysis(), renderer);
@@ -985,7 +1109,7 @@ describe("worker PDF boundary", () => {
       renderer,
       analysisProvider: async () => analysis(),
     });
-    expect(result.status).toBe("succeeded");
+    expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
     expect(renderSpy).not.toHaveBeenCalled();
     expect(artifacts.calls.stage).toBe(0);
   });

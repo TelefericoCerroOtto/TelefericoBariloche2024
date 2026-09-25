@@ -11,6 +11,7 @@ import {
   type FailResult,
   type RuntimeFailureCode,
   type WorkerClaimResult,
+  type WorkerCheckpoint,
   type WorkerSnapshotResult,
 } from "./contracts";
 import { validateTrustedCmsOrigin } from "./cms-origin";
@@ -54,6 +55,8 @@ const SAFE_FAILURE_MESSAGES: Record<RuntimeFailureCode, string> = {
 export type WorkerCmsAction =
   | "api::survey-report-generation.survey-report-generation.workerClaim"
   | "api::survey-report-generation.survey-report-generation.workerSnapshot"
+  | "api::survey-report-generation.survey-report-generation.workerCheckpoint"
+  | "api::survey-report-generation.survey-report-generation.workerComplete"
   | "api::survey-report-generation.survey-report-generation.workerFail";
 
 export type WorkerCmsToken = {
@@ -204,6 +207,62 @@ function validateSnapshot(value: unknown, reportRunId: string): WorkerSnapshotRe
   return value as WorkerSnapshotResult;
 }
 
+function validateCheckpointCommand(reportRunId: string, stageKey: WorkerCheckpoint["stageKey"], command: CheckpointWrite): string {
+  if (!validRunId(reportRunId) || !exactKeys(command, ["contractVersion", "expectedStateVersion", "checkpoint"]) ||
+      command.contractVersion !== "survey-worker-cms.v1" || !validStateVersion(command.expectedStateVersion) ||
+      !isRecord(command.checkpoint) || command.checkpoint.stageKey !== stageKey)
+    fail("INVALID_CONFIGURATION");
+  try {
+    validateWorkerStageCheckpointV1(command.checkpoint, { reportRunId, route: "direct" });
+  } catch {
+    if (stageKey === "direct" || stageKey === "validate") {
+      const value = command.checkpoint;
+      if (!exactKeys(value, ["checkpointVersion", "stageKey", "stageIndex", "route", "stageType", "status", "inputDigest", "outputDigest", "attempts", "completedAt", "payload"]) ||
+          value.checkpointVersion !== "survey-checkpoint.v1" || value.stageType !== stageKey ||
+          value.stageIndex !== (stageKey === "direct" ? 2 : 3) || value.route !== "direct" || value.status !== "valid" ||
+          !validDigest(value.inputDigest) || !validDigest(value.outputDigest) || !Number.isSafeInteger(value.attempts) || value.attempts < 1)
+        fail("INVALID_CONFIGURATION");
+    } else {
+      fail("INVALID_CONFIGURATION");
+    }
+  }
+  return JSON.stringify(command);
+}
+
+function validDigest(value: unknown): value is string {
+  return typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+}
+
+function validateCheckpointResult(value: unknown, reportRunId: string, stageKey: WorkerCheckpoint["stageKey"]): CheckpointWriteResult {
+  if (!exactKeys(value, ["contractVersion", "reportRunId", "stateVersion", "stageKey", "status", "replayed"]) ||
+      value.contractVersion !== "survey-worker-cms.v1" || value.reportRunId !== reportRunId ||
+      !validStateVersion(value.stateVersion) || value.stageKey !== stageKey || value.status !== "valid" ||
+      typeof value.replayed !== "boolean")
+    return fail("INVALID_RESPONSE");
+  return value as CheckpointWriteResult;
+}
+
+function validateCompleteCommand(reportRunId: string, command: CompleteCommand): string {
+  if (!validRunId(reportRunId) || !exactKeys(command, ["contractVersion", "expectedStateVersion", "validatedAnalysis", "analysisDigest", "rendererVersion", "artifact"]) ||
+      command.contractVersion !== "survey-worker-cms.v1" || !validStateVersion(command.expectedStateVersion) ||
+      !validDigest(command.analysisDigest) || typeof command.rendererVersion !== "string" || !command.rendererVersion ||
+      !exactKeys(command.artifact, ["objectKey", "sha256", "size", "mimeType"]) ||
+      !validDigest(command.artifact.sha256) || !Number.isSafeInteger(command.artifact.size) || command.artifact.size < 1 ||
+      command.artifact.mimeType !== "application/pdf")
+    fail("INVALID_CONFIGURATION");
+  return JSON.stringify(command);
+}
+
+function validateCompleteResult(value: unknown, reportRunId: string, command: CompleteCommand): CompleteResult {
+  if (!exactKeys(value, ["contractVersion", "reportRunId", "stateVersion", "status", "reportId", "artifactSha256", "artifactSize", "replayed"]) ||
+      value.contractVersion !== "survey-worker-cms.v1" || value.reportRunId !== reportRunId ||
+      !validStateVersion(value.stateVersion) || value.status !== "succeeded" || !validRunId(String(value.reportId)) ||
+      value.artifactSha256 !== command.artifact.sha256 || value.artifactSize !== command.artifact.size ||
+      typeof value.replayed !== "boolean")
+    return fail("INVALID_RESPONSE");
+  return value as CompleteResult;
+}
+
 function validateFailCommand(command: FailCommand): void {
   if (
     !exactKeys(command, [
@@ -320,8 +379,8 @@ export function createWorkerCmsClient(options: WorkerCmsClientOptions) {
   async function request<T>(input: {
     readonly reportRunId: string;
     readonly action: WorkerCmsAction;
-    readonly method: "GET" | "POST";
-    readonly suffix: "claim" | "snapshot" | "fail";
+    readonly method: "GET" | "POST" | "PUT";
+    readonly suffix: string;
     readonly body?: string;
     readonly validate: (value: unknown, reportRunId: string) => T;
   }): Promise<T> {
@@ -422,17 +481,36 @@ export function createWorkerCmsClient(options: WorkerCmsClientOptions) {
         validate: validateSnapshot,
       });
     },
-    checkpoint(
-      _reportRunId: string,
-      _command: CheckpointWrite,
+    async checkpoint(
+      reportRunId: string,
+      command: CheckpointWrite,
     ): Promise<CheckpointWriteResult> {
-      return Promise.reject(new WorkerCmsClientError("UNKNOWN_VERSION"));
+      if (!command || !command.checkpoint || typeof command.checkpoint.stageKey !== "string")
+        return Promise.reject(new WorkerCmsClientError("INVALID_CONFIGURATION"));
+      const stageKey = command.checkpoint.stageKey;
+      const body = validateCheckpointCommand(reportRunId, stageKey, command);
+      return request({
+        reportRunId,
+        action: "api::survey-report-generation.survey-report-generation.workerCheckpoint",
+        method: "PUT",
+        suffix: `checkpoints/${encodeURIComponent(stageKey)}`,
+        body,
+        validate: (value, id) => validateCheckpointResult(value, id, stageKey),
+      });
     },
-    complete(
-      _reportRunId: string,
-      _command: CompleteCommand,
+    async complete(
+      reportRunId: string,
+      command: CompleteCommand,
     ): Promise<CompleteResult> {
-      return Promise.reject(new WorkerCmsClientError("UNSUPPORTED_OPERATION"));
+      const body = validateCompleteCommand(reportRunId, command);
+      return request({
+        reportRunId,
+        action: "api::survey-report-generation.survey-report-generation.workerComplete",
+        method: "POST",
+        suffix: "complete",
+        body,
+        validate: (value, id) => validateCompleteResult(value, id, command),
+      });
     },
     async fail(reportRunId: string, command: FailCommand): Promise<FailResult> {
       validateFailCommand(command);
