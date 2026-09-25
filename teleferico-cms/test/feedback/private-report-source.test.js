@@ -243,6 +243,7 @@ function createWorkerClientFetch(
     routes.set(`${root}/checkpoints/redact`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
     routes.set(`${root}/checkpoints/count`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
     routes.set(`${root}/checkpoints/direct`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/reduce`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
     routes.set(`${root}/checkpoints/validate`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
     routes.set(`${root}/checkpoints/render`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
     routes.set(`${root}/checkpoints/store`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
@@ -252,7 +253,9 @@ function createWorkerClientFetch(
   return async (input, init = {}) => {
     if (!(input instanceof URL) || input.origin !== WORKER_ORIGIN || input.search !== '')
       throw new Error('The test fetch rejected a non-approved logical worker URL');
-    const route = routes.get(input.pathname);
+    const route = routes.get(input.pathname) ?? (/\/checkpoints\/map\.[1-9]\d*-of-[1-9]\d*$/.test(input.pathname)
+      ? { action: WORKER_ACTIONS.checkpoint, method: 'PUT' }
+      : undefined);
     if (!route) throw new Error('The test fetch rejected an unregistered worker path');
     if (init.method !== route.method || init.redirect !== 'error')
       throw new Error('The test fetch rejected an unexpected worker transport policy');
@@ -1047,6 +1050,190 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
   assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: narrativeRunId } }), 1);
   assert.ok(narrativeRequests.filter(({ method }) => method === 'PUT').length === 6);
   });
+
+  await testContext.test('executes two verified map chunks and reduce through worker HTTP and CMS', async () => {
+    const runId = '00000000-0000-4000-8000-000000000135';
+    const keyId = 'synthetic-map-reduce-evidence-v1';
+    const key = 'tb113 synthetic map reduce evidence key only';
+    const sourceRevision = 'worker-map-reduce-v1';
+    const { createSnapshot, createWorkerCmsClient, executeReportWorker } = loadPrivateReportSourceAppModules();
+    const snapshotEnvelope = createSnapshot({
+      range: { from: '2043-09-01', to: '2043-09-02' },
+      dataCutoffAt: '2043-09-03T00:00:00.000Z',
+      sourceRevision,
+      createdAt: '2043-09-03T00:00:00.000Z',
+      filters: { pointKey: null, versionKey: null },
+      submissions: ['synthetic-map-record-a', 'synthetic-map-record-b'].map((recordId, index) => ({
+        recordId,
+        receipt: `00000000-0000-4000-8000-${String(136 + index).padStart(12, '0')}`,
+        acceptedAt: `2043-09-0${index + 1}T12:00:00.000Z`,
+        source: 'valid_qr',
+        versionKey: 'synthetic-map-version',
+        pointKey: 'synthetic-map-point',
+        overallRating: 4,
+        locale: 'es',
+        commentText: `Synthetic complete comment ${index} visitor${index}@example.invalid`,
+        payloadDigest: String(index + 1).repeat(64),
+        aspects: [],
+      })),
+      definitions: [{ aspectKey: 'other', sortOrder: 99 }],
+      points: [{ pointKey: 'synthetic-map-point', displayName: 'Synthetic point', sortOrder: 1 }],
+    });
+    const modelConfig = sourceModelConfig(sourceRevision, keyId);
+    const pricingSnapshot = {
+      version: 'pricing.v1', currency: 'USD',
+      units: [{ sku: 'gemini-input', inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
+    };
+    const checkpoints = {
+      version: 'survey-checkpoints.v1', snapshotDigest: snapshotEnvelope.digestHex,
+      route: 'undecided', chunkCount: null, entries: [],
+    };
+    const created = await fetch(`http://127.0.0.1:${port}/api/survey-report-generations`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ data: {
+        reportRunId: runId, periodStart: '2043-09-01', periodEnd: '2043-09-02',
+        dataCutoffAt: '2043-09-03T00:00:00.000Z', overlapOverrideAccepted: false,
+        snapshotDigest: snapshotEnvelope.digestHex, sourceRevision, snapshotJson: snapshotEnvelope.payload,
+        checkpointsJson: checkpoints, modelConfigJson: modelConfig, usageJson: {}, pricingSnapshotJson: pricingSnapshot, status: 'queued',
+      } }),
+    });
+    assert.equal(created.status, 201);
+    strapi.config.set('feedback.workerEvidenceKeyProvider', async (candidateKeyId) => {
+      assert.equal(candidateKeyId, keyId);
+      return key;
+    });
+    const observedRequests = [];
+    const client = createWorkerCmsClient({
+      baseUrl: WORKER_ORIGIN,
+      allowedOrigins: [WORKER_ORIGIN],
+      tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
+      fetchImplementation: createWorkerClientFetch(port, actionTokens, observedRequests, undefined, [runId]),
+    });
+    let forgedPersistedDigestRejected = false;
+    const workerCms = {
+      ...client,
+      async checkpoint(id, command) {
+        if (command.checkpoint.stageKey === 'reduce' && !forgedPersistedDigestRejected) {
+          const row = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId: id } });
+          const original = row.checkpointsJson;
+          const forged = {
+            ...original,
+            entries: original.entries.map((entry) => entry.stageKey === 'map.1-of-2'
+              ? { ...entry, outputDigest: 'f'.repeat(64) }
+              : entry),
+          };
+          await strapi.db.connection('survey_report_generations')
+            .where({ report_run_id: id }).update({ checkpoints_json: JSON.stringify(forged) });
+          try {
+            await assert.rejects(client.checkpoint(id, command), { code: 'STATE_VERSION_CONFLICT' });
+          } finally {
+            await strapi.db.connection('survey_report_generations')
+              .where({ report_run_id: id }).update({ checkpoints_json: JSON.stringify(original) });
+          }
+          forgedPersistedDigestRejected = true;
+        }
+        return client.checkpoint(id, command);
+      },
+    };
+    const artifacts = new Map();
+    const countRequests = [];
+    const mapRequests = [];
+    const reduceRequests = [];
+    const countTokens = async (request) => {
+      countRequests.push(request);
+      const value = JSON.parse(request.segments.comments);
+      if (value.contractVersion === 'survey-model-input.v1')
+        return { instructions: 100, schema: 100, metrics: 100, comments: 9000 };
+      if (value.contractVersion === 'survey-map-input.v1' && value.comments.length > 1)
+        return { instructions: 100, schema: 100, metrics: 100, comments: 9000 };
+      return { instructions: 100, schema: 100, metrics: 100, comments: 100 };
+    };
+    strapi.config.set('feedback.workerCountTokensProvider', async (request) => {
+      const value = JSON.parse(request.segments.comments);
+      if (value.contractVersion === 'survey-model-input.v1')
+        return { instructions: 100, schema: 100, metrics: 100, comments: 9000 };
+      if (value.contractVersion === 'survey-map-input.v1' && value.comments.length > 1)
+        return { instructions: 100, schema: 100, metrics: 100, comments: 9000 };
+      return { instructions: 100, schema: 100, metrics: 100, comments: 100 };
+    });
+    const mapProvider = async (request) => {
+      mapRequests.push(request);
+      return {
+        schemaVersion: 'survey-map.v1',
+        chunkId: request.chunkId,
+        coveredRefs: request.comments.map(({ evidenceRef }) => evidenceRef),
+        themes: [],
+        limitations: [],
+      };
+    };
+    const reduceProvider = async (request) => {
+      reduceRequests.push(request);
+      return {
+        schemaVersion: 'survey-analysis.v1',
+        route: 'reduce',
+        sections: ['executive_summary', 'observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations']
+          .map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
+        mapOutputDigests: request.maps.map(({ outputDigest }) => outputDigest),
+      };
+    };
+    const result = await executeReportWorker(runId, {
+      cms: workerCms,
+      countTokens,
+      mapProvider,
+      reduceProvider,
+      evidenceKeyProvider: async (candidateKeyId) => {
+        assert.equal(candidateKeyId, keyId);
+        return key;
+      },
+      renderer: {
+        rendererVersion: 'synthetic-map-reduce-renderer.v1',
+        async render() { return new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]); },
+      },
+      artifacts: {
+        async stage(id, artifact) { artifacts.set(`${id}:${artifact.sha256}`, artifact); },
+        async readStaged(id, digest) { return artifacts.get(`${id}:${digest}`) ?? null; },
+        async discardStaged(id, digest) { artifacts.delete(`${id}:${digest}`); },
+      },
+      now: () => new Date('2043-09-03T01:00:00.000Z'),
+    });
+
+    assert.equal(result.status, 'succeeded');
+    assert.equal(forgedPersistedDigestRejected, true);
+    assert.equal(countRequests.length, 7);
+    assert.equal(mapRequests.length, 2);
+    assert.equal(reduceRequests.length, 1);
+    assert.deepEqual(mapRequests.map(({ chunkId }) => chunkId), ['map.1-of-2', 'map.2-of-2']);
+    assert.ok(mapRequests.every((request) => request.comments.every(({ text }) => !text.includes('@example.invalid'))));
+    const generation = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId: runId } });
+    assert.equal(generation.checkpointsJson.route, 'map-reduce');
+    assert.equal(generation.checkpointsJson.chunkCount, 2);
+    assert.deepEqual(generation.checkpointsJson.entries.map(({ stageKey }) => stageKey), [
+      'redact', 'count', 'map.1-of-2', 'map.2-of-2', 'reduce', 'validate', 'render', 'store',
+    ]);
+    const mapEntries = generation.checkpointsJson.entries.filter(({ stageKey }) => stageKey.startsWith('map.'));
+    assert.equal(mapEntries.length, 2);
+    const countCheckpoint = generation.checkpointsJson.entries.find(({ stageKey }) => stageKey === 'count');
+    assert.equal(countCheckpoint.payload.chunkCount, 2);
+    assert.deepEqual(countCheckpoint.payload.attempts.map(({ chunkCount }) => chunkCount), [1, 2]);
+    assert.ok(countCheckpoint.payload.directTotalTokens > modelConfig.verifiedInputTokenLimit);
+    assert.ok(countCheckpoint.payload.attempts[0].chunks[0].totalTokens > modelConfig.verifiedInputTokenLimit);
+    assert.ok(countCheckpoint.payload.attempts[1].chunks.every(({ totalTokens }) => totalTokens <= modelConfig.verifiedInputTokenLimit));
+    assert.deepEqual(reduceRequests[0].maps.map(({ outputDigest }) => outputDigest), mapEntries.map(({ outputDigest }) => outputDigest));
+    assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: runId } }), 1);
+    const replay = await executeReportWorker(runId, {
+      cms: client,
+      countTokens: async () => { throw new Error('terminal replay must not count tokens'); },
+      mapProvider: async () => { throw new Error('terminal replay must not map comments'); },
+      reduceProvider: async () => { throw new Error('terminal replay must not reduce maps'); },
+      renderer: { rendererVersion: 'synthetic-map-reduce-renderer.v1', async render() { throw new Error('terminal replay must not render'); } },
+      artifacts: { async stage() { throw new Error('terminal replay must not stage'); }, async readStaged() { return null; }, async discardStaged() {} },
+    });
+    assert.deepEqual(replay, { status: 'succeeded', disposition: 'terminal-replay', reportRunId: runId });
+    assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: runId } }), 1);
+
+    assert.ok(observedRequests.some(({ path: requestPath }) => requestPath.includes('/checkpoints/map.1-of-2')));
+  });
 }
 
 function createSourceIntegrationFetch(port, syntheticToken, observedPages) {
@@ -1561,6 +1748,7 @@ function sourceInput(resource, cursor = null, pageSize = 1, overrides = {}) {
 test('private report source requires its isolated worker action and returns complete raw-source pages', async (testContext) => {
   let strapi;
   let strapiStarted = false;
+  let cronStopped = false;
   const previous = { ...process.env };
   try {
     await compose('down', '--volumes', '--remove-orphans', '--timeout=5');
@@ -1823,9 +2011,16 @@ test('private report source requires its isolated worker action and returns comp
     }
   } finally {
     if (strapi) {
+      if (strapi.cron && typeof strapi.cron.stop === 'function') {
+        strapi.cron.stop();
+        cronStopped = true;
+        if (strapiStarted)
+          assert.equal(strapi.cron.jobs.every(({ job }) => job.nextInvocation() === null), true);
+      }
       await strapi.destroy();
       if (strapiStarted) assert.equal(strapi.server.httpServer.listening, false);
     }
+    if (strapiStarted) assert.equal(cronStopped, true);
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;

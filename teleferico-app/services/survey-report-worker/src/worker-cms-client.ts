@@ -161,7 +161,11 @@ function validateClaim(value: unknown, reportRunId: string): WorkerClaimResult {
     checkpoints.route === "undecided" &&
     checkpoints.chunkCount === null &&
     Array.isArray(checkpoints.entries) &&
-    checkpoints.entries.length === 0;
+    (checkpoints.entries.length === 0 || checkpoints.entries.length === 1 &&
+      isRecord(checkpoints.entries[0]) && checkpoints.entries[0].stageKey === "redact");
+  const validDirectSet = isRecord(checkpoints) && checkpoints.route === "direct" && checkpoints.chunkCount === null;
+  const validMapReduceSet = isRecord(checkpoints) && checkpoints.route === "map-reduce" &&
+    Number.isSafeInteger(checkpoints.chunkCount) && Number(checkpoints.chunkCount) > 0;
   if (
     !exactKeys(checkpoints, [
       "version",
@@ -172,14 +176,18 @@ function validateClaim(value: unknown, reportRunId: string): WorkerClaimResult {
     ]) ||
     checkpoints.version !== "survey-checkpoints.v1" ||
     !/^[a-f0-9]{64}$/.test(String(checkpoints.snapshotDigest)) ||
-    (checkpoints.route !== "direct" && !isUndecidedInitialSet) ||
-    checkpoints.chunkCount !== null ||
+    (!validDirectSet && !validMapReduceSet && !isUndecidedInitialSet) ||
+    (!isRecord(checkpoints) || checkpoints.route !== "map-reduce" && checkpoints.chunkCount !== null) ||
     !Array.isArray(checkpoints.entries)
   )
     return fail("INVALID_RESPONSE");
   try {
     for (const checkpoint of checkpoints.entries)
-      validateWorkerStageCheckpointV1(checkpoint, { reportRunId, route: "direct" });
+      validateWorkerStageCheckpointV1(checkpoint, {
+        reportRunId,
+        route: validMapReduceSet ? "map-reduce" : "direct",
+        ...(validMapReduceSet ? { chunkCount: Number(checkpoints.chunkCount) } : {}),
+      });
   } catch {
     return fail("INVALID_RESPONSE");
   }
@@ -207,19 +215,30 @@ function validateSnapshot(value: unknown, reportRunId: string): WorkerSnapshotRe
   return value as WorkerSnapshotResult;
 }
 
-function validateCheckpointCommand(reportRunId: string, stageKey: WorkerCheckpoint["stageKey"], command: CheckpointWrite): string {
+function validateCheckpointCommand(reportRunId: string, stageKey: WorkerCheckpoint["stageKey"], command: CheckpointWrite, knownChunkCount?: number): string {
+  const payloadChunkCount = command?.checkpoint?.payload.kind === "count" && command.checkpoint.payload.route === "map-reduce"
+    ? command.checkpoint.payload.chunkCount
+    : command?.checkpoint?.payload.kind === "map" ? command.checkpoint.payload.chunkCount : knownChunkCount;
   if (!validRunId(reportRunId) || !exactKeys(command, ["contractVersion", "expectedStateVersion", "checkpoint"]) ||
       command.contractVersion !== "survey-worker-cms.v1" || !validStateVersion(command.expectedStateVersion) ||
       !isRecord(command.checkpoint) || command.checkpoint.stageKey !== stageKey)
     fail("INVALID_CONFIGURATION");
   try {
-    validateWorkerStageCheckpointV1(command.checkpoint, { reportRunId, route: "direct" });
+    validateWorkerStageCheckpointV1(command.checkpoint, {
+      reportRunId,
+      route: command.checkpoint.route === "map-reduce" ? "map-reduce" : "direct",
+      ...(command.checkpoint.route === "map-reduce" && payloadChunkCount !== undefined
+        ? { chunkCount: payloadChunkCount }
+        : {}),
+    });
   } catch {
-    if (stageKey === "direct" || stageKey === "validate") {
+    if (stageKey === "direct" || stageKey === "reduce" || stageKey === "validate" || /^map\.[1-9]\d*-of-[1-9]\d*$/.test(stageKey)) {
       const value = command.checkpoint;
       if (!exactKeys(value, ["checkpointVersion", "stageKey", "stageIndex", "route", "stageType", "status", "inputDigest", "outputDigest", "attempts", "completedAt", "payload"]) ||
-          value.checkpointVersion !== "survey-checkpoint.v1" || value.stageType !== stageKey ||
-          value.stageIndex !== (stageKey === "direct" ? 2 : 3) || value.route !== "direct" || value.status !== "valid" ||
+          value.checkpointVersion !== "survey-checkpoint.v1" ||
+          (stageKey.startsWith("map.") ? value.stageType !== "map" : value.stageType !== stageKey) ||
+          !Number.isSafeInteger(value.stageIndex) ||
+          (value.route !== "direct" && value.route !== "map-reduce") || value.status !== "valid" ||
           !validDigest(value.inputDigest) || !validDigest(value.outputDigest) || !Number.isSafeInteger(value.attempts) || value.attempts < 1)
         fail("INVALID_CONFIGURATION");
     } else {
@@ -375,6 +394,7 @@ export function createWorkerCmsClient(options: WorkerCmsClientOptions) {
   }
   if (typeof options.tokenProvider !== "function") fail("INVALID_CONFIGURATION");
   const fetchImplementation = options.fetchImplementation ?? fetch;
+  const chunkCounts = new Map<string, number>();
 
   async function request<T>(input: {
     readonly reportRunId: string;
@@ -461,7 +481,7 @@ export function createWorkerCmsClient(options: WorkerCmsClientOptions) {
   return {
     async claim(reportRunId: string): Promise<WorkerClaimResult> {
       const body = validateClaimRequest(reportRunId);
-      return request({
+      const result = await request({
         reportRunId,
         action:
           "api::survey-report-generation.survey-report-generation.workerClaim",
@@ -470,6 +490,9 @@ export function createWorkerCmsClient(options: WorkerCmsClientOptions) {
         body,
         validate: validateClaim,
       });
+      if (result.status === "running" && result.checkpoints.route === "map-reduce" && result.checkpoints.chunkCount !== null)
+        chunkCounts.set(reportRunId, result.checkpoints.chunkCount);
+      return result;
     },
     snapshot(reportRunId: string): Promise<WorkerSnapshotResult> {
       return request({
@@ -488,8 +511,8 @@ export function createWorkerCmsClient(options: WorkerCmsClientOptions) {
       if (!command || !command.checkpoint || typeof command.checkpoint.stageKey !== "string")
         return Promise.reject(new WorkerCmsClientError("INVALID_CONFIGURATION"));
       const stageKey = command.checkpoint.stageKey;
-      const body = validateCheckpointCommand(reportRunId, stageKey, command);
-      return request({
+      const body = validateCheckpointCommand(reportRunId, stageKey, command, chunkCounts.get(reportRunId));
+      const result = await request({
         reportRunId,
         action: "api::survey-report-generation.survey-report-generation.workerCheckpoint",
         method: "PUT",
@@ -497,6 +520,10 @@ export function createWorkerCmsClient(options: WorkerCmsClientOptions) {
         body,
         validate: (value, id) => validateCheckpointResult(value, id, stageKey),
       });
+      if (stageKey === "count" && command.checkpoint.payload.kind === "count" &&
+          command.checkpoint.payload.route === "map-reduce" && Number.isSafeInteger(command.checkpoint.payload.chunkCount))
+        chunkCounts.set(reportRunId, Number(command.checkpoint.payload.chunkCount));
+      return result;
     },
     async complete(
       reportRunId: string,
