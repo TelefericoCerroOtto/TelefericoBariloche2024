@@ -15,7 +15,7 @@ Load automatically only when native SDD is in implementation/apply, one bounded 
 
 ## Hard Rules
 
-- Delegate local facts to `delivery-state-mapper` with `scope=local-boundary`. Decide eligibility here; the mapper never decides policy.
+- Read the current local Git state directly when evaluating a slice boundary. Decide eligibility here; do not delegate fact gathering or infer authorization from recommendations.
 - Fail closed on every ambiguity, stale predecessor, changed parent branch/SHA, uncertain candidate, candidate exceeding its recorded hard budget, or missing evidence.
 - Treat the active change's `review_budget_lines` as its sole size declaration. Every slice inherits it automatically; never request size approval again at a slice or publication boundary.
 - Without a recorded change-level budget, report 400 authored changed lines as an advisory warning only. It is not a blocking gate or consent prompt.
@@ -37,7 +37,7 @@ Consent is candidate-scoped and invokes `implementation-pr`; it is not reusable.
 
 ## Execution Steps
 
-1. Consume one local mapper snapshot. Verify the activation contract, complete exact sorted candidate path set and candidate state, authored changed-line count, predecessor state, recorded evidence, remaining work, and inherited change-level review budget.
+1. Inspect the local branch, `HEAD`, Git status, candidate paths, changed-line count, predecessor state, recorded evidence, remaining work, and inherited change-level review budget once. Do not repeat discovery to recapture a candidate.
 2. Ask the single-select decision and stop. Do not mutate before the user's selection.
 3. On decline, return unchanged state. On consent, invoke `implementation-pr` with the exact candidate plus explicit destination, operation, and credential/session authorization from the decision.
 4. After publication, minimally revalidate branch, published `HEAD`, clean candidate/worktree state, selected remote, remote head, PR base, base SHA, and draft state. Stop if any differs.
@@ -48,7 +48,7 @@ Consent is candidate-scoped and invokes `implementation-pr`; it is not reusable.
 
 ## Output Contract
 
-Report eligibility, exact candidate, user decision, publication result, next local branch/work unit, parent-check status, and blocker. Never imply that mapper recommendations authorize action.
+Report eligibility, exact candidate, user decision, publication result, next local branch/work unit, parent-check status, and blocker. Facts authorize no action; every publication requires the fresh authorization defined by `implementation-pr`.
 
 ## References
 
