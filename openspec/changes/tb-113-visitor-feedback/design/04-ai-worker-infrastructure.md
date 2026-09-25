@@ -25,6 +25,17 @@ Evidence ref=`e_` plus the first 20 lowercase base32 characters of `HMAC-SHA256(
 
 Model copies replace recognized versioned spans with `[EMAIL]`, `[PHONE]`, `[URL]`; originals remain unchanged. Validators reject parse/schema/version/order/language/token/ref/threshold/signal/metric/support/action/recommendation/causality/verbatim/exposed-ref/extra-section violations. Verbatim detection rejects a complete normalized comment under eight tokens or any contiguous eight-token match. Invalid output never renders.
 
+### Pure MapV1 and ReduceV1 Preflight Boundary
+
+The app-side `preflightMapAnalysis` and `preflightReduceAnalysis` are structural preflights only. They return `rejected` for independently detectable violations and `incomplete` for every otherwise clean result; neither result is validated model evidence and neither function enables checkpoint writes.
+
+- Map preflight accepts only the exact `survey-map.v1` keys and canonical `map.<i>-of-<n>` chunk ID. It independently derives membership from the immutable snapshot comments, report-run ID, injected evidence key/key ID, snapshot digest, and supplied chunk count; `coveredRefs` must exactly match that derived ordered chunk list. Caller-supplied `coveredRefs` is never the authority. Themes and claims require exact object shapes, unique code-point-sorted keys/IDs, valid reference syntax and chunk-local claim refs. Prohibited claim language, exposed refs, malformed Unicode, and the normative verbatim-comment match are rejected.
+- The preflight cannot establish that the supplied chunk count is the smallest count selected by exact CountTokens over complete serialized requests. Therefore even exact derived membership is reported as incomplete until worker routing evidence and CMS-recomputed checkpoint bindings exist.
+- Reduce preflight accepts only the exact `survey-analysis.v1`/`route: "reduce"` schema, the normative section order/status shape, and unique sorted claim IDs. It rejects empty, malformed, or duplicate `mapOutputDigests` values, but does not compare them with a caller-supplied “validated” digest list: that list has no independent CMS checkpoint authority. A syntactically clean digest list remains `incomplete` behind `independently_verified_cms_map_checkpoint_output_digests`; neither digest membership nor map-index order can be claimed until CMS-verified map checkpoint evidence is supplied.
+- Both preflights reject detected prohibited/verbatim text and malformed or foreign refs but do not prove model semantics, metric grounding, contradiction/current-previous truth, or immutable per-run key selection. Clean outputs remain `incomplete`; no default key is provided and tests use synthetic key material only.
+
+These app checks do not change the CMS checkpoint route: writes remain `UNKNOWN_VERSION` before transaction entry. Runtime key-provider wiring, complete nested semantic/evidence validation, CMS recomputation under CAS, and valid map payload fit under the existing 4 KiB request cap remain separate activation gates owned by the U10-A5 worker implementer and CMS lifecycle owner.
+
 ## Checkpoints and Retries
 
 ```ts
