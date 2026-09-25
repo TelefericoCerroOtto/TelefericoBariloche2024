@@ -138,6 +138,25 @@ candidate size is `604` authored additions plus deletions across 15 paths
 against the exact starting head above; the count includes the append-only ledger
 correction and is recorded with its complete inventory and method there.
 
+U10-A15 candidate-specific `size:exception`: the user authorized one cohesive
+candidate capped at `4,000` authored additions plus deletions on
+`feat/app-root-tb-113-worker-cms-client`, against exact open draft parent PR #369
+head `e267654e24e13f77a423e5c1f3735bf27433a5e3` (chain rooted at #356). It covers
+only the app server-only worker CMS client for claim/snapshot/fail, reuse of the
+existing trusted-origin boundary, fake-fetch tests, and matching HTTP
+documentation. The exception expires with this candidate; ordinary 400-line
+reviewer budget and 800-line hard default for later candidates remain unchanged.
+No code-golf or test/documentation omission is authorized. Checkpoint writes
+remain fail-closed with no HTTP request and completion remains explicitly
+unsupported with no HTTP request. No worker runtime wiring, CMS schema/auth,
+permission grant, production token, environment variable, dependency, GCP/IAM,
+Cloud Run/OIDC, or deployment change is in scope. The existing U10-A10
+same-process loader can host the client-to-Strapi scenario without a child
+process or environment-file access; it was not run in U10-A15 and is deferred
+with the exact scenario and owner recorded in the ledger.
+Final candidate size: `1,098` additions plus deletions across 7 paths, including
+the 3 untracked files; see the direct implementation ledger for the count method.
+
 - [ ] 4.2 U11 Fake-provider RED→implement→GREEN explicit product-project/location Vertex initialization, fail-closed config, direct/map/reduce/redaction/validation/CountTokens/cost in `teleferico-app/services/survey-report-worker/src/**`; D:U1,U10; E:worker-Vitest/approved-staging-probe; R:D26,D51-D68,D75-D77,AI; B:adapter; A:provider/secrets; L:800,worker.
 - [ ] 4.3 U12 RED→implement→GREEN PDF/accessibility/eight-sections/five-charts/diagnostics/private-GCS in `teleferico-app/services/survey-report-worker/src/**`; D:passed-U3,U10-U11; E:golden/prohibited-content-Vitest+pinned-renderer; R:D78-D84,D89,delivery; B:renderer/objects; A:storage-lifecycle; L:700,worker.
 - [ ] 4.4 U13 Plan→approve→apply→GREEN product-project Tasks/private-Run/IAM, distinct task-invoker/worker-runtime service accounts, keyless service-identity attachment, explicit Vertex config, secrets/env/logging/alerts/labels in `teleferico-app/{cloudbuild.yaml,.env.example}`, `teleferico-cms/.env.example`, `docs/{INFRA.md,infra/survey-reporting/**}`; D:U1,U10-U12; E:`node docs/infra/survey-reporting/verify-config.test.mjs`+dry-runs; R:D35,D70,D72-D79,D89,operations; B:named-resources/grants; A:separate-staging/production; L:700,root/app/CMS/infra.
