@@ -24,6 +24,12 @@ import {
   buildOverlapDetails,
   prepareRetryGeneration,
 } from "./generation-lifecycle";
+import {
+  buildAuthoritativeGenerationInputsV1,
+  type AuthoritativeGenerationSourceInputV1,
+  type GenerationSourcePageQueryV1,
+} from "../../../services/survey-report-worker/src/authoritative-generation-source";
+import type { MaterializedGenerationInputsV1 } from "../../../services/survey-report-worker/src/generation-inputs";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const UUID_PATTERN =
@@ -104,6 +110,16 @@ export class FeedbackAdminCommandError extends Error {
     this.code = code;
     this.status = status;
     this.details = details;
+  }
+}
+
+function safeGenerationData(
+  ...args: Parameters<typeof buildGenerationData>
+) {
+  try {
+    return buildGenerationData(...args);
+  } catch {
+    throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
   }
 }
 
@@ -236,6 +252,21 @@ type Options = {
   readonly token: string;
   readonly fetchImplementation?: typeof fetch;
   readonly dispatcher?: FeedbackReportDispatcher;
+  readonly generationInputs?: GenerationInputsPort;
+};
+
+type ApprovedGenerationConfiguration = Pick<
+  AuthoritativeGenerationSourceInputV1,
+  "sourceRevision" | "modelConfig" | "pricingSnapshot" | "evidenceKeyId"
+>;
+
+export type GenerationInputsPort = {
+  readonly readPage: (
+    query: GenerationSourcePageQueryV1,
+  ) => Promise<unknown>;
+  readonly getApprovedConfiguration: () =>
+    | ApprovedGenerationConfiguration
+    | Promise<ApprovedGenerationConfiguration>;
 };
 
 export function createFeedbackAdminCommandTransport(options: Options) {
@@ -355,6 +386,26 @@ export function createFeedbackAdminCommandTransport(options: Options) {
     return dispatch(result, dispatchResult);
   };
 
+  const materializeGenerationInputs = async (
+    period: FeedbackAdminDateRange,
+    cutoff: Date,
+  ): Promise<MaterializedGenerationInputsV1> => {
+    if (!options.generationInputs)
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    try {
+      const configuration =
+        await options.generationInputs.getApprovedConfiguration();
+      return await buildAuthoritativeGenerationInputsV1({
+        ...configuration,
+        range: period,
+        dataCutoffAt: cutoff.toISOString(),
+        readPage: options.generationInputs.readPage,
+      });
+    } catch {
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    }
+  };
+
   const list = async (period: FeedbackAdminDateRange) => {
     const query = new URLSearchParams({
       "filters[periodStart][$lte]": period.to,
@@ -383,9 +434,14 @@ export function createFeedbackAdminCommandTransport(options: Options) {
     source?: CoreGeneration,
     cutoff = new Date(),
   ) => {
-    const data = buildGenerationData(
+    const materializedInputs = await materializeGenerationInputs(
+      source ? { from: source.from, to: source.to } : command.period,
+      cutoff,
+    );
+    const data = safeGenerationData(
       command,
       cutoff,
+      materializedInputs,
       undefined,
       source
         ? {
@@ -393,7 +449,7 @@ export function createFeedbackAdminCommandTransport(options: Options) {
             reportRunId: source.reportRunId,
             period: { from: source.from, to: source.to },
             status: source.status,
-          }
+        }
         : undefined,
     );
     const result = coreResult(
@@ -407,7 +463,6 @@ export function createFeedbackAdminCommandTransport(options: Options) {
 
   return {
     async generate(value: FeedbackAdminGenerateCommand) {
-      const cutoff = new Date();
       const conflicts = await list(value.period);
       const active = conflicts.find(
         (row) =>
@@ -437,24 +492,35 @@ export function createFeedbackAdminCommandTransport(options: Options) {
             details,
           );
       }
+      const cutoff = new Date();
       return create(value, undefined, cutoff);
     },
     async retry(reportRunId: string, _value: FeedbackAdminRetryCommand) {
       if (!UUID_PATTERN.test(reportRunId))
         throw new FeedbackAdminCommandError("VALIDATION_FAILED", 400);
-      const cutoff = new Date();
       const source = await find(reportRunId);
       if (!source || source.status !== "failed")
         throw new FeedbackAdminCommandError("INVALID_STATE", 409);
-      const data = prepareRetryGeneration(
-        {
-          documentId: source.documentId,
-          reportRunId: source.reportRunId,
-          period: { from: source.from, to: source.to },
-          status: source.status,
-        },
+      const cutoff = new Date();
+      const materializedInputs = await materializeGenerationInputs(
+        { from: source.from, to: source.to },
         cutoff,
       );
+      let data: ReturnType<typeof buildGenerationData>;
+      try {
+        data = prepareRetryGeneration(
+          {
+            documentId: source.documentId,
+            reportRunId: source.reportRunId,
+            period: { from: source.from, to: source.to },
+            status: source.status,
+          },
+          cutoff,
+          materializedInputs,
+        );
+      } catch {
+        throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+      }
       const result = coreResult(
         await coreRequest(GENERATION_ENDPOINT, {
           method: "POST",

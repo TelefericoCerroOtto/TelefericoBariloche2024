@@ -49,13 +49,21 @@ const testModelConfig = {
   sourceRevision: "source-revision-42",
 } as const;
 
-function validMaterializationInput() {
+function validMaterializationInput(options: {
+  readonly range?: { readonly from: string; readonly to: string };
+  readonly cutoff?: string;
+} = {}) {
+  const range = options.range ?? {
+    from: "2026-08-01",
+    to: "2026-08-01",
+  };
+  const cutoff = options.cutoff ?? "2026-08-01T12:00:00.000Z";
   return {
     snapshot: {
       sourceRevision: "source-revision-42",
-      createdAt: "2026-08-01T12:01:00.000Z",
-      dataCutoffAt: "2026-08-01T12:00:00.000Z",
-      range: { from: "2026-08-01", to: "2026-08-01" },
+      createdAt: cutoff,
+      dataCutoffAt: cutoff,
+      range,
       filters: { pointKey: null, versionKey: null },
       submissions: [],
       definitions: [],
@@ -132,6 +140,12 @@ describe("report generation lifecycle contracts", () => {
       prepareRetryGeneration(
         source,
         new Date("2026-09-22T15:04:05.000Z"),
+        materializeGenerationInputsV1(
+          validMaterializationInput({
+            range: period,
+            cutoff: "2026-09-22T15:04:05.000Z",
+          }),
+        ),
         () => "run-retry",
       ),
     ).toMatchObject({
@@ -147,6 +161,7 @@ describe("report generation lifecycle contracts", () => {
       prepareRetryGeneration(
         { ...source, status: "succeeded" },
         new Date(),
+        materializeGenerationInputsV1(validMaterializationInput()),
         () => "run-retry",
       ),
     ).toThrow("INVALID_STATE");
@@ -247,6 +262,12 @@ describe("report generation lifecycle contracts", () => {
           override: { accepted: false, overlapDigest: null },
         },
         new Date("2026-09-22T15:04:05.000Z"),
+        materializeGenerationInputsV1(
+          validMaterializationInput({
+            range: period,
+            cutoff: "2026-09-22T15:04:05.000Z",
+          }),
+        ),
         () => "00000000-0000-4000-8000-000000000003",
       ),
     ).toMatchObject({
@@ -255,7 +276,50 @@ describe("report generation lifecycle contracts", () => {
       requestedBy: null,
       status: "queued",
     });
+    expect(() =>
+      buildGenerationData(
+        {
+          contractVersion: "feedback-admin.v1",
+          period,
+          override: { accepted: false, overlapDigest: null },
+        },
+        new Date("2026-09-22T15:04:05.000Z"),
+        undefined as never,
+      ),
+    ).toThrow("GENERATION_INPUTS_REQUIRED");
   });
+
+  it.each(["range", "cutoff"] as const)(
+    "rejects materialized generation inputs with a mismatched snapshot %s",
+    (mismatch) => {
+      const cutoff = "2026-09-22T15:04:05.000Z";
+      const input = materializeGenerationInputsV1(
+        validMaterializationInput(
+          mismatch === "range"
+            ? {
+                range: { from: "2026-08-02", to: "2026-08-20" },
+                cutoff,
+              }
+            : {
+                range: period,
+                cutoff: "2026-09-22T15:04:06.000Z",
+              },
+        ),
+      );
+
+      expect(() =>
+        buildGenerationData(
+          {
+            contractVersion: "feedback-admin.v1",
+            period,
+            override: { accepted: false, overlapDigest: null },
+          },
+          new Date(cutoff),
+          input,
+        ),
+      ).toThrow("GENERATION_INPUTS_CONTEXT_MISMATCH");
+    },
+  );
 
   it("materializes exact cutoff-bound snapshot and explicit closed worker inputs", () => {
     const snapshotInput = {
