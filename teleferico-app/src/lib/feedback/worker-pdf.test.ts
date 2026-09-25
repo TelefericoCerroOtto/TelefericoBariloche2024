@@ -19,12 +19,12 @@ import {
 } from "../../../services/survey-report-worker/src/renderer";
 import {
   executeReportWorker,
-  stageInputDigest,
 } from "../../../services/survey-report-worker/src/worker-runtime";
 import {
   CHECKPOINT_CONTRACT_VERSIONS,
   deriveChunkMembership,
   deriveEvidenceRef,
+  deriveStageInputDigestV1,
   stageConfigDigest,
   stageInputDigestV1,
   validateWorkerStageCheckpointV1,
@@ -41,6 +41,8 @@ import type {
   WorkerCheckpoint,
   WorkerCheckpointSet,
   WorkerCmsClient,
+  WorkerClaimResult,
+  ModelConfigV1,
   WorkerSnapshotResult,
   PublishedAnalysisV1,
 } from "../../../services/survey-report-worker/src/contracts";
@@ -94,9 +96,27 @@ function checkpointOutputDigest(payload: unknown): string {
   return createHash("sha256").update(canonicalizeJson(payload)).digest("hex");
 }
 
+const OMIT_PRICING_SNAPSHOT = Symbol("omit-pricing-snapshot");
+
+function syntheticPricingSnapshot() {
+  return {
+    version: "survey-pricing.v1",
+    currency: "USD",
+    units: [
+      {
+        sku: "synthetic-model-input",
+        inputMicrosPerMillion: 100,
+        outputMicrosPerMillion: 200,
+      },
+    ],
+  } as const;
+}
+
 function fakeCms(
   snapshotEnvelope: SnapshotEnvelopeV1,
   checkpoints: WorkerCheckpointSet = checkpointSet(snapshotEnvelope.digestHex),
+  modelConfig: unknown = syntheticModelConfig("test-only-2026-01"),
+  pricingSnapshot: unknown = syntheticPricingSnapshot(),
 ) {
   let stateVersion = 1;
   let terminal: "succeeded" | "failed" | null = null;
@@ -112,14 +132,22 @@ function fakeCms(
           status: terminal,
           disposition: "terminal-replay" as const,
         };
-      return {
+      const claimResult: Extract<WorkerClaimResult, { status: "running" }> = {
         contractVersion: "survey-worker-cms.v1",
         reportRunId,
         stateVersion,
         status: "running" as const,
         disposition: stateVersion === 1 ? "claimed" : "resumed",
         checkpoints,
+        modelConfig,
+        pricingSnapshot:
+          pricingSnapshot === OMIT_PRICING_SNAPSHOT
+            ? undefined
+            : pricingSnapshot,
       };
+      if (pricingSnapshot === OMIT_PRICING_SNAPSHOT)
+        delete (claimResult as { pricingSnapshot?: unknown }).pricingSnapshot;
+      return claimResult;
     },
     async snapshot(reportRunId): Promise<WorkerSnapshotResult> {
       calls.snapshot += 1;
@@ -321,6 +349,19 @@ describe("worker PDF boundary", () => {
   it("fails closed when a prior render checkpoint has a different input digest", async () => {
     const envelope = snapshot();
     const renderer = createDeterministicTestPdfRenderer();
+    const oldAnalysisDigest = createHash("sha256")
+      .update(canonicalizeJson(analysis()))
+      .digest("hex");
+    const legacyInputDigest = createHash("sha256")
+      .update(
+        canonicalizeJson({
+          stageKey: "render",
+          snapshotDigest: envelope.digestHex,
+          analysisDigest: oldAnalysisDigest,
+          rendererVersion: renderer.rendererVersion,
+        }),
+      )
+      .digest("hex");
     const payload = {
       kind: "render" as const,
       rendererVersion: renderer.rendererVersion,
@@ -334,7 +375,7 @@ describe("worker PDF boundary", () => {
       route: "direct",
       stageType: "render",
       status: "valid",
-      inputDigest: "e".repeat(64),
+      inputDigest: legacyInputDigest,
       outputDigest: checkpointOutputDigest(payload),
       attempts: 1,
       completedAt: "2026-09-24T10:00:00.000Z",
@@ -352,6 +393,66 @@ describe("worker PDF boundary", () => {
     expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
     expect(render).not.toHaveBeenCalled();
     expect(fake.calls.checkpoint).toBe(0);
+    expect(artifacts.calls.stage).toBe(0);
+  });
+
+  it("does not reuse a render checkpoint after immutable model config changes", async () => {
+    const envelope = snapshot();
+    const renderer = createDeterministicTestPdfRenderer();
+    const originalConfig = syntheticModelConfig("test-only-2026-01");
+    const changedConfig = {
+      ...originalConfig,
+      promptVersion: "prompt.changed.v1",
+    };
+    const validateOutputDigest = checkpointOutputDigest({
+      kind: "validate",
+      publishedAnalysis: analysis(),
+      validatorVersion: originalConfig.validatorVersion,
+    });
+    const oldInputDigest = deriveStageInputDigestV1({
+      stageKey: "render",
+      snapshotDigest: envelope.digestHex,
+      sourceRevision: envelope.payload.sourceRevision,
+      modelConfig: originalConfig,
+      rendererVersion: renderer.rendererVersion,
+      orderedDependencies: [
+        { stageKey: "validate", outputDigest: validateOutputDigest },
+      ],
+    });
+    const payload = {
+      kind: "render" as const,
+      rendererVersion: renderer.rendererVersion,
+      pdfSha256: "a".repeat(64),
+      size: 1,
+    };
+    const prior: WorkerCheckpoint = {
+      checkpointVersion: "survey-checkpoint.v1",
+      stageKey: "render",
+      stageIndex: 4,
+      route: "direct",
+      stageType: "render",
+      status: "valid",
+      inputDigest: oldInputDigest,
+      outputDigest: checkpointOutputDigest(payload),
+      attempts: 1,
+      completedAt: "2026-09-24T10:00:00.000Z",
+      payload,
+    };
+    const fake = fakeCms(
+      envelope,
+      checkpointSet(envelope.digestHex, [prior]),
+      changedConfig,
+    );
+    const artifacts = artifactStore();
+    const render = vi.spyOn(renderer, "render");
+    const result = await executeReportWorker("run-config-mismatch", {
+      cms: fake.cms,
+      artifacts: artifacts.store,
+      renderer,
+      analysisProvider: async () => analysis(),
+    });
+    expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
+    expect(render).not.toHaveBeenCalled();
     expect(artifacts.calls.stage).toBe(0);
   });
 
@@ -474,6 +575,90 @@ describe("worker PDF boundary", () => {
     expect(renderer).not.toHaveBeenCalled();
   });
 
+  it("fails closed before snapshot/provider work when claim model config is absent", async () => {
+    const envelope = snapshot();
+    const fake = fakeCms(
+      envelope,
+      checkpointSet(envelope.digestHex),
+      {} as ModelConfigV1,
+    );
+    const provider = vi.fn(async () => analysis());
+    const renderer = vi.fn(async () => new Uint8Array([1]));
+    const result = await executeReportWorker("run-missing-config", {
+      cms: fake.cms,
+      artifacts: artifactStore().store,
+      renderer: { rendererVersion: "test", render: renderer },
+      analysisProvider: provider,
+    });
+    expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
+    expect(fake.calls.snapshot).toBe(0);
+    expect(provider).not.toHaveBeenCalled();
+    expect(renderer).not.toHaveBeenCalled();
+  });
+
+  it("rejects a model other than the normative model before snapshot/provider work", async () => {
+    const envelope = snapshot();
+    const modelConfig = {
+      ...syntheticModelConfig("test-only-2026-01"),
+      model: "gemini-3.8-pro",
+    };
+    const fake = fakeCms(envelope, checkpointSet(envelope.digestHex), modelConfig);
+    const provider = vi.fn(async () => analysis());
+    const renderer = vi.fn(async () => new Uint8Array([1]));
+    const result = await executeReportWorker("run-wrong-model", {
+      cms: fake.cms,
+      artifacts: artifactStore().store,
+      renderer: { rendererVersion: "test", render: renderer },
+      analysisProvider: provider,
+    });
+    expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
+    expect(fake.calls.snapshot).toBe(0);
+    expect(provider).not.toHaveBeenCalled();
+    expect(renderer).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing, malformed, extra, duplicate, and invalid pricing claim data before work", async () => {
+    const envelope = snapshot();
+    const valid = syntheticPricingSnapshot();
+    const invalidPricingSnapshots: readonly [string, unknown][] = [
+      ["missing", OMIT_PRICING_SNAPSHOT],
+      ["null", null],
+      ["missing required fields", { currency: "USD", units: [] }],
+      ["empty version", { ...valid, version: "" }],
+      ["extra snapshot field", { ...valid, unexpected: true }],
+      ["extra unit field", { ...valid, units: [{ ...valid.units[0], extra: true }] }],
+      ["duplicate SKU", { ...valid, units: [valid.units[0], { ...valid.units[0] }] }],
+      ["fractional price", { ...valid, units: [{ ...valid.units[0], inputMicrosPerMillion: 0.5 }] }],
+      ["negative price", { ...valid, units: [{ ...valid.units[0], outputMicrosPerMillion: -1 }] }],
+      ["unsafe price", { ...valid, units: [{ ...valid.units[0], inputMicrosPerMillion: Number.MAX_SAFE_INTEGER + 1 }] }],
+      ["non-finite price", { ...valid, units: [{ ...valid.units[0], outputMicrosPerMillion: Number.POSITIVE_INFINITY }] }],
+    ];
+
+    for (const [caseName, pricingSnapshot] of invalidPricingSnapshots) {
+      const fake = fakeCms(
+        envelope,
+        checkpointSet(envelope.digestHex),
+        syntheticModelConfig("test-only-2026-01"),
+        pricingSnapshot,
+      );
+      const provider = vi.fn(async () => analysis());
+      const renderer = vi.fn(async () => new Uint8Array([1]));
+      const result = await executeReportWorker(`run-pricing-${caseName}`, {
+        cms: fake.cms,
+        artifacts: artifactStore().store,
+        renderer: { rendererVersion: "test", render: renderer },
+        analysisProvider: provider,
+      });
+      expect(result, caseName).toMatchObject({
+        status: "failed",
+        failureCode: "INVARIANT",
+      });
+      expect(fake.calls.snapshot, caseName).toBe(0);
+      expect(provider, caseName).not.toHaveBeenCalled();
+      expect(renderer, caseName).not.toHaveBeenCalled();
+    }
+  });
+
   it("matches the synthetic CMS evidence-membership and stage-digest vectors", () => {
     const input = syntheticMembershipInput();
     const memberships = deriveChunkMembership(input);
@@ -497,6 +682,47 @@ describe("worker PDF boundary", () => {
     expect(stageInputDigestV1({ stageKey: "map.1-of-2", stageIndex: 2, route: "map-reduce", snapshotDigest: input.snapshotDigest, sourceRevision: "test-source", contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest: configDigest, orderedDependencyOutputDigests: ["b".repeat(64), "c".repeat(64)], chunkMembershipDigest: memberships[0]!.membershipDigest })).toBe("ae8cc9b362b0983c70bd3ae386542a0973e74633feba1a034b0048a0f584cea4");
   });
 
+  it("derives direct render/store bindings from immutable config and exact dependencies", () => {
+    const modelConfig = syntheticModelConfig("test-only-2026-01");
+    const input = {
+      stageKey: "render" as const,
+      snapshotDigest: "a".repeat(64),
+      sourceRevision: "test-source",
+      modelConfig,
+      rendererVersion: "renderer.v1",
+      orderedDependencies: [
+        { stageKey: "validate" as const, outputDigest: "b".repeat(64) },
+      ],
+    };
+    const digest = deriveStageInputDigestV1(input);
+    expect(digest).toMatch(/^[a-f0-9]{64}$/);
+    expect(
+      deriveStageInputDigestV1({
+        ...input,
+        modelConfig: { ...modelConfig, promptVersion: "prompt.v2" },
+      }),
+    ).not.toBe(digest);
+    expect(() =>
+      deriveStageInputDigestV1({ ...input, orderedDependencies: [] }),
+    ).toThrow();
+    expect(() =>
+      deriveStageInputDigestV1({
+        ...input,
+        orderedDependencies: [
+          { stageKey: "direct", outputDigest: "b".repeat(64) },
+        ],
+      }),
+    ).toThrow();
+    expect(
+      deriveStageInputDigestV1({
+        ...input,
+        orderedDependencies: [
+          { stageKey: "validate", outputDigest: "c".repeat(64) },
+        ],
+      }),
+    ).not.toBe(digest);
+  });
+
   it("rejects changed IDs, refs, key IDs, chunk counts, config, and invalid Unicode", () => {
     const input = syntheticMembershipInput();
     const membership = deriveChunkMembership(input)[0]!;
@@ -512,7 +738,7 @@ describe("worker PDF boundary", () => {
     expect(verifyChunkMembership({ ...input, snapshotDigest: "b".repeat(64) }, membership)).toBe(false);
     expect(() => deriveChunkMembership({ ...input, comments: [...input.comments, { ...input.comments[0], recordId: "r-1" }], chunkCount: 2 })).toThrow();
     const projection = { version: "survey-stage-config.v1" as const, stageKey: "map.1-of-2", evidenceKeyId: input.evidenceKeyId, rendererVersion: null, modelConfig: syntheticModelConfig(input.evidenceKeyId) };
-    expect(stageConfigDigest({ ...projection, modelConfig: { ...projection.modelConfig, model: "other-model" } })).not.toBe(stageConfigDigest(projection));
+    expect(() => stageConfigDigest({ ...projection, modelConfig: { ...projection.modelConfig, model: "other-model" } })).toThrow();
     expect(stageConfigDigest({ ...projection, evidenceKeyId: "test-only-2026-02", modelConfig: { ...projection.modelConfig, evidenceKeyId: "test-only-2026-02" } })).not.toBe(stageConfigDigest(projection));
     const stageInput = { stageKey: "map.1-of-2", stageIndex: 2, route: "map-reduce" as const, snapshotDigest: input.snapshotDigest, sourceRevision: "test-source", contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest: stageConfigDigest(projection), orderedDependencyOutputDigests: ["b".repeat(64), "c".repeat(64)], chunkMembershipDigest: membership.membershipDigest };
     expect(stageInputDigestV1({ ...stageInput, orderedDependencyOutputDigests: [...stageInput.orderedDependencyOutputDigests].reverse() })).not.toBe(stageInputDigestV1(stageInput));
@@ -700,14 +926,21 @@ describe("worker PDF boundary", () => {
     const envelope = snapshot();
     const renderer = createDeterministicTestPdfRenderer();
     const pdf = await renderValidatedPdf(envelope, analysis(), renderer);
-    const digest = createHash("sha256")
-      .update(canonicalizeJson(analysis()))
-      .digest("hex");
-    const renderDigest = stageInputDigest({
+    const modelConfig = syntheticModelConfig("test-only-2026-01");
+    const validateOutputDigest = checkpointOutputDigest({
+      kind: "validate",
+      publishedAnalysis: analysis(),
+      validatorVersion: modelConfig.validatorVersion,
+    });
+    const renderDigest = deriveStageInputDigestV1({
       stageKey: "render",
       snapshotDigest: envelope.digestHex,
-      analysisDigest: digest,
+      sourceRevision: envelope.payload.sourceRevision,
+      modelConfig,
       rendererVersion: renderer.rendererVersion,
+      orderedDependencies: [
+        { stageKey: "validate", outputDigest: validateOutputDigest },
+      ],
     });
     const existing = {
       checkpointVersion: "survey-checkpoint.v1" as const,
@@ -735,6 +968,7 @@ describe("worker PDF boundary", () => {
     const fake = fakeCms(
       envelope,
       checkpointSet(envelope.digestHex, [existing]),
+      modelConfig,
     );
     const artifacts = artifactStore();
     artifacts.staged.set("run-3", {

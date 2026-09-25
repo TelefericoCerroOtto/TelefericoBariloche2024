@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 
-import { validateWorkerStageCheckpointV1 } from "./checkpoint-contract";
+import {
+  deriveStageInputDigestV1,
+  validateDirectStageConfigV1,
+  validateWorkerStageCheckpointV1,
+} from "./checkpoint-contract";
 import {
   buildReportCharts,
   canonicalizeJson,
@@ -25,6 +29,7 @@ import {
   type WorkerCmsClient,
   type WorkerExecutionResult,
   type WorkerClaimResult,
+  type ModelConfigV1,
   WorkerCmsConflictError,
 } from "./contracts";
 
@@ -66,16 +71,7 @@ const safeFailureMessages: Record<RuntimeFailureCode, string> = {
   QUEUE_ENQUEUE_EXHAUSTED: "The report could not be queued.",
 };
 
-export function stageInputDigest(input: {
-  readonly stageKey: "render" | "store";
-  readonly snapshotDigest: string;
-  readonly analysisDigest: string;
-  readonly rendererVersion: string;
-}): string {
-  return createHash("sha256").update(canonicalizeJson(input)).digest("hex");
-}
-
-function outputDigest(payload: WorkerCheckpoint["payload"]): string {
+function outputDigest(payload: unknown): string {
   return createHash("sha256").update(canonicalizeJson(payload)).digest("hex");
 }
 
@@ -260,6 +256,12 @@ export async function executeReportWorker(
   let stateVersion = claim.stateVersion;
   let staged: WorkerArtifact | null = null;
   try {
+    validateDirectStageConfigV1({
+      modelConfig: claim.modelConfig,
+      pricingSnapshot: claim.pricingSnapshot,
+      rendererVersion: dependencies.renderer.rendererVersion,
+    });
+    const modelConfig = claim.modelConfig as ModelConfigV1;
     if (
       claim.checkpoints.version !== "survey-checkpoints.v1" ||
       claim.checkpoints.route !== "direct" ||
@@ -302,15 +304,22 @@ export async function executeReportWorker(
         dependencies.analysisProvider(snapshot, claim.checkpoints),
       ),
     );
-    const analysisDigest = createHash("sha256")
-      .update(canonicalizeJson(analysis))
-      .digest("hex");
+    const validatePayload = {
+      kind: "validate" as const,
+      publishedAnalysis: analysis,
+      validatorVersion: modelConfig.validatorVersion,
+    };
+    const validateOutputDigest = outputDigest(validatePayload);
     const charts = buildReportCharts(snapshot);
-    const renderInputDigest = stageInputDigest({
+    const renderInputDigest = deriveStageInputDigestV1({
       stageKey: "render",
       snapshotDigest: snapshotResult.snapshot.digestHex,
-      analysisDigest,
+      sourceRevision: snapshotResult.snapshot.payload.sourceRevision,
+      modelConfig,
       rendererVersion: dependencies.renderer.rendererVersion,
+      orderedDependencies: [
+        { stageKey: "validate", outputDigest: validateOutputDigest },
+      ],
     });
     const existingRender = checkpointFor(
       claim.checkpoints,
@@ -361,11 +370,21 @@ export async function executeReportWorker(
       );
     }
 
-    const storeInputDigest = stageInputDigest({
+    const renderPayload = {
+      kind: "render" as const,
+      rendererVersion: dependencies.renderer.rendererVersion,
+      pdfSha256: artifact.sha256,
+      size: artifact.size,
+    };
+    const storeInputDigest = deriveStageInputDigestV1({
       stageKey: "store",
       snapshotDigest: snapshotResult.snapshot.digestHex,
-      analysisDigest,
+      sourceRevision: snapshotResult.snapshot.payload.sourceRevision,
+      modelConfig,
       rendererVersion: dependencies.renderer.rendererVersion,
+      orderedDependencies: [
+        { stageKey: "render", outputDigest: outputDigest(renderPayload) },
+      ],
     });
     const existingStore = checkpointFor(
       claim.checkpoints,
@@ -399,7 +418,9 @@ export async function executeReportWorker(
       contractVersion: "survey-worker-cms.v1",
       expectedStateVersion: stateVersion,
       validatedAnalysis: analysis,
-      analysisDigest,
+      analysisDigest: createHash("sha256")
+        .update(canonicalizeJson(analysis))
+        .digest("hex"),
       rendererVersion: dependencies.renderer.rendererVersion,
       artifact: {
         objectKey: artifact.objectKey,

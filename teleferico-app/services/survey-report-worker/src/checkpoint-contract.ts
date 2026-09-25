@@ -1,6 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 
 import { canonicalizeJson } from "../../../packages/survey-reporting-core/src";
+import type { PricingSnapshotV1 } from "./contracts";
 
 export const CHECKPOINT_CONTRACT_VERSIONS = {
   snapshot: "survey-snapshot.v1",
@@ -77,6 +78,18 @@ type StageConfigProjectionV1 = {
   readonly rendererVersion: string | null;
 };
 
+type DirectStageInputV1 = {
+  readonly stageKey: "render" | "store";
+  readonly snapshotDigest: string;
+  readonly sourceRevision: string;
+  readonly modelConfig: unknown;
+  readonly rendererVersion: string;
+  readonly orderedDependencies: readonly {
+    readonly stageKey: string;
+    readonly outputDigest: string;
+  }[];
+};
+
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 const RUN_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -119,6 +132,12 @@ const MODEL_CONFIG_KEYS = [
   "directReduce",
   "safetyHeadroomTokens",
   "sourceRevision",
+] as const;
+const PRICING_SNAPSHOT_KEYS = ["version", "currency", "units"] as const;
+const PRICING_UNIT_KEYS = [
+  "sku",
+  "inputMicrosPerMillion",
+  "outputMicrosPerMillion",
 ] as const;
 const CHECKPOINT_KEYS = [
   "checkpointVersion",
@@ -346,8 +365,7 @@ function validateModelConfig(
     value.vertexProjectId !== "teleferico-bariloche-2024" ||
     value.vertexLocation !== "us" ||
     value.vertexApiEndpoint !== "aiplatform.us.rep.googleapis.com" ||
-    typeof value.model !== "string" ||
-    !value.model ||
+    value.model !== "gemini-3.8-flash" ||
     value.temperature !== 0 ||
     value.reasoning !== "LOW" ||
     value.grounding !== false ||
@@ -379,6 +397,51 @@ function validateModelConfig(
     invalid();
 }
 
+function validatePricingSnapshotV1(
+  value: unknown,
+): asserts value is PricingSnapshotV1 {
+  if (
+    !exactKeys(value, PRICING_SNAPSHOT_KEYS) ||
+    typeof value.version !== "string" ||
+    value.version.length === 0 ||
+    value.currency !== "USD" ||
+    !Array.isArray(value.units)
+  )
+    invalid();
+
+  const seenSkus = new Set<string>();
+  for (const unit of value.units) {
+    if (
+      !exactKeys(unit, PRICING_UNIT_KEYS) ||
+      typeof unit.sku !== "string" ||
+      unit.sku.length === 0 ||
+      seenSkus.has(unit.sku)
+    )
+      invalid();
+    seenSkus.add(unit.sku);
+    for (const price of [
+      unit.inputMicrosPerMillion,
+      unit.outputMicrosPerMillion,
+    ]) {
+      if (
+        typeof price !== "number" ||
+        !Number.isFinite(price) ||
+        !Number.isSafeInteger(price) ||
+        price < 0
+      )
+        invalid();
+    }
+  }
+  canonicalizeJson(value);
+}
+
+function modelConfigEvidenceKeyId(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) invalid();
+  const evidenceKeyId = (value as Record<string, unknown>).evidenceKeyId;
+  if (typeof evidenceKeyId !== "string") invalid();
+  return evidenceKeyId;
+}
+
 export function stageConfigDigest(projection: StageConfigProjectionV1): string {
   if (
     !exactKeys(projection, [
@@ -405,6 +468,21 @@ export function stageConfigDigest(projection: StageConfigProjectionV1): string {
     invalid();
   validateModelConfig(projection.modelConfig, projection.evidenceKeyId);
   return sha256(projection);
+}
+
+export function validateDirectStageConfigV1(input: {
+  readonly modelConfig: unknown;
+  readonly pricingSnapshot: unknown;
+  readonly rendererVersion: string;
+}): void {
+  validatePricingSnapshotV1(input.pricingSnapshot);
+  stageConfigDigest({
+    version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig,
+    stageKey: "render",
+    modelConfig: input.modelConfig as Readonly<Record<string, unknown>>,
+    evidenceKeyId: modelConfigEvidenceKeyId(input.modelConfig),
+    rendererVersion: input.rendererVersion,
+  });
 }
 
 function validateContractVersions(
@@ -465,6 +543,41 @@ export function stageInputDigestV1(input: StageInputV1): string {
   if (input.chunkMembershipDigest !== null)
     assertDigest(input.chunkMembershipDigest);
   return sha256(input);
+}
+
+export function deriveStageInputDigestV1(
+  input: DirectStageInputV1,
+): string {
+  if (input.stageKey !== "render" && input.stageKey !== "store") invalid();
+  const expectedDependency = input.stageKey === "render" ? "validate" : "render";
+  const expectedIndex = input.stageKey === "render" ? 4 : 5;
+  if (
+    !Array.isArray(input.orderedDependencies) ||
+    input.orderedDependencies.length !== 1 ||
+    input.orderedDependencies[0]?.stageKey !== expectedDependency
+  )
+    invalid();
+
+  const configDigest = stageConfigDigest({
+    version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig,
+    stageKey: input.stageKey,
+    modelConfig: input.modelConfig as Readonly<Record<string, unknown>>,
+    evidenceKeyId: modelConfigEvidenceKeyId(input.modelConfig),
+    rendererVersion: input.rendererVersion,
+  });
+  return stageInputDigestV1({
+    stageKey: input.stageKey,
+    stageIndex: expectedIndex,
+    route: "direct",
+    snapshotDigest: input.snapshotDigest,
+    sourceRevision: input.sourceRevision,
+    contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+    stageConfigDigest: configDigest,
+    orderedDependencyOutputDigests: [
+      input.orderedDependencies[0].outputDigest,
+    ],
+    chunkMembershipDigest: null,
+  });
 }
 
 export function deriveChunkMembership(
