@@ -325,6 +325,44 @@ operational approval, runtime binding, CMS grant/schema, or deployment change is
 introduced. The initial `usageJson` remains the empty initial usage value; all
 snapshot/model/pricing/checkpoint fields come from the validated materializer.
 
+### U10-A12 actual app-command-to-CMS create/retry proof
+
+The test-only extension of `teleferico-cms/test/feedback/private-report-source.test.js`
+uses the restricted same-process TypeScript loader to execute the current
+`createFeedbackAdminCommandTransport`. In the disposable Strapi database only,
+the application-user JWT role has exactly the existing generation `find` and
+`create` actions. A separate synthetic custom content API token has exactly
+`workerSourceRead`. Cross-use is denied: the JWT cannot read the private source
+action, and the custom token cannot use native generation `find` or `create`.
+The generation `find` preflight uses real Strapi HTTP. The app source transport
+also reaches the real private-source HTTP action and returns the seeded 27
+submissions through page sizes 25+2 before the generation POST.
+
+The generated native create payload omits the private nullable `requestedBy`
+relation. This preserves `requestedBy: null` in storage without inventing an
+application-user attribution; the test verifies the field is absent from the
+POST and directly asserts zero rows in Strapi's
+`survey_report_generations_requested_by_lnk` table for the created run. No CMS
+schema, private-JSON handling, auth grant, or direct-DB production write was
+added.
+
+The current app transport now completes real native Strapi `find` and `create`
+HTTP for generation. The test persists and compares the exact cutoff-bound
+snapshot, snapshot digest, initial closed checkpoints, model configuration,
+pricing snapshot, and source revision. Its fake dispatcher is invoked only
+after the successful create response. A seeded failed generation is then read
+and retried through the same app transport and real CMS HTTP; the retry has a
+fresh cutoff and snapshot digest, points to the unchanged failed source through
+`retryOfGeneration`, and persists its own exact materialized fields. The test
+also proves an unauthorized source JWT and an interrupted submissions
+continuation fail before generation POST, with no extra row or dispatch.
+
+This is disposable local integration evidence only. No real CMS origin/token,
+model/pricing/key provider, Cloud Tasks, worker runtime, production credentials,
+GCP/IAM, deployment, or operational rollback was exercised. Those runtime gates
+remain pending; the default feature flag and persistent permissions remain
+unchanged.
+
 ## Direct implementation runtime boundary
 
 The app-owned direct implementation now provides the local worker/PDF boundary
