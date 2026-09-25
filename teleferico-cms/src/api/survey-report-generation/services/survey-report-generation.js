@@ -181,12 +181,14 @@ module.exports = createCoreService(
       return lifecycle.createGenerationLifecycle({
         withTransaction: createTransaction(strapi),
         evidenceKeyProvider: strapi.config.get('feedback.workerEvidenceKeyProvider'),
+        countTokensProvider: strapi.config.get('feedback.workerCountTokensProvider'),
       }).writeWorkerCheckpoint(input);
     },
     completeWorker(input) {
       return lifecycle.createGenerationLifecycle({
         withTransaction: createTransaction(strapi),
         evidenceKeyProvider: strapi.config.get('feedback.workerEvidenceKeyProvider'),
+        countTokensProvider: strapi.config.get('feedback.workerCountTokensProvider'),
       }).completeWorker(input);
     },
   }),

@@ -1,6 +1,6 @@
 'use strict';
 const { createHash } = require('node:crypto');
-const { validateWorkerClaimContracts, verifyCheckpointGraphV1 } = require('./checkpoint-contract');
+const { validateWorkerClaimContracts, verifyCheckpointGraphV1, verifyMapReduceCountAuthorityV1, verifyGeneratedOutputCountV1 } = require('./checkpoint-contract');
 function domainError(code) { return Object.assign(new Error(code), { code }); }
 const REPORT_RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DISPATCH_EVIDENCE_VERSION = 'survey-dispatch-evidence.v1';
@@ -106,10 +106,12 @@ function exactKeys(value, keys) {
 }
 
 function validateWorkerCheckpointCommand(stageKey, command) {
-  if (!CHECKPOINT_STAGE_KEYS.includes(stageKey) || !exactKeys(command, ['contractVersion', 'expectedStateVersion', 'checkpoint']) ||
+  const supportedStage = CHECKPOINT_STAGE_KEYS.includes(stageKey) || stageKey === 'reduce' || /^map\.[1-9]\d*-of-[1-9]\d*$/.test(stageKey);
+  const expectedStageType = stageKey.startsWith('map.') ? 'map' : stageKey;
+  if (!supportedStage || !exactKeys(command, ['contractVersion', 'expectedStateVersion', 'checkpoint']) ||
       command.contractVersion !== 'survey-worker-cms.v1' || !Number.isSafeInteger(command.expectedStateVersion) || command.expectedStateVersion < 1 ||
       !exactKeys(command.checkpoint, WORKER_CHECKPOINT_KEYS) || command.checkpoint.stageKey !== stageKey ||
-      command.checkpoint.checkpointVersion !== 'survey-checkpoint.v1' || command.checkpoint.stageType !== stageKey ||
+      command.checkpoint.checkpointVersion !== 'survey-checkpoint.v1' || command.checkpoint.stageType !== expectedStageType ||
       command.checkpoint.status !== 'valid' || !Number.isSafeInteger(command.checkpoint.stageIndex) ||
       !Number.isSafeInteger(command.checkpoint.attempts) || command.checkpoint.attempts < 1 ||
       !/^[a-f0-9]{64}$/.test(command.checkpoint.inputDigest ?? '') || !/^[a-f0-9]{64}$/.test(command.checkpoint.outputDigest ?? ''))
@@ -285,8 +287,18 @@ function prepareAtomicCompletion(input, expectedStateVersion, details) {
   const value = expectedStateVersion === undefined ? input : { generation: input, expectedStateVersion, ...details };
   if (value.generation.stateVersion !== value.expectedStateVersion) throw domainError('STATE_VERSION_CONFLICT');
   if (value.generation.status !== 'running') throw domainError('TERMINAL_CONFLICT');
-  const required = ['redact', 'count', 'direct', 'validate', 'render', 'store'];
-  if (!value.checkpoints || new Set(value.checkpoints).size !== required.length || required.some((key) => !value.checkpoints.includes(key))) throw domainError('CHECKPOINT_SET_INCOMPLETE');
+  const direct = ['redact', 'count', 'direct', 'validate', 'render', 'store'];
+  const mapMatch = Array.isArray(value.checkpoints) && value.checkpoints.length >= 7 &&
+    value.checkpoints[0] === 'redact' && value.checkpoints[1] === 'count' && value.checkpoints.at(-4) === 'reduce' &&
+    value.checkpoints.at(-3) === 'validate' && value.checkpoints.at(-2) === 'render' && value.checkpoints.at(-1) === 'store';
+  const mapCount = mapMatch ? value.checkpoints.length - 6 : 0;
+  const mapExpected = mapMatch ? [
+    'redact', 'count', ...Array.from({ length: mapCount }, (_, index) => `map.${index + 1}-of-${mapCount}`),
+    'reduce', 'validate', 'render', 'store',
+  ] : [];
+  if (!value.checkpoints || new Set(value.checkpoints).size !== value.checkpoints.length ||
+      !(canonicalizeJson(value.checkpoints) === canonicalizeJson(direct) || canonicalizeJson(value.checkpoints) === canonicalizeJson(mapExpected)))
+    throw domainError('CHECKPOINT_SET_INCOMPLETE');
   if (
     !value.reportId ||
     !value.generation.documentId ||
@@ -330,7 +342,7 @@ function prepareAtomicCompletion(input, expectedStateVersion, details) {
     },
   };
 }
-function createGenerationLifecycle({ withTransaction, now = () => new Date().toISOString(), createReportRunId, evidenceKeyProvider } = {}) {
+function createGenerationLifecycle({ withTransaction, now = () => new Date().toISOString(), createReportRunId, evidenceKeyProvider, countTokensProvider } = {}) {
   if (typeof withTransaction !== 'function') throw new TypeError('withTransaction is required');
   const resolveEvidenceKey = async (modelConfig, snapshot) => {
     if (!snapshot?.comments?.length) return null;
@@ -486,9 +498,43 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         }
         const snapshotEnvelope = prepareWorkerSnapshot(generation).snapshot;
         const evidenceKey = snapshotEnvelope.payload.comments.length > 0 &&
-          (['count', 'direct', 'validate'].includes(stageKey) || checkpoints.entries.some(({ stageKey: key }) => key === 'direct'))
+          (['count', 'direct', 'reduce', 'validate'].includes(stageKey) || stageKey.startsWith('map.') ||
+            checkpoints.entries.some(({ stageKey: key }) => key === 'direct' || key.startsWith('map.') || key === 'reduce'))
           ? await resolveEvidenceKey(modelConfig, snapshotEnvelope.payload)
           : null;
+        if (stageKey === 'count' && command.checkpoint.payload?.route === 'map-reduce') {
+          const validCountAuthority = await verifyMapReduceCountAuthorityV1({
+            payload: command.checkpoint.payload,
+            modelConfig,
+            snapshot: snapshotEnvelope.payload,
+            reportRunId,
+            evidenceKey,
+            countTokens: countTokensProvider,
+          });
+          if (!validCountAuthority) throw domainError('UNKNOWN_VERSION');
+        }
+        if (stageKey.startsWith('map.') && command.checkpoint.payload?.kind === 'map') {
+          const validOutputAuthority = await verifyGeneratedOutputCountV1({
+            output: command.checkpoint.payload.validatedOutput,
+            modelConfig,
+            stage: 'map',
+            outputTokenCount: command.checkpoint.payload.outputTokenCount,
+            outputRequestDigest: command.checkpoint.payload.outputRequestDigest,
+            countTokens: countTokensProvider,
+          });
+          if (!validOutputAuthority) throw domainError('UNKNOWN_VERSION');
+        }
+        if (stageKey === 'reduce' && command.checkpoint.payload?.kind === 'reduce') {
+          const validOutputAuthority = await verifyGeneratedOutputCountV1({
+            output: command.checkpoint.payload.validatedOutput,
+            modelConfig,
+            stage: 'reduce',
+            outputTokenCount: command.checkpoint.payload.outputTokenCount,
+            outputRequestDigest: command.checkpoint.payload.outputRequestDigest,
+            countTokens: countTokensProvider,
+          });
+          if (!validOutputAuthority) throw domainError('UNKNOWN_VERSION');
+        }
         const storedRender = checkpoints.entries?.find(({ stageKey }) => stageKey === 'render');
         const rendererVersion = command.checkpoint.stageKey === 'render'
           ? command.checkpoint.payload.rendererVersion
@@ -578,6 +624,24 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         }
         const snapshot = prepareWorkerSnapshot(generation).snapshot.payload;
         const evidenceKey = await resolveEvidenceKey(modelConfig, snapshot);
+        if (checkpoints.route === 'map-reduce') {
+          const count = checkpoints.entries.find(({ stageKey }) => stageKey === 'count')?.payload;
+          const reduce = checkpoints.entries.find(({ stageKey }) => stageKey === 'reduce')?.payload;
+          const countVerified = await verifyMapReduceCountAuthorityV1({
+            payload: count, modelConfig, snapshot, reportRunId, evidenceKey, countTokens: countTokensProvider,
+          });
+          const outputVerifications = await Promise.all(checkpoints.entries.filter(({ stageKey }) => stageKey.startsWith('map.') || stageKey === 'reduce')
+            .map((entry) => verifyGeneratedOutputCountV1({
+              output: entry.payload.validatedOutput,
+              modelConfig,
+              stage: entry.stageKey === 'reduce' ? 'reduce' : 'map',
+              outputTokenCount: entry.payload.outputTokenCount,
+              outputRequestDigest: entry.payload.outputRequestDigest,
+              countTokens: countTokensProvider,
+            })));
+          if (!countVerified || outputVerifications.some((verified) => !verified)) throw domainError('UNKNOWN_VERSION');
+          if (!reduce) throw domainError('CHECKPOINT_SET_INCOMPLETE');
+        }
         const storeCheckpoint = checkpoints.entries?.at(-1);
         if (!storeCheckpoint || storeCheckpoint.stageKey !== 'store')
           throw domainError('CHECKPOINT_SET_INCOMPLETE');
@@ -597,8 +661,12 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           expectedStateVersion: generation.stateVersion,
           evidenceKey,
         });
-        if (graph.status !== 'accepted' || graph.checkpoints.route !== 'direct' ||
-            graph.checkpoints.entries.length !== CHECKPOINT_STAGE_KEYS.length)
+        const expectedKeys = graph.checkpoints?.route === 'map-reduce'
+          ? ['redact', 'count', ...Array.from({ length: graph.checkpoints.chunkCount }, (_, index) => `map.${index + 1}-of-${graph.checkpoints.chunkCount}`), 'reduce', 'validate', 'render', 'store']
+          : CHECKPOINT_STAGE_KEYS;
+        if (graph.status !== 'accepted' || !graph.checkpoints ||
+            graph.checkpoints.entries.length !== expectedKeys.length ||
+            graph.checkpoints.entries.some(({ stageKey }, index) => stageKey !== expectedKeys[index]))
           throw domainError('CHECKPOINT_SET_INCOMPLETE');
         const validated = graph.checkpoints.entries.find(({ stageKey }) => stageKey === 'validate');
         const render = graph.checkpoints.entries.find(({ stageKey }) => stageKey === 'render');
@@ -616,7 +684,7 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           generation,
           expectedStateVersion: command.expectedStateVersion,
           reportId,
-          checkpoints: CHECKPOINT_STAGE_KEYS,
+          checkpoints: expectedKeys,
           artifact: command.artifact,
           validatedAnalysis: command.validatedAnalysis,
           analysisDigest: command.analysisDigest,

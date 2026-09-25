@@ -68,7 +68,27 @@ export type DirectAnalysisV1 = {
   }[];
 };
 
-export type WorkerCheckpointStage = "redact" | "count" | "direct" | "validate" | "render" | "store";
+export type WorkerMapCheckpointStage = `map.${number}-of-${number}`;
+export type WorkerCheckpointStage = "redact" | "count" | "direct" | "map" | WorkerMapCheckpointStage | "reduce" | "validate" | "render" | "store";
+
+export type MapAnalysisV1 = {
+  readonly schemaVersion: "survey-map.v1";
+  readonly chunkId: string;
+  readonly coveredRefs: readonly string[];
+  readonly themes: readonly {
+    readonly themeKey: string;
+    readonly labelEs: string;
+    readonly claims: readonly DirectAnalysisClaimV1[];
+  }[];
+  readonly limitations: readonly string[];
+};
+
+export type ReduceAnalysisV1 = {
+  readonly schemaVersion: "survey-analysis.v1";
+  readonly route: "reduce";
+  readonly sections: DirectAnalysisV1["sections"];
+  readonly mapOutputDigests: readonly string[];
+};
 
 export type CountCheckpointPayload = {
   readonly kind: "count";
@@ -82,12 +102,52 @@ export type CountCheckpointPayload = {
     readonly headroom: number;
   };
   readonly totalTokens: number;
+  readonly route?: "map-reduce";
+  readonly directRequestDigest?: string;
+  readonly directSegmentTokens?: {
+    readonly instructions: number;
+    readonly schema: number;
+    readonly metrics: number;
+    readonly comments: number;
+    readonly reservedOutput: number;
+    readonly headroom: number;
+  };
+  readonly directTotalTokens?: number;
+  readonly attempts?: readonly {
+    readonly chunkCount: number;
+    readonly chunks: readonly {
+      readonly requestDigest: string;
+      readonly segmentTokens: {
+        readonly instructions: number;
+        readonly schema: number;
+        readonly metrics: number;
+        readonly comments: number;
+        readonly reservedOutput: number;
+        readonly headroom: number;
+      };
+      readonly totalTokens: number;
+    }[];
+  }[];
+  readonly chunkCount?: number;
 };
 
 export type CheckpointPayload =
   | { readonly kind: "redact"; readonly recordCount: number; readonly redactionVersion: string }
   | CountCheckpointPayload
   | { readonly kind: "direct"; readonly validatedOutput: DirectAnalysisV1 }
+  | {
+      readonly kind: "map";
+      readonly chunkId: string;
+      readonly chunkIndex: number;
+      readonly chunkCount: number;
+      readonly evidenceKeyId: string;
+      readonly coveredRefs: readonly string[];
+      readonly chunkMembershipDigest: string;
+      readonly outputTokenCount: number;
+      readonly outputRequestDigest: string;
+      readonly validatedOutput: MapAnalysisV1;
+    }
+  | { readonly kind: "reduce"; readonly outputTokenCount: number; readonly outputRequestDigest: string; readonly validatedOutput: ReduceAnalysisV1 }
   | { readonly kind: "validate"; readonly publishedAnalysis: PublishedAnalysisV1; readonly validatorVersion: string }
   | {
       readonly kind: "render";
@@ -300,6 +360,33 @@ export type ValidatedAnalysisProvider = (
   request: DirectModelRequestV1,
 ) => Promise<DirectAnalysisV1 | PublishedAnalysisV1>;
 
+export type MapModelRequestV1 = {
+  readonly contractVersion: "survey-map-input.v1";
+  readonly chunkId: string;
+  readonly chunkIndex: number;
+  readonly chunkCount: number;
+  readonly metrics: SnapshotV1["metrics"];
+  readonly comments: readonly DirectModelCommentV1[];
+};
+
+export type ReduceModelRequestV1 = {
+  readonly contractVersion: "survey-reduce-input.v1";
+  readonly metrics: SnapshotV1["metrics"];
+  readonly maps: readonly {
+    readonly chunkId: string;
+    readonly outputDigest: string;
+    readonly validatedOutput: MapAnalysisV1;
+  }[];
+};
+
+export type MapAnalysisProvider = (
+  request: MapModelRequestV1,
+) => Promise<MapAnalysisV1>;
+
+export type ReduceAnalysisProvider = (
+  request: ReduceModelRequestV1,
+) => Promise<ReduceAnalysisV1>;
+
 export type EvidenceKeyProvider = (
   evidenceKeyId: string,
 ) => Promise<string | Uint8Array>;
@@ -349,3 +436,15 @@ export class WorkerCmsConflictError extends Error {
     this.name = "WorkerCmsConflictError";
   }
 }
+
+export type WorkerRuntimeDependencies = {
+  readonly cms: WorkerCmsClient;
+  readonly artifacts: WorkerArtifactStore;
+  readonly renderer: PdfRenderer;
+  readonly analysisProvider?: ValidatedAnalysisProvider;
+  readonly countTokens?: CountTokensProvider;
+  readonly evidenceKeyProvider?: EvidenceKeyProvider;
+  readonly mapProvider?: MapAnalysisProvider;
+  readonly reduceProvider?: ReduceAnalysisProvider;
+  readonly now?: () => Date;
+};
