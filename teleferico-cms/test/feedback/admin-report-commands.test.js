@@ -129,6 +129,8 @@ test("native role authorization creates only through the core generation endpoin
       role.id,
       "api::survey-report-generation.survey-report-generation.find",
     );
+    await grant(strapi, role.id, "api::survey-submission.survey-submission.find");
+    await grant(strapi, role.id, "api::survey-report.survey-report.find");
     const user = await strapi.plugin("users-permissions").service("user").add({
       username: "tb113-admin-command-user",
       email: "tb113-admin-command-user@local.invalid",
@@ -141,6 +143,25 @@ test("native role authorization creates only through the core generation endpoin
     const jwt = strapi.plugin("users-permissions").service("jwt").issue({
       id: user.id,
     });
+    strapi.config.set("admin.secrets.encryptionKey", "tb113-admin-command-synthetic-encryption");
+    const contentApiTokens = strapi.service("admin::api-token-content-api");
+    const generationUid = "api::survey-report-generation.survey-report-generation";
+    const workerActions = {
+      claim: `${generationUid}.workerClaim`,
+      snapshot: `${generationUid}.workerSnapshot`,
+      checkpoint: `${generationUid}.workerCheckpoint`,
+    };
+    const workerTokens = Object.fromEntries(await Promise.all(Object.entries(workerActions).map(async ([name, action]) => {
+      const token = await contentApiTokens.create({
+        name: `tb113-admin-command-worker-${name}`,
+        description: `Disposable ${name} authorization test token`,
+        type: "custom",
+        permissions: [action],
+        lifespan: null,
+      });
+      assert.deepEqual(token.permissions, [action]);
+      return [name, token.accessKey];
+    })));
     await strapi.start();
     const port = strapi.server.httpServer.address().port;
     const endpoint = `http://127.0.0.1:${port}/api/survey-report-generations`;
@@ -168,6 +189,12 @@ test("native role authorization creates only through the core generation endpoin
     const readBody = await read.json();
     assert.equal(readBody.data.length, 1);
     assert.equal(readBody.data[0].reportRunId, REPORT_RUN_ID);
+    for (const nativeReadPath of ["/api/survey-submissions", "/api/survey-reports"]) {
+      const nativeRead = await fetch(`http://127.0.0.1:${port}${nativeReadPath}`, {
+        headers: { authorization: `Bearer ${jwt}` },
+      });
+      assert.equal(nativeRead.status, 200, nativeReadPath);
+    }
 
     const dispatchFailureUrl = `http://127.0.0.1:${port}/api/tb113/admin/generations/${REPORT_RUN_ID}/dispatch-failure`;
     const dispatchFailure = {
@@ -426,13 +453,13 @@ test("native role authorization creates only through the core generation endpoin
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(claimCommand),
     });
     assert.ok([401, 403].includes(anonymousClaim.status));
-    const ungrantedClaim = await fetch(claimUrl, {
+    await grant(strapi, role.id, workerActions.claim);
+    const roleGrantedClaim = await fetch(claimUrl, {
       method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(claimCommand),
     });
-    assert.equal(ungrantedClaim.status, 403);
-    await grant(strapi, role.id, "api::survey-report-generation.survey-report-generation.workerClaim");
+    assert.ok([401, 403].includes(roleGrantedClaim.status));
     const capturedClaims = await captureQueries(strapi, () => Promise.all([1, 2].map(() => fetch(claimUrl, {
-      method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(claimCommand),
+      method: "POST", headers: { authorization: `Bearer ${workerTokens.claim}`, "content-type": "application/json" }, body: JSON.stringify(claimCommand),
     }))));
     const claimed = capturedClaims.result;
     assert.deepEqual(claimed.map(({ status }) => status), [200, 200]);
@@ -443,11 +470,17 @@ test("native role authorization creates only through the core generation endpoin
     assert.ok(claimResults.every((result) => !JSON.stringify(result).includes("comment")));
     const oversizedClaim = await fetch(claimUrl, {
       method: "POST",
-      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      headers: { authorization: `Bearer ${workerTokens.claim}`, "content-type": "application/json" },
       body: `${JSON.stringify(claimCommand)}${" ".repeat(4_097)}`,
     });
     assert.equal(oversizedClaim.status, 413);
     assert.equal((await oversizedClaim.json()).error.code, "PAYLOAD_TOO_LARGE");
+    const roleGrantedOversizedClaim = await fetch(claimUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: `${JSON.stringify(claimCommand)}${" ".repeat(4_097)}`,
+    });
+    assert.ok([401, 403].includes(roleGrantedOversizedClaim.status));
 
     const snapshotPayload = {
       contractVersion: "survey-snapshot.v1", sourceRevision: "feedback-admin.v1",
@@ -466,19 +499,21 @@ test("native role authorization creates only through the core generation endpoin
       .update({ snapshot_digest: snapshotDigest, snapshot_json: snapshotPayload });
     const snapshotClaimUrl = `http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_SNAPSHOT_RUN_ID}/claim`;
     const snapshotClaim = await fetch(snapshotClaimUrl, {
-      method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      method: "POST", headers: { authorization: `Bearer ${workerTokens.claim}`, "content-type": "application/json" },
       body: JSON.stringify(claimCommand),
     });
     assert.equal(snapshotClaim.status, 200);
     const snapshotUrl = `http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_SNAPSHOT_RUN_ID}/snapshot`;
     const anonymousSnapshot = await fetch(snapshotUrl);
     assert.ok([401, 403].includes(anonymousSnapshot.status));
-    const ungrantedSnapshot = await fetch(snapshotUrl, { headers: { authorization: `Bearer ${jwt}` } });
-    assert.equal(ungrantedSnapshot.status, 403);
-    await grant(strapi, role.id, "api::survey-report-generation.survey-report-generation.workerSnapshot");
-    const capturedSnapshots = await captureQueries(strapi, () => fetch(snapshotUrl, { headers: { authorization: `Bearer ${jwt}` } }));
+    await grant(strapi, role.id, workerActions.snapshot);
+    const roleGrantedSnapshot = await fetch(snapshotUrl, { headers: { authorization: `Bearer ${jwt}` } });
+    assert.ok([401, 403].includes(roleGrantedSnapshot.status));
+    const tokenWithoutSnapshotAction = await fetch(snapshotUrl, { headers: { authorization: `Bearer ${workerTokens.claim}` } });
+    assert.equal(tokenWithoutSnapshotAction.status, 403);
+    const capturedSnapshots = await captureQueries(strapi, () => fetch(snapshotUrl, { headers: { authorization: `Bearer ${workerTokens.snapshot}` } }));
     assert.match(generationLockQuery(capturedSnapshots.queries), /"snapshot_json"/i);
-    const snapshots = [capturedSnapshots.result, await fetch(snapshotUrl, { headers: { authorization: `Bearer ${jwt}` } })];
+    const snapshots = [capturedSnapshots.result, await fetch(snapshotUrl, { headers: { authorization: `Bearer ${workerTokens.snapshot}` } })];
     assert.deepEqual(snapshots.map(({ status }) => status), [200, 200]);
     const snapshotBodies = await Promise.all(snapshots.map((response) => response.json()));
     assert.deepEqual(snapshotBodies[0], {
@@ -493,7 +528,7 @@ test("native role authorization creates only through the core generation endpoin
       body: JSON.stringify({ data: generationData(WORKER_QUEUED_RUN_ID, "2026-11-01", "2026-11-10") }),
     });
     assert.equal(queuedGeneration.status, 201);
-    const queuedSnapshot = await fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_QUEUED_RUN_ID}/snapshot`, { headers: { authorization: `Bearer ${jwt}` } });
+    const queuedSnapshot = await fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_QUEUED_RUN_ID}/snapshot`, { headers: { authorization: `Bearer ${workerTokens.snapshot}` } });
     assert.equal(queuedSnapshot.status, 409);
     assert.equal((await queuedSnapshot.json()).error.code, "INVALID_STATE");
 
@@ -510,11 +545,11 @@ test("native role authorization creates only through the core generation endpoin
       await strapi.db.connection("survey_report_generations").where({ report_run_id: runId })
         .update({ snapshot_digest: storedDigest, snapshot_json: snapshot });
       const invalidClaim = await fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${runId}/claim`, {
-        method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+        method: "POST", headers: { authorization: `Bearer ${workerTokens.claim}`, "content-type": "application/json" },
         body: JSON.stringify(claimCommand),
       });
       assert.equal(invalidClaim.status, 200);
-      const invalidSnapshot = await fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${runId}/snapshot`, { headers: { authorization: `Bearer ${jwt}` } });
+      const invalidSnapshot = await fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${runId}/snapshot`, { headers: { authorization: `Bearer ${workerTokens.snapshot}` } });
       assert.equal(invalidSnapshot.status, 409);
       assert.equal((await invalidSnapshot.json()).error.code, expectedCode);
     }
@@ -529,7 +564,7 @@ test("native role authorization creates only through the core generation endpoin
       .update({ snapshot_digest: checkpointSet.snapshotDigest, checkpoints_json: checkpointSet });
     const checkpointRoot = `http://127.0.0.1:${port}/api/tb113/worker/generations/${WORKER_CHECKPOINT_RUN_ID}`;
     const checkpointClaim = await fetch(`${checkpointRoot}/claim`, {
-      method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      method: "POST", headers: { authorization: `Bearer ${workerTokens.claim}`, "content-type": "application/json" },
       body: JSON.stringify(claimCommand),
     });
     assert.equal(checkpointClaim.status, 200);
@@ -546,31 +581,37 @@ test("native role authorization creates only through the core generation endpoin
       method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
     });
     assert.ok([401, 403].includes(anonymousCheckpoint.status));
-    const ungrantedCheckpoint = await fetch(checkpointUrl, {
+    await grant(strapi, role.id, workerActions.checkpoint);
+    const roleGrantedCheckpoint = await fetch(checkpointUrl, {
       method: "PUT", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
     });
-    assert.equal(ungrantedCheckpoint.status, 403);
-    await grant(strapi, role.id, "api::survey-report-generation.survey-report-generation.workerCheckpoint");
-    const checkpointResponse = await fetch(checkpointUrl, {
-      method: "PUT", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
+    assert.ok([401, 403].includes(roleGrantedCheckpoint.status));
+    const checkpointWithoutAction = await fetch(checkpointUrl, {
+      method: "PUT", headers: { authorization: `Bearer ${workerTokens.claim}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
     });
+    assert.equal(checkpointWithoutAction.status, 403);
+    const capturedCheckpoint = await captureQueries(strapi, () => fetch(checkpointUrl, {
+      method: "PUT", headers: { authorization: `Bearer ${workerTokens.checkpoint}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
+    }));
+    const checkpointResponse = capturedCheckpoint.result;
+    assert.equal(capturedCheckpoint.queries.some((sql) => /survey_report_generations[\s\S]*for update/i.test(sql)), false);
     assert.deepEqual({ status: checkpointResponse.status, body: await checkpointResponse.json() }, { status: 400, body: {
       error: { code: "UNKNOWN_VERSION", message: "The worker checkpoint was rejected" },
     } });
     const checkpointReplay = await fetch(checkpointUrl, {
-      method: "PUT", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
+      method: "PUT", headers: { authorization: `Bearer ${workerTokens.checkpoint}`, "content-type": "application/json" }, body: JSON.stringify(checkpointCommand),
     });
     assert.deepEqual(await checkpointReplay.json(), {
       error: { code: "UNKNOWN_VERSION", message: "The worker checkpoint was rejected" },
     });
     const alteredCheckpoint = await fetch(checkpointUrl, {
-      method: "PUT", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      method: "PUT", headers: { authorization: `Bearer ${workerTokens.checkpoint}`, "content-type": "application/json" },
       body: JSON.stringify({ ...checkpointCommand, checkpoint: { ...checkpoint, attempts: 2 } }),
     });
     assert.equal(alteredCheckpoint.status, 400);
     assert.equal((await alteredCheckpoint.json()).error.code, "UNKNOWN_VERSION");
     const oversizedCheckpoint = await fetch(checkpointUrl, {
-      method: "PUT", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      method: "PUT", headers: { authorization: `Bearer ${workerTokens.checkpoint}`, "content-type": "application/json" },
       body: `${JSON.stringify(checkpointCommand)}${" ".repeat(4_097)}`,
     });
     assert.equal(oversizedCheckpoint.status, 413);

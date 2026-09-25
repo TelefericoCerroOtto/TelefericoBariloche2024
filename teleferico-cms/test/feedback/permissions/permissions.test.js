@@ -40,6 +40,11 @@ test('survey routes expose bounded native reads and mediated writes', () => {
   );
   const generationAdminRoutes = require(path.join(generationRoot, 'routes/admin')).routes;
   const privateSourceRoute = generationAdminRoutes.find(({ handler }) => handler === 'survey-report-generation.workerSourceRead');
+  const workerAuthRoutes = new Map([
+    ['workerClaim', 'api::survey-report-generation.survey-report-generation.workerClaim'],
+    ['workerSnapshot', 'api::survey-report-generation.survey-report-generation.workerSnapshot'],
+    ['workerCheckpoint', 'api::survey-report-generation.survey-report-generation.workerCheckpoint'],
+  ]);
   assert.match(generationController, /createCoreController/);
   assert.match(generationController, /dispatchFailure/);
   assert.match(generationRoutes, /createCoreRouter/);
@@ -57,6 +62,16 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     strategies: ['content-api-token'],
     scope: ['api::survey-report-generation.survey-report-generation.workerSourceRead'],
   });
+  for (const [action, scope] of workerAuthRoutes) {
+    const route = generationAdminRoutes.find(({ handler }) => handler.endsWith(`.${action}`));
+    assert.deepEqual(route.config.auth, {
+      strategies: ['content-api-token'],
+      scope: [scope],
+    });
+    assert.match(generationController, new RegExp(`async ${action}\\(ctx\\) \\{\\s*if \\(!hasCustomContentApiTokenIdentity\\(ctx\\)\\)`));
+  }
+  assert.equal(generationAdminRoutes.find(({ handler }) => handler.endsWith('.dispatchFailure')).config, undefined);
+  assert.equal(generationAdminRoutes.find(({ handler }) => handler.endsWith('.dispatchState')).config, undefined);
   assert.equal(fs.existsSync(path.join(generationRoot, 'services/admin-commands.js')), false);
   const reportRoutes = fs.readFileSync(path.resolve(__dirname, '../../../src/api/survey-report/routes/survey-report.js'), 'utf8');
   assert.match(reportRoutes, /createCoreRouter/);
@@ -84,6 +99,8 @@ test('documents D31 names only as future application capabilities', () => {
   assert.match(documentation, /workerSnapshot/);
   assert.match(documentation, /workerSourceRead/);
   assert.match(documentation, /workerCheckpoint/);
+  assert.match(documentation, /workerClaim.*content-api-token/s);
+  assert.match(documentation, /Users & Permissions JWT is denied even if its\s+role is granted the\s+same action/);
   assert.match(documentation, /no default role or API-token/);
   assert.doesNotMatch(documentation, /bootstrap-feedback-permissions|--plan|--verify|--apply/);
 });

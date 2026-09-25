@@ -109,14 +109,28 @@ All worker/admin command actions add 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `R
 
 The checkpoint route is currently fail-closed: bounded requests return 400 `UNKNOWN_VERSION` before opening a transaction; raw bodies over 4 KiB retain the existing 413 behavior. The 4 KiB cap is unchanged, but validated map payloads may exceed it. Before activation, define and test a bounded request-size contract against complete valid map payloads; this foundation does not claim every valid checkpoint fits the current cap. See Appendix 04 for the remaining activation gates.
 
-`POST W/claim` is a native authenticated Strapi action with no default role or
-API-token grant. It accepts only the exact command under the 4 KiB worker cap,
-locks the generation row, and atomically performs queued→running with one
-state-version increment and `claimedAt`. Running returns `resumed` without a
-write; succeeded/failed returns only the terminal replay identity/status/version.
-The running projection contains only checkpoints, model configuration, and
-pricing snapshot—never comments. Explicit worker credential provisioning and
-permission grants remain outside this local contract slice.
+`POST W/claim`, `GET W/snapshot`, and `PUT W/checkpoints/:stageKey` require the
+native Strapi `content-api-token` strategy and their respective exact custom
+action scopes: `api::survey-report-generation.survey-report-generation.workerClaim`,
+`...workerSnapshot`, and `...workerCheckpoint`. A shared controller guard
+checks Strapi's selected strategy and credential `kind: "content-api"` plus
+`type: "custom"` before claim/checkpoint body measurement or any service/database
+access. No Users & Permissions JWT fallback is accepted, even when a role has
+the same worker action. Existing JWT grants for these three actions therefore
+stop authorizing the worker endpoints; this is an intentional auth migration,
+not a global auth change. A separately approved worker owner must provision a
+custom content API token with only the exact action needed by its caller. This
+repository creates no persistent token or grant and adds no default permission.
+
+Claim accepts only the exact command under the 4 KiB worker cap, locks the
+generation row, and atomically performs queued→running with one state-version
+increment and `claimedAt`. Running returns `resumed` without a write;
+succeeded/failed returns only the terminal replay identity/status/version. The
+running projection contains only checkpoints, model configuration, and pricing
+snapshot—never comments. Snapshot remains running-only, byte-equivalent on replay,
+and validates the immutable snapshot digest before exposing private comments.
+Checkpoint remains fail-closed: even a correctly scoped token reaches the
+existing `UNKNOWN_VERSION` response before the lifecycle transaction.
 
 `A/dispatch-failure` is a CMS-authenticated command action, granted explicitly
 to the corresponding Users & Permissions role for the server-mediated
