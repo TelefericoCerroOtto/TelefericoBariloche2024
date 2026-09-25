@@ -200,9 +200,7 @@ function validCheckpointInstant(value: unknown): value is string {
   return true;
 }
 
-function expectedRenderStoreIndex(
-  stageKey: "render" | "store",
-): number {
+function expectedRenderStoreIndex(stageKey: "render" | "store"): number {
   return stageKey === "render" ? 4 : 5;
 }
 
@@ -397,6 +395,32 @@ function validateModelConfig(
     invalid();
 }
 
+export function validateGenerationInputContractsV1(input: {
+  readonly modelConfig: unknown;
+  readonly pricingSnapshot: unknown;
+  readonly evidenceKeyId: string;
+  readonly sourceRevision: string;
+}): void {
+  if (
+    !KEY_ID_PATTERN.test(input.evidenceKeyId) ||
+    !input.sourceRevision ||
+    !input.modelConfig ||
+    typeof input.modelConfig !== "object" ||
+    Array.isArray(input.modelConfig) ||
+    (input.modelConfig as Record<string, unknown>).sourceRevision !==
+      input.sourceRevision
+  )
+    invalid();
+
+  validateModelConfig(input.modelConfig, input.evidenceKeyId);
+  validatePricingSnapshotV1(input.pricingSnapshot);
+  if (
+    !Array.isArray((input.pricingSnapshot as PricingSnapshotV1).units) ||
+    (input.pricingSnapshot as PricingSnapshotV1).units.length === 0
+  )
+    invalid();
+}
+
 function validatePricingSnapshotV1(
   value: unknown,
 ): asserts value is PricingSnapshotV1 {
@@ -545,11 +569,10 @@ export function stageInputDigestV1(input: StageInputV1): string {
   return sha256(input);
 }
 
-export function deriveStageInputDigestV1(
-  input: DirectStageInputV1,
-): string {
+export function deriveStageInputDigestV1(input: DirectStageInputV1): string {
   if (input.stageKey !== "render" && input.stageKey !== "store") invalid();
-  const expectedDependency = input.stageKey === "render" ? "validate" : "render";
+  const expectedDependency =
+    input.stageKey === "render" ? "validate" : "render";
   const expectedIndex = input.stageKey === "render" ? 4 : 5;
   if (
     !Array.isArray(input.orderedDependencies) ||
@@ -573,9 +596,7 @@ export function deriveStageInputDigestV1(
     sourceRevision: input.sourceRevision,
     contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
     stageConfigDigest: configDigest,
-    orderedDependencyOutputDigests: [
-      input.orderedDependencies[0].outputDigest,
-    ],
+    orderedDependencyOutputDigests: [input.orderedDependencies[0].outputDigest],
     chunkMembershipDigest: null,
   });
 }
