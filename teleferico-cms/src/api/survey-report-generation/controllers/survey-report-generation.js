@@ -14,6 +14,13 @@ function validDispatchFailure(value) {
     value.failureCode === "QUEUE_ENQUEUE_EXHAUSTED";
 }
 
+function hasCustomContentApiTokenIdentity(ctx) {
+  const auth = ctx.state.auth;
+  return auth?.strategy?.name === "content-api-token" &&
+    auth.credentials?.kind === "content-api" &&
+    auth.credentials?.type === "custom";
+}
+
 module.exports = createCoreController(
   "api::survey-report-generation.survey-report-generation",
   ({ strapi }) => ({
@@ -122,6 +129,35 @@ module.exports = createCoreController(
         const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
         ctx.status = status;
         ctx.body = { error: { code: safeCode, message: status === 500 ? "The worker snapshot could not be read" : "The worker snapshot was rejected" } };
+      }
+    },
+    async workerSourceRead(ctx) {
+      if (!hasCustomContentApiTokenIdentity(ctx)) {
+        ctx.status = 403;
+        ctx.body = { error: { code: 'FORBIDDEN', message: 'The worker source request is not authorized' } };
+        return;
+      }
+      const bodySize = measureDispatchFailureRequestBody(ctx.request);
+      if (bodySize === null || bodySize > 4 * 1024) {
+        ctx.status = 413;
+        ctx.body = { error: { code: 'PAYLOAD_TOO_LARGE', message: 'The worker source query is too large' } };
+        return;
+      }
+      try {
+        const result = await strapi.service('api::survey-report-generation.survey-report-generation')
+          .readWorkerReportSourcePage(ctx.request.body);
+        ctx.status = 200;
+        ctx.body = result;
+      } catch (error) {
+        const code = error.code ?? 'INTERNAL_ERROR';
+        const status = code === 'VALIDATION_FAILED' ? 400 : code === 'SOURCE_UNAVAILABLE' ? 503 : 500;
+        ctx.status = status;
+        ctx.body = {
+          error: {
+            code: status === 500 ? 'INTERNAL_ERROR' : status === 503 ? 'UPSTREAM_UNAVAILABLE' : code,
+            message: status === 400 ? 'The worker source query is invalid' : status === 503 ? 'The worker source is unavailable' : 'The worker source could not be read',
+          },
+        };
       }
     },
     async workerCheckpoint(ctx) {

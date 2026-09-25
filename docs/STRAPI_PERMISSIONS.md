@@ -287,6 +287,42 @@ mismatches. The action does not grant native collection reads or expose the
 snapshot through a public/admin route. The isolated HTTP harness grants it only
 to its synthetic worker-role equivalent; no production role or token is changed.
 
+U10-A8 registers
+`api::survey-report-generation.survey-report-generation.workerSourceRead` for
+the bounded private report-source page action. The route accepts only Strapi's
+`content-api-token` auth strategy and that exact action scope; it does not
+include the Users & Permissions strategy as a fallback. The controller also
+checks the actual Strapi auth result (`ctx.state.auth.strategy.name`, token
+`kind`, and custom token `type`) before measuring or validating the body or
+calling the source service. This uses the runtime auth context populated by
+Strapi's content API auth middleware, not a role name or caller-supplied field.
+The worker source is read with explicit SQL projections and does not grant
+native `survey-submission.find` or `findOne`. The response includes the original
+nullable comment and `payloadDigest`, plus canonical submission, version, point,
+and rating fields required by the authoritative snapshot adapter.
+
+The isolated HTTP harness proves anonymous denial; denial of an ordinary
+application-user JWT even after its synthetic Users & Permissions role is
+granted the same action; denial of a custom API token without that action; and
+allow only for a synthetic custom content API token with that one action. The
+authorized token still cannot call native `survey-submission.find`. Test tokens
+and role permissions exist only in the disposable database. No persistent
+role/token grant, schema change, generated-type change, or credential setup is
+included. Provisioning the real custom content API token remains separately
+authorized operational work owned by the TB-113 worker/platform owner.
+
+The page input is a closed `survey-generation-source.v1` contract with an
+inclusive UTC accepted-time window, immutable `dataCutoffAt`, resource, cursor,
+and page size `1..25`; raw request bodies above 4 KiB fail with 413. Submissions
+are restricted to `source=valid_qr` and the requested window. Rows after the
+cutoff are deliberately still returned within that window so the authoritative
+snapshot core can count and exclude them against the frozen cutoff. The cutoff
+is bound into every cursor, not substituted with a fresh time or used to trim
+the source set. Receipt-keyset submission pages and document-ID-keyset
+version/point pages return stable totals and no partial-success mode; malformed
+or incomplete reads fail closed. The local HTTP test proves the exact private
+projection and pagination only in a disposable PostgreSQL/Strapi instance.
+
 U10-A5 registers
 `api::survey-report-generation.survey-report-generation.workerCheckpoint` for
 the bounded worker checkpoint PUT, but the action is currently fail-closed:

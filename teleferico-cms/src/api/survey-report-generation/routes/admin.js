@@ -24,6 +24,17 @@ module.exports = {
       handler: "survey-report-generation.workerSnapshot",
     },
     {
+      method: "POST",
+      path: "/tb113/worker/report-source",
+      handler: "survey-report-generation.workerSourceRead",
+      config: {
+        auth: {
+          strategies: ["content-api-token"],
+          scope: ["api::survey-report-generation.survey-report-generation.workerSourceRead"],
+        },
+      },
+    },
+    {
       method: "PUT",
       path: "/tb113/worker/generations/:reportRunId/checkpoints/:stageKey",
       handler: "survey-report-generation.workerCheckpoint",

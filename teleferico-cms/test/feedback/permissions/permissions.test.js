@@ -39,6 +39,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     'utf8',
   );
   const generationAdminRoutes = require(path.join(generationRoot, 'routes/admin')).routes;
+  const privateSourceRoute = generationAdminRoutes.find(({ handler }) => handler === 'survey-report-generation.workerSourceRead');
   assert.match(generationController, /createCoreController/);
   assert.match(generationController, /dispatchFailure/);
   assert.match(generationRoutes, /createCoreRouter/);
@@ -48,9 +49,14 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     ['POST', '/tb113/admin/generations/:reportRunId/dispatch-state', 'survey-report-generation.dispatchState'],
     ['POST', '/tb113/worker/generations/:reportRunId/claim', 'survey-report-generation.workerClaim'],
     ['GET', '/tb113/worker/generations/:reportRunId/snapshot', 'survey-report-generation.workerSnapshot'],
+    ['POST', '/tb113/worker/report-source', 'survey-report-generation.workerSourceRead'],
     ['PUT', '/tb113/worker/generations/:reportRunId/checkpoints/:stageKey', 'survey-report-generation.workerCheckpoint'],
   ]);
   assert.ok(generationAdminRoutes.every(({ config }) => config?.auth !== false));
+  assert.deepEqual(privateSourceRoute.config.auth, {
+    strategies: ['content-api-token'],
+    scope: ['api::survey-report-generation.survey-report-generation.workerSourceRead'],
+  });
   assert.equal(fs.existsSync(path.join(generationRoot, 'services/admin-commands.js')), false);
   const reportRoutes = fs.readFileSync(path.resolve(__dirname, '../../../src/api/survey-report/routes/survey-report.js'), 'utf8');
   assert.match(reportRoutes, /createCoreRouter/);
@@ -76,6 +82,7 @@ test('documents D31 names only as future application capabilities', () => {
   assert.match(documentation, /U7,\s+U8, and U10/);
   assert.match(documentation, /workerClaim/);
   assert.match(documentation, /workerSnapshot/);
+  assert.match(documentation, /workerSourceRead/);
   assert.match(documentation, /workerCheckpoint/);
   assert.match(documentation, /no default role or API-token/);
   assert.doesNotMatch(documentation, /bootstrap-feedback-permissions|--plan|--verify|--apply/);

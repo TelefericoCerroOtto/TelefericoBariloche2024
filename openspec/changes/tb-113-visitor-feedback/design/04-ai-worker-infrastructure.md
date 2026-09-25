@@ -163,15 +163,30 @@ row IDs or keys also reject. No digest is substituted and no private content is
 logged. Across versions, the core's minimum snapshotted sort-order rule remains
 authoritative.
 
-This is not an authenticated CMS HTTP implementation or proof that Strapi's
-authenticated response exposes the private fields with the required shape. The
-page reader is an injected contract and the adapter is not connected to admin
-generation, retry, or dispatch. Approved versioned model configuration,
-pricing snapshot, and a nonsecret evidence key ID must also be explicitly
-provided; no production model/pricing/key-ID source or approval is established
-by the local foundation. Those source, authentication, and configuration gates
-remain open, generation stays disabled, and CMS checkpoint writes remain
-`UNKNOWN_VERSION`.
+The page reader remains an injected app adapter and is not connected to admin
+generation, retry, or dispatch. A separate authenticated CMS source-page action
+now exists and its isolated HTTP harness verifies the private-field response
+shape and custom content API token strategy/action boundary; the
+adapter-to-CMS transport is not yet wired. Approved versioned model configuration, pricing snapshot, and a
+nonsecret evidence key ID must also be explicitly provided; no production
+model/pricing/key-ID source or approval is established by this foundation.
+Generation stays disabled, and CMS checkpoint writes remain `UNKNOWN_VERSION`.
+
+The CMS source page includes valid-QR rows within the inclusive previous/current
+range even when `acceptedAt` is later than the frozen `dataCutoffAt`. The cutoff
+is fixed before the read and bound into all cursor pages; it is not used to trim
+rows in SQL because the immutable snapshot core must compute
+`excludedAfterCutoffCount`. The action returns only the required comment and
+payload digest plus ratings and canonical version/point identity. It does not
+use native collection `find`, change a schema, expose fields to the browser, or
+create a default permission. The endpoint's machine boundary is enforced by
+the native Strapi `content-api-token` strategy plus a single custom action scope;
+an ordinary Users & Permissions JWT remains denied even when its role is granted
+that action. The controller corroborates the runtime-selected strategy and
+custom content-token type before body measurement/validation or source access.
+The isolated HTTP harness tests this with a synthetic custom token bearing only
+the source-read action. Real source-token provisioning remains separately
+authorized.
 
 Cost/call=`ceil(input*inputRate/1e6)+ceil(output*outputRate/1e6)` for persisted SKU; cached tokens require explicit cached SKU. Missing usage/SKU is `CONFIGURATION`; never estimate; sum checked integer costs.
 

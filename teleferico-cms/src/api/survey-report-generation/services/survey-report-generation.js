@@ -1,6 +1,7 @@
 'use strict';
 const { createCoreService } = require('@strapi/strapi').factories;
 const lifecycle = require('./lifecycle');
+const { createPrivateReportSourceReader } = require('./private-report-source');
 const UID = 'api::survey-report-generation.survey-report-generation';
 
 function createTransaction(strapi) {
@@ -126,6 +127,9 @@ module.exports = createCoreService(
       return lifecycle.createGenerationLifecycle({
         withTransaction: createTransaction(strapi),
       }).workerSnapshot(input);
+    },
+    readWorkerReportSourcePage(input) {
+      return createPrivateReportSourceReader(strapi).readPage(input);
     },
     writeWorkerCheckpoint(input) {
       return lifecycle.createGenerationLifecycle({
