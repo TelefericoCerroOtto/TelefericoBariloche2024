@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const {
   COMPOSE_FILE,
@@ -71,6 +73,245 @@ async function captureQueries(strapi, operation) {
 
 function sha256(value) {
   return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+function isWithin(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+function loadPrivateReportSourceAppModules() {
+  let ts;
+  try {
+    ts = require('typescript');
+  } catch {
+    throw new Error('The isolated source integration requires transitive TypeScript 5.4.5');
+  }
+  if (ts.version !== '5.4.5' || typeof ts.transpileModule !== 'function')
+    throw new Error('The isolated source integration requires transitive TypeScript 5.4.5');
+
+  const repositoryRoot = path.resolve(__dirname, '../../..');
+  const sourceRoots = [
+    fs.realpathSync(path.join(repositoryRoot, 'teleferico-app/services/survey-report-worker/src')),
+    fs.realpathSync(path.join(repositoryRoot, 'teleferico-app/packages/survey-reporting-core/src')),
+  ];
+  const moduleCache = new Map();
+
+  function resolveLocalModule(parentFile, request) {
+    if (!request.startsWith('.'))
+      throw new Error('The isolated app module graph contains an unsupported external import');
+
+    const requestedPath = path.resolve(path.dirname(parentFile), request);
+    if (!sourceRoots.some((root) => isWithin(root, requestedPath)))
+      throw new Error('The isolated app module graph escaped its approved source roots');
+
+    const candidates = path.extname(requestedPath)
+      ? [requestedPath]
+      : [`${requestedPath}.ts`, path.join(requestedPath, 'index.ts')];
+    const resolved = candidates.find((candidate) => fs.existsSync(candidate));
+    if (!resolved)
+      throw new Error('The isolated app module graph references an unavailable local module');
+
+    const realPath = fs.realpathSync(resolved);
+    if (!sourceRoots.some((root) => isWithin(root, realPath)) || !realPath.endsWith('.ts'))
+      throw new Error('The isolated app module graph resolved outside approved TypeScript sources');
+    return realPath;
+  }
+
+  function load(filePath) {
+    const realPath = fs.realpathSync(filePath);
+    if (!sourceRoots.some((root) => isWithin(root, realPath)) || !realPath.endsWith('.ts'))
+      throw new Error('The isolated app module loader rejected a non-approved source path');
+    if (moduleCache.has(realPath)) return moduleCache.get(realPath).exports;
+
+    const module = { exports: {} };
+    moduleCache.set(realPath, module);
+    const source = fs.readFileSync(realPath, 'utf8');
+    const output = ts.transpileModule(source, {
+      fileName: realPath,
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+      reportDiagnostics: true,
+    });
+    if (output.diagnostics?.some(({ category }) => category === ts.DiagnosticCategory.Error))
+      throw new Error('The isolated app TypeScript source could not be transpiled');
+
+    function localRequire(request) {
+      if (request === 'server-only') return {};
+      if (request === 'node:net') return require('node:net');
+      if (request === 'node:crypto') return require('node:crypto');
+      return load(resolveLocalModule(realPath, request));
+    }
+
+    new Function('require', 'module', 'exports', output.outputText)(
+      localRequire,
+      module,
+      module.exports,
+    );
+    return module.exports;
+  }
+
+  const workerRoot = sourceRoots[0];
+  return {
+    createPrivateReportSourceTransport: load(
+      path.join(workerRoot, 'private-report-source-transport.ts'),
+    ).createPrivateReportSourceTransport,
+    buildAuthoritativeGenerationInputsV1: load(
+      path.join(workerRoot, 'authoritative-generation-source.ts'),
+    ).buildAuthoritativeGenerationInputsV1,
+  };
+}
+
+function sourceModelConfig(sourceRevision, evidenceKeyId) {
+  return {
+    version: 'survey-model-config.v1',
+    evidenceKeyId,
+    provider: 'vertex-ai',
+    vertexProjectId: 'teleferico-bariloche-2024',
+    vertexLocation: 'us',
+    vertexApiEndpoint: 'aiplatform.us.rep.googleapis.com',
+    model: 'gemini-3.8-flash',
+    temperature: 0,
+    reasoning: 'LOW',
+    grounding: false,
+    promptVersion: 'prompt.v1',
+    mapSchemaVersion: 'survey-map.v1',
+    analysisSchemaVersion: 'survey-analysis.v1',
+    redactionVersion: 'redaction.v1',
+    validatorVersion: 'validator.v1',
+    chunkVersion: 'chunk.v1',
+    verifiedInputTokenLimit: 10000,
+    map: { targetMin: 600, targetMax: 1200, hardMax: 4000 },
+    directReduce: { targetMin: 1800, targetMax: 3000, hardMax: 8000 },
+    safetyHeadroomTokens: 2048,
+    sourceRevision,
+  };
+}
+
+function createSourceIntegrationFetch(port, syntheticToken, observedPages) {
+  const logicalUrl = new URL(`https://cms.example.com${SOURCE_ENDPOINT}`);
+  const localUrl = `http://127.0.0.1:${port}${SOURCE_ENDPOINT}`;
+
+  return async (input, init = {}) => {
+    if (!(input instanceof URL) || input.href !== logicalUrl.href)
+      throw new Error('The test fetch rejected a non-approved logical CMS URL');
+    if (init.method !== 'POST' || init.redirect !== 'error')
+      throw new Error('The test fetch rejected an unexpected transport policy');
+
+    const headers = new Headers(init.headers);
+    if (headers.get('authorization') !== `Bearer ${syntheticToken}`)
+      throw new Error('The test fetch rejected an unexpected synthetic token');
+
+    const upstreamResponse = await fetch(localUrl, {
+      method: init.method,
+      headers,
+      body: init.body,
+      cache: 'no-store',
+      redirect: 'error',
+      signal: init.signal,
+    });
+    if (upstreamResponse.redirected || upstreamResponse.url !== localUrl)
+      throw new Error('The test fetch observed an unexpected local Strapi response origin');
+
+    const request = JSON.parse(String(init.body));
+    const page = await upstreamResponse.clone().json();
+    observedPages.push({ request, page });
+
+    const logicalResponse = new Response(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      statusText: upstreamResponse.statusText,
+      headers: upstreamResponse.headers,
+    });
+    Object.defineProperties(logicalResponse, {
+      url: { value: logicalUrl.href },
+      redirected: { value: false },
+    });
+    return logicalResponse;
+  };
+}
+
+async function verifyAppSourceIntegration(port, syntheticToken) {
+  const {
+    buildAuthoritativeGenerationInputsV1,
+    createPrivateReportSourceTransport,
+  } = loadPrivateReportSourceAppModules();
+  const observedPages = [];
+  const fetchImplementation = createSourceIntegrationFetch(port, syntheticToken, observedPages);
+  const transport = createPrivateReportSourceTransport({
+    baseUrl: 'https://cms.example.com',
+    allowedOrigins: ['https://cms.example.com'],
+    tokenProvider: async () => syntheticToken,
+    fetchImplementation,
+  });
+  const sourceRevision = 'private-source-integration-v1';
+  const evidenceKeyId = 'synthetic-integration-key-1';
+  const sourceInput = {
+    range: { from: '2026-09-01', to: '2026-09-10' },
+    dataCutoffAt: '2026-09-02T12:00:00.000Z',
+    sourceRevision,
+    modelConfig: sourceModelConfig(sourceRevision, evidenceKeyId),
+    pricingSnapshot: {
+      version: 'pricing.v1',
+      currency: 'USD',
+      units: [{ sku: 'gemini-input', inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
+    },
+    evidenceKeyId,
+    readPage: transport.readPage,
+  };
+
+  const materialized = await buildAuthoritativeGenerationInputsV1(sourceInput);
+  const snapshot = materialized.snapshotJson;
+  const submissionsPages = observedPages.filter(({ page }) => page.resource === 'submissions');
+  const versionPages = observedPages.filter(({ page }) => page.resource === 'versions');
+  const pointPages = observedPages.filter(({ page }) => page.resource === 'points');
+  assert.equal(snapshot.population.previousSubmissionCount, 13);
+  assert.equal(snapshot.population.currentSubmissionCount, 13);
+  assert.equal(snapshot.population.excludedAfterCutoffCount, 1);
+  assert.equal(snapshot.population.dataCutoffAt, sourceInput.dataCutoffAt);
+  assert.equal(snapshot.comments.length, 25);
+  assert.equal(new Set(submissionsPages.flatMap(({ page }) => page.items).map(({ receipt }) => receipt)).size, 27);
+  assert.equal(new Set(snapshot.comments.map(({ receipt }) => receipt)).size, 25);
+  assert.equal(materialized.checkpointsJson.entries.length, 0);
+  assert.equal(Object.isFrozen(snapshot), true);
+
+  assert.equal(observedPages.length, 4);
+  assert.equal(submissionsPages.length, 2);
+  assert.deepEqual(submissionsPages.map(({ page }) => page.items.length).sort((a, b) => a - b), [2, 25]);
+  assert.deepEqual(submissionsPages.map(({ page }) => page.total), [27, 27]);
+  assert.deepEqual(submissionsPages.map(({ page }) => page.cursor === null).sort(), [false, true]);
+  const firstSubmissionPage = submissionsPages.find(({ page }) => page.cursor === null).page;
+  const finalSubmissionPage = submissionsPages.find(({ page }) => page.cursor !== null).page;
+  assert.equal(firstSubmissionPage.nextCursor, finalSubmissionPage.cursor);
+  assert.equal(finalSubmissionPage.nextCursor, null);
+  assert.equal(versionPages.length, 1);
+  assert.equal(versionPages[0].page.total, 1);
+  assert.equal(versionPages[0].page.items.length, 1);
+  assert.equal(pointPages.length, 1);
+  assert.equal(pointPages[0].page.total, 1);
+  assert.equal(pointPages[0].page.items.length, 1);
+  assert.equal(submissionsPages.flatMap(({ page }) => page.items).length, 27);
+  assert.ok(submissionsPages.flatMap(({ page }) => page.items).some(({ comment }) => comment === null));
+  assert.ok(submissionsPages.flatMap(({ page }) => page.items).every(({ payloadDigest }) => /^[a-f0-9]{64}$/.test(payloadDigest)));
+  assert.ok(observedPages.every(({ request }) => request.dataCutoffAt === sourceInput.dataCutoffAt));
+  assert.ok(observedPages.every(({ request }) => request.pageSize === 25));
+
+  const interruptedTransport = createPrivateReportSourceTransport({
+    baseUrl: 'https://cms.example.com',
+    allowedOrigins: ['https://cms.example.com'],
+    tokenProvider: async () => syntheticToken,
+    fetchImplementation: async (input, init) => {
+      const request = JSON.parse(String(init.body));
+      if (request.resource === 'submissions' && request.cursor !== null)
+        throw new Error('Synthetic continuation interruption');
+      return fetchImplementation(input, init);
+    },
+  });
+  await assert.rejects(
+    buildAuthoritativeGenerationInputsV1({ ...sourceInput, readPage: interruptedTransport.readPage }),
+    /INVALID_GENERATION_SOURCE/,
+  );
 }
 
 function sourceInput(resource, cursor = null, pageSize = 1, overrides = {}) {
@@ -164,10 +405,23 @@ test('private report source requires its isolated worker action and returns comp
       },
     });
     const persistence = createSubmissionPersistence(strapi);
-    for (const [index, acceptedAt, receipt] of [
-      ['1', '2026-09-10T11:00:00.000Z', '00000000-0000-4000-8000-000000000011'],
-      ['2', '2026-09-10T13:00:00.000Z', '00000000-0000-4000-8000-000000000012'],
-    ]) {
+    const sourceSubmissions = Array.from({ length: 27 }, (_, index) => {
+      const acceptedAt = index < 13
+        ? `2026-08-25T15:${String(index).padStart(2, '0')}:00.000Z`
+        : index < 26
+          ? `2026-09-02T04:${String(index - 13).padStart(2, '0')}:00.000Z`
+          : '2026-09-03T15:00:00.000Z';
+      const digestIndex = index + 1;
+      return {
+        index,
+        acceptedAt,
+        receipt: `00000000-0000-4000-8000-${String(digestIndex + 10).padStart(12, '0')}`,
+        payloadDigest: sha256(`private-source-payload-${index}`),
+      };
+    });
+    for (const { index, acceptedAt, receipt, payloadDigest } of sourceSubmissions) {
+      const nonceHash = sha256(`private-source-nonce-${index}`);
+      const browserHash = sha256(`private-source-browser-${index}`);
       await persistence.accept({
         contractVersion: 'feedback-cms-submission.v1',
         operation: 'accept',
@@ -179,16 +433,16 @@ test('private report source requires its isolated worker action and returns comp
           acceptedAt,
           source: 'valid_qr',
           locale: 'en',
-          overallRating: Number(index) + 3,
+          overallRating: (index % 5) + 1,
           ratings: [
             { aspectKey: 'views', label: 'Views', sortOrder: 1, rating: 'positive' },
             { aspectKey: 'other', label: 'Other', sortOrder: 13, rating: 'neutral', customText: 'Access' },
           ],
-          ...(index === '1' ? { comment: 'Private report comment 1' } : { comment: null }),
-          sessionNonceHash: index.repeat(64),
-          payloadDigest: index.repeat(64),
-          browserTokenHash: 'c'.repeat(64),
-          idempotencyKey: `private-source-key-${index}`,
+          ...(index === 14 ? { comment: null } : { comment: `Private report comment ${index + 1}` }),
+          sessionNonceHash: nonceHash,
+          payloadDigest,
+          browserTokenHash: browserHash,
+          idempotencyKey: `private-source-key-${String(index + 1).padStart(3, '0')}`,
         },
       });
     }
@@ -227,12 +481,12 @@ test('private report source requires its isolated worker action and returns comp
     assert.equal(first.body.resource, 'submissions');
     assert.equal(first.body.cursor, null);
     assert.equal(typeof first.body.nextCursor, 'string');
-    assert.equal(first.body.total, 2);
+    assert.equal(first.body.total, 14);
     assert.equal(first.body.items.length, 1);
     const firstItem = first.body.items[0];
-    assert.equal(firstItem.receipt, '00000000-0000-4000-8000-000000000011');
-    assert.equal(firstItem.comment, 'Private report comment 1');
-    assert.equal(firstItem.payloadDigest, '1'.repeat(64));
+    assert.equal(firstItem.receipt, '00000000-0000-4000-8000-000000000024');
+    assert.equal(firstItem.comment, 'Private report comment 14');
+    assert.equal(firstItem.payloadDigest, sourceSubmissions[13].payloadDigest);
     assert.equal(firstItem.source, 'valid_qr');
     assert.deepEqual(firstItem.ratings.map(({ aspectKey, sortOrder, rating }) => ({ aspectKey, sortOrder, rating })), [
       { aspectKey: 'views', sortOrder: 1, rating: 'positive' },
@@ -251,10 +505,10 @@ test('private report source requires its isolated worker action and returns comp
     const second = await readPage(port, workerToken.accessKey, sourceInput('submissions', first.body.nextCursor));
     assert.equal(second.status, 200);
     assert.equal(second.body.cursor, first.body.nextCursor);
-    assert.equal(second.body.nextCursor, null);
-    assert.equal(second.body.total, 2);
+    assert.equal(typeof second.body.nextCursor, 'string');
+    assert.equal(second.body.total, 14);
     assert.equal(second.body.items.length, 1);
-    assert.equal(second.body.items[0].receipt, '00000000-0000-4000-8000-000000000012');
+    assert.equal(second.body.items[0].receipt, '00000000-0000-4000-8000-000000000025');
     assert.equal(Object.hasOwn(second.body.items[0], 'comment'), true);
     assert.equal(second.body.items[0].comment, null);
 
@@ -285,6 +539,8 @@ test('private report source requires its isolated worker action and returns comp
         assert.equal(page.body.items[0].pointKey, point.pointKey);
       }
     }
+
+    await verifyAppSourceIntegration(port, workerToken.accessKey);
 
     for (const malformed of [
       { ...input, unknown: true },

@@ -251,6 +251,46 @@ platform/CMS runtime operator owns creation, least-privilege grant, and rotation
 the named individual owner remains unassigned. This operational setup and the
 real token remain separately authorized work.
 
+### U10-A10 same-process app↔CMS integration evidence
+
+The disposable `teleferico-cms/test/feedback/private-report-source.test.js`
+harness now loads the app transport, authoritative source adapter, materializer,
+and their restricted relative TypeScript import graph in the same test process.
+It uses only the CMS-installed transitive TypeScript `5.4.5` compiler through
+`transpileModule`, with a test-only empty `server-only` stub and explicit
+`node:net`/`node:crypto` built-in imports. It has no global require hook, child
+process, new environment variable, temporary source file, or direct dependency
+addition. The loader fails closed if the required compiler version or approved
+source module graph is unavailable; TypeScript remains a transitive CMS
+dependency and must not be installed or added solely for this harness.
+
+The in-memory fetch adapter permits only the exact logical
+`https://cms.example.com/api/tb113/worker/report-source` URL. It never resolves
+that hostname; it forwards only to the active disposable Strapi server on
+`127.0.0.1`, with redirects disabled and the synthetic custom content API token
+carried only in the current test process. A test `Response` wrapper reports the
+approved logical URL and no redirect so the production transport's allowlist
+and response-origin checks remain exercised. Any other URL is rejected before
+the Authorization header is forwarded.
+
+The harness reads 27 marker-free synthetic valid-QR rows: 13 in the previous
+period, 13 in the current period before the frozen cutoff, and one in-range row
+after that cutoff. It proves complete submissions paging of 25+2 with stable
+totals/cursors, one version page, one point page, nullable private comment and
+payload-digest projection, 27 unique receipts, and materialization counts of
+13 previous, 13 current, and 1 excluded-after-cutoff submission. An interrupted
+continuation rejects the entire authoritative build instead of returning a
+partial materialization. The existing test `finally` path destroys Strapi,
+removes only the named owned Compose project, and verifies owned container and
+volume absence.
+
+This is local synthetic HTTP integration evidence only. No production app/CMS
+logic, schema, auth policy, permission grant, environment, dependency, or
+deployment behavior changed. No real credential, production origin, GCP, or
+remote service was used. Operational token provisioning, a trusted production
+origin composition, generation wiring, and all worker/provider/checkpoint
+activation gates remain pending.
+
 ## Direct implementation runtime boundary
 
 The app-owned direct implementation now provides the local worker/PDF boundary
