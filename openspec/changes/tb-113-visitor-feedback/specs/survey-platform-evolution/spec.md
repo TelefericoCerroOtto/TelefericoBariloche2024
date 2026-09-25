@@ -38,14 +38,21 @@ HTTP, snapshot, AI-output, checkpoint, and `ChartViewModel` contracts MUST carry
 
 Strict TDD MUST cover pure period/metric/threshold/redaction/token/chunk/validator/view-model logic; Next.js mediation, ordering, capability, CSRF, idempotency, guard, locale/draft, and safe-error behavior; CMS permissions, immutability, uniqueness, overlap, lineage, and atomic transitions; worker OIDC, retries/checkpoints, direct/map-reduce, cost/retention, and PDF golden structure; and synthetic QR-only plus authenticated administration E2E. Contract tests MUST prove no metric recalculation and cross-version compatibility.
 
+These coverage requirements remain acceptance criteria for their corresponding behaviors. The focused tests, required existing PR CI, and integrated synthetic/local acceptance MUST be executed at their applicable work-unit and development-acceptance checkpoints, with only observed results recorded. This requirement does not assert that every suite or live-service check runs before offline code delivery or merge, and it does not reduce or waive any listed coverage.
+
 #### Scenario: Block incomplete acceptance
 - GIVEN any required test boundary lacks executable coverage or the renderer POC fails
-- WHEN implementation readiness is assessed
-- THEN rollout MUST remain blocked.
+- WHEN operational rollout readiness is assessed
+- THEN operational rollout MUST remain blocked; this gate does not block disabled offline implementation, existing PR CI, or synthetic/local testing.
+
+#### Scenario: Keep live operation disabled when Google gates are incomplete
+- GIVEN any required live Google configuration or operational gate is missing or has failed
+- WHEN disabled implementation, existing PR CI, or fake-provider synthetic testing proceeds
+- THEN offline code development MAY proceed without real remote calls, while real provider operation and generation enablement MUST remain blocked.
 
 ### Requirement: Ordered rollout and reversible controls
 
-Rollout MUST proceed only after approvals in this order: additive CMS schema/indexes and capabilities; fixtures/migration validation; core and app compatible readers; compatible worker; queue/OIDC/IAM/storage lifecycle/alerts; read-only dashboard; QR intake; reporting UI; generation. Intake and generation MUST have independent disable controls. Rollback MUST pause dispatch, retain accepted submissions and immutable reports, keep compatible readers, repoint the active version, restore compatible revisions, and remove only unused TB-113 grants after consumers stop.
+Disabled code MAY be delivered to `development` under the existing required PR CI, and synthetic/local testing MAY proceed before live operational approvals. This disabled delivery is not operational rollout and does not authorize live provider calls, queue dispatch, storage publication, or feature enablement. Actual rollout MUST proceed only after approvals in this order: additive CMS schema/indexes and capabilities; fixtures/migration validation; core and app compatible readers; compatible worker; queue/OIDC/IAM/storage lifecycle/alerts; read-only dashboard; QR intake; reporting UI; generation. Missing or failed live Google evidence blocks real operation and generation enablement, not offline code development. Intake and generation MUST have independent disable controls. Rollback MUST pause dispatch, retain accepted submissions and immutable reports, keep compatible readers, repoint the active version, restore compatible revisions, and remove only unused TB-113 grants after consumers stop.
 
 #### Scenario: Roll back generation safely
 - GIVEN generation causes an operational regression

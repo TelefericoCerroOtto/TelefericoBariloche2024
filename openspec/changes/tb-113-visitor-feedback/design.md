@@ -2,7 +2,7 @@
 
 ## Authority and Technical Approach
 
-This index and appendices form one normative design. Strapi owns state; Next.js mediates browsers; a pure core computes metrics; a private worker validates, analyzes, renders, and stores. Evidence gates block unverified behavior; D93 blocks apply until tasks exist.
+This index and appendices form one normative design. Strapi owns state; Next.js mediates browsers; a pure core computes metrics; a private worker validates, analyzes, renders, and stores. Local implementation uses fake-provider and synthetic boundaries; external evidence gates govern live operations and enablement, not offline coding. D93's planning prerequisite remains historical and does not override the repository's direct-implementation route.
 
 ## Normative Manifest
 
@@ -44,7 +44,7 @@ Appendices win over summaries; specs remain behavior authority. Code blocks are 
 
 ## Testing, Threats, and Rollout
 
-Appendix 06 owns RED-first verification; Appendix 07 cases enter `tasks.md` unchanged. Disabled rollout: CMS→core/app→worker→approved infra→read-only UI→intake→reporting→generation.
+Appendix 06 owns RED-first verification; Appendix 07 cases enter `tasks.md` unchanged. The remaining local worker behavior is delivered as a cohesive disabled code path with fake-provider and synthetic app–CMS–worker coverage. Integrated development acceptance uses existing PR CI and broad synthetic/local validation. Google configuration, credentials, Vertex, Cloud Tasks, Cloud Run, GCS, and bounded staging smoke remain separately approved post-development operational gates; keep generation disabled until those gates pass. See the prospective execution plan in `tasks.md`.
 
 ## Open Questions
 
