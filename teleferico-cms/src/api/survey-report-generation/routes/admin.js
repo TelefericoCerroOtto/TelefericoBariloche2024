@@ -68,5 +68,16 @@ module.exports = {
         },
       },
     },
+    {
+      method: "POST",
+      path: "/tb113/worker/generations/:reportRunId/complete",
+      handler: "survey-report-generation.workerComplete",
+      config: {
+        auth: {
+          strategies: ["content-api-token"],
+          scope: ["api::survey-report-generation.survey-report-generation.workerComplete"],
+        },
+      },
+    },
   ],
 };

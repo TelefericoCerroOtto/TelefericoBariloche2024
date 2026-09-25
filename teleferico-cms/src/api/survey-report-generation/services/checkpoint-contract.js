@@ -58,6 +58,19 @@ const CHECKPOINT_KEYS = [
   "checkpointVersion", "stageKey", "stageIndex", "route", "stageType", "status",
   "inputDigest", "outputDigest", "attempts", "completedAt", "payload",
 ];
+const EMPTY_EVIDENCE_PARAGRAPH =
+  'No hay comentarios elegibles para respaldar esta sección en el período analizado.';
+const ANALYSIS_SECTION_KEYS = [
+  'executive_summary', 'observed_changes', 'strengths', 'unfavorable_areas',
+  'recurrent_themes', 'minority_signals', 'coverage_limitations',
+];
+const DIRECT_COUNT_INSTRUCTIONS =
+  'Describe only evidence supported by the supplied snapshot. Do not infer when there are no eligible comments.';
+const DIRECT_COUNT_SCHEMA = canonicalizeJson({
+  schemaVersion: 'survey-analysis.v1',
+  route: 'direct',
+  sections: ANALYSIS_SECTION_KEYS.map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
+});
 
 function compareCodePoints(left, right) {
   const a = Array.from(left, (value) => value.codePointAt(0));
@@ -254,7 +267,7 @@ function validateModelConfig(value, evidenceKeyId) {
     !Number.isSafeInteger(value.verifiedInputTokenLimit) ||
     value.verifiedInputTokenLimit < 1 ||
     !Number.isSafeInteger(value.safetyHeadroomTokens) ||
-    value.safetyHeadroomTokens < 0 ||
+    value.safetyHeadroomTokens !== Math.max(2048, Math.ceil(value.verifiedInputTokenLimit * 0.1)) ||
     typeof value.sourceRevision !== "string" ||
     !value.sourceRevision ||
     !exactKeys(value.map, ["targetMin", "targetMax", "hardMax"]) ||
@@ -545,16 +558,52 @@ function expectedStageKeys() {
   return ["redact", "count", "direct", "validate", "render", "store"];
 }
 
-function safeCheckpointPayload(stage, payload, modelConfig) {
+function safeCheckpointPayload(stage, payload, modelConfig, snapshot) {
   if (stage.type === "redact")
     return exactKeys(payload, ["kind", "recordCount", "redactionVersion"]) &&
       payload.kind === "redact" && Number.isSafeInteger(payload.recordCount) &&
-      payload.recordCount >= 0 && payload.redactionVersion === modelConfig.redactionVersion;
+      payload.recordCount >= 0 && payload.recordCount === snapshot?.comments?.length &&
+      payload.redactionVersion === modelConfig.redactionVersion;
   if (stage.type === "count") {
     const segments = ["instructions", "schema", "metrics", "comments", "reservedOutput", "headroom"];
-    return exactKeys(payload, ["kind", "segmentTokens", "totalTokens"]) && payload.kind === "count" &&
+    const expectedRequestDigest = snapshot && sha256({
+      contractVersion: 'survey-count-request.v1',
+      modelConfig,
+      segments: {
+        instructions: DIRECT_COUNT_INSTRUCTIONS,
+        schema: DIRECT_COUNT_SCHEMA,
+        metrics: canonicalizeJson(snapshot.metrics),
+        comments: canonicalizeJson(snapshot.comments),
+      },
+    });
+    return exactKeys(payload, ["kind", "requestDigest", "segmentTokens", "totalTokens"]) && payload.kind === "count" &&
+      (expectedRequestDigest === undefined || payload.requestDigest === expectedRequestDigest) &&
       exactKeys(payload.segmentTokens, segments) && segments.every((key) => Number.isSafeInteger(payload.segmentTokens[key]) && payload.segmentTokens[key] >= 0) &&
-      Number.isSafeInteger(payload.totalTokens) && payload.totalTokens === segments.reduce((sum, key) => sum + payload.segmentTokens[key], 0);
+      Number.isSafeInteger(payload.totalTokens) && payload.totalTokens === segments.reduce((sum, key) => sum + payload.segmentTokens[key], 0) &&
+      payload.segmentTokens.headroom === Math.max(2048, Math.ceil(modelConfig.verifiedInputTokenLimit * 0.1)) &&
+      payload.segmentTokens.reservedOutput === modelConfig.directReduce.targetMax &&
+      payload.segmentTokens.comments === 0 && payload.totalTokens <= modelConfig.verifiedInputTokenLimit;
+  }
+  if (stage.type === "direct") {
+    const output = payload?.validatedOutput;
+    return snapshot?.comments?.length === 0 && exactKeys(payload, ["kind", "validatedOutput"]) &&
+      payload.kind === "direct" && exactKeys(output, ["schemaVersion", "route", "sections"]) &&
+      output.schemaVersion === "survey-analysis.v1" && output.route === "direct" &&
+      Array.isArray(output.sections) && output.sections.length === ANALYSIS_SECTION_KEYS.length &&
+      output.sections.every((section, index) => exactKeys(section, ["key", "status", "claims"]) &&
+        section.key === ANALYSIS_SECTION_KEYS[index] && section.status === "insufficient_evidence" &&
+        Array.isArray(section.claims) && section.claims.length === 0);
+  }
+  if (stage.type === "validate") {
+    const output = payload?.publishedAnalysis;
+    return snapshot?.comments?.length === 0 && exactKeys(payload, ["kind", "publishedAnalysis", "validatorVersion"]) &&
+      payload.kind === "validate" && payload.validatorVersion === modelConfig.validatorVersion &&
+      exactKeys(output, ["schemaVersion", "sections"]) && output.schemaVersion === "survey-published-analysis.v1" &&
+      Array.isArray(output.sections) && output.sections.length === ANALYSIS_SECTION_KEYS.length &&
+      output.sections.every((section, index) => exactKeys(section, ["key", "status", "paragraphsEs"]) &&
+        section.key === ANALYSIS_SECTION_KEYS[index] && section.status === "insufficient_evidence" &&
+        Array.isArray(section.paragraphsEs) && section.paragraphsEs.length === 1 &&
+        section.paragraphsEs[0] === EMPTY_EVIDENCE_PARAGRAPH);
   }
   if (stage.type === "render")
     return exactKeys(payload, ["kind", "rendererVersion", "pdfSha256", "size"]) && payload.kind === "render" &&
@@ -594,7 +643,7 @@ function incompleteGraphResult(structurallyVerifiedStageKeys, pendingStageKeys) 
   };
 }
 
-function verifyCheckpointGraphV1({ run, checkpoints, candidate, expectedStateVersion }) {
+function verifyCheckpointGraphV1({ run, snapshot, checkpoints, candidate, expectedStateVersion }) {
   if (!run || !exactKeys(checkpoints, ["version", "snapshotDigest", "route", "chunkCount", "entries"]) ||
       checkpoints.version !== "survey-checkpoints.v1" || !Array.isArray(checkpoints.entries) ||
       !exactKeys(run, ["reportRunId", "status", "stateVersion", "snapshotDigest", "sourceRevision", "modelConfig", "rendererVersion"]) ||
@@ -603,6 +652,8 @@ function verifyCheckpointGraphV1({ run, checkpoints, candidate, expectedStateVer
     checkpointError("INVALID_STATE");
   assertRunId(run.reportRunId);
   assertDigest(run.snapshotDigest);
+  if (snapshot && (typeof snapshot !== "object" || Array.isArray(snapshot) || !Array.isArray(snapshot.comments)))
+    checkpointError("INVALID_STATE");
   if (checkpoints.snapshotDigest !== run.snapshotDigest) checkpointError("DIGEST_MISMATCH");
   if (typeof run.sourceRevision !== "string" || !run.sourceRevision || run.sourceRevision !== run.modelConfig?.sourceRevision)
     checkpointError("DIGEST_MISMATCH");
@@ -627,7 +678,8 @@ function verifyCheckpointGraphV1({ run, checkpoints, candidate, expectedStateVer
         entry.checkpointVersion !== CHECKPOINT_CONTRACT_VERSIONS.checkpoint || entry.status !== "valid" ||
         !Number.isSafeInteger(entry.attempts) || entry.attempts < 1 || !validUtcInstant(entry.completedAt))
       checkpointError("VALIDATION_FAILED");
-    if (!route || route === "undecided") checkpointError("UNKNOWN_VERSION");
+    if (!route || route === "undecided" && stage.key !== "redact" && stage.key !== "count")
+      checkpointError("UNKNOWN_VERSION");
     if (entries.has(entry.stageKey) || index <= priorIndex) checkpointError("CHECKPOINT_CONFLICT");
     const dependencies = checkpointDependencies(entry.stageKey, entries);
     const rendererVersion = entry.stageKey === "render" || entry.stageKey === "store"
@@ -657,11 +709,12 @@ function verifyCheckpointGraphV1({ run, checkpoints, candidate, expectedStateVer
     let expectedOutput;
     try { expectedOutput = sha256(entry.payload); } catch { checkpointError("DIGEST_MISMATCH"); }
     if (entry.outputDigest !== expectedOutput) checkpointError("DIGEST_MISMATCH");
-    const payloadIsSafe = safeCheckpointPayload(stage, entry.payload, run.modelConfig);
-    if (["redact", "count", "render", "store"].includes(stage.type) && !payloadIsSafe)
+    const payloadIsSafe = safeCheckpointPayload(stage, entry.payload, run.modelConfig, snapshot);
+    if ((snapshot && ["redact", "count"].includes(stage.type) || ["render", "store"].includes(stage.type)) && !payloadIsSafe)
       checkpointError("VALIDATION_FAILED");
     const ancestorsStructurallyVerified = dependencies.every((dependency) => dependency.structurallyVerified);
-    const structurallyVerified = payloadIsSafe && ancestorsStructurallyVerified;
+    const structuralOnlyFoundation = !snapshot && (stage.type === "redact" || stage.type === "count");
+    const structurallyVerified = (payloadIsSafe || structuralOnlyFoundation) && ancestorsStructurallyVerified;
     if (structurallyVerified) structurallyVerifiedStageKeys.push(entry.stageKey);
     else {
       pendingStageKeys.push(entry.stageKey);
@@ -670,7 +723,8 @@ function verifyCheckpointGraphV1({ run, checkpoints, candidate, expectedStateVer
     priorIndex = index;
   };
 
-  if (route === "undecided" && checkpoints.entries.length > 0) checkpointError("UNKNOWN_VERSION");
+  if (route === "undecided" && checkpoints.entries.some((entry) => entry.stageKey !== "redact"))
+    checkpointError("UNKNOWN_VERSION");
   for (const entry of checkpoints.entries) verifyEntry(entry);
 
   if (!candidate || !exactKeys(candidate, CHECKPOINT_KEYS)) checkpointError("VALIDATION_FAILED");
@@ -680,27 +734,62 @@ function verifyCheckpointGraphV1({ run, checkpoints, candidate, expectedStateVer
   if (existing) {
     const { structurallyVerified: _structurallyVerified, ...storedCheckpoint } = existing;
     if (canonicalizeJson(storedCheckpoint) !== canonicalizeJson(candidate)) checkpointError("CHECKPOINT_CONFLICT");
-    return incompleteGraphResult(
-      structurallyVerifiedStageKeys,
-      [
+    if (!snapshot || [...entries.values()].some((entry) => !entry.structurallyVerified))
+      return incompleteGraphResult(structurallyVerifiedStageKeys, [
         ...pendingStageKeys,
         ...expectedStageKeys().filter((stageKey) => !entries.has(stageKey)),
-        ...(structurallyVerifiedStageKeys.includes(candidate.stageKey) ? [] : [candidate.stageKey]),
-      ],
-    );
+      ]);
+    return {
+      status: "accepted",
+      checkpoints: {
+        version: checkpoints.version,
+        snapshotDigest: checkpoints.snapshotDigest,
+        route,
+        chunkCount: null,
+        entries: checkpoints.entries,
+      },
+      reportRunId: run.reportRunId,
+      stateVersion: run.stateVersion,
+      stageKey: candidate.stageKey,
+      replayed: true,
+    };
   }
   if (expectedStateVersion !== run.stateVersion) checkpointError("STATE_VERSION_CONFLICT");
   if (route === "undecided") {
-    if (candidate.stageKey !== "redact" || entries.size) checkpointError("UNKNOWN_VERSION");
-    route = "direct";
+    if (candidate.stageKey === "redact" && entries.size === 0) {
+      // The graph remains undecided until a validated CountTokens result fits the direct budget.
+    } else if (candidate.stageKey === "count" && entries.has("redact")) {
+      if (!safeCheckpointPayload(candidateStage, candidate.payload, run.modelConfig, snapshot))
+        checkpointError("UNKNOWN_VERSION");
+      route = "direct";
+    } else {
+      checkpointError("UNKNOWN_VERSION");
+    }
   }
   const expectedKeys = expectedStageKeys();
   if (!expectedKeys || candidate.stageKey !== expectedKeys[entries.size]) checkpointError("VALIDATION_FAILED");
-  // Direct/map/reduce/validate payloads are digest-bound but never represented as validated evidence.
   verifyEntry(candidate);
-  const allKeys = expectedStageKeys();
-  pendingStageKeys.push(...allKeys.filter((key) => !entries.has(key)));
-  return incompleteGraphResult(structurallyVerifiedStageKeys, pendingStageKeys);
+  entries.set(candidate.stageKey, { ...candidate, structurallyVerified: true });
+  if (!snapshot || [...entries.values()].some((entry) => !entry.structurallyVerified))
+    return incompleteGraphResult(
+      structurallyVerifiedStageKeys,
+      [...pendingStageKeys, ...expectedStageKeys().filter((key) => !entries.has(key))],
+    );
+  const persistedEntries = [...entries.values()].map(({ structurallyVerified: _verified, ...entry }) => entry);
+  return {
+    status: "accepted",
+    checkpoints: {
+      version: checkpoints.version,
+      snapshotDigest: checkpoints.snapshotDigest,
+      route,
+      chunkCount: null,
+      entries: persistedEntries,
+    },
+    reportRunId: run.reportRunId,
+    stateVersion: expectedStateVersion + 1,
+    stageKey: candidate.stageKey,
+    replayed: false,
+  };
 }
 
 module.exports = {

@@ -10,6 +10,7 @@ import {
   WORKER_COMMAND_VERSION,
   WorkerCmsConflictError,
   type FailCommand,
+  type CompleteCommand,
   type WorkerClaimResult,
 } from "../../../services/survey-report-worker/src/contracts";
 import {
@@ -17,6 +18,7 @@ import {
   WorkerCmsClientError,
   type WorkerCmsAction,
 } from "../../../services/survey-report-worker/src/worker-cms-client";
+import { EMPTY_EVIDENCE_PARAGRAPH } from "../../../services/survey-report-worker/src/direct-execution-plan";
 
 const BASE_URL = "https://cms.example.com";
 const TOKEN = "synthetic-action-scoped-token";
@@ -387,42 +389,92 @@ describe("worker CMS HTTP client", () => {
     }
   });
 
-  it("fails checkpoint and completion closed without requesting a token or making a request", async () => {
+  it("uses exact action-scoped checkpoint and completion routes", async () => {
     const provider = vi.fn(tokenProvider);
-    const fetchImplementation = vi.fn(async () => jsonResponse(claimResult()));
-    const cms = client({ tokenProvider: provider, fetchImplementation });
-
-    await expect(
-      cms.checkpoint(RUN_ID, {
-        contractVersion: WORKER_CMS_CONTRACT_VERSION,
-        expectedStateVersion: 2,
-        checkpoint: {
-          checkpointVersion: CHECKPOINT_VERSION,
-          stageKey: "render",
-          stageIndex: 4,
-          route: "direct",
-          stageType: "render",
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchImplementation = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init });
+      if (url.endsWith("/checkpoints/redact")) {
+        return jsonResponse({
+          contractVersion: WORKER_CMS_CONTRACT_VERSION,
+          reportRunId: RUN_ID,
+          stateVersion: 3,
+          stageKey: "redact",
           status: "valid",
-          inputDigest: "a".repeat(64),
-          outputDigest: "b".repeat(64),
-          attempts: 1,
-          completedAt: "2026-09-03T00:00:00.000Z",
-          payload: { kind: "render", rendererVersion: "v1", pdfSha256: "c".repeat(64), size: 1 },
-        },
-      }),
-    ).rejects.toMatchObject({ code: "UNKNOWN_VERSION" });
-    await expect(
-      cms.complete(RUN_ID, {
+          replayed: false,
+        });
+      }
+      return jsonResponse({
         contractVersion: WORKER_CMS_CONTRACT_VERSION,
-        expectedStateVersion: 2,
-        validatedAnalysis: { schemaVersion: "survey-published-analysis.v1", sections: [] } as never,
-        analysisDigest: "a".repeat(64),
-        rendererVersion: "v1",
-        artifact: { objectKey: "private/report.pdf", sha256: "b".repeat(64), size: 1, mimeType: "application/pdf" },
-      }),
-    ).rejects.toMatchObject({ code: "UNSUPPORTED_OPERATION" });
-    expect(provider).not.toHaveBeenCalled();
-    expect(fetchImplementation).not.toHaveBeenCalled();
+        reportRunId: RUN_ID,
+        stateVersion: 4,
+        status: "succeeded",
+        reportId: RUN_ID,
+        artifactSha256: "b".repeat(64),
+        artifactSize: 12,
+        replayed: false,
+      }, 201);
+    });
+    const cms = client({ tokenProvider: provider, fetchImplementation });
+    const redactPayload = { kind: "redact", recordCount: 0, redactionVersion: "redaction.v1" } as const;
+    const redactCheckpoint = {
+      checkpointVersion: CHECKPOINT_VERSION,
+      stageKey: "redact",
+      stageIndex: 0,
+      route: "common",
+      stageType: "redact",
+      status: "valid",
+      inputDigest: "a".repeat(64),
+      outputDigest: createHash("sha256").update(canonicalizeJson(redactPayload)).digest("hex"),
+      attempts: 1,
+      completedAt: "2026-09-03T00:00:00.000Z",
+      payload: redactPayload,
+    } as const;
+    const checkpoint = await cms.checkpoint(RUN_ID, {
+      contractVersion: WORKER_CMS_CONTRACT_VERSION,
+      expectedStateVersion: 2,
+      checkpoint: redactCheckpoint,
+    });
+    const publishedAnalysis = {
+      schemaVersion: "survey-published-analysis.v1" as const,
+      sections: [
+        "executive_summary", "observed_changes", "strengths", "unfavorable_areas",
+        "recurrent_themes", "minority_signals", "coverage_limitations",
+      ].map((key) => ({ key, status: "insufficient_evidence", paragraphsEs: [EMPTY_EVIDENCE_PARAGRAPH] })),
+    };
+    const command = {
+      contractVersion: WORKER_CMS_CONTRACT_VERSION,
+      expectedStateVersion: 3,
+      validatedAnalysis: publishedAnalysis as unknown as CompleteCommand["validatedAnalysis"],
+      analysisDigest: "a".repeat(64),
+      rendererVersion: "test-renderer.v1",
+      artifact: {
+        objectKey: `private/feedback-reports/${RUN_ID}/report.pdf`,
+        sha256: "b".repeat(64),
+        size: 12,
+        mimeType: "application/pdf" as const,
+      },
+    };
+    const completed = await cms.complete(RUN_ID, command);
+
+    expect(checkpoint).toMatchObject({ stateVersion: 3, stageKey: "redact", replayed: false });
+    expect(completed).toMatchObject({ reportId: RUN_ID, stateVersion: 4, replayed: false });
+    expect(calls.map(({ url }) => url)).toEqual([
+      `${BASE_URL}/api/tb113/worker/generations/${RUN_ID}/checkpoints/redact`,
+      `${BASE_URL}/api/tb113/worker/generations/${RUN_ID}/complete`,
+    ]);
+    expect(provider.mock.calls.map(([action]) => action)).toEqual([
+      "api::survey-report-generation.survey-report-generation.workerCheckpoint",
+      "api::survey-report-generation.survey-report-generation.workerComplete",
+    ]);
+    expect(calls.map(({ init }) => init?.method)).toEqual(["PUT", "POST"]);
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      contractVersion: WORKER_CMS_CONTRACT_VERSION,
+      expectedStateVersion: 2,
+      checkpoint: redactCheckpoint,
+    });
+    expect(JSON.parse(String(calls[1]?.init?.body))).toEqual(command);
   });
 
   it("rejects invalid run IDs and oversized requests before token lookup", async () => {
