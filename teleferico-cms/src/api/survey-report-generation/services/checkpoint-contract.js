@@ -65,11 +65,20 @@ const ANALYSIS_SECTION_KEYS = [
   'recurrent_themes', 'minority_signals', 'coverage_limitations',
 ];
 const DIRECT_COUNT_INSTRUCTIONS =
-  'Describe only evidence supported by the supplied snapshot. Do not infer when there are no eligible comments.';
+  'Return structured Spanish descriptions only. Use the exact seven-section order and closed schema. Cite eligible evidence refs on every claim. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Leave unsupported sections empty. Semantic truth is not machine-verified.';
 const DIRECT_COUNT_SCHEMA = canonicalizeJson({
   schemaVersion: 'survey-analysis.v1',
   route: 'direct',
-  sections: ANALYSIS_SECTION_KEYS.map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
+  sections: ANALYSIS_SECTION_KEYS.map((key) => ({
+    key,
+    status: { enum: ['supported', 'insufficient_evidence'] },
+    claims: [{
+      claimId: 'lowercase-stable-id',
+      textEs: 'Spanish descriptive text',
+      evidenceRefs: ['e_<20-lowercase-base32-characters>'],
+      signal: { enum: ['recurrent', 'minority', 'descriptive'] },
+    }],
+  })),
 });
 
 function compareCodePoints(left, right) {
@@ -558,7 +567,88 @@ function expectedStageKeys() {
   return ["redact", "count", "direct", "validate", "render", "store"];
 }
 
-function safeCheckpointPayload(stage, payload, modelConfig, snapshot) {
+function directModelCommentsJson(snapshot, reportRunId, evidenceKey) {
+  if (snapshot.comments.length === 0) return canonicalizeJson([]);
+  if (snapshot.comments.length > 0) assertEvidenceKey(evidenceKey);
+  return canonicalizeJson({
+    contractVersion: 'survey-model-input.v1',
+    comments: snapshot.comments.map((comment) => ({
+      period: comment.period,
+      text: comment.text
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, '[EMAIL]')
+      .replace(/https?:\/\/[^\s]+|www\.[^\s]+/giu, '[URL]')
+      .replace(/(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)/gu, '[PHONE]'),
+      evidenceRef: deriveEvidenceRef({ reportRunId, recordId: comment.recordId, evidenceKey: evidenceKey || 'empty-snapshot-unused-key' }),
+    })),
+  });
+}
+
+function narrativeHasPrivateText(text, comments) {
+  if (/e_[a-z2-7]{20}/u.test(text) || /(?:https?:\/\/|www\.)/iu.test(text) ||
+      /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text) ||
+      /(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)/u.test(text)) return true;
+  const tokenize = (value) => value.toLocaleLowerCase('es').match(/[\p{L}\p{N}]+/gu) || [];
+  const output = tokenize(text);
+  return comments.some(({ text: comment }) => {
+    const source = tokenize(comment);
+    const width = Math.min(8, source.length);
+    for (let start = 0; start <= source.length - width; start += 1) {
+      const phrase = source.slice(start, start + width);
+      if (source.length < 8 && phrase.length !== source.length) continue;
+      if (output.some((_, index) => phrase.every((token, offset) => output[index + offset] === token))) return true;
+    }
+    return false;
+  });
+}
+
+function snapshotMetricValues(value, values = new Set()) {
+  if (typeof value === 'number' && Number.isFinite(value)) values.add(String(value));
+  else if (Array.isArray(value)) value.forEach((item) => snapshotMetricValues(item, values));
+  else if (value && typeof value === 'object') Object.values(value).forEach((item) => snapshotMetricValues(item, values));
+  return values;
+}
+
+function introducesMetricValue(text, officialValues) {
+  return (text.match(/(?<![\p{L}\p{N}])\d+(?:[.,]\d+)?%?/gu) || [])
+    .some((value) => !officialValues.has(value.replace(',', '.').replace(/%$/, '')));
+}
+
+function safeDirectOutput(output, modelConfig, snapshot, reportRunId, evidenceKey) {
+  if (!exactKeys(output, ['schemaVersion', 'route', 'sections']) || output.schemaVersion !== 'survey-analysis.v1' ||
+      output.route !== 'direct' || !Array.isArray(output.sections) || output.sections.length !== ANALYSIS_SECTION_KEYS.length) return false;
+  if (snapshot.comments.length && (!evidenceKey || (() => { try { assertEvidenceKey(evidenceKey); return false; } catch { return true; } })())) return false;
+  const references = new Set(snapshot.comments.map(({ recordId }) => deriveEvidenceRef({
+    reportRunId, recordId, evidenceKey: evidenceKey || 'synthetic-empty-evidence-key-material',
+  })));
+  const claimIds = new Set();
+  const officialValues = snapshotMetricValues(snapshot.metrics);
+  for (let index = 0; index < output.sections.length; index += 1) {
+    const section = output.sections[index];
+    if (!exactKeys(section, ['key', 'status', 'claims']) || section.key !== ANALYSIS_SECTION_KEYS[index] ||
+        !['supported', 'insufficient_evidence'].includes(section.status) || !Array.isArray(section.claims) ||
+        (section.status === 'supported') !== (section.claims.length > 0)) return false;
+    let previous = '';
+    for (const claim of section.claims) {
+      const threshold = claim.signal === 'recurrent' ? Math.max(10, Math.ceil(snapshot.comments.length * 0.02)) : claim.signal === 'minority' ? 4 : 1;
+      if (!exactKeys(claim, ['claimId', 'textEs', 'evidenceRefs', 'signal']) || typeof claim.claimId !== 'string' ||
+          !RECORD_ID_PATTERN.test(claim.claimId) || compareCodePoints(claim.claimId, previous) <= 0 || claimIds.has(claim.claimId) ||
+          typeof claim.textEs !== 'string' || claim.textEs.length < 1 || claim.textEs.length > 4000 ||
+          !Array.isArray(claim.evidenceRefs) || !['recurrent', 'minority', 'descriptive'].includes(claim.signal) ||
+          (section.key === 'recurrent_themes' && claim.signal !== 'recurrent') ||
+          (section.key === 'minority_signals' && claim.signal !== 'minority') ||
+          new Set(claim.evidenceRefs).size !== claim.evidenceRefs.length || claim.evidenceRefs.length < threshold ||
+          claim.evidenceRefs.some((ref) => typeof ref !== 'string' || !/^e_[a-z2-7]{20}$/.test(ref) || !references.has(ref)) ||
+          /\b(?:debe|deben|debería|recomiendo|recomendamos|recomendar|sugiero|sugerimos|conviene|implementar|cambiar|mejorar|garantiza|garantizan|causa|causan|provoca|provocan|demuestra|demuestran|recommend(?:s|ed|ing)?|should|must|need(?:s|ed)? to|improve|change|implement)\b/iu.test(claim.textEs) ||
+          introducesMetricValue(claim.textEs, officialValues) ||
+          narrativeHasPrivateText(claim.textEs, snapshot.comments)) return false;
+      previous = claim.claimId;
+      claimIds.add(claim.claimId);
+    }
+  }
+  return true;
+}
+
+function safeCheckpointPayload(stage, payload, modelConfig, snapshot, reportRunId, evidenceKey) {
   if (stage.type === "redact")
     return exactKeys(payload, ["kind", "recordCount", "redactionVersion"]) &&
       payload.kind === "redact" && Number.isSafeInteger(payload.recordCount) &&
@@ -573,7 +663,7 @@ function safeCheckpointPayload(stage, payload, modelConfig, snapshot) {
         instructions: DIRECT_COUNT_INSTRUCTIONS,
         schema: DIRECT_COUNT_SCHEMA,
         metrics: canonicalizeJson(snapshot.metrics),
-        comments: canonicalizeJson(snapshot.comments),
+        comments: directModelCommentsJson(snapshot, reportRunId, evidenceKey),
       },
     });
     return exactKeys(payload, ["kind", "requestDigest", "segmentTokens", "totalTokens"]) && payload.kind === "count" &&
@@ -582,28 +672,24 @@ function safeCheckpointPayload(stage, payload, modelConfig, snapshot) {
       Number.isSafeInteger(payload.totalTokens) && payload.totalTokens === segments.reduce((sum, key) => sum + payload.segmentTokens[key], 0) &&
       payload.segmentTokens.headroom === Math.max(2048, Math.ceil(modelConfig.verifiedInputTokenLimit * 0.1)) &&
       payload.segmentTokens.reservedOutput === modelConfig.directReduce.targetMax &&
-      payload.segmentTokens.comments === 0 && payload.totalTokens <= modelConfig.verifiedInputTokenLimit;
+      payload.totalTokens <= modelConfig.verifiedInputTokenLimit;
   }
   if (stage.type === "direct") {
     const output = payload?.validatedOutput;
-    return snapshot?.comments?.length === 0 && exactKeys(payload, ["kind", "validatedOutput"]) &&
-      payload.kind === "direct" && exactKeys(output, ["schemaVersion", "route", "sections"]) &&
-      output.schemaVersion === "survey-analysis.v1" && output.route === "direct" &&
-      Array.isArray(output.sections) && output.sections.length === ANALYSIS_SECTION_KEYS.length &&
-      output.sections.every((section, index) => exactKeys(section, ["key", "status", "claims"]) &&
-        section.key === ANALYSIS_SECTION_KEYS[index] && section.status === "insufficient_evidence" &&
-        Array.isArray(section.claims) && section.claims.length === 0);
+    return exactKeys(payload, ["kind", "validatedOutput"]) && payload.kind === "direct" &&
+      Boolean(snapshot && safeDirectOutput(output, modelConfig, snapshot, reportRunId, evidenceKey));
   }
   if (stage.type === "validate") {
     const output = payload?.publishedAnalysis;
-    return snapshot?.comments?.length === 0 && exactKeys(payload, ["kind", "publishedAnalysis", "validatorVersion"]) &&
+    return exactKeys(payload, ["kind", "publishedAnalysis", "validatorVersion"]) &&
       payload.kind === "validate" && payload.validatorVersion === modelConfig.validatorVersion &&
       exactKeys(output, ["schemaVersion", "sections"]) && output.schemaVersion === "survey-published-analysis.v1" &&
       Array.isArray(output.sections) && output.sections.length === ANALYSIS_SECTION_KEYS.length &&
       output.sections.every((section, index) => exactKeys(section, ["key", "status", "paragraphsEs"]) &&
-        section.key === ANALYSIS_SECTION_KEYS[index] && section.status === "insufficient_evidence" &&
-        Array.isArray(section.paragraphsEs) && section.paragraphsEs.length === 1 &&
-        section.paragraphsEs[0] === EMPTY_EVIDENCE_PARAGRAPH);
+        section.key === ANALYSIS_SECTION_KEYS[index] && ['supported', 'insufficient_evidence'].includes(section.status) &&
+        Array.isArray(section.paragraphsEs) && section.paragraphsEs.length > 0 &&
+        section.paragraphsEs.every((paragraph) => typeof paragraph === 'string' && paragraph.length > 0) &&
+        (section.status !== 'insufficient_evidence' || section.paragraphsEs.length === 1 && section.paragraphsEs[0] === EMPTY_EVIDENCE_PARAGRAPH));
   }
   if (stage.type === "render")
     return exactKeys(payload, ["kind", "rendererVersion", "pdfSha256", "size"]) && payload.kind === "render" &&
@@ -643,7 +729,7 @@ function incompleteGraphResult(structurallyVerifiedStageKeys, pendingStageKeys) 
   };
 }
 
-function verifyCheckpointGraphV1({ run, snapshot, checkpoints, candidate, expectedStateVersion }) {
+function verifyCheckpointGraphV1({ run, snapshot, checkpoints, candidate, expectedStateVersion, evidenceKey }) {
   if (!run || !exactKeys(checkpoints, ["version", "snapshotDigest", "route", "chunkCount", "entries"]) ||
       checkpoints.version !== "survey-checkpoints.v1" || !Array.isArray(checkpoints.entries) ||
       !exactKeys(run, ["reportRunId", "status", "stateVersion", "snapshotDigest", "sourceRevision", "modelConfig", "rendererVersion"]) ||
@@ -709,7 +795,23 @@ function verifyCheckpointGraphV1({ run, snapshot, checkpoints, candidate, expect
     let expectedOutput;
     try { expectedOutput = sha256(entry.payload); } catch { checkpointError("DIGEST_MISMATCH"); }
     if (entry.outputDigest !== expectedOutput) checkpointError("DIGEST_MISMATCH");
-    const payloadIsSafe = safeCheckpointPayload(stage, entry.payload, run.modelConfig, snapshot);
+    const payloadIsSafe = safeCheckpointPayload(stage, entry.payload, run.modelConfig, snapshot, run.reportRunId, evidenceKey);
+    if (stage.type === "validate" && snapshot) {
+      const direct = entries.get("direct")?.payload?.validatedOutput;
+      const published = exactKeys(direct, ["schemaVersion", "route", "sections"]) &&
+        Array.isArray(direct.sections) && {
+        schemaVersion: "survey-published-analysis.v1",
+        sections: direct.sections.map((section) => ({
+          key: section.key,
+          status: section.status,
+          paragraphsEs: section.status === "insufficient_evidence"
+            ? [EMPTY_EVIDENCE_PARAGRAPH]
+            : section.claims.map(({ textEs }) => textEs),
+        })),
+      };
+      if (!published || canonicalizeJson(entry.payload.publishedAnalysis) !== canonicalizeJson(published))
+        checkpointError("VALIDATION_FAILED");
+    }
     if ((snapshot && ["redact", "count"].includes(stage.type) || ["render", "store"].includes(stage.type)) && !payloadIsSafe)
       checkpointError("VALIDATION_FAILED");
     const ancestorsStructurallyVerified = dependencies.every((dependency) => dependency.structurallyVerified);
@@ -759,7 +861,7 @@ function verifyCheckpointGraphV1({ run, snapshot, checkpoints, candidate, expect
     if (candidate.stageKey === "redact" && entries.size === 0) {
       // The graph remains undecided until a validated CountTokens result fits the direct budget.
     } else if (candidate.stageKey === "count" && entries.has("redact")) {
-      if (!safeCheckpointPayload(candidateStage, candidate.payload, run.modelConfig, snapshot))
+      if (!safeCheckpointPayload(candidateStage, candidate.payload, run.modelConfig, snapshot, run.reportRunId, evidenceKey))
         checkpointError("UNKNOWN_VERSION");
       route = "direct";
     } else {

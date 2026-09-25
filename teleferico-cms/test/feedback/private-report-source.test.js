@@ -187,6 +187,7 @@ function loadPrivateReportSourceAppModules() {
   return {
     createWorkerCmsClient: load(path.join(workerRoot, 'worker-cms-client.ts')).createWorkerCmsClient,
     executeReportWorker: load(path.join(workerRoot, 'worker-runtime.ts')).executeReportWorker,
+    deriveEvidenceRef: load(path.join(workerRoot, 'checkpoint-contract.ts')).deriveEvidenceRef,
     createSnapshot: load(path.join(repositoryRoot, 'teleferico-app/packages/survey-reporting-core/src/index.ts')).createSnapshot,
     createPrivateReportSourceTransport: load(
       path.join(workerRoot, 'private-report-source-transport.ts'),
@@ -307,7 +308,7 @@ function createWorkerClientFetch(
   };
 }
 
-async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRunId) {
+async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRunId, testContext) {
   const { createSnapshot, createWorkerCmsClient } = loadPrivateReportSourceAppModules();
   const userPermissions = strapi.plugin('users-permissions');
   const role = await strapi.db.query('plugin::users-permissions.role').findOne({
@@ -731,10 +732,10 @@ async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRu
   assert.equal(appCreatedFailureRow.status, 'failed');
   assert.equal(appCreatedFailureRow.stateVersion, 3);
   assert.equal(appCreatedFailureRow.failureCode, 'INVALID_OUTPUT');
-  await verifyEmptyEvidenceWorkerExecution(strapi, port, jwt);
+  await verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext);
 }
 
-async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt) {
+async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext) {
   const {
     createSnapshot,
     createWorkerCmsClient,
@@ -903,6 +904,149 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt) {
   });
   assert.deepEqual(replay, { status: 'succeeded', disposition: 'terminal-replay', reportRunId });
   assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: reportRunId } }), 1);
+
+  await testContext.test('executes a synthetic nonempty direct report through app, worker, and CMS', async () => {
+  const narrativeRunId = '00000000-0000-4000-8000-000000000133';
+  const narrativeKeyId = 'synthetic-direct-evidence-key-v1';
+  const narrativeKey = 'tb113 synthetic direct evidence key only';
+  const narrativePrivateComment = 'Synthetic note visitor@example.invalid +1 212 555 0100 https://example.invalid';
+  const narrativeSnapshot = createSnapshot({
+    range: { from: '2042-09-01', to: '2042-09-02' },
+    dataCutoffAt: '2042-09-03T00:00:00.000Z',
+    sourceRevision: 'worker-nonempty-direct-v1',
+    createdAt: '2042-09-03T00:00:00.000Z',
+    filters: { pointKey: null, versionKey: null },
+    submissions: [{
+      recordId: 'synthetic-narrative-record',
+      receipt: '00000000-0000-4000-8000-000000000134',
+      acceptedAt: '2042-09-01T12:00:00.000Z',
+      source: 'valid_qr',
+      versionKey: 'synthetic-narrative-version',
+      pointKey: 'synthetic-narrative-point',
+      overallRating: 5,
+      locale: 'en',
+      commentText: narrativePrivateComment,
+      payloadDigest: 'b'.repeat(64),
+      aspects: [],
+    }],
+    definitions: [{ aspectKey: 'other', sortOrder: 99 }],
+    points: [{ pointKey: 'synthetic-narrative-point', displayName: 'Synthetic point', sortOrder: 1 }],
+  });
+  const narrativeConfig = sourceModelConfig('worker-nonempty-direct-v1', narrativeKeyId);
+  const narrativeCheckpoints = {
+    version: 'survey-checkpoints.v1', snapshotDigest: narrativeSnapshot.digestHex,
+    route: 'undecided', chunkCount: null, entries: [],
+  };
+  const narrativeCreated = await fetch(`http://127.0.0.1:${port}/api/survey-report-generations`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ data: {
+      reportRunId: narrativeRunId, periodStart: '2042-09-01', periodEnd: '2042-09-02',
+      dataCutoffAt: '2042-09-03T00:00:00.000Z', overlapOverrideAccepted: false,
+      snapshotDigest: narrativeSnapshot.digestHex, sourceRevision: narrativeConfig.sourceRevision,
+      snapshotJson: narrativeSnapshot.payload, checkpointsJson: narrativeCheckpoints,
+      modelConfigJson: narrativeConfig, usageJson: {}, pricingSnapshotJson: pricingSnapshot, status: 'queued',
+    } }),
+  });
+  assert.equal(narrativeCreated.status, 201);
+  strapi.config.set('feedback.workerEvidenceKeyProvider', async (keyId) => {
+    assert.equal(keyId, narrativeKeyId);
+    return narrativeKey;
+  });
+  const narrativeRequests = [];
+  const narrativeClient = createWorkerCmsClient({
+    baseUrl: WORKER_ORIGIN,
+    allowedOrigins: [WORKER_ORIGIN],
+    tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
+    fetchImplementation: createWorkerClientFetch(port, actionTokens, narrativeRequests, undefined, [narrativeRunId]),
+  });
+  const evidenceRef = loadPrivateReportSourceAppModules().deriveEvidenceRef({
+    reportRunId: narrativeRunId, recordId: 'synthetic-narrative-record', evidenceKey: narrativeKey,
+  });
+  const narrativeOutput = {
+    schemaVersion: 'survey-analysis.v1', route: 'direct',
+    sections: [
+      { key: 'executive_summary', status: 'supported', claims: [{ claimId: 'claim-a', textEs: 'La visita se percibe acogedora.', evidenceRefs: [evidenceRef], signal: 'descriptive' }] },
+      ...['observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations']
+        .map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
+    ],
+  };
+  const narrativeArtifacts = new Map();
+  let narrativeProviderCalls = 0;
+  const narrativeResult = await executeReportWorker(narrativeRunId, {
+    cms: narrativeClient,
+    countTokens: async (request) => {
+      assert.notEqual(request.segments.comments, '[]');
+      const modelInput = JSON.parse(request.segments.comments);
+      assert.equal(modelInput.contractVersion, 'survey-model-input.v1');
+      assert.deepEqual(Object.keys(modelInput.comments[0]).sort(), ['evidenceRef', 'period', 'text']);
+      assert.ok(modelInput.comments[0].text.includes('[EMAIL]'));
+      assert.ok(modelInput.comments[0].text.includes('[PHONE]'));
+      assert.ok(modelInput.comments[0].text.includes('[URL]'));
+      assert.equal(JSON.stringify(modelInput).includes('visitor@example.invalid'), false);
+      assert.equal(JSON.stringify(modelInput).includes('synthetic-narrative-record'), false);
+      assert.equal(JSON.stringify(modelInput).includes('synthetic-narrative-version'), false);
+      assert.equal(JSON.stringify(modelInput).includes('synthetic-narrative-point'), false);
+      return { instructions: 120, schema: 180, metrics: 80, comments: 95 };
+    },
+    evidenceKeyProvider: async (keyId) => {
+      assert.equal(keyId, narrativeKeyId);
+      return narrativeKey;
+    },
+    analysisProvider: async (providerSnapshot) => {
+      narrativeProviderCalls += 1;
+      assert.equal(providerSnapshot.contractVersion, 'survey-model-input.v1');
+      assert.deepEqual(Object.keys(providerSnapshot).sort(), ['comments', 'contractVersion', 'metrics']);
+      assert.deepEqual(Object.keys(providerSnapshot.comments[0]).sort(), ['evidenceRef', 'period', 'text']);
+      assert.ok(providerSnapshot.comments[0].text.includes('[EMAIL]'));
+      assert.ok(providerSnapshot.comments[0].text.includes('[PHONE]'));
+      assert.ok(providerSnapshot.comments[0].text.includes('[URL]'));
+      assert.equal(JSON.stringify(providerSnapshot).includes('visitor@example.invalid'), false);
+      const commentProjection = JSON.stringify(providerSnapshot.comments);
+      assert.equal(commentProjection.includes('synthetic-narrative-record'), false);
+      assert.equal(commentProjection.includes('synthetic-narrative-version'), false);
+      assert.equal(commentProjection.includes('synthetic-narrative-point'), false);
+      return narrativeOutput;
+    },
+    renderer: {
+      rendererVersion: 'synthetic-direct-renderer.v1',
+      async render() { return new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]); },
+    },
+    artifacts: {
+      async stage(runId, artifact) { narrativeArtifacts.set(`${runId}:${artifact.sha256}`, artifact); },
+      async readStaged(runId, digest) { return narrativeArtifacts.get(`${runId}:${digest}`) ?? null; },
+      async discardStaged(runId, digest) { narrativeArtifacts.delete(`${runId}:${digest}`); },
+    },
+    now: () => new Date('2042-09-03T01:00:00.000Z'),
+  });
+  assert.equal(narrativeResult.status, 'succeeded');
+  assert.equal(narrativeProviderCalls, 1);
+  const narrativeGeneration = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId: narrativeRunId } });
+  assert.equal(narrativeGeneration.status, 'succeeded');
+  assert.equal(narrativeGeneration.checkpointsJson.route, 'direct');
+  assert.deepEqual(narrativeGeneration.checkpointsJson.entries.map(({ stageKey }) => stageKey), [
+    'redact', 'count', 'direct', 'validate', 'render', 'store',
+  ]);
+  assert.equal(narrativeGeneration.checkpointsJson.entries[1].payload.segmentTokens.comments, 95);
+  assert.equal(JSON.stringify(narrativeGeneration.checkpointsJson).includes(PRIVATE_WORKER_COMMENT), false);
+  const narrativeReport = await strapi.db.query('api::survey-report.survey-report').findOne({
+    where: { generationRunId: narrativeRunId }, populate: { sourceGeneration: true },
+  });
+  assert.equal(narrativeReport.validatedAnalysisJson.sections[0].paragraphsEs[0], 'La visita se percibe acogedora.');
+  assert.equal(JSON.stringify(narrativeReport.validatedAnalysisJson).includes(evidenceRef), false);
+  assert.equal(narrativeReport.sourceGeneration.reportRunId, narrativeRunId);
+  const narrativeReplay = await executeReportWorker(narrativeRunId, {
+    cms: narrativeClient,
+    countTokens: async () => { throw new Error('terminal replay must not count tokens'); },
+    evidenceKeyProvider: async () => { throw new Error('terminal replay must not request an evidence key'); },
+    analysisProvider: async () => { throw new Error('terminal replay must not invoke the analysis provider'); },
+    renderer: { rendererVersion: 'synthetic-direct-renderer.v1', async render() { throw new Error('terminal replay must not render'); } },
+    artifacts: { async stage() { throw new Error('terminal replay must not stage'); }, async readStaged() { return null; }, async discardStaged() {} },
+  });
+  assert.deepEqual(narrativeReplay, { status: 'succeeded', disposition: 'terminal-replay', reportRunId: narrativeRunId });
+  assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: narrativeRunId } }), 1);
+  assert.ok(narrativeRequests.filter(({ method }) => method === 'PUT').length === 6);
+  });
 }
 
 function createSourceIntegrationFetch(port, syntheticToken, observedPages) {
@@ -1414,7 +1558,7 @@ function sourceInput(resource, cursor = null, pageSize = 1, overrides = {}) {
   };
 }
 
-test('private report source requires its isolated worker action and returns complete raw-source pages', async () => {
+test('private report source requires its isolated worker action and returns complete raw-source pages', async (testContext) => {
   let strapi;
   let strapiStarted = false;
   const previous = { ...process.env };
@@ -1633,7 +1777,7 @@ test('private report source requires its isolated worker action and returns comp
 
     await verifyAppSourceIntegration(port, workerToken.accessKey);
     const appCreatedReportRunId = await verifyAppGenerationCommandIntegration(strapi, port, workerToken);
-    await verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRunId);
+    await verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRunId, testContext);
 
     for (const malformed of [
       { ...input, unknown: true },

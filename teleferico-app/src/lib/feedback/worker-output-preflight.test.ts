@@ -143,17 +143,9 @@ describe("direct worker output preflight", () => {
     deriveEvidenceRef({ reportRunId: RUN_ID, recordId, evidenceKey: KEY }),
   );
 
-  it("reports only the independently checked subset and never calls an object validated", () => {
+  it("accepts structurally safe direct narratives without claiming semantic truth", () => {
     const result = evaluate(directOutput([claim(refs)]), snapshot);
-    expect(result.status).toBe("incomplete");
-    if (result.status !== "incomplete")
-      throw new Error("expected incomplete inspection");
-    expect(result.blockers).toContain(
-      "exact_claim_to_metric_grounding_and_contradiction_analysis",
-    );
-    expect(result.blockers).toContain(
-      "immutable_per_run_evidence_key_selection",
-    );
+    expect(result.status).toBe("accepted");
     expect(JSON.stringify(result)).not.toContain("synthetic comment");
   });
 
@@ -204,7 +196,7 @@ describe("direct worker output preflight", () => {
         directOutput([claim(refs.slice(0, 4), { signal: "minority" })]),
         snapshot,
       ).status,
-    ).toBe("incomplete");
+    ).toBe("accepted");
   });
 
   it("rejects a signal that contradicts its recurrent or minority section", () => {
@@ -225,7 +217,7 @@ describe("direct worker output preflight", () => {
     });
   });
 
-  it("keeps numeric and period-comparison claims incomplete without semantic proof", () => {
+  it("rejects numeric values absent from the immutable metrics snapshot", () => {
     const result = evaluate(
       directOutput([
         claim(refs, {
@@ -235,12 +227,10 @@ describe("direct worker output preflight", () => {
       snapshot,
     );
 
-    expect(result.status).toBe("incomplete");
-    if (result.status !== "incomplete")
-      throw new Error("expected incomplete inspection");
-    expect(result.blockers).toContain(
-      "exact_claim_to_metric_grounding_and_contradiction_analysis",
-    );
+    expect(result).toMatchObject({
+      status: "rejected",
+      violations: ["unsupported_official_metric_value"],
+    });
   });
 
   it("rejects action language and short or eight-token verbatim comment matches", () => {
@@ -252,6 +242,12 @@ describe("direct worker output preflight", () => {
         snapshot,
       ),
     ).toMatchObject({ status: "rejected" });
+    expect(
+      evaluate(
+        directOutput([claim(refs, { textEs: "Contacto visitor@example.invalid disponible." })]),
+        snapshot,
+      ),
+    ).toMatchObject({ status: "rejected", violations: ["personal_data_or_url"] });
     const privateSnapshot = inputSnapshot([
       "este comentario sintético contiene ocho palabras únicas solo para prueba",
     ]);
@@ -306,12 +302,7 @@ describe("direct worker output preflight", () => {
       }),
     ]);
     const unresolved = evaluate(contradictory, snapshot);
-    expect(unresolved.status).toBe("incomplete");
-    if (unresolved.status !== "incomplete")
-      throw new Error("expected incomplete inspection");
-    expect(unresolved.blockers).toContain(
-      "exact_claim_to_metric_grounding_and_contradiction_analysis",
-    );
+    expect(unresolved.status).toBe("accepted");
   });
 });
 

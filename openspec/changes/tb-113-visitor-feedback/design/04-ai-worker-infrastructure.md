@@ -59,7 +59,7 @@ Checkpoints prohibit visitor comments, raw/redacted prompts, credentials, signed
 
 Identical valid-stage replay succeeds without state/attempt change; reuse of key or index with different binding is `CHECKPOINT_CONFLICT`. Resume retries the lowest missing eligible stage, preserves valid sibling maps, and blocks reduce until all maps validate. Mismatched persisted input fails `INVARIANT`; history is never overwritten. No persisted valid stage with matching bindings repeats. Transient operations get two retries after the first attempt; invalid model output gets one controlled regeneration; other failures are terminal.
 
-**Local direct-route boundary:** The current synthetic worker accepts only a CMS-recomputed zero-comment direct graph. CountTokens is an explicit injected fake; the checkpoint binds its exact request digest and returned counts, and direct is selected only when instructions, schema, official metrics, output reservation, and headroom fit the versioned limit. CMS independently verifies the immutable snapshot, graph edges/digests, fixed no-claim analysis, and state-version CAS before writing checkpoints or atomically completing a report. Nonempty-comment execution, map/reduce, real provider calls, and production readiness remain unimplemented or fail-closed; this describes current implementation, not a semantic-truth acceptance gate. No runtime evidence key is provisioned; no schema, default grant, dependency, environment, or IAM change is included. The 4 KiB request limit remains unchanged.
+**Local direct-route boundary:** The synthetic worker accepts CMS-recomputed zero-comment and nonempty-comment direct graphs. CountTokens is explicitly injected; the checkpoint binds its exact request digest and returned counts, and direct is selected only when the instructions, closed schema, official metrics, complete redacted comments, output reservation, and headroom fit the versioned limit. Nonempty analysis additionally requires an injected provider and per-run evidence key. The CMS resolves that same key ID through an optional server-only `feedback.workerEvidenceKeyProvider`; with no provider configured, nonempty direct checkpoint writes fail closed. CMS recomputes evidence membership, structure, thresholds, privacy/prohibited-text constraints, and state-version CAS before checkpoint writes or atomic report completion. Map/reduce, real provider calls, and production readiness remain unimplemented or fail-closed. No runtime evidence key is provisioned; no schema, default grant, dependency, environment variable, or IAM change is included. The 4 KiB request limit remains unchanged.
 
 The local worker validates the closed direct-route graph from `redact` through
 `store`, emits the normative direct indexes 0–5, and persists each checkpoint
@@ -78,11 +78,14 @@ dependency data fails closed, and legacy POC digests have no fallback or reuse
 path. CMS `verifyCheckpointGraphV1` now runs inside the authenticated checkpoint
 transaction with the locked snapshot. It checks direct stage order/indexes,
 immutable snapshot/source/model bindings, exact contract versions, dependency
-and canonical payload digests, replay, and CAS. For the local zero-comment case,
-`DirectV1` must have seven ordered insufficient-evidence sections with empty
-claims; publication must match the fixed Spanish fallback. Other direct outputs
-are not supported by the current implementation and cannot yet be persisted as
-validated; the prospective contract does not require semantic-truth judgment.
+and canonical payload digests, replay, and CAS. Direct output uses seven ordered
+closed sections. Nonempty claims require exact evidence refs derived from the
+immutable snapshot and injected per-run key, deterministic signal thresholds,
+prohibited-content and verbatim/privacy checks; published paragraphs are
+recomputed from the validated claims and fixed fallback. The worker and CMS
+accept the same synthetic key only when both injected providers resolve the
+claim's immutable key ID. Validated narrative is structurally safe, not
+semantically certified.
 Map/reduce still fails closed because route/chunk selection and CMS checkpoint
 authority are not implemented. Completion rechecks the entire graph and
 atomically inserts the report with the succeeded generation state. A persisted
@@ -91,24 +94,30 @@ atomically inserts the report with the succeeded generation state. A persisted
 For the local direct route, the CountTokens request is the canonical JSON object
 `{contractVersion:"survey-count-request.v1",modelConfig,segments}`. Its segments
 are the versioned instruction string, canonical direct schema, canonical
-immutable official metrics, and canonical sanitized comments. The `count`
-payload includes SHA-256 of this exact request, integer per-segment token results,
+immutable official metrics, and the canonical `survey-model-input.v1` comment
+projection. That model-input allowlist contains only the deterministic metrics
+and comments with `period`, PII-redacted `text`, and opaque per-run `evidenceRef`;
+it never contains source record IDs, receipts, version/point IDs, ratings, or
+payload digests. The zero-comment route preserves its canonical empty-array
+CountTokens comment segment. The worker retains the immutable source snapshot and ref mapping
+privately, while CMS independently derives refs from its locked snapshot and the
+same injected evidence key. The `count` payload includes SHA-256 of this exact
+sanitized request, integer per-segment token results,
 the 3,000-token direct output reservation, computed safety headroom, and their
 sum. CMS recomputes the request digest from the locked snapshot/config and
 rejects mismatches or a total above `verifiedInputTokenLimit` before route
 selection. The caller's injected CountTokens analogue is test-only; there is no
 production CountTokens or generation provider composition.
 
-The worker retains a pure direct-analysis preflight. It checks the closed
-`DirectV1` shape and section order, evidence-ref syntax, uniqueness and
-membership derived from the supplied snapshot/run/key, recurrent/minority
-minimum counts, bounded scalar text, prohibited action/causal markers, and
-verbatim comment matches. This validates structure and safety, not semantic
-truth. The current executor and CMS graph verifier still support only the exact
-zero-comment, no-claim fallback; nonempty-comment execution remains unimplemented
-and task U10 remains open. Synthetic key material is not an operational source.
-Map/reduce retains its separate unresolved routing and CMS checkpoint authority
-gates.
+The direct-analysis preflight checks the closed `DirectV1` shape and section
+order, evidence-ref syntax, uniqueness and membership derived from the immutable
+snapshot/run/injected key, recurrent/minority minimum counts, bounded scalar
+text, prohibited action/causal content, verbatim text, and numeric values absent
+from deterministic snapshot metrics. It validates structure and privacy, not
+semantic truth. Synthetic end-to-end evidence proves this direct path only;
+synthetic key material is not an operational source and U10/U11/U12 remain
+formally incomplete. Map/reduce retains its separate unresolved routing and CMS
+checkpoint authority gates.
 
 The partial validator also rejects a `recurrent_themes` claim whose signal is
 not `recurrent`, and a `minority_signals` claim whose signal is not `minority`.
@@ -118,9 +127,12 @@ truth, contradiction, or comparison checks are not required, and a human
 editorial review is optional rather than a per-report gate. Do not infer truth
 from lexical heuristics or invent metric references. Any authoritative metric
 number remains sourced exclusively from the deterministic snapshot/core, never
-from a model-generated value. Structurally valid nonempty outputs are eligible
-under the prospective contract, while current local execution remains restricted
-to its implemented zero-comment route and U10/U11/U12 remain incomplete.
+from a model-generated value. Automated checks reject numeric values that do not
+occur in the immutable core metrics, but do not infer that wording is entailed by
+those numbers or by comment meaning. Structurally valid nonempty outputs are
+eligible under the prospective contract; the local direct route now executes
+them with injected synthetic dependencies, while map/reduce and formal U10/U11/U12
+remain incomplete.
 
 ### Pure initial generation-input materialization
 
@@ -146,8 +158,9 @@ snapshot inputs and approved versioned model/pricing inputs, replace those
 placeholders, and prove creation/retry cutoff immutability before runtime use.
 Until operational configuration is separately approved, the feedback
 capability's deployment flag remains `false`; the local worker path is available
-only through injected synthetic dependencies and the restricted zero-comment
-direct checkpoint contract.
+only through injected synthetic dependencies. Nonempty direct writes require the
+CMS and worker evidence-key providers to resolve the same key ID to the same
+synthetic key. Neither provider has a production default.
 
 ### Strict authoritative CMS source adapter
 
@@ -180,9 +193,10 @@ harness verifies the private-field response shape and custom content API
 token strategy/action boundary. The default application runtime still has no
 trusted production origin/token-provider or approved model/pricing/key-ID
 configuration, so it does not construct that port. Those operational sources
-remain unselected and production generation remains disabled. CMS checkpoint
-writes are limited to the local zero-comment direct contract; nonempty semantic
-outputs and map/reduce still fail closed.
+remain unselected and production generation remains disabled. The local worker
+integration injects matching test-only evidence-key providers for nonempty
+direct analysis. Without the CMS key provider, nonempty direct checkpoint writes
+fail closed; map/reduce remains unsupported.
 
 The CMS source page includes valid-QR rows within the inclusive previous/current
 range even when `acceptedAt` is later than the frozen `dataCutoffAt`. The cutoff
