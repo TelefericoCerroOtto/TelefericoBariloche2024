@@ -183,6 +183,11 @@ export function preflightDirectAnalysis(
       previousClaimId = claim.claimId;
       claimIds.add(claim.claimId);
       if (
+        (section.key === "recurrent_themes" && claim.signal !== "recurrent") ||
+        (section.key === "minority_signals" && claim.signal !== "minority")
+      )
+        violations.add("section_signal_mismatch");
+      if (
         claim.textEs.length === 0 ||
         claim.textEs.length > 4_000 ||
         /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u.test(
@@ -225,6 +230,7 @@ export function preflightDirectAnalysis(
       "closed_direct_schema",
       "ordered_sections",
       "evidence_ref_membership_and_thresholds",
+      "recurrent_and_minority_section_signal_consistency",
       "prohibited_claim_markers",
       "verbatim_comment_leakage",
       "unicode_scalar_text",

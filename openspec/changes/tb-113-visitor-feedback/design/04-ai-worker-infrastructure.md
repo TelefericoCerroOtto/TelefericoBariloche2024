@@ -80,6 +80,15 @@ is not verified. `MapV1`, `ReduceV1`, checkpoint acceptance, and CMS validation
 remain unsupported. The authenticated CMS checkpoint route must continue to
 return `UNKNOWN_VERSION` before transaction entry.
 
+The partial validator also rejects a `recurrent_themes` claim whose signal is
+not `recurrent`, and a `minority_signals` claim whose signal is not `minority`.
+This checks declared section/signal consistency only; it does not establish that
+claim wording is grounded in snapshot metrics or comment meaning. The contract
+does not define a machine-readable metric citation or comparison syntax, so
+numeric grounding, contradictory evidence, and current/previous comparison
+truth remain unverified and MUST keep the result `incomplete`. Do not infer
+these semantics from lexical heuristics or invent metric references.
+
 Cost/call=`ceil(input*inputRate/1e6)+ceil(output*outputRate/1e6)` for persisted SKU; cached tokens require explicit cached SKU. Missing usage/SKU is `CONFIGURATION`; never estimate; sum checked integer costs.
 
 ## Task, Identity, Alerts, and Storage
