@@ -54,6 +54,10 @@ const MODEL_CONFIG_KEYS = [
   "safetyHeadroomTokens",
   "sourceRevision",
 ];
+const CHECKPOINT_KEYS = [
+  "checkpointVersion", "stageKey", "stageIndex", "route", "stageType", "status",
+  "inputDigest", "outputDigest", "attempts", "completedAt", "payload",
+];
 
 function compareCodePoints(left, right) {
   const a = Array.from(left, (value) => value.codePointAt(0));
@@ -439,11 +443,195 @@ function verifyChunkMembership(input, candidate) {
   }
 }
 
+function checkpointError(code) {
+  throw Object.assign(new TypeError("Invalid checkpoint binding"), { code });
+}
+
+function checkpointStage(stageKey) {
+  if (typeof stageKey !== "string") return null;
+  if (["redact", "count", "direct", "validate", "render", "store"].includes(stageKey))
+    return { key: stageKey, type: stageKey };
+  return null;
+}
+
+function stageIndex(stage) {
+  if (stage.key === "redact") return 0;
+  if (stage.key === "count") return 1;
+  if (stage.key === "direct") return 2;
+  if (stage.key === "validate") return 3;
+  if (stage.key === "render") return 4;
+  if (stage.key === "store") return 5;
+  return null;
+}
+
+function expectedStageKeys() {
+  return ["redact", "count", "direct", "validate", "render", "store"];
+}
+
+function safeCheckpointPayload(stage, payload, modelConfig) {
+  if (stage.type === "redact")
+    return exactKeys(payload, ["kind", "recordCount", "redactionVersion"]) &&
+      payload.kind === "redact" && Number.isSafeInteger(payload.recordCount) &&
+      payload.recordCount >= 0 && payload.redactionVersion === modelConfig.redactionVersion;
+  if (stage.type === "count") {
+    const segments = ["instructions", "schema", "metrics", "comments", "reservedOutput", "headroom"];
+    return exactKeys(payload, ["kind", "segmentTokens", "totalTokens"]) && payload.kind === "count" &&
+      exactKeys(payload.segmentTokens, segments) && segments.every((key) => Number.isSafeInteger(payload.segmentTokens[key]) && payload.segmentTokens[key] >= 0) &&
+      Number.isSafeInteger(payload.totalTokens) && payload.totalTokens === segments.reduce((sum, key) => sum + payload.segmentTokens[key], 0);
+  }
+  if (stage.type === "render")
+    return exactKeys(payload, ["kind", "rendererVersion", "pdfSha256", "size"]) && payload.kind === "render" &&
+      typeof payload.rendererVersion === "string" && payload.rendererVersion.length > 0 &&
+      typeof payload.pdfSha256 === "string" && DIGEST_PATTERN.test(payload.pdfSha256) && Number.isSafeInteger(payload.size) && payload.size > 0;
+  if (stage.type === "store")
+    return exactKeys(payload, ["kind", "objectKey", "artifactSha256", "size", "mimeType"]) && payload.kind === "store" &&
+      typeof payload.objectKey === "string" && payload.objectKey.startsWith("private/feedback-reports/") &&
+      payload.objectKey.length <= 500 && payload.objectKey.split("/").every((part) =>
+        Boolean(part) && part !== "." && part !== ".." && /^[A-Za-z0-9._-]+$/.test(part)) &&
+      typeof payload.artifactSha256 === "string" && DIGEST_PATTERN.test(payload.artifactSha256) &&
+      Number.isSafeInteger(payload.size) && payload.size > 0 && payload.mimeType === "application/pdf";
+  return false;
+}
+
+function checkpointDependencies(stageKey, entries) {
+  const keys = stageKey === "redact" ? []
+    : stageKey === "count" ? ["redact"]
+      : stageKey === "direct" ? ["count"]
+        : stageKey === "validate" ? ["direct"]
+          : stageKey === "render" ? ["validate"]
+            : stageKey === "store" ? ["render"] : null;
+  if (!keys || keys.some((key) => !entries.has(key))) checkpointError("DEPENDENCY_NOT_READY");
+  return keys.map((key) => entries.get(key));
+}
+
+function incompleteGraphResult(structurallyVerifiedStageKeys, pendingStageKeys) {
+  const semanticStages = new Set(["direct", "validate", "render", "store"]);
+  const reason = pendingStageKeys.some((stageKey) => semanticStages.has(stageKey))
+    ? "SEMANTIC_VALIDATION_REQUIRED"
+    : "CHECKPOINT_GRAPH_INCOMPLETE";
+  return {
+    status: "incomplete",
+    reason,
+    structurallyVerifiedStageKeys: [...new Set(structurallyVerifiedStageKeys)],
+    pendingStageKeys: [...new Set(pendingStageKeys)],
+  };
+}
+
+function verifyCheckpointGraphV1({ run, checkpoints, candidate, expectedStateVersion }) {
+  if (!run || !exactKeys(checkpoints, ["version", "snapshotDigest", "route", "chunkCount", "entries"]) ||
+      checkpoints.version !== "survey-checkpoints.v1" || !Array.isArray(checkpoints.entries) ||
+      !exactKeys(run, ["reportRunId", "status", "stateVersion", "snapshotDigest", "sourceRevision", "modelConfig", "rendererVersion"]) ||
+      run.status !== "running" || !Number.isSafeInteger(run.stateVersion) || run.stateVersion < 1 ||
+      !Number.isSafeInteger(expectedStateVersion) || expectedStateVersion < 1)
+    checkpointError("INVALID_STATE");
+  assertRunId(run.reportRunId);
+  assertDigest(run.snapshotDigest);
+  if (checkpoints.snapshotDigest !== run.snapshotDigest) checkpointError("DIGEST_MISMATCH");
+  if (typeof run.sourceRevision !== "string" || !run.sourceRevision || run.sourceRevision !== run.modelConfig?.sourceRevision)
+    checkpointError("DIGEST_MISMATCH");
+
+  let route = checkpoints.route;
+  const chunkCount = checkpoints.chunkCount;
+  if (route !== "undecided" && route !== "direct" && route !== "map-reduce") checkpointError("UNKNOWN_VERSION");
+  if (route === "map-reduce") checkpointError("UNKNOWN_VERSION");
+  if (chunkCount !== null) checkpointError("VALIDATION_FAILED");
+  const entries = new Map();
+  const structurallyVerifiedStageKeys = [];
+  const pendingStageKeys = [];
+  let priorIndex = -1;
+
+  const verifyEntry = (entry) => {
+    if (!exactKeys(entry, CHECKPOINT_KEYS)) checkpointError("VALIDATION_FAILED");
+    const stage = checkpointStage(entry.stageKey);
+    if (!stage) checkpointError("UNKNOWN_VERSION");
+    const selectedRoute = stage.key === "redact" || stage.key === "count" ? "common" : route;
+    const index = stageIndex(stage);
+    if (index === null || entry.stageIndex !== index || entry.route !== selectedRoute || entry.stageType !== stage.type ||
+        entry.checkpointVersion !== CHECKPOINT_CONTRACT_VERSIONS.checkpoint || entry.status !== "valid" ||
+        !Number.isSafeInteger(entry.attempts) || entry.attempts < 1 || !validUtcInstant(entry.completedAt))
+      checkpointError("VALIDATION_FAILED");
+    if (!route || route === "undecided") checkpointError("UNKNOWN_VERSION");
+    if (entries.has(entry.stageKey) || index <= priorIndex) checkpointError("CHECKPOINT_CONFLICT");
+    const dependencies = checkpointDependencies(entry.stageKey, entries);
+    const rendererVersion = entry.stageKey === "render" || entry.stageKey === "store"
+      ? run.rendererVersion : null;
+    if ((entry.stageKey === "render" || entry.stageKey === "store") &&
+        (typeof rendererVersion !== "string" || !rendererVersion || entry.payload?.rendererVersion !== undefined && entry.payload.rendererVersion !== rendererVersion))
+      checkpointError("DIGEST_MISMATCH");
+    const projection = {
+      version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig,
+      stageKey: entry.stageKey,
+      modelConfig: run.modelConfig,
+      evidenceKeyId: run.modelConfig.evidenceKeyId,
+      rendererVersion,
+    };
+    const expectedInput = stageInputDigestV1({
+      stageKey: entry.stageKey,
+      stageIndex: index,
+      route: selectedRoute,
+      snapshotDigest: run.snapshotDigest,
+      sourceRevision: run.sourceRevision,
+      contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+      stageConfigDigest: stageConfigDigest(projection),
+      orderedDependencyOutputDigests: dependencies.map(({ outputDigest }) => outputDigest),
+      chunkMembershipDigest: null,
+    });
+    if (entry.inputDigest !== expectedInput) checkpointError("DIGEST_MISMATCH");
+    let expectedOutput;
+    try { expectedOutput = sha256(entry.payload); } catch { checkpointError("DIGEST_MISMATCH"); }
+    if (entry.outputDigest !== expectedOutput) checkpointError("DIGEST_MISMATCH");
+    const payloadIsSafe = safeCheckpointPayload(stage, entry.payload, run.modelConfig);
+    if (["redact", "count", "render", "store"].includes(stage.type) && !payloadIsSafe)
+      checkpointError("VALIDATION_FAILED");
+    const ancestorsStructurallyVerified = dependencies.every((dependency) => dependency.structurallyVerified);
+    const structurallyVerified = payloadIsSafe && ancestorsStructurallyVerified;
+    if (structurallyVerified) structurallyVerifiedStageKeys.push(entry.stageKey);
+    else {
+      pendingStageKeys.push(entry.stageKey);
+    }
+    entries.set(entry.stageKey, { ...entry, structurallyVerified });
+    priorIndex = index;
+  };
+
+  if (route === "undecided" && checkpoints.entries.length > 0) checkpointError("UNKNOWN_VERSION");
+  for (const entry of checkpoints.entries) verifyEntry(entry);
+
+  if (!candidate || !exactKeys(candidate, CHECKPOINT_KEYS)) checkpointError("VALIDATION_FAILED");
+  const candidateStage = checkpointStage(candidate.stageKey);
+  if (!candidateStage) checkpointError("UNKNOWN_VERSION");
+  const existing = entries.get(candidate.stageKey);
+  if (existing) {
+    const { structurallyVerified: _structurallyVerified, ...storedCheckpoint } = existing;
+    if (canonicalizeJson(storedCheckpoint) !== canonicalizeJson(candidate)) checkpointError("CHECKPOINT_CONFLICT");
+    return incompleteGraphResult(
+      structurallyVerifiedStageKeys,
+      [
+        ...pendingStageKeys,
+        ...expectedStageKeys().filter((stageKey) => !entries.has(stageKey)),
+        ...(structurallyVerifiedStageKeys.includes(candidate.stageKey) ? [] : [candidate.stageKey]),
+      ],
+    );
+  }
+  if (expectedStateVersion !== run.stateVersion) checkpointError("STATE_VERSION_CONFLICT");
+  if (route === "undecided") {
+    if (candidate.stageKey !== "redact" || entries.size) checkpointError("UNKNOWN_VERSION");
+    route = "direct";
+  }
+  const expectedKeys = expectedStageKeys();
+  if (!expectedKeys || candidate.stageKey !== expectedKeys[entries.size]) checkpointError("VALIDATION_FAILED");
+  // Direct/map/reduce/validate payloads are digest-bound but never represented as validated evidence.
+  verifyEntry(candidate);
+  const allKeys = expectedStageKeys();
+  pendingStageKeys.push(...allKeys.filter((key) => !entries.has(key)));
+  return incompleteGraphResult(structurallyVerifiedStageKeys, pendingStageKeys);
+}
+
 module.exports = {
   CHECKPOINT_CONTRACT_VERSIONS,
   deriveChunkMembership,
   deriveEvidenceRef,
   stageConfigDigest,
   stageInputDigestV1,
+  verifyCheckpointGraphV1,
   verifyChunkMembership,
 };

@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { measureDispatchFailureRequestBody } = require("../../../src/api/survey-report-generation/services/dispatch-failure-request");
 const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration, validateWorkerClaimCommand } = require("../../../src/api/survey-report-generation/services/lifecycle");
-const { CHECKPOINT_CONTRACT_VERSIONS, deriveChunkMembership, deriveEvidenceRef, stageConfigDigest, stageInputDigestV1, verifyChunkMembership } = require("../../../src/api/survey-report-generation/services/checkpoint-contract");
+const { CHECKPOINT_CONTRACT_VERSIONS, deriveChunkMembership, deriveEvidenceRef, stageConfigDigest, stageInputDigestV1, verifyCheckpointGraphV1, verifyChunkMembership } = require("../../../src/api/survey-report-generation/services/checkpoint-contract");
 const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000001";
 const TASK_NAME = "tb113-report-00000000000040008000000000000001";
 function canonicalize(value) {
@@ -252,7 +252,13 @@ test("worker checkpoint writes fail closed until CMS can verify checkpoint bindi
     },
   };
   const value = store(initial);
-  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction });
+  let transactionCalls = 0;
+  const lifecycle = createGenerationLifecycle({
+    withTransaction(operation) {
+      transactionCalls += 1;
+      return value.withTransaction(operation);
+    },
+  });
   const payload = { kind: "redact", recordCount: 0, redactionVersion: "redaction.v1" };
   const command = {
     contractVersion: "survey-worker-cms.v1",
@@ -275,6 +281,7 @@ test("worker checkpoint writes fail closed until CMS can verify checkpoint bindi
   await assert.rejects(lifecycle.writeWorkerCheckpoint({ reportRunId: runId, stageKey: "redact", command }), {
     code: "UNKNOWN_VERSION",
   });
+  assert.equal(transactionCalls, 0);
   assert.deepEqual(value.generation(runId), initial);
 });
 
@@ -329,6 +336,372 @@ test("CMS rejects altered membership, version/config bindings, and invalid Unico
     sourceRevision: "test-source", contractVersions: { ...CHECKPOINT_CONTRACT_VERSIONS, unknown: "bad" },
     stageConfigDigest: "d".repeat(64), orderedDependencyOutputDigests: [], chunkMembershipDigest: membership.membershipDigest,
   }));
+});
+
+test("checkpoint graph verifier binds safe stage digests and leaves semantic outputs incomplete", () => {
+  const run = {
+    reportRunId: REPORT_RUN_ID,
+    status: "running",
+    stateVersion: 4,
+    snapshotDigest: "a".repeat(64),
+    sourceRevision: "test-source",
+    modelConfig: syntheticModelConfig("test-only-2026-01"),
+    rendererVersion: "renderer.test.v1",
+  };
+  const checkpoints = {
+    version: "survey-checkpoints.v1",
+    snapshotDigest: run.snapshotDigest,
+    route: "direct",
+    chunkCount: null,
+    entries: [],
+  };
+  const payload = { kind: "redact", recordCount: 3, redactionVersion: "redaction.v1" };
+  const projection = {
+    version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig,
+    stageKey: "redact",
+    modelConfig: run.modelConfig,
+    evidenceKeyId: run.modelConfig.evidenceKeyId,
+    rendererVersion: null,
+  };
+  const configDigest = stageConfigDigest(projection);
+  const inputDigest = stageInputDigestV1({
+    stageKey: "redact",
+    stageIndex: 0,
+    route: "common",
+    snapshotDigest: run.snapshotDigest,
+    sourceRevision: run.sourceRevision,
+    contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+    stageConfigDigest: configDigest,
+    orderedDependencyOutputDigests: [],
+    chunkMembershipDigest: null,
+  });
+  const outputDigest = require("node:crypto").createHash("sha256")
+    .update(canonicalize(payload), "utf8").digest("hex");
+  const candidate = {
+    checkpointVersion: "survey-checkpoint.v1",
+    stageKey: "redact",
+    stageIndex: 0,
+    route: "common",
+    stageType: "redact",
+    status: "valid",
+    inputDigest,
+    outputDigest,
+    attempts: 1,
+    completedAt: "2026-09-25T12:00:00.000Z",
+    payload,
+  };
+
+  const result = verifyCheckpointGraphV1({ run, checkpoints, candidate, expectedStateVersion: 4 });
+  assert.equal(result.status, "incomplete");
+  assert.equal(result.reason, "SEMANTIC_VALIDATION_REQUIRED");
+  assert.equal(Object.hasOwn(result, "checkpoints"), false);
+  assert.deepEqual(result.structurallyVerifiedStageKeys, ["redact"]);
+  assert.deepEqual(result.pendingStageKeys, ["count", "direct", "validate", "render", "store"]);
+  assert.deepEqual(checkpoints.entries, []);
+
+  const countPayload = {
+    kind: "count",
+    segmentTokens: { instructions: 1, schema: 2, metrics: 3, comments: 4, reservedOutput: 5, headroom: 6 },
+    totalTokens: 21,
+  };
+  const countProjection = { ...projection, stageKey: "count" };
+  const countInputDigest = stageInputDigestV1({
+    stageKey: "count", stageIndex: 1, route: "common", snapshotDigest: run.snapshotDigest,
+    sourceRevision: run.sourceRevision, contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+    stageConfigDigest: stageConfigDigest(countProjection),
+    orderedDependencyOutputDigests: [candidate.outputDigest], chunkMembershipDigest: null,
+  });
+  const countCandidate = {
+    ...candidate,
+    stageKey: "count", stageIndex: 1, stageType: "count", inputDigest: countInputDigest,
+    outputDigest: require("node:crypto").createHash("sha256")
+      .update(canonicalize(countPayload), "utf8").digest("hex"),
+    payload: countPayload,
+  };
+  const countResult = verifyCheckpointGraphV1({
+    run: { ...run, stateVersion: 5 },
+    checkpoints: { ...checkpoints, route: "direct", entries: [candidate] },
+    candidate: countCandidate,
+    expectedStateVersion: 5,
+  });
+  assert.deepEqual(countResult.structurallyVerifiedStageKeys, ["redact", "count"]);
+  assert.equal(Object.hasOwn(countResult, "checkpoints"), false);
+
+  const directPayload = { kind: "direct", validatedOutput: { arbitrary: "not independently validated" } };
+  const directProjection = { ...projection, stageKey: "direct" };
+  const directCandidate = {
+    ...countCandidate,
+    stageKey: "direct", stageIndex: 2, route: "direct", stageType: "direct",
+    inputDigest: stageInputDigestV1({
+      stageKey: "direct", stageIndex: 2, route: "direct", snapshotDigest: run.snapshotDigest,
+      sourceRevision: run.sourceRevision, contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+      stageConfigDigest: stageConfigDigest(directProjection),
+      orderedDependencyOutputDigests: [countCandidate.outputDigest], chunkMembershipDigest: null,
+    }),
+    outputDigest: require("node:crypto").createHash("sha256")
+      .update(canonicalize(directPayload), "utf8").digest("hex"),
+    payload: directPayload,
+  };
+  const directResult = verifyCheckpointGraphV1({
+    run: { ...run, stateVersion: 6 },
+    checkpoints: { ...checkpoints, route: "direct", entries: [candidate, countCandidate] },
+    candidate: directCandidate,
+    expectedStateVersion: 6,
+  });
+  assert.equal(directResult.status, "incomplete");
+  assert.equal(directResult.reason, "SEMANTIC_VALIDATION_REQUIRED");
+  assert.deepEqual(Object.keys(directResult).sort(), [
+    "pendingStageKeys", "reason", "status", "structurallyVerifiedStageKeys",
+  ]);
+  assert.equal(Object.hasOwn(directResult, "checkpoints"), false);
+  assert.equal(Object.hasOwn(directResult, "entries"), false);
+  assert.equal(JSON.stringify(directResult).includes('"status":"valid"'), false);
+  assert.deepEqual(directResult.structurallyVerifiedStageKeys, ["redact", "count"]);
+  assert.ok(directResult.pendingStageKeys.includes("direct"));
+
+  const directHistory = {
+    ...checkpoints,
+    route: "direct",
+    entries: [candidate, countCandidate, directCandidate],
+  };
+  const directReplay = verifyCheckpointGraphV1({
+    run: { ...run, stateVersion: 7 },
+    checkpoints: directHistory,
+    candidate: directCandidate,
+    expectedStateVersion: 7,
+  });
+  assert.equal(directReplay.status, "incomplete");
+  assert.equal(directReplay.reason, "SEMANTIC_VALIDATION_REQUIRED");
+  assert.deepEqual(Object.keys(directReplay).sort(), [
+    "pendingStageKeys", "reason", "status", "structurallyVerifiedStageKeys",
+  ]);
+  assert.equal(Object.hasOwn(directReplay, "checkpoints"), false);
+  assert.equal(Object.hasOwn(directReplay, "entries"), false);
+  assert.equal(JSON.stringify(directReplay).includes('"status":"valid"'), false);
+
+  const replay = verifyCheckpointGraphV1({
+    run,
+    checkpoints: { ...checkpoints, route: "direct", entries: [candidate] },
+    candidate,
+    expectedStateVersion: 4,
+  });
+  assert.equal(replay.status, "incomplete");
+  assert.equal(replay.reason, "SEMANTIC_VALIDATION_REQUIRED");
+  assert.equal(Object.hasOwn(replay, "checkpoints"), false);
+  assert.equal(JSON.stringify(replay).includes('"status":"valid"'), false);
+
+  assert.throws(() => verifyCheckpointGraphV1({
+    run,
+    checkpoints: { ...checkpoints, entries: [{ ...candidate, completedAt: "2026-09-25T12:00:01.000Z" }] },
+    candidate,
+    expectedStateVersion: 4,
+  }), { code: "CHECKPOINT_CONFLICT" });
+  assert.throws(() => verifyCheckpointGraphV1({
+    run: { ...run, snapshotDigest: "c".repeat(64) },
+    checkpoints: { ...checkpoints, entries: [candidate] },
+    candidate,
+    expectedStateVersion: 4,
+  }), { code: "DIGEST_MISMATCH" });
+  assert.throws(() => verifyCheckpointGraphV1({
+    run: { ...run, modelConfig: { ...run.modelConfig, promptVersion: "changed-prompt.v1" } },
+    checkpoints: { ...checkpoints, entries: [candidate] },
+    candidate,
+    expectedStateVersion: 4,
+  }), { code: "DIGEST_MISMATCH" });
+  assert.throws(() => verifyCheckpointGraphV1({
+    run,
+    checkpoints,
+    candidate,
+    expectedStateVersion: 3,
+  }), { code: "STATE_VERSION_CONFLICT" });
+  assert.throws(() => verifyCheckpointGraphV1({
+    run,
+    checkpoints: { ...checkpoints, route: "map-reduce" },
+    candidate,
+    expectedStateVersion: 4,
+  }), { code: "UNKNOWN_VERSION" });
+});
+
+test("checkpoint graph verifier enforces the full direct dependency chain and private store shape", () => {
+  const run = {
+    reportRunId: REPORT_RUN_ID,
+    status: "running",
+    stateVersion: 1,
+    snapshotDigest: "a".repeat(64),
+    sourceRevision: "test-source",
+    modelConfig: syntheticModelConfig("test-only-2026-01"),
+    rendererVersion: "renderer.test.v1",
+  };
+  let checkpoints = {
+    version: "survey-checkpoints.v1", snapshotDigest: run.snapshotDigest,
+    route: "undecided", chunkCount: null, entries: [],
+  };
+  const outputs = [
+    { stageKey: "redact", stageIndex: 0, route: "common", stageType: "redact", payload: { kind: "redact", recordCount: 1, redactionVersion: run.modelConfig.redactionVersion } },
+    { stageKey: "count", stageIndex: 1, route: "common", stageType: "count", payload: { kind: "count", segmentTokens: { instructions: 1, schema: 1, metrics: 1, comments: 1, reservedOutput: 1, headroom: 1 }, totalTokens: 6 } },
+    { stageKey: "direct", stageIndex: 2, route: "direct", stageType: "direct", payload: { kind: "direct", validatedOutput: { unchecked: true } } },
+    { stageKey: "validate", stageIndex: 3, route: "direct", stageType: "validate", payload: { kind: "validate", publishedAnalysis: { unchecked: true }, validatorVersion: "validator.v1" } },
+    { stageKey: "render", stageIndex: 4, route: "direct", stageType: "render", payload: { kind: "render", rendererVersion: run.rendererVersion, pdfSha256: "b".repeat(64), size: 12 } },
+  ];
+  let stateVersion = run.stateVersion;
+  for (const { stageKey, stageIndex, route, stageType, payload } of outputs) {
+    const rendererVersion = stageKey === "render" ? run.rendererVersion : null;
+    const dependencies = checkpoints.entries.length ? [checkpoints.entries.at(-1).outputDigest] : [];
+    const inputDigest = stageInputDigestV1({
+      stageKey, stageIndex, route, snapshotDigest: run.snapshotDigest,
+      sourceRevision: run.sourceRevision, contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+      stageConfigDigest: stageConfigDigest({
+        version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig, stageKey,
+        modelConfig: run.modelConfig, evidenceKeyId: run.modelConfig.evidenceKeyId,
+        rendererVersion,
+      }),
+      orderedDependencyOutputDigests: dependencies, chunkMembershipDigest: null,
+    });
+    const candidate = {
+      checkpointVersion: CHECKPOINT_CONTRACT_VERSIONS.checkpoint,
+      stageKey, stageIndex, route, stageType, status: "valid", inputDigest,
+      outputDigest: require("node:crypto").createHash("sha256")
+        .update(canonicalize(payload), "utf8").digest("hex"),
+      attempts: 1, completedAt: "2026-09-25T12:00:00.000Z", payload,
+    };
+    const result = verifyCheckpointGraphV1({
+      run: { ...run, stateVersion }, checkpoints, candidate,
+      expectedStateVersion: stateVersion,
+    });
+    assert.equal(result.status, "incomplete");
+    assert.equal(Object.hasOwn(result, "checkpoints"), false);
+    checkpoints = {
+      ...checkpoints,
+      route: "direct",
+      entries: [...checkpoints.entries, candidate],
+    };
+    stateVersion += 1;
+  }
+
+  const storePayload = {
+    kind: "store", objectKey: "private/feedback-reports/run-1/report.pdf",
+    artifactSha256: "c".repeat(64), size: 12, mimeType: "application/pdf",
+  };
+  const storeInputDigest = stageInputDigestV1({
+    stageKey: "store", stageIndex: 5, route: "direct", snapshotDigest: run.snapshotDigest,
+    sourceRevision: run.sourceRevision, contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+    stageConfigDigest: stageConfigDigest({
+      version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig, stageKey: "store",
+      modelConfig: run.modelConfig, evidenceKeyId: run.modelConfig.evidenceKeyId,
+      rendererVersion: run.rendererVersion,
+    }),
+    orderedDependencyOutputDigests: [checkpoints.entries.at(-1).outputDigest],
+    chunkMembershipDigest: null,
+  });
+  const storeCandidate = {
+    checkpointVersion: CHECKPOINT_CONTRACT_VERSIONS.checkpoint,
+    stageKey: "store", stageIndex: 5, route: "direct", stageType: "store",
+    status: "valid", inputDigest: storeInputDigest,
+    outputDigest: require("node:crypto").createHash("sha256")
+      .update(canonicalize(storePayload), "utf8").digest("hex"),
+    attempts: 1, completedAt: "2026-09-25T12:00:00.000Z", payload: storePayload,
+  };
+  const completeGraph = verifyCheckpointGraphV1({
+    run: { ...run, stateVersion }, checkpoints, candidate: storeCandidate,
+    expectedStateVersion: stateVersion,
+  });
+  assert.equal(completeGraph.status, "incomplete");
+  assert.equal(completeGraph.reason, "SEMANTIC_VALIDATION_REQUIRED");
+  assert.equal(Object.hasOwn(completeGraph, "checkpoints"), false);
+  assert.ok(completeGraph.pendingStageKeys.includes("direct"));
+  assert.ok(completeGraph.pendingStageKeys.includes("store"));
+  assert.deepEqual(completeGraph.structurallyVerifiedStageKeys, ["redact", "count"]);
+  assert.throws(() => verifyCheckpointGraphV1({
+    run: { ...run, stateVersion }, checkpoints,
+    candidate: {
+      ...storeCandidate,
+      outputDigest: require("node:crypto").createHash("sha256")
+        .update(canonicalize({ ...storePayload, objectKey: "https://public.invalid/report.pdf" }), "utf8").digest("hex"),
+      payload: { ...storePayload, objectKey: "https://public.invalid/report.pdf" },
+    },
+    expectedStateVersion: stateVersion,
+  }), { code: "VALIDATION_FAILED" });
+});
+
+test("checkpoint graph verifier sanitizes replay of persisted Validate history", () => {
+  const run = {
+    reportRunId: REPORT_RUN_ID,
+    status: "running",
+    stateVersion: 9,
+    snapshotDigest: "a".repeat(64),
+    sourceRevision: "test-source",
+    modelConfig: syntheticModelConfig("test-only-2026-01"),
+    rendererVersion: "renderer.test.v1",
+  };
+  const payloads = [
+    { stageKey: "redact", stageIndex: 0, route: "common", stageType: "redact", payload: { kind: "redact", recordCount: 1, redactionVersion: run.modelConfig.redactionVersion } },
+    { stageKey: "count", stageIndex: 1, route: "common", stageType: "count", payload: { kind: "count", segmentTokens: { instructions: 1, schema: 1, metrics: 1, comments: 1, reservedOutput: 1, headroom: 1 }, totalTokens: 6 } },
+    { stageKey: "direct", stageIndex: 2, route: "direct", stageType: "direct", payload: { kind: "direct", validatedOutput: { semanticMarker: "unverified-direct" } } },
+    { stageKey: "validate", stageIndex: 3, route: "direct", stageType: "validate", payload: { kind: "validate", publishedAnalysis: { semanticMarker: "unverified-validate" }, validatorVersion: "validator.v1" } },
+  ];
+  const entries = [];
+  for (const { stageKey, stageIndex, route, stageType, payload } of payloads) {
+    const inputDigest = stageInputDigestV1({
+      stageKey,
+      stageIndex,
+      route,
+      snapshotDigest: run.snapshotDigest,
+      sourceRevision: run.sourceRevision,
+      contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+      stageConfigDigest: stageConfigDigest({
+        version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig,
+        stageKey,
+        modelConfig: run.modelConfig,
+        evidenceKeyId: run.modelConfig.evidenceKeyId,
+        rendererVersion: null,
+      }),
+      orderedDependencyOutputDigests: entries.length ? [entries.at(-1).outputDigest] : [],
+      chunkMembershipDigest: null,
+    });
+    entries.push({
+      checkpointVersion: CHECKPOINT_CONTRACT_VERSIONS.checkpoint,
+      stageKey,
+      stageIndex,
+      route,
+      stageType,
+      status: "valid",
+      inputDigest,
+      outputDigest: require("node:crypto").createHash("sha256")
+        .update(canonicalize(payload), "utf8").digest("hex"),
+      attempts: 1,
+      completedAt: "2026-09-25T12:00:00.000Z",
+      payload,
+    });
+  }
+  const checkpoints = {
+    version: "survey-checkpoints.v1",
+    snapshotDigest: run.snapshotDigest,
+    route: "direct",
+    chunkCount: null,
+    entries,
+  };
+  const validateCandidate = entries[3];
+
+  assert.deepEqual(entries.map(({ stageKey }) => stageKey), ["redact", "count", "direct", "validate"]);
+  assert.equal(entries[2].status, "valid");
+  assert.equal(entries[3].status, "valid");
+  const replay = verifyCheckpointGraphV1({
+    run,
+    checkpoints,
+    candidate: validateCandidate,
+    expectedStateVersion: run.stateVersion,
+  });
+
+  assert.deepEqual(Object.keys(replay).sort(), [
+    "pendingStageKeys", "reason", "status", "structurallyVerifiedStageKeys",
+  ]);
+  assert.equal(replay.status, "incomplete");
+  assert.equal(replay.reason, "SEMANTIC_VALIDATION_REQUIRED");
+  assert.deepEqual(replay.structurallyVerifiedStageKeys, ["redact", "count"]);
+  assert.deepEqual(replay.pendingStageKeys, ["direct", "validate", "render", "store"]);
+  assert.equal(JSON.stringify(replay).includes('"status":"valid"'), false);
+  assert.equal(JSON.stringify(replay).includes("unverified-direct"), false);
+  assert.equal(JSON.stringify(replay).includes("unverified-validate"), false);
 });
 
 test("dispatch compensation replays identically and rejects altered, claimed, or stale generations", async () => {
