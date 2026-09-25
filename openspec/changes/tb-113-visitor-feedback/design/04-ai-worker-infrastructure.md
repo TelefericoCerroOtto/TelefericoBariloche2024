@@ -23,18 +23,20 @@ Headroom=`max(2048,ceil(limit*10/100))`; `available=limit-instructions-schema-me
 
 Evidence ref=`e_` plus the first 20 lowercase base32 characters of `HMAC-SHA256(evidenceSecret,canonicalRunId+":"+canonicalRecordId)`; `evidenceSecret` is at least 32 bytes, `canonicalRunId` is a lowercase UUID, and record IDs match `^[a-z0-9][a-z0-9._-]{0,63}$`. The nonsecret `evidenceKeyId` is immutable in each run's `modelConfigJson` and selects a future provisioned runtime key; the key itself is injected only, never persisted or logged. The in-memory ref-to-comment map remains worker-only. Both worker and CMS derive the same ref and membership from the canonical snapshot plus the injected key. Order complete snapshot comment records by `period`, `acceptedAt` instant, then `recordId`, using code-point order; for `n` chunks, assign each record in that order to the lowest accumulated weight, where weight is the UTF-8 byte length of `tb-json.v1` canonical JSON for the complete original `CommentRecordV1` (tie: lowest one-based chunk index). Do not normalize Unicode; unpaired surrogates reject. Every comment is assigned once; duplicate record IDs reject. `chunkMembershipDigest=SHA-256(tb-json.v1({version:"survey-chunk-membership.v1",evidenceKeyId,reportRunId,snapshotDigest,chunkIndex,chunkCount,records:[{recordId,evidenceRef,weightBytes}]}))`. The preimage and ref map are transient; persisted payloads contain only ordered `coveredRefs`, key ID, and digest, never comment text, record IDs, or key bytes. Objects reject unknown fields; refs are unique/nonempty; `coveredRefs` must exactly equal the independently derived ordered refs. Sort themes/claims/digests by key/ID/chunk; sections use union order. Supported claims require threshold-valid refs and exact metrics; insufficient sections have no claims and fixed versioned Spanish text. Publication strips IDs/refs.
 
-Model copies replace recognized versioned spans with `[EMAIL]`, `[PHONE]`, `[URL]`; originals remain unchanged. Validators reject parse/schema/version/order/language/token/ref/threshold/signal/metric/support/action/recommendation/causality/verbatim/exposed-ref/extra-section violations. Verbatim detection rejects a complete normalized comment under eight tokens or any contiguous eight-token match. Invalid output never renders.
+Model copies replace recognized versioned spans with `[EMAIL]`, `[PHONE]`, `[URL]`; originals remain unchanged. Validators reject parse/schema/version/order/language/token/ref/threshold/signal/privacy/action/recommendation/causality/verbatim/exposed-ref/extra-section violations. They do not infer semantic truth from lexical heuristics, judge whether a narrative is entailed by comment meaning, or require automated metric-grounding/contradiction checks. Official metrics are produced and displayed only from deterministic core snapshots; the model MUST NOT calculate, modify, or introduce authoritative metric values. Verbatim detection rejects a complete normalized comment under eight tokens or any contiguous eight-token match. Invalid output never renders.
 
 ### Pure MapV1 and ReduceV1 Preflight Boundary
 
-The app-side `preflightMapAnalysis` and `preflightReduceAnalysis` are structural preflights only. They return `rejected` for independently detectable violations and `incomplete` for every otherwise clean result; neither result is validated model evidence and neither function enables checkpoint writes.
+The app-side `preflightMapAnalysis` and `preflightReduceAnalysis` are structural preflights only. They return `rejected` for independently detectable schema, reference, privacy, or prohibited-content violations. Under the prospective acceptance contract, structural validity is sufficient for narrative acceptance; it is not certification of semantic truth. Existing local code may still return `incomplete` until the remaining worker/CMS behavior is implemented; that status records an implementation or authority gap, not a missing semantic-truth check. These preflights alone do not establish route/chunk authority, CMS checkpoint authority, operational readiness, or enable checkpoint writes.
 
 - Map preflight accepts only the exact `survey-map.v1` keys and canonical `map.<i>-of-<n>` chunk ID. It independently derives membership from the immutable snapshot comments, report-run ID, injected evidence key/key ID, snapshot digest, and supplied chunk count; `coveredRefs` must exactly match that derived ordered chunk list. Caller-supplied `coveredRefs` is never the authority. Themes and claims require exact object shapes, unique code-point-sorted keys/IDs, valid reference syntax and chunk-local claim refs. Prohibited claim language, exposed refs, malformed Unicode, and the normative verbatim-comment match are rejected.
-- The preflight cannot establish that the supplied chunk count is the smallest count selected by exact CountTokens over complete serialized requests. Therefore even exact derived membership is reported as incomplete until worker routing evidence and CMS-recomputed checkpoint bindings exist.
-- Reduce preflight accepts only the exact `survey-analysis.v1`/`route: "reduce"` schema, the normative section order/status shape, and unique sorted claim IDs. It rejects empty, malformed, or duplicate `mapOutputDigests` values, but does not compare them with a caller-supplied “validated” digest list: that list has no independent CMS checkpoint authority. A syntactically clean digest list remains `incomplete` behind `independently_verified_cms_map_checkpoint_output_digests`; neither digest membership nor map-index order can be claimed until CMS-verified map checkpoint evidence is supplied.
-- Both preflights reject detected prohibited/verbatim text and malformed or foreign refs but do not prove model semantics, metric grounding, contradiction/current-previous truth, or immutable per-run key selection. Clean outputs remain `incomplete`; no default key is provided and tests use synthetic key material only.
+- The preflight cannot establish that the supplied chunk count is the smallest count selected by exact CountTokens over complete serialized requests. Exact derived membership alone therefore does not authorize map checkpoint writes; authoritative worker routing evidence and CMS-recomputed checkpoint bindings remain required.
+- Reduce preflight accepts only the exact `survey-analysis.v1`/`route: "reduce"` schema, the normative section order/status shape, and unique sorted claim IDs. It rejects empty, malformed, or duplicate `mapOutputDigests` values, but does not compare them with a caller-supplied “validated” digest list: that list has no independent CMS checkpoint authority. Digest membership and map-index order require CMS-verified map checkpoint evidence before map/reduce checkpoint writes.
+- Both preflights reject detected prohibited/verbatim text and malformed or foreign refs. They do not judge narrative truth, metric grounding, contradiction, or current/previous-period truth; those are not automated acceptance gates. Immutable per-run key selection remains an independent security requirement. No default key is provided and tests use synthetic key material only.
 
-These structural MapV1/ReduceV1 preflights still do not enable map/reduce checkpoint writes. The authenticated worker `claim`, `snapshot`, `checkpoint`, `complete`, and `fail` actions require Strapi's native `content-api-token` strategy with one exact action scope per route; their controllers verify the selected strategy plus custom content-token `kind`/`type` before body access or database work. A Users & Permissions JWT remains denied even if a role receives one of these worker actions; the native generation CRUD and admin dispatch actions retain their existing JWT boundary. The local checkpoint/complete implementation accepts only the CMS-proven zero-comment direct fallback. No default grant or persistent token is added, and operational token provisioning remains separately authorized. Nonempty-comment semantic validation, immutable runtime evidence-key wiring, exact chunk routing, and map payload sizing remain activation gates.
+Clarify “exact metrics” in the supported-claim contract as a deterministic numeric-data invariant: any official metric values present in output must match the values computed and carried by the immutable core snapshot, never values generated or recomputed by the model. This does not establish that free-text claim wording is entailed by those numbers or by comment meaning, and is not an automated semantic-truth gate. Human editorial review is optional and is not a publication gate.
+
+These structural MapV1/ReduceV1 preflights alone do not enable map/reduce checkpoint writes. The authenticated worker `claim`, `snapshot`, `checkpoint`, `complete`, and `fail` actions require Strapi's native `content-api-token` strategy with one exact action scope per route; their controllers verify the selected strategy plus custom content-token `kind`/`type` before body access or database work. A Users & Permissions JWT remains denied even if a role receives one of these worker actions; the native generation CRUD and admin dispatch actions retain their existing JWT boundary. The current local checkpoint/complete implementation accepts only the CMS-proven zero-comment direct fallback; this implementation limitation does not reinstate semantic-truth review as a future acceptance gate. No default grant or persistent token is added, and operational token provisioning remains separately authorized. Immutable runtime evidence-key wiring, exact chunk routing, CMS checkpoint authority, and map payload sizing remain activation gates.
 
 ## Checkpoints and Retries
 
@@ -57,7 +59,7 @@ Checkpoints prohibit visitor comments, raw/redacted prompts, credentials, signed
 
 Identical valid-stage replay succeeds without state/attempt change; reuse of key or index with different binding is `CHECKPOINT_CONFLICT`. Resume retries the lowest missing eligible stage, preserves valid sibling maps, and blocks reduce until all maps validate. Mismatched persisted input fails `INVARIANT`; history is never overwritten. No persisted valid stage with matching bindings repeats. Transient operations get two retries after the first attempt; invalid model output gets one controlled regeneration; other failures are terminal.
 
-**Local direct-route boundary:** The synthetic worker accepts only a CMS-recomputed zero-comment direct graph. CountTokens is an explicit injected fake; the checkpoint binds its exact request digest and returned counts, and direct is selected only when instructions, schema, official metrics, output reservation, and headroom fit the versioned limit. CMS independently verifies the immutable snapshot, graph edges/digests, fixed no-claim analysis, and state-version CAS before writing checkpoints or atomically completing a report. Nonempty-comment semantics, map/reduce, real provider calls, and production readiness remain fail-closed. No runtime evidence key is provisioned; no schema, default grant, dependency, environment, or IAM change is included. The 4 KiB request limit remains unchanged.
+**Local direct-route boundary:** The current synthetic worker accepts only a CMS-recomputed zero-comment direct graph. CountTokens is an explicit injected fake; the checkpoint binds its exact request digest and returned counts, and direct is selected only when instructions, schema, official metrics, output reservation, and headroom fit the versioned limit. CMS independently verifies the immutable snapshot, graph edges/digests, fixed no-claim analysis, and state-version CAS before writing checkpoints or atomically completing a report. Nonempty-comment execution, map/reduce, real provider calls, and production readiness remain unimplemented or fail-closed; this describes current implementation, not a semantic-truth acceptance gate. No runtime evidence key is provisioned; no schema, default grant, dependency, environment, or IAM change is included. The 4 KiB request limit remains unchanged.
 
 The local worker validates the closed direct-route graph from `redact` through
 `store`, emits the normative direct indexes 0–5, and persists each checkpoint
@@ -78,10 +80,11 @@ transaction with the locked snapshot. It checks direct stage order/indexes,
 immutable snapshot/source/model bindings, exact contract versions, dependency
 and canonical payload digests, replay, and CAS. For the local zero-comment case,
 `DirectV1` must have seven ordered insufficient-evidence sections with empty
-claims; publication must match the fixed Spanish fallback. All other direct
-semantic output remains incomplete/rejected and cannot be persisted as validated.
-Map/reduce still fails closed because route/chunk selection and semantic
-validation are not implemented. Completion rechecks the entire graph and
+claims; publication must match the fixed Spanish fallback. Other direct outputs
+are not supported by the current implementation and cannot yet be persisted as
+validated; the prospective contract does not require semantic-truth judgment.
+Map/reduce still fails closed because route/chunk selection and CMS checkpoint
+authority are not implemented. Completion rechecks the entire graph and
 atomically inserts the report with the succeeded generation state. A persisted
 `status: "valid"` remains contract data, not proof by itself.
 
@@ -100,20 +103,24 @@ The worker retains a pure direct-analysis preflight. It checks the closed
 `DirectV1` shape and section order, evidence-ref syntax, uniqueness and
 membership derived from the supplied snapshot/run/key, recurrent/minority
 minimum counts, bounded scalar text, prohibited action/causal markers, and
-verbatim comment matches. General model-derived analysis remains `incomplete`;
-the only accepted local direct output is the exact zero-comment, no-claim
-fallback independently rechecked by CMS. Synthetic key material is not an
-operational source. Map/reduce and nonempty-comment semantic validation remain
-unsupported.
+verbatim comment matches. This validates structure and safety, not semantic
+truth. The current executor and CMS graph verifier still support only the exact
+zero-comment, no-claim fallback; nonempty-comment execution remains unimplemented
+and task U10 remains open. Synthetic key material is not an operational source.
+Map/reduce retains its separate unresolved routing and CMS checkpoint authority
+gates.
 
 The partial validator also rejects a `recurrent_themes` claim whose signal is
 not `recurrent`, and a `minority_signals` claim whose signal is not `minority`.
-This checks declared section/signal consistency only; it does not establish that
-claim wording is grounded in snapshot metrics or comment meaning. The contract
-does not define a machine-readable metric citation or comparison syntax, so
-numeric grounding, contradictory evidence, and current/previous comparison
-truth remain unverified and MUST keep the result `incomplete`. Do not infer
-these semantics from lexical heuristics or invent metric references.
+This checks declared section/signal consistency only. The product accepts that
+model narrative may be semantically inaccurate; automated claim-to-comment
+truth, contradiction, or comparison checks are not required, and a human
+editorial review is optional rather than a per-report gate. Do not infer truth
+from lexical heuristics or invent metric references. Any authoritative metric
+number remains sourced exclusively from the deterministic snapshot/core, never
+from a model-generated value. Structurally valid nonempty outputs are eligible
+under the prospective contract, while current local execution remains restricted
+to its implemented zero-comment route and U10/U11/U12 remain incomplete.
 
 ### Pure initial generation-input materialization
 
