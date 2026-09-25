@@ -159,6 +159,44 @@ describe("direct worker output preflight", () => {
     ).toBe("incomplete");
   });
 
+  it("rejects a signal that contradicts its recurrent or minority section", () => {
+    const recurrent = directOutput();
+    recurrent.sections[4]!.status = "supported";
+    recurrent.sections[4]!.claims = [
+      claim(refs, { signal: "descriptive" }),
+    ];
+    expect(evaluate(recurrent, snapshot)).toMatchObject({
+      status: "rejected",
+      violations: ["section_signal_mismatch"],
+    });
+
+    const minority = directOutput();
+    minority.sections[5]!.status = "supported";
+    minority.sections[5]!.claims = [claim(refs, { signal: "recurrent" })];
+    expect(evaluate(minority, snapshot)).toMatchObject({
+      status: "rejected",
+      violations: ["section_signal_mismatch"],
+    });
+  });
+
+  it("keeps numeric and period-comparison claims incomplete without semantic proof", () => {
+    const result = evaluate(
+      directOutput([
+        claim(refs, {
+          textEs: "La satisfacción pasó de 20 % a 10 % en el período actual.",
+        }),
+      ]),
+      snapshot,
+    );
+
+    expect(result.status).toBe("incomplete");
+    if (result.status !== "incomplete")
+      throw new Error("expected incomplete inspection");
+    expect(result.blockers).toContain(
+      "exact_claim_to_metric_grounding_and_contradiction_analysis",
+    );
+  });
+
   it("rejects action language and short or eight-token verbatim comment matches", () => {
     expect(
       evaluate(
