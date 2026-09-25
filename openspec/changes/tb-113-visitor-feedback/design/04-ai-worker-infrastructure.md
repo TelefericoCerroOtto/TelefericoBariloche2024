@@ -73,10 +73,24 @@ to the canonical render-payload output digest. Both stage-input digests use the
 v1 projection, contract versions, snapshot/source revision, full model config,
 renderer version, and the exact ordered dependency. Missing configuration or
 dependency data fails closed, and legacy POC digests have no fallback or reuse
-path. This remains app-side foundation only: CMS independently recomputes no
-checkpoint binding and rejects writes before transaction entry. Map/reduce
-output and claim semantics remain unsupported and fail closed; complete nested
-AI/evidence validators are still incomplete.
+path. CMS now has a separate pure `verifyCheckpointGraphV1` foundation, but it
+is not connected to the lifecycle or HTTP write path. It checks the closed
+direct-route stage order/indexes, immutable snapshot/source/model bindings,
+exact contract versions, dependency output-digest order, canonical payload
+output digests, and exact replay versus stale/conflicting history. Its closed
+payload checks cover `redact`, `count`, `render`, and `store`; render/store do
+not become verified when an upstream semantic stage is incomplete. `DirectV1`,
+`MapV1`, `ReduceV1`, and published-analysis semantics remain unsupported, so
+their outputs can only produce an `incomplete` result and are never labeled
+validated. Every incomplete result contains only an explicit reason and
+structural/pending stage-key summaries; it never returns checkpoint entries,
+candidate payloads, or a proposed next state version. A persisted
+`status: "valid"` is contract data, not proof that semantic validation passed.
+Map/reduce graph verification also fails closed because this pure API does not
+receive an independently authorized snapshot/key pair. The helper performs no
+writes, and the authenticated CMS checkpoint route still returns
+`UNKNOWN_VERSION` before transaction entry. Complete nested AI/evidence
+validation and checkpoint activation remain separate gates.
 
 The worker also has a pure direct-analysis preflight. It checks the closed
 `DirectV1` shape and section order, evidence-ref syntax, uniqueness and
