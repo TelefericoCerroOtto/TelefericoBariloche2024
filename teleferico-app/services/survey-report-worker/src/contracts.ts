@@ -51,18 +51,21 @@ export type PublishedAnalysisV1 = {
   ];
 };
 
+export type DirectAnalysisClaimV1 = {
+  readonly claimId: string;
+  readonly textEs: string;
+  readonly evidenceRefs: readonly string[];
+  readonly signal: "recurrent" | "minority" | "descriptive";
+};
+
 export type DirectAnalysisV1 = {
   readonly schemaVersion: "survey-analysis.v1";
   readonly route: "direct";
-  readonly sections: readonly [
-    { readonly key: "executive_summary"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
-    { readonly key: "observed_changes"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
-    { readonly key: "strengths"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
-    { readonly key: "unfavorable_areas"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
-    { readonly key: "recurrent_themes"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
-    { readonly key: "minority_signals"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
-    { readonly key: "coverage_limitations"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
-  ];
+  readonly sections: readonly {
+    readonly key: (typeof PUBLISHED_SECTION_KEYS)[number];
+    readonly status: "supported" | "insufficient_evidence";
+    readonly claims: readonly DirectAnalysisClaimV1[];
+  }[];
 };
 
 export type WorkerCheckpointStage = "redact" | "count" | "direct" | "validate" | "render" | "store";
@@ -281,10 +284,25 @@ export interface PdfRenderer {
   }): Promise<Uint8Array>;
 }
 
+export type DirectModelCommentV1 = {
+  readonly period: "current" | "previous";
+  readonly text: string;
+  readonly evidenceRef: string;
+};
+
+export type DirectModelRequestV1 = {
+  readonly contractVersion: "survey-model-input.v1";
+  readonly metrics: SnapshotV1["metrics"];
+  readonly comments: readonly DirectModelCommentV1[];
+};
+
 export type ValidatedAnalysisProvider = (
-  snapshot: SnapshotV1,
-  checkpoints: WorkerCheckpointSet,
+  request: DirectModelRequestV1,
 ) => Promise<DirectAnalysisV1 | PublishedAnalysisV1>;
+
+export type EvidenceKeyProvider = (
+  evidenceKeyId: string,
+) => Promise<string | Uint8Array>;
 
 export type CountTokensRequestV1 = {
   readonly contractVersion: "survey-count-request.v1";

@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { createHash } = require("node:crypto");
 const test = require("node:test");
 const { measureDispatchFailureRequestBody } = require("../../../src/api/survey-report-generation/services/dispatch-failure-request");
 const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration, validateWorkerClaimCommand, validateWorkerFailCommand } = require("../../../src/api/survey-report-generation/services/lifecycle");
@@ -1030,4 +1031,63 @@ test("dispatch-failure request size fails closed without raw bytes or bounded Co
     measureDispatchFailureRequestBody({ headers: { "content-length": "68197", "transfer-encoding": "chunked" } }),
     null,
   );
+});
+
+test("worker completion replay rejects altered analysis with the original digest", async () => {
+  const reportRunId = REPORT_RUN_ID;
+  const artifactSha256 = "a".repeat(64);
+  const artifactSize = 128;
+  const bytes = createHash("sha256").update(`tb113-report-id.v1:${reportRunId}:${artifactSha256}`).digest().subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  const reportId = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  const analysis = {
+    schemaVersion: "survey-published-analysis.v1",
+    sections: ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"]
+      .map((key) => ({ key, status: "insufficient_evidence", paragraphsEs: ["No hay comentarios elegibles para respaldar esta sección en el período analizado."] })),
+  };
+  const analysisDigest = createHash("sha256").update(canonicalize(analysis)).digest("hex");
+  const storedReport = {
+    reportId,
+    analysisDigest,
+    validatedAnalysisJson: analysis,
+    rendererVersion: "renderer.test.v1",
+    objectKey: `private/feedback-reports/${reportId}/report.pdf`,
+    artifactSha256,
+    artifactSize,
+  };
+  const generation = { reportRunId, status: "succeeded", stateVersion: 8 };
+  let writes = 0;
+  const lifecycle = createGenerationLifecycle({
+    withTransaction: async (operation) => operation({
+      async lockWorkerExecution() { return generation; },
+      async findReportForGeneration() { return storedReport; },
+      async updateGeneration() { writes += 1; },
+    }),
+  });
+  const command = {
+    contractVersion: "survey-worker-cms.v1",
+    expectedStateVersion: 7,
+    validatedAnalysis: analysis,
+    analysisDigest,
+    rendererVersion: "renderer.test.v1",
+    artifact: { objectKey: storedReport.objectKey, sha256: artifactSha256, size: artifactSize, mimeType: "application/pdf" },
+  };
+
+  const replay = await lifecycle.completeWorker({ reportRunId, command });
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.stateVersion, generation.stateVersion);
+  assert.equal(writes, 0);
+  const alteredAnalysis = {
+    ...analysis,
+    sections: analysis.sections.map((section, index) => index === 0
+      ? { ...section, status: "supported", paragraphsEs: ["Altered replay narrative."] }
+      : section),
+  };
+  await assert.rejects(
+    lifecycle.completeWorker({ reportRunId, command: { ...command, validatedAnalysis: alteredAnalysis } }),
+    { code: "TERMINAL_CONFLICT" },
+  );
+  assert.equal(writes, 0);
 });
