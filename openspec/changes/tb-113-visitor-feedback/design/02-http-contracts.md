@@ -168,11 +168,15 @@ The current worker checkpoint POC is deliberately narrower than the normative
 stage graph: it emits only direct-route `render`/`store` checkpoints at indexes
 4/5, validates their exact metadata and payload shapes, output digests, and
 private staged-object identity, and rejects a prior same-stage input-digest
-mismatch before reuse. Its existing stage-input digest is still the legacy POC
-projection; the worker claim does not yet supply immutable model configuration
-or validated `validate` output needed to reproduce the v1 graph. The worker
-therefore rejects map/reduce claims and does not assert v1 input-digest
-conformance. CMS checkpoint writes remain `UNKNOWN_VERSION` before transaction
+mismatch before reuse. The app claim DTO now includes the CMS running projection's
+immutable model configuration and pricing snapshot. The worker derives v1
+stage-input digests for render from its validated validate-payload digest and
+for store from the render-payload digest, with the exact ordered dependency,
+full model configuration, contract versions, snapshot digest, and source
+revision. Missing configuration/dependency inputs fail closed; there is no
+legacy-digest fallback. This binds only the app-side direct render/store
+boundary: map/reduce and complete nested output/evidence validation remain
+unsupported. CMS checkpoint writes remain `UNKNOWN_VERSION` before transaction
 entry; no checkpoint is accepted or persisted.
 
 Cloud Tasks, Cloud Run/OIDC, Vertex, GCS, production worker-image readiness,

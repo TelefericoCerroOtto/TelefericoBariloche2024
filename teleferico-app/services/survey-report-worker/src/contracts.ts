@@ -88,6 +88,48 @@ export type WorkerCheckpointSet = {
   readonly entries: readonly WorkerCheckpoint[];
 };
 
+export type ModelConfigV1 = {
+  readonly version: "survey-model-config.v1";
+  readonly evidenceKeyId: string;
+  readonly provider: "vertex-ai";
+  readonly vertexProjectId: "teleferico-bariloche-2024";
+  readonly vertexLocation: "us";
+  readonly vertexApiEndpoint: "aiplatform.us.rep.googleapis.com";
+  readonly model: "gemini-3.8-flash";
+  readonly temperature: 0;
+  readonly reasoning: "LOW";
+  readonly grounding: false;
+  readonly promptVersion: string;
+  readonly mapSchemaVersion: "survey-map.v1";
+  readonly analysisSchemaVersion: "survey-analysis.v1";
+  readonly redactionVersion: string;
+  readonly validatorVersion: string;
+  readonly chunkVersion: string;
+  readonly verifiedInputTokenLimit: number;
+  readonly map: {
+    readonly targetMin: 600;
+    readonly targetMax: 1200;
+    readonly hardMax: 4000;
+  };
+  readonly directReduce: {
+    readonly targetMin: 1800;
+    readonly targetMax: 3000;
+    readonly hardMax: 8000;
+  };
+  readonly safetyHeadroomTokens: number;
+  readonly sourceRevision: string;
+};
+
+export type PricingSnapshotV1 = {
+  readonly version: string;
+  readonly currency: "USD";
+  readonly units: readonly {
+    readonly sku: string;
+    readonly inputMicrosPerMillion: number;
+    readonly outputMicrosPerMillion: number;
+  }[];
+};
+
 export type WorkerClaimResult =
   | {
       readonly contractVersion: typeof WORKER_CMS_CONTRACT_VERSION;
@@ -96,6 +138,8 @@ export type WorkerClaimResult =
       readonly status: "running";
       readonly disposition: "claimed" | "resumed";
       readonly checkpoints: WorkerCheckpointSet;
+      readonly modelConfig: unknown;
+      readonly pricingSnapshot: unknown;
     }
   | {
       readonly contractVersion: typeof WORKER_CMS_CONTRACT_VERSION;

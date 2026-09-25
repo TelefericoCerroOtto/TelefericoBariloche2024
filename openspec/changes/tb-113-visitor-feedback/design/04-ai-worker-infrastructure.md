@@ -48,13 +48,24 @@ Identical valid-stage replay succeeds without state/attempt change; reuse of key
 
 **Foundation implementation gate:** App/CMS pure derivation and synthetic cross-runtime vectors are local foundations only. The authenticated CMS checkpoint route remains fail-closed with `UNKNOWN_VERSION` before transaction entry; no checkpoint write is accepted. No real verifier key is provisioned, no key ID is populated in generation rows, and no schema/auth/grant/dependency/IAM change is included. Before activation, wire an explicitly authorized runtime key provider by immutable per-run `evidenceKeyId`, validate complete nested output/evidence/privacy constraints, recompute all stage digests and dependencies inside CMS CAS, align app stage keys/indexes/payloads, and resolve the unchanged 4 KiB HTTP cap against validated map payload sizes. Byte weighting never substitutes for CountTokens or all-comment evidence validation.
 
-The local worker POC now validates only closed direct-route `render` and `store`
+The local worker POC validates only closed direct-route `render` and `store`
 metadata/payloads and their canonical output digests, and emits the normative
-direct indexes 4 and 5. This does not satisfy the stage-input binding gate: the
-worker claim still lacks the immutable model configuration and validated
-`validate` output needed to derive the complete v1 graph. Map/reduce output and
-claim semantics remain unsupported and fail closed; no nested AI output or
-evidence claim is accepted by this partial worker path.
+direct indexes 4 and 5. The app claim DTO now matches the CMS running response's
+`modelConfig` and `pricingSnapshot` fields. Before snapshot/provider work, the
+worker validates the closed model configuration, including the pinned
+`gemini-3.8-flash` model and topology/settings, and validates the exact
+`PricingSnapshotV1` shape, USD currency, unique SKUs, and finite nonnegative
+safe-integer prices. This POC does not yet use pricing values for cost
+accounting. It then binds render to the
+canonical output digest of the locally validated `validate` payload and store
+to the canonical render-payload output digest. Both stage-input digests use the
+v1 projection, contract versions, snapshot/source revision, full model config,
+renderer version, and the exact ordered dependency. Missing configuration or
+dependency data fails closed, and legacy POC digests have no fallback or reuse
+path. This remains app-side foundation only: CMS independently recomputes no
+checkpoint binding and rejects writes before transaction entry. Map/reduce
+output and claim semantics remain unsupported and fail closed; complete nested
+AI/evidence validators are still incomplete.
 
 The worker also has a pure direct-analysis preflight. It checks the closed
 `DirectV1` shape and section order, evidence-ref syntax, uniqueness and
