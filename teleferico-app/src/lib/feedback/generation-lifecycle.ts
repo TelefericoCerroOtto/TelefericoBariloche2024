@@ -4,6 +4,10 @@ import type {
   FeedbackAdminGenerateCommand,
   FeedbackAdminOverlapDetails,
 } from "@/types/api/admin/feedback";
+import {
+  validateMaterializedGenerationInputsV1,
+  type MaterializedGenerationInputsV1,
+} from "../../../services/survey-report-worker/src/generation-inputs";
 type Status = "queued" | "running" | "succeeded" | "failed";
 type RecordValue = Record<string, unknown>;
 export type GenerationLifecycleRow = {
@@ -85,24 +89,36 @@ export function buildOverlapDetails(
 export function buildGenerationData(
   command: FeedbackAdminGenerateCommand,
   now: Date,
+  materializedInputs: MaterializedGenerationInputsV1,
   createReportRunId: () => string = randomUUID,
   source?: GenerationLifecycleRow,
 ): RecordValue {
+  if (!materializedInputs)
+    throw new GenerationLifecycleError("GENERATION_INPUTS_REQUIRED");
+  const inputs = validateMaterializedGenerationInputsV1(materializedInputs);
   const period = source?.period ?? command.period;
+  const dataCutoffAt = captureDataCutoff(now);
+  const snapshotPopulation = inputs.snapshotJson.population;
+  if (
+    snapshotPopulation.current.from !== period.from ||
+    snapshotPopulation.current.to !== period.to ||
+    snapshotPopulation.dataCutoffAt !== dataCutoffAt
+  )
+    throw new GenerationLifecycleError("GENERATION_INPUTS_CONTEXT_MISMATCH");
   return {
     reportRunId: createReportRunId(),
     periodStart: period.from,
     periodEnd: period.to,
-    dataCutoffAt: captureDataCutoff(now),
+    dataCutoffAt,
     overlapOverrideAccepted: source ? false : command.override.accepted,
     ...(source ? {} : { overlapDigest: command.override.overlapDigest }),
-    snapshotDigest: "0".repeat(64),
-    sourceRevision: "feedback-admin.v1",
-    snapshotJson: {},
-    checkpointsJson: {},
-    modelConfigJson: {},
+    snapshotDigest: inputs.snapshotDigest,
+    sourceRevision: inputs.sourceRevision,
+    snapshotJson: inputs.snapshotJson,
+    checkpointsJson: inputs.checkpointsJson,
+    modelConfigJson: inputs.modelConfigJson,
     usageJson: {},
-    pricingSnapshotJson: {},
+    pricingSnapshotJson: inputs.pricingSnapshotJson,
     status: "queued",
     requestedBy: null,
     ...(source ? { retryOfGeneration: { connect: [source.documentId] } } : {}),
@@ -111,6 +127,7 @@ export function buildGenerationData(
 export function prepareRetryGeneration(
   source: GenerationLifecycleRow,
   now: Date,
+  materializedInputs: MaterializedGenerationInputsV1,
   createReportRunId: () => string = randomUUID,
 ) {
   if (source.status !== "failed" || !source.documentId)
@@ -122,6 +139,7 @@ export function prepareRetryGeneration(
       override: { accepted: false, overlapDigest: null },
     },
     now,
+    materializedInputs,
     createReportRunId,
     source,
   );

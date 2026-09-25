@@ -20,6 +20,8 @@ Local synthetic fixtures opt in through the same server-side flag in the fixture
 
 ## Direct verification profile
 
+The admin generation command requires an injected server-only source/configuration port. It obtains every private CMS source page and explicitly supplied versioned model configuration, pricing snapshot, and nonsecret evidence key ID, then validates and materializes the immutable snapshot before CMS creation or dispatch. The default runtime factory does not supply an approved CMS origin/token provider or model/pricing/key-ID configuration, so generation returns a bounded unavailable response before create/dispatch rather than persisting placeholders. Retry uses a new cutoff and source read without changing the failed generation. This local fail-closed wiring does not provision credentials, approve operational configuration, or enable the feature.
+
 - Focused RED/GREEN tests for the selected behavior remain part of implementation.
 - Local runtime harnesses are intentionally deferred by default on this TB-113 direct route.
 - Broad local final verification is also intentionally deferred by default, including package-wide suites and full local typecheck, lint, format, and E2E passes.

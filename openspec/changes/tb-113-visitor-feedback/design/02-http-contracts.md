@@ -291,6 +291,40 @@ remote service was used. Operational token provisioning, a trusted production
 origin composition, generation wiring, and all worker/provider/checkpoint
 activation gates remain pending.
 
+### U10-A11 app generation-input composition
+
+`createFeedbackAdminCommandTransport` accepts an explicit `generationInputs`
+port with a private-source `readPage` transport and a
+`getApprovedConfiguration` provider. The provider must return the complete
+versioned model configuration, nonempty pricing snapshot, nonsecret
+`evidenceKeyId`, and matching source revision; there is no default or fallback.
+After authenticated command validation and complete overlap preflight, the app
+freezes `dataCutoffAt`, reads all source pages for the normalized period, and
+passes them through `buildAuthoritativeGenerationInputsV1` and
+`materializeGenerationInputsV1`. It validates the resulting closed materialized
+fields again before the CMS create request. `buildGenerationData` also binds the
+snapshot's `population.current.from/to` to the effective persisted period and
+`population.dataCutoffAt` to the exact frozen generation cutoff. The materialized
+envelope's internal digest/source consistency alone is insufficient: an
+individually valid snapshot for another range or cutoff must fail as a bounded
+unavailable result before CMS create or dispatch. The first dispatcher call occurs
+only after CMS returns a valid created generation. Retry first verifies that
+the source generation is failed, then captures a new cutoff, obtains a fresh
+source/configuration materialization, and creates a new row linked to the
+unchanged failed generation.
+
+The browser request and response contracts do not change. Missing, malformed,
+or mismatched input/configuration maps to a bounded unavailable response before
+create or dispatch; overlap and retry-state conflicts likewise occur before
+source reads. The default `getFeedbackAdminCommandTransport` composition does
+not provide the source/configuration port because no approved production CMS
+origin, custom source token provider, model/pricing source, or evidence key ID
+exists. Thus production generation remains fail-closed even if invoked while
+the separately controlled capability is disabled by default. No credential,
+operational approval, runtime binding, CMS grant/schema, or deployment change is
+introduced. The initial `usageJson` remains the empty initial usage value; all
+snapshot/model/pricing/checkpoint fields come from the validated materializer.
+
 ## Direct implementation runtime boundary
 
 The app-owned direct implementation now provides the local worker/PDF boundary

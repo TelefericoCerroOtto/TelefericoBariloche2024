@@ -163,14 +163,15 @@ row IDs or keys also reject. No digest is substituted and no private content is
 logged. Across versions, the core's minimum snapshotted sort-order rule remains
 authoritative.
 
-The page reader remains an injected app adapter and is not connected to admin
-generation, retry, or dispatch. A separate authenticated CMS source-page action
-now exists and its isolated HTTP harness verifies the private-field response
-shape and custom content API token strategy/action boundary; the
-adapter-to-CMS transport is not yet wired. Approved versioned model configuration, pricing snapshot, and a
-nonsecret evidence key ID must also be explicitly provided; no production
-model/pricing/key-ID source or approval is established by this foundation.
-Generation stays disabled, and CMS checkpoint writes remain `UNKNOWN_VERSION`.
+The page reader remains an injected app adapter; U10-A11 now composes it with
+the admin generation/retry command through an explicit server-only input port.
+A separate authenticated CMS source-page action exists, and its isolated HTTP
+harness verifies the private-field response shape and custom content API
+token strategy/action boundary. The default application runtime still has no
+trusted production origin/token-provider or approved model/pricing/key-ID
+configuration, so it does not construct that port. Those operational sources
+remain unselected and generation remains fail-closed; CMS checkpoint writes
+remain `UNKNOWN_VERSION`.
 
 The CMS source page includes valid-QR rows within the inclusive previous/current
 range even when `acceptedAt` is later than the frozen `dataCutoffAt`. The cutoff
@@ -187,6 +188,40 @@ custom content-token type before body measurement/validation or source access.
 The isolated HTTP harness tests this with a synthetic custom token bearing only
 the source-read action. Real source-token provisioning remains separately
 authorized.
+
+### Admin generation/retry composition
+
+U10-A11 composes the strict source adapter and pure materializer into the
+server-only admin command transport through an explicit injected
+`generationInputs` port. The port supplies the private-source page transport
+and an approved-configuration provider; every call must provide a versioned
+`ModelConfigV1`, nonempty `PricingSnapshotV1`, nonsecret `evidenceKeyId`, and
+one matching source revision. The admin command performs authorization,
+capability, overlap or failed-state preflight first, freezes a cutoff, obtains
+all three complete CMS collections, and validates the materialized exact
+snapshot digest, snapshot, initial checkpoint envelope, model config, and
+pricing snapshot before CMS create or dispatch. A failed retry retains its
+original row and lineage while receiving a new cutoff and independent complete
+source read.
+
+The command boundary additionally requires
+`snapshotJson.population.current.from/to` to equal the effective persisted
+period and `snapshotJson.population.dataCutoffAt` to equal the exact frozen
+generation cutoff. This contextual binding is not implied by a valid snapshot
+digest: the independent materialized-input validator proves internal envelope
+consistency, while the lifecycle builder proves association with the generation
+being created. A mismatch fails before persistence and dispatch; the app maps it
+to bounded `UPSTREAM_UNAVAILABLE`. This correction adds no
+`createdAt`-versus-cutoff ordering requirement.
+
+No production composition is installed: the default command factory supplies
+no generation-input port because the trusted CMS origin/token provider and
+approved model/pricing/key-ID sources are not configured. The command therefore
+fails with a bounded unavailable result before create or dispatch instead of
+persisting placeholders. The capability flag remains false by default; no
+credential, configuration approval, environment variable, grant, deployment,
+or provider readiness is claimed. The empty initial usage object is not a
+snapshot/config/pricing/checkpoint substitute.
 
 Cost/call=`ceil(input*inputRate/1e6)+ceil(output*outputRate/1e6)` for persisted SKU; cached tokens require explicit cached SKU. Missing usage/SKU is `CONFIGURATION`; never estimate; sum checked integer costs.
 
