@@ -17,6 +17,7 @@ const WORKER_VERSION_RUN_ID = "00000000-0000-4000-8000-000000000006";
 const WORKER_DIGEST_RUN_ID = "00000000-0000-4000-8000-000000000007";
 const WORKER_CHECKPOINT_RUN_ID = "00000000-0000-4000-8000-000000000008";
 const WORKER_FAIL_RUN_ID = "00000000-0000-4000-8000-000000000009";
+const DEFAULT_WORKER_SNAPSHOT_DIGEST = "0".repeat(64);
 const compose = (...args) =>
   executeFixed(DOCKER_EXECUTABLE, [
     "compose",
@@ -47,13 +48,57 @@ function generationData(reportRunId = REPORT_RUN_ID, periodStart = "2026-08-01",
     periodStart,
     periodEnd,
     dataCutoffAt: "2026-08-21T00:00:00.000Z",
-    snapshotDigest: "0".repeat(64),
+    snapshotDigest: DEFAULT_WORKER_SNAPSHOT_DIGEST,
     sourceRevision: "feedback-admin.v1",
     snapshotJson: {},
-    checkpointsJson: {},
-    modelConfigJson: {},
+    checkpointsJson: workerCheckpoints(DEFAULT_WORKER_SNAPSHOT_DIGEST),
+    modelConfigJson: workerModelConfig("feedback-admin.v1"),
     usageJson: {},
-    pricingSnapshotJson: {},
+    pricingSnapshotJson: workerPricingSnapshot(),
+  };
+}
+
+function workerCheckpoints(snapshotDigest) {
+  return {
+    version: "survey-checkpoints.v1",
+    snapshotDigest,
+    route: "direct",
+    chunkCount: null,
+    entries: [],
+  };
+}
+
+function workerModelConfig(sourceRevision) {
+  return {
+    version: "survey-model-config.v1",
+    evidenceKeyId: "synthetic-admin-worker-key",
+    provider: "vertex-ai",
+    vertexProjectId: "teleferico-bariloche-2024",
+    vertexLocation: "us",
+    vertexApiEndpoint: "aiplatform.us.rep.googleapis.com",
+    model: "gemini-3.8-flash",
+    temperature: 0,
+    reasoning: "LOW",
+    grounding: false,
+    promptVersion: "prompt.v1",
+    mapSchemaVersion: "survey-map.v1",
+    analysisSchemaVersion: "survey-analysis.v1",
+    redactionVersion: "redaction.v1",
+    validatorVersion: "validator.v1",
+    chunkVersion: "chunk.v1",
+    verifiedInputTokenLimit: 10000,
+    map: { targetMin: 600, targetMax: 1200, hardMax: 4000 },
+    directReduce: { targetMin: 1800, targetMax: 3000, hardMax: 8000 },
+    safetyHeadroomTokens: 2048,
+    sourceRevision,
+  };
+}
+
+function workerPricingSnapshot() {
+  return {
+    version: "pricing.v1",
+    currency: "USD",
+    units: [{ sku: "gemini-input", inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
   };
 }
 
@@ -494,7 +539,12 @@ test("native role authorization creates only through the core generation endpoin
     const snapshotDigest = require("node:crypto").createHash("sha256").update(canonicalizeJson(snapshotPayload)).digest("hex");
     const snapshotGeneration = await fetch(endpoint, {
       method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
-      body: JSON.stringify({ data: { ...generationData(WORKER_SNAPSHOT_RUN_ID, "2026-10-21", "2026-10-31"), snapshotDigest, snapshotJson: snapshotPayload } }),
+      body: JSON.stringify({ data: {
+        ...generationData(WORKER_SNAPSHOT_RUN_ID, "2026-10-21", "2026-10-31"),
+        snapshotDigest,
+        snapshotJson: snapshotPayload,
+        checkpointsJson: workerCheckpoints(snapshotDigest),
+      } }),
     });
     assert.equal(snapshotGeneration.status, 201);
     await strapi.db.connection("survey_report_generations").where({ report_run_id: WORKER_SNAPSHOT_RUN_ID })
@@ -541,7 +591,12 @@ test("native role authorization creates only through the core generation endpoin
       const storedDigest = digest ?? require("node:crypto").createHash("sha256").update(canonicalizeJson(snapshot)).digest("hex");
       const invalidGeneration = await fetch(endpoint, {
         method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
-        body: JSON.stringify({ data: { ...generationData(runId, periodStart, periodEnd), snapshotDigest: storedDigest, snapshotJson: snapshot } }),
+        body: JSON.stringify({ data: {
+          ...generationData(runId, periodStart, periodEnd),
+          snapshotDigest: storedDigest,
+          snapshotJson: snapshot,
+          checkpointsJson: workerCheckpoints(storedDigest),
+        } }),
       });
       assert.equal(invalidGeneration.status, 201);
       await strapi.db.connection("survey_report_generations").where({ report_run_id: runId })
@@ -556,7 +611,7 @@ test("native role authorization creates only through the core generation endpoin
       assert.equal((await invalidSnapshot.json()).error.code, expectedCode);
     }
 
-    const checkpointSet = { version: "survey-checkpoints.v1", snapshotDigest: "a".repeat(64), route: "undecided", chunkCount: null, entries: [] };
+    const checkpointSet = workerCheckpoints("a".repeat(64));
     const checkpointGeneration = await fetch(endpoint, {
       method: "POST", headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
       body: JSON.stringify({ data: { ...generationData(WORKER_CHECKPOINT_RUN_ID, "2026-12-01", "2026-12-10"), snapshotDigest: checkpointSet.snapshotDigest, checkpointsJson: checkpointSet } }),

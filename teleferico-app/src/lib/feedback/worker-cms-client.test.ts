@@ -40,7 +40,10 @@ function snapshotEnvelope() {
   });
 }
 
-function claimResult(status: "running" | "failed" = "running"): WorkerClaimResult {
+function claimResult(
+  status: "running" | "failed" = "running",
+  route: "direct" | "undecided" = "direct",
+): WorkerClaimResult {
   if (status === "failed") {
     return {
       contractVersion: WORKER_CMS_CONTRACT_VERSION,
@@ -59,7 +62,7 @@ function claimResult(status: "running" | "failed" = "running"): WorkerClaimResul
     checkpoints: {
       version: "survey-checkpoints.v1",
       snapshotDigest: "a".repeat(64),
-      route: "direct",
+      route,
       chunkCount: null,
       entries: [],
     },
@@ -197,6 +200,45 @@ describe("worker CMS HTTP client", () => {
     const result = await cms.snapshot(RUN_ID);
     expect(result.snapshot.payload.comments[0]?.text).toBe(COMMENT);
     expect(fetchImplementation).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts only the exact empty undecided initial checkpoint set", async () => {
+    const initial = claimResult("running", "undecided");
+    if (initial.status !== "running") throw new Error("Expected a running claim fixture");
+    const cms = client({ fetchImplementation: async () => jsonResponse(initial) });
+    await expect(cms.claim(RUN_ID)).resolves.toMatchObject({
+      status: "running",
+      checkpoints: {
+        version: "survey-checkpoints.v1",
+        route: "undecided",
+        chunkCount: null,
+        entries: [],
+      },
+    });
+
+    const invalidResults = [
+      {
+        ...initial,
+        checkpoints: { ...initial.checkpoints, entries: [{ unsupported: true }] },
+      },
+      {
+        ...initial,
+        checkpoints: { ...initial.checkpoints, chunkCount: 1 },
+      },
+      {
+        ...initial,
+        checkpoints: { ...initial.checkpoints, route: "unknown" },
+      },
+      {
+        ...initial,
+        checkpoints: { ...initial.checkpoints, extra: true },
+      },
+    ];
+    for (const result of invalidResults) {
+      await expect(
+        client({ fetchImplementation: async () => jsonResponse(result) }).claim(RUN_ID),
+      ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+    }
   });
 
   it.each([

@@ -1,5 +1,6 @@
 'use strict';
 const { createHash } = require('node:crypto');
+const { validateWorkerClaimContracts } = require('./checkpoint-contract');
 function domainError(code) { return Object.assign(new Error(code), { code }); }
 const REPORT_RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DISPATCH_EVIDENCE_VERSION = 'survey-dispatch-evidence.v1';
@@ -64,6 +65,34 @@ function prepareWorkerSnapshot(generation) {
   if (digestHex !== generation.snapshotDigest) throw domainError('DIGEST_MISMATCH');
   return { reportRunId: generation.reportRunId, stateVersion: generation.stateVersion,
     snapshot: { canonicalization: 'tb-json.v1', algorithm: 'sha256', digestHex, payload } };
+}
+
+function parseWorkerClaimJson(value) {
+  let parsed = value;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { throw domainError('INVALID_STATE'); }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    throw domainError('INVALID_STATE');
+  return parsed;
+}
+
+function prepareWorkerClaim(generation) {
+  try {
+    const value = {
+      checkpoints: parseWorkerClaimJson(generation.checkpointsJson),
+      modelConfig: parseWorkerClaimJson(generation.modelConfigJson),
+      pricingSnapshot: parseWorkerClaimJson(generation.pricingSnapshotJson),
+    };
+    validateWorkerClaimContracts({
+      snapshotDigest: generation.snapshotDigest,
+      sourceRevision: generation.sourceRevision,
+      ...value,
+    });
+    return value;
+  } catch {
+    throw domainError('INVALID_STATE');
+  }
 }
 
 function exactKeys(value, keys) {
@@ -305,6 +334,9 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         if (!generation) throw domainError('RUN_NOT_FOUND');
         if (['succeeded', 'failed'].includes(generation.status))
           return { reportRunId, stateVersion: generation.stateVersion, status: generation.status, disposition: 'terminal-replay' };
+        if (generation.status !== 'queued' && generation.status !== 'running')
+          throw domainError('INVALID_STATE');
+        const claimData = prepareWorkerClaim(generation);
 
         let disposition = 'resumed';
         if (generation.status === 'queued') {
@@ -322,9 +354,9 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           stateVersion: generation.stateVersion,
           status: 'running',
           disposition,
-          checkpoints: generation.checkpointsJson,
-          modelConfig: generation.modelConfigJson,
-          pricingSnapshot: generation.pricingSnapshotJson,
+          checkpoints: claimData.checkpoints,
+          modelConfig: claimData.modelConfig,
+          pricingSnapshot: claimData.pricingSnapshot,
         };
       });
     },
