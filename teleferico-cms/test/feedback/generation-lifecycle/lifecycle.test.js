@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { measureDispatchFailureRequestBody } = require("../../../src/api/survey-report-generation/services/dispatch-failure-request");
-const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration, validateWorkerClaimCommand } = require("../../../src/api/survey-report-generation/services/lifecycle");
+const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration, validateWorkerClaimCommand, validateWorkerFailCommand } = require("../../../src/api/survey-report-generation/services/lifecycle");
 const { CHECKPOINT_CONTRACT_VERSIONS, deriveChunkMembership, deriveEvidenceRef, stageConfigDigest, stageInputDigestV1, verifyCheckpointGraphV1, verifyChunkMembership } = require("../../../src/api/survey-report-generation/services/checkpoint-contract");
 const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000001";
 const TASK_NAME = "tb113-report-00000000000040008000000000000001";
@@ -283,6 +283,61 @@ test("worker checkpoint writes fail closed until CMS can verify checkpoint bindi
   });
   assert.equal(transactionCalls, 0);
   assert.deepEqual(value.generation(runId), initial);
+});
+
+test("worker failure is running-only, safe, CAS-protected, and idempotent", async () => {
+  const runId = "00000000-0000-4000-8000-000000000009";
+  const command = {
+    contractVersion: "survey-worker-cms.v1",
+    expectedStateVersion: 3,
+    failureCode: "INVALID_OUTPUT",
+    safeFailureMessage: "The report output did not satisfy its contract.",
+  };
+  assert.equal(validateWorkerFailCommand(command), true);
+  assert.equal(validateWorkerFailCommand({ ...command, safeFailureMessage: "caller text" }), false);
+  assert.equal(validateWorkerFailCommand({ ...command, extra: true }), false);
+  const value = store({ reportRunId: runId, status: "running", stateVersion: 3, reportId: null });
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction, now: () => "2026-09-25T12:00:00.000Z" });
+
+  assert.deepEqual(await lifecycle.failWorker({ reportRunId: runId, command }), {
+    reportRunId: runId, stateVersion: 4, status: "failed", failureCode: "INVALID_OUTPUT", replayed: false,
+  });
+  const failed = { ...value.generation(runId) };
+  assert.equal(failed.completedAt, "2026-09-25T12:00:00.000Z");
+  assert.equal(failed.failureCode, "INVALID_OUTPUT");
+  assert.equal(failed.safeFailureMessage, command.safeFailureMessage);
+  assert.equal(value.reports.length, 0);
+
+  assert.deepEqual(await lifecycle.failWorker({ reportRunId: runId, command }), {
+    reportRunId: runId, stateVersion: 4, status: "failed", failureCode: "INVALID_OUTPUT", replayed: true,
+  });
+  assert.deepEqual(value.generation(runId), failed);
+
+  await assert.rejects(lifecycle.failWorker({
+    reportRunId: runId,
+    command: {
+      ...command,
+      failureCode: "INVARIANT",
+      safeFailureMessage: "The report state failed an integrity check.",
+    },
+  }), { code: "TERMINAL_CONFLICT" });
+
+  const stale = store({ reportRunId: runId, status: "running", stateVersion: 3 });
+  const staleLifecycle = createGenerationLifecycle({ withTransaction: stale.withTransaction });
+  await assert.rejects(staleLifecycle.failWorker({
+    reportRunId: runId,
+    command: { ...command, expectedStateVersion: 2 },
+  }), { code: "STATE_VERSION_CONFLICT" });
+
+  for (const status of ["queued", "succeeded"]) {
+    const invalid = store({ reportRunId: runId, status, stateVersion: 3 });
+    const invalidLifecycle = createGenerationLifecycle({ withTransaction: invalid.withTransaction });
+    await assert.rejects(invalidLifecycle.failWorker({ reportRunId: runId, command }), {
+      code: "TERMINAL_CONFLICT",
+    });
+    assert.equal(invalid.generation(runId).stateVersion, 3);
+    assert.equal(invalid.generation(runId).failureCode, undefined);
+  }
 });
 
 test("CMS matches the worker synthetic evidence-membership and stage-digest vectors", () => {

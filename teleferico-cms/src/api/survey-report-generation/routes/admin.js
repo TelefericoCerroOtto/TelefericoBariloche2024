@@ -25,6 +25,17 @@ module.exports = {
       },
     },
     {
+      method: "POST",
+      path: "/tb113/worker/generations/:reportRunId/fail",
+      handler: "survey-report-generation.workerFail",
+      config: {
+        auth: {
+          strategies: ["content-api-token"],
+          scope: ["api::survey-report-generation.survey-report-generation.workerFail"],
+        },
+      },
+    },
+    {
       method: "GET",
       path: "/tb113/worker/generations/:reportRunId/snapshot",
       handler: "survey-report-generation.workerSnapshot",

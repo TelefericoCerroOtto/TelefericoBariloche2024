@@ -42,6 +42,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
   const privateSourceRoute = generationAdminRoutes.find(({ handler }) => handler === 'survey-report-generation.workerSourceRead');
   const workerAuthRoutes = new Map([
     ['workerClaim', 'api::survey-report-generation.survey-report-generation.workerClaim'],
+    ['workerFail', 'api::survey-report-generation.survey-report-generation.workerFail'],
     ['workerSnapshot', 'api::survey-report-generation.survey-report-generation.workerSnapshot'],
     ['workerCheckpoint', 'api::survey-report-generation.survey-report-generation.workerCheckpoint'],
   ]);
@@ -53,6 +54,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     ['POST', '/tb113/admin/generations/:reportRunId/dispatch-failure', 'survey-report-generation.dispatchFailure'],
     ['POST', '/tb113/admin/generations/:reportRunId/dispatch-state', 'survey-report-generation.dispatchState'],
     ['POST', '/tb113/worker/generations/:reportRunId/claim', 'survey-report-generation.workerClaim'],
+    ['POST', '/tb113/worker/generations/:reportRunId/fail', 'survey-report-generation.workerFail'],
     ['GET', '/tb113/worker/generations/:reportRunId/snapshot', 'survey-report-generation.workerSnapshot'],
     ['POST', '/tb113/worker/report-source', 'survey-report-generation.workerSourceRead'],
     ['PUT', '/tb113/worker/generations/:reportRunId/checkpoints/:stageKey', 'survey-report-generation.workerCheckpoint'],
@@ -99,6 +101,7 @@ test('documents D31 names only as future application capabilities', () => {
   assert.match(documentation, /workerSnapshot/);
   assert.match(documentation, /workerSourceRead/);
   assert.match(documentation, /workerCheckpoint/);
+  assert.match(documentation, /workerFail/);
   assert.match(documentation, /workerClaim.*content-api-token/s);
   assert.match(documentation, /Users & Permissions JWT is denied even if its\s+role is granted the\s+same action/);
   assert.match(documentation, /no default role or API-token/);

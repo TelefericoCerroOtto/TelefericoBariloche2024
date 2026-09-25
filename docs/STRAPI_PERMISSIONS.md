@@ -232,8 +232,8 @@ it is also denied unless separately granted and is not called by the app yet.
 It permits only reservation, created, and unknown states; it rejects claimed
 absence and cannot compensate a queued generation. These custom actions use the
 application user JWT, not an API token. The worker
-`survey-report-generation.workerClaim`, `workerSnapshot`, and
-`workerCheckpoint` actions are available only through Strapi's native
+`survey-report-generation.workerClaim`, `workerSnapshot`, `workerCheckpoint`,
+`workerSourceRead`, and `workerFail` actions are available only through Strapi's native
 `content-api-token` strategy, each with its own exact custom API-token action
 scope. Their controllers also require Strapi's runtime-selected strategy,
 `kind: "content-api"`, and `type: "custom"` before controller body measurement,
@@ -249,8 +249,13 @@ role/token grant and does not define credential issuance or rotation.
 token. `workerSnapshot` returns the immutable snapshot only for a running
 generation and verifies the stored `survey-snapshot.v1` payload digest before
 exposing its private comments. `workerCheckpoint` remains fail-closed and returns
-`UNKNOWN_VERSION` before its lifecycle transaction. No default permission is
-added.
+`UNKNOWN_VERSION` before its lifecycle transaction. `workerFail` accepts only a
+closed 4 KiB command with an exact failure-code-to-safe-message mapping. It
+fails only a running generation through state-version CAS and creates no report
+or partial PDF. Identical terminal replay returns the current version without a
+write; changed replay and non-running states return bounded conflicts. This
+action does not send failure alerts; any future alert integration must run only
+after terminal state commits. No default permission is added.
 Report history remains owned by U8-A, and PDF artifact storage/download remains
 deferred to U12. No production permission mutation is performed.
 Anonymous requests and ungranted actions remain denied. Application-level
@@ -313,6 +318,20 @@ contracts. No global auth behavior or default grant changes. The isolated
 HTTP test proves that JWTs with each worker action artificially granted are
 denied, exact-scope custom tokens reach their handlers, and the checkpoint
 handler still returns `UNKNOWN_VERSION`; no production role/token was changed.
+
+U10-A14 adds the
+`api::survey-report-generation.survey-report-generation.workerFail` action for
+terminal worker failure. It is restricted to the native `content-api-token`
+strategy and its exact custom-token scope; the controller checks the selected
+strategy and custom-token identity before measuring or reading the command or
+accessing the lifecycle service. Users & Permissions JWTs remain denied even
+when granted the action. The command persists only the fixed safe message
+associated with its known `RuntimeFailureCodeV1`, and only for a running
+generation under a locked state-version transition. Identical replay is
+read-only; no report, partial PDF, alert, default grant, persistent permission,
+or production token is created. The isolated synthetic HTTP test covers denied
+and allowed identities, bounded commands, concurrent identical replay,
+conflicts, and safe persisted output.
 
 U10-A8 registers
 `api::survey-report-generation.survey-report-generation.workerSourceRead` for

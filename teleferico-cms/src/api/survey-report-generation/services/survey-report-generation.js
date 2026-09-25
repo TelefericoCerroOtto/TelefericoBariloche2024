@@ -21,6 +21,8 @@ function createTransaction(strapi) {
             'dispatch_evidence_json',
             'claimed_at',
             'failure_code',
+            'safe_failure_message',
+            'completed_at',
             'dispatch_attempt_count',
             'checkpoints_json',
             'model_config_json',
@@ -40,6 +42,8 @@ function createTransaction(strapi) {
             dispatchEvidenceJson: row.dispatch_evidence_json,
             claimedAt: row.claimed_at,
             failureCode: row.failure_code,
+            safeFailureMessage: row.safe_failure_message,
+            completedAt: row.completed_at,
             dispatchAttemptCount: row.dispatch_attempt_count,
             checkpointsJson: row.checkpoints_json,
             modelConfigJson: row.model_config_json,
@@ -71,6 +75,7 @@ function createTransaction(strapi) {
             completed_at: patch.completedAt,
             claimed_at: patch.claimedAt,
             failure_code: patch.failureCode,
+            safe_failure_message: patch.safeFailureMessage,
             dispatch_attempt_count: patch.dispatchAttemptCount,
             task_name: patch.taskName,
             dispatch_state: patch.dispatchState,
@@ -122,6 +127,11 @@ module.exports = createCoreService(
       return lifecycle.createGenerationLifecycle({
         withTransaction: createTransaction(strapi),
       }).claimWorker(input);
+    },
+    failWorker(input) {
+      return lifecycle.createGenerationLifecycle({
+        withTransaction: createTransaction(strapi),
+      }).failWorker(input);
     },
     workerSnapshot(input) {
       return lifecycle.createGenerationLifecycle({
