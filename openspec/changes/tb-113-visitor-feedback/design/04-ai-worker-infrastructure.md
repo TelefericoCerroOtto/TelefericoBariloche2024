@@ -139,6 +139,40 @@ placeholders, and prove creation/retry cutoff immutability before runtime use.
 Until then the feedback capability's deployment flag remains `false` and CMS
 checkpoint writes remain `UNKNOWN_VERSION` before transaction entry.
 
+### Strict authoritative CMS source adapter
+
+The local U10-A source foundation uses a separate server-only injected page
+reader. It accepts only complete cursor chains for submissions, versions, and
+QR points: each page must echo its requested cursor, report one stable total,
+and terminate with exactly that many rows. Repeated cursors, missing rows,
+malformed rows, and pagination failures reject the entire source; there is no
+response cap or partial-snapshot mode. The requested window is the normalized
+previous-period start through current-period end, while `dataCutoffAt` remains
+the immutable cutoff captured before the read. The shared core excludes valid
+in-range rows accepted after that cutoff.
+
+Submission identity, receipt, valid-QR source, accepted time, locale, rating,
+point/version relations, every aspect definition/rating, the private `comment`
+field (including explicit `null`), and the private lowercase SHA-256
+`payloadDigest` are mandatory. Duplicate identities, missing relations,
+duplicate definitions within a version, conflicting row metadata, or unknown
+aspect bindings reject before `materializeGenerationInputsV1`. Each relation's
+source-row ID must match the canonical row ID collected for its point/version
+key; missing IDs and known keys bound to another row reject. Duplicate source
+row IDs or keys also reject. No digest is substituted and no private content is
+logged. Across versions, the core's minimum snapshotted sort-order rule remains
+authoritative.
+
+This is not an authenticated CMS HTTP implementation or proof that Strapi's
+authenticated response exposes the private fields with the required shape. The
+page reader is an injected contract and the adapter is not connected to admin
+generation, retry, or dispatch. Approved versioned model configuration,
+pricing snapshot, and a nonsecret evidence key ID must also be explicitly
+provided; no production model/pricing/key-ID source or approval is established
+by the local foundation. Those source, authentication, and configuration gates
+remain open, generation stays disabled, and CMS checkpoint writes remain
+`UNKNOWN_VERSION`.
+
 Cost/call=`ceil(input*inputRate/1e6)+ceil(output*outputRate/1e6)` for persisted SKU; cached tokens require explicit cached SKU. Missing usage/SKU is `CONFIGURATION`; never estimate; sum checked integer costs.
 
 ## Task, Identity, Alerts, and Storage
