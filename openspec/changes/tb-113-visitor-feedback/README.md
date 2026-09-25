@@ -24,12 +24,16 @@ The admin generation command requires an injected server-only source/configurati
 
 - Focused RED/GREEN tests for the selected behavior remain part of implementation.
 - The historical direct-route default deferred local runtime harnesses and broad local verification. For the remaining U10 work, follow the prospective [execution plan](./tasks.md#execution-after-u10-a16): the cohesive local worker deliverable requires focused behavior/security tests and synthetic app–CMS–worker integration with a fake provider; no real remote calls are made.
-- The current local executor proves only the zero-comment direct route with injected CountTokens and analysis fakes, CMS checkpoint CAS, deterministic PDF bytes, and atomic report completion. Nonempty-comment semantics and map/reduce remain fail-closed; this bounded local evidence does not complete U10/U11/U12, activate the capability, or prove live readiness. See the latest direct ledger entry for the exact scope and results.
+- The current local executor proves only the zero-comment direct route with injected CountTokens and analysis fakes, CMS checkpoint CAS, deterministic PDF bytes, and atomic report completion. It does not yet execute nonempty-comment or map/reduce output, and it does not complete U10/U11/U12, activate the capability, or prove live readiness. Future structurally valid nonempty analysis need not pass an automated semantic-truth judgment or a per-report human editorial gate; that is an accepted residual product limitation, not a claim that the narrative is correct. See the latest direct ledger entry for the exact implementation scope and results.
 - Broad synthetic/local acceptance follows integration on `development`, alongside the existing required PR CI and repository governance. Package-wide suites, full typecheck/lint, and E2E are not claimed as passed until actually run; preserve the existing mandatory exact-SHA Cloud Build fixture, real-stack readiness, and real-auth acceptance checks.
 - Google configuration/credential/Vertex/Cloud Tasks/Cloud Run/GCS operational checks and bounded staging smoke are post-development and separately approved. Their failure blocks real operation and enablement, not offline code. Keep `FEEDBACK_CAPABILITY_ENABLED` false, do not add Google-live CI or credentials, and fail closed when operational configuration is absent. Use only the approved `gemini-3.8-flash` in Vertex `us` through `aiplatform.us.rep.googleapis.com`; no fallback.
 - Record every deferred command or scenario, its reason, acceptance criteria, residual risk, and intended future checkpoint and owner in the ledger.
 - Implementation PR CI, later integrated human validation on `development`, and promotion CI are future evidence checkpoints. Their expected execution does not provide automatic `passed` evidence.
 - Correct the implementation when focused tests, CI, or integrated validation report a failure, and link the correction to the originating work unit.
+
+## Standing TB-113 review-size exception
+
+Each remaining logical TB-113 PR may contain up to 6,000 authored additions plus deletions, measured once against its exact immediate parent. Do not ask for another size exception within this limit, code-golf, or omit useful tests or documentation. Above 6,000 changed lines, stop and rethink scope.
 
 ## Evidence rules
 

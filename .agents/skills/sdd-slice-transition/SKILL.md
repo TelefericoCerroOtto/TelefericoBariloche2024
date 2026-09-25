@@ -17,9 +17,9 @@ Load automatically only when native SDD is in implementation/apply, one bounded 
 
 - Read the current local Git state directly when evaluating a slice boundary. Decide eligibility here; do not delegate fact gathering or infer authorization from recommendations.
 - Fail closed on every ambiguity, stale predecessor, changed parent branch/SHA, uncertain candidate, candidate exceeding its recorded hard budget, or missing evidence.
-- Treat the active change's `review_budget_lines` as its sole size declaration. Every slice inherits it automatically; never request size approval again at a slice or publication boundary.
-- Without a recorded change-level budget, report 400 authored changed lines as an advisory warning only. It is not a blocking gate or consent prompt.
-- If a candidate exceeds the recorded change-level hard budget, stop and name work-unit splitting or scope reduction as the exit. Do not offer another exception prompt. Always report the honest count; never code-golf, remove tests/docs, or compress code to fit.
+- Resolve size authority from the active change's prospective change-local instructions first, including any explicit maintainer-approved exception applicable to that change. For TB-113, the current README and prospective tasks section define a standing limit of 6,000 authored additions plus deletions per logical PR; historical `apply-progress.md` snapshots do not set current limits. Otherwise, use the active change's `review_budget_lines` as its size declaration, inherited by every slice.
+- Without an applicable change-local exception or recorded change-level budget, the general 400 authored changed-line threshold applies. Above it, require an honest split or an explicitly maintainer-approved `size:exception` before publication. Never infer an exception or permission from historical records.
+- If a candidate exceeds an explicitly approved change-level cap, stop and report the honest count; split or rethink scope rather than silently enlarging the cap. For TB-113, do not prompt again within the standing 6,000-line cap, and stop above it. Never code-golf, remove tests/docs, or compress code to fit.
 - Never duplicate `implementation-pr` or SDD apply internals. `implementation-pr` owns completed-slice publication; SDD apply owns next-slice implementation.
 - Never auto merge, rebase, cherry-pick, force-push, mark ready for review, delete branches, or repair ancestry. A pre-merge child may be published only as a validated draft `stacked-to-main` preview against its immediate parent branch.
 
