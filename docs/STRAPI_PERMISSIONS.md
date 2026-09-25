@@ -232,14 +232,25 @@ it is also denied unless separately granted and is not called by the app yet.
 It permits only reservation, created, and unknown states; it rejects claimed
 absence and cannot compensate a queued generation. These custom actions use the
 application user JWT, not an API token. The worker
-`survey-report-generation.workerClaim` action is separately denied unless
-explicitly granted to an approved worker credential. This repository adds no
+`survey-report-generation.workerClaim`, `workerSnapshot`, and
+`workerCheckpoint` actions are available only through Strapi's native
+`content-api-token` strategy, each with its own exact custom API-token action
+scope. Their controllers also require Strapi's runtime-selected strategy,
+`kind: "content-api"`, and `type: "custom"` before controller body measurement,
+validation, or database access. A Users & Permissions JWT is denied even if its
+role is granted the same action. This intentionally changes compatibility:
+existing application JWT roles with any of these worker action grants no longer
+authorize the worker routes; those grants are not a fallback and must not be
+used to authorize a worker. The worker owner must separately authorize and provision a custom
+content API token with only the required worker action. This repository adds no
 role/token grant and does not define credential issuance or rotation.
-The worker `survey-report-generation.workerSnapshot` action is likewise denied
-unless separately granted to an approved worker credential. It returns the
-immutable snapshot only for a running generation and verifies the stored
-`survey-snapshot.v1` payload digest before exposing its private comments. No
-default permission is added.
+
+`workerClaim` returns checkpoints/model/pricing state only to its scoped custom
+token. `workerSnapshot` returns the immutable snapshot only for a running
+generation and verifies the stored `survey-snapshot.v1` payload digest before
+exposing its private comments. `workerCheckpoint` remains fail-closed and returns
+`UNKNOWN_VERSION` before its lifecycle transaction. No default permission is
+added.
 Report history remains owned by U8-A, and PDF artifact storage/download remains
 deferred to U12. No production permission mutation is performed.
 Anonymous requests and ungranted actions remain denied. Application-level
@@ -276,16 +287,32 @@ isolated HTTP test grants it only to its synthetic role. No production role is
 changed by this repository update. U10-A also registers
 `api::survey-report-generation.survey-report-generation.workerClaim` for the
 bounded worker claim command. It returns checkpoint/model/pricing state only to
-an authorized caller and omits comments; it has no default role or API-token
-grant. Credential provisioning and any non-default grant remain separately
-authorized operational work. No production role or token is changed here.
+a custom content API token with this exact action and omits comments; the route
+rejects Users & Permissions JWTs even when their roles carry the same action.
+It has no default role or API-token grant. Credential provisioning and any
+non-default grant remain separately authorized operational work. No production
+role or token is changed here.
 U10-A4 registers
 `api::survey-report-generation.survey-report-generation.workerSnapshot` for the
 bodyless worker snapshot read. It requires an explicit grant, returns data only
 for running generations, and rejects unsupported snapshot versions or digest
-mismatches. The action does not grant native collection reads or expose the
-snapshot through a public/admin route. The isolated HTTP harness grants it only
-to its synthetic worker-role equivalent; no production role or token is changed.
+mismatches. It requires the `content-api-token` strategy and an exact custom
+content API token action scope; a JWT grant is intentionally insufficient. The
+action does not grant native collection reads or expose the snapshot through a
+public/admin route. The isolated HTTP harness grants it only to a synthetic
+custom token; no production role or token is changed.
+
+U10-A13 applies that same native custom-token boundary to `workerClaim`,
+`workerSnapshot`, and the fail-closed `workerCheckpoint` action. Each route names
+only its own action scope. A shared controller guard checks Strapi's selected
+strategy and token `kind`/`type` before body measurement/validation or database
+access; `workerSourceRead` retains the same boundary. The native core generation
+`find`/`create`, submission/report reads, and admin `dispatch-state`/
+`dispatch-failure` actions remain on their existing Users & Permissions JWT
+contracts. No global auth behavior or default grant changes. The isolated
+HTTP test proves that JWTs with each worker action artificially granted are
+denied, exact-scope custom tokens reach their handlers, and the checkpoint
+handler still returns `UNKNOWN_VERSION`; no production role/token was changed.
 
 U10-A8 registers
 `api::survey-report-generation.survey-report-generation.workerSourceRead` for

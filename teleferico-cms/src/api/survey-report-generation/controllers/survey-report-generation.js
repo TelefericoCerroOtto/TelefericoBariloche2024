@@ -85,6 +85,11 @@ module.exports = createCoreController(
       }
     },
     async workerClaim(ctx) {
+      if (!hasCustomContentApiTokenIdentity(ctx)) {
+        ctx.status = 403;
+        ctx.body = { error: { code: "FORBIDDEN", message: "The worker claim request is not authorized" } };
+        return;
+      }
       const command = ctx.request.body;
       const bodySize = measureDispatchFailureRequestBody(ctx.request);
       if (bodySize === null || bodySize > 4 * 1024) {
@@ -113,6 +118,11 @@ module.exports = createCoreController(
       }
     },
     async workerSnapshot(ctx) {
+      if (!hasCustomContentApiTokenIdentity(ctx)) {
+        ctx.status = 403;
+        ctx.body = { error: { code: "FORBIDDEN", message: "The worker snapshot request is not authorized" } };
+        return;
+      }
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ctx.params.reportRunId)) {
         ctx.status = 400;
         ctx.body = { error: { code: "VALIDATION_FAILED", message: "The worker snapshot request is invalid" } };
@@ -161,6 +171,11 @@ module.exports = createCoreController(
       }
     },
     async workerCheckpoint(ctx) {
+      if (!hasCustomContentApiTokenIdentity(ctx)) {
+        ctx.status = 403;
+        ctx.body = { error: { code: "FORBIDDEN", message: "The worker checkpoint request is not authorized" } };
+        return;
+      }
       const command = ctx.request.body;
       const bodySize = measureDispatchFailureRequestBody(ctx.request);
       if (bodySize === null || bodySize > 4 * 1024) {

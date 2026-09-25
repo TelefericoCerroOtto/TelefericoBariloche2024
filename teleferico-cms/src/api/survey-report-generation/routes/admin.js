@@ -17,11 +17,23 @@ module.exports = {
       method: "POST",
       path: "/tb113/worker/generations/:reportRunId/claim",
       handler: "survey-report-generation.workerClaim",
+      config: {
+        auth: {
+          strategies: ["content-api-token"],
+          scope: ["api::survey-report-generation.survey-report-generation.workerClaim"],
+        },
+      },
     },
     {
       method: "GET",
       path: "/tb113/worker/generations/:reportRunId/snapshot",
       handler: "survey-report-generation.workerSnapshot",
+      config: {
+        auth: {
+          strategies: ["content-api-token"],
+          scope: ["api::survey-report-generation.survey-report-generation.workerSnapshot"],
+        },
+      },
     },
     {
       method: "POST",
@@ -38,6 +50,12 @@ module.exports = {
       method: "PUT",
       path: "/tb113/worker/generations/:reportRunId/checkpoints/:stageKey",
       handler: "survey-report-generation.workerCheckpoint",
+      config: {
+        auth: {
+          strategies: ["content-api-token"],
+          scope: ["api::survey-report-generation.survey-report-generation.workerCheckpoint"],
+        },
+      },
     },
   ],
 };
