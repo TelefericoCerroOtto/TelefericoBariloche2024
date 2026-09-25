@@ -195,6 +195,62 @@ point IDs and keys. `survey-version` pages include definitions; `survey-qr-point
 pages include point identity/display/order. Do not expose this projection through
 the browser, admin dashboard, generic native `find`, or public role/token.
 
+### App server-only transport for private source pages
+
+`teleferico-app/services/survey-report-worker/src/private-report-source-transport.ts`
+implements only the server-only HTTP adapter for the source-page action. Its
+factory requires an explicit CMS origin, a nonempty exact-origin allowlist,
+and a token-provider function. The allowlist must come from a trusted
+server-only composition; no production composition or approved CMS hostname
+exists yet. Both the configured target and every allowlist entry must be a
+canonical public HTTPS DNS origin. Missing/empty/mismatched allowlists, all IP
+literal destinations (including public, loopback, private, and link-local),
+localhost/private/reserved/metadata/deceptive hostnames, userinfo, noncanonical
+authority, path, query, or fragment are rejected. The target origin is matched
+exactly against the allowlist before the token provider can run. The path is
+fixed to `POST /api/tb113/worker/report-source`; redirects use `redirect: error`
+and redirected/cross-origin responses are rejected, requests use
+`cache: no-store`, and the provider is called for each page. There is no
+environment lookup, default allowlist/token, fallback authentication strategy,
+U&P JWT, browser route, or admin generate/retry/dispatch wiring.
+
+The adapter sends the closed `survey-generation-source.v1` request with page
+size 25 and enforces a 4 KiB request-body ceiling, a 10-second per-page deadline
+covering token acquisition/fetch/body read, a 1 MiB response-body ceiling (both
+declared and streamed size), JSON media type, exact version/resource/cursor/page
+envelope, safe-integer totals, and the CMS 732-day/1,024-character cursor
+bounds. It maps CMS 401/403 and other upstream failures to fixed non-sensitive
+error categories and never logs provider errors, response bodies, credentials,
+or comments. The existing `buildAuthoritativeGenerationInputsV1` then enforces
+the complete cursor chain, stable total, terminal row count, normalized source
+rows, private comment/digest fields, and relation identities before invoking
+the immutable materializer; no partial snapshot is returned.
+
+The fake-fetch app tests exercise all three resource types and cursor paging,
+exact allowlist match-before-token behavior, unsafe/private/metadata/deceptive
+origin rejection (including origins mistakenly listed), redirect refusal,
+auth/status failures, malformed envelopes, oversized responses, timeout,
+provider/fetch/JSON failures, and credential/comment non-disclosure. They do not
+prove app-to-Strapi HTTP compatibility or establish an approved production
+origin. The exact deferred integrated proof is an isolated app↔Strapi run using
+a test-only trusted server composition with an explicitly approved canonical
+HTTPS origin and synthetic custom content API token carrying only
+`workerSourceRead`; use more than 25 synthetic submissions to exercise a real
+CMS cursor page, read submissions/versions/points through the transport, and
+pass the complete rows to the existing authoritative source builder. Verify
+denied/invalid credentials, exact private projection, all-page totals and
+materialization; use only the disposable test database and remove its owned
+services/data afterward. This scenario is `not run`; the test-origin/allowlist
+source remains unselected; owner is the TB-113 app/CMS implementer and reviewer.
+
+The future operational credential source is a dedicated Secret Manager secret
+injected only into the app server runtime and supplied through the explicit
+token-provider interface. The secret resource name, IAM grant, and runtime
+binding are not approved or configured; no token was provisioned or read. The
+platform/CMS runtime operator owns creation, least-privilege grant, and rotation;
+the named individual owner remains unassigned. This operational setup and the
+real token remain separately authorized work.
+
 ## Direct implementation runtime boundary
 
 The app-owned direct implementation now provides the local worker/PDF boundary
