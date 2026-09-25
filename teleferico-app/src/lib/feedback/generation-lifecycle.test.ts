@@ -254,28 +254,27 @@ describe("report generation lifecycle contracts", () => {
     ).toThrow("CHECKPOINT_SET_INCOMPLETE");
   });
   it("builds the queued command with its cutoff and no synthetic requester", () => {
-    expect(
-      buildGenerationData(
-        {
-          contractVersion: "feedback-admin.v1",
-          period,
-          override: { accepted: false, overlapDigest: null },
-        },
-        new Date("2026-09-22T15:04:05.000Z"),
-        materializeGenerationInputsV1(
-          validMaterializationInput({
-            range: period,
-            cutoff: "2026-09-22T15:04:05.000Z",
-          }),
-        ),
-        () => "00000000-0000-4000-8000-000000000003",
+    const generationData = buildGenerationData(
+      {
+        contractVersion: "feedback-admin.v1",
+        period,
+        override: { accepted: false, overlapDigest: null },
+      },
+      new Date("2026-09-22T15:04:05.000Z"),
+      materializeGenerationInputsV1(
+        validMaterializationInput({
+          range: period,
+          cutoff: "2026-09-22T15:04:05.000Z",
+        }),
       ),
-    ).toMatchObject({
+      () => "00000000-0000-4000-8000-000000000003",
+    );
+    expect(generationData).toMatchObject({
       reportRunId: "00000000-0000-4000-8000-000000000003",
       dataCutoffAt: "2026-09-22T15:04:05.000Z",
-      requestedBy: null,
       status: "queued",
     });
+    expect(generationData).not.toHaveProperty("requestedBy");
     expect(() =>
       buildGenerationData(
         {

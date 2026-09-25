@@ -120,7 +120,6 @@ export function buildGenerationData(
     usageJson: {},
     pricingSnapshotJson: inputs.pricingSnapshotJson,
     status: "queued",
-    requestedBy: null,
     ...(source ? { retryOfGeneration: { connect: [source.documentId] } } : {}),
   };
 }

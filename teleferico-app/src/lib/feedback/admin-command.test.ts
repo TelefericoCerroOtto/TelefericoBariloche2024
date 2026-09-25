@@ -229,6 +229,7 @@ describe("feedback administration command contracts", () => {
         ],
       },
     });
+    expect(createBody).not.toHaveProperty("requestedBy");
     expect(createBody?.snapshotDigest).toBe(
       (createBody?.checkpointsJson as { snapshotDigest: string }).snapshotDigest,
     );
