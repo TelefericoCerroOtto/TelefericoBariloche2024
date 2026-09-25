@@ -114,6 +114,31 @@ numeric grounding, contradictory evidence, and current/previous comparison
 truth remain unverified and MUST keep the result `incomplete`. Do not infer
 these semantics from lexical heuristics or invent metric references.
 
+### Pure initial generation-input materialization
+
+`materializeGenerationInputsV1` is an app-local pure boundary for constructing
+the immutable values needed before worker execution. Its caller must inject the
+complete `SnapshotInput`, exact `ModelConfigV1`, nonempty `PricingSnapshotV1`,
+and nonsecret `evidenceKeyId`; the snapshot source revision, model-config source
+revision, and injected key ID must agree. It invokes the existing
+`survey-reporting-core.createSnapshot`, persists only its payload and canonical
+SHA-256 digest, and initializes the closed `survey-checkpoints.v1` envelope
+(`route: "undecided"`, `chunkCount: null`, `entries: []`). This versioned
+checkpoint envelope is intentionally not `{}`; zero completed stages is valid
+at queue creation. The returned materialization is validated and deeply frozen.
+
+The boundary has no CMS reader, provider, credential, runtime-key, or default
+model/pricing configuration. The current admin command has no injected source
+for all submissions, definitions, QR points, model settings, or pricing inputs;
+therefore this work does not wire the materializer into `buildGenerationData`
+or change public generation/dispatch behavior. That existing path is not proven
+worker-ready and its placeholder generation fields remain a known integration
+gap. A separately bounded U10-A adapter must supply authoritative CMS-derived
+snapshot inputs and approved versioned model/pricing inputs, replace those
+placeholders, and prove creation/retry cutoff immutability before runtime use.
+Until then the feedback capability's deployment flag remains `false` and CMS
+checkpoint writes remain `UNKNOWN_VERSION` before transaction entry.
+
 Cost/call=`ceil(input*inputRate/1e6)+ceil(output*outputRate/1e6)` for persisted SKU; cached tokens require explicit cached SKU. Missing usage/SKU is `CONFIGURATION`; never estimate; sum checked integer costs.
 
 ## Task, Identity, Alerts, and Storage
