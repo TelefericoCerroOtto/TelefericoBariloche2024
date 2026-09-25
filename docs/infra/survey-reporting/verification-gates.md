@@ -151,11 +151,11 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 
 ## Dependency impact
 
-- **Unblocked now:** S03 may execute its renderer POC because G03 passed for sanitized comments with the exact `gemini-3.8-flash` / `us` contract. U11 may implement the fixed provider boundary when its earlier code dependencies are complete.
-- **Blocked now:** S20 cannot enable deterministic private PDF delivery until S03 passes and storage readiness is approved; S21 cannot apply operational infrastructure; S22 and S23 cannot complete compatibility, rollout, or staging proof.
-- **Transitively blocked:** S15 cannot complete report-capable administration without a passed S03 renderer gate. Any generation path remains disabled by the remaining worker, renderer, storage, IAM, and deployment gates.
+- **Unblocked now:** S03 may execute its renderer POC because G03 passed for sanitized comments with the exact `gemini-3.8-flash` / `us` contract. Offline implementation with fake-provider and synthetic boundaries may proceed independently of Google operational readiness; live provider calls still require all applicable gates.
+- **Blocked now:** S20 cannot enable deterministic private PDF delivery until S03 passes and storage readiness is approved; S21 cannot apply operational infrastructure; S22 and S23 cannot complete compatibility, rollout, or staging proof. These are live-operation and rollout dependencies, not blockers to offline code implementation.
+- **Transitively blocked:** S15 cannot complete report-capable administration without a passed S03 renderer gate. Any real generation path remains disabled by the remaining worker, renderer, storage, IAM, and deployment gates; this does not block fake-provider local tests or synthetic integration.
 - **Not authorized by S01:** dependency adoption, schema/auth changes, environment changes, IAM changes, queue/service/bucket mutations, deployment, or provider substitution.
-- **Unblocking rule:** each failed or deferred gate requires its named approved evidence in the responsible future slice. A design/spec revision is required before any substitute is considered.
+- **Unblocking rule:** each failed or deferred gate requires its named approved evidence before the dependent live operation, enablement, or rollout. A design/spec revision is required before any substitute is considered. A failed Google gate blocks real operation, not offline coding; the approved `gemini-3.8-flash` / Vertex `us` / `aiplatform.us.rep.googleapis.com` model contract remains exact, with no fallback.
 
 ## Official sources
 
