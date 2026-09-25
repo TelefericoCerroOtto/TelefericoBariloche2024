@@ -269,6 +269,83 @@ function validateModelConfig(value, evidenceKeyId) {
     invalid();
 }
 
+function validateWorkerClaimContracts({
+  snapshotDigest,
+  sourceRevision,
+  checkpoints,
+  modelConfig,
+  pricingSnapshot,
+}) {
+  assertDigest(snapshotDigest);
+  if (
+    typeof sourceRevision !== "string" ||
+    sourceRevision.length === 0 ||
+    sourceRevision.length > 128 ||
+    !exactKeys(checkpoints, [
+      "version",
+      "snapshotDigest",
+      "route",
+      "chunkCount",
+      "entries",
+    ]) ||
+    checkpoints.version !== "survey-checkpoints.v1" ||
+    checkpoints.snapshotDigest !== snapshotDigest ||
+    (checkpoints.route !== "direct" && checkpoints.route !== "undecided") ||
+    checkpoints.chunkCount !== null ||
+    !Array.isArray(checkpoints.entries) ||
+    (checkpoints.route === "undecided" && checkpoints.entries.length !== 0) ||
+    (checkpoints.route === "direct" && checkpoints.entries.length !== 0) ||
+    !modelConfig ||
+    typeof modelConfig !== "object" ||
+    Array.isArray(modelConfig)
+  )
+    invalid();
+
+  const evidenceKeyId = modelConfig.evidenceKeyId;
+  if (
+    typeof evidenceKeyId !== "string" ||
+    !KEY_ID_PATTERN.test(evidenceKeyId) ||
+    modelConfig.model !== "gemini-3.8-flash" ||
+    modelConfig.sourceRevision !== sourceRevision
+  )
+    invalid();
+  validateModelConfig(modelConfig, evidenceKeyId);
+
+  if (
+    !exactKeys(pricingSnapshot, ["version", "currency", "units"]) ||
+    typeof pricingSnapshot.version !== "string" ||
+    pricingSnapshot.version.length === 0 ||
+    pricingSnapshot.currency !== "USD" ||
+    !Array.isArray(pricingSnapshot.units) ||
+    pricingSnapshot.units.length === 0
+  )
+    invalid();
+
+  const seenSkus = new Set();
+  for (const unit of pricingSnapshot.units) {
+    if (
+      !exactKeys(unit, [
+        "sku",
+        "inputMicrosPerMillion",
+        "outputMicrosPerMillion",
+      ]) ||
+      typeof unit.sku !== "string" ||
+      unit.sku.length === 0 ||
+      seenSkus.has(unit.sku) ||
+      !Number.isSafeInteger(unit.inputMicrosPerMillion) ||
+      unit.inputMicrosPerMillion < 0 ||
+      !Number.isSafeInteger(unit.outputMicrosPerMillion) ||
+      unit.outputMicrosPerMillion < 0
+    )
+      invalid();
+    seenSkus.add(unit.sku);
+  }
+
+  canonicalizeJson(checkpoints);
+  canonicalizeJson(modelConfig);
+  canonicalizeJson(pricingSnapshot);
+}
+
 function stageConfigDigest(projection) {
   if (
     !exactKeys(projection, [
@@ -632,6 +709,7 @@ module.exports = {
   deriveEvidenceRef,
   stageConfigDigest,
   stageInputDigestV1,
+  validateWorkerClaimContracts,
   verifyCheckpointGraphV1,
   verifyChunkMembership,
 };

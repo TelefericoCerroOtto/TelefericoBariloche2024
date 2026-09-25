@@ -157,6 +157,37 @@ with the exact scenario and owner recorded in the ledger.
 Final candidate size: `1,098` additions plus deletions across 7 paths, including
 the 3 untracked files; see the direct implementation ledger for the count method.
 
+U10-A16 candidate-specific `size:exception`: the user authorized one cohesive
+CMS claim-contract correction plus isolated app/CMS integration candidate capped
+at `4,000` authored additions plus deletions on
+`test/app-cms-root-tb-113-worker-client-integration`, against exact open draft
+parent PR #370 head `ea33a00af166825ae972738b477c13d6c6dfa4eb` (chain rooted at
+#356; PR #370 is based on `feat/cms-root-tb-113-worker-fail-command` at
+`e267654e24e13f77a423e5c1f3735bf27433a5e3`; PR #369 remains behind the
+immediate parent). The exception covers only the worker claim
+response normalization/validation, its lifecycle and HTTP/unit tests, the
+existing private-source CMS harness extension, and matching design/task/ledger
+evidence; it expires with this candidate. The ordinary 400-line reviewer budget
+and 800-line hard default for later candidates remain unchanged. No code-golf or
+test/documentation omission is authorized.
+
+The CMS correction parses stored claim JSON once and validates closed worker
+contracts before queued claim or running resume, rejecting invalid state without
+changing lifecycle state. The real app-client↔CMS harness now preserves the
+manual `route: "direct"` case and also claims a normal U10-A12 app-created run
+whose initial set is `route: "undecided"`; both support claim/replay, snapshot
+digest/private comment handling, and bounded fail/replay. It also verifies
+malformed/digest response rejection, action-scope denial, no-call
+checkpoint/completion, invalid stored JSON no-transition, and owned-resource
+cleanup.
+
+The `undecided` response is only an initial-state contract: it does not select an
+execution route or authorize model work. Worker runtime remains fail-closed until
+CountTokens selects `direct` or `map-reduce`; checkpoint writes/CAS and provider
+execution remain incomplete. Do not coerce `undecided` to `direct` or claim U10
+complete. Final candidate size is `976` additions plus deletions across 11 paths
+against the exact parent head; full inventory and method are in the ledger.
+
 - [ ] 4.2 U11 Fake-provider RED→implement→GREEN explicit product-project/location Vertex initialization, fail-closed config, direct/map/reduce/redaction/validation/CountTokens/cost in `teleferico-app/services/survey-report-worker/src/**`; D:U1,U10; E:worker-Vitest/approved-staging-probe; R:D26,D51-D68,D75-D77,AI; B:adapter; A:provider/secrets; L:800,worker.
 - [ ] 4.3 U12 RED→implement→GREEN PDF/accessibility/eight-sections/five-charts/diagnostics/private-GCS in `teleferico-app/services/survey-report-worker/src/**`; D:passed-U3,U10-U11; E:golden/prohibited-content-Vitest+pinned-renderer; R:D78-D84,D89,delivery; B:renderer/objects; A:storage-lifecycle; L:700,worker.
 - [ ] 4.4 U13 Plan→approve→apply→GREEN product-project Tasks/private-Run/IAM, distinct task-invoker/worker-runtime service accounts, keyless service-identity attachment, explicit Vertex config, secrets/env/logging/alerts/labels in `teleferico-app/{cloudbuild.yaml,.env.example}`, `teleferico-cms/.env.example`, `docs/{INFRA.md,infra/survey-reporting/**}`; D:U1,U10-U12; E:`node docs/infra/survey-reporting/verify-config.test.mjs`+dry-runs; R:D35,D70,D72-D79,D89,operations; B:named-resources/grants; A:separate-staging/production; L:700,root/app/CMS/infra.
