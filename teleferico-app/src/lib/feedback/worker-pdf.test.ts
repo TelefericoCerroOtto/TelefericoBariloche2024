@@ -34,6 +34,13 @@ import {
   verifyChunkMembership,
 } from "../../../services/survey-report-worker/src/checkpoint-contract";
 import { PUBLISHED_SECTION_KEYS, WorkerCmsConflictError } from "../../../services/survey-report-worker/src/contracts";
+import { deterministicReportId } from "../../../services/survey-report-worker/src/private-report-identity";
+import {
+  createPrivateReportObjectStorage,
+  toPrivateReportDownloadMetadata,
+} from "../../../services/survey-report-worker/src/private-storage";
+import { createFeedbackReportDownload } from "./report-download";
+import { createFakePrivateReportBucket } from "./private-storage.test-fixtures";
 import type {
   CompleteCommand,
   CompleteResult,
@@ -62,6 +69,29 @@ function snapshot(): SnapshotEnvelopeV1 {
     definitions: [{ aspectKey: "other", sortOrder: 99 }],
     points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
   });
+}
+
+function minimalPdfFixture(): Uint8Array {
+  const encoder = new TextEncoder();
+  const text = "BT /F1 12 Tf 72 720 Td (Synthetic report) Tj ET";
+  const objects = [
+    "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+    "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n",
+    "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n",
+    `4 0 obj\n<< /Length ${encoder.encode(text).byteLength} >>\nstream\n${text}\nendstream\nendobj\n`,
+    "5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+  ];
+  let document = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  for (const object of objects) {
+    offsets.push(encoder.encode(document).byteLength);
+    document += object;
+  }
+  const crossReferenceOffset = encoder.encode(document).byteLength;
+  document += `xref\n0 6\n0000000000 65535 f \n${offsets
+    .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
+    .join("")}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${crossReferenceOffset}\n%%EOF\n`;
+  return encoder.encode(document);
 }
 
 function analysis(): PublishedAnalysisV1 {
@@ -143,6 +173,7 @@ function fakeCms(
   checkpoints: WorkerCheckpointSet = checkpointSet(snapshotEnvelope.digestHex),
   modelConfig: unknown = syntheticModelConfig("test-only-2026-01"),
   pricingSnapshot: unknown = syntheticPricingSnapshot(),
+  reportIdForArtifact: (reportRunId: string, sha256: string) => string = () => "report-1",
 ) {
   let stateVersion = 1;
   let terminal: "succeeded" | "failed" | null = null;
@@ -214,7 +245,7 @@ function fakeCms(
         reportRunId,
         stateVersion,
         status: "succeeded",
-        reportId: "report-1",
+        reportId: reportIdForArtifact(reportRunId, command.artifact.sha256),
         artifactSha256: command.artifact.sha256,
         artifactSize: command.artifact.size,
         replayed: false,
@@ -1331,5 +1362,105 @@ describe("worker PDF boundary", () => {
     });
     expect(fake.calls.fail).toBe(0);
     expect(artifacts.calls.stage).toBe(0);
+  });
+
+  it("completes and downloads a worker PDF through the injected private object adapter", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000113";
+    const envelope = snapshot();
+    const bucket = createFakePrivateReportBucket();
+    const storage = createPrivateReportObjectStorage({ bucket: bucket.bucket });
+    const fake = fakeCms(
+      envelope,
+      undefined,
+      undefined,
+      undefined,
+      (runId, sha256) => deterministicReportId(runId, sha256),
+    );
+    const pdfBytes = minimalPdfFixture();
+    const pdfSha256 = createHash("sha256").update(pdfBytes).digest("hex");
+    const reportId = deterministicReportId(reportRunId, pdfSha256);
+    const objectKey = `private/feedback-reports/${reportId}/report.pdf`;
+
+    const testRenderer = createDeterministicTestPdfRenderer();
+    const placeholderBytes = await testRenderer.render({
+      html: "synthetic",
+      snapshot: envelope.payload,
+      charts: [],
+    });
+    expect(new TextDecoder().decode(placeholderBytes.subarray(0, 5))).not.toBe("%PDF-");
+    await expect(
+      storage.artifacts.stage(reportRunId, {
+        objectKey,
+        bytes: placeholderBytes,
+        sha256: createHash("sha256").update(placeholderBytes).digest("hex"),
+        size: placeholderBytes.byteLength,
+        mimeType: "application/pdf",
+      }),
+    ).rejects.toThrow("Private report storage operation failed");
+    expect(bucket.objects.size).toBe(0);
+
+    const result = await executeReportWorker(reportRunId, {
+      cms: fake.cms,
+      artifacts: storage.artifacts,
+      renderer: {
+        rendererVersion: "synthetic-valid-pdf.v1",
+        async render() {
+          return new Uint8Array(pdfBytes);
+        },
+      },
+    });
+    expect(result).toMatchObject({
+      status: "succeeded",
+      reportRunId,
+      reportId,
+      artifact: {
+        objectKey,
+        sha256: pdfSha256,
+        size: pdfBytes.byteLength,
+        mimeType: "application/pdf",
+      },
+    });
+    expect(fake.calls.complete).toBe(1);
+    expect(fake.completedCommand?.artifact).toEqual({
+      objectKey,
+      sha256: pdfSha256,
+      size: pdfBytes.byteLength,
+      mimeType: "application/pdf",
+    });
+
+    const staged = await storage.artifacts.readStaged(reportRunId, pdfSha256);
+    expect(staged?.bytes).toEqual(pdfBytes);
+    await storage.artifacts.stage(reportRunId, staged!);
+    expect(bucket.calls.create).toBe(2);
+
+    const metadata = toPrivateReportDownloadMetadata({
+      reportId,
+      reportRunId,
+      sha256: pdfSha256,
+      size: pdfBytes.byteLength,
+    });
+    const download = createFeedbackReportDownload({
+      metadataReader: { read: async () => metadata },
+      objectReader: storage.objectReader,
+    });
+    await expect(download.read(reportId)).resolves.toEqual({
+      metadata,
+      bytes: pdfBytes,
+    });
+
+    const conflictingBytes = new TextEncoder().encode("%PDF-1.7\nconflict\n%%EOF\n");
+    await expect(
+      storage.artifacts.stage(reportRunId, {
+        ...staged!,
+        bytes: conflictingBytes,
+        sha256: createHash("sha256").update(conflictingBytes).digest("hex"),
+        size: conflictingBytes.byteLength,
+      }),
+    ).rejects.toThrow("Private report storage operation failed");
+    expect(bucket.objects.get(objectKey)?.bytes).toEqual(pdfBytes);
+
+    await storage.artifacts.discardStaged(reportRunId, pdfSha256);
+    await expect(storage.artifacts.readStaged(reportRunId, pdfSha256)).resolves.toBeNull();
+    expect(bucket.objects.has(objectKey)).toBe(false);
   });
 });

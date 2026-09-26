@@ -58,6 +58,7 @@ import { buildMapChunksV1, countGeneratedOutputV1, planWorkerRouteV1 } from "./m
 import { executeMapReduceStages } from "./map-reduce-worker-runtime";
 import { priceProviderUsageV1, validateProviderUsageV1 } from "./worker-cost";
 import { deliverPendingWorkerAlerts } from "./worker-alerts";
+import { deterministicReportId } from "./private-report-identity";
 
 type RetryableFailureCode = Extract<
   RuntimeFailureCode,
@@ -277,17 +278,6 @@ function stagedArtifact(
     size: artifact.size,
     mimeType: artifact.mimeType,
   };
-}
-
-function deterministicReportId(reportRunId: string, artifactSha256: string): string {
-  const bytes = createHash("sha256")
-    .update(`tb113-report-id.v1:${reportRunId}:${artifactSha256}`)
-    .digest()
-    .subarray(0, 16);
-  bytes[6] = (bytes[6]! & 0x0f) | 0x50;
-  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
-  const hex = bytes.toString("hex");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function stageInputDigest(input: {
