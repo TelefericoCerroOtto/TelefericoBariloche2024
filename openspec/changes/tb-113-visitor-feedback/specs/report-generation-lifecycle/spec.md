@@ -78,6 +78,16 @@ Generation MUST remain asynchronously observable as `queued`, `running`, `succee
 - WHEN completion commits
 - THEN generation and report MUST become visible together without an intermediate success-only state.
 
+#### Scenario: Completion wins a failure-cleanup race
+- GIVEN one worker has staged the final-key PDF and another worker commits completion before its failure compare-and-swap
+- WHEN the failing worker receives a conflict, terminal success, or unknown CMS outcome
+- THEN it MUST NOT discard the staged object, and the completed report PDF MUST remain readable.
+
+#### Scenario: Confirmed failure cleanup
+- GIVEN the CMS confirms a terminal failed transition or an identical failed replay for the same generation and failure code
+- WHEN conditional artifact cleanup succeeds or fails
+- THEN cleanup MAY delete only the matching run/digest object; cleanup failure MUST preserve the committed failed status and report `cleanupPending` safely.
+
 ## Traceability
 
 Primary decisions: D40, D44-D48, D69, D71.

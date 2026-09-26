@@ -185,6 +185,9 @@ function toExecutionResponse(
       status: result.status,
       disposition: result.disposition,
       ...(result.status === "failed" ? { failureCode: result.failureCode } : {}),
+      ...(result.status === "failed" && result.cleanupPending
+        ? { cleanupPending: true }
+        : {}),
     },
   };
 }

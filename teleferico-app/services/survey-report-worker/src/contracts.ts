@@ -473,6 +473,7 @@ export type WorkerExecutionResult =
       readonly disposition: "failed" | "terminal-replay";
       readonly reportRunId: string;
       readonly failureCode: RuntimeFailureCode;
+      readonly cleanupPending?: true;
     };
 
 export class WorkerCmsConflictError extends Error {

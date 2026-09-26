@@ -177,6 +177,7 @@ function fakeCms(
 ) {
   let stateVersion = 1;
   let terminal: "succeeded" | "failed" | null = null;
+  let terminalFailureCode: FailCommand["failureCode"] | null = null;
   let completedCommand: CompleteCommand | null = null;
   const calls = { snapshot: 0, checkpoint: 0, complete: 0, fail: 0 };
   const writtenCheckpoints: WorkerCheckpoint[] = [];
@@ -236,6 +237,7 @@ function fakeCms(
       reportRunId,
       command: CompleteCommand,
     ): Promise<CompleteResult> {
+      if (terminal === "failed") throw new WorkerCmsConflictError();
       calls.complete += 1;
       completedCommand = command;
       terminal = "succeeded";
@@ -251,16 +253,36 @@ function fakeCms(
         replayed: false,
       };
     },
-    async fail(reportRunId, _command: FailCommand): Promise<FailResult> {
+    async fail(reportRunId, command: FailCommand): Promise<FailResult> {
       calls.fail += 1;
+      if (terminal === "succeeded") throw new WorkerCmsConflictError();
+      if (terminal === "failed") {
+        if (
+          terminalFailureCode !== command.failureCode ||
+          stateVersion !== command.expectedStateVersion + 1
+        )
+          throw new WorkerCmsConflictError();
+        return {
+          contractVersion: "survey-worker-cms.v1",
+          reportRunId,
+          stateVersion,
+          status: "failed",
+          failureCode: command.failureCode,
+          replayed: true,
+          alertRequired: false,
+        };
+      }
+      if (command.expectedStateVersion !== stateVersion)
+        throw new WorkerCmsConflictError();
       terminal = "failed";
+      terminalFailureCode = command.failureCode;
       stateVersion += 1;
       return {
         contractVersion: "survey-worker-cms.v1",
         reportRunId,
         stateVersion,
         status: "failed",
-        failureCode: "INVALID_OUTPUT",
+        failureCode: command.failureCode,
         replayed: false,
         alertRequired: false,
       };
@@ -1320,8 +1342,8 @@ describe("worker PDF boundary", () => {
     });
     expect(fake.calls.complete).toBe(0);
     expect(fake.calls.fail).toBe(0);
-    expect(artifacts.staged.size).toBe(0);
-    expect(artifacts.calls.discard).toBe(1);
+    expect(artifacts.staged.size).toBe(1);
+    expect(artifacts.calls.discard).toBe(0);
   });
 
   it("rejects an orphan render checkpoint without the preceding verified stage graph", async () => {
@@ -1513,5 +1535,193 @@ describe("worker PDF boundary", () => {
     await storage.artifacts.discardStaged(reportRunId, pdfSha256);
     await expect(storage.artifacts.readStaged(reportRunId, pdfSha256)).resolves.toBeNull();
     expect(bucket.objects.has(objectKey)).toBe(false);
+  });
+
+  it("does not delete a report object when completion wins before the failure CAS", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000114";
+    const envelope = snapshot();
+    const bucket = createFakePrivateReportBucket();
+    const storage = createPrivateReportObjectStorage({ bucket: bucket.bucket });
+    const fake = fakeCms(
+      envelope,
+      undefined,
+      undefined,
+      undefined,
+      (runId, sha256) => deterministicReportId(runId, sha256),
+    );
+    const pdfBytes = minimalPdfFixture();
+    const pdfSha256 = createHash("sha256").update(pdfBytes).digest("hex");
+    const reportId = deterministicReportId(reportRunId, pdfSha256);
+    const objectKey = `private/feedback-reports/${reportId}/report.pdf`;
+    let storeCheckpointFailed = false;
+    const checkpoint = fake.cms.checkpoint.bind(fake.cms);
+    vi.spyOn(fake.cms, "checkpoint").mockImplementation((runId, command) => {
+      if (command.checkpoint.stageKey === "store" && !storeCheckpointFailed) {
+        storeCheckpointFailed = true;
+        return Promise.reject(new TypeError("Synthetic store checkpoint failure"));
+      }
+      return checkpoint(runId, command);
+    });
+
+    const originalFail = fake.cms.fail.bind(fake.cms);
+    vi.spyOn(fake.cms, "fail").mockImplementation(async (runId, command) => {
+      const competingCompletion = await executeReportWorker(reportRunId, {
+        cms: fake.cms,
+        artifacts: storage.artifacts,
+        renderer: {
+          rendererVersion: "synthetic-valid-pdf.v1",
+          async render() {
+            return new Uint8Array(pdfBytes);
+          },
+        },
+      });
+      expect(competingCompletion.status).toBe("succeeded");
+      return originalFail(runId, command);
+    });
+
+    const failedWorker = await executeReportWorker(reportRunId, {
+      cms: fake.cms,
+      artifacts: storage.artifacts,
+      renderer: {
+        rendererVersion: "synthetic-valid-pdf.v1",
+        async render() {
+          return new Uint8Array(pdfBytes);
+        },
+      },
+    });
+
+    expect(failedWorker).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
+    expect(fake.calls.complete).toBe(1);
+    expect(bucket.calls.delete).toBe(0);
+    expect(bucket.objects.get(objectKey)?.bytes).toEqual(pdfBytes);
+
+    const metadata = toPrivateReportDownloadMetadata({
+      reportId,
+      reportRunId,
+      sha256: pdfSha256,
+      size: pdfBytes.byteLength,
+    });
+    const download = createFeedbackReportDownload({
+      metadataReader: { read: async () => metadata },
+      objectReader: storage.objectReader,
+    });
+    await expect(download.read(reportId)).resolves.toEqual({ metadata, bytes: pdfBytes });
+  });
+
+  it("cleans staged bytes only after a confirmed failed transition or identical replay", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000115";
+    const envelope = snapshot();
+    const bucket = createFakePrivateReportBucket();
+    const storage = createPrivateReportObjectStorage({ bucket: bucket.bucket });
+    const fake = fakeCms(envelope);
+    const checkpoint = fake.cms.checkpoint.bind(fake.cms);
+    vi.spyOn(fake.cms, "checkpoint").mockImplementation((runId, command) =>
+      command.checkpoint.stageKey === "store"
+        ? Promise.reject(new TypeError("Synthetic store checkpoint failure"))
+        : checkpoint(runId, command),
+    );
+    bucket.refuseDelete();
+
+    const result = await executeReportWorker(reportRunId, {
+      cms: fake.cms,
+      artifacts: storage.artifacts,
+      renderer: {
+        rendererVersion: "synthetic-valid-pdf.v1",
+        async render() {
+          return minimalPdfFixture();
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "failed",
+      failureCode: "INVARIANT",
+      cleanupPending: true,
+    });
+    expect(fake.calls.fail).toBe(1);
+    expect(bucket.calls.delete).toBe(1);
+    expect(bucket.objects.size).toBe(1);
+  });
+
+  it("cleans staged bytes after the CMS replays the identical failed generation", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000116";
+    const envelope = snapshot();
+    const bucket = createFakePrivateReportBucket();
+    const storage = createPrivateReportObjectStorage({ bucket: bucket.bucket });
+    const fake = fakeCms(envelope);
+    const checkpoint = fake.cms.checkpoint.bind(fake.cms);
+    vi.spyOn(fake.cms, "checkpoint").mockImplementation((runId, command) =>
+      command.checkpoint.stageKey === "store"
+        ? Promise.reject(new TypeError("Synthetic store checkpoint failure"))
+        : checkpoint(runId, command),
+    );
+    const originalFail = fake.cms.fail.bind(fake.cms);
+    vi.spyOn(fake.cms, "fail").mockImplementation(async (runId, command) => {
+      await originalFail(runId, command);
+      return originalFail(runId, command);
+    });
+
+    const result = await executeReportWorker(reportRunId, {
+      cms: fake.cms,
+      artifacts: storage.artifacts,
+      renderer: {
+        rendererVersion: "synthetic-valid-pdf.v1",
+        async render() {
+          return minimalPdfFixture();
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: "failed",
+      disposition: "terminal-replay",
+      failureCode: "INVARIANT",
+    });
+    expect(fake.calls.fail).toBe(2);
+    expect(bucket.calls.delete).toBe(1);
+    expect(bucket.objects.size).toBe(0);
+  });
+
+  it("does not clean staged bytes when a failed replay returns a later state version", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000117";
+    const envelope = snapshot();
+    const bucket = createFakePrivateReportBucket();
+    const storage = createPrivateReportObjectStorage({ bucket: bucket.bucket });
+    const fake = fakeCms(envelope);
+    const checkpoint = fake.cms.checkpoint.bind(fake.cms);
+    vi.spyOn(fake.cms, "checkpoint").mockImplementation((runId, command) =>
+      command.checkpoint.stageKey === "store"
+        ? Promise.reject(new TypeError("Synthetic store checkpoint failure"))
+        : checkpoint(runId, command),
+    );
+    vi.spyOn(fake.cms, "fail").mockImplementation(async (runId, command) => ({
+      contractVersion: "survey-worker-cms.v1",
+      reportRunId: runId,
+      stateVersion: command.expectedStateVersion + 2,
+      status: "failed",
+      failureCode: command.failureCode,
+      replayed: true,
+      alertRequired: false,
+    }));
+
+    const result = await executeReportWorker(reportRunId, {
+      cms: fake.cms,
+      artifacts: storage.artifacts,
+      renderer: {
+        rendererVersion: "synthetic-valid-pdf.v1",
+        async render() {
+          return minimalPdfFixture();
+        },
+      },
+    });
+
+    expect(bucket.calls.delete).toBe(0);
+    expect(bucket.objects.size).toBe(1);
+    expect(result).toMatchObject({
+      status: "failed",
+      disposition: "failed",
+      failureCode: "INVARIANT",
+    });
+    expect(result).not.toHaveProperty("cleanupPending");
   });
 });
