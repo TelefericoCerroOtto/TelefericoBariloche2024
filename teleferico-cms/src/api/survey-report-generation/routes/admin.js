@@ -58,6 +58,17 @@ module.exports = {
       },
     },
     {
+      method: "POST",
+      path: "/tb113/admin/feedback/read",
+      handler: "survey-report-generation.feedbackAdminRead",
+      config: {
+        auth: {
+          strategies: ["content-api-token"],
+          scope: ["api::survey-report-generation.survey-report-generation.feedbackAdminRead"],
+        },
+      },
+    },
+    {
       method: "GET",
       path: "/tb113/worker/reports/:reportId/download-metadata",
       handler: "survey-report-generation.workerReportDownloadMetadata",
