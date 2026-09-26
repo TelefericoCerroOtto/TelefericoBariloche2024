@@ -11,6 +11,7 @@ import type {
   MapModelRequestV1,
   ModelConfigV1,
 } from "./contracts";
+import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA } from "./direct-execution-plan";
 
 const MAP_INSTRUCTIONS =
   "Extract descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
@@ -196,14 +197,14 @@ export async function countGeneratedOutputV1(input: {
   readonly output: unknown;
   readonly modelConfig: ModelConfigV1;
   readonly countTokens: CountTokensProvider;
-  readonly stage: "map" | "reduce";
+  readonly stage: "direct" | "map" | "reduce";
 }): Promise<{ readonly tokenCount: number; readonly requestDigest: string }> {
   const request: CountTokensRequestV1 = {
     contractVersion: "survey-count-request.v1",
     modelConfig: input.modelConfig,
     segments: {
-      instructions: input.stage === "map" ? MAP_INSTRUCTIONS : REDUCE_INSTRUCTIONS,
-      schema: input.stage === "map" ? MAP_SCHEMA : REDUCE_SCHEMA,
+      instructions: input.stage === "direct" ? DIRECT_INSTRUCTIONS : input.stage === "map" ? MAP_INSTRUCTIONS : REDUCE_INSTRUCTIONS,
+      schema: input.stage === "direct" ? DIRECT_SCHEMA : input.stage === "map" ? MAP_SCHEMA : REDUCE_SCHEMA,
       metrics: "{}",
       comments: canonicalizeJson(input.output),
     },
@@ -214,6 +215,21 @@ export async function countGeneratedOutputV1(input: {
     tokenCount: result.comments,
     requestDigest: createHash("sha256").update(canonicalizeJson(request), "utf8").digest("hex"),
   };
+}
+
+export function validateGeneratedOutputBudgetV1(input: {
+  readonly tokenCount: number;
+  readonly providerTokenCount: number;
+  readonly modelConfig: ModelConfigV1;
+  readonly stage: "direct" | "map" | "reduce";
+}): void {
+  const maximum = input.stage === "map"
+    ? input.modelConfig.map.hardMax
+    : input.modelConfig.directReduce.hardMax;
+  if (!Number.isSafeInteger(input.tokenCount) || input.tokenCount < 0 ||
+      !Number.isSafeInteger(input.providerTokenCount) || input.providerTokenCount < 0 ||
+      input.tokenCount !== input.providerTokenCount || input.tokenCount > maximum)
+    throw Object.assign(new TypeError("Generated output failed its stage token budget"), { code: "INVALID_OUTPUT" as const });
 }
 
 export async function planMapReduceExecutionV1(input: {

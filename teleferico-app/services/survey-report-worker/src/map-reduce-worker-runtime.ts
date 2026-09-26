@@ -15,7 +15,7 @@ import {
 } from "./checkpoint-contract";
 import { EMPTY_EVIDENCE_PARAGRAPH } from "./direct-execution-plan";
 import { preflightMapAnalysis, preflightReduceAnalysis } from "./analysis-output-preflight";
-import { buildMapChunksV1, countGeneratedOutputV1 } from "./map-reduce-execution-plan";
+import { buildMapChunksV1, countGeneratedOutputV1, validateGeneratedOutputBudgetV1 } from "./map-reduce-execution-plan";
 import { renderValidatedPdf, type PdfArtifact } from "./pdf";
 import type {
   CompleteCommand,
@@ -35,6 +35,7 @@ import type {
 } from "./contracts";
 import { priceProviderUsageV1, validateProviderUsageV1 } from "./worker-cost";
 import { deliverPendingWorkerAlerts } from "./worker-alerts";
+import { retryTransient } from "./retry-policy";
 
 export type MapReduceWorkerState = {
   stateVersion: number;
@@ -163,14 +164,6 @@ function makeCheckpoint(input: {
   return value;
 }
 
-async function retry<T>(operation: () => Promise<T>): Promise<T> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try { return await operation(); } catch (error) { lastError = error; }
-  }
-  throw lastError;
-}
-
 export async function executeMapReduceStages(input: {
   readonly reportRunId: string;
   readonly snapshotEnvelope: SnapshotEnvelopeV1;
@@ -260,7 +253,7 @@ export async function executeMapReduceStages(input: {
       snapshot,
       now: (input.dependencies.now ?? (() => new Date()))(),
     });
-    const checkpointResult = await retry(async () => cms.checkpoint(input.reportRunId, {
+    const checkpointResult = await retryTransient(async () => cms.checkpoint(input.reportRunId, {
       contractVersion: "survey-worker-cms.v1",
       expectedStateVersion: input.state.stateVersion,
       checkpoint: value,
@@ -285,26 +278,39 @@ export async function executeMapReduceStages(input: {
   for (const { membership, request } of chunks) {
     const stageKey = request.chunkId;
     if (input.state.checkpointSet.entries.some((entry) => entry.stageKey === stageKey)) continue;
-    const response = await retry(() => mapProvider(request));
-    const candidate = response?.output;
-    const usage = priceProviderUsageV1(
-      validateProviderUsageV1(response?.usage, config.model),
-      input.pricingSnapshot,
-      config.model,
-      stageKey,
-    );
-    const outputCount = await countGeneratedOutputV1({ output: candidate, modelConfig: config, countTokens, stage: "map" });
-    if (outputCount.tokenCount > config.map.hardMax)
-      throw Object.assign(new TypeError("Map output exceeded the hard output token limit"), { code: "INVALID_OUTPUT" as const });
-    const preflight = preflightMapAnalysis(candidate, {
-      snapshot: input.snapshotEnvelope,
-      reportRunId: input.reportRunId,
-      evidenceKeyId: config.evidenceKeyId,
-      evidenceKey: input.evidenceKey,
-      chunkCount,
-    });
-    if (preflight.status !== "accepted")
-      throw Object.assign(new TypeError("Map output failed structural validation"), { code: "INVALID_OUTPUT" as const });
+    let candidate: MapAnalysisV1 | null = null;
+    let usage: ReturnType<typeof priceProviderUsageV1> | null = null;
+    let outputCount: Awaited<ReturnType<typeof countGeneratedOutputV1>> | null = null;
+    for (let generation = 0; generation < 2; generation += 1) {
+      const response = await retryTransient(() => mapProvider(request));
+      const providerUsage = validateProviderUsageV1(response?.usage, config.model);
+      const nextCandidate = response?.output;
+      const nextOutputCount = await retryTransient(() => countGeneratedOutputV1({ output: nextCandidate, modelConfig: config, countTokens, stage: "map" }));
+      let withinBudget = true;
+      try {
+        validateGeneratedOutputBudgetV1({ tokenCount: nextOutputCount.tokenCount, providerTokenCount: providerUsage.usageMetadata.candidatesTokenCount, modelConfig: config, stage: "map" });
+      } catch {
+        withinBudget = false;
+      }
+      const preflight = withinBudget ? preflightMapAnalysis(nextCandidate, {
+            snapshot: input.snapshotEnvelope,
+            reportRunId: input.reportRunId,
+            evidenceKeyId: config.evidenceKeyId,
+            evidenceKey: input.evidenceKey,
+            chunkCount,
+          })
+        : null;
+      if (preflight?.status === "accepted") {
+        candidate = nextCandidate;
+        outputCount = nextOutputCount;
+        usage = priceProviderUsageV1(providerUsage, input.pricingSnapshot, config.model, stageKey);
+        break;
+      }
+      if (generation === 1)
+        throw Object.assign(new TypeError("Map output failed structural or output-token validation"), { code: "INVALID_OUTPUT" as const });
+    }
+    if (!candidate || !outputCount || !usage)
+      throw Object.assign(new TypeError("Map output failed validation"), { code: "INVALID_OUTPUT" as const });
     const payload = {
       kind: "map" as const,
       chunkId: request.chunkId,
@@ -355,31 +361,44 @@ export async function executeMapReduceStages(input: {
     if (replayPreflight.status !== "accepted" || reduceStage.payload.outputTokenCount > config.directReduce.hardMax)
       throw Object.assign(new TypeError("Persisted reduce checkpoint failed structural validation"), { code: "INVALID_OUTPUT" as const });
   } else {
-    const response = await retry(() => reduceProvider({
-      contractVersion: "survey-reduce-input.v1",
-      metrics: snapshot.metrics,
-      maps,
-    }));
-    const candidate = response?.output;
-    const usage = priceProviderUsageV1(
-      validateProviderUsageV1(response?.usage, config.model),
-      input.pricingSnapshot,
-      config.model,
-      "reduce",
-    );
     const verifiedDigests = maps.map(({ outputDigest }) => outputDigest);
-    const preflight = preflightReduceAnalysis(candidate, {
-      snapshot: input.snapshotEnvelope,
-      reportRunId: input.reportRunId,
-      evidenceKeyId: config.evidenceKeyId,
-      evidenceKey: input.evidenceKey,
-      verifiedMapOutputDigests: verifiedDigests,
-    });
-    if (preflight.status !== "accepted")
-      throw Object.assign(new TypeError("Reduce output failed structural validation or map-digest binding"), { code: "INVALID_OUTPUT" as const });
-    const outputCount = await countGeneratedOutputV1({ output: candidate, modelConfig: config, countTokens, stage: "reduce" });
-    if (outputCount.tokenCount > config.directReduce.hardMax)
-      throw Object.assign(new TypeError("Reduce output exceeded the hard output token limit"), { code: "INVALID_OUTPUT" as const });
+    let candidate: ReduceAnalysisV1 | null = null;
+    let usage: ReturnType<typeof priceProviderUsageV1> | null = null;
+    let outputCount: Awaited<ReturnType<typeof countGeneratedOutputV1>> | null = null;
+    for (let generation = 0; generation < 2; generation += 1) {
+      const response = await retryTransient(() => reduceProvider({
+        contractVersion: "survey-reduce-input.v1",
+        metrics: snapshot.metrics,
+        maps,
+      }));
+      const providerUsage = validateProviderUsageV1(response?.usage, config.model);
+      const nextCandidate = response?.output;
+      const nextOutputCount = await retryTransient(() => countGeneratedOutputV1({ output: nextCandidate, modelConfig: config, countTokens, stage: "reduce" }));
+      let withinBudget = true;
+      try {
+        validateGeneratedOutputBudgetV1({ tokenCount: nextOutputCount.tokenCount, providerTokenCount: providerUsage.usageMetadata.candidatesTokenCount, modelConfig: config, stage: "reduce" });
+      } catch {
+        withinBudget = false;
+      }
+      const preflight = withinBudget ? preflightReduceAnalysis(nextCandidate, {
+            snapshot: input.snapshotEnvelope,
+            reportRunId: input.reportRunId,
+            evidenceKeyId: config.evidenceKeyId,
+            evidenceKey: input.evidenceKey,
+            verifiedMapOutputDigests: verifiedDigests,
+          })
+        : null;
+      if (preflight?.status === "accepted") {
+        candidate = nextCandidate;
+        outputCount = nextOutputCount;
+        usage = priceProviderUsageV1(providerUsage, input.pricingSnapshot, config.model, "reduce");
+        break;
+      }
+      if (generation === 1)
+        throw Object.assign(new TypeError("Reduce output failed structural or output-token validation"), { code: "INVALID_OUTPUT" as const });
+    }
+    if (!candidate || !usage || !outputCount)
+      throw Object.assign(new TypeError("Reduce output failed validation"), { code: "INVALID_OUTPUT" as const });
     await addCheckpoint("reduce", {
       kind: "reduce",
       outputTokenCount: outputCount.tokenCount,
@@ -410,7 +429,7 @@ export async function executeMapReduceStages(input: {
   });
   const existingRender = input.state.checkpointSet.entries.find(({ stageKey }) => stageKey === "render");
   if (!existingRender) {
-    const rendered: PdfArtifact = await retry(() => renderValidatedPdf(input.snapshotEnvelope, analysis, renderer));
+    const rendered: PdfArtifact = await retryTransient(() => renderValidatedPdf(input.snapshotEnvelope, analysis, renderer));
     const artifact: WorkerArtifact = {
       objectKey: `private/feedback-reports/${reportId(input.reportRunId, rendered.sha256)}/report.pdf`,
       bytes: rendered.bytes,
@@ -418,7 +437,7 @@ export async function executeMapReduceStages(input: {
       size: rendered.size,
       mimeType: rendered.mimeType,
     };
-    await retry(() => artifacts.stage(input.reportRunId, artifact));
+    await retryTransient(() => artifacts.stage(input.reportRunId, artifact));
     input.state.staged = artifact;
     input.updateState(input.state);
     await addCheckpoint("render", {
@@ -431,7 +450,7 @@ export async function executeMapReduceStages(input: {
     throw Object.assign(new TypeError("Stored render checkpoint binding mismatch"), { code: "INVARIANT" as const });
   let artifact = input.state.staged;
   if (!artifact) {
-    artifact = await retry(() => artifacts.readStaged(input.reportRunId, renderCheckpoint.payload.kind === "render" ? renderCheckpoint.payload.pdfSha256 : ""));
+    artifact = await retryTransient(() => artifacts.readStaged(input.reportRunId, renderCheckpoint.payload.kind === "render" ? renderCheckpoint.payload.pdfSha256 : ""));
     if (!artifact || artifact.sha256 !== renderCheckpoint.payload.pdfSha256 || artifact.size !== renderCheckpoint.payload.size)
       throw Object.assign(new TypeError("Staged map-reduce PDF is unavailable"), { code: "STORAGE_TRANSIENT" as const });
     input.state.staged = artifact;
@@ -463,7 +482,7 @@ export async function executeMapReduceStages(input: {
       mimeType: "application/pdf",
     },
   };
-  const complete = await retry(() => cms.complete(input.reportRunId, command));
+  const complete = await retryTransient(() => cms.complete(input.reportRunId, command));
   if (complete.pendingAlerts?.length) {
     void deliverPendingWorkerAlerts({
       reportRunId: input.reportRunId,

@@ -713,8 +713,8 @@ function outputTokenRequestDigest(output, modelConfig, stage) {
     contractVersion: 'survey-count-request.v1',
     modelConfig,
     segments: {
-      instructions: stage === 'map' ? MAP_INSTRUCTIONS : REDUCE_INSTRUCTIONS,
-      schema: stage === 'map' ? MAP_SCHEMA : REDUCE_SCHEMA,
+      instructions: stage === 'direct' ? DIRECT_COUNT_INSTRUCTIONS : stage === 'map' ? MAP_INSTRUCTIONS : REDUCE_INSTRUCTIONS,
+      schema: stage === 'direct' ? DIRECT_COUNT_SCHEMA : stage === 'map' ? MAP_SCHEMA : REDUCE_SCHEMA,
       metrics: '{}',
       comments: canonicalizeJson(output),
     },
@@ -726,6 +726,7 @@ function safeMapOutput(payload, modelConfig, snapshot, reportRunId, evidenceKey)
       payload.kind !== 'map' || !Number.isSafeInteger(payload.outputTokenCount) || payload.outputTokenCount < 0 ||
       payload.outputTokenCount > modelConfig.map.hardMax || !DIGEST_PATTERN.test(payload.outputRequestDigest) ||
       !validUsageShape(payload.usage, payload.chunkId, modelConfig.model) ||
+      payload.usage.usageMetadata.candidatesTokenCount !== payload.outputTokenCount ||
       payload.outputRequestDigest !== outputTokenRequestDigest(payload.validatedOutput, modelConfig, 'map')) return false;
   const key = /^map\.([1-9]\d*)-of-([1-9]\d*)$/.exec(payload.chunkId);
   const output = payload.validatedOutput;
@@ -791,6 +792,7 @@ function safeReduceOutput(payload, modelConfig, snapshot, reportRunId, evidenceK
       payload.kind !== 'reduce' || !Number.isSafeInteger(payload.outputTokenCount) || payload.outputTokenCount < 0 ||
       payload.outputTokenCount > modelConfig.directReduce.hardMax || !DIGEST_PATTERN.test(payload.outputRequestDigest) ||
       !validUsageShape(payload.usage, 'reduce', modelConfig.model) ||
+      payload.usage.usageMetadata.candidatesTokenCount !== payload.outputTokenCount ||
       payload.outputRequestDigest !== outputTokenRequestDigest(payload.validatedOutput, modelConfig, 'reduce')) return false;
   const output = payload.validatedOutput;
   if (!exactKeys(output, ['schemaVersion', 'route', 'sections', 'mapOutputDigests']) || output.schemaVersion !== 'survey-analysis.v1' ||
@@ -831,9 +833,12 @@ function safeCheckpointPayload(stage, payload, modelConfig, snapshot, reportRunI
   if (stage.type === "direct") {
     const output = payload?.validatedOutput;
     const hasUsage = Object.hasOwn(payload ?? {}, 'usage');
-    return (hasUsage ? exactKeys(payload, ["kind", "validatedOutput", "usage"]) : exactKeys(payload, ["kind", "validatedOutput"])) &&
+    return (hasUsage ? exactKeys(payload, ["kind", "validatedOutput", "usage", "outputTokenCount", "outputRequestDigest"]) : exactKeys(payload, ["kind", "validatedOutput"])) &&
       payload.kind === "direct" &&
       ((snapshot?.comments?.length ?? -1) === 0 ? !hasUsage : validUsageShape(payload.usage, 'direct', modelConfig.model)) &&
+      (!hasUsage || Number.isSafeInteger(payload.outputTokenCount) && payload.outputTokenCount >= 0 &&
+        payload.outputTokenCount <= modelConfig.directReduce.hardMax && DIGEST_PATTERN.test(payload.outputRequestDigest) &&
+        payload.usage.usageMetadata.candidatesTokenCount === payload.outputTokenCount) &&
       Boolean(snapshot && safeDirectOutput(output, modelConfig, snapshot, reportRunId, evidenceKey));
   }
   if (stage.type === "map")
@@ -1009,19 +1014,20 @@ async function verifyMapReduceCountAuthorityV1({ payload, modelConfig, snapshot,
   return true;
 }
 
-async function verifyGeneratedOutputCountV1({ output, modelConfig, stage, outputTokenCount, outputRequestDigest, countTokens }) {
+async function verifyGeneratedOutputCountV1({ output, modelConfig, stage, outputTokenCount, outputRequestDigest, usage, countTokens }) {
   if (typeof countTokens !== 'function') return false;
   const request = {
     contractVersion: 'survey-count-request.v1', modelConfig,
     segments: {
-      instructions: stage === 'map' ? MAP_INSTRUCTIONS : REDUCE_INSTRUCTIONS,
-      schema: stage === 'map' ? MAP_SCHEMA : REDUCE_SCHEMA,
+      instructions: stage === 'direct' ? DIRECT_COUNT_INSTRUCTIONS : stage === 'map' ? MAP_INSTRUCTIONS : REDUCE_INSTRUCTIONS,
+      schema: stage === 'direct' ? DIRECT_COUNT_SCHEMA : stage === 'map' ? MAP_SCHEMA : REDUCE_SCHEMA,
       metrics: '{}',
       comments: canonicalizeJson(output),
     },
   };
   const counted = await countTokens(request);
   return exactCountResult(counted) && counted.comments === outputTokenCount &&
+    usage?.usageMetadata?.candidatesTokenCount === outputTokenCount &&
     outputRequestDigest === sha256(request) && counted.comments <= (stage === 'map' ? modelConfig.map.hardMax : modelConfig.directReduce.hardMax);
 }
 
@@ -1228,6 +1234,7 @@ module.exports = {
   validateWorkerClaimContracts,
   verifyCheckpointGraphV1,
   verifyChunkMembership,
-  verifyMapReduceCountAuthorityV1,
+  outputTokenRequestDigest,
   verifyGeneratedOutputCountV1,
+  verifyMapReduceCountAuthorityV1,
 };

@@ -27,7 +27,7 @@ Every environment MUST configure `vertexProjectId` as `teleferico-bariloche-2024
 
 ### Requirement: Output budgets and stage duties
 
-Map output MUST target 600-1,200 tokens and never exceed 4,000; direct/reduce MUST target 1,800-3,000 and never exceed 8,000. Map MUST extract evidence and themes only. Reduce MUST consume validated maps plus global official metrics; neither stage MAY calculate official metrics. (Primary: D59-D60)
+Map output MUST target 600-1,200 tokens and never exceed 4,000; direct/reduce MUST target 1,800-3,000 and never exceed 8,000. Before checkpointing, the worker MUST bind validated provider `usageMetadata.candidatesTokenCount` and exact CountTokens evidence to the canonical output request for the exact stage, require both counts to agree, and reject missing, malformed, mismatched, or over-limit evidence. CMS MUST independently recount and validate the stage request digest, count, and hard bound against immutable model configuration; caller-supplied counts alone are not authority. Map MUST extract evidence and themes only. Reduce MUST consume validated maps plus global official metrics; neither stage MAY calculate official metrics. (Primary: D59-D60)
 
 #### Scenario: Reject oversized stage output
 - GIVEN a model response exceeds its stage maximum

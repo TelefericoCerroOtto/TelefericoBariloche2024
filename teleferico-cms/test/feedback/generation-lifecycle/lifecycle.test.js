@@ -2,8 +2,8 @@ const assert = require("node:assert/strict");
 const { createHash } = require("node:crypto");
 const test = require("node:test");
 const { measureDispatchFailureRequestBody } = require("../../../src/api/survey-report-generation/services/dispatch-failure-request");
-const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration, recordCheckpointUsage, validateWorkerClaimCommand, validateWorkerFailCommand } = require("../../../src/api/survey-report-generation/services/lifecycle");
-const { CHECKPOINT_CONTRACT_VERSIONS, deriveChunkMembership, deriveEvidenceRef, stageConfigDigest, stageInputDigestV1, verifyCheckpointGraphV1, verifyChunkMembership } = require("../../../src/api/survey-report-generation/services/checkpoint-contract");
+const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration, recordCheckpointUsage, validateWorkerClaimCommand, validateWorkerFailCommand, verifyPersistedMapReduceOutputAuthorities } = require("../../../src/api/survey-report-generation/services/lifecycle");
+const { CHECKPOINT_CONTRACT_VERSIONS, deriveChunkMembership, deriveEvidenceRef, outputTokenRequestDigest, stageConfigDigest, stageInputDigestV1, verifyCheckpointGraphV1, verifyChunkMembership, verifyGeneratedOutputCountV1 } = require("../../../src/api/survey-report-generation/services/checkpoint-contract");
 const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000001";
 const TASK_NAME = "tb113-report-00000000000040008000000000000001";
 function canonicalize(value) {
@@ -204,6 +204,94 @@ test("pure preparation rejects stale, terminal, incomplete, and invalid transiti
     code: "INVALID_STATE",
   });
   assert.throws(() => prepareAtomicCompletion({ status: "running", stateVersion: 1 }, 2, { checkpoints: [] }), { code: "STATE_VERSION_CONFLICT" });
+});
+
+test("CMS output-token authority binds limits, usage, model config, and exact stage", async () => {
+  const modelConfig = syntheticModelConfig("test-only-2026-01");
+  for (const [stage, tokenLimit] of [["direct", 8000], ["map", 4000], ["reduce", 8000]]) {
+    const output = { schemaVersion: "synthetic-output.v1", stage };
+    const outputRequestDigest = outputTokenRequestDigest(output, modelConfig, stage);
+    const verify = (outputTokenCount, providerTokenCount = outputTokenCount, requestDigest = outputRequestDigest) => verifyGeneratedOutputCountV1({
+      output, modelConfig, stage, outputTokenCount, outputRequestDigest: requestDigest,
+      usage: { usageMetadata: { candidatesTokenCount: providerTokenCount } },
+      countTokens: async (request) => {
+        assert.equal(request.modelConfig, modelConfig);
+        assert.equal(request.contractVersion, "survey-count-request.v1");
+        return { instructions: 1, schema: 1, metrics: 0, comments: outputTokenCount };
+      },
+    });
+    assert.equal(await verify(tokenLimit), true, `${stage} accepts the exact hard bound`);
+    assert.equal(await verify(tokenLimit + 1), false, `${stage} rejects over the immutable hard bound`);
+    assert.equal(await verify(tokenLimit, tokenLimit - 1), false, `${stage} rejects caller/provider usage mismatch`);
+    assert.equal(await verify(tokenLimit, tokenLimit, "f".repeat(64)), false, `${stage} rejects a mismatched stage request digest`);
+  }
+});
+
+test("completion revalidates persisted map and reduce outputs with CMS-owned usage ledger evidence", async () => {
+  const modelConfig = syntheticModelConfig("test-only-2026-01");
+  const stages = [
+    { stageKey: "map.1-of-1", tokenCount: 900 },
+    { stageKey: "reduce", tokenCount: 2_400 },
+  ];
+  const persisted = stages.map(({ stageKey, tokenCount }) => {
+    const output = { stage: stageKey, schemaVersion: "synthetic-output.v1" };
+    const usage = {
+      model: modelConfig.model,
+      modelRevision: "synthetic-revision-1",
+      sku: "gemini-output",
+      usageMetadata: { promptTokenCount: 3, candidatesTokenCount: tokenCount },
+      stageKey,
+      pricingSnapshotVersion: "pricing.v1",
+      costMicros: "1",
+    };
+    return {
+      stageKey,
+      payload: {
+        validatedOutput: output,
+        outputTokenCount: tokenCount,
+        outputRequestDigest: outputTokenRequestDigest(output, modelConfig, stageKey === "reduce" ? "reduce" : "map"),
+        usage,
+      },
+      usage,
+    };
+  });
+  const countTokens = async (request) => {
+    const output = JSON.parse(request.segments.comments);
+    const match = stages.find(({ stageKey }) => stageKey === output.stage);
+    return { instructions: 1, schema: 1, metrics: 0, comments: match.tokenCount };
+  };
+
+  for (const { stageKey, payload, usage } of persisted) {
+    assert.equal(await verifyGeneratedOutputCountV1({
+      output: payload.validatedOutput,
+      modelConfig,
+      stage: stageKey === "reduce" ? "reduce" : "map",
+      outputTokenCount: payload.outputTokenCount,
+      outputRequestDigest: payload.outputRequestDigest,
+      usage,
+      countTokens,
+    }), true, `${stageKey} persisted evidence should be independently verifiable`);
+  }
+
+  assert.equal(await verifyPersistedMapReduceOutputAuthorities({
+    checkpoints: persisted.map(({ stageKey, payload }) => ({ stageKey, payload })),
+    usageLedger: { version: "survey-usage-ledger.v1", stages: persisted.map(({ usage }) => usage) },
+    modelConfig,
+    countTokens,
+  }), true);
+  const forgedCheckpointUsage = persisted.map(({ stageKey, payload }, index) => ({
+    stageKey,
+    payload: index === 0
+      ? { ...payload, usage: { ...payload.usage, usageMetadata: { ...payload.usage.usageMetadata, candidatesTokenCount: 899 } } }
+      : payload,
+  }));
+  assert.equal(await verifyPersistedMapReduceOutputAuthorities({
+    checkpoints: forgedCheckpointUsage,
+    usageLedger: { version: "survey-usage-ledger.v1", stages: persisted.map(({ usage }) => usage) },
+    modelConfig,
+    countTokens,
+  }), false, "completion must reject checkpoint usage that differs from the CMS usage ledger");
+  assert.deepEqual(persisted.map(({ stageKey }) => stageKey), ["map.1-of-1", "reduce"]);
 });
 test("worker claim is atomic, resumable, and returns only minimal terminal replay", async () => {
   const runId = "00000000-0000-4000-8000-000000000004";

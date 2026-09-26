@@ -512,6 +512,25 @@ function prepareAtomicCompletion(input, expectedStateVersion, details) {
     },
   };
 }
+async function verifyPersistedMapReduceOutputAuthorities({ checkpoints, usageLedger, modelConfig, countTokens }) {
+  const outputEntries = checkpoints.filter(({ stageKey }) => stageKey.startsWith('map.') || stageKey === 'reduce');
+  const results = await Promise.all(outputEntries.map((entry) => {
+    const persistedUsage = usageLedger.stages.find(({ stageKey }) => stageKey === entry.stageKey);
+    if (!persistedUsage || canonicalizeJson(persistedUsage) !== canonicalizeJson(entry.payload.usage))
+      return false;
+    return verifyGeneratedOutputCountV1({
+      output: entry.payload.validatedOutput,
+      modelConfig,
+      stage: entry.stageKey === 'reduce' ? 'reduce' : 'map',
+      outputTokenCount: entry.payload.outputTokenCount,
+      outputRequestDigest: entry.payload.outputRequestDigest,
+      usage: persistedUsage,
+      countTokens,
+    });
+  }));
+  return results.every(Boolean);
+}
+
 function createGenerationLifecycle({ withTransaction, now = () => new Date().toISOString(), createReportRunId, evidenceKeyProvider, countTokensProvider } = {}) {
   if (typeof withTransaction !== 'function') throw new TypeError('withTransaction is required');
   const resolveEvidenceKey = async (modelConfig, snapshot) => {
@@ -690,6 +709,18 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           });
           if (!validCountAuthority) throw domainError('UNKNOWN_VERSION');
         }
+        if (stageKey === 'direct' && command.checkpoint.payload?.kind === 'direct' && command.checkpoint.payload.usage) {
+          const validOutputAuthority = await verifyGeneratedOutputCountV1({
+            output: command.checkpoint.payload.validatedOutput,
+            modelConfig,
+            stage: 'direct',
+            outputTokenCount: command.checkpoint.payload.outputTokenCount,
+            outputRequestDigest: command.checkpoint.payload.outputRequestDigest,
+            usage: command.checkpoint.payload.usage,
+            countTokens: countTokensProvider,
+          });
+          if (!validOutputAuthority) throw domainError('UNKNOWN_VERSION');
+        }
         if (stageKey.startsWith('map.') && command.checkpoint.payload?.kind === 'map') {
           const validOutputAuthority = await verifyGeneratedOutputCountV1({
             output: command.checkpoint.payload.validatedOutput,
@@ -697,6 +728,7 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
             stage: 'map',
             outputTokenCount: command.checkpoint.payload.outputTokenCount,
             outputRequestDigest: command.checkpoint.payload.outputRequestDigest,
+            usage: command.checkpoint.payload.usage,
             countTokens: countTokensProvider,
           });
           if (!validOutputAuthority) throw domainError('UNKNOWN_VERSION');
@@ -708,6 +740,7 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
             stage: 'reduce',
             outputTokenCount: command.checkpoint.payload.outputTokenCount,
             outputRequestDigest: command.checkpoint.payload.outputRequestDigest,
+            usage: command.checkpoint.payload.usage,
             countTokens: countTokensProvider,
           });
           if (!validOutputAuthority) throw domainError('UNKNOWN_VERSION');
@@ -846,16 +879,14 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           const countVerified = await verifyMapReduceCountAuthorityV1({
             payload: count, modelConfig, snapshot, reportRunId, evidenceKey, countTokens: countTokensProvider,
           });
-          const outputVerifications = await Promise.all(checkpoints.entries.filter(({ stageKey }) => stageKey.startsWith('map.') || stageKey === 'reduce')
-            .map((entry) => verifyGeneratedOutputCountV1({
-              output: entry.payload.validatedOutput,
-              modelConfig,
-              stage: entry.stageKey === 'reduce' ? 'reduce' : 'map',
-              outputTokenCount: entry.payload.outputTokenCount,
-              outputRequestDigest: entry.payload.outputRequestDigest,
-              countTokens: countTokensProvider,
-            })));
-          if (!countVerified || outputVerifications.some((verified) => !verified)) throw domainError('UNKNOWN_VERSION');
+          const { ledger: usageLedger } = parseUsageLedger(generation);
+          const outputAuthorityVerified = await verifyPersistedMapReduceOutputAuthorities({
+            checkpoints: checkpoints.entries,
+            usageLedger,
+            modelConfig,
+            countTokens: countTokensProvider,
+          });
+          if (!countVerified || !outputAuthorityVerified) throw domainError('UNKNOWN_VERSION');
           if (!reduce) throw domainError('CHECKPOINT_SET_INCOMPLETE');
         }
         const storeCheckpoint = checkpoints.entries?.at(-1);
@@ -954,6 +985,7 @@ module.exports = {
   prepareGenerationTransition,
   prepareRetryGeneration,
   prepareWorkerSnapshot,
+  verifyPersistedMapReduceOutputAuthorities,
   validateDispatchStateCommand,
   validateWorkerClaimCommand,
   validateWorkerFailCommand,

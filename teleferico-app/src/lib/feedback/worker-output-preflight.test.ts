@@ -16,7 +16,8 @@ import {
   preflightMapAnalysis,
   preflightReduceAnalysis,
 } from "../../../services/survey-report-worker/src/analysis-output-preflight";
-import { PUBLISHED_SECTION_KEYS } from "../../../services/survey-report-worker/src/contracts";
+import { PUBLISHED_SECTION_KEYS, type ModelConfigV1 } from "../../../services/survey-report-worker/src/contracts";
+import { validateGeneratedOutputBudgetV1 } from "../../../services/survey-report-worker/src/map-reduce-execution-plan";
 
 const RUN_ID = "00000000-0000-4000-8000-000000000113";
 const KEY = "synthetic-only-test-key-that-is-not-a-secret";
@@ -566,5 +567,46 @@ describe("map/reduce worker output preflight", () => {
         input,
       ),
     ).toMatchObject({ status: "rejected" });
+  });
+});
+
+describe("stage output token budgets", () => {
+  const modelConfig = {
+    map: { hardMax: 4_000 },
+    directReduce: { hardMax: 8_000 },
+  } as ModelConfigV1;
+
+  it.each([
+    ["direct", 8_001],
+    ["reduce", 8_001],
+    ["map", 4_001],
+  ] as const)("rejects %s output above its hard bound", (stage, tokenCount) => {
+    expect(() => validateGeneratedOutputBudgetV1({
+      tokenCount,
+      providerTokenCount: tokenCount,
+      modelConfig,
+      stage,
+    })).toThrowError(expect.objectContaining({ code: "INVALID_OUTPUT" }));
+  });
+
+  it("requires matching provider usage and exact CountTokens evidence", () => {
+    expect(() => validateGeneratedOutputBudgetV1({
+      tokenCount: 400,
+      providerTokenCount: 399,
+      modelConfig,
+      stage: "map",
+    })).toThrowError(expect.objectContaining({ code: "INVALID_OUTPUT" }));
+    expect(() => validateGeneratedOutputBudgetV1({
+      tokenCount: 4_000,
+      providerTokenCount: 4_000,
+      modelConfig,
+      stage: "map",
+    })).not.toThrow();
+    expect(() => validateGeneratedOutputBudgetV1({
+      tokenCount: 8_000,
+      providerTokenCount: 8_000,
+      modelConfig,
+      stage: "direct",
+    })).not.toThrow();
   });
 });
