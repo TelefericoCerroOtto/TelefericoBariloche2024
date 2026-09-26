@@ -1737,6 +1737,31 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
 
 - **Correction:** The two stale worker-route paragraphs in `design/02-http-contracts.md` now distinguish CMS-verified zero/nonempty DIRECT graphs from the unsupported map/reduce route. They document injected CountTokens/provider/key fakes, CMS-recomputed evidence membership and structural/privacy/deterministic-metric validation, atomic completion, the deliberate absence of semantic-truth judgment, and gated live provider/storage integrations. Earlier entries remain unchanged.
 - **Verification:** `pnpm --dir teleferico-app exec vitest run src/lib/feedback/worker-pdf.test.ts src/lib/feedback/worker-output-preflight.test.ts src/lib/feedback/worker-cms-client.test.ts` — passed, 3 files/54 tests. `npm --prefix teleferico-cms test -- feedback/private-report-source` — passed, 2 tests including the nested nonempty direct app–worker–CMS integration and cleanup. `git diff --check` — passed with no output.
+
+### `U10 private worker HTTP entrypoint: local synthetic boundary`
+
+- **Identity and scope:** Continued the direct implementation on `feat/app-root-tb-113-private-worker-http` from exact local parent `c33c1452bd5fb4a5244142f8786652f3bdabeabd` (the supplied open draft PR #379 head). Added the canonical private worker execute endpoint around existing `executeReportWorker`; no SDD phase, branch switch, commit, publication, or tracking read occurred.
+- **Requirements and design:** `specs/survey-worker-operations/spec.md` private idempotent task execution and OIDC denial; `design/02-http-contracts.md` exact worker command contract; `design/04-ai-worker-infrastructure.md` OIDC identity and keyless runtime gates; `tasks.md` prospective local worker execution and task 4.1.
+- **Implemented boundary:** Added a pure handler requiring explicit runtime dependencies and an injected signed-token verifier. It checks verified signature result, exact frozen issuer allowlist/audience/principal and temporal claims before body reads or CMS calls; then enforces exact POST path, no query, JSON media type, 4 KiB raw bound, closed command shape, and safe response projection. Added an opt-in Node HTTP server adapter with no auto-start. Invalid OIDC and malformed transport requests stop before CMS; valid requests invoke the existing worker executor, preserving claim/replay/checkpoint behavior.
+- **Changed paths and reasons:**
+  - `teleferico-app/services/survey-report-worker/src/worker-http.ts` — pure authenticated command handler and explicit Node adapter.
+  - `teleferico-app/services/survey-report-worker/src/index.ts` — exports the opt-in HTTP boundary.
+  - `teleferico-app/src/lib/feedback/worker-http.test.ts` — verifies auth-first denial, identity/temporal checks, route/method/query/media/body limits, valid loopback execution, and server cleanup with synthetic dependencies.
+  - `openspec/changes/tb-113-visitor-feedback/README.md` — clarifies local endpoint evidence and production readiness gap.
+  - `openspec/changes/tb-113-visitor-feedback/design/02-http-contracts.md` — records the exact HTTP, auth, bounded response, and runtime composition contract.
+  - `openspec/changes/tb-113-visitor-feedback/design/04-ai-worker-infrastructure.md` — records the injected verifier boundary and remaining OIDC/CMS operation gates.
+  - `openspec/changes/tb-113-visitor-feedback/direct-implementation-ledger.md` — records this unit and observed checks.
+- **Implementation status:** `passed` for the local synthetic HTTP boundary only; no deployed readiness is claimed. Revision, PR update/publication, merge evidence, and formal verification remain `pending`.
+- **Focused verification:**
+  - `pnpm --dir teleferico-app exec vitest run src/lib/feedback/worker-http.test.ts src/lib/feedback/worker-pdf.test.ts` — `passed`; exit 0, 2 files and 31 tests.
+  - `pnpm --dir teleferico-app run typecheck` — `passed`; exit 0, no diagnostics.
+  - `git diff --check` — `pending` final run after this ledger append.
+- **Intentionally deferred:** Real Cloud Run listener/configuration, Cloud Tasks delivery, production OIDC signature verifier, approved CMS origin and action-bound token provider, Google/Vertex/Cloud Storage integration, deployment, and staging checks — `not run`; no operational authorization or production composition was supplied. Intended checkpoint: separately approved post-development integration and operational validation; owner: TB-113 app/CMS worker implementer and platform operator.
+- **Acceptance and formal status:** Synthetic invalid-token rejection before CMS and valid existing-executor dispatch are `passed` by the focused loopback tests. Formal task 4.1 remains unchecked; U10/U11/U12 operational readiness, task completion, and SDD verification/archive remain `pending`.
+- **Residual risks:** The verifier and runtime dependencies are ports, not production implementations. A caller must supply a real signature-verifying OIDC verifier and construct the worker CMS client with an approved exact-origin allowlist and action-bound token provider. The local adapter has no total execution deadline; Cloud Run deadline configuration and deadline-respecting production dependencies remain activation gates. No test identity or default listener is installed. The existing `FEEDBACK_CAPABILITY_ENABLED=false` default is unchanged.
+- **Rollback boundary:** Revert `worker-http.ts`, its export, `worker-http.test.ts`, and the three documentation/ledger updates together; the existing worker runtime and direct/map-reduce behavior remain unchanged.
+- **Authored candidate size:** `727` additions plus deletions against exact local parent `c33c1452bd5fb4a5244142f8786652f3bdabeabd`, measured from tracked `git diff --numstat` plus all lines in the two untracked authored files; standing TB-113 ceiling is 6,000 additions plus deletions.
+- **Formal SDD reconstruction:** `pending`; no formal SDD operation was requested or invoked.
 - **Scope:** Documentation-only correction to the two identified paragraphs plus this append-only evidence entry. No code, test, task checkbox, runtime configuration, or operational gate changed.
 
 ### `Worker privacy projection and completion replay correction`
