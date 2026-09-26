@@ -209,6 +209,34 @@ module.exports = createCoreController(
         };
       }
     },
+    async workerReportDownloadMetadata(ctx) {
+      if (!hasCustomContentApiTokenIdentity(ctx)) {
+        ctx.status = 403;
+        ctx.body = { error: { code: 'FORBIDDEN', message: 'The report metadata request is not authorized' } };
+        return;
+      }
+      if (ctx.query && Object.keys(ctx.query).length > 0) {
+        ctx.status = 400;
+        ctx.body = { error: { code: 'VALIDATION_FAILED', message: 'The report metadata request is invalid' } };
+        return;
+      }
+      try {
+        const result = await strapi.service('api::survey-report-generation.survey-report-generation')
+          .readPrivateReportDownloadMetadata(ctx.params.reportId);
+        ctx.status = 200;
+        ctx.body = result;
+      } catch (error) {
+        const code = error.code ?? 'INTERNAL_ERROR';
+        const status = code === 'VALIDATION_FAILED' ? 400 : code === 'NOT_FOUND' ? 404 : 503;
+        ctx.status = status;
+        ctx.body = {
+          error: {
+            code: status === 400 ? 'VALIDATION_FAILED' : status === 404 ? 'NOT_FOUND' : 'UPSTREAM_UNAVAILABLE',
+            message: status === 400 ? 'The report identifier is invalid' : status === 404 ? 'The report was not found' : 'The report metadata is unavailable',
+          },
+        };
+      }
+    },
     async workerCheckpoint(ctx) {
       if (!hasCustomContentApiTokenIdentity(ctx)) {
         ctx.status = 403;
