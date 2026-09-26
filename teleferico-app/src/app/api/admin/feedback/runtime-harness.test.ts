@@ -138,9 +138,25 @@ describe("U8-A authenticated synthetic-data runtime harness", () => {
     expect(mocks.getFeedbackAdminReader).toHaveBeenCalledTimes(
       scenarios.length,
     );
-    expect(mocks.getFeedbackAdminReader).toHaveBeenCalledWith(
-      "synthetic-admin-jwt",
-    );
+    expect(mocks.getFeedbackAdminReader).toHaveBeenCalledWith();
     expect(mocks.read).toHaveBeenCalledTimes(scenarios.length);
+  });
+
+  it("rejects a missing route capability before creating the private reader", async () => {
+    mocks.getFeedbackAdminReader.mockClear();
+    mocks.requireCsrfSession.mockResolvedValueOnce({
+      ok: true,
+      session: {
+        jwt: "synthetic-admin-jwt",
+        csrfToken: "synthetic-csrf-token",
+        user: { capabilities: ["feedback.comments.read"] },
+      },
+    });
+    const { GET } = await import("./summary/route");
+
+    const response = await GET(request("summary", "from=2026-08-01&to=2026-08-20"));
+
+    expect(response.status).toBe(403);
+    expect(mocks.getFeedbackAdminReader).not.toHaveBeenCalled();
   });
 });
