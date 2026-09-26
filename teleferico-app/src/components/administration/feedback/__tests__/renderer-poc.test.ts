@@ -7,6 +7,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  auditPublicClientGraph,
   renderDashboardCharts,
   renderPdfCharts,
   runRendererPoc,
@@ -14,6 +15,74 @@ import {
 import { chartParityFixture, edgeCaseFixtures } from "./chart-parity.fixture";
 
 describe("renderer adoption POC", () => {
+  it("rejects a synthetic client root that imports the worker source", async () => {
+    const sourceRoot = resolve(process.cwd(), "src");
+    const result = await auditPublicClientGraph({
+      additionalClientRoots: [
+        {
+          fileName: resolve(sourceRoot, "lib/__synthetic_client_root__.tsx"),
+          sourceText:
+            '"use client"; import "../../services/survey-report-worker/poc/renderer-poc";',
+        },
+      ],
+    });
+
+    expect(result.isolated).toBe(false);
+    expect(result.blockers).toContainEqual(
+      expect.objectContaining({
+        source: "src/lib/__synthetic_client_root__.tsx",
+        specifier: "../../services/survey-report-worker/poc/renderer-poc",
+        reason: "forbidden-worker-module",
+      }),
+    );
+  });
+
+  it("rejects an empty named runtime import from a JavaScript client root", async () => {
+    const sourceRoot = resolve(process.cwd(), "src");
+    const result = await auditPublicClientGraph({
+      additionalClientRoots: [
+        {
+          fileName: resolve(sourceRoot, "lib/__synthetic_client_root__.js"),
+          sourceText: '"use client"; import {} from "playwright";',
+        },
+      ],
+    });
+
+    expect(result.isolated).toBe(false);
+    expect(result.blockers).toContainEqual(
+      expect.objectContaining({
+        source: "src/lib/__synthetic_client_root__.js",
+        specifier: "playwright",
+        reason: "forbidden-worker-package",
+      }),
+    );
+  });
+
+  it("elides type-only imports from worker-only packages", async () => {
+    const sourceRoot = resolve(process.cwd(), "src");
+    const result = await auditPublicClientGraph({
+      additionalClientRoots: [
+        {
+          fileName: resolve(sourceRoot, "lib/__synthetic_type_only_client_root__.js"),
+          sourceText: '"use client"; import type { Browser } from "playwright";',
+        },
+      ],
+    });
+
+    expect(result.isolated, JSON.stringify(result.blockers)).toBe(true);
+    expect(result.blockers).not.toContainEqual(
+      expect.objectContaining({ specifier: "playwright" }),
+    );
+  });
+
+  it("walks actual client roots and excludes imports from server-only modules", async () => {
+    const result = await auditPublicClientGraph();
+
+    expect(result.clientRootCount).toBeGreaterThan(0);
+    expect(result.isolated, JSON.stringify(result.blockers)).toBe(true);
+    expect(result.blockers).toEqual([]);
+  });
+
   it("preserves one renderer-neutral semantic contract across Recharts and ECharts", () => {
     const dashboard = renderDashboardCharts(chartParityFixture);
     const pdf = renderPdfCharts(chartParityFixture);
@@ -69,6 +138,8 @@ describe("renderer adoption POC", () => {
         expect(Object.keys(result.digests).sort()).toEqual(["browser", "fixture", "font", "image", "lock", "runtime"]);
         expect(result.artifacts).toEqual({ pdfSemantic: result.pdf.semanticDigests[0], pagination: result.pdf.paginationDigests[0] });
         expect(result.edgeCases).toEqual({ dashboard: true, chromiumPdf: true });
+        expect(result.clientGraph.isolated).toBe(true);
+        expect(result.clientGraph.blockers).toEqual([]);
         expect(resolve(result.resultPath)).toBe(temporaryResultPath);
         expect(JSON.parse(await readFile(result.resultPath, "utf8"))).toMatchObject({ criteria: result.criteria });
         expect(await readFile(trackedResultPath)).toEqual(trackedResultBefore);

@@ -11,6 +11,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createDeterministicTestPdfRenderer,
+  createPlaywrightPdfRenderer,
+  renderReportHtml,
   renderValidatedPdf,
 } from "../../../services/survey-report-worker/src/pdf";
 import {
@@ -132,6 +134,7 @@ function fakeCms(
 ) {
   let stateVersion = 1;
   let terminal: "succeeded" | "failed" | null = null;
+  let completedCommand: CompleteCommand | null = null;
   const calls = { snapshot: 0, checkpoint: 0, complete: 0, fail: 0 };
   const writtenCheckpoints: WorkerCheckpoint[] = [];
   const cms: WorkerCmsClient = {
@@ -187,9 +190,10 @@ function fakeCms(
     },
     async complete(
       reportRunId,
-      _command: CompleteCommand,
+      command: CompleteCommand,
     ): Promise<CompleteResult> {
       calls.complete += 1;
+      completedCommand = command;
       terminal = "succeeded";
       stateVersion += 1;
       return {
@@ -198,8 +202,8 @@ function fakeCms(
         stateVersion,
         status: "succeeded",
         reportId: "report-1",
-        artifactSha256: "a".repeat(64),
-        artifactSize: 1,
+        artifactSha256: command.artifact.sha256,
+        artifactSize: command.artifact.size,
         replayed: false,
       };
     },
@@ -217,7 +221,7 @@ function fakeCms(
       };
     },
   };
-  return { cms, calls, writtenCheckpoints };
+  return { cms, calls, writtenCheckpoints, get completedCommand() { return completedCommand; } };
 }
 
 function artifactStore() {
@@ -682,6 +686,8 @@ describe("worker PDF boundary", () => {
       ],
     } as DirectAnalysisV1;
     const fake = fakeCms(envelope, checkpointSet(envelope.digestHex), syntheticModelConfig(evidenceKeyId));
+    const artifacts = artifactStore();
+    const renderer = createPlaywrightPdfRenderer();
     const tokens = vi.fn(async (request) => {
       const commentSegment = JSON.parse(request.segments.comments);
       expect(commentSegment.contractVersion).toBe("survey-model-input.v1");
@@ -709,8 +715,8 @@ describe("worker PDF boundary", () => {
 
     const result = await executeReportWorker(runId, {
       cms: fake.cms,
-      artifacts: artifactStore().store,
-      renderer: createDeterministicTestPdfRenderer(),
+      artifacts: artifacts.store,
+      renderer,
       countTokens: tokens,
       analysisProvider: provider,
       evidenceKeyProvider: async (keyId) => {
@@ -722,6 +728,33 @@ describe("worker PDF boundary", () => {
     expect(result.status).toBe("succeeded");
     expect(tokens).toHaveBeenCalledTimes(1);
     expect(provider).toHaveBeenCalledTimes(1);
+    const staged = artifacts.staged.get(runId);
+    expect(staged?.mimeType).toBe("application/pdf");
+    expect(staged?.size).toBe(staged?.bytes.byteLength);
+    expect(staged?.sha256).toBe(createHash("sha256").update(staged!.bytes).digest("hex"));
+    expect(Buffer.from(staged!.bytes).subarray(0, 5).toString("ascii")).toBe("%PDF-");
+    expect(Buffer.from(staged!.bytes).includes(Buffer.from("synthetic-private-record"))).toBe(false);
+    expect(result).toMatchObject({ artifact: { sha256: staged?.sha256, size: staged?.size } });
+    const repeated = await renderValidatedPdf(
+      envelope,
+      fake.completedCommand!.validatedAnalysis,
+      renderer,
+    );
+    expect(repeated.sha256).toBe(staged?.sha256);
+
+    const leakedAnalysis: PublishedAnalysisV1 = {
+      ...fake.completedCommand!.validatedAnalysis,
+      sections: fake.completedCommand!.validatedAnalysis.sections.map((section) =>
+        section.key === "executive_summary"
+          ? { ...section, paragraphsEs: [privateText] }
+          : section,
+      ) as unknown as PublishedAnalysisV1["sections"],
+    };
+    const render = vi.spyOn(renderer, "render");
+    await expect(renderValidatedPdf(envelope, leakedAnalysis, renderer)).rejects.toThrow(
+      "verbatim visitor comment text",
+    );
+    expect(render).not.toHaveBeenCalled();
   });
 
   it("keeps nonempty analysis fail-closed without an injected per-run evidence key and rejects over-budget plans", async () => {
@@ -966,6 +999,36 @@ describe("worker PDF boundary", () => {
     expect(first.sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(first.size).toBe(first.bytes.byteLength);
     expect(first).toEqual(second);
+  });
+
+  it("builds the fixed eight-section report with the five charts in their assigned sections", () => {
+    const html = renderReportHtml(snapshot().payload, analysis()).html;
+    const sectionTitles = [...html.matchAll(/data-section-title="([^"]+)"/g)].map(
+      ([, title]) => title,
+    );
+    const chartIds = [...html.matchAll(/data-chart-id="([^"]+)"/g)].map(
+      ([, id]) => id,
+    );
+
+    expect(sectionTitles).toEqual([
+      "Portada",
+      "Resumen ejecutivo",
+      "Panorama oficial",
+      "Distribución y evolución",
+      "Aspectos",
+      "Puntos QR",
+      "Voz del visitante",
+      "Cobertura y limitaciones",
+    ]);
+    expect(chartIds).toEqual([
+      "star-distribution",
+      "satisfaction-evolution",
+      "response-volume-evolution",
+      "aspect-comparison",
+      "qr-point-comparison",
+    ]);
+    expect((html.match(/<table>/g) ?? []).length).toBe(5);
+    expect((html.match(/<caption>/g) ?? []).length).toBe(5);
   });
 
   it("rejects a tampered snapshot before the renderer is called", async () => {

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
@@ -12,6 +12,7 @@ import * as echarts from "echarts";
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, Scatter, ScatterChart, XAxis, YAxis } from "recharts";
+import ts from "typescript";
 
 const execFileAsync = promisify(execFile);
 const pocDirectory = dirname(fileURLToPath(import.meta.url));
@@ -169,12 +170,433 @@ async function walk(directory: string): Promise<string[]> {
   return nested.flat();
 }
 
-async function publicGraphIsIsolated() {
+type InjectedClientRoot = {
+  readonly fileName: string;
+  readonly sourceText: string;
+};
+
+type ClientGraphBlocker = {
+  readonly source: string;
+  readonly specifier: string;
+  readonly reason:
+    | "forbidden-worker-module"
+    | "forbidden-worker-package"
+    | "unresolved-local-runtime-import"
+    | "local-import-escapes-src"
+    | "unsupported-local-runtime-target"
+    | "source-read-failed"
+    | "source-parse-failed"
+    | "invalid-tsconfig";
+};
+
+type ClientGraphAudit = {
+  readonly isolated: boolean;
+  readonly clientRootCount: number;
+  readonly reachableSourceCount: number;
+  readonly blockers: readonly ClientGraphBlocker[];
+};
+
+type ClientGraphAuditOptions = {
+  readonly additionalClientRoots?: readonly InjectedClientRoot[];
+};
+
+type RuntimeImport = {
+  readonly specifier: string | null;
+};
+
+const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
+const WORKER_ONLY_PACKAGES = new Set([
+  "echarts",
+  "@playwright/test",
+  "playwright",
+  "playwright-core",
+]);
+const LOCAL_RESOURCE_EXTENSIONS = new Set([
+  ".css",
+  ".sass",
+  ".scss",
+  ".svg",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+  ".ico",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+]);
+
+function sourceFileIsInRoot(sourceRoot: string, fileName: string): boolean {
+  const pathFromRoot = relative(resolve(sourceRoot), resolve(fileName));
+  return (
+    pathFromRoot === "" ||
+    (pathFromRoot !== ".." &&
+      !pathFromRoot.startsWith(`..${sep}`) &&
+      !isAbsolute(pathFromRoot))
+  );
+}
+
+function isProductionSource(fileName: string): boolean {
+  const normalized = fileName.replaceAll("\\", "/");
+  return (
+    SOURCE_EXTENSIONS.has(extname(fileName).toLowerCase()) &&
+    !normalized.endsWith(".d.ts") &&
+    !normalized.includes("/__tests__/") &&
+    !/\.(?:test|spec)\.[^.]+$/i.test(normalized)
+  );
+}
+
+function isClientRoot(sourceFile: ts.SourceFile): boolean {
+  for (const statement of sourceFile.statements) {
+    if (!ts.isExpressionStatement(statement) || !ts.isStringLiteral(statement.expression))
+      return false;
+    if (statement.expression.text === "use client") return true;
+  }
+  return false;
+}
+
+function importClauseHasRuntimeBindings(
+  clause: ts.ImportClause | undefined,
+): boolean {
+  if (!clause) return true;
+  if (clause.isTypeOnly || clause.name) return !clause.isTypeOnly;
+  if (!clause.namedBindings) return false;
+  if (ts.isNamespaceImport(clause.namedBindings)) return true;
+  return (
+    clause.namedBindings.elements.length === 0 ||
+    clause.namedBindings.elements.some((element) => !element.isTypeOnly)
+  );
+}
+
+function exportDeclarationHasRuntimeBindings(
+  declaration: ts.ExportDeclaration,
+): boolean {
+  if (declaration.isTypeOnly) return false;
+  if (!declaration.exportClause || ts.isNamespaceExport(declaration.exportClause))
+    return true;
+  return (
+    declaration.exportClause.elements.length === 0 ||
+    declaration.exportClause.elements.some((element) => !element.isTypeOnly)
+  );
+}
+
+function runtimeImports(sourceFile: ts.SourceFile): readonly RuntimeImport[] {
+  const imports: RuntimeImport[] = [];
+  const addSpecifier = (node: ts.Expression | undefined) => {
+    imports.push({ specifier: node && ts.isStringLiteralLike(node) ? node.text : null });
+  };
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) && importClauseHasRuntimeBindings(node.importClause)) {
+      addSpecifier(node.moduleSpecifier);
+    } else if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      exportDeclarationHasRuntimeBindings(node)
+    ) {
+      addSpecifier(node.moduleSpecifier);
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      !node.isTypeOnly &&
+      ts.isExternalModuleReference(node.moduleReference)
+    ) {
+      addSpecifier(node.moduleReference.expression);
+    } else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword
+    ) {
+      addSpecifier(node.arguments[0]);
+    } else if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "require"
+    ) {
+      addSpecifier(node.arguments[0]);
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return imports;
+}
+
+function matchesTsPathAlias(
+  specifier: string,
+  paths: ts.CompilerOptions["paths"],
+): boolean {
+  if (!paths) return false;
+  return Object.keys(paths).some((pattern) => {
+    const wildcard = pattern.indexOf("*");
+    if (wildcard < 0) return specifier === pattern;
+    const prefix = pattern.slice(0, wildcard);
+    const suffix = pattern.slice(wildcard + 1);
+    return (
+      specifier.startsWith(prefix) &&
+      specifier.endsWith(suffix) &&
+      specifier.length >= prefix.length + suffix.length
+    );
+  });
+}
+
+function packageName(specifier: string): string {
+  const segments = specifier.split("/");
+  return segments[0]?.startsWith("@")
+    ? segments.slice(0, 2).join("/")
+    : segments[0] ?? specifier;
+}
+
+function pathAliasFile(
+  specifier: string,
+  compilerOptions: ts.CompilerOptions,
+): string | null {
+  const paths = compilerOptions.paths;
+  if (!paths) return null;
+  for (const [pattern, targets] of Object.entries(paths)) {
+    const wildcard = pattern.indexOf("*");
+    let substitution: string | null = null;
+    if (wildcard < 0) {
+      if (specifier === pattern) substitution = "";
+    } else {
+      const prefix = pattern.slice(0, wildcard);
+      const suffix = pattern.slice(wildcard + 1);
+      if (
+        specifier.startsWith(prefix) &&
+        specifier.endsWith(suffix) &&
+        specifier.length >= prefix.length + suffix.length
+      )
+        substitution = specifier.slice(prefix.length, specifier.length - suffix.length || undefined);
+    }
+    if (substitution === null) continue;
+    const basePath = typeof compilerOptions.pathsBasePath === "string"
+      ? compilerOptions.pathsBasePath
+      : compilerOptions.baseUrl ?? appRoot;
+    for (const target of targets) {
+      const candidate = resolve(basePath, target.replace("*", substitution));
+      if (
+        LOCAL_RESOURCE_EXTENSIONS.has(extname(candidate).toLowerCase()) &&
+        ts.sys.fileExists(candidate)
+      )
+        return candidate;
+    }
+  }
+  return null;
+}
+
+function relativeResourceFile(
+  specifier: string,
+  containingFile: string,
+): string | null {
+  const candidate = resolve(dirname(containingFile), specifier);
+  return LOCAL_RESOURCE_EXTENSIONS.has(extname(candidate).toLowerCase()) &&
+    ts.sys.fileExists(candidate)
+    ? candidate
+    : null;
+}
+
+function relativeSourcePath(root: string, fileName: string): string {
+  return relative(root, fileName).replaceAll("\\", "/");
+}
+
+export async function auditPublicClientGraph(
+  options: ClientGraphAuditOptions = {},
+): Promise<ClientGraphAudit> {
   const sourceRoot = join(appRoot, "src");
-  const files = (await walk(sourceRoot)).filter((path) => /\.[cm]?[jt]sx?$/.test(path) && !path.includes("/__tests__/") && !/\.(test|spec)\./.test(path));
-  const forbidden = /(?:from\s+["'](?:echarts|recharts|@playwright\/test)|survey-report-worker)/;
-  for (const path of files) if (forbidden.test(await readFile(path, "utf8"))) return false;
-  return true;
+  const blockers: ClientGraphBlocker[] = [];
+  const injectedSources = new Map(
+    (options.additionalClientRoots ?? []).map(({ fileName, sourceText }) => [
+      resolve(fileName),
+      sourceText,
+    ]),
+  );
+  const addBlocker = (
+    sourceFileName: string,
+    specifier: string,
+    reason: ClientGraphBlocker["reason"],
+  ) => {
+    blockers.push({
+      source: relativeSourcePath(appRoot, sourceFileName),
+      specifier,
+      reason,
+    });
+  };
+
+  try {
+    const configPath = join(appRoot, "tsconfig.json");
+    const config = ts.readConfigFile(configPath, ts.sys.readFile);
+    if (config.error) {
+      return {
+        isolated: false,
+        clientRootCount: 0,
+        reachableSourceCount: 0,
+        blockers: [{ source: "tsconfig.json", specifier: "", reason: "invalid-tsconfig" }],
+      };
+    }
+    const parsedConfig = ts.parseJsonConfigFileContent(
+      config.config,
+      ts.sys,
+      appRoot,
+      undefined,
+      configPath,
+    );
+    if (parsedConfig.errors.length > 0) {
+      return {
+        isolated: false,
+        clientRootCount: 0,
+        reachableSourceCount: 0,
+        blockers: [{ source: "tsconfig.json", specifier: "", reason: "invalid-tsconfig" }],
+      };
+    }
+
+    const sources = (await walk(sourceRoot)).filter(isProductionSource);
+    const sourceCache = new Map<string, string>();
+    const compilerHost = ts.createCompilerHost(parsedConfig.options);
+    const getText = async (fileName: string): Promise<string | null> => {
+      const absolute = resolve(fileName);
+      const injected = injectedSources.get(absolute);
+      if (injected !== undefined) return injected;
+      const cached = sourceCache.get(absolute);
+      if (cached !== undefined) return cached;
+      try {
+        const text = await readFile(absolute, "utf8");
+        sourceCache.set(absolute, text);
+        return text;
+      } catch {
+        return null;
+      }
+    };
+    const parseSource = async (fileName: string): Promise<ts.SourceFile | null> => {
+      const text = await getText(fileName);
+      if (text === null) return null;
+      return ts.createSourceFile(
+        fileName,
+        text,
+        ts.ScriptTarget.Latest,
+        true,
+        fileName.endsWith(".tsx") || fileName.endsWith(".jsx")
+          ? ts.ScriptKind.TSX
+          : fileName.endsWith(".js")
+            ? ts.ScriptKind.JS
+            : ts.ScriptKind.TS,
+      );
+    };
+
+    const clientRoots: string[] = [];
+    for (const fileName of sources) {
+      const sourceFile = await parseSource(fileName);
+      if (sourceFile && isClientRoot(sourceFile)) {
+        clientRoots.push(resolve(fileName));
+      }
+    }
+    for (const injectedRoot of options.additionalClientRoots ?? []) {
+      const fileName = resolve(injectedRoot.fileName);
+      if (!sourceFileIsInRoot(sourceRoot, fileName)) {
+        addBlocker(fileName, "", "local-import-escapes-src");
+      } else {
+        clientRoots.push(fileName);
+      }
+    }
+
+    const pending = [...clientRoots];
+    const visited = new Set<string>();
+    while (pending.length > 0) {
+      const fileName = pending.pop()!;
+      const absoluteFileName = resolve(fileName);
+      if (visited.has(absoluteFileName)) continue;
+      visited.add(absoluteFileName);
+
+      if (!sourceFileIsInRoot(sourceRoot, absoluteFileName)) {
+        addBlocker(fileName, "", "local-import-escapes-src");
+        continue;
+      }
+      if (!SOURCE_EXTENSIONS.has(extname(absoluteFileName).toLowerCase())) {
+        addBlocker(fileName, "", "unsupported-local-runtime-target");
+        continue;
+      }
+      const sourceFile = await parseSource(absoluteFileName);
+      if (!sourceFile) {
+        addBlocker(fileName, "", "source-read-failed");
+        continue;
+      }
+
+      for (const { specifier } of runtimeImports(sourceFile)) {
+        if (specifier === null) {
+          addBlocker(fileName, "<non-literal runtime import>", "unresolved-local-runtime-import");
+          continue;
+        }
+        if (specifier.includes("survey-report-worker")) {
+          addBlocker(fileName, specifier, "forbidden-worker-module");
+          continue;
+        }
+        if (WORKER_ONLY_PACKAGES.has(packageName(specifier))) {
+          addBlocker(fileName, specifier, "forbidden-worker-package");
+          continue;
+        }
+
+        const isLocalSpecifier =
+          specifier.startsWith(".") ||
+          specifier.startsWith("/") ||
+          matchesTsPathAlias(specifier, parsedConfig.options.paths);
+        const resolution = ts.resolveModuleName(
+          specifier,
+          absoluteFileName,
+          parsedConfig.options,
+          compilerHost,
+        ).resolvedModule;
+        if (!resolution) {
+          const resourceFile = specifier.startsWith(".")
+            ? relativeResourceFile(specifier, absoluteFileName)
+            : pathAliasFile(specifier, parsedConfig.options);
+          if (resourceFile) continue;
+          if (isLocalSpecifier)
+            addBlocker(fileName, specifier, "unresolved-local-runtime-import");
+          continue;
+        }
+
+        const resolvedFile = resolve(resolution.resolvedFileName);
+        if (specifier.includes("survey-report-worker") ||
+            resolvedFile.replaceAll("\\", "/").includes("/services/survey-report-worker/")) {
+          addBlocker(fileName, specifier, "forbidden-worker-module");
+          continue;
+        }
+        if (resolvedFile.endsWith(".d.ts")) continue;
+        if (sourceFileIsInRoot(sourceRoot, resolvedFile)) {
+          if (!isProductionSource(resolvedFile)) {
+            addBlocker(fileName, specifier, "unsupported-local-runtime-target");
+          } else {
+            pending.push(resolvedFile);
+          }
+        } else if (isLocalSpecifier) {
+          addBlocker(fileName, specifier, "local-import-escapes-src");
+        }
+      }
+    }
+
+    const deduplicatedBlockers = [...new Map(
+      blockers.map((blocker) => [
+        `${blocker.source}\0${blocker.specifier}\0${blocker.reason}`,
+        blocker,
+      ]),
+    ).values()].sort((left, right) =>
+      `${left.source}\0${left.specifier}\0${left.reason}`.localeCompare(
+        `${right.source}\0${right.specifier}\0${right.reason}`,
+      ),
+    );
+    return {
+      isolated: deduplicatedBlockers.length === 0,
+      clientRootCount: clientRoots.length,
+      reachableSourceCount: visited.size,
+      blockers: deduplicatedBlockers,
+    };
+  } catch {
+    return {
+      isolated: false,
+      clientRootCount: 0,
+      reachableSourceCount: 0,
+      blockers: [{ source: "src", specifier: "", reason: "source-read-failed" }],
+    };
+  }
 }
 
 async function compressedWorkerGrowth(workDirectory: string) {
@@ -266,7 +688,8 @@ export async function runRendererPoc(charts: ChartViewModel[], edgeCases: EdgeCa
     const starts = [...coldStartMilliseconds].sort((a, b) => a - b);
     const compressedGrowth = await compressedWorkerGrowth(workDirectory);
     const outputsReconcile = charts.every((chart) => chart.table.rows.length === chart.categories.length && chart.series.every((series) => series.values.length === chart.categories.length));
-    const publicGraphExcluded = await publicGraphIsIsolated();
+    const clientGraph = await auditPublicClientGraph();
+    const publicGraphExcluded = clientGraph.isolated;
     const edgeCaseResults = {
       dashboard: dashboardEmpty.markup.includes(edgeCases.empty.emptyState) && dashboardOneRecord.markup.includes("recharts-wrapper"),
       chromiumPdf: pdfEmpty.markup.includes(edgeCases.empty.emptyState) && pdfOneRecord.markup.includes("<svg") && edgeCasesRenderedInPdf,
@@ -292,6 +715,7 @@ export async function runRendererPoc(charts: ChartViewModel[], edgeCases: EdgeCa
       browser: { coldStartMilliseconds, p95ReadyMilliseconds: starts.at(-1)! },
       worker: { compressedGrowthBytes: compressedGrowth.bytes, thresholdBytes: 750 * 1024 * 1024 },
       publicGraphExcluded,
+      clientGraph,
       edgeCases: edgeCaseResults,
       cleanup: { browserProcessesAfter: activeBrowsers, temporaryArtifactsRemoved: true },
       criteria,
