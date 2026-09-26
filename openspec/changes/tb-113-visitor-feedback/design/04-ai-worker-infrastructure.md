@@ -314,20 +314,33 @@ Task name=`tb113-report-`+run UUID without hyphens, stored by CMS before enqueue
 U9-A1 supplies only the authenticated CMS dispatch-failure CAS endpoint and
 app-side wiring for a dispatcher result that proves no task was created. It does
 not reserve or persist `taskName`, create Cloud Tasks, or implement retry
-classification. Task-name pre-reservation and the production dispatcher remain
-U10-owned; until that evidence exists, `DISPATCH_UNAVAILABLE` leaves the run
-queued and ambiguous outcomes are not compensated.
+classification. The offline app coordinator now consumes explicitly verified
+task-client and CMS dispatch-state ports. Its default production composition
+still supplies neither, so `DISPATCH_UNAVAILABLE` leaves the run queued.
 
 The local U10-A CMS contract now reserves the deterministic `taskName` with
 `dispatchState=reserved` before enqueue and records `created` or `unknown`
 through the authenticated server-mediated action with state-version CAS and
-idempotent replay. An unknown outcome leaves the generation queued and blocks
-another reservation; there is no blind retry or automated reconciliation. The
-new action rejects `absent` and cannot commit queued→failed because its caller
-cannot supply independently verifiable Cloud Tasks absence evidence. The U9-A1
-v1 compensation guard remains unchanged and rejects a stored task name. There
-is no verified absence path, production queue adapter, or real dispatch; these
-remain pending until separately authorized provider integration.
+idempotent replay. The app coordinator records `created` only after the task
+client returns matching run/name identity; `AlreadyExists` also requires
+independent verification of that exact identity and created state. It retries
+only failures that the injected client classifies as transient and proves were
+never sent, using one- and two-second delays and no more than three calls.
+Timeouts, 5xx/ambiguous outcomes, and terminal auth/config rejections do not
+retry; after reservation they are recorded as `unknown` where possible. Unknown
+leaves the generation queued and prevents another reservation. Same-process
+replay returns its settled result. Lost CMS responses may repeat only the exact
+same reserve/outcome CAS command, relying on CMS identical-command replay; a
+replayed reservation never triggers another enqueue.
+
+The CMS action rejects `absent` and cannot commit queued→failed because its
+caller cannot supply independently verifiable Cloud Tasks absence evidence. The
+U9-A1 v1 compensation guard remains unchanged and rejects a stored task name.
+Therefore the coordinator never claims `noTaskCreated` or returns exhaustion
+after reservation. A verified absence path and compensation-compatible CMS
+evidence contract remain deferred; neither `not-sent` retries nor provider
+errors establish that contract. No production queue adapter, real dispatch,
+credentials, Cloud Run/OIDC configuration, or operational readiness is claimed.
 
 After successful creation, Cloud Tasks exclusively owns delivery retries: deadline 1,800s, attempts 5, backoff 30..600s, doublings 4, all provider-gated. Worker 503 requests redelivery/resume. Delivery retry/exhaustion never invokes pre-claim compensation or creates another task.
 
