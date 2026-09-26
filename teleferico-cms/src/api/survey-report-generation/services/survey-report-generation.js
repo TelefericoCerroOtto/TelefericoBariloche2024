@@ -2,6 +2,7 @@
 const { createCoreService } = require('@strapi/strapi').factories;
 const lifecycle = require('./lifecycle');
 const { createPrivateReportSourceReader } = require('./private-report-source');
+const { createPrivateReportDownloadMetadataReader } = require('./private-report-download-metadata');
 const UID = 'api::survey-report-generation.survey-report-generation';
 const REPORT_UID = 'api::survey-report.survey-report';
 
@@ -176,6 +177,9 @@ module.exports = createCoreService(
     },
     readWorkerReportSourcePage(input) {
       return createPrivateReportSourceReader(strapi).readPage(input);
+    },
+    readPrivateReportDownloadMetadata(reportId) {
+      return createPrivateReportDownloadMetadataReader(strapi).read(reportId);
     },
     writeWorkerCheckpoint(input) {
       return lifecycle.createGenerationLifecycle({

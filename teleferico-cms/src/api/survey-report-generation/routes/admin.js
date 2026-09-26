@@ -58,6 +58,17 @@ module.exports = {
       },
     },
     {
+      method: "GET",
+      path: "/tb113/worker/reports/:reportId/download-metadata",
+      handler: "survey-report-generation.workerReportDownloadMetadata",
+      config: {
+        auth: {
+          strategies: ["content-api-token"],
+          scope: ["api::survey-report-generation.survey-report-generation.workerReportDownloadMetadata"],
+        },
+      },
+    },
+    {
       method: "PUT",
       path: "/tb113/worker/generations/:reportRunId/checkpoints/:stageKey",
       handler: "survey-report-generation.workerCheckpoint",
