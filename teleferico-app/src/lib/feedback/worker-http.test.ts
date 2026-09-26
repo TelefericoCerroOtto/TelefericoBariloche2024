@@ -139,6 +139,7 @@ function runtimeHarness() {
         stageKey: command.checkpoint.stageKey,
         status: "valid",
         replayed: false,
+        crossedCostThreshold: false,
       };
     },
     async complete(reportRunId, command: CompleteCommand) {
@@ -165,6 +166,16 @@ function runtimeHarness() {
         stateVersion,
         status: "failed",
         failureCode: "INVARIANT",
+        replayed: false,
+        alertRequired: false,
+      };
+    },
+    async acknowledgeAlert(reportRunId, command) {
+      return {
+        contractVersion: "survey-worker-alert-ack.v1",
+        reportRunId,
+        deduplicationKey: command.deduplicationKey,
+        status: "delivered",
         replayed: false,
       };
     },

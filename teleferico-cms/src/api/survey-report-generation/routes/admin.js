@@ -36,6 +36,17 @@ module.exports = {
       },
     },
     {
+      method: "POST",
+      path: "/tb113/worker/generations/:reportRunId/alerts/ack",
+      handler: "survey-report-generation.workerAlertAck",
+      config: {
+        auth: {
+          strategies: ["content-api-token"],
+          scope: ["api::survey-report-generation.survey-report-generation.workerAlertAck"],
+        },
+      },
+    },
+    {
       method: "GET",
       path: "/tb113/worker/generations/:reportRunId/snapshot",
       handler: "survey-report-generation.workerSnapshot",

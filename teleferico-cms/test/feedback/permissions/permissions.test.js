@@ -44,6 +44,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
   const workerAuthRoutes = new Map([
     ['workerClaim', 'api::survey-report-generation.survey-report-generation.workerClaim'],
     ['workerFail', 'api::survey-report-generation.survey-report-generation.workerFail'],
+    ['workerAlertAck', 'api::survey-report-generation.survey-report-generation.workerAlertAck'],
     ['workerSnapshot', 'api::survey-report-generation.survey-report-generation.workerSnapshot'],
     ['workerCheckpoint', 'api::survey-report-generation.survey-report-generation.workerCheckpoint'],
     ['workerComplete', 'api::survey-report-generation.survey-report-generation.workerComplete'],
@@ -59,6 +60,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     ['POST', '/tb113/admin/generations/:reportRunId/dispatch-state', 'survey-report-generation.dispatchState'],
     ['POST', '/tb113/worker/generations/:reportRunId/claim', 'survey-report-generation.workerClaim'],
     ['POST', '/tb113/worker/generations/:reportRunId/fail', 'survey-report-generation.workerFail'],
+    ['POST', '/tb113/worker/generations/:reportRunId/alerts/ack', 'survey-report-generation.workerAlertAck'],
     ['GET', '/tb113/worker/generations/:reportRunId/snapshot', 'survey-report-generation.workerSnapshot'],
     ['POST', '/tb113/worker/report-source', 'survey-report-generation.workerSourceRead'],
     ['POST', '/tb113/admin/feedback/read', 'survey-report-generation.feedbackAdminRead'],
@@ -110,6 +112,7 @@ test('documents D31 names only as future application capabilities', () => {
   assert.match(documentation, /workerCheckpoint/);
   assert.match(documentation, /workerComplete/);
   assert.match(documentation, /workerFail/);
+  assert.match(documentation, /workerAlertAck/);
   assert.match(documentation, /workerReportDownloadMetadata/);
   assert.match(documentation, /feedbackAdminRead/);
   assert.match(documentation, /workerClaim.*content-api-token/s);

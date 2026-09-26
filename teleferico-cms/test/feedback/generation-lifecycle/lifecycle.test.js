@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const { createHash } = require("node:crypto");
 const test = require("node:test");
 const { measureDispatchFailureRequestBody } = require("../../../src/api/survey-report-generation/services/dispatch-failure-request");
-const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration, validateWorkerClaimCommand, validateWorkerFailCommand } = require("../../../src/api/survey-report-generation/services/lifecycle");
+const { createGenerationLifecycle, prepareAtomicCompletion, prepareDispatchFailure, prepareRetryGeneration, recordCheckpointUsage, validateWorkerClaimCommand, validateWorkerFailCommand } = require("../../../src/api/survey-report-generation/services/lifecycle");
 const { CHECKPOINT_CONTRACT_VERSIONS, deriveChunkMembership, deriveEvidenceRef, stageConfigDigest, stageInputDigestV1, verifyCheckpointGraphV1, verifyChunkMembership } = require("../../../src/api/survey-report-generation/services/checkpoint-contract");
 const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000001";
 const TASK_NAME = "tb113-report-00000000000040008000000000000001";
@@ -87,9 +87,14 @@ function store(initial) {
             return { ...generations.get(runId) };
           },
           async lockWorkerExecution(runId) {
+            lockedRunId = runId;
             return { ...generations.get(runId) };
           },
           async updateGeneration(patch) {
+            const run = generations.get(lockedRunId);
+            generations.set(run.reportRunId, { ...run, ...patch });
+          },
+          async updateWorkerAlertLedger(patch) {
             const run = generations.get(lockedRunId);
             generations.set(run.reportRunId, { ...run, ...patch });
           },
@@ -403,6 +408,13 @@ test("worker failure is running-only, safe, CAS-protected, and idempotent", asyn
 
   assert.deepEqual(await lifecycle.failWorker({ reportRunId: runId, command }), {
     reportRunId: runId, stateVersion: 4, status: "failed", failureCode: "INVALID_OUTPUT", replayed: false,
+    alertRequired: true,
+    pendingAlerts: [{
+      deduplicationKey: `tb113:terminal-failure:${runId}:v1`,
+      kind: "terminal-failure",
+      reportRunId: runId,
+      failureCode: "INVALID_OUTPUT",
+    }],
   });
   const failed = { ...value.generation(runId) };
   assert.equal(failed.completedAt, "2026-09-25T12:00:00.000Z");
@@ -412,6 +424,13 @@ test("worker failure is running-only, safe, CAS-protected, and idempotent", asyn
 
   assert.deepEqual(await lifecycle.failWorker({ reportRunId: runId, command }), {
     reportRunId: runId, stateVersion: 4, status: "failed", failureCode: "INVALID_OUTPUT", replayed: true,
+    alertRequired: true,
+    pendingAlerts: [{
+      deduplicationKey: `tb113:terminal-failure:${runId}:v1`,
+      kind: "terminal-failure",
+      reportRunId: runId,
+      failureCode: "INVALID_OUTPUT",
+    }],
   });
   assert.deepEqual(value.generation(runId), failed);
 
@@ -440,6 +459,119 @@ test("worker failure is running-only, safe, CAS-protected, and idempotent", asyn
     assert.equal(invalid.generation(runId).stateVersion, 3);
     assert.equal(invalid.generation(runId).failureCode, undefined);
   }
+});
+
+test("terminal alert intent survives commit-before-notify and delivery acknowledgement is idempotent", async () => {
+  const runId = "00000000-0000-4000-8000-000000000021";
+  const value = store({ reportRunId: runId, status: "running", stateVersion: 5, usageJson: {}, cumulativeCostMicros: "0" });
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction, now: () => "2026-09-25T12:00:00.000Z" });
+  const command = {
+    contractVersion: "survey-worker-cms.v1",
+    expectedStateVersion: 5,
+    failureCode: "INVALID_OUTPUT",
+    safeFailureMessage: "The report output did not satisfy its contract.",
+  };
+
+  const failed = await lifecycle.failWorker({ reportRunId: runId, command });
+  const persisted = value.generation(runId).usageJson;
+  assert.equal(persisted.alertOutbox.version, "survey-alert-outbox.v1");
+  assert.equal(persisted.alertOutbox.intents[0].status, "pending");
+  assert.equal(failed.pendingAlerts[0].deduplicationKey, `tb113:terminal-failure:${runId}:v1`);
+  const interruptedReplay = await lifecycle.claimWorker({ reportRunId: runId });
+  assert.equal(interruptedReplay.disposition, "terminal-replay");
+  assert.deepEqual(interruptedReplay.pendingAlerts, failed.pendingAlerts);
+
+  const acknowledgement = { contractVersion: "survey-worker-alert-ack.v1", deduplicationKey: failed.pendingAlerts[0].deduplicationKey };
+  assert.deepEqual(await lifecycle.acknowledgeWorkerAlert({ reportRunId: runId, command: acknowledgement }), {
+    reportRunId: runId,
+    deduplicationKey: acknowledgement.deduplicationKey,
+    status: "delivered",
+    replayed: false,
+  });
+  const delivered = value.generation(runId).usageJson;
+  assert.equal(delivered.terminalFailureAlerted, true);
+  assert.equal(delivered.alertOutbox.intents[0].status, "delivered");
+  assert.equal((await lifecycle.acknowledgeWorkerAlert({ reportRunId: runId, command: acknowledgement })).replayed, true);
+  assert.equal(value.generation(runId).usageJson.alertOutbox.intents.length, 1);
+});
+
+test("checkpoint usage is recomputed, CAS-ledger safe, replay idempotent, and does not claim alert delivery", async () => {
+  const pricingSnapshotJson = {
+    version: "synthetic-pricing.v1",
+    currency: "USD",
+    units: [{ sku: "synthetic-sku", inputMicrosPerMillion: 1_000_000, outputMicrosPerMillion: 1 }],
+  };
+  const usage = {
+    model: "gemini-3.8-flash",
+    modelRevision: "synthetic-revision-1",
+    sku: "synthetic-sku",
+    usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 },
+    stageKey: "direct",
+    pricingSnapshotVersion: "synthetic-pricing.v1",
+    costMicros: "2",
+  };
+  const previousUsage = {
+    ...usage,
+    usageMetadata: { promptTokenCount: 9_999_999, candidatesTokenCount: 0 },
+    stageKey: "map.1-of-1",
+    costMicros: "9999999",
+  };
+  const checkpoint = { stageKey: "direct", payload: { usage } };
+  const generation = {
+    reportRunId: "00000000-0000-4000-8000-000000000001",
+    pricingSnapshotJson,
+    cumulativeCostMicros: "9999999",
+    usageJson: {
+      version: "survey-usage-ledger.v1",
+      stages: [previousUsage],
+      cumulativeCostMicros: "9999999",
+      costAlerted: false,
+      terminalFailureAlerted: false,
+    },
+  };
+
+  const first = recordCheckpointUsage(generation, checkpoint, { model: "gemini-3.8-flash" });
+  assert.equal(first.cumulativeCostMicros, "10000001");
+  assert.equal(first.crossedThreshold, true);
+  assert.equal(first.pendingAlerts[0].deduplicationKey, "tb113:cost-over-10-usd:00000000-0000-4000-8000-000000000001:v1");
+  assert.deepEqual(first.usageJson.stages, [previousUsage, usage]);
+  assert.equal(first.usageJson.costAlerted, false);
+  assert.equal(first.usageJson.terminalFailureAlerted, false);
+
+  const replay = recordCheckpointUsage({ ...generation, ...first }, checkpoint, { model: "gemini-3.8-flash" });
+  assert.equal(replay.cumulativeCostMicros, first.cumulativeCostMicros);
+  assert.deepEqual(replay.usageJson, first.usageJson);
+  assert.equal(replay.crossedThreshold, false);
+  assert.throws(() => recordCheckpointUsage({ ...generation, ...first }, {
+    ...checkpoint,
+    payload: { usage: { ...usage, costMicros: "3" } },
+  }, { model: "gemini-3.8-flash" }), { code: "DIGEST_MISMATCH" });
+  assert.throws(() => recordCheckpointUsage(generation, {
+    ...checkpoint,
+    payload: { usage: { ...usage, sku: "unpriced" } },
+  }, { model: "gemini-3.8-flash" }), { code: "UNKNOWN_VERSION" });
+
+  const alertStore = store({
+    reportRunId: generation.reportRunId,
+    status: "running",
+    stateVersion: 7,
+    usageJson: first.usageJson,
+    cumulativeCostMicros: first.cumulativeCostMicros,
+  });
+  const alertLifecycle = createGenerationLifecycle({
+    withTransaction: alertStore.withTransaction,
+    now: () => "2026-09-26T12:00:00.000Z",
+  });
+  const costIntent = first.pendingAlerts[0];
+  const ackCommand = {
+    contractVersion: "survey-worker-alert-ack.v1",
+    deduplicationKey: costIntent.deduplicationKey,
+  };
+  const costAck = await alertLifecycle.acknowledgeWorkerAlert({ reportRunId: generation.reportRunId, command: ackCommand });
+  assert.equal(costAck.replayed, false);
+  assert.equal(alertStore.generation(generation.reportRunId).usageJson.costAlerted, true);
+  assert.equal(alertStore.generation(generation.reportRunId).costAlertedAt, "2026-09-26T12:00:00.000Z");
+  assert.equal((await alertLifecycle.acknowledgeWorkerAlert({ reportRunId: generation.reportRunId, command: ackCommand })).replayed, true);
 });
 
 test("CMS matches the worker synthetic evidence-membership and stage-digest vectors", () => {

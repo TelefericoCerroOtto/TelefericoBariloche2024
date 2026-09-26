@@ -31,7 +31,10 @@ import type {
   WorkerCmsClient,
   WorkerExecutionResult,
   WorkerRuntimeDependencies,
+  PricingSnapshotV1,
 } from "./contracts";
+import { priceProviderUsageV1, validateProviderUsageV1 } from "./worker-cost";
+import { deliverPendingWorkerAlerts } from "./worker-alerts";
 
 export type MapReduceWorkerState = {
   stateVersion: number;
@@ -172,6 +175,7 @@ export async function executeMapReduceStages(input: {
   readonly reportRunId: string;
   readonly snapshotEnvelope: SnapshotEnvelopeV1;
   readonly modelConfig: ModelConfigV1;
+  readonly pricingSnapshot: PricingSnapshotV1;
   readonly evidenceKey: string | Uint8Array;
   readonly dependencies: WorkerRuntimeDependencies;
   readonly state: MapReduceWorkerState;
@@ -256,11 +260,19 @@ export async function executeMapReduceStages(input: {
       snapshot,
       now: (input.dependencies.now ?? (() => new Date()))(),
     });
-    input.state.stateVersion = await retry(async () => (await cms.checkpoint(input.reportRunId, {
+    const checkpointResult = await retry(async () => cms.checkpoint(input.reportRunId, {
       contractVersion: "survey-worker-cms.v1",
       expectedStateVersion: input.state.stateVersion,
       checkpoint: value,
-    })).stateVersion);
+    }));
+    input.state.stateVersion = checkpointResult.stateVersion;
+    if (checkpointResult.pendingAlerts?.length) {
+      void deliverPendingWorkerAlerts({
+        reportRunId: input.reportRunId,
+        alerts: checkpointResult.pendingAlerts,
+        dependencies: input.dependencies,
+      }).catch(() => undefined);
+    }
     input.state.checkpointSet = {
       ...input.state.checkpointSet,
       route: "map-reduce",
@@ -273,7 +285,14 @@ export async function executeMapReduceStages(input: {
   for (const { membership, request } of chunks) {
     const stageKey = request.chunkId;
     if (input.state.checkpointSet.entries.some((entry) => entry.stageKey === stageKey)) continue;
-    const candidate = await retry(() => mapProvider(request));
+    const response = await retry(() => mapProvider(request));
+    const candidate = response?.output;
+    const usage = priceProviderUsageV1(
+      validateProviderUsageV1(response?.usage, config.model),
+      input.pricingSnapshot,
+      config.model,
+      stageKey,
+    );
     const outputCount = await countGeneratedOutputV1({ output: candidate, modelConfig: config, countTokens, stage: "map" });
     if (outputCount.tokenCount > config.map.hardMax)
       throw Object.assign(new TypeError("Map output exceeded the hard output token limit"), { code: "INVALID_OUTPUT" as const });
@@ -297,6 +316,7 @@ export async function executeMapReduceStages(input: {
       outputTokenCount: outputCount.tokenCount,
       outputRequestDigest: outputCount.requestDigest,
       validatedOutput: candidate,
+      usage,
     };
     await addCheckpoint(stageKey, payload, membership.membershipDigest);
   }
@@ -335,11 +355,18 @@ export async function executeMapReduceStages(input: {
     if (replayPreflight.status !== "accepted" || reduceStage.payload.outputTokenCount > config.directReduce.hardMax)
       throw Object.assign(new TypeError("Persisted reduce checkpoint failed structural validation"), { code: "INVALID_OUTPUT" as const });
   } else {
-    const candidate = await retry(() => reduceProvider({
+    const response = await retry(() => reduceProvider({
       contractVersion: "survey-reduce-input.v1",
       metrics: snapshot.metrics,
       maps,
     }));
+    const candidate = response?.output;
+    const usage = priceProviderUsageV1(
+      validateProviderUsageV1(response?.usage, config.model),
+      input.pricingSnapshot,
+      config.model,
+      "reduce",
+    );
     const verifiedDigests = maps.map(({ outputDigest }) => outputDigest);
     const preflight = preflightReduceAnalysis(candidate, {
       snapshot: input.snapshotEnvelope,
@@ -358,6 +385,7 @@ export async function executeMapReduceStages(input: {
       outputTokenCount: outputCount.tokenCount,
       outputRequestDigest: outputCount.requestDigest,
       validatedOutput: candidate,
+      usage,
     });
     reduceOutput = candidate;
   }
@@ -436,6 +464,13 @@ export async function executeMapReduceStages(input: {
     },
   };
   const complete = await retry(() => cms.complete(input.reportRunId, command));
+  if (complete.pendingAlerts?.length) {
+    void deliverPendingWorkerAlerts({
+      reportRunId: input.reportRunId,
+      alerts: complete.pendingAlerts,
+      dependencies: input.dependencies,
+    }).catch(() => undefined);
+  }
   return {
     status: "succeeded",
     disposition: complete.replayed ? "terminal-replay" : "completed",

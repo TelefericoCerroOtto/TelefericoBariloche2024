@@ -748,11 +748,11 @@ test("native role authorization creates only through the core generation endpoin
     assert.deepEqual(failResults, [
       {
         contractVersion: "survey-worker-cms.v1", reportRunId: WORKER_FAIL_RUN_ID,
-        stateVersion: 3, status: "failed", failureCode: "INVALID_OUTPUT", replayed: false,
+        stateVersion: 3, status: "failed", failureCode: "INVALID_OUTPUT", replayed: false, alertRequired: false,
       },
       {
         contractVersion: "survey-worker-cms.v1", reportRunId: WORKER_FAIL_RUN_ID,
-        stateVersion: 3, status: "failed", failureCode: "INVALID_OUTPUT", replayed: true,
+        stateVersion: 3, status: "failed", failureCode: "INVALID_OUTPUT", replayed: true, alertRequired: false,
       },
     ]);
     assert.equal(JSON.stringify(failResults).includes("safeFailureMessage"), false);

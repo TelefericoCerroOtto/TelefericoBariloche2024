@@ -6,6 +6,7 @@ const {
   validateDispatchStateCommand,
   validateWorkerClaimCommand,
   validateWorkerFailCommand,
+  validateWorkerAlertAcknowledgeCommand,
 } = require("../services/lifecycle");
 
 function validDispatchFailure(value) {
@@ -154,6 +155,39 @@ module.exports = createCoreController(
         const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
         ctx.status = status;
         ctx.body = { error: { code: safeCode, message: status === 500 ? "The worker failure could not be recorded" : "The worker failure was rejected" } };
+      }
+    },
+    async workerAlertAck(ctx) {
+      if (!hasCustomContentApiTokenIdentity(ctx)) {
+        ctx.status = 403;
+        ctx.body = { error: { code: "FORBIDDEN", message: "The worker alert acknowledgement is not authorized" } };
+        return;
+      }
+      const bodySize = measureDispatchFailureRequestBody(ctx.request);
+      if (bodySize === null || bodySize > 4 * 1024) {
+        ctx.status = 413;
+        ctx.body = { error: { code: "PAYLOAD_TOO_LARGE", message: "The worker command is too large" } };
+        return;
+      }
+      const command = ctx.request.body;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ctx.params.reportRunId) ||
+          !validateWorkerAlertAcknowledgeCommand(command)) {
+        ctx.status = 400;
+        ctx.body = { error: { code: "VALIDATION_FAILED", message: "The worker alert acknowledgement is invalid" } };
+        return;
+      }
+      try {
+        const result = await strapi.service("api::survey-report-generation.survey-report-generation")
+          .acknowledgeWorkerAlert({ reportRunId: ctx.params.reportRunId, command });
+        ctx.status = 200;
+        ctx.body = { contractVersion: "survey-worker-alert-ack.v1", ...result };
+      } catch (error) {
+        const code = error.code ?? "INTERNAL_ERROR";
+        const statuses = { RUN_NOT_FOUND: 404, ALERT_NOT_FOUND: 404, INVALID_STATE: 409, STATE_VERSION_CONFLICT: 409, VALIDATION_FAILED: 400 };
+        const status = statuses[code] ?? 500;
+        const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
+        ctx.status = status;
+        ctx.body = { error: { code: safeCode, message: status === 500 ? "The worker alert acknowledgement failed" : "The worker alert acknowledgement was rejected" } };
       }
     },
     async workerSnapshot(ctx) {

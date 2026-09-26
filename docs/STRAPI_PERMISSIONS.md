@@ -235,7 +235,7 @@ It permits only reservation, created, and unknown states; it rejects claimed
 absence and cannot compensate a queued generation. These custom actions use the
 application user JWT, not an API token. The worker
 `survey-report-generation.workerClaim`, `workerSnapshot`, `workerCheckpoint`,
-`workerSourceRead`, `workerReportDownloadMetadata`, `workerComplete`, and `workerFail` actions are available only through Strapi's native
+`workerSourceRead`, `workerReportDownloadMetadata`, `workerComplete`, `workerFail`, and `workerAlertAck` actions are available only through Strapi's native
 `content-api-token` strategy, each with its own exact custom API-token action
 scope. Their controllers also require Strapi's runtime-selected strategy,
 `kind: "content-api"`, and `type: "custom"` before controller body measurement,
@@ -264,9 +264,11 @@ custom content API token scopes; no default or persistent grant is added.
 closed 4 KiB command with an exact failure-code-to-safe-message mapping. It
 fails only a running generation through state-version CAS and creates no report
 or partial PDF. Identical terminal replay returns the current version without a
-write; changed replay and non-running states return bounded conflicts. This
-action does not send failure alerts; any future alert integration must run only
-after terminal state commits. No default permission is added.
+write; changed replay and non-running states return bounded conflicts. It also
+persists one versioned terminal-alert intent in private `usageJson` in the same
+transaction. `workerAlertAck` uses a separate exact custom-token scope to mark a
+pending intent delivered only after the app's injected notifier confirms
+acceptance with the same idempotency key. No default permission is added.
 Report history remains owned by U8-A. U12 adds only the server-mediated private
 metadata action; production artifact storage/download remains unavailable until
 separately approved reader and credential wiring exists. No production permission
@@ -408,6 +410,14 @@ denied even if a synthetic Users & Permissions role is granted the same action;
 the isolated HTTP harness grants this action only to a disposable custom content
 API token. This repository adds no persistent role/token grant and provisions no
 production credential.
+
+The offline worker usage ledger also persists cost-threshold intents before a
+notifier call. `workerClaim`, `workerCheckpoint`, `workerFail`, and
+`workerComplete` project only pending alert intents to the scoped worker token;
+`workerAlertAck` locks the generation row and records delivered state and the
+existing alert timestamp. The stable deduplication key must be honored by the
+injected notifier across retries for exactly-once alert effects. No real notifier,
+default action grant, or production token is configured.
 
 U8-A registers the distinct
 `api::survey-report-generation.survey-report-generation.feedbackAdminRead`

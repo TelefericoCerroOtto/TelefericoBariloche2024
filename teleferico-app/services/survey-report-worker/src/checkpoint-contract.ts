@@ -38,9 +38,9 @@ export type WorkerStageCheckpointV1 = {
     | { readonly kind: "redact"; readonly recordCount: number; readonly redactionVersion: string }
     | { readonly kind: "count"; readonly requestDigest: string; readonly segmentTokens: { readonly instructions: number; readonly schema: number; readonly metrics: number; readonly comments: number; readonly reservedOutput: number; readonly headroom: number }; readonly totalTokens: number }
     | { readonly kind: "count"; readonly route: "map-reduce"; readonly directRequestDigest: string; readonly directSegmentTokens: Record<string, number>; readonly directTotalTokens: number; readonly attempts: readonly unknown[]; readonly chunkCount: number }
-    | { readonly kind: "direct"; readonly validatedOutput: unknown }
-    | { readonly kind: "map"; readonly chunkId: string; readonly chunkIndex: number; readonly chunkCount: number; readonly evidenceKeyId: string; readonly coveredRefs: readonly string[]; readonly chunkMembershipDigest: string; readonly outputTokenCount: number; readonly outputRequestDigest: string; readonly validatedOutput: unknown }
-    | { readonly kind: "reduce"; readonly outputTokenCount: number; readonly outputRequestDigest: string; readonly validatedOutput: unknown }
+    | { readonly kind: "direct"; readonly validatedOutput: unknown; readonly usage?: unknown }
+    | { readonly kind: "map"; readonly chunkId: string; readonly chunkIndex: number; readonly chunkCount: number; readonly evidenceKeyId: string; readonly coveredRefs: readonly string[]; readonly chunkMembershipDigest: string; readonly outputTokenCount: number; readonly outputRequestDigest: string; readonly validatedOutput: unknown; readonly usage: unknown }
+    | { readonly kind: "reduce"; readonly outputTokenCount: number; readonly outputRequestDigest: string; readonly validatedOutput: unknown; readonly usage: unknown }
     | { readonly kind: "validate"; readonly publishedAnalysis: unknown; readonly validatorVersion: string }
     | {
         readonly kind: "render";
@@ -172,6 +172,19 @@ function exactKeys(
   );
 }
 
+function validUsage(value: unknown, stageKey: string): boolean {
+  if (!exactKeys(value, ["model", "modelRevision", "sku", "usageMetadata", "stageKey", "pricingSnapshotVersion", "costMicros"])) return false;
+  const usage = value as Record<string, unknown>;
+  return usage.stageKey === stageKey && typeof usage.model === "string" && usage.model.length > 0 &&
+    typeof usage.modelRevision === "string" && usage.modelRevision.length > 0 &&
+    typeof usage.sku === "string" && usage.sku.length > 0 &&
+    typeof usage.pricingSnapshotVersion === "string" && usage.pricingSnapshotVersion.length > 0 &&
+    typeof usage.costMicros === "string" && /^(0|[1-9]\d*)$/.test(usage.costMicros) &&
+    exactKeys(usage.usageMetadata, ["promptTokenCount", "candidatesTokenCount"]) &&
+    Number.isSafeInteger((usage.usageMetadata as Record<string, unknown>).promptTokenCount) && Number((usage.usageMetadata as Record<string, unknown>).promptTokenCount) >= 0 &&
+    Number.isSafeInteger((usage.usageMetadata as Record<string, unknown>).candidatesTokenCount) && Number((usage.usageMetadata as Record<string, unknown>).candidatesTokenCount) >= 0;
+}
+
 function invalid(): never {
   throw new TypeError("Invalid checkpoint binding");
 }
@@ -286,21 +299,21 @@ export function validateWorkerStageCheckpointV1(
           !validEvidence(payload.segmentTokens, payload.totalTokens)) invalid();
     }
   } else if (payload.kind === "map") {
-    if (!mapMatch || !exactKeys(payload, ["kind", "chunkId", "chunkIndex", "chunkCount", "evidenceKeyId", "coveredRefs", "chunkMembershipDigest", "outputTokenCount", "outputRequestDigest", "validatedOutput"]) ||
+    if (!mapMatch || !exactKeys(payload, ["kind", "chunkId", "chunkIndex", "chunkCount", "evidenceKeyId", "coveredRefs", "chunkMembershipDigest", "outputTokenCount", "outputRequestDigest", "validatedOutput", "usage"]) ||
         payload.chunkId !== value.stageKey || Number(payload.chunkIndex) !== Number(mapMatch[1]) || Number(payload.chunkCount) !== Number(mapMatch[2]) ||
         typeof payload.evidenceKeyId !== "string" || !KEY_ID_PATTERN.test(payload.evidenceKeyId) || !Array.isArray(payload.coveredRefs) ||
         !DIGEST_PATTERN.test(String(payload.chunkMembershipDigest)) || !Number.isSafeInteger(payload.outputTokenCount) ||
-         Number(payload.outputTokenCount) < 0 || !DIGEST_PATTERN.test(String(payload.outputRequestDigest))) invalid();
+          Number(payload.outputTokenCount) < 0 || !DIGEST_PATTERN.test(String(payload.outputRequestDigest)) || !validUsage(payload.usage, String(value.stageKey))) invalid();
   } else if (payload.kind === "reduce") {
     const output = payload.validatedOutput;
-    if (!exactKeys(payload, ["kind", "validatedOutput", "outputTokenCount", "outputRequestDigest"]) ||
+    if (!exactKeys(payload, ["kind", "validatedOutput", "outputTokenCount", "outputRequestDigest", "usage"]) || !validUsage(payload.usage, "reduce") ||
         !Number.isSafeInteger(payload.outputTokenCount) || Number(payload.outputTokenCount) < 0 || !DIGEST_PATTERN.test(String(payload.outputRequestDigest)) ||
         !exactKeys(output, ["schemaVersion", "route", "sections", "mapOutputDigests"]) ||
         output.schemaVersion !== "survey-analysis.v1" || output.route !== "reduce" || !Array.isArray(output.sections) ||
         output.sections.length !== PUBLISHED_SECTION_KEYS.length || !Array.isArray(output.mapOutputDigests)) invalid();
   } else if (payload.kind === "direct") {
     const output = payload.validatedOutput;
-    if (!exactKeys(payload, ["kind", "validatedOutput"]) ||
+    if (!(exactKeys(payload, ["kind", "validatedOutput"]) || exactKeys(payload, ["kind", "validatedOutput", "usage"])) ||
         !exactKeys(output, ["schemaVersion", "route", "sections"]) ||
         output.schemaVersion !== "survey-analysis.v1" || output.route !== "direct" ||
         !Array.isArray(output.sections) || output.sections.length !== PUBLISHED_SECTION_KEYS.length ||
@@ -310,8 +323,9 @@ export function validateWorkerStageCheckpointV1(
           (section.status === "supported" || section.status === "insufficient_evidence") &&
           Array.isArray(section.claims) &&
           (section.status !== "insufficient_evidence" || section.claims.length === 0) &&
-          (section.status !== "supported" || section.claims.length > 0)))
+           (section.status !== "supported" || section.claims.length > 0)))
       invalid();
+    if (Object.hasOwn(payload, "usage") && !validUsage(payload.usage, "direct")) invalid();
   } else if (payload.kind === "validate") {
     const output = payload.publishedAnalysis;
     if (!exactKeys(payload, ["kind", "publishedAnalysis", "validatorVersion"]) ||

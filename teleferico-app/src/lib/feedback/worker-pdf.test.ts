@@ -83,6 +83,18 @@ function analysis(): PublishedAnalysisV1 {
   };
 }
 
+function syntheticProviderResult(output: PublishedAnalysisV1 = analysis()) {
+  return {
+    output,
+    usage: {
+      model: "gemini-3.8-flash",
+      modelRevision: "synthetic-revision-1",
+      sku: "synthetic-model-input",
+      usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 },
+    },
+  };
+}
+
 function checkpointSet(
   snapshotDigest: string,
   entries: readonly WorkerCheckpoint[] = [],
@@ -186,6 +198,7 @@ function fakeCms(
         stageKey: command.checkpoint.stageKey,
         status: "valid" as const,
         replayed: false,
+        crossedCostThreshold: false,
       };
     },
     async complete(
@@ -217,6 +230,16 @@ function fakeCms(
         stateVersion,
         status: "failed",
         failureCode: "INVALID_OUTPUT",
+        replayed: false,
+        alertRequired: false,
+      };
+    },
+    async acknowledgeAlert(reportRunId, command) {
+      return {
+        contractVersion: "survey-worker-alert-ack.v1",
+        reportRunId,
+        deduplicationKey: command.deduplicationKey,
+        status: "delivered",
         replayed: false,
       };
     },
@@ -404,7 +427,7 @@ describe("worker PDF boundary", () => {
       cms: fake.cms,
       artifacts: artifacts.store,
       renderer,
-      analysisProvider: async () => analysis(),
+      analysisProvider: async () => syntheticProviderResult(),
     });
     expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
     expect(render).not.toHaveBeenCalled();
@@ -465,7 +488,7 @@ describe("worker PDF boundary", () => {
       cms: fake.cms,
       artifacts: artifacts.store,
       renderer,
-      analysisProvider: async () => analysis(),
+      analysisProvider: async () => syntheticProviderResult(),
     });
     expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
     expect(render).not.toHaveBeenCalled();
@@ -496,7 +519,7 @@ describe("worker PDF boundary", () => {
     } as unknown as WorkerCheckpoint;
     const fake = fakeCms(envelope, checkpointSet(envelope.digestHex, [checkpoint]));
     const artifacts = artifactStore();
-    const provider = vi.fn(async () => analysis());
+    const provider = vi.fn(async () => syntheticProviderResult());
     const result = await executeReportWorker("run-private-render", {
       cms: fake.cms,
       artifacts: artifacts.store,
@@ -556,7 +579,7 @@ describe("worker PDF boundary", () => {
       checkpointSet(envelope.digestHex, [renderCheckpoint, storeCheckpoint]),
     );
     const artifacts = artifactStore();
-    const provider = vi.fn(async () => analysis());
+    const provider = vi.fn(async () => syntheticProviderResult());
     const result = await executeReportWorker("run-private-store", {
       cms: fake.cms,
       artifacts: artifacts.store,
@@ -578,7 +601,7 @@ describe("worker PDF boundary", () => {
     };
     const fake = fakeCms(envelope, checkpoints);
     const renderer = vi.fn(async () => new Uint8Array([1]));
-    const provider = vi.fn(async () => analysis());
+    const provider = vi.fn(async () => syntheticProviderResult());
     const result = await executeReportWorker("run-map-reduce", {
       cms: fake.cms,
       artifacts: artifactStore().store,
@@ -599,7 +622,7 @@ describe("worker PDF boundary", () => {
     };
     const fake = fakeCms(envelope, checkpoints);
     const artifacts = artifactStore();
-    const provider = vi.fn(async () => analysis());
+    const provider = vi.fn(async () => syntheticProviderResult());
     const renderer = vi.fn(async () => new Uint8Array([1]));
     const countTokens = vi.fn(async (request) => {
       expect(request.contractVersion).toBe("survey-count-request.v1");
@@ -710,7 +733,15 @@ describe("worker PDF boundary", () => {
       expect(JSON.stringify(modelRequest).includes("private-version-id")).toBe(false);
       expect(JSON.stringify(modelRequest).includes("private-point-id")).toBe(false);
       expect(JSON.stringify(modelRequest).includes("visitor@example.invalid")).toBe(false);
-      return analysisOutput;
+      return {
+        output: analysisOutput,
+        usage: {
+          model: "gemini-3.8-flash",
+          modelRevision: "synthetic-revision-1",
+          sku: "synthetic-model-input",
+          usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 },
+        },
+      };
     });
 
     const result = await executeReportWorker(runId, {
@@ -728,6 +759,19 @@ describe("worker PDF boundary", () => {
     expect(result.status).toBe("succeeded");
     expect(tokens).toHaveBeenCalledTimes(1);
     expect(provider).toHaveBeenCalledTimes(1);
+    const directCheckpoint = fake.writtenCheckpoints.find(({ stageKey }) => stageKey === "direct");
+    expect(directCheckpoint?.payload).toMatchObject({
+      kind: "direct",
+      usage: {
+        model: "gemini-3.8-flash",
+        modelRevision: "synthetic-revision-1",
+        sku: "synthetic-model-input",
+        stageKey: "direct",
+        pricingSnapshotVersion: "survey-pricing.v1",
+        costMicros: "2",
+        usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 },
+      },
+    });
     const staged = artifacts.staged.get(runId);
     expect(staged?.mimeType).toBe("application/pdf");
     expect(staged?.size).toBe(staged?.bytes.byteLength);
@@ -782,7 +826,7 @@ describe("worker PDF boundary", () => {
     });
     const populatedFake = fakeCms(populated);
     const populatedCount = vi.fn(async () => ({ instructions: 1, schema: 1, metrics: 1, comments: 1 }));
-    const populatedProvider = vi.fn(async () => analysis());
+    const populatedProvider = vi.fn(async () => syntheticProviderResult());
     const populatedRenderer = vi.fn(async () => new Uint8Array([1]));
     const populatedResult = await executeReportWorker("run-populated-local", {
       cms: populatedFake.cms,
@@ -799,7 +843,7 @@ describe("worker PDF boundary", () => {
     const empty = snapshot();
     const overBudgetFake = fakeCms(empty);
     const overBudgetCount = vi.fn(async () => ({ instructions: 6_000, schema: 100, metrics: 100, comments: 0 }));
-    const overBudgetProvider = vi.fn(async () => analysis());
+    const overBudgetProvider = vi.fn(async () => syntheticProviderResult());
     const overBudgetRenderer = vi.fn(async () => new Uint8Array([1]));
     const overBudgetResult = await executeReportWorker("run-over-budget-local", {
       cms: overBudgetFake.cms,
@@ -822,7 +866,7 @@ describe("worker PDF boundary", () => {
       checkpointSet(envelope.digestHex),
       {} as ModelConfigV1,
     );
-    const provider = vi.fn(async () => analysis());
+    const provider = vi.fn(async () => syntheticProviderResult());
     const renderer = vi.fn(async () => new Uint8Array([1]));
     const result = await executeReportWorker("run-missing-config", {
       cms: fake.cms,
@@ -843,7 +887,7 @@ describe("worker PDF boundary", () => {
       model: "gemini-3.8-pro",
     };
     const fake = fakeCms(envelope, checkpointSet(envelope.digestHex), modelConfig);
-    const provider = vi.fn(async () => analysis());
+    const provider = vi.fn(async () => syntheticProviderResult());
     const renderer = vi.fn(async () => new Uint8Array([1]));
     const result = await executeReportWorker("run-wrong-model", {
       cms: fake.cms,
@@ -881,7 +925,7 @@ describe("worker PDF boundary", () => {
         syntheticModelConfig("test-only-2026-01"),
         pricingSnapshot,
       );
-      const provider = vi.fn(async () => analysis());
+      const provider = vi.fn(async () => syntheticProviderResult());
       const renderer = vi.fn(async () => new Uint8Array([1]));
       const result = await executeReportWorker(`run-pricing-${caseName}`, {
         cms: fake.cms,
@@ -1056,7 +1100,7 @@ describe("worker PDF boundary", () => {
       cms: fake.cms,
       artifacts: artifacts.store,
       renderer: { rendererVersion: "test", render },
-      analysisProvider: async () => analysis(),
+      analysisProvider: async () => syntheticProviderResult(),
     });
     expect(result).toMatchObject({
       status: "failed",
@@ -1091,7 +1135,7 @@ describe("worker PDF boundary", () => {
       cms: cms.cms,
       artifacts: artifactStore().store,
       renderer: createDeterministicTestPdfRenderer(),
-      analysisProvider: async () => analysis(),
+      analysisProvider: async () => syntheticProviderResult(),
     });
     expect(cmsResult).toMatchObject({
       status: "failed",
@@ -1141,13 +1185,13 @@ describe("worker PDF boundary", () => {
       cms: fake.cms,
       artifacts: artifacts.store,
       renderer: createDeterministicTestPdfRenderer(),
-      analysisProvider: async () => analysis(),
+      analysisProvider: async () => syntheticProviderResult(),
     });
     const replay = await executeReportWorker("run-1", {
       cms: fake.cms,
       artifacts: artifacts.store,
       renderer: createDeterministicTestPdfRenderer(),
-      analysisProvider: async () => analysis(),
+      analysisProvider: async () => syntheticProviderResult(),
     });
     expect(result.status).toBe("succeeded");
     expect(replay).toMatchObject({
@@ -1186,7 +1230,7 @@ describe("worker PDF boundary", () => {
       cms: fake.cms,
       artifacts: artifacts.store,
       renderer: createDeterministicTestPdfRenderer(),
-      analysisProvider: async () => analysis(),
+      analysisProvider: async () => syntheticProviderResult(),
     });
     expect(result).toMatchObject({
       status: "failed",
@@ -1259,7 +1303,7 @@ describe("worker PDF boundary", () => {
       cms: fake.cms,
       artifacts: artifacts.store,
       renderer,
-      analysisProvider: async () => analysis(),
+      analysisProvider: async () => syntheticProviderResult(),
     });
     expect(result).toMatchObject({ status: "failed", failureCode: "INVARIANT" });
     expect(renderSpy).not.toHaveBeenCalled();
@@ -1279,7 +1323,7 @@ describe("worker PDF boundary", () => {
           throw new Error("browser unavailable");
         },
       },
-      analysisProvider: async () => analysis(),
+      analysisProvider: async () => syntheticProviderResult(),
     });
     expect(result).toMatchObject({
       status: "failed",

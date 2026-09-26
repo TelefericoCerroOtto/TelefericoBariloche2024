@@ -3,6 +3,7 @@ import type {
   SnapshotEnvelopeV1,
   SnapshotV1,
 } from "../../../packages/survey-reporting-core/src";
+import type { PersistedStageUsageV1, ProviderUsageV1 } from "./worker-cost";
 
 export const WORKER_CMS_CONTRACT_VERSION = "survey-worker-cms.v1" as const;
 export const WORKER_COMMAND_VERSION = "survey-report-command.v1" as const;
@@ -134,7 +135,7 @@ export type CountCheckpointPayload = {
 export type CheckpointPayload =
   | { readonly kind: "redact"; readonly recordCount: number; readonly redactionVersion: string }
   | CountCheckpointPayload
-  | { readonly kind: "direct"; readonly validatedOutput: DirectAnalysisV1 }
+  | { readonly kind: "direct"; readonly validatedOutput: DirectAnalysisV1; readonly usage?: PersistedStageUsageV1 }
   | {
       readonly kind: "map";
       readonly chunkId: string;
@@ -146,8 +147,9 @@ export type CheckpointPayload =
       readonly outputTokenCount: number;
       readonly outputRequestDigest: string;
       readonly validatedOutput: MapAnalysisV1;
+      readonly usage: PersistedStageUsageV1;
     }
-  | { readonly kind: "reduce"; readonly outputTokenCount: number; readonly outputRequestDigest: string; readonly validatedOutput: ReduceAnalysisV1 }
+  | { readonly kind: "reduce"; readonly outputTokenCount: number; readonly outputRequestDigest: string; readonly validatedOutput: ReduceAnalysisV1; readonly usage: PersistedStageUsageV1 }
   | { readonly kind: "validate"; readonly publishedAnalysis: PublishedAnalysisV1; readonly validatorVersion: string }
   | {
       readonly kind: "render";
@@ -227,6 +229,39 @@ export type PricingSnapshotV1 = {
   }[];
 };
 
+export type WorkerAlertIntentV1 = {
+  readonly deduplicationKey: string;
+  readonly kind: "cost-threshold" | "terminal-failure";
+  readonly reportRunId: string;
+  readonly cumulativeCostMicros?: string;
+  readonly failureCode?: RuntimeFailureCode;
+};
+
+export type WorkerAlertAcknowledgeCommandV1 = {
+  readonly contractVersion: "survey-worker-alert-ack.v1";
+  readonly deduplicationKey: string;
+};
+
+export type WorkerAlertAcknowledgeResultV1 = {
+  readonly contractVersion: "survey-worker-alert-ack.v1";
+  readonly reportRunId: string;
+  readonly deduplicationKey: string;
+  readonly status: "delivered";
+  readonly replayed: boolean;
+};
+
+export type WorkerAlertNotifierV1 = (
+  intent: WorkerAlertIntentV1,
+) => Promise<{
+  readonly accepted: true;
+  readonly idempotencyKey: string;
+}>;
+
+export type ProviderResultV1<T> = {
+  readonly output: T;
+  readonly usage: ProviderUsageV1;
+};
+
 export type WorkerClaimResult =
   | {
       readonly contractVersion: typeof WORKER_CMS_CONTRACT_VERSION;
@@ -237,6 +272,7 @@ export type WorkerClaimResult =
       readonly checkpoints: WorkerCheckpointSet;
       readonly modelConfig: unknown;
       readonly pricingSnapshot: unknown;
+      readonly pendingAlerts?: readonly WorkerAlertIntentV1[];
     }
   | {
       readonly contractVersion: typeof WORKER_CMS_CONTRACT_VERSION;
@@ -244,6 +280,7 @@ export type WorkerClaimResult =
       readonly stateVersion: number;
       readonly status: "succeeded" | "failed";
       readonly disposition: "terminal-replay";
+      readonly pendingAlerts?: readonly WorkerAlertIntentV1[];
     };
 
 export type WorkerSnapshotResult = {
@@ -266,6 +303,8 @@ export type CheckpointWriteResult = {
   readonly stageKey: WorkerCheckpoint["stageKey"];
   readonly status: "valid";
   readonly replayed: boolean;
+  readonly crossedCostThreshold: boolean;
+  readonly pendingAlerts?: readonly WorkerAlertIntentV1[];
 };
 
 export type WorkerArtifact = {
@@ -294,6 +333,7 @@ export type CompleteResult = {
   readonly artifactSha256: string;
   readonly artifactSize: number;
   readonly replayed: boolean;
+  readonly pendingAlerts?: readonly WorkerAlertIntentV1[];
 };
 
 export type FailCommand = {
@@ -310,6 +350,8 @@ export type FailResult = {
   readonly status: "failed";
   readonly failureCode: RuntimeFailureCode;
   readonly replayed: boolean;
+  readonly alertRequired: boolean;
+  readonly pendingAlerts?: readonly WorkerAlertIntentV1[];
 };
 
 export interface WorkerCmsClient {
@@ -324,6 +366,10 @@ export interface WorkerCmsClient {
     command: CompleteCommand,
   ): Promise<CompleteResult>;
   fail(reportRunId: string, command: FailCommand): Promise<FailResult>;
+  acknowledgeAlert(
+    reportRunId: string,
+    command: WorkerAlertAcknowledgeCommandV1,
+  ): Promise<WorkerAlertAcknowledgeResultV1>;
 }
 
 export interface WorkerArtifactStore {
@@ -358,7 +404,7 @@ export type DirectModelRequestV1 = {
 
 export type ValidatedAnalysisProvider = (
   request: DirectModelRequestV1,
-) => Promise<DirectAnalysisV1 | PublishedAnalysisV1>;
+) => Promise<ProviderResultV1<DirectAnalysisV1 | PublishedAnalysisV1>>;
 
 export type MapModelRequestV1 = {
   readonly contractVersion: "survey-map-input.v1";
@@ -381,11 +427,11 @@ export type ReduceModelRequestV1 = {
 
 export type MapAnalysisProvider = (
   request: MapModelRequestV1,
-) => Promise<MapAnalysisV1>;
+) => Promise<ProviderResultV1<MapAnalysisV1>>;
 
 export type ReduceAnalysisProvider = (
   request: ReduceModelRequestV1,
-) => Promise<ReduceAnalysisV1>;
+) => Promise<ProviderResultV1<ReduceAnalysisV1>>;
 
 export type EvidenceKeyProvider = (
   evidenceKeyId: string,
@@ -447,4 +493,6 @@ export type WorkerRuntimeDependencies = {
   readonly mapProvider?: MapAnalysisProvider;
   readonly reduceProvider?: ReduceAnalysisProvider;
   readonly now?: () => Date;
+  readonly pricingSnapshot?: PricingSnapshotV1;
+  readonly usageNotifier?: WorkerAlertNotifierV1;
 };
