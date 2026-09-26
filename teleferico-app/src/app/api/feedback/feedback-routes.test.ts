@@ -410,10 +410,11 @@ describe("public feedback Route Handler composition", () => {
       { params: Promise.resolve({ publicCode: PUBLIC_CODE }) },
     );
     resolveSurvey.mockClear();
+    const verifyCaptcha = vi.fn(async () => ({ success: captchaSuccess }));
     const handler = createSubmissionHandler({
       resolveSurvey,
       signingKey: SIGNING_KEY,
-      verifyCaptcha: vi.fn(async () => ({ success: captchaSuccess })),
+      verifyCaptcha,
       store: createStore(),
       browserGuard: { isActive: vi.fn(async () => false), persist: vi.fn() },
       now: () => NOW,
@@ -434,6 +435,7 @@ describe("public feedback Route Handler composition", () => {
 
     expect(response.status).toBe(status);
     expect(resolveSurvey).not.toHaveBeenCalled();
+    if (_case === "honeypot") expect(verifyCaptcha).not.toHaveBeenCalled();
   });
 
   it("stops reading an oversized streamed body at the public cap", async () => {
