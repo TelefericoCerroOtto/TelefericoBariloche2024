@@ -78,6 +78,7 @@ const DEFAULT_SPANISH_COPY: Readonly<Record<string, string>> = {
     "No pudimos enviar tu respuesta. Revisá los datos e intentá nuevamente.",
   successTitle: "¡Gracias por compartir tu experiencia!",
   successBody: "Tu respuesta fue recibida correctamente.",
+  receiptLabel: "Número de referencia:",
   reset: "Enviar otra respuesta",
 };
 
@@ -109,6 +110,7 @@ export function validateFeedbackStage(
   stage: FeedbackStage,
   state: FeedbackFormState,
   selectedAspectKeys: readonly string[],
+  availableAspectKeys: readonly string[] = [],
 ): FeedbackStageValidation {
   if (stage === "overall" && state.overallRating === null) {
     return {
@@ -122,14 +124,18 @@ export function validateFeedbackStage(
     if (selectedAspectKeys.length === 0) {
       return {
         valid: false,
-        focusId: "aspect-views",
+        focusId: `aspect-${availableAspectKeys[0] ?? "other"}`,
         messageKey: "aspectsRequired",
       };
     }
     if (selectedAspectKeys.length > 3) {
       return {
         valid: false,
-        focusId: "aspect-views",
+        focusId: `aspect-${
+          selectedAspectKeys.find(
+            (key) => key === "other" || availableAspectKeys.includes(key),
+          ) ?? availableAspectKeys[0] ?? "other"
+        }`,
         messageKey: "aspectsLimit",
       };
     }

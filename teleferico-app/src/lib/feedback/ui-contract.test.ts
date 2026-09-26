@@ -11,12 +11,15 @@ const copy: FeedbackSurveyCopy = {
   es: {
     headerTitle: "Encuesta",
     overallQuestion: "¿Cómo fue tu experiencia general?",
+    receiptLabel: "Número de referencia:",
   },
   en: {
     headerTitle: "Survey",
+    receiptLabel: "Reference number:",
   },
   pt: {
     headerTitle: "Pesquisa",
+    receiptLabel: "Número de referência:",
   },
 };
 
@@ -34,9 +37,9 @@ describe("feedback UI contract", () => {
     expect(validateFeedbackStage("overall", withOverall, [])).toEqual({
       valid: true,
     });
-    expect(validateFeedbackStage("aspects", withOverall, [])).toEqual({
+    expect(validateFeedbackStage("aspects", withOverall, [], ["cable-car", "views", "other"])).toEqual({
       valid: false,
-      focusId: "aspect-views",
+      focusId: "aspect-cable-car",
       messageKey: "aspectsRequired",
     });
   });
@@ -66,6 +69,18 @@ describe("feedback UI contract", () => {
       "¿Cómo fue tu experiencia general?",
     );
     expect(onFallback).toHaveBeenCalledWith("pt", "overallQuestion");
+  });
+
+  it("resolves the authoritative receipt label in each supported locale", () => {
+    expect(resolveFeedbackCopy(copy, "es", "receiptLabel")).toBe(
+      "Número de referencia:",
+    );
+    expect(resolveFeedbackCopy(copy, "en", "receiptLabel")).toBe(
+      "Reference number:",
+    );
+    expect(resolveFeedbackCopy(copy, "pt", "receiptLabel")).toBe(
+      "Número de referência:",
+    );
   });
 
   it("accepts success only when receipt, timestamps, and guard state are authoritative", () => {
