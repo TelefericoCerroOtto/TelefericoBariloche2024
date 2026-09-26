@@ -59,6 +59,7 @@ import { executeMapReduceStages } from "./map-reduce-worker-runtime";
 import { priceProviderUsageV1, validateProviderUsageV1 } from "./worker-cost";
 import { deliverPendingWorkerAlerts } from "./worker-alerts";
 import { deterministicReportId } from "./private-report-identity";
+import { createWorkerDiagnosticBundleV1 } from "./worker-diagnostics";
 
 type RetryableFailureCode = Extract<
   RuntimeFailureCode,
@@ -172,6 +173,15 @@ async function failSafely(
   stateVersion: number,
   failureCode: RuntimeFailureCode,
   artifact: WorkerArtifact | null,
+  diagnostic: {
+    readonly stage: string;
+    readonly model: unknown;
+    readonly sourceRevision: string | null;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly chunks: number;
+    readonly durationMs: number;
+  } | null,
 ): Promise<WorkerExecutionResult> {
   if (artifact) {
     try {
@@ -188,6 +198,30 @@ async function failSafely(
   };
   try {
     const result = await dependencies.cms.fail(reportRunId, command);
+    if (!result.replayed && dependencies.diagnostics && diagnostic) {
+      try {
+        const bundle = createWorkerDiagnosticBundleV1({
+          reportRunId,
+          stage: diagnostic.stage,
+          status: "failed",
+          attempt: 1,
+          model: diagnostic.model,
+          inputTokens: diagnostic.inputTokens,
+          outputTokens: diagnostic.outputTokens,
+          chunks: diagnostic.chunks,
+          durationMs: diagnostic.durationMs,
+          errorCode: failureCode,
+          sourceRevision: diagnostic.sourceRevision,
+        }, (dependencies.now ?? (() => new Date()))());
+        await dependencies.diagnostics.writeIfAbsent({
+          objectKey: bundle.objectKey,
+          bytes: bundle.bytes,
+          expiresAt: bundle.bundle.expiresAt,
+        });
+      } catch {
+        // Diagnostics are best-effort and cannot change the committed terminal outcome.
+      }
+    }
     if (result.pendingAlerts?.length) {
       void deliverPendingWorkerAlerts({ reportRunId, alerts: result.pendingAlerts, dependencies })
         .catch(() => undefined);
@@ -363,6 +397,13 @@ export async function executeReportWorker(
   reportRunId: string,
   dependencies: WorkerRuntimeDependencies,
 ): Promise<WorkerExecutionResult> {
+  const startedAt = Date.now();
+  let diagnosticModel: unknown;
+  let diagnosticSourceRevision: string | null = null;
+  let diagnosticChunks = 0;
+  let diagnosticInputTokens = 0;
+  let diagnosticOutputTokens = 0;
+  let diagnosticStage = "worker";
   const claim = await dependencies.cms.claim(reportRunId);
   if (claim.pendingAlerts?.length) {
     void deliverPendingWorkerAlerts({ reportRunId, alerts: claim.pendingAlerts, dependencies })
@@ -392,6 +433,7 @@ export async function executeReportWorker(
       rendererVersion: dependencies.renderer.rendererVersion,
     });
     const modelConfig = claim.modelConfig as ModelConfigV1;
+    diagnosticModel = modelConfig.model;
     if (
       claim.checkpoints.version !== "survey-checkpoints.v1" ||
       !["direct", "undecided", "map-reduce"].includes(claim.checkpoints.route) ||
@@ -429,6 +471,7 @@ export async function executeReportWorker(
     if (snapshotResult.stateVersion !== stateVersion)
       throw new WorkerCmsConflictError("Snapshot state version is stale");
     const snapshot = validateSnapshotEnvelope(snapshotResult.snapshot);
+    diagnosticSourceRevision = snapshot.sourceRevision;
     if (claim.checkpoints.snapshotDigest !== snapshotResult.snapshot.digestHex)
       throw new TypeError("Worker checkpoint snapshot digest mismatch");
     let checkpointSet: WorkerCheckpointSet = {
@@ -548,6 +591,7 @@ export async function executeReportWorker(
     }
 
     if (!checkpointSet.entries.some(({ stageKey }) => stageKey === "count")) {
+      diagnosticStage = "count";
       if (typeof dependencies.countTokens !== "function")
         throw new TypeError("An injected CountTokens provider is required");
       const plan = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
@@ -560,6 +604,8 @@ export async function executeReportWorker(
           countTokens: dependencies.countTokens!,
         }),
       );
+      diagnosticInputTokens = plan.checkpoint.totalTokens;
+      diagnosticChunks = plan.route === "map-reduce" ? plan.chunkCount : 0;
       await addCheckpoint("count", plan.checkpoint, "common", ["redact"]);
       if (plan.route === "map-reduce") {
         checkpointSet = { ...checkpointSet, route: "map-reduce", chunkCount: plan.chunkCount };
@@ -593,9 +639,12 @@ export async function executeReportWorker(
     } else if (needsNarrative) {
       if (typeof dependencies.analysisProvider !== "function")
         throw Object.assign(new TypeError("Injected direct-analysis provider is required"), { code: "CONFIGURATION" as const });
+      diagnosticStage = "direct";
       const response = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
         dependencies.analysisProvider!(modelRequest),
       );
+      diagnosticInputTokens = response.usage.usageMetadata.promptTokenCount;
+      diagnosticOutputTokens = response.usage.usageMetadata.candidatesTokenCount;
       const candidate = response?.output;
       const usage = priceProviderUsageV1(
         validateProviderUsageV1(response?.usage, modelConfig.model),
@@ -637,6 +686,7 @@ export async function executeReportWorker(
       if (preflight.status !== "accepted")
         throw Object.assign(new TypeError("The stored direct analysis failed structural and privacy validation"), { code: "INVALID_OUTPUT" as const });
     }
+    diagnosticStage = "validate";
     const analysis = publishEmptyEvidenceAnalysisV1(snapshot, directAnalysis);
     const existingValidate = checkpointSet.entries.find(({ stageKey }) => stageKey === "validate");
     if (existingValidate?.payload.kind === "validate") {
@@ -681,6 +731,7 @@ export async function executeReportWorker(
     }
 
     if (!artifact) {
+      diagnosticStage = "render";
       const rendered = await renderValidatedPdf(
         snapshotResult.snapshot,
         analysis,
@@ -693,6 +744,7 @@ export async function executeReportWorker(
       );
       staged = artifact;
       const artifactToStage = artifact;
+      diagnosticStage = "store";
       await classifyDependencyFailure("STORAGE_TRANSIENT", () =>
         dependencies.artifacts.stage(reportRunId, artifactToStage),
       );
@@ -740,6 +792,7 @@ export async function executeReportWorker(
     if (priorStore && priorStore.inputDigest !== storeInputDigest)
       throw new TypeError("Worker checkpoint input digest mismatch");
     if (!existingStore) {
+      diagnosticStage = "store";
       const storeCheckpoint = checkpoint(
         reportRunId,
         "store",
@@ -822,6 +875,15 @@ export async function executeReportWorker(
       stateVersion,
       failureCode,
       staged,
+      diagnosticSourceRevision === null ? null : {
+        stage: diagnosticStage,
+        model: diagnosticModel,
+        sourceRevision: diagnosticSourceRevision,
+        inputTokens: diagnosticInputTokens,
+        outputTokens: diagnosticOutputTokens,
+        chunks: diagnosticChunks,
+        durationMs: Math.max(0, Math.min(1_800_000, Date.now() - startedAt)),
+      },
     );
   }
 }

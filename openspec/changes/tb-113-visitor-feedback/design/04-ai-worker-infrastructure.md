@@ -363,3 +363,31 @@ Report key `private/feedback-reports/{reportId}/report.pdf` is private/no-store/
 - **Tasks/Run/OIDC / platform:** docs+redacted probes prove route/audience/issuer/name/deadline/retry/ingress, distinct invoker/runtime identities, and worker attachment; failure disables dispatch/generation.
 - **Region/storage/IAM / platform:** inventory/docs prove locations, least-privilege resource policies, lifecycle, prefixes, keyless runtime identity, absence of service-account JSON keys from deployment, and absence of `GOOGLE_APPLICATION_CREDENTIALS`; divergence needs approval.
 - **Strapi / CMS:** version docs/metadata+isolated PostgreSQL prove policies, transactions, relations, hooks, constraints; custom services own invariants, never CRUD.
+
+### Sanitized terminal diagnostics and offline configuration projection
+
+The app worker may build one `survey-worker-diagnostic-bundle.v1` only from the
+closed allowlist in `worker-diagnostics.ts`: report-run ID, stage/status/attempt,
+the pinned model, integer token/chunk/duration counters, a fixed safe failure
+code and its fixed message, source revision, and fixed nonsecret feature/service
+labels. Unknown fields reject. Prompts, comments, raw model output, credentials,
+signed URLs, and caller-supplied error text are not representable. The bundle is
+bounded to 4 KiB and uses exactly
+`private/report-diagnostics/{reportRunId}/bundle.json` with an `expiresAt` 30
+days after creation.
+
+Persistence exists only as an explicitly injected `WorkerDiagnosticStore` port;
+there is no production adapter or default. The worker invokes it only after the
+CMS fail command returns a committed terminal result, never for an uncommitted
+failure or a replay. Diagnostic write errors are best-effort and cannot change
+the terminal CMS outcome. The port's metadata does not prove that a bucket
+retention policy was applied.
+
+`docs/infra/survey-reporting/verify-config.mjs` checks only a closed,
+redacted `survey-worker-config-projection.v1` JSON document. It reports
+`projection_valid` when the supplied declaration matches the selected project,
+API, Vertex, queue, identity-scope, keyless, private-prefix/retention, labels,
+and budget contracts; missing, unknown, mismatched, or secret-like fields are
+`blocked`. This is a local document check, not infrastructure evidence. No live
+GCP, environment, secret, IAM policy, or deployment is inspected; unverifiable
+operational facts remain deferred and generation remains disabled.
