@@ -43,6 +43,30 @@ function syntheticModelConfig(evidenceKeyId) {
     safetyHeadroomTokens: 2048, sourceRevision: "test-source",
   };
 }
+function workerClaimState(overrides = {}) {
+  const snapshotDigest = "a".repeat(64);
+  const modelConfigJson = syntheticModelConfig("test-only-2026-01");
+  const pricingSnapshotJson = {
+    version: "pricing.v1",
+    currency: "USD",
+    units: [{ sku: "gemini-input", inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
+  };
+  const checkpointsJson = {
+    version: "survey-checkpoints.v1",
+    snapshotDigest,
+    route: "direct",
+    chunkCount: null,
+    entries: [],
+  };
+  return {
+    sourceRevision: modelConfigJson.sourceRevision,
+    snapshotDigest,
+    checkpointsJson,
+    modelConfigJson,
+    pricingSnapshotJson,
+    ...overrides,
+  };
+}
 function store(initial) {
   const generations = new Map([[initial.reportRunId, { ...initial }]]);
   const reports = [];
@@ -175,29 +199,102 @@ test("worker claim is atomic, resumable, and returns only minimal terminal repla
   const runId = "00000000-0000-4000-8000-000000000004";
   const value = store({
     reportRunId: runId, status: "queued", stateVersion: 1,
-    checkpointsJson: { version: "survey-checkpoints.v1", entries: [] },
-    modelConfigJson: { version: "survey-model-config.v1" },
-    pricingSnapshotJson: { version: "pricing.v1" },
+    ...workerClaimState({
+      checkpointsJson: JSON.stringify(workerClaimState().checkpointsJson),
+      modelConfigJson: JSON.stringify(workerClaimState().modelConfigJson),
+      pricingSnapshotJson: JSON.stringify(workerClaimState().pricingSnapshotJson),
+    }),
     comment: "must never be returned",
   });
   const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction, now: () => "2026-09-24T12:00:00.000Z" });
   assert.equal(validateWorkerClaimCommand({ commandVersion: "survey-report-command.v1" }), true);
   assert.equal(validateWorkerClaimCommand({ commandVersion: "survey-report-command.v1", extra: true }), false);
+  const claimData = workerClaimState();
   assert.deepEqual(await lifecycle.claimWorker({ reportRunId: runId }), {
     reportRunId: runId, stateVersion: 2, status: "running", disposition: "claimed",
-    checkpoints: { version: "survey-checkpoints.v1", entries: [] },
-    modelConfig: { version: "survey-model-config.v1" }, pricingSnapshot: { version: "pricing.v1" },
+    checkpoints: claimData.checkpointsJson,
+    modelConfig: claimData.modelConfigJson,
+    pricingSnapshot: claimData.pricingSnapshotJson,
   });
   assert.deepEqual(await lifecycle.claimWorker({ reportRunId: runId }), {
     reportRunId: runId, stateVersion: 2, status: "running", disposition: "resumed",
-    checkpoints: { version: "survey-checkpoints.v1", entries: [] },
-    modelConfig: { version: "survey-model-config.v1" }, pricingSnapshot: { version: "pricing.v1" },
+    checkpoints: claimData.checkpointsJson,
+    modelConfig: claimData.modelConfigJson,
+    pricingSnapshot: claimData.pricingSnapshotJson,
   });
+  assert.equal(value.generation(runId).status, "running");
+  assert.equal(value.generation(runId).stateVersion, 2);
   const terminal = store({ reportRunId: runId, status: "failed", stateVersion: 4, checkpointsJson: { secret: "not returned" }, comment: "not returned" });
   const terminalLifecycle = createGenerationLifecycle({ withTransaction: terminal.withTransaction });
   assert.deepEqual(await terminalLifecycle.claimWorker({ reportRunId: runId }), {
     reportRunId: runId, stateVersion: 4, status: "failed", disposition: "terminal-replay",
   });
+});
+
+test("worker claim rejects malformed, double-encoded, placeholder, and unsupported stored contracts without changing queued state", async () => {
+  const runId = "00000000-0000-4000-8000-000000000114";
+  const valid = workerClaimState();
+  const cases = [
+    ["malformed checkpoint JSON", { ...valid, checkpointsJson: "{" }],
+    ["double-encoded checkpoint JSON", { ...valid, checkpointsJson: JSON.stringify(JSON.stringify(valid.checkpointsJson)) }],
+    ["checkpoint digest mismatch", { ...valid, checkpointsJson: { ...valid.checkpointsJson, snapshotDigest: "b".repeat(64) } }],
+    ["unknown checkpoint route", { ...valid, checkpointsJson: { ...valid.checkpointsJson, route: "unknown" } }],
+    ["undecided route with entries", { ...valid, checkpointsJson: { ...valid.checkpointsJson, route: "undecided", entries: [{ unsupported: true }] } }],
+    ["undecided route with a chunk count", { ...valid, checkpointsJson: { ...valid.checkpointsJson, route: "undecided", chunkCount: 1 } }],
+    ["nonempty unsupported checkpoints", { ...valid, checkpointsJson: { ...valid.checkpointsJson, entries: [{ unsupported: true }] } }],
+    ["placeholder model config", { ...valid, modelConfigJson: { version: "survey-model-config.v1" } }],
+    ["model source revision mismatch", { ...valid, modelConfigJson: { ...valid.modelConfigJson, sourceRevision: "different-source" } }],
+    ["empty pricing units", { ...valid, pricingSnapshotJson: { ...valid.pricingSnapshotJson, units: [] } }],
+    ["duplicate pricing SKU", { ...valid, pricingSnapshotJson: { ...valid.pricingSnapshotJson, units: [...valid.pricingSnapshotJson.units, ...valid.pricingSnapshotJson.units] } }],
+    ["negative pricing rate", { ...valid, pricingSnapshotJson: { ...valid.pricingSnapshotJson, units: [{ ...valid.pricingSnapshotJson.units[0], inputMicrosPerMillion: -1 }] } }],
+  ];
+
+  for (const [label, claimData] of cases) {
+    const value = store({ reportRunId: runId, status: "queued", stateVersion: 1, ...claimData });
+    const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction });
+    await assert.rejects(lifecycle.claimWorker({ reportRunId: runId }), { code: "INVALID_STATE" }, label);
+    assert.equal(value.generation(runId).status, "queued", label);
+    assert.equal(value.generation(runId).stateVersion, 1, label);
+    assert.equal(value.generation(runId).claimedAt, undefined, label);
+  }
+});
+
+test("worker claim accepts the closed empty undecided initial route", async () => {
+  const runId = "00000000-0000-4000-8000-000000000116";
+  const data = workerClaimState({
+    checkpointsJson: {
+      ...workerClaimState().checkpointsJson,
+      route: "undecided",
+    },
+  });
+  const value = store({ reportRunId: runId, status: "queued", stateVersion: 1, ...data });
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction });
+
+  assert.deepEqual(await lifecycle.claimWorker({ reportRunId: runId }), {
+    reportRunId: runId,
+    stateVersion: 2,
+    status: "running",
+    disposition: "claimed",
+    checkpoints: data.checkpointsJson,
+    modelConfig: data.modelConfigJson,
+    pricingSnapshot: data.pricingSnapshotJson,
+  });
+  assert.equal(value.generation(runId).status, "running");
+  assert.equal(value.generation(runId).stateVersion, 2);
+});
+
+test("worker resume rejects invalid stored contract data without changing running state", async () => {
+  const runId = "00000000-0000-4000-8000-000000000115";
+  const value = store({
+    reportRunId: runId,
+    status: "running",
+    stateVersion: 2,
+    ...workerClaimState({ pricingSnapshotJson: JSON.stringify("not-an-object") }),
+  });
+  const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction });
+  await assert.rejects(lifecycle.claimWorker({ reportRunId: runId }), { code: "INVALID_STATE" });
+  assert.equal(value.generation(runId).status, "running");
+  assert.equal(value.generation(runId).stateVersion, 2);
 });
 
 test("worker snapshot returns the deterministic v1 envelope only for running valid state", async () => {

@@ -28,6 +28,7 @@ function createTransaction(strapi) {
             'model_config_json',
             'pricing_snapshot_json',
             'snapshot_digest',
+            'source_revision',
           )
           .where({ report_run_id: reportRunId })
           .forUpdate()
@@ -49,6 +50,7 @@ function createTransaction(strapi) {
             modelConfigJson: row.model_config_json,
             pricingSnapshotJson: row.pricing_snapshot_json,
             snapshotDigest: row.snapshot_digest,
+            sourceRevision: row.source_revision,
           }
         );
       },

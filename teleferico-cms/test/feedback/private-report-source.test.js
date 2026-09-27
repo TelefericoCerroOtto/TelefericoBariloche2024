@@ -13,6 +13,17 @@ const { createSubmissionPersistence } = require('../../src/api/survey-submission
 const OWNER = 'tb113_test_private_report_source';
 const SOURCE_ENDPOINT = '/api/tb113/worker/report-source';
 const SOURCE_ACTION = 'api::survey-report-generation.survey-report-generation.workerSourceRead';
+const WORKER_RUN_ID = '00000000-0000-4000-8000-000000000120';
+const GENERATION_UID = 'api::survey-report-generation.survey-report-generation';
+const WORKER_ACTIONS = {
+  claim: `${GENERATION_UID}.workerClaim`,
+  snapshot: `${GENERATION_UID}.workerSnapshot`,
+  fail: `${GENERATION_UID}.workerFail`,
+};
+const WORKER_ORIGIN = 'https://cms.example.com';
+const WORKER_PATH_ROOT = '/api/tb113/worker/generations';
+const WORKER_PATH = `/api/tb113/worker/generations/${WORKER_RUN_ID}`;
+const PRIVATE_WORKER_COMMENT = 'Synthetic private worker comment must not reach logs';
 const RANGE = {
   acceptedAtGte: '2026-09-01T03:00:00.000Z',
   acceptedAtLte: '2026-09-12T02:59:59.999Z',
@@ -171,6 +182,8 @@ function loadPrivateReportSourceAppModules() {
   const workerRoot = sourceRoots[0];
   const feedbackRoot = sourceRoots[2];
   return {
+    createWorkerCmsClient: load(path.join(workerRoot, 'worker-cms-client.ts')).createWorkerCmsClient,
+    createSnapshot: load(path.join(repositoryRoot, 'teleferico-app/packages/survey-reporting-core/src/index.ts')).createSnapshot,
     createPrivateReportSourceTransport: load(
       path.join(workerRoot, 'private-report-source-transport.ts'),
     ).createPrivateReportSourceTransport,
@@ -207,6 +220,490 @@ function sourceModelConfig(sourceRevision, evidenceKeyId) {
     safetyHeadroomTokens: 2048,
     sourceRevision,
   };
+}
+
+function createWorkerClientFetch(
+  port,
+  actionTokens,
+  observedRequests,
+  transformResponse,
+  reportRunIds = [WORKER_RUN_ID],
+) {
+  const routes = new Map();
+  for (const reportRunId of reportRunIds) {
+    const root = `${WORKER_PATH_ROOT}/${reportRunId}`;
+    routes.set(`${root}/claim`, { action: WORKER_ACTIONS.claim, method: 'POST' });
+    routes.set(`${root}/snapshot`, { action: WORKER_ACTIONS.snapshot, method: 'GET' });
+    routes.set(`${root}/fail`, { action: WORKER_ACTIONS.fail, method: 'POST' });
+  }
+
+  return async (input, init = {}) => {
+    if (!(input instanceof URL) || input.origin !== WORKER_ORIGIN || input.search !== '')
+      throw new Error('The test fetch rejected a non-approved logical worker URL');
+    const route = routes.get(input.pathname);
+    if (!route) throw new Error('The test fetch rejected an unregistered worker path');
+    if (init.method !== route.method || init.redirect !== 'error')
+      throw new Error('The test fetch rejected an unexpected worker transport policy');
+
+    const authorization = new Headers(init.headers).get('authorization');
+    const expectedToken = actionTokens[route.action];
+    if (!expectedToken || authorization !== `Bearer ${expectedToken}`)
+      throw new Error('The test fetch rejected an unexpected synthetic worker token');
+
+    const localUrl = `http://127.0.0.1:${port}${input.pathname}`;
+    const upstreamResponse = await fetch(localUrl, {
+      method: init.method,
+      headers: init.headers,
+      body: init.body,
+      cache: 'no-store',
+      redirect: 'error',
+      signal: init.signal,
+    });
+    if (upstreamResponse.redirected || upstreamResponse.url !== localUrl)
+      throw new Error('The test fetch observed an unexpected local Strapi response origin');
+
+    const request = {
+      path: input.pathname,
+      method: init.method,
+      action: route.action,
+      authorizationMatchesAction: authorization === `Bearer ${expectedToken}`,
+    };
+    observedRequests.push(request);
+
+    let logicalResponse;
+    if (transformResponse && upstreamResponse.ok) {
+      const body = await upstreamResponse.clone().json();
+      const transformed = transformResponse({ route, body });
+      const headers = new Headers(upstreamResponse.headers);
+      headers.delete('content-length');
+      logicalResponse = new Response(JSON.stringify(transformed), {
+        status: upstreamResponse.status,
+        statusText: upstreamResponse.statusText,
+        headers,
+      });
+    } else {
+      logicalResponse = new Response(upstreamResponse.body, {
+        status: upstreamResponse.status,
+        statusText: upstreamResponse.statusText,
+        headers: upstreamResponse.headers,
+      });
+    }
+    Object.defineProperties(logicalResponse, {
+      url: { value: input.href },
+      redirected: { value: false },
+    });
+    return logicalResponse;
+  };
+}
+
+async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRunId) {
+  const { createSnapshot, createWorkerCmsClient } = loadPrivateReportSourceAppModules();
+  const userPermissions = strapi.plugin('users-permissions');
+  const role = await strapi.db.query('plugin::users-permissions.role').findOne({
+    where: { type: 'authenticated' },
+  });
+  for (const action of Object.values(WORKER_ACTIONS)) await grant(strapi, role.id, action);
+  await grant(strapi, role.id, `${GENERATION_UID}.create`);
+  const jwtUser = await userPermissions.service('user').add({
+    username: 'tb113-worker-client-jwt',
+    email: 'tb113-worker-client-jwt@local.invalid',
+    password: 'tb113-worker-client-synthetic-password',
+    provider: 'local',
+    confirmed: true,
+    blocked: false,
+    role: role.id,
+  });
+  const jwt = await userPermissions.service('jwt').issue({ id: jwtUser.id });
+
+  strapi.config.set('admin.secrets.encryptionKey', 'tb113-worker-client-synthetic-encryption');
+  const tokenService = strapi.service('admin::api-token-content-api');
+  const actionTokens = {};
+  for (const [name, action] of Object.entries(WORKER_ACTIONS)) {
+    const token = await tokenService.create({
+      name: `tb113-worker-client-${name}`,
+      description: `Disposable ${name}-only worker client token`,
+      type: 'custom',
+      permissions: [action],
+      lifespan: null,
+    });
+    assert.deepEqual(token.permissions, [action]);
+    actionTokens[action] = token.accessKey;
+  }
+  const actualWorkerPermissions = await strapi.db.query('plugin::users-permissions.permission').findMany({
+    where: { role: role.id },
+  });
+  assert.ok(Object.values(WORKER_ACTIONS).every((action) =>
+    actualWorkerPermissions.some(({ action: grantedAction }) => grantedAction === action),
+  ));
+
+  const snapshotEnvelope = createSnapshot({
+    range: { from: '2040-09-01', to: '2040-09-10' },
+    dataCutoffAt: '2040-09-11T12:00:00.000Z',
+    sourceRevision: 'worker-client-integration-v1',
+    createdAt: '2040-09-11T12:00:00.000Z',
+    filters: { pointKey: null, versionKey: null },
+    submissions: [{
+      recordId: 'synthetic-worker-record',
+      receipt: '00000000-0000-4000-8000-000000000121',
+      acceptedAt: '2040-09-05T12:00:00.000Z',
+      source: 'valid_qr',
+      versionKey: 'synthetic-worker-version',
+      pointKey: 'synthetic-worker-point',
+      overallRating: 5,
+      locale: 'en',
+      commentText: PRIVATE_WORKER_COMMENT,
+      payloadDigest: 'a'.repeat(64),
+      aspects: [],
+    }],
+    definitions: [{ aspectKey: 'other', sortOrder: 99 }],
+    points: [{ pointKey: 'synthetic-worker-point', displayName: 'Synthetic point', sortOrder: 1 }],
+  });
+  const sourceRevision = 'worker-client-integration-v1';
+  const modelConfig = sourceModelConfig(sourceRevision, 'synthetic-worker-evidence-key');
+  const pricingSnapshot = {
+    version: 'pricing.v1',
+    currency: 'USD',
+    units: [{ sku: 'gemini-input', inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
+  };
+  const checkpoints = {
+    version: 'survey-checkpoints.v1',
+    snapshotDigest: snapshotEnvelope.digestHex,
+    route: 'direct',
+    chunkCount: null,
+    entries: [],
+  };
+  const createResponse = await fetch(`http://127.0.0.1:${port}/api/survey-report-generations`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${jwt}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ data: {
+      reportRunId: WORKER_RUN_ID,
+      periodStart: '2040-09-01',
+      periodEnd: '2040-09-10',
+      dataCutoffAt: '2040-09-11T12:00:00.000Z',
+      overlapOverrideAccepted: false,
+      snapshotDigest: snapshotEnvelope.digestHex,
+      sourceRevision,
+      snapshotJson: snapshotEnvelope.payload,
+      checkpointsJson: checkpoints,
+      modelConfigJson: modelConfig,
+      usageJson: {},
+      pricingSnapshotJson: pricingSnapshot,
+      status: 'queued',
+    } }),
+  });
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json();
+  assert.equal(created.data.reportRunId, WORKER_RUN_ID);
+  const seeded = await strapi.db.query(GENERATION_UID).findOne({
+    where: { reportRunId: WORKER_RUN_ID },
+  });
+  assert.equal(seeded.status, 'queued');
+  assert.equal(seeded.stateVersion, 1);
+  assert.equal(seeded.snapshotDigest, snapshotEnvelope.digestHex);
+  assert.deepEqual(seeded.checkpointsJson, checkpoints);
+  assert.deepEqual(seeded.modelConfigJson, modelConfig);
+  assert.deepEqual(seeded.pricingSnapshotJson, pricingSnapshot);
+
+  await strapi.db.connection('survey_report_generations')
+    .where({ report_run_id: WORKER_RUN_ID })
+    .update({ checkpoints_json: JSON.stringify('{') });
+  const invalidStoredClaim = await fetch(`http://127.0.0.1:${port}${WORKER_PATH}/claim`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${actionTokens[WORKER_ACTIONS.claim]}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ commandVersion: 'survey-report-command.v1' }),
+  });
+  assert.equal(invalidStoredClaim.status, 409);
+  const invalidStoredClaimBody = await invalidStoredClaim.json();
+  assert.deepEqual(invalidStoredClaimBody, {
+    error: { code: 'INVALID_STATE', message: 'The worker command was rejected' },
+  });
+  assert.equal(JSON.stringify(invalidStoredClaimBody).includes(PRIVATE_WORKER_COMMENT), false);
+  assert.ok(Object.values(actionTokens).every((token) =>
+    !JSON.stringify(invalidStoredClaimBody).includes(token),
+  ));
+  const unchangedQueuedRow = await strapi.db.connection('survey_report_generations')
+    .where({ report_run_id: WORKER_RUN_ID })
+    .select('status', 'state_version', 'claimed_at')
+    .first();
+  assert.equal(unchangedQueuedRow.status, 'queued');
+  assert.equal(unchangedQueuedRow.state_version, 1);
+  assert.equal(unchangedQueuedRow.claimed_at, null);
+  await strapi.db.connection('survey_report_generations')
+    .where({ report_run_id: WORKER_RUN_ID })
+    .update({ checkpoints_json: checkpoints });
+
+  const routeDetails = [
+    { suffix: 'claim', action: WORKER_ACTIONS.claim, method: 'POST', body: { commandVersion: 'survey-report-command.v1' } },
+    { suffix: 'snapshot', action: WORKER_ACTIONS.snapshot, method: 'GET' },
+    {
+      suffix: 'fail',
+      action: WORKER_ACTIONS.fail,
+      method: 'POST',
+      body: {
+        contractVersion: 'survey-worker-cms.v1',
+        expectedStateVersion: 2,
+        failureCode: 'INVALID_OUTPUT',
+        safeFailureMessage: 'The report output did not satisfy its contract.',
+      },
+    },
+  ];
+  const nativeCollectionUrl = `http://127.0.0.1:${port}/api/survey-report-generations`;
+  for (const route of routeDetails) {
+    const jwtAttempt = await captureQueries(strapi, () => fetch(
+      `http://127.0.0.1:${port}${WORKER_PATH}/${route.suffix}`,
+      {
+        method: route.method,
+        headers: {
+          authorization: `Bearer ${jwt}`,
+          ...(route.body ? { 'content-type': 'application/json' } : {}),
+        },
+        ...(route.body ? { body: JSON.stringify(route.body) } : {}),
+      },
+    ));
+    assert.ok([401, 403].includes(jwtAttempt.result.status));
+    assert.equal(jwtAttempt.queries.some((sql) => /survey_report_generations/i.test(sql)), false);
+  }
+  for (const route of routeDetails) {
+    for (const [wrongAction, wrongToken] of Object.entries(actionTokens)) {
+      if (wrongAction === route.action) continue;
+      const denied = await captureQueries(strapi, () => fetch(
+        `http://127.0.0.1:${port}${WORKER_PATH}/${route.suffix}`,
+        {
+          method: route.method,
+          headers: {
+            authorization: `Bearer ${wrongToken}`,
+            ...(route.body ? { 'content-type': 'application/json' } : {}),
+          },
+          ...(route.body ? { body: JSON.stringify(route.body) } : {}),
+        },
+      ));
+      assert.equal(denied.result.status, 403);
+      assert.equal(denied.queries.some((sql) => /survey_report_generations/i.test(sql)), false);
+    }
+  }
+
+  for (const token of [jwt, ...Object.values(actionTokens)]) {
+    const nativeRead = await captureQueries(strapi, () => fetch(nativeCollectionUrl, {
+      headers: { authorization: `Bearer ${token}` },
+    }));
+    assert.equal(nativeRead.result.status, 403);
+    assert.equal(nativeRead.queries.some((sql) => /survey_report_generations/i.test(sql)), false);
+  }
+
+  const observedRequests = [];
+  const tokenRequests = [];
+  const client = createWorkerCmsClient({
+    baseUrl: WORKER_ORIGIN,
+    allowedOrigins: [WORKER_ORIGIN],
+    tokenProvider: async (action) => {
+      tokenRequests.push(action);
+      return { action, value: actionTokens[action] };
+    },
+    fetchImplementation: createWorkerClientFetch(port, actionTokens, observedRequests),
+  });
+  const consoleOutput = [];
+  const consoleMethods = ['debug', 'info', 'log', 'warn', 'error'];
+  const originalConsole = new Map(consoleMethods.map((method) => [method, console[method]]));
+  for (const method of consoleMethods) {
+    console[method] = (...values) => consoleOutput.push(values.map(String).join(' '));
+  }
+  try {
+    const beforeUnsupportedOperations = { tokens: tokenRequests.length, requests: observedRequests.length };
+    await assert.rejects(client.checkpoint(WORKER_RUN_ID, {}), { code: 'UNKNOWN_VERSION' });
+    await assert.rejects(client.complete(WORKER_RUN_ID, {}), { code: 'UNSUPPORTED_OPERATION' });
+    assert.deepEqual(
+      { tokens: tokenRequests.length, requests: observedRequests.length },
+      beforeUnsupportedOperations,
+    );
+
+    const claimed = await client.claim(WORKER_RUN_ID);
+    const claimReplay = await client.claim(WORKER_RUN_ID);
+    assert.equal(claimed.status, 'running');
+    assert.equal(claimed.disposition, 'claimed');
+    assert.equal(claimed.stateVersion, 2);
+    assert.equal(claimReplay.status, 'running');
+    assert.equal(claimReplay.disposition, 'resumed');
+    assert.equal(claimReplay.stateVersion, 2);
+
+    const snapshot = await client.snapshot(WORKER_RUN_ID);
+    assert.equal(snapshot.snapshot.digestHex, snapshotEnvelope.digestHex);
+    assert.deepEqual(snapshot.snapshot.payload, snapshotEnvelope.payload);
+    assert.equal(snapshot.snapshot.payload.comments[0].text, PRIVATE_WORKER_COMMENT);
+
+    const malformedClaimClient = createWorkerCmsClient({
+      baseUrl: WORKER_ORIGIN,
+      allowedOrigins: [WORKER_ORIGIN],
+      tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
+      fetchImplementation: createWorkerClientFetch(port, actionTokens, [], ({ route, body }) =>
+        route.action === WORKER_ACTIONS.claim ? { ...body, unexpected: PRIVATE_WORKER_COMMENT } : body,
+      ),
+    });
+    const malformedClaim = await malformedClaimClient.claim(WORKER_RUN_ID).catch((error) => error);
+    assert.equal(malformedClaim.code, 'INVALID_RESPONSE');
+    assert.equal(`${malformedClaim.name} ${malformedClaim.message}`.includes(PRIVATE_WORKER_COMMENT), false);
+    assert.ok(Object.values(actionTokens).every((token) =>
+      !`${malformedClaim.name} ${malformedClaim.message}`.includes(token),
+    ));
+
+    const alteredDigestClient = createWorkerCmsClient({
+      baseUrl: WORKER_ORIGIN,
+      allowedOrigins: [WORKER_ORIGIN],
+      tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
+      fetchImplementation: createWorkerClientFetch(port, actionTokens, [], ({ route, body }) => {
+        if (route.action !== WORKER_ACTIONS.snapshot) return body;
+        return {
+          ...body,
+          snapshot: {
+            ...body.snapshot,
+            payload: {
+              ...body.snapshot.payload,
+              comments: body.snapshot.payload.comments.map((comment) => ({
+                ...comment,
+                text: `${comment.text} altered`,
+              })),
+            },
+          },
+        };
+      }),
+    });
+    const alteredSnapshot = await alteredDigestClient.snapshot(WORKER_RUN_ID).catch((error) => error);
+    assert.equal(alteredSnapshot.code, 'INVALID_RESPONSE');
+    assert.equal(`${alteredSnapshot.name} ${alteredSnapshot.message}`.includes(PRIVATE_WORKER_COMMENT), false);
+    assert.ok(Object.values(actionTokens).every((token) =>
+      !`${alteredSnapshot.name} ${alteredSnapshot.message}`.includes(token),
+    ));
+
+    const failCommand = routeDetails.find(({ suffix }) => suffix === 'fail').body;
+    const failed = await client.fail(WORKER_RUN_ID, failCommand);
+    const failReplay = await client.fail(WORKER_RUN_ID, failCommand);
+    assert.deepEqual(
+      { status: failed.status, stateVersion: failed.stateVersion, failureCode: failed.failureCode, replayed: failed.replayed },
+      { status: 'failed', stateVersion: 3, failureCode: 'INVALID_OUTPUT', replayed: false },
+    );
+    assert.deepEqual(
+      { status: failReplay.status, stateVersion: failReplay.stateVersion, failureCode: failReplay.failureCode, replayed: failReplay.replayed },
+      { status: 'failed', stateVersion: 3, failureCode: 'INVALID_OUTPUT', replayed: true },
+    );
+
+    const appCreatedRow = await strapi.db.query(GENERATION_UID).findOne({
+      where: { reportRunId: appCreatedReportRunId },
+    });
+    assert.ok(appCreatedRow);
+    assert.equal(appCreatedRow.status, 'queued');
+    assert.equal(appCreatedRow.stateVersion, 1);
+    assert.equal(appCreatedRow.checkpointsJson.route, 'undecided');
+    assert.deepEqual(appCreatedRow.checkpointsJson.entries, []);
+    const appCreatedRequests = [];
+    const appCreatedTokenRequests = [];
+    const appCreatedClient = createWorkerCmsClient({
+      baseUrl: WORKER_ORIGIN,
+      allowedOrigins: [WORKER_ORIGIN],
+      tokenProvider: async (action) => {
+        appCreatedTokenRequests.push(action);
+        return { action, value: actionTokens[action] };
+      },
+      fetchImplementation: createWorkerClientFetch(
+        port,
+        actionTokens,
+        appCreatedRequests,
+        undefined,
+        [appCreatedReportRunId],
+      ),
+    });
+    const appCreatedClaim = await appCreatedClient.claim(appCreatedReportRunId);
+    assert.equal(appCreatedClaim.status, 'running');
+    assert.equal(appCreatedClaim.disposition, 'claimed');
+    assert.equal(appCreatedClaim.stateVersion, 2);
+    assert.equal(appCreatedClaim.checkpoints.route, 'undecided');
+    assert.equal(appCreatedClaim.checkpoints.chunkCount, null);
+    assert.deepEqual(appCreatedClaim.checkpoints.entries, []);
+    const appCreatedReplay = await appCreatedClient.claim(appCreatedReportRunId);
+    assert.equal(appCreatedReplay.status, 'running');
+    assert.equal(appCreatedReplay.disposition, 'resumed');
+    assert.equal(appCreatedReplay.stateVersion, 2);
+    const appCreatedSnapshot = await appCreatedClient.snapshot(appCreatedReportRunId);
+    assert.equal(appCreatedSnapshot.snapshot.digestHex, appCreatedRow.snapshotDigest);
+    assert.equal(appCreatedSnapshot.snapshot.payload.comments.length, appCreatedRow.snapshotJson.comments.length);
+    assert.ok(appCreatedSnapshot.snapshot.payload.comments.some(({ text }) => typeof text === 'string' && text.length > 0));
+    const appCreatedFailCommand = {
+      contractVersion: 'survey-worker-cms.v1',
+      expectedStateVersion: 2,
+      failureCode: 'INVALID_OUTPUT',
+      safeFailureMessage: 'The report output did not satisfy its contract.',
+    };
+    const appCreatedFailure = await appCreatedClient.fail(appCreatedReportRunId, appCreatedFailCommand);
+    const appCreatedFailReplay = await appCreatedClient.fail(appCreatedReportRunId, appCreatedFailCommand);
+    assert.deepEqual(
+      { status: appCreatedFailure.status, stateVersion: appCreatedFailure.stateVersion, failureCode: appCreatedFailure.failureCode, replayed: appCreatedFailure.replayed },
+      { status: 'failed', stateVersion: 3, failureCode: 'INVALID_OUTPUT', replayed: false },
+    );
+    assert.deepEqual(
+      { status: appCreatedFailReplay.status, stateVersion: appCreatedFailReplay.stateVersion, failureCode: appCreatedFailReplay.failureCode, replayed: appCreatedFailReplay.replayed },
+      { status: 'failed', stateVersion: 3, failureCode: 'INVALID_OUTPUT', replayed: true },
+    );
+    assert.deepEqual(appCreatedTokenRequests, [
+      WORKER_ACTIONS.claim,
+      WORKER_ACTIONS.claim,
+      WORKER_ACTIONS.snapshot,
+      WORKER_ACTIONS.fail,
+      WORKER_ACTIONS.fail,
+    ]);
+    assert.deepEqual(appCreatedRequests.map(({ path, method }) => ({ path, method })), [
+      { path: `${WORKER_PATH_ROOT}/${appCreatedReportRunId}/claim`, method: 'POST' },
+      { path: `${WORKER_PATH_ROOT}/${appCreatedReportRunId}/claim`, method: 'POST' },
+      { path: `${WORKER_PATH_ROOT}/${appCreatedReportRunId}/snapshot`, method: 'GET' },
+      { path: `${WORKER_PATH_ROOT}/${appCreatedReportRunId}/fail`, method: 'POST' },
+      { path: `${WORKER_PATH_ROOT}/${appCreatedReportRunId}/fail`, method: 'POST' },
+    ]);
+
+  } finally {
+    for (const [method, original] of originalConsole) console[method] = original;
+  }
+
+  assert.deepEqual(tokenRequests, [
+    WORKER_ACTIONS.claim,
+    WORKER_ACTIONS.claim,
+    WORKER_ACTIONS.snapshot,
+    WORKER_ACTIONS.fail,
+    WORKER_ACTIONS.fail,
+  ]);
+  assert.deepEqual(observedRequests.map(({ path, method }) => ({ path, method })), [
+    { path: `${WORKER_PATH}/claim`, method: 'POST' },
+    { path: `${WORKER_PATH}/claim`, method: 'POST' },
+    { path: `${WORKER_PATH}/snapshot`, method: 'GET' },
+    { path: `${WORKER_PATH}/fail`, method: 'POST' },
+    { path: `${WORKER_PATH}/fail`, method: 'POST' },
+  ]);
+  assert.ok(observedRequests.every(({ authorizationMatchesAction }) => authorizationMatchesAction));
+  assert.ok(consoleOutput.every((line) =>
+    !line.includes(PRIVATE_WORKER_COMMENT) && !Object.values(actionTokens).some((token) => line.includes(token)),
+  ));
+
+  const storedFailure = await strapi.db.query(GENERATION_UID).findOne({
+    where: { reportRunId: WORKER_RUN_ID },
+  });
+  assert.equal(storedFailure.status, 'failed');
+  assert.equal(storedFailure.stateVersion, 3);
+  assert.equal(storedFailure.failureCode, 'INVALID_OUTPUT');
+  assert.equal(storedFailure.safeFailureMessage, 'The report output did not satisfy its contract.');
+  assert.ok(storedFailure.completedAt);
+  const generationQuery = await strapi.db.connection('survey_report_generations')
+    .where({ report_run_id: WORKER_RUN_ID })
+    .select('status', 'state_version', 'failure_code', 'safe_failure_message', 'snapshot_json')
+    .first();
+  assert.equal(JSON.stringify(generationQuery.snapshot_json).includes(PRIVATE_WORKER_COMMENT), true);
+  const appCreatedFailureRow = await strapi.db.query(GENERATION_UID).findOne({
+    where: { reportRunId: appCreatedReportRunId },
+  });
+  assert.equal(appCreatedFailureRow.status, 'failed');
+  assert.equal(appCreatedFailureRow.stateVersion, 3);
+  assert.equal(appCreatedFailureRow.failureCode, 'INVALID_OUTPUT');
 }
 
 function createSourceIntegrationFetch(port, syntheticToken, observedPages) {
@@ -704,6 +1201,7 @@ async function verifyAppGenerationCommandIntegration(strapi, port, workerToken) 
     snapshotJson: unchangedFailedRow.snapshotJson,
   }, originalFailedState);
 
+  return generationResult.reportRunId;
 }
 
 function sourceInput(resource, cursor = null, pageSize = 1, overrides = {}) {
@@ -719,6 +1217,7 @@ function sourceInput(resource, cursor = null, pageSize = 1, overrides = {}) {
 
 test('private report source requires its isolated worker action and returns complete raw-source pages', async () => {
   let strapi;
+  let strapiStarted = false;
   const previous = { ...process.env };
   try {
     await compose('down', '--volumes', '--remove-orphans', '--timeout=5');
@@ -840,6 +1339,7 @@ test('private report source requires its isolated worker action and returns comp
     }
 
     await strapi.start();
+    strapiStarted = true;
     const port = strapi.server.httpServer.address().port;
     const input = sourceInput('submissions');
     const anonymous = await readPage(port, null, input);
@@ -933,7 +1433,8 @@ test('private report source requires its isolated worker action and returns comp
     }
 
     await verifyAppSourceIntegration(port, workerToken.accessKey);
-    await verifyAppGenerationCommandIntegration(strapi, port, workerToken);
+    const appCreatedReportRunId = await verifyAppGenerationCommandIntegration(strapi, port, workerToken);
+    await verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRunId);
 
     for (const malformed of [
       { ...input, unknown: true },
@@ -978,15 +1479,17 @@ test('private report source requires its isolated worker action and returns comp
       service.readWorkerReportSourcePage = originalReader;
     }
   } finally {
-    if (strapi) await strapi.destroy();
+    if (strapi) {
+      await strapi.destroy();
+      if (strapiStarted) assert.equal(strapi.server.httpServer.listening, false);
+    }
     for (const [key, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
     await compose('down', '--volumes', '--remove-orphans', '--timeout=5');
+    const label = `label=com.docker.compose.project=${OWNER}`;
+    assert.equal((await executeFixed(DOCKER_EXECUTABLE, ['ps', '-aq', '--filter', label])).stdout.trim(), '');
+    assert.equal((await executeFixed(DOCKER_EXECUTABLE, ['volume', 'ls', '-q', '--filter', label])).stdout.trim(), '');
   }
-
-  const label = `label=com.docker.compose.project=${OWNER}`;
-  assert.equal((await executeFixed(DOCKER_EXECUTABLE, ['ps', '-aq', '--filter', label])).stdout.trim(), '');
-  assert.equal((await executeFixed(DOCKER_EXECUTABLE, ['volume', 'ls', '-q', '--filter', label])).stdout.trim(), '');
 });

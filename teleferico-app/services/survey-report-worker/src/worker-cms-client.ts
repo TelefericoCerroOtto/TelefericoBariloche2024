@@ -153,6 +153,12 @@ function validateClaim(value: unknown, reportRunId: string): WorkerClaimResult {
     return fail("INVALID_RESPONSE");
 
   const checkpoints = value.checkpoints;
+  const isUndecidedInitialSet =
+    isRecord(checkpoints) &&
+    checkpoints.route === "undecided" &&
+    checkpoints.chunkCount === null &&
+    Array.isArray(checkpoints.entries) &&
+    checkpoints.entries.length === 0;
   if (
     !exactKeys(checkpoints, [
       "version",
@@ -163,7 +169,7 @@ function validateClaim(value: unknown, reportRunId: string): WorkerClaimResult {
     ]) ||
     checkpoints.version !== "survey-checkpoints.v1" ||
     !/^[a-f0-9]{64}$/.test(String(checkpoints.snapshotDigest)) ||
-    checkpoints.route !== "direct" ||
+    (checkpoints.route !== "direct" && !isUndecidedInitialSet) ||
     checkpoints.chunkCount !== null ||
     !Array.isArray(checkpoints.entries)
   )

@@ -448,6 +448,68 @@ resources. Owner: TB-113 app/CMS implementer and reviewer. No production origin,
 token, grant, environment binding, or worker runtime composition is selected or
 created.
 
+### U10-A16 worker client ↔ CMS claim contract correction
+
+The test-only continuation extends the existing same-process TypeScript loader
+in `teleferico-cms/test/feedback/private-report-source.test.js` to load the real
+app `WorkerCmsClient` and shared CMS-origin validator. Its fetch seam accepts
+only the exact `https://cms.example.com` worker URL and fixed claim/snapshot/fail
+paths, then forwards to the owned loopback Strapi server. It rejects other URLs
+before inspecting or forwarding authorization and returns a logical-origin
+response so the app client's same-origin and redirect checks still execute.
+The logical host is never resolved.
+
+The first same-process real HTTP attempt found that PostgreSQL/Strapi returned
+`checkpoints`, `modelConfig`, and `pricingSnapshot` as JSON strings. The scoped
+CMS correction now parses each stored string once, rejects malformed,
+double-encoded, non-object, placeholder, mismatched, or unsupported claim
+contracts, and returns normalized objects. It reuses the existing CMS model
+configuration validator and additionally binds the stored source revision,
+  evidence key ID, and pinned model. The checkpoint envelope must be the exact
+  v1 shape with the row snapshot digest, null chunk count, and no entries; its
+  route may be `direct` or the exact initial `undecided` state. Pricing must be a closed
+USD snapshot with nonempty unique SKUs and safe nonnegative integer rates.
+Validation runs on queued claim before the queued→running CAS and on running
+resume; invalid stored state returns the fixed `INVALID_STATE` error before any
+status/version update. Terminal replay remains the existing minimal envelope and
+does not inspect private claim fields.
+
+The isolated run creates distinct synthetic custom content API tokens scoped to
+`workerClaim`, `workerSnapshot`, and `workerFail`. It preserves the manually
+seeded `route: "direct"` case and also claims a queued run created by the normal
+U10-A12 app admin command, whose initial checkpoint route is `undecided`. The app
+client claims and replays both forms at state version 2, reads each snapshot with
+its digest validated, and commits/replays the bounded `INVALID_OUTPUT` failure
+at version 3. The app-created run's private comments are returned only in the
+validated snapshot result. A stored malformed checkpoint JSON string is rejected
+over HTTP with 409/`INVALID_STATE` and leaves the queued row at version 1 with no
+claim timestamp. Users & Permissions JWTs with worker actions granted and every
+wrong-scope custom token are denied before generation-table access; native
+collection reads remain denied. The app client rejects malformed claim and
+digest-altered snapshot responses, and `checkpoint`/`complete` make no token or
+fetch calls.
+
+The initial `undecided` envelope only enables safe claim/snapshot/fail contract
+transport. It does not select an execution route or authorize model work. The
+worker runtime remains fail-closed until CountTokens selects `direct` or
+`map-reduce`; no provider, renderer, checkpoint write/CAS, or completion call is
+made by this integration test. CMS checkpoint writes remain `UNKNOWN_VERSION`.
+U10 therefore remains incomplete, with CountTokens route selection, worker
+runtime/provider validation, and checkpoint CAS/activation still pending.
+
+The test fetch accepts only the exact logical HTTPS origin and fixed worker
+paths/methods, forwards only to owned loopback Strapi, never resolves the logical
+host, and preserves response-origin metadata so the app client's origin and
+redirect checks execute. Cleanup stops Strapi, restores test-process environment,
+removes the owned Compose stack, and asserts server/container/volume absence. No
+raw token or private comment appears in the test diagnostic or captured logs.
+
+This is disposable local evidence only. No production origin, DNS/address
+control, egress restriction, operational token, persistent grant, worker runtime,
+GCP/IAM, or deployment was exercised. Those operational gates remain pending.
+The correction changes no auth/access expectations, so `docs/STRAPI_PERMISSIONS.md`
+requires no update.
+
 ## Direct implementation runtime boundary
 
 The app-owned direct implementation now provides the local worker/PDF boundary
