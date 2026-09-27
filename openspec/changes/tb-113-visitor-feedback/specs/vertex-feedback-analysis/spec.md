@@ -39,21 +39,21 @@ Map output MUST target 600-1,200 tokens and never exceed 4,000; direct/reduce MU
 Original ES/EN/PT comments MUST remain untranslated at input. Model copies MUST redact recognizable emails, phones, and URLs with typed placeholders. Opaque evidence references MAY exist only in worker memory or sanitized checkpoints for validation and MUST be stripped from UI/PDF output. (Primary: D54-D55)
 
 #### Scenario: Validate evidence without disclosure
-- GIVEN a theme cites opaque references to distinct redacted comments
+- GIVEN a claim cites opaque references that have valid syntax and resolve to distinct eligible snapshot comments
 - WHEN output is validated and published
-- THEN support MUST be verifiable internally while references and verbatim comments are absent publicly.
+- THEN reference membership MUST be verifiable internally while references and verbatim comments are absent publicly; membership MUST NOT be represented as proof that the claim's meaning is semantically supported.
 
-### Requirement: Fixed validated Spanish narrative
+### Requirement: Structurally validated Spanish narrative
 
-Output MUST be structured Spanish, descriptive only, and limited to: executive summary, observed changes, strengths, unfavorable areas, recurrent themes, minority signals, and coverage/limitations. It MUST contain no recommendations, actions, causal claims, verbatim comments, unsupported assertions, or invented category content. (Primary: D62-D63, D68)
+Output MUST be structured Spanish, descriptive only, and limited to: executive summary, observed changes, strengths, unfavorable areas, recurrent themes, minority signals, and coverage/limitations. It MUST contain no recommendations, actions, causal claims, verbatim comments, exposed evidence references, prohibited content, or invented official metric values. Official metrics MUST come only from the immutable deterministic core snapshot; the model MUST NOT calculate or alter them. Validate the closed schema and version, required section order, status/claim shape, reference syntax and membership, applicable deterministic evidence thresholds, privacy, prohibited content, and output bounds. Do NOT automatically judge whether the narrative is semantically truthful to comments, grounded in their meaning, or free of contradictory interpretation. This fallibility is an accepted residual product limitation. Human editorial review MAY occur but MUST NOT be a per-report acceptance gate. (Primary: D62-D63, D68)
 
-#### Scenario: Accept compliant analysis
-- GIVEN evidence-supported structured Spanish output using only allowed sections
-- WHEN schema, style, evidence, privacy, and metric validations pass
-- THEN the validated output MAY proceed to rendering.
+#### Scenario: Accept structurally valid nonempty analysis
+- GIVEN nonempty structured Spanish output that satisfies the schema, order, reference/membership, deterministic threshold, privacy, prohibited-content, and output-bound checks
+- WHEN no independent routing, checkpoint, authentication, or runtime gate remains unresolved
+- THEN the output MAY proceed to rendering without automated semantic-truth judgment or required human editorial review, and the system MUST NOT claim that those checks prove narrative truth.
 
-#### Scenario: Reject prohibited narrative
-- GIVEN output recommends an action, claims causation, quotes a comment, or adds a section
+#### Scenario: Reject prohibited or unsafe narrative
+- GIVEN output recommends an action, claims causation, reproduces a comment, exposes an evidence reference, violates the closed structure, or introduces an official metric value not sourced from the deterministic core
 - WHEN validated
 - THEN it MUST be rejected and MUST NOT appear in a report.
 
