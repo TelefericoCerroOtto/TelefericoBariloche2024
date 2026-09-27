@@ -15,10 +15,16 @@ Reviewed `poc-result.json` records versions, lock/image/font/browser/runtime/fix
 5. Named charts plus keyboard-readable tables; one captioned HTML table/chart; zero serious/critical accessibility violations.
 6. Reduced-motion animation/transition duration=0; PDF never animates.
 7. Bar, line, comparison, scatter/matrix outputs are nonempty and reconcile with tables.
-8. Public production graph/image reaches no ECharts, Playwright, Chromium, Vertex, or worker module.
+8. A static source-graph audit of public client roots and their transitive runtime imports finds no reachability to ECharts, Playwright, Chromium, Vertex, or worker modules. This audit is not exact production-bundle analysis.
 9. Compressed worker image growth≤750 MiB; five staging-equivalent cold starts have p95 ready≤15s and none exceeds task deadline.
 
 Missing evidence or any failure blocks renderer implementation/adoption. Recharts and ECharts 6.1 remain conditional; no substitute renderer, dependency-free adapter, or raster fallback may be selected silently. Failure requires explicit design/spec revision; Chromium failure keeps generation/storage disabled. Dependencies/lockfile remain separately approval-gated after reviewed pass evidence.
+
+## Offline Worker Adapter Status
+
+The app-owned worker now has an explicitly injected offline Chromium adapter that reuses the already pinned ECharts/Playwright stack without changing manifests or locks. It validates the fixed report structure and privacy boundary, embeds the POC font, audits accessible vector charts/tables, and normalizes PDF creation/modification timestamps before hashing. Identical synthetic inputs therefore produce the same PDF bytes and artifact digest in the verified local runtime.
+
+This is local synthetic evidence only, not production renderer adoption or runtime readiness. The initial POC run failed criterion 8 (`publicGraphExcluded=false`); that is historical failure evidence. After correcting the static source-graph classifier, the current local POC passes all nine criteria under the documented static client-root/transitive-import interpretation. Parent spotcheck passed the focused worker/POC suite (2 files, 32 tests), app typecheck, and `git diff --check`. Criterion 8 does not establish exact production Next.js bundle reachability. Keep U12 unchecked and production renderer wiring disabled until production renderer/image integration, storage/download, and operational gates pass; no real GCS was used.
 
 ## PDF Contract
 

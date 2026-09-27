@@ -210,7 +210,7 @@ complete. Final candidate size is `976` additions plus deletions across 11 paths
 against the exact parent head; full inventory and method are in the ledger.
 
 - [ ] 4.2 U11 local fake-provider behavior is grouped into the local worker execution deliverable above. Live Google configuration and provider checks are a separate, post-development, separately approved operational gate; retain the exact approved model/location/endpoint and no-fallback rule.
-- [ ] 4.3 U12 local report validation/render/delivery behavior is grouped into the same local deliverable, with injected local boundaries and focused synthetic tests. Live GCS access/retention and publication are operational gates; do not infer readiness from local tests.
+- [ ] 4.3 U12 local report validation/render/delivery behavior is grouped into the same local deliverable, with injected local boundaries and focused synthetic tests. The current local Appendix-05 POC passes all nine criteria under criterion 8's static client-root/transitive-import interpretation; this is not exact production Next.js bundle analysis. U12 remains unchecked pending production renderer/image integration, storage/download, and operational gates; no real GCS access occurred. Do not infer U12 completion or readiness from local tests.
 - [ ] 4.4 U13 live Tasks/Run/IAM/secret/configuration and Google operational checks require separate approval after development integration. Do not add credentials or a Google-live job to CI; do not change deployment defaults or enable the capability through this plan.
 
 ## Phase 5: Rollout and proof
