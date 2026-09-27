@@ -59,6 +59,7 @@ export default function FeedbackForm({ publicCode }: Props) {
   const [state, setState] = useState<FeedbackFormState>(
     createInitialFeedbackState,
   );
+  const [submissionReceipt, setSubmissionReceipt] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
   const [status, setStatus] = useState<
@@ -70,6 +71,7 @@ export default function FeedbackForm({ publicCode }: Props) {
   const fallbackKeys = useRef(new Set<string>());
   const formLoadedAt = useRef(Date.now());
   const expiryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const honeypotRef = useRef<HTMLInputElement>(null);
 
   const t = (
     key: string,
@@ -143,6 +145,7 @@ export default function FeedbackForm({ publicCode }: Props) {
         setTranslations(normalizedTranslations);
         setDraftKey(nextDraftKey);
         setState(nextState);
+        setLocale(draft?.locale ?? "es");
         setHydratedDraft(true);
         setStatus("ready");
         formLoadedAt.current = Date.now();
@@ -227,11 +230,18 @@ export default function FeedbackForm({ publicCode }: Props) {
             {t("successTitle")}
           </h1>
           <p className="text-base text-slate-700">{t("successBody")}</p>
+          {submissionReceipt && (
+            <p className="text-sm text-slate-700">
+              <span>{t("receiptLabel")} </span>
+              <span>{submissionReceipt}</span>
+            </p>
+          )}
           <button
             type="button"
             className="feedback-button feedback-button-secondary"
             onClick={() => {
               setState(createInitialFeedbackState());
+              setSubmissionReceipt(null);
               setCaptchaToken(null);
               setIdempotencyKey(createIdempotencyKey());
               setStatus("ready");
@@ -257,6 +267,7 @@ export default function FeedbackForm({ publicCode }: Props) {
       state.stage,
       state,
       state.selectedAspectKeys,
+      [...aspects.map(({ aspectKey }) => aspectKey), "other"],
     );
     if (result.valid) return true;
     setStatusKey(result.messageKey);
@@ -328,7 +339,7 @@ export default function FeedbackForm({ publicCode }: Props) {
             : {}),
           ...(state.comment.trim() ? { comment: state.comment.trim() } : {}),
           formLoadedAt: formLoadedAt.current,
-          website: "",
+          website: honeypotRef.current?.value ?? "",
           captchaToken,
         }),
       });
@@ -338,6 +349,7 @@ export default function FeedbackForm({ publicCode }: Props) {
 
       if (draftKey)
         createFeedbackDraftStore(window.localStorage).remove(draftKey);
+      setSubmissionReceipt(payload.submissionReceipt);
       setStatus("success");
       setState((previous) => ({ ...previous, stage: "success" }));
     } catch {
@@ -659,6 +671,7 @@ export default function FeedbackForm({ publicCode }: Props) {
               {t("privacyNotice")}
             </p>
             <input
+              ref={honeypotRef}
               name="website"
               tabIndex={-1}
               autoComplete="off"
