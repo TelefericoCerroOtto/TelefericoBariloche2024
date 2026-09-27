@@ -315,16 +315,15 @@ describe("map/reduce worker output preflight", () => {
   });
   const mapDigests = ["a".repeat(64), "b".repeat(64)];
 
-  it("derives map membership and leaves valid MapV1 output incomplete", () => {
+  it("derives map membership and accepts structurally safe MapV1 output", () => {
     const result = preflightMapAnalysis(mapOutput(memberships[0]!), {
       ...mapInput(snapshot),
     });
 
-    expect(result.status).toBe("incomplete");
-    if (result.status !== "incomplete")
-      throw new Error("expected incomplete map inspection");
+    expect(result.status).toBe("accepted");
+    if (result.status !== "accepted")
+      throw new Error("expected accepted map inspection");
     expect(result.checked).toContain("derived_map_chunk_membership");
-    expect(result.blockers).toContain("count_tokens_chunk_selection_authority");
     expect(JSON.stringify(result)).not.toContain("synthetic comment");
   });
 
@@ -426,26 +425,20 @@ describe("map/reduce worker output preflight", () => {
     ).toMatchObject({ status: "rejected" });
   });
 
-  it("rejects malformed or duplicate reduce digests and leaves order incomplete", () => {
+  it("rejects malformed or duplicate reduce digests and compares ordered CMS-verified map digests", () => {
     const input = {
       snapshot,
       reportRunId: RUN_ID,
       evidenceKeyId: KEY_ID,
       evidenceKey: KEY,
+      verifiedMapOutputDigests: mapDigests,
     };
 
     const result = preflightReduceAnalysis(reduceOutput(mapDigests), input);
-    expect(result.status).toBe("incomplete");
-    if (result.status !== "incomplete")
-      throw new Error("expected incomplete reduce inspection");
+    expect(result.status).toBe("accepted");
+    if (result.status !== "accepted")
+      throw new Error("expected accepted reduce inspection");
     expect(result.checked).toContain("map_output_digest_syntax_and_uniqueness");
-    expect(result.checked).not.toContain(
-      "ordered_validated_map_output_digests",
-    );
-    expect(result.blockers).toContain(
-      "independently_verified_cms_map_checkpoint_output_digests",
-    );
-    expect(result.blockers).toContain("map_semantic_and_metric_validation");
 
     for (const digests of [
       [],
@@ -458,7 +451,7 @@ describe("map/reduce worker output preflight", () => {
     }
     expect(
       preflightReduceAnalysis(reduceOutput([...mapDigests].reverse()), input),
-    ).toMatchObject({ status: "incomplete" });
+    ).toMatchObject({ status: "rejected" });
   });
 
   it("does not treat matching forged caller-supplied map digests as CMS-verified", () => {
@@ -468,22 +461,14 @@ describe("map/reduce worker output preflight", () => {
       reportRunId: RUN_ID,
       evidenceKeyId: KEY_ID,
       evidenceKey: KEY,
-      validatedMapOutputs: forgedDigests.map((outputDigest, index) => ({
-        chunkIndex: index + 1,
-        outputDigest,
-      })),
+      validatedMapOutputs: forgedDigests.map((outputDigest, index) => ({ chunkIndex: index + 1, outputDigest })),
     };
 
     const result = preflightReduceAnalysis(reduceOutput(forgedDigests), input);
     expect(result.status).toBe("incomplete");
     if (result.status !== "incomplete")
       throw new Error("expected incomplete reduce inspection");
-    expect(result.checked).not.toContain(
-      "ordered_validated_map_output_digests",
-    );
-    expect(result.blockers).toContain(
-      "independently_verified_cms_map_checkpoint_output_digests",
-    );
+    expect(result.blockers).toContain("independently_verified_cms_map_checkpoint_output_digests");
   });
 
   it("rejects unsupported reduce versions, unknown keys, and out-of-order sections", () => {

@@ -25,10 +25,10 @@ const SECTION_KEYS = [
   "coverage_limitations",
 ] as const;
 
-const DIRECT_INSTRUCTIONS =
+export const DIRECT_INSTRUCTIONS =
   "Return structured Spanish descriptions only. Use the exact seven-section order and closed schema. Cite eligible evidence refs on every claim. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Leave unsupported sections empty. Semantic truth is not machine-verified.";
 
-const DIRECT_SCHEMA = canonicalizeJson({
+export const DIRECT_SCHEMA = canonicalizeJson({
   schemaVersion: "survey-analysis.v1",
   route: "direct",
   sections: SECTION_KEYS.map((key) => ({
@@ -139,21 +139,7 @@ export async function planDirectExecutionV1(input: {
   readonly modelConfig: ModelConfigV1;
   readonly countTokens: (request: CountTokensRequestV1) => Promise<CountTokensResultV1>;
 }): Promise<{ readonly route: "direct"; readonly checkpoint: CountCheckpointPayload }> {
-  const request: CountTokensRequestV1 = {
-    contractVersion: "survey-count-request.v1",
-    modelConfig: input.modelConfig,
-    segments: {
-      instructions: DIRECT_INSTRUCTIONS,
-      schema: DIRECT_SCHEMA,
-      metrics: canonicalizeJson(input.snapshot.metrics),
-      comments: input.modelInput.comments.length === 0
-        ? canonicalizeJson([])
-        : canonicalizeJson({
-            contractVersion: input.modelInput.contractVersion,
-            comments: input.modelInput.comments,
-          }),
-    },
-  };
+  const request = createDirectCountRequestV1(input);
   const counted = await input.countTokens(request);
   const keys = ["instructions", "schema", "metrics", "comments"] as const;
   if (
@@ -188,5 +174,27 @@ export async function planDirectExecutionV1(input: {
   return {
     route: "direct",
     checkpoint: { kind: "count", requestDigest, segmentTokens, totalTokens },
+  };
+}
+
+export function createDirectCountRequestV1(input: {
+  readonly snapshot: SnapshotV1;
+  readonly modelInput: DirectModelRequestV1;
+  readonly modelConfig: ModelConfigV1;
+}): CountTokensRequestV1 {
+  return {
+    contractVersion: "survey-count-request.v1",
+    modelConfig: input.modelConfig,
+    segments: {
+      instructions: DIRECT_INSTRUCTIONS,
+      schema: DIRECT_SCHEMA,
+      metrics: canonicalizeJson(input.snapshot.metrics),
+      comments: input.modelInput.comments.length === 0
+        ? canonicalizeJson([])
+        : canonicalizeJson({
+            contractVersion: input.modelInput.contractVersion,
+            comments: input.modelInput.comments,
+          }),
+    },
   };
 }

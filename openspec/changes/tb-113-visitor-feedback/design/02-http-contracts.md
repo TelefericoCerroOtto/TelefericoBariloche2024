@@ -129,7 +129,7 @@ Changed terminal replay and `queued`/`succeeded` states return 409
 adapter may run only after the terminal commit succeeds and must deduplicate
 replays.
 
-The local checkpoint route accepts CMS-verified zero-comment and nonempty-comment **DIRECT** execution graphs. Nonempty direct execution is available only with injected CountTokens and analysis-provider fakes and a per-run evidence key injected into both worker and CMS; CMS independently recomputes the exact CountTokens request digest and evidence-reference membership from the immutable snapshot and that key. Before checkpoint CAS, the CMS validates the closed output structure/order, deterministic evidence thresholds, privacy/prohibited/verbatim constraints, numeric metric values against the immutable core snapshot, graph digests, and state version under the generation row lock. Semantic truth and contradiction are not judged. Map/reduce remains a distinct unsupported route and fails closed with `UNKNOWN_VERSION`; live provider and storage integrations remain gated. The 4 KiB raw request limit is unchanged. `W/complete` independently rechecks all six persisted stages, the CMS-verified published projection, renderer/artifact bindings, and state version before atomically creating the report and succeeding the generation. Both actions require their own exact custom content API token scope and have no default grant.
+The local checkpoint route accepts CMS-verified zero-comment and nonempty-comment **DIRECT** graphs plus synthetic **MAP/REDUCE** graphs. Direct execution uses injected CountTokens/analysis/key fakes; map/reduce uses injected CountTokens/map/reduce/key fakes. CMS independently recomputes exact serialized request digests, smallest-fit chunk routing, evidence refs and chunk membership, map output digests, stage graph dependencies/order, structural/privacy/threshold checks, and state-version CAS under the generation row lock. Reduce digests must match the persisted CMS-verified map checkpoints, and the reducer receives only those maps plus immutable core metrics. Semantic truth and contradiction are intentionally not judged. Live provider and storage integrations remain gated. `W/complete` independently rechecks the complete route-specific stage graph, CMS-verified published projection, renderer/artifact bindings, and state version before atomically creating the report and succeeding the generation. Both actions require their own exact custom content API token scope and have no default grant.
 
 `POST W/claim`, `GET W/snapshot`, `PUT W/checkpoints/:stageKey`, `POST
 W/complete`, and `POST W/fail` require the native Strapi `content-api-token` strategy and their
@@ -152,16 +152,7 @@ succeeded/failed returns only the terminal replay identity/status/version. The
 running projection contains only checkpoints, model configuration, and pricing
 snapshot—never comments. Snapshot remains running-only, byte-equivalent on replay,
 and validates the immutable snapshot digest before exposing private comments.
-Direct checkpoint writes are accepted only after CMS graph/input/output digest
-recomputation and compare-and-swap. For nonempty direct output, the worker and
-CMS must resolve the immutable evidence-key ID to the same injected per-run key;
-the CMS uses it to rederive reference membership and independently enforce
-structural, privacy, threshold, and deterministic-metric checks. Completion
-revalidates the six-stage graph and published projection, then atomically creates
-the report and succeeds the generation. The implementation accepts structurally
-valid narratives without semantic-truth judgment; the local integration uses
-only synthetic provider/key fakes. Map/reduce remains fail-closed with
-`UNKNOWN_VERSION`, and live provider/storage integrations remain gated.
+Direct and map/reduce checkpoint writes are accepted only after CMS graph/input/output digest recomputation and compare-and-swap. For nonempty output, the worker and CMS resolve the immutable evidence-key ID to the same injected per-run key. CMS derives reference membership, verifies chunk balance and complete record coverage, independently validates map/reduce structures, and binds each Reduce digest to a persisted map output in chunk order. Completion revalidates the route-specific graph and published projection, then atomically creates the report and succeeds the generation. The implementation accepts structurally valid narratives without semantic-truth judgment; the local integration uses only synthetic provider/key fakes. Live provider/storage integrations remain gated.
 
 `A/dispatch-failure` is a CMS-authenticated command action, granted explicitly
 to the corresponding Users & Permissions role for the server-mediated
@@ -497,13 +488,23 @@ collection reads remain denied. The app client rejects malformed claim and
 digest-altered snapshot responses, and `checkpoint`/`complete` make no token or
 fetch calls.
 
-The initial `undecided` envelope only enables safe claim/snapshot/fail contract
-transport. It does not select an execution route or authorize model work. The
-worker runtime remains fail-closed until CountTokens selects `direct` or
-`map-reduce`; no provider, renderer, checkpoint write/CAS, or completion call is
-made by this integration test. CMS checkpoint writes remain `UNKNOWN_VERSION`.
-U10 therefore remains incomplete, with CountTokens route selection, worker
-runtime/provider validation, and checkpoint CAS/activation still pending.
+The initial `undecided` envelope remains only a claim state; the worker makes no
+model call until injected CountTokens proves the complete direct request does not
+fit and finds the smallest fitting map chunk count. A synthetic integration now
+executes two chunks through authenticated app↔worker↔Strapi/PostgreSQL HTTP,
+persists MapV1 output and membership checkpoints, and reduces only over the
+persisted map outputs and immutable metrics. CMS uses an injected CountTokens
+authority to independently recount direct, map, and output requests; it also
+recomputes request digests, refs/membership, map payload output digests, stage
+indexes/dependencies, and state-version CAS before each write and completion. A forged map output
+digest is rejected without changing state. The same integration proves
+deterministic PDF completion and terminal replay without a duplicate report.
+
+This evidence uses injected synthetic providers/key material only. It does not
+prove live Vertex, CountTokens, production key provisioning, Google/GCS/Cloud
+Tasks/Cloud Run/OIDC readiness, capability enablement, or formal U10/U11/U12
+completion. Semantic truth and contradiction remain intentionally unchecked;
+human editorial review is not a per-report acceptance gate.
 
 The test fetch accepts only the exact logical HTTPS origin and fixed worker
 paths/methods, forwards only to owned loopback Strapi, never resolves the logical
@@ -564,20 +565,17 @@ without claiming external task or storage execution:
   completion adapter. The local artifact adapter stages bytes and cannot make
   a report downloadable before successful completion.
 
-The current worker checkpoint POC is deliberately narrower than the normative
-stage graph: it emits only direct-route `render`/`store` checkpoints at indexes
-4/5, validates their exact metadata and payload shapes, output digests, and
-private staged-object identity, and rejects a prior same-stage input-digest
-mismatch before reuse. The app claim DTO now includes the CMS running projection's
-immutable model configuration and pricing snapshot. The worker derives v1
-stage-input digests for render from its validated validate-payload digest and
-for store from the render-payload digest, with the exact ordered dependency,
-full model configuration, contract versions, snapshot digest, and source
-revision. Missing configuration/dependency inputs fail closed; there is no
-legacy-digest fallback. This binds only the app-side direct render/store
-boundary: map/reduce and complete nested output/evidence validation remain
-unsupported. CMS checkpoint writes remain `UNKNOWN_VERSION` before transaction
-entry; no checkpoint is accepted or persisted.
+The local worker checkpoint runtime supports the closed direct and map/reduce
+graphs. Direct retains indexes 0–5. Map/reduce uses redact 0, count 1, maps
+2…n+1, reduce n+2, validate n+3, render n+4, and store n+5. Every stage-input
+digest binds immutable model configuration, contract versions, snapshot/source
+identity, ordered dependency output digests, and map membership where
+applicable. CMS verification and persistence occur in the authenticated
+checkpoint transaction with a locked snapshot, injected key, row lock, and
+state-version CAS; completion revalidates the exact graph before atomic report
+creation. Existing direct routes remain unchanged. No production key, provider,
+Google resource, persistent grant, deployment default, or feature enablement is
+added.
 
 Cloud Tasks, Cloud Run/OIDC, Vertex, GCS, production worker-image readiness,
 and authenticated integrated execution remain external validation and

@@ -11,6 +11,7 @@ function canonicalize(value) {
     : value && typeof value === "object" ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(",")}}`
       : JSON.stringify(value);
 }
+function digest(value) { return createHash("sha256").update(canonicalize(value), "utf8").digest("hex"); }
 function syntheticMembershipInput() {
   return {
     reportRunId: "00000000-0000-4000-8000-000000000113",
@@ -858,6 +859,119 @@ test("checkpoint graph verifier sanitizes replay of persisted Validate history",
   assert.equal(JSON.stringify(replay).includes('"status":"valid"'), false);
   assert.equal(JSON.stringify(replay).includes("unverified-direct"), false);
   assert.equal(JSON.stringify(replay).includes("unverified-validate"), false);
+});
+
+test("CMS rejects a valid map.2 payload stored under map.1 checkpoint identity", () => {
+  const membershipInput = syntheticMembershipInput();
+  const snapshot = {
+    sourceRevision: "test-source",
+    metrics: { current: { submissionCount: 2 }, previous: { submissionCount: 1 } },
+    comments: membershipInput.comments,
+  };
+  const snapshotDigest = digest(snapshot);
+  const modelConfig = syntheticModelConfig(membershipInput.evidenceKeyId);
+  const run = {
+    reportRunId: membershipInput.reportRunId,
+    status: "running",
+    stateVersion: 4,
+    snapshotDigest,
+    sourceRevision: "test-source",
+    modelConfig,
+    rendererVersion: "renderer.test.v1",
+  };
+  const headroom = Math.max(2048, Math.ceil(modelConfig.verifiedInputTokenLimit * 0.1));
+  const directInstructions = "Return structured Spanish descriptions only. Use the exact seven-section order and closed schema. Cite eligible evidence refs on every claim. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Leave unsupported sections empty. Semantic truth is not machine-verified.";
+  const directSchema = canonicalize({
+    schemaVersion: "survey-analysis.v1", route: "direct",
+    sections: ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"].map((key) => ({
+      key, status: { enum: ["supported", "insufficient_evidence"] },
+      claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }],
+    })),
+  });
+  const modelComments = {
+    contractVersion: "survey-model-input.v1",
+    comments: snapshot.comments.map((comment) => ({
+      period: comment.period,
+      text: comment.text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, "[EMAIL]").replace(/https?:\/\/[^\s]+|www\.[^\s]+/giu, "[URL]").replace(/(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)/gu, "[PHONE]"),
+      evidenceRef: deriveEvidenceRef({ reportRunId: run.reportRunId, recordId: comment.recordId, evidenceKey: membershipInput.evidenceKey }),
+    })),
+  };
+  const directRequest = {
+    contractVersion: "survey-count-request.v1", modelConfig,
+    segments: { instructions: directInstructions, schema: directSchema, metrics: canonicalize(snapshot.metrics), comments: canonicalize(modelComments) },
+  };
+  const directSegmentTokens = { instructions: 100, schema: 100, metrics: 100, comments: 9000, reservedOutput: 3000, headroom };
+  const directTotalTokens = Object.values(directSegmentTokens).reduce((sum, value) => sum + value, 0);
+  const mapInstructions = "Extract descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
+  const mapSchema = canonicalize({
+    schemaVersion: "survey-map.v1", chunkId: "map.<index>-of-<count>", coveredRefs: ["e_<20-lowercase-base32-characters>"],
+    themes: [{ themeKey: "lowercase-stable-id", labelEs: "Spanish descriptive label", claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }] }],
+    limitations: ["Spanish descriptive limitation"],
+  });
+  const attempts = [1, 2].map((chunkCount) => {
+    const memberships = deriveChunkMembership({ ...membershipInput, snapshotDigest, chunkCount });
+    return {
+      chunkCount,
+      chunks: memberships.map((membership, index) => {
+        const refs = new Set(membership.coveredRefs);
+        const comments = snapshot.comments.filter((comment) => refs.has(deriveEvidenceRef({
+          reportRunId: run.reportRunId, recordId: comment.recordId, evidenceKey: membershipInput.evidenceKey,
+        }))).map((comment) => ({
+          period: comment.period,
+          text: comment.text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, "[EMAIL]").replace(/https?:\/\/[^\s]+|www\.[^\s]+/giu, "[URL]").replace(/(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)/gu, "[PHONE]"),
+          evidenceRef: deriveEvidenceRef({ reportRunId: run.reportRunId, recordId: comment.recordId, evidenceKey: membershipInput.evidenceKey }),
+        }));
+        const modelRequest = { contractVersion: "survey-map-input.v1", chunkId: `map.${index + 1}-of-${chunkCount}`, chunkIndex: index + 1, chunkCount, metrics: snapshot.metrics, comments };
+        const request = { contractVersion: "survey-count-request.v1", modelConfig, segments: { instructions: mapInstructions, schema: mapSchema, metrics: canonicalize(snapshot.metrics), comments: canonicalize(modelRequest) } };
+        const commentsTokens = chunkCount === 1 ? 9000 : 100;
+        const segmentTokens = { instructions: 100, schema: 100, metrics: 100, comments: commentsTokens, reservedOutput: 1200, headroom };
+        return { requestDigest: digest(request), segmentTokens, totalTokens: Object.values(segmentTokens).reduce((sum, value) => sum + value, 0) };
+      }),
+    };
+  });
+  const countPayload = {
+    kind: "count", requestDigest: digest(directRequest), segmentTokens: directSegmentTokens, totalTokens: directTotalTokens,
+    route: "map-reduce", directRequestDigest: digest(directRequest), directSegmentTokens, directTotalTokens, attempts, chunkCount: 2,
+  };
+  const output = { schemaVersion: "survey-map.v1", chunkId: "map.2-of-2", coveredRefs: deriveChunkMembership({ ...membershipInput, snapshotDigest, chunkCount: 2 })[1].coveredRefs, themes: [], limitations: [] };
+  const outputRequest = {
+    contractVersion: "survey-count-request.v1", modelConfig,
+    segments: { instructions: mapInstructions, schema: mapSchema, metrics: "{}", comments: canonicalize(output) },
+  };
+  const membership = deriveChunkMembership({ ...membershipInput, snapshotDigest, chunkCount: 2 })[1];
+  const payload = {
+    kind: "map", chunkId: "map.2-of-2", chunkIndex: 2, chunkCount: 2,
+    evidenceKeyId: membershipInput.evidenceKeyId, coveredRefs: membership.coveredRefs,
+    chunkMembershipDigest: membership.membershipDigest, outputTokenCount: 100,
+    outputRequestDigest: digest(outputRequest), validatedOutput: output,
+  };
+  const redactPayload = { kind: "redact", recordCount: snapshot.comments.length, redactionVersion: modelConfig.redactionVersion };
+  const redactOutputDigest = digest(redactPayload);
+  const countOutputDigest = digest(countPayload);
+  const checkpoint = (stageKey, stageIndex, route, payload, dependencies, chunkMembershipDigest = null) => {
+    const projection = { version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig, stageKey, modelConfig, evidenceKeyId: modelConfig.evidenceKeyId, rendererVersion: null };
+    return {
+      checkpointVersion: "survey-checkpoint.v1", stageKey, stageIndex, route, stageType: stageKey === "map.1-of-2" ? "map" : stageKey,
+      status: "valid",
+      inputDigest: stageInputDigestV1({ stageKey, stageIndex, route, snapshotDigest, sourceRevision: run.sourceRevision,
+        contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest: stageConfigDigest(projection),
+        orderedDependencyOutputDigests: dependencies, chunkMembershipDigest }),
+      outputDigest: digest(payload), attempts: 1, completedAt: "2026-09-25T12:00:00.000Z", payload,
+    };
+  };
+  const redact = checkpoint("redact", 0, "common", redactPayload, []);
+  const count = checkpoint("count", 1, "common", countPayload, [redactOutputDigest]);
+  const checkpoints = { version: "survey-checkpoints.v1", snapshotDigest, route: "map-reduce", chunkCount: 2, entries: [redact, count] };
+  const misplaced = checkpoint("map.1-of-2", 2, "map-reduce", payload, [countOutputDigest], membership.membershipDigest);
+
+  assert.throws(() => verifyCheckpointGraphV1({
+    run,
+    snapshot,
+    checkpoints,
+    candidate: misplaced,
+    expectedStateVersion: run.stateVersion,
+    evidenceKey: membershipInput.evidenceKey,
+  }), { code: "VALIDATION_FAILED" });
 });
 
 test("dispatch compensation replays identically and rejects altered, claimed, or stale generations", async () => {

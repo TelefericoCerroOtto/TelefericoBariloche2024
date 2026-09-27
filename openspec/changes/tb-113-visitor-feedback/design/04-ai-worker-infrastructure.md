@@ -10,6 +10,7 @@ type ModelConfigV1={version:"survey-model-config.v1";evidenceKeyId:string;provid
 type WorkerDeploymentConfigV1={version:"survey-worker-deployment.v1";operationalProjectId:"teleferico-bariloche-2024";vertexProjectId:"teleferico-bariloche-2024";vertexLocation:"us";vertexApiEndpoint:"aiplatform.us.rep.googleapis.com";cloudTasksLocation:"southamerica-east1";workerRuntimeServiceAccount:string;taskInvokerServiceAccount:string;workerOidcAudience:string};
 type EvidenceClaimV1={claimId:string;textEs:string;evidenceRefs:string[];signal:"recurrent"|"minority"|"descriptive"};
 type MapV1={schemaVersion:"survey-map.v1";chunkId:string;coveredRefs:string[];themes:Array<{themeKey:string;labelEs:string;claims:EvidenceClaimV1[]}>;limitations:string[]};
+type MapInputV1={contractVersion:"survey-map-input.v1";chunkId:string;chunkIndex:number;chunkCount:number;metrics:SnapshotMetrics;comments:Array<{period:"current"|"previous";text:string;evidenceRef:string}>};
 type SectionKey="executive_summary"|"observed_changes"|"strengths"|"unfavorable_areas"|"recurrent_themes"|"minority_signals"|"coverage_limitations";
 type SectionV1={key:SectionKey;status:"supported"|"insufficient_evidence";claims:EvidenceClaimV1[]};
 type DirectV1={schemaVersion:"survey-analysis.v1";route:"direct";sections:[SectionV1,SectionV1,SectionV1,SectionV1,SectionV1,SectionV1,SectionV1]};
@@ -36,13 +37,14 @@ The app-side `preflightMapAnalysis` and `preflightReduceAnalysis` are structural
 
 Clarify “exact metrics” in the supported-claim contract as a deterministic numeric-data invariant: any official metric values present in output must match the values computed and carried by the immutable core snapshot, never values generated or recomputed by the model. This does not establish that free-text claim wording is entailed by those numbers or by comment meaning, and is not an automated semantic-truth gate. Human editorial review is optional and is not a publication gate.
 
-These structural MapV1/ReduceV1 preflights alone do not enable map/reduce checkpoint writes. The authenticated worker `claim`, `snapshot`, `checkpoint`, `complete`, and `fail` actions require Strapi's native `content-api-token` strategy with one exact action scope per route; their controllers verify the selected strategy plus custom content-token `kind`/`type` before body access or database work. A Users & Permissions JWT remains denied even if a role receives one of these worker actions; the native generation CRUD and admin dispatch actions retain their existing JWT boundary. The current local checkpoint/complete implementation accepts only the CMS-proven zero-comment direct fallback; this implementation limitation does not reinstate semantic-truth review as a future acceptance gate. No default grant or persistent token is added, and operational token provisioning remains separately authorized. Immutable runtime evidence-key wiring, exact chunk routing, CMS checkpoint authority, and map payload sizing remain activation gates.
+These structural MapV1/ReduceV1 preflights alone do not establish route or persistence authority. The authenticated worker `claim`, `snapshot`, `checkpoint`, `complete`, and `fail` actions require Strapi's native `content-api-token` strategy with one exact action scope per route; their controllers verify the selected strategy plus custom content-token `kind`/`type` before body access or database work. A Users & Permissions JWT remains denied even if a role receives one of these worker actions; the native generation CRUD and admin dispatch actions retain their existing JWT boundary. Local direct and map/reduce execution use injected synthetic CountTokens/provider/key dependencies. Map/reduce writes fail closed unless CMS has an injected CountTokens authority; CMS independently re-counts the complete serialized direct/map/output requests, recomputes the smallest-fit route, per-run map membership/ref bindings, checkpoint output digests, ordered graph dependencies, and state-version CAS before accepting writes or atomic completion. Reduce digests are matched to the persisted CMS-verified map stages; caller-supplied digest lists alone are not authority. Narrative semantic truth remains outside automated validation. No default CountTokens provider, grant, or persistent token is added, and operational token provisioning remains separately authorized.
 
 ## Checkpoints and Retries
 
 ```ts
 // Normative
-type PayloadV1={kind:"redact";recordCount:number;redactionVersion:string}|{kind:"count";requestDigest:string;segmentTokens:{instructions:number;schema:number;metrics:number;comments:number;reservedOutput:number;headroom:number};totalTokens:number}|{kind:"map";chunkId:string;chunkIndex:number;chunkCount:number;evidenceKeyId:string;coveredRefs:string[];chunkMembershipDigest:string;validatedOutput:MapV1}|{kind:"direct";validatedOutput:DirectV1}|{kind:"reduce";validatedOutput:ReduceV1}|{kind:"validate";publishedAnalysis:PublishedAnalysisV1;validatorVersion:string}|{kind:"render";rendererVersion:string;pdfSha256:string;size:number}|{kind:"store";objectKey:string;artifactSha256:string;size:number;mimeType:"application/pdf"};
+type CountSegmentsV1={instructions:number;schema:number;metrics:number;comments:number;reservedOutput:number;headroom:number};
+type PayloadV1={kind:"redact";recordCount:number;redactionVersion:string}|{kind:"count";requestDigest:string;segmentTokens:CountSegmentsV1;totalTokens:number}|{kind:"count";requestDigest:string;segmentTokens:CountSegmentsV1;totalTokens:number;route:"map-reduce";directRequestDigest:string;directSegmentTokens:CountSegmentsV1;directTotalTokens:number;attempts:Array<{chunkCount:number;chunks:Array<{requestDigest:string;segmentTokens:CountSegmentsV1;totalTokens:number}>}>;chunkCount:number}|{kind:"map";chunkId:string;chunkIndex:number;chunkCount:number;evidenceKeyId:string;coveredRefs:string[];chunkMembershipDigest:string;outputTokenCount:number;outputRequestDigest:string;validatedOutput:MapV1}|{kind:"direct";validatedOutput:DirectV1}|{kind:"reduce";outputTokenCount:number;outputRequestDigest:string;validatedOutput:ReduceV1}|{kind:"validate";publishedAnalysis:PublishedAnalysisV1;validatorVersion:string}|{kind:"render";rendererVersion:string;pdfSha256:string;size:number}|{kind:"store";objectKey:string;artifactSha256:string;size:number;mimeType:"application/pdf"};
 type CheckpointV1={checkpointVersion:"survey-checkpoint.v1";stageKey:string;stageIndex:number;route:"common"|"direct"|"map-reduce";stageType:"redact"|"count"|"map"|"direct"|"reduce"|"validate"|"render"|"store";status:"valid";inputDigest:string;outputDigest:string;attempts:number;completedAt:string;payload:PayloadV1};
 type CheckpointSetV1={version:"survey-checkpoints.v1";snapshotDigest:string;route:"undecided"|"direct"|"map-reduce";chunkCount:number|null;entries:CheckpointV1[]};
 type CheckpointContractVersionsV1={snapshot:"survey-snapshot.v1";checkpoint:"survey-checkpoint.v1";canonicalization:"tb-json.v1";evidenceRef:"survey-evidence-ref.v1";chunkMembership:"survey-chunk-membership.v1";stageConfig:"survey-stage-config.v1";stageInput:"survey-stage-input.v1"};
@@ -59,7 +61,7 @@ Checkpoints prohibit visitor comments, raw/redacted prompts, credentials, signed
 
 Identical valid-stage replay succeeds without state/attempt change; reuse of key or index with different binding is `CHECKPOINT_CONFLICT`. Resume retries the lowest missing eligible stage, preserves valid sibling maps, and blocks reduce until all maps validate. Mismatched persisted input fails `INVARIANT`; history is never overwritten. No persisted valid stage with matching bindings repeats. Transient operations get two retries after the first attempt; invalid model output gets one controlled regeneration; other failures are terminal.
 
-**Local direct-route boundary:** The synthetic worker accepts CMS-recomputed zero-comment and nonempty-comment direct graphs. CountTokens is explicitly injected; the checkpoint binds its exact request digest and returned counts, and direct is selected only when the instructions, closed schema, official metrics, complete redacted comments, output reservation, and headroom fit the versioned limit. Nonempty analysis additionally requires an injected provider and per-run evidence key. The CMS resolves that same key ID through an optional server-only `feedback.workerEvidenceKeyProvider`; with no provider configured, nonempty direct checkpoint writes fail closed. CMS recomputes evidence membership, structure, thresholds, privacy/prohibited-text constraints, and state-version CAS before checkpoint writes or atomic report completion. Map/reduce, real provider calls, and production readiness remain unimplemented or fail-closed. No runtime evidence key is provisioned; no schema, default grant, dependency, environment variable, or IAM change is included. The 4 KiB request limit remains unchanged.
+**Local direct-route boundary:** The synthetic worker accepts CMS-recomputed zero-comment and nonempty-comment direct graphs. CountTokens is explicitly injected; the checkpoint binds its exact request digest and returned counts, and direct is selected only when the instructions, closed schema, official metrics, complete redacted comments, output reservation, and headroom fit the versioned limit. Nonempty analysis additionally requires an injected provider and per-run evidence key. The CMS resolves that same key ID through an optional server-only `feedback.workerEvidenceKeyProvider`; with no provider configured, nonempty direct checkpoint writes fail closed. CMS recomputes evidence membership, structure, thresholds, privacy/prohibited-text constraints, and state-version CAS before checkpoint writes or atomic report completion. This direct branch and zero-comment fallback remain unchanged by the local Map/Reduce continuation. No runtime evidence key is provisioned; no schema, default grant, dependency, environment variable, or IAM change is included. The 4 KiB request limit remains unchanged.
 
 The local worker validates the closed direct-route graph from `redact` through
 `store`, emits the normative direct indexes 0–5, and persists each checkpoint
@@ -86,10 +88,30 @@ recomputed from the validated claims and fixed fallback. The worker and CMS
 accept the same synthetic key only when both injected providers resolve the
 claim's immutable key ID. Validated narrative is structurally safe, not
 semantically certified.
-Map/reduce still fails closed because route/chunk selection and CMS checkpoint
-authority are not implemented. Completion rechecks the entire graph and
-atomically inserts the report with the succeeded generation state. A persisted
-`status: "valid"` remains contract data, not proof by itself.
+The local Map/Reduce route starts only after the complete direct CountTokens
+request is proven over budget. It tests map chunk counts in ascending order,
+serializes every complete redacted record into deterministic byte-balanced
+chunks, and selects the first count for which every complete serialized map
+request fits. The count checkpoint records the direct request evidence and all
+attempted map request digests/counts; CMS reconstructs those requests and checks
+the smallest-fit selection before committing the `undecided`→`map-reduce` CAS.
+Map stages persist the closed MapV1 result, output-token count/request digest,
+chunk index/count, evidence key ID, derived refs, membership digest, and ordered
+stage digests. CMS independently derives membership/ref vectors with its
+injected key and recomputes output/input digests, stage order, and CAS under the
+generation row lock. Reduce is gated on every persisted map checkpoint; CMS
+requires its digest list to equal the recomputed output digests of those map
+checkpoints in chunk order. The Reduce provider receives only those verified map
+outputs and immutable core metrics. Reduce/Validate/Render/Store are then bound
+to the same graph and CMS atomically creates the report and succeeds the
+generation. A persisted `status: "valid"` remains contract data, not proof by
+itself.
+
+The local Map/Reduce execution is verified only with injected synthetic
+CountTokens, map/reduce, and per-run key providers. No real Vertex or live key
+provisioning is included; production operation remains gated, and semantic
+truth remains an accepted model risk rather than an automated or per-report
+human approval gate.
 
 For the local direct route, the CountTokens request is the canonical JSON object
 `{contractVersion:"survey-count-request.v1",modelConfig,segments}`. Its segments
@@ -114,10 +136,11 @@ order, evidence-ref syntax, uniqueness and membership derived from the immutable
 snapshot/run/injected key, recurrent/minority minimum counts, bounded scalar
 text, prohibited action/causal content, verbatim text, and numeric values absent
 from deterministic snapshot metrics. It validates structure and privacy, not
-semantic truth. Synthetic end-to-end evidence proves this direct path only;
-synthetic key material is not an operational source and U10/U11/U12 remain
-formally incomplete. Map/reduce retains its separate unresolved routing and CMS
-checkpoint authority gates.
+semantic truth. Synthetic end-to-end evidence now proves the direct path and a
+two-chunk map/reduce path; synthetic key material is not an operational source,
+and U10/U11/U12 remain formally incomplete. Live provider/key provisioning,
+external queue/storage, integrated development acceptance, and operational
+readiness remain separate gates.
 
 The partial validator also rejects a `recurrent_themes` claim whose signal is
 not `recurrent`, and a `minority_signals` claim whose signal is not `minority`.
@@ -130,9 +153,9 @@ number remains sourced exclusively from the deterministic snapshot/core, never
 from a model-generated value. Automated checks reject numeric values that do not
 occur in the immutable core metrics, but do not infer that wording is entailed by
 those numbers or by comment meaning. Structurally valid nonempty outputs are
-eligible under the prospective contract; the local direct route now executes
-them with injected synthetic dependencies, while map/reduce and formal U10/U11/U12
-remain incomplete.
+eligible under the prospective contract; local direct and two-chunk map/reduce
+routes now execute with injected synthetic dependencies, while formal
+U10/U11/U12 remain incomplete.
 
 ### Pure initial generation-input materialization
 
@@ -195,8 +218,9 @@ trusted production origin/token-provider or approved model/pricing/key-ID
 configuration, so it does not construct that port. Those operational sources
 remain unselected and production generation remains disabled. The local worker
 integration injects matching test-only evidence-key providers for nonempty
-direct analysis. Without the CMS key provider, nonempty direct checkpoint writes
-fail closed; map/reduce remains unsupported.
+direct and map/reduce analysis. Without the CMS key provider, nonempty direct or
+map checkpoint writes fail closed. Map/reduce remains available only through the
+synthetic injected-key/count-provider path; no operational default is installed.
 
 The CMS source page includes valid-QR rows within the inclusive previous/current
 range even when `acceptedAt` is later than the frozen `dataCutoffAt`. The cutoff

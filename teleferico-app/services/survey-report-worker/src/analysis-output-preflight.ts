@@ -61,7 +61,9 @@ type MapPreflightInput = {
   readonly chunkCount: number;
 };
 
-type ReducePreflightInput = Omit<MapPreflightInput, "chunkCount">;
+type ReducePreflightInput = Omit<MapPreflightInput, "chunkCount"> & {
+  readonly verifiedMapOutputDigests?: readonly string[];
+};
 
 type PreflightViolation = {
   readonly status: "rejected";
@@ -100,6 +102,7 @@ function preflightContext(input: {
   | {
       readonly comments: readonly SnapshotEnvelopeV1["payload"]["comments"][number][];
       readonly refs: ReadonlySet<string>;
+      readonly metrics: SnapshotEnvelopeV1["payload"]["metrics"];
     }
   | PreflightViolation {
   let snapshot: SnapshotEnvelopeV1["payload"];
@@ -134,7 +137,7 @@ function preflightContext(input: {
         status: "rejected",
         violations: ["duplicate_snapshot_record_identity"],
       };
-    return { comments: snapshot.comments, refs };
+    return { comments: snapshot.comments, refs, metrics: snapshot.metrics };
   } catch {
     return { status: "rejected", violations: ["invalid_evidence_context"] };
   }
@@ -148,6 +151,8 @@ function validateClaimCollection(
     readonly claimIds: Set<string>;
     readonly violations: Set<string>;
     readonly refScope?: ReadonlySet<string>;
+    readonly officialValues?: ReadonlySet<string>;
+    readonly forbidNumbers?: boolean;
   },
 ): void {
   if (!Array.isArray(value)) {
@@ -178,6 +183,9 @@ function validateClaimCollection(
 
     if (FORBIDDEN_CLAIM.test(claim.textEs))
       input.violations.add("action_or_causal_claim");
+    if (input.officialValues && introducesMetricValue(claim.textEs, input.officialValues))
+      input.violations.add("unsupported_official_metric_value");
+    if (input.forbidNumbers && /\d/u.test(claim.textEs)) input.violations.add("numeric_value_in_map_claim");
     if (leaksComment(claim.textEs, input.commentText))
       input.violations.add("verbatim_comment_leak");
     if (REF_PATTERN.test(claim.textEs))
@@ -203,12 +211,15 @@ function checkProse(
   maxLength: number,
   commentText: readonly string[],
   violations: Set<string>,
+  officialValues?: ReadonlySet<string>,
 ): void {
   if (!validText(value, maxLength)) {
     violations.add("invalid_output_text");
     return;
   }
   if (FORBIDDEN_CLAIM.test(value)) violations.add("action_or_causal_claim");
+  if (officialValues && introducesMetricValue(value, officialValues))
+    violations.add("unsupported_official_metric_value");
   if (leaksComment(value, commentText)) violations.add("verbatim_comment_leak");
   if (REF_PATTERN.test(value)) violations.add("exposed_evidence_ref");
 }
@@ -219,6 +230,7 @@ function validateSections(
     readonly commentText: readonly string[];
     readonly allowedRefs: ReadonlySet<string>;
     readonly violations: Set<string>;
+    readonly officialValues: ReadonlySet<string>;
   },
 ): void {
   if (!Array.isArray(value) || value.length !== PUBLISHED_SECTION_KEYS.length) {
@@ -262,6 +274,7 @@ function validateSections(
       allowedRefs: context.allowedRefs,
       claimIds,
       violations: context.violations,
+      officialValues: context.officialValues,
     });
   });
 }
@@ -326,6 +339,11 @@ export function preflightMapAnalysis(
   const claimIds = new Set<string>();
   let previousThemeKey = "";
   const chunkRefs = new Set(membership?.coveredRefs ?? []);
+  const minimumBySignal = {
+    recurrent: Math.max(10, Math.ceil(context.comments.length * 0.02)),
+    minority: 4,
+    descriptive: 1,
+  } as const;
   for (const theme of value.themes) {
     if (
       !exactKeys(theme, THEME_KEYS) ||
@@ -344,21 +362,35 @@ export function preflightMapAnalysis(
     previousThemeKey = theme.themeKey;
     themeKeys.add(theme.themeKey);
     checkProse(theme.labelEs, 500, commentText, violations);
+    if (typeof theme.labelEs === "string" && /\d/u.test(theme.labelEs))
+      violations.add("numeric_value_in_map_label");
     validateClaimCollection(theme.claims, {
       commentText,
       allowedRefs: context.refs,
       refScope: chunkRefs,
       claimIds,
       violations,
+      forbidNumbers: true,
     });
+    for (const claim of theme.claims) {
+      if (exactKeys(claim, CLAIM_KEYS) &&
+          typeof claim.signal === "string" &&
+          claim.signal in minimumBySignal &&
+          Array.isArray(claim.evidenceRefs) &&
+          claim.evidenceRefs.length < minimumBySignal[claim.signal as keyof typeof minimumBySignal])
+        violations.add("evidence_threshold_not_met");
+    }
   }
-  for (const limitation of value.limitations)
+  for (const limitation of value.limitations) {
     checkProse(limitation, 4_000, commentText, violations);
+    if (typeof limitation === "string" && /\d/u.test(limitation))
+      violations.add("numeric_value_in_map_limitation");
+  }
 
   const rejected = sortedViolations(violations);
   if (rejected) return rejected;
   return {
-    status: "incomplete",
+    status: "accepted",
     checked: [
       "closed_map_schema_and_version",
       "canonical_map_chunk_id_and_order",
@@ -366,12 +398,6 @@ export function preflightMapAnalysis(
       "unique_sorted_theme_and_claim_ids",
       "map_claim_refs_within_derived_chunk",
       "prohibited_content_and_verbatim_comment_leakage",
-    ],
-    blockers: [
-      "count_tokens_chunk_selection_authority",
-      "immutable_per_run_evidence_key_provider",
-      "map_semantic_and_metric_validation",
-      "cms_recomputed_checkpoint_bindings_and_CAS",
     ],
   };
 }
@@ -405,31 +431,43 @@ export function preflightReduceAnalysis(
     new Set(value.mapOutputDigests).size !== value.mapOutputDigests.length
   )
     violations.add("invalid_or_duplicate_map_output_digest");
+  if (input.verifiedMapOutputDigests && (
+    value.mapOutputDigests.length !== input.verifiedMapOutputDigests.length ||
+    value.mapOutputDigests.some((digest: unknown, index: number) => digest !== input.verifiedMapOutputDigests![index])
+  ))
+    violations.add("map_output_digest_membership_mismatch");
 
   const commentText = context.comments.map(({ text }) => text);
+  const officialValues = numericValues(context.metrics);
   validateSections(value.sections, {
     commentText,
     allowedRefs: context.refs,
     violations,
+    officialValues,
   });
 
   const rejected = sortedViolations(violations);
   if (rejected) return rejected;
+  if (!input.verifiedMapOutputDigests)
+    return {
+      status: "incomplete",
+      checked: [
+        "closed_reduce_schema_and_version",
+        "ordered_sections_and_unique_sorted_claim_ids",
+        "map_output_digest_syntax_and_uniqueness",
+        "snapshot_evidence_ref_membership",
+        "prohibited_content_and_verbatim_comment_leakage",
+      ],
+      blockers: ["independently_verified_cms_map_checkpoint_output_digests"],
+    };
   return {
-    status: "incomplete",
+    status: "accepted",
     checked: [
       "closed_reduce_schema_and_version",
       "ordered_sections_and_unique_sorted_claim_ids",
       "map_output_digest_syntax_and_uniqueness",
       "snapshot_evidence_ref_membership",
       "prohibited_content_and_verbatim_comment_leakage",
-    ],
-    blockers: [
-      "independently_verified_cms_map_checkpoint_output_digests",
-      "immutable_per_run_evidence_key_provider",
-      "map_semantic_and_metric_validation",
-      "reduce_semantic_and_metric_validation",
-      "cms_recomputed_checkpoint_bindings_and_CAS",
     ],
   };
 }

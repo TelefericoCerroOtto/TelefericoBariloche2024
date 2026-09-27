@@ -3,6 +3,9 @@ import { createHash } from "node:crypto";
 import {
   deriveStageInputDigestV1,
   deriveWorkerStageInputDigestV1,
+  CHECKPOINT_CONTRACT_VERSIONS,
+  stageConfigDigest,
+  stageInputDigestV1,
   validateDirectStageConfigV1,
   validateWorkerStageCheckpointV1,
 } from "./checkpoint-contract";
@@ -35,6 +38,11 @@ import {
   type DirectAnalysisV1,
   type CountTokensProvider,
   type EvidenceKeyProvider,
+  type WorkerRuntimeDependencies,
+  type MapAnalysisProvider,
+  type ReduceAnalysisProvider,
+  type MapAnalysisV1,
+  type ReduceAnalysisV1,
   WorkerCmsConflictError,
 } from "./contracts";
 import {
@@ -44,16 +52,9 @@ import {
   publishEmptyEvidenceAnalysisV1,
 } from "./direct-execution-plan";
 import { preflightDirectAnalysis } from "./analysis-output-preflight";
-
-type WorkerRuntimeDependencies = {
-  readonly cms: WorkerCmsClient;
-  readonly artifacts: WorkerArtifactStore;
-  readonly renderer: PdfRenderer;
-  readonly analysisProvider?: ValidatedAnalysisProvider;
-  readonly countTokens?: CountTokensProvider;
-  readonly evidenceKeyProvider?: EvidenceKeyProvider;
-  readonly now?: () => Date;
-};
+import { preflightMapAnalysis, preflightReduceAnalysis } from "./analysis-output-preflight";
+import { buildMapChunksV1, countGeneratedOutputV1, planWorkerRouteV1 } from "./map-reduce-execution-plan";
+import { executeMapReduceStages } from "./map-reduce-worker-runtime";
 
 type RetryableFailureCode = Extract<
   RuntimeFailureCode,
@@ -204,24 +205,23 @@ function checkpoint(
   stageKey: WorkerCheckpointStage,
   inputDigest: string,
   payload: WorkerCheckpoint["payload"],
-  route: "common" | "direct",
+  route: "common" | "direct" | "map-reduce",
   snapshot: SnapshotV1,
   now: Date,
+  chunkCount: number | null = null,
 ): WorkerCheckpoint {
-  const stageIndex: Record<WorkerCheckpointStage, number> = {
-    redact: 0,
-    count: 1,
-    direct: 2,
-    validate: 3,
-    render: 4,
-    store: 5,
-  };
+  const mapMatch = /^map\.([1-9]\d*)-of-([1-9]\d*)$/.exec(stageKey);
+  const indexes: Record<string, number> = route === "map-reduce"
+    ? { redact: 0, count: 1, reduce: Number(chunkCount) + 2, validate: Number(chunkCount) + 3, render: Number(chunkCount) + 4, store: Number(chunkCount) + 5 }
+    : { redact: 0, count: 1, direct: 2, validate: 3, render: 4, store: 5 };
+  const stageIndex = mapMatch ? Number(mapMatch[1]) + 1 : indexes[stageKey];
+  if (!Number.isSafeInteger(stageIndex)) throw new TypeError("Unknown worker checkpoint stage");
   const value: WorkerCheckpoint = {
     checkpointVersion: "survey-checkpoint.v1",
     stageKey,
-    stageIndex: stageIndex[stageKey],
-    route,
-    stageType: stageKey,
+    stageIndex,
+    route: stageIndex <= 1 ? "common" : route,
+    stageType: (mapMatch ? "map" : stageKey) as WorkerCheckpoint["stageType"],
     status: "valid",
     inputDigest,
     outputDigest: outputDigest(payload),
@@ -231,7 +231,8 @@ function checkpoint(
   };
   validateWorkerStageCheckpointV1(value, {
     reportRunId,
-    route: "direct",
+    route: route === "common" ? "direct" : route,
+    ...(route === "map-reduce" && chunkCount !== null ? { chunkCount } : {}),
     snapshot,
   });
   return value;
@@ -279,7 +280,7 @@ function deterministicReportId(reportRunId: string, artifactSha256: string): str
 }
 
 function stageInputDigest(input: {
-  readonly stageKey: WorkerCheckpointStage;
+  readonly stageKey: "redact" | "count" | "direct" | "validate" | "render" | "store";
   readonly snapshotDigest: string;
   readonly sourceRevision: string;
   readonly modelConfig: ModelConfigV1;
@@ -296,20 +297,64 @@ function stageInputDigest(input: {
       orderedDependencies: input.dependencies,
     });
   }
-  const index: Record<Exclude<WorkerCheckpointStage, "render" | "store">, number> = {
+  const index: Record<"redact" | "count" | "direct" | "validate", number> = {
     redact: 0,
     count: 1,
     direct: 2,
     validate: 3,
   };
+  const stageIndex = index[input.stageKey];
   return deriveWorkerStageInputDigestV1({
     stageKey: input.stageKey,
-    stageIndex: index[input.stageKey],
+    stageIndex,
     route: input.stageKey === "redact" || input.stageKey === "count" ? "common" : "direct",
     snapshotDigest: input.snapshotDigest,
     sourceRevision: input.sourceRevision,
     modelConfig: input.modelConfig,
     orderedDependencyOutputDigests: input.dependencies.map(({ outputDigest }) => outputDigest),
+  });
+}
+
+function mapReduceStageInputDigest(input: {
+  readonly stageKey: string;
+  readonly chunkCount: number;
+  readonly snapshotDigest: string;
+  readonly sourceRevision: string;
+  readonly modelConfig: ModelConfigV1;
+  readonly rendererVersion: string;
+  readonly dependencies: readonly { readonly stageKey: string; readonly outputDigest: string }[];
+  readonly chunkMembershipDigest?: string;
+}): string {
+  const mapMatch = /^map\.([1-9]\d*)-of-([1-9]\d*)$/.exec(input.stageKey);
+  const stageIndex = mapMatch
+    ? Number(mapMatch[1]) + 1
+    : input.stageKey === "redact" ? 0
+      : input.stageKey === "count" ? 1
+        : input.stageKey === "reduce" ? input.chunkCount + 2
+          : input.stageKey === "validate" ? input.chunkCount + 3
+            : input.stageKey === "render" ? input.chunkCount + 4
+              : input.stageKey === "store" ? input.chunkCount + 5 : -1;
+  const route = input.stageKey === "redact" || input.stageKey === "count" ? "common" : "map-reduce";
+  if (stageIndex < 0) throw new TypeError("Unknown map-reduce checkpoint stage");
+  const rendererVersion = input.stageKey === "render" || input.stageKey === "store"
+    ? input.rendererVersion : null;
+  const projection = {
+    version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig,
+    stageKey: input.stageKey,
+    modelConfig: input.modelConfig,
+    evidenceKeyId: input.modelConfig.evidenceKeyId,
+    rendererVersion,
+  };
+  return stageInputDigestV1({
+    stageKey: input.stageKey,
+    stageIndex,
+    route,
+    snapshotDigest: input.snapshotDigest,
+    sourceRevision: input.sourceRevision,
+    contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+    stageConfigDigest: stageConfigDigest(projection),
+    orderedDependencyOutputDigests: input.dependencies.map(({ outputDigest }) => outputDigest),
+    chunkMembershipDigest: input.chunkMembershipDigest ?? null,
   });
 }
 
@@ -344,14 +389,15 @@ export async function executeReportWorker(
     const modelConfig = claim.modelConfig as ModelConfigV1;
     if (
       claim.checkpoints.version !== "survey-checkpoints.v1" ||
-      (claim.checkpoints.route !== "direct" && claim.checkpoints.route !== "undecided") ||
-      claim.checkpoints.chunkCount !== null
+      !["direct", "undecided", "map-reduce"].includes(claim.checkpoints.route) ||
+      (claim.checkpoints.route !== "map-reduce" && claim.checkpoints.chunkCount !== null) ||
+      (claim.checkpoints.route === "map-reduce" && (!Number.isSafeInteger(claim.checkpoints.chunkCount) || Number(claim.checkpoints.chunkCount) < 1))
     )
       throw new TypeError("Unsupported worker checkpoint graph");
     const expectedStages: readonly WorkerCheckpointStage[] = [
       "redact", "count", "direct", "validate", "render", "store",
     ];
-    if (
+    if (claim.checkpoints.route !== "map-reduce" && (
       claim.checkpoints.entries.some(({ stageKey }, index) => stageKey !== expectedStages[index]) ||
       new Set(claim.checkpoints.entries.map(({ stageKey }) => stageKey)).size !==
         claim.checkpoints.entries.length ||
@@ -359,8 +405,18 @@ export async function executeReportWorker(
         !claim.checkpoints.entries.some(({ stageKey }) => stageKey === "render")) ||
       (claim.checkpoints.route === "undecided" &&
         claim.checkpoints.entries.some(({ stageKey }) => stageKey !== "redact"))
-    )
+    ))
       throw new TypeError("Invalid worker checkpoint graph");
+    if (claim.checkpoints.route === "map-reduce") {
+      const chunkCount = Number(claim.checkpoints.chunkCount);
+      const expectedMapPrefix = ["redact", "count", ...Array.from({ length: chunkCount }, (_, index) => `map.${index + 1}-of-${chunkCount}`)];
+      if (claim.checkpoints.entries.length < 2 ||
+          claim.checkpoints.entries.some(({ stageKey }, index) => stageKey !== expectedMapPrefix[index]))
+        throw new TypeError("Invalid map-reduce worker checkpoint graph");
+      const count = claim.checkpoints.entries[1];
+      if (!count || count.payload.kind !== "count" || count.payload.route !== "map-reduce" || count.payload.chunkCount !== chunkCount)
+        throw new TypeError("Map-reduce route checkpoint is incomplete");
+    }
     const snapshotResult = await classifyDependencyFailure(
       "CMS_TRANSIENT",
       () => dependencies.cms.snapshot(reportRunId),
@@ -374,6 +430,28 @@ export async function executeReportWorker(
       ...claim.checkpoints,
       entries: [...claim.checkpoints.entries],
     };
+    if (checkpointSet.route === "map-reduce") {
+      const key = snapshot.comments.length === 0 ? null : typeof dependencies.evidenceKeyProvider === "function"
+        ? await dependencies.evidenceKeyProvider(modelConfig.evidenceKeyId)
+        : null;
+      if (snapshot.comments.length > 0 && !key)
+        throw Object.assign(new TypeError("Injected per-run evidence key is required"), { code: "CONFIGURATION" as const });
+      const state = { stateVersion, checkpointSet, staged };
+      const result = await executeMapReduceStages({
+        reportRunId,
+        snapshotEnvelope: snapshotResult.snapshot,
+        modelConfig,
+        evidenceKey: key ?? "",
+        dependencies,
+        state,
+        updateState: (next) => {
+          stateVersion = next.stateVersion;
+          checkpointSet = next.checkpointSet;
+          staged = next.staged;
+        },
+      });
+      return result;
+    }
     for (const priorCheckpoint of checkpointSet.entries) {
       validateWorkerStageCheckpointV1(priorCheckpoint, {
         reportRunId,
@@ -381,10 +459,11 @@ export async function executeReportWorker(
         snapshot,
       });
     }
-    const checkpointDependencies: Record<WorkerCheckpointStage, readonly WorkerCheckpointStage[]> = {
+    const checkpointDependencies: Partial<Record<WorkerCheckpointStage, readonly WorkerCheckpointStage[]>> = {
       redact: [],
       count: ["redact"],
       direct: ["count"],
+      reduce: ["count"],
       validate: ["direct"],
       render: ["validate"],
       store: ["render"],
@@ -392,12 +471,12 @@ export async function executeReportWorker(
     const boundCheckpoints = new Map<WorkerCheckpointStage, WorkerCheckpoint>();
     for (const priorCheckpoint of checkpointSet.entries) {
       const expectedInputDigest = stageInputDigest({
-        stageKey: priorCheckpoint.stageKey,
+        stageKey: priorCheckpoint.stageKey as "redact" | "count" | "direct" | "validate" | "render" | "store",
         snapshotDigest: snapshotResult.snapshot.digestHex,
         sourceRevision: snapshot.sourceRevision,
         modelConfig,
         rendererVersion: dependencies.renderer.rendererVersion,
-        dependencies: checkpointDependencies[priorCheckpoint.stageKey].map((stageKey) => {
+        dependencies: (checkpointDependencies[priorCheckpoint.stageKey] ?? []).map((stageKey) => {
           const dependency = boundCheckpoints.get(stageKey);
           if (!dependency) throw new TypeError("Stored worker checkpoint dependency is missing");
           return { stageKey, outputDigest: dependency.outputDigest };
@@ -416,7 +495,7 @@ export async function executeReportWorker(
     ) => {
       const entries = new Map(checkpointSet.entries.map((entry) => [entry.stageKey, entry]));
       const inputDigest = stageInputDigest({
-        stageKey,
+        stageKey: stageKey as "redact" | "count" | "direct" | "validate" | "render" | "store",
         snapshotDigest: snapshotResult.snapshot.digestHex,
         sourceRevision: snapshot.sourceRevision,
         modelConfig,
@@ -444,9 +523,8 @@ export async function executeReportWorker(
     const needsNarrative = snapshot.comments.length > 0;
     let evidenceKey: string | Uint8Array | undefined;
     if (needsNarrative) {
-      if (typeof dependencies.analysisProvider !== "function" ||
-          typeof dependencies.evidenceKeyProvider !== "function")
-        throw Object.assign(new TypeError("Injected narrative and evidence-key providers are required"), { code: "CONFIGURATION" as const });
+      if (typeof dependencies.evidenceKeyProvider !== "function")
+        throw Object.assign(new TypeError("Injected evidence-key provider is required"), { code: "CONFIGURATION" as const });
       evidenceKey = await dependencies.evidenceKeyProvider(modelConfig.evidenceKeyId);
     }
     const modelRequest = createDirectModelRequestV1({
@@ -467,15 +545,35 @@ export async function executeReportWorker(
       if (typeof dependencies.countTokens !== "function")
         throw new TypeError("An injected CountTokens provider is required");
       const plan = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
-        planDirectExecutionV1({
+        planWorkerRouteV1({
           snapshot,
-          modelInput: modelRequest,
+          snapshotDigest: snapshotResult.snapshot.digestHex,
+          reportRunId,
+          evidenceKey: evidenceKey ?? "",
           modelConfig,
           countTokens: dependencies.countTokens!,
         }),
       );
       await addCheckpoint("count", plan.checkpoint, "common", ["redact"]);
-      checkpointSet = { ...checkpointSet, route: "direct" };
+      if (plan.route === "map-reduce") {
+        checkpointSet = { ...checkpointSet, route: "map-reduce", chunkCount: plan.chunkCount };
+        const state = { stateVersion, checkpointSet, staged };
+        const result = await executeMapReduceStages({
+          reportRunId,
+          snapshotEnvelope: snapshotResult.snapshot,
+          modelConfig,
+          evidenceKey: evidenceKey ?? "",
+          dependencies,
+          state,
+          updateState: (next) => {
+            stateVersion = next.stateVersion;
+            checkpointSet = next.checkpointSet;
+            staged = next.staged;
+          },
+        });
+        return result;
+      }
+      checkpointSet = { ...checkpointSet, route: "direct", chunkCount: null };
     }
     if (checkpointSet.route !== "direct")
       throw new TypeError("CountTokens did not select the direct worker route");
@@ -486,6 +584,8 @@ export async function executeReportWorker(
     if (existingDirect?.payload.kind === "direct") {
       directAnalysis = existingDirect.payload.validatedOutput as DirectAnalysisV1;
     } else if (needsNarrative) {
+      if (typeof dependencies.analysisProvider !== "function")
+        throw Object.assign(new TypeError("Injected direct-analysis provider is required"), { code: "CONFIGURATION" as const });
       const candidate = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
         dependencies.analysisProvider!(modelRequest),
       );

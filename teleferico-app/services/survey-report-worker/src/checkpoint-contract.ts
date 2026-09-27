@@ -36,8 +36,11 @@ export type WorkerStageCheckpointV1 = {
   readonly completedAt: string;
   readonly payload:
     | { readonly kind: "redact"; readonly recordCount: number; readonly redactionVersion: string }
-    | { readonly kind: "count"; readonly segmentTokens: { readonly instructions: number; readonly schema: number; readonly metrics: number; readonly comments: number; readonly reservedOutput: number; readonly headroom: number }; readonly totalTokens: number }
+    | { readonly kind: "count"; readonly requestDigest: string; readonly segmentTokens: { readonly instructions: number; readonly schema: number; readonly metrics: number; readonly comments: number; readonly reservedOutput: number; readonly headroom: number }; readonly totalTokens: number }
+    | { readonly kind: "count"; readonly route: "map-reduce"; readonly directRequestDigest: string; readonly directSegmentTokens: Record<string, number>; readonly directTotalTokens: number; readonly attempts: readonly unknown[]; readonly chunkCount: number }
     | { readonly kind: "direct"; readonly validatedOutput: unknown }
+    | { readonly kind: "map"; readonly chunkId: string; readonly chunkIndex: number; readonly chunkCount: number; readonly evidenceKeyId: string; readonly coveredRefs: readonly string[]; readonly chunkMembershipDigest: string; readonly outputTokenCount: number; readonly outputRequestDigest: string; readonly validatedOutput: unknown }
+    | { readonly kind: "reduce"; readonly outputTokenCount: number; readonly outputRequestDigest: string; readonly validatedOutput: unknown }
     | { readonly kind: "validate"; readonly publishedAnalysis: unknown; readonly validatorVersion: string }
     | {
         readonly kind: "render";
@@ -213,23 +216,31 @@ export function validateWorkerStageCheckpointV1(
   value: unknown,
   expected: {
     readonly reportRunId: string;
-    readonly route: "direct";
+    readonly route: "direct" | "map-reduce";
+    readonly chunkCount?: number;
     readonly snapshot?: SnapshotV1;
   },
 ): asserts value is WorkerStageCheckpointV1 {
-  if (expected.route !== "direct") invalid();
   if (!exactKeys(value, CHECKPOINT_KEYS)) invalid();
-  const stageKeys: readonly WorkerCheckpointStage[] = [
-    "redact", "count", "direct", "validate", "render", "store",
-  ];
   const stageKey = value.stageKey as WorkerCheckpointStage;
   const stageIndex = value.stageIndex as number;
+  const mapMatch = /^map\.([1-9]\d*)-of-([1-9]\d*)$/.exec(String(stageKey));
+  const ordinaryIndexes: Record<string, number> = expected.route === "direct"
+    ? { redact: 0, count: 1, direct: 2, validate: 3, render: 4, store: 5 }
+    : { redact: 0, count: 1, reduce: 0, validate: 0, render: 0, store: 0 };
+  const expectedIndex = mapMatch
+    ? Number(mapMatch[1]) + 1
+    : expected.route === "map-reduce" && stageKey === "reduce"
+      ? Number(expected.chunkCount) + 2
+      : expected.route === "map-reduce" && ["validate", "render", "store"].includes(String(stageKey))
+        ? Number(expected.chunkCount) + ({ validate: 3, render: 4, store: 5 } as Record<string, number>)[String(stageKey)]!
+        : ordinaryIndexes[String(stageKey)];
   if (
     value.checkpointVersion !== CHECKPOINT_CONTRACT_VERSIONS.checkpoint ||
-    !stageKeys.includes(stageKey) ||
-    value.stageType !== value.stageKey ||
+    (expectedIndex === undefined || !Number.isSafeInteger(expectedIndex)) ||
+    (mapMatch ? value.stageType !== "map" : value.stageType !== value.stageKey) ||
     value.route !== (stageIndex <= 1 ? "common" : expected.route) ||
-    stageIndex !== stageKeys.indexOf(stageKey) ||
+    stageIndex !== expectedIndex ||
     value.status !== "valid" ||
     typeof value.inputDigest !== "string" ||
     typeof value.outputDigest !== "string" ||
@@ -237,7 +248,7 @@ export function validateWorkerStageCheckpointV1(
     Number(value.attempts) < 1 ||
     !validCheckpointInstant(value.completedAt) ||
     !isRecord(value.payload) ||
-    value.payload.kind !== value.stageKey
+    (mapMatch ? value.payload.kind !== "map" : value.payload.kind !== value.stageKey)
   )
     invalid();
 
@@ -250,15 +261,43 @@ export function validateWorkerStageCheckpointV1(
       invalid();
   } else if (payload.kind === "count") {
     const keys = ["instructions", "schema", "metrics", "comments", "reservedOutput", "headroom"];
-    const segmentTokens = payload.segmentTokens as Record<string, number>;
-    const totalTokens = payload.totalTokens as number;
-    if (!exactKeys(payload, ["kind", "requestDigest", "segmentTokens", "totalTokens"]) ||
-        typeof payload.requestDigest !== "string" || !DIGEST_PATTERN.test(payload.requestDigest) ||
-        !exactKeys(payload.segmentTokens, keys) ||
-        !keys.every((key) => Number.isSafeInteger(segmentTokens[key]) && segmentTokens[key] >= 0) ||
-        !Number.isSafeInteger(totalTokens) ||
-        totalTokens !== keys.reduce((sum, key) => sum + segmentTokens[key], 0))
-      invalid();
+    const validEvidence = (segmentTokens: unknown, totalTokens: unknown) => {
+      if (!exactKeys(segmentTokens, keys)) return false;
+      const values = segmentTokens as Record<string, number>;
+      return keys.every((key) => Number.isSafeInteger(values[key]) && values[key] >= 0) &&
+        Number.isSafeInteger(totalTokens) && totalTokens === keys.reduce((sum, key) => sum + values[key]!, 0);
+    };
+    if (payload.route === "map-reduce") {
+      if (!exactKeys(payload, ["kind", "requestDigest", "segmentTokens", "totalTokens", "route", "directRequestDigest", "directSegmentTokens", "directTotalTokens", "attempts", "chunkCount"])) invalid();
+      if (!DIGEST_PATTERN.test(String(payload.requestDigest)) || !validEvidence(payload.segmentTokens, payload.totalTokens) ||
+          !DIGEST_PATTERN.test(String(payload.directRequestDigest)) || !validEvidence(payload.directSegmentTokens, payload.directTotalTokens)) invalid();
+      if (!Number.isSafeInteger(payload.chunkCount) || Number(payload.chunkCount) < 1 ||
+          expected.snapshot && Number(payload.chunkCount) > expected.snapshot.comments.length) invalid();
+      if (!Array.isArray(payload.attempts) || payload.attempts.length !== payload.chunkCount) invalid();
+      if (payload.attempts.some((attempt, attemptIndex) => !exactKeys(attempt, ["chunkCount", "chunks"]) || attempt.chunkCount !== attemptIndex + 1 ||
+          !Array.isArray(attempt.chunks) || attempt.chunks.length !== attempt.chunkCount ||
+          attempt.chunks.some((chunk: unknown) => !exactKeys(chunk, ["requestDigest", "segmentTokens", "totalTokens"]) ||
+            !DIGEST_PATTERN.test(String(chunk.requestDigest)) || !validEvidence(chunk.segmentTokens, chunk.totalTokens)))) invalid();
+    } else {
+      const segmentTokens = payload.segmentTokens as Record<string, number>;
+      const totalTokens = payload.totalTokens as number;
+      if (!exactKeys(payload, ["kind", "requestDigest", "segmentTokens", "totalTokens"]) ||
+          typeof payload.requestDigest !== "string" || !DIGEST_PATTERN.test(payload.requestDigest) ||
+          !validEvidence(payload.segmentTokens, payload.totalTokens)) invalid();
+    }
+  } else if (payload.kind === "map") {
+    if (!mapMatch || !exactKeys(payload, ["kind", "chunkId", "chunkIndex", "chunkCount", "evidenceKeyId", "coveredRefs", "chunkMembershipDigest", "outputTokenCount", "outputRequestDigest", "validatedOutput"]) ||
+        payload.chunkId !== value.stageKey || Number(payload.chunkIndex) !== Number(mapMatch[1]) || Number(payload.chunkCount) !== Number(mapMatch[2]) ||
+        typeof payload.evidenceKeyId !== "string" || !KEY_ID_PATTERN.test(payload.evidenceKeyId) || !Array.isArray(payload.coveredRefs) ||
+        !DIGEST_PATTERN.test(String(payload.chunkMembershipDigest)) || !Number.isSafeInteger(payload.outputTokenCount) ||
+         Number(payload.outputTokenCount) < 0 || !DIGEST_PATTERN.test(String(payload.outputRequestDigest))) invalid();
+  } else if (payload.kind === "reduce") {
+    const output = payload.validatedOutput;
+    if (!exactKeys(payload, ["kind", "validatedOutput", "outputTokenCount", "outputRequestDigest"]) ||
+        !Number.isSafeInteger(payload.outputTokenCount) || Number(payload.outputTokenCount) < 0 || !DIGEST_PATTERN.test(String(payload.outputRequestDigest)) ||
+        !exactKeys(output, ["schemaVersion", "route", "sections", "mapOutputDigests"]) ||
+        output.schemaVersion !== "survey-analysis.v1" || output.route !== "reduce" || !Array.isArray(output.sections) ||
+        output.sections.length !== PUBLISHED_SECTION_KEYS.length || !Array.isArray(output.mapOutputDigests)) invalid();
   } else if (payload.kind === "direct") {
     const output = payload.validatedOutput;
     if (!exactKeys(payload, ["kind", "validatedOutput"]) ||
