@@ -170,19 +170,35 @@ the service is read. When raw bytes are not exposed by the runtime, the action
 requires a valid bounded `Content-Length` and rejects chunked/unmeasurable
 bodies. Thrown/ambiguous dispatcher outcomes and `DISPATCH_UNAVAILABLE` do not
 invoke compensation. The current default dispatcher remains unavailable and
-leaves runs queued. The local CMS reservation/outcome contract is added below;
-app integration and real enqueue/retry proof remain deferred to U10.
+leaves runs queued. An offline coordinator is available only when a caller
+supplies both an explicitly verified task client and an explicitly verified
+dispatch-state port; the production command factory supplies neither.
 
 The additive U10-A CMS seam persists `dispatchState` separately from
 `taskName`: `unreserved` → `reserved` before enqueue, then `created` or
 `unknown`. The authenticated `A/dispatch-state` action uses state-version CAS
-and identical-command replay. `unknown` leaves the generation queued and blocks
-another reservation. The action rejects every `absent` outcome and cannot commit
-queued→failed; caller-supplied `not-found` text is not authoritative proof. The
-existing U9-A1 v1 compensation action remains unchanged and still rejects a
-reserved task name. Reservation/created/unknown behavior is locally tested, but
-there is no verified absence path or real dispatch; both remain pending for a
-future authorized provider adapter.
+and identical-command replay. The coordinator records `created` only after a
+client response binds the exact run/name; `AlreadyExists` additionally requires
+independent client verification of the same run, name, and created state. It
+records `unknown` after ambiguous outcomes and never blindly retries them.
+Retries are allowed only for explicitly classified transient failures where the
+injected client proves the request never reached the task service; delays are
+deterministic at one and two seconds, with at most three calls. Auth/config
+rejections are terminal for that attempt and are recorded as `unknown`, because
+the current CMS contract has no absence state. In-process replay returns the
+coordinator's settled result. If a CMS reserve or outcome response is lost, the
+coordinator may repeat only the identical CAS command and relies on the CMS
+identical-command replay; a replayed reservation is never enqueued a second time
+and remains conservatively unavailable/unknown.
+
+The action rejects every `absent` outcome and cannot commit queued→failed;
+caller-supplied `not-found` text is not authoritative proof. The existing U9-A1
+v1 compensation action remains unchanged and rejects a reserved task name. The
+coordinator therefore never returns `noTaskCreated` or `exhausted` after
+reservation. A verified task-service absence path and compensation-compatible
+CMS evidence contract remain a separate operational/design gate; do not infer
+absence from retries, errors, or timeouts. No real Cloud Tasks client,
+credentials, queue, Cloud Run/OIDC composition, or live enqueue was added.
 
 The private worker exposes only `POST /internal/v1/report-runs:execute` with the exact closed body `{commandVersion:"survey-report-command.v1",reportRunId}`. The request target must have no query or fragment, the media type is `application/json` with optional UTF-8 charset, and the raw body is capped at 4 KiB. Authentication runs first: an injected verifier must validate the signed OIDC token and return a verified result; the handler then requires exact membership in its immutable issuer allowlist, exact audience and invoker principal, and valid `iat`, `exp`, and optional `nbf` claims. Missing verifier/policy/dependencies fail closed. Invalid OIDC is 401 `INVALID_OIDC`; the exact verified but non-allowlisted principal is 403 `FORBIDDEN_INVOKER` (the verifier/handler boundary does not accept unverified claims); wrong method is 405, unknown route is 404, query/invalid command is 400 `INVALID_COMMAND`, wrong media type is 415 `UNSUPPORTED_MEDIA_TYPE`, and raw >4 KiB is 413 `PAYLOAD_TOO_LARGE`. No CMS, snapshot, provider, or artifact operation begins before authentication and bounded command validation.
 

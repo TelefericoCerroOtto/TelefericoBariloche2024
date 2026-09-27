@@ -268,6 +268,69 @@ describe("feedback administration command contracts", () => {
     });
   });
 
+  it("uses the injected task client and dispatch-state port through the admin command transport", async () => {
+    const generationInputs = generationInputsSource();
+    const reserve = vi.fn(async ({ reportRunId, taskName }: {
+      reportRunId: string;
+      taskName: string;
+    }) => ({
+      reportRunId,
+      taskName,
+      stateVersion: 2,
+      dispatchState: "reserved" as const,
+      dispatchAttemptCount: 0,
+      replayed: false,
+    }));
+    const record = vi.fn(async ({ reportRunId, taskName, outcome, dispatchAttemptCount }: {
+      reportRunId: string;
+      taskName: string;
+      outcome: "created" | "unknown";
+      dispatchAttemptCount: 1 | 2 | 3;
+    }) => ({
+      reportRunId,
+      taskName,
+      stateVersion: 3,
+      dispatchState: outcome,
+      dispatchAttemptCount,
+      replayed: false,
+    }));
+    const createTask = vi.fn(async ({ reportRunId, taskName }: {
+      reportRunId: string;
+      taskName: string;
+    }) => ({ reportRunId, taskName }));
+    const fetchImplementation = vi.fn(async (_input, init) =>
+      init?.method === "POST"
+        ? Response.json({ data: { ...validCoreRow, stateVersion: 1 } }, { status: 201 })
+        : Response.json({ data: [] }, { status: 200 }),
+    );
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      generationInputs,
+      taskClient: {
+        trust: "verified",
+        createTask,
+        verifyExistingTask: async () => null,
+      },
+      dispatchState: { trust: "verified", reserve, record },
+      fetchImplementation,
+    });
+
+    await expect(transport.generate(validGenerate)).resolves.toMatchObject({
+      dispatch: { status: "dispatched", dispatchAttemptCount: 1 },
+    });
+    expect(reserve).toHaveBeenCalledWith(expect.objectContaining({
+      reportRunId: validResult.reportRunId,
+      taskName: validResult.dispatch.taskName,
+      expectedStateVersion: 1,
+    }));
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "created",
+      expectedStateVersion: 2,
+    }));
+    expect(createTask).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects a malformed CMS run identifier before dispatch", async () => {
     const dispatch = vi.fn();
     const transport = createFeedbackAdminCommandTransport({

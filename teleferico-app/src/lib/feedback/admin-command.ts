@@ -2,8 +2,11 @@ import "server-only";
 
 import { ENV_KEYS } from "@/lib/constants/env.const";
 import {
+  createCoordinatedFeedbackDispatcher,
   createFeedbackTaskName,
   createUnavailableFeedbackDispatcher,
+  type FeedbackCloudTaskClient,
+  type FeedbackDispatchStatePort,
   type FeedbackReportDispatcher,
   type FeedbackDispatchResult,
 } from "./dispatch";
@@ -252,6 +255,8 @@ type Options = {
   readonly token: string;
   readonly fetchImplementation?: typeof fetch;
   readonly dispatcher?: FeedbackReportDispatcher;
+  readonly taskClient?: FeedbackCloudTaskClient;
+  readonly dispatchState?: FeedbackDispatchStatePort;
   readonly generationInputs?: GenerationInputsPort;
 };
 
@@ -272,7 +277,13 @@ export type GenerationInputsPort = {
 export function createFeedbackAdminCommandTransport(options: Options) {
   const fetchImplementation = options.fetchImplementation ?? fetch;
   const dispatcher =
-    options.dispatcher ?? createUnavailableFeedbackDispatcher();
+    options.dispatcher ??
+    (options.taskClient && options.dispatchState
+      ? createCoordinatedFeedbackDispatcher({
+          taskClient: options.taskClient,
+          dispatchState: options.dispatchState,
+        })
+      : createUnavailableFeedbackDispatcher());
   const request = (path: string, init: RequestInit = {}) =>
     fetchImplementation(`${options.baseUrl.replace(/\/$/, "")}${path}`, {
       ...init,
@@ -379,6 +390,7 @@ export function createFeedbackAdminCommandTransport(options: Options) {
       dispatchResult = await dispatcher.dispatch({
         reportRunId: result.reportRunId,
         taskName,
+        expectedStateVersion: result.stateVersion,
       });
     } catch {
       throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
