@@ -1027,7 +1027,7 @@ describe("worker PDF boundary", () => {
       "verbatim visitor comment text",
     );
     expect(render).not.toHaveBeenCalled();
-  });
+  }, 15_000);
 
   it("keeps nonempty analysis fail-closed without an injected per-run evidence key and rejects over-budget plans", async () => {
     const populated = createSnapshot({

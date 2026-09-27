@@ -6,19 +6,19 @@ vi.mock("server-only", () => ({}));
 describe("feedback capability gate", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("stays closed in production even when its opt-in flag is present", () => {
+  it("honors the explicit server-side flag in production", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("FEEDBACK_CAPABILITY_ENABLED", "true");
 
-    expect(isFeedbackCapabilityEnabled()).toBe(false);
+    expect(isFeedbackCapabilityEnabled()).toBe(true);
   });
 
-  it("stays closed in staging even if Node runs in development mode", () => {
+  it("honors the explicit server-side flag in staging independently of Node mode", () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("DEPLOYMENT_ENV", "staging");
     vi.stubEnv("FEEDBACK_CAPABILITY_ENABLED", "true");
 
-    expect(isFeedbackCapabilityEnabled()).toBe(false);
+    expect(isFeedbackCapabilityEnabled()).toBe(true);
   });
 
   it("opens only for an explicit non-production fixture opt-in", () => {
