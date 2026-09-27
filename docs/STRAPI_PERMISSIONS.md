@@ -233,7 +233,7 @@ It permits only reservation, created, and unknown states; it rejects claimed
 absence and cannot compensate a queued generation. These custom actions use the
 application user JWT, not an API token. The worker
 `survey-report-generation.workerClaim`, `workerSnapshot`, `workerCheckpoint`,
-`workerSourceRead`, `workerComplete`, and `workerFail` actions are available only through Strapi's native
+`workerSourceRead`, `workerReportDownloadMetadata`, `workerComplete`, and `workerFail` actions are available only through Strapi's native
 `content-api-token` strategy, each with its own exact custom API-token action
 scope. Their controllers also require Strapi's runtime-selected strategy,
 `kind: "content-api"`, and `type: "custom"` before controller body measurement,
@@ -265,8 +265,10 @@ or partial PDF. Identical terminal replay returns the current version without a
 write; changed replay and non-running states return bounded conflicts. This
 action does not send failure alerts; any future alert integration must run only
 after terminal state commits. No default permission is added.
-Report history remains owned by U8-A, and PDF artifact storage/download remains
-deferred to U12. No production permission mutation is performed.
+Report history remains owned by U8-A. U12 adds only the server-mediated private
+metadata action; production artifact storage/download remains unavailable until
+separately approved reader and credential wiring exists. No production permission
+mutation is performed.
 Anonymous requests and ungranted actions remain denied. Application-level
 capabilities are enforced by the Next.js administration routes, and the
 `update`/`delete` core actions remain outside the command access model.
@@ -283,7 +285,7 @@ administration routes. They are not current Strapi action IDs or durable Users
 | `feedback.comments.read` | Filtered comments | U8 administration routes |
 | `feedback.reports.read` | Reports and generations | U8 administration routes |
 | `feedback.reports.generate` | Generate and retry | U8 administration routes |
-| `feedback.reports.download` | Mediated report download | U12 deterministic delivery |
+| `feedback.reports.read` | Reports, generations, and mediated report download | U8 administration routes / U12 deterministic delivery |
 
 Exact intake, administration, and worker actions and grants remain owned by U7,
 U8, and U10 respectively. U9-A1 adds only the registered
@@ -389,6 +391,21 @@ generation to succeeded. Nonempty-comment semantic output and map/reduce remain
 fail-closed. Neither action returns checkpoint payloads or adds a default or
 production grant; the synthetic HTTP harness grants each scope only to a
 disposable custom content API token.
+
+U12 registers
+`api::survey-report-generation.survey-report-generation.workerReportDownloadMetadata`
+on `GET /api/tb113/worker/reports/:reportId/download-metadata`. It requires
+Strapi's native `content-api-token` strategy and this exact custom-token scope.
+The controller checks Strapi's selected strategy and custom-token identity before
+validating the report ID or querying the database. It returns only the report ID,
+owning generation ID/status, private object key, SHA-256, byte size, and fixed PDF
+MIME after confirming the immutable report belongs to a succeeded generation.
+It returns no signed/storage URL, report content, comments, or prompts. It does
+not authorize native report collection reads. JWT and anonymous callers are
+denied even if a synthetic Users & Permissions role is granted the same action;
+the isolated HTTP harness grants this action only to a disposable custom content
+API token. This repository adds no persistent role/token grant and provisions no
+production credential.
 
 Verify the baseline with:
 

@@ -1824,3 +1824,58 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
 - **Correction:** The initial criterion-8 failure above remains historical evidence. The current local POC passes all nine criteria under criterion 8's static client-root/transitive-import interpretation; this does not prove exact production Next.js bundle reachability.
 - **Parent spotcheck:** On exact parent `496decf63f0a2b13c90ab537928dbb2f2098ec15`, the focused worker/POC Vitest selection passed 2 files/32 tests, app typecheck passed, and `git diff --check` passed.
 - **Status boundary:** U12 remains unchecked pending production renderer/image integration, storage/download, and operational gates. No real GCS was used; production readiness and runtime adoption are not claimed.
+
+### `U12-A: Private report download metadata and mediated PDF response`
+
+- **Identity and scope:** Implemented on clean branch `feat/app-cms-root-tb-113-report-download-mediation` at exact starting HEAD `b0603009ddd02c12f8f06c618b46db712d337d00`. Added a custom-token-only CMS metadata action, server-authenticated app PDF endpoint, and injected synthetic metadata/object-reader integration. No live GCS reader, credential/token, persistent grant, deployment default, public permission, or live download UI was added; formal U12 remains open.
+- **Requirements references:** `specs/deterministic-report-delivery/spec.md` private artifact and download purpose; `specs/feedback-administration/spec.md` report read capability and download mediation.
+- **Design references:** `design/02-http-contracts.md` administration download response and CMS-only metadata action.
+- **Task references:** `tasks.md` U12-A local storage/download behavior; U12 formal completion remains unchecked.
+- **Dependencies:** Existing atomic report completion, immutable report/schema metadata, app origin/session/CSRF/capability gate, exact-origin CMS transport, and existing worker synthetic HTTP harness.
+- **Changed paths:**
+  - `teleferico-cms/src/api/survey-report-generation/routes/admin.js`, `controllers/survey-report-generation.js`, `services/survey-report-generation.js`, and `services/private-report-download-metadata.js` — registers the exact `workerReportDownloadMetadata` custom content API action, guards identity before query/validation, verifies private report metadata against its succeeded owning generation, and returns only the closed metadata envelope.
+  - `teleferico-cms/test/feedback/private-report-source.test.js` — extends the existing isolated PostgreSQL/Strapi/app-loader harness with anonymous/JWT/wrong-scope/query/ID/unknown/failed-generation denials, exact action-token success, app transport, and in-memory object digest/size verification. Only synthetic database roles/tokens are granted.
+  - `teleferico-cms/test/feedback/permissions/{permissions,postgres-permissions}.test.js` and `docs/STRAPI_PERMISSIONS.md` — register/document the no-default-grant action and test the real isolated permission baseline.
+  - `teleferico-app/services/survey-report-worker/src/private-report-download-metadata-transport.ts` and its test — action-bound, exact-origin, bounded, deadline-limited server-only metadata transport.
+  - `teleferico-app/src/lib/feedback/{admin-route,report-download.ts}` and `src/app/api/admin/feedback/reports/[reportId]/download/{route.ts,route.test.ts}` — capability/session/CSRF/origin-guarded handler, fail-closed production composition, injected metadata/object reader, bounded digest-verified PDF response, and security/response tests.
+  - `teleferico-app/src/lib/feedback/{private-report-download-metadata-transport.test.ts,report-download.test.ts}` — transport validation, object digest/size/MIME, wrong generation, and no-storage-on-invalid-metadata coverage.
+  - `openspec/changes/tb-113-visitor-feedback/{README.md,design/02-http-contracts.md,direct-implementation-ledger.md}` — documents the U12 local boundary, action contract, production fail-closed limit, and observed evidence.
+- **Implementation:**
+  - Status: `passed` for the local synthetic implementation only; production storage composition and operational readiness remain `pending`.
+  - Revision: uncommitted on the supplied starting HEAD; no commit or PR created.
+  - Pull request: `not created` by instruction.
+  - Merge evidence: `pending`.
+- **Focused tests:**
+  - Command: `npm --prefix teleferico-cms test -- feedback/private-report-source`
+  - Status: `passed`.
+  - Exact result: exit 0; 3 tests passed (outer isolated Strapi/PostgreSQL harness plus 2 nested synthetic worker scenarios), including custom-token-only metadata HTTP, succeeded-generation ownership, app transport, and in-memory PDF digest/size checks; owned services and database volumes were cleaned up.
+  - Command: `npm --prefix teleferico-cms test -- feedback/permissions`
+  - Status: `passed`.
+  - Exact result: exit 0; 4 tests passed, including actual isolated Strapi route registration and confirmation of zero default role/token grants.
+  - Command: `pnpm --dir teleferico-app exec vitest run 'src/app/api/admin/feedback/runtime-harness.test.ts' 'src/app/api/admin/feedback/generations/route.test.ts' 'src/app/api/admin/feedback/reports/[reportId]/download/route.test.ts' 'src/lib/feedback/private-report-download-metadata-transport.test.ts' 'src/lib/feedback/report-download.test.ts'`
+  - Status: `passed`.
+  - Exact result: exit 0; 5 files passed; 27 tests passed.
+  - Command: `pnpm --dir teleferico-app run typecheck`
+  - Status: `passed`.
+  - Exact result: exit 0; no TypeScript diagnostics.
+  - Command: `git diff --check`
+  - Status: `passed`.
+  - Exact result: exit 0; no whitespace errors, including this ledger entry.
+- **Intentionally deferred validation:**
+  - Exact scenario: production GCS object reads with approved credentials/identity and any staging smoke.
+  - Status: `not run`.
+  - Reason: User explicitly prohibited real GCS, credentials, remote services, and operational work; no production object-reader composition exists, so the app factory fails closed.
+  - Intended future checkpoint: separately authorized operational integration after development; keep `FEEDBACK_CAPABILITY_ENABLED` false until applicable gates pass.
+  - Owner: TB-113 app/platform implementer and authorized operations owner.
+- **Acceptance criteria:**
+  - Capability flag short-circuits authentication and services; app origin/session/CSRF/read capability precede metadata/storage; malformed ID and unknown query are rejected: `passed` by Route Handler Vitest.
+  - CMS uses exact native custom API token action; anonymous, ordinary JWT even with synthetic matching action, wrong-scope token, query, malformed ID, unknown report, and report tied to non-succeeded generation fail closed before unauthorized data projection: `passed` by isolated Strapi/PostgreSQL HTTP harness.
+  - Successful response returns only closed metadata from report and succeeded source-generation relation; no comments, analysis, or storage URL: `passed` by Strapi integration and app transport tests.
+  - Object reader receives the fixed private key plus 25 MiB bound; wrong size, PDF signature, MIME/metadata, or SHA-256 fails before response; verified PDF uses attachment, `private, no-store`, SHA-256 ETag, content length, and `nosniff`: `passed` by Vitest synthetic readers/Route Handler.
+  - Production GCS reader/credential, browser download UI, production grant, live capability enablement, and formal U12 completion: `not run` / `pending` by scope.
+- **Residual risks:** Production object storage has intentionally no reader or credential binding; report download returns bounded 503 until approved composition is supplied. The Route Handler buffers at most 25 MiB so it can verify the complete digest before any bytes are returned.
+- **Rollback boundary:** Revert the CMS metadata service/action/controller wiring and permission tests/docs, app metadata transport/download service/Route Handler and focused tests, and this U12 README/design/ledger documentation as one unit. Preserve existing report completion, U8 report history, the private source reader, and all prior worker behavior.
+- **Later integrated validation:** `pending`; require separately approved production-adjacent storage integration without enabling production defaults.
+- **Correction or follow-up:** The permissions selector initially caught a stale expected application capability (`feedback.reports.download`); its assertion now matches the user-selected existing `feedback.reports.read` route capability, and the required CMS permissions selector passes 4/4.
+- **Formal SDD reconstruction:** `pending`; no formal task checkbox, verification, or archive status was changed.
+- **Candidate authored size:** `1,033` additions plus deletions against exact starting HEAD `b0603009ddd02c12f8f06c618b46db712d337d00`; method: tracked `git diff --numstat HEAD` additions+deletions plus authored line counts of all seven untracked text files, including this entry; below the standing 6,000-line ceiling.

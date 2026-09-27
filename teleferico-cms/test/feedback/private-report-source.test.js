@@ -13,6 +13,8 @@ const { createSubmissionPersistence } = require('../../src/api/survey-submission
 const OWNER = 'tb113_test_private_report_source';
 const SOURCE_ENDPOINT = '/api/tb113/worker/report-source';
 const SOURCE_ACTION = 'api::survey-report-generation.survey-report-generation.workerSourceRead';
+const REPORT_METADATA_ACTION = 'api::survey-report-generation.survey-report-generation.workerReportDownloadMetadata';
+const REPORT_METADATA_PATH = '/api/tb113/worker/reports';
 const WORKER_RUN_ID = '00000000-0000-4000-8000-000000000120';
 const GENERATION_UID = 'api::survey-report-generation.survey-report-generation';
 const WORKER_ACTIONS = {
@@ -170,6 +172,8 @@ function loadPrivateReportSourceAppModules() {
       if (request === 'server-only') return {};
       if (request === 'node:net') return require('node:net');
       if (request === 'node:crypto') return require('node:crypto');
+      if (request === 'node:fs') return require('node:fs');
+      if (request === 'node:fs/promises') return require('node:fs/promises');
       if (request === 'echarts') return require(path.join(repositoryRoot, 'teleferico-app/node_modules/echarts'));
       return load(resolveLocalModule(realPath, request));
     }
@@ -192,6 +196,15 @@ function loadPrivateReportSourceAppModules() {
     createPrivateReportSourceTransport: load(
       path.join(workerRoot, 'private-report-source-transport.ts'),
     ).createPrivateReportSourceTransport,
+    createPrivateReportDownloadMetadataTransport: load(
+      path.join(workerRoot, 'private-report-download-metadata-transport.ts'),
+    ).createPrivateReportDownloadMetadataTransport,
+    reportDownloadMetadataAction: load(
+      path.join(workerRoot, 'private-report-download-metadata-transport.ts'),
+    ).REPORT_DOWNLOAD_METADATA_ACTION,
+    createFeedbackReportDownload: load(
+      path.join(feedbackRoot, 'report-download.ts'),
+    ).createFeedbackReportDownload,
     buildAuthoritativeGenerationInputsV1: load(
       path.join(workerRoot, 'authoritative-generation-source.ts'),
     ).buildAuthoritativeGenerationInputsV1,
@@ -318,6 +331,7 @@ async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRu
     where: { type: 'authenticated' },
   });
   for (const action of Object.values(WORKER_ACTIONS)) await grant(strapi, role.id, action);
+  await grant(strapi, role.id, REPORT_METADATA_ACTION);
   await grant(strapi, role.id, `${GENERATION_UID}.create`);
   const jwtUser = await userPermissions.service('user').add({
     username: 'tb113-worker-client-jwt',
@@ -878,6 +892,119 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
   assert.equal(report.validatedAnalysisJson.sections.length, 7);
   assert.equal(report.objectKey, `private/feedback-reports/${report.reportId}/report.pdf`);
   assert.equal(report.sourceGeneration.reportRunId, reportRunId);
+
+  const metadataToken = await tokenService.create({
+    name: 'tb113-report-download-metadata-synthetic',
+    description: 'Disposable token scoped only to private report download metadata',
+    type: 'custom',
+    permissions: [REPORT_METADATA_ACTION],
+    lifespan: null,
+  });
+  assert.deepEqual(metadataToken.permissions, [REPORT_METADATA_ACTION]);
+  const metadataPath = `${REPORT_METADATA_PATH}/${report.reportId}/download-metadata`;
+  const metadataUrl = `http://127.0.0.1:${port}${metadataPath}`;
+  const anonymousMetadata = await fetch(metadataUrl);
+  assert.ok([401, 403].includes(anonymousMetadata.status));
+  const jwtMetadata = await captureQueries(strapi, () => fetch(metadataUrl, {
+    headers: { authorization: `Bearer ${jwt}` },
+  }));
+  assert.ok([401, 403].includes(jwtMetadata.result.status));
+  assert.equal(jwtMetadata.queries.some(({ sql }) => /survey_reports|survey_report_generations/.test(sql)), false);
+  const wrongScopeMetadata = await captureQueries(strapi, () => fetch(metadataUrl, {
+    headers: { authorization: `Bearer ${actionTokens[WORKER_ACTIONS.claim]}` },
+  }));
+  assert.equal(wrongScopeMetadata.result.status, 403);
+  assert.equal(wrongScopeMetadata.queries.some(({ sql }) => /survey_reports|survey_report_generations/.test(sql)), false);
+  const malformedMetadataId = await fetch(`http://127.0.0.1:${port}${REPORT_METADATA_PATH}/not-a-uuid/download-metadata`, {
+    headers: { authorization: `Bearer ${metadataToken.accessKey}` },
+  });
+  assert.equal(malformedMetadataId.status, 400);
+  const unexpectedMetadataQuery = await captureQueries(strapi, () => fetch(`${metadataUrl}?unexpected=value`, {
+    headers: { authorization: `Bearer ${metadataToken.accessKey}` },
+  }));
+  assert.equal(unexpectedMetadataQuery.result.status, 400);
+  assert.equal(unexpectedMetadataQuery.queries.some(({ sql }) => /survey_reports|survey_report_generations/.test(sql)), false);
+  const missingMetadata = await fetch(`http://127.0.0.1:${port}${REPORT_METADATA_PATH}/00000000-0000-4000-8000-000000000199/download-metadata`, {
+    headers: { authorization: `Bearer ${metadataToken.accessKey}` },
+  });
+  assert.equal(missingMetadata.status, 404);
+
+  const observedMetadataRequests = [];
+  const fetchMetadataThroughOwnedStrapi = async (input, init = {}) => {
+    if (
+      !(input instanceof URL) ||
+      input.origin !== WORKER_ORIGIN ||
+      input.pathname !== metadataPath ||
+      input.search !== '' ||
+      init.method !== 'GET' ||
+      init.redirect !== 'error' ||
+      init.cache !== 'no-store' ||
+      new Headers(init.headers).get('authorization') !== `Bearer ${metadataToken.accessKey}`
+    )
+      throw new Error('The metadata integration rejected an unapproved URL or token');
+    const localResponse = await fetch(`http://127.0.0.1:${port}${input.pathname}`, {
+      method: init.method,
+      headers: init.headers,
+      cache: 'no-store',
+      redirect: 'error',
+      signal: init.signal,
+    });
+    const logicalResponse = new Response(localResponse.body, {
+      status: localResponse.status,
+      statusText: localResponse.statusText,
+      headers: localResponse.headers,
+    });
+    Object.defineProperties(logicalResponse, {
+      url: { value: input.href },
+      redirected: { value: false },
+    });
+    observedMetadataRequests.push({ path: input.pathname, method: init.method });
+    return logicalResponse;
+  };
+  const { createPrivateReportDownloadMetadataTransport, reportDownloadMetadataAction, createFeedbackReportDownload } = loadPrivateReportSourceAppModules();
+  const metadataTransport = createPrivateReportDownloadMetadataTransport({
+    baseUrl: WORKER_ORIGIN,
+    allowedOrigins: [WORKER_ORIGIN],
+    tokenProvider: async (action) => ({ action, value: action === REPORT_METADATA_ACTION ? metadataToken.accessKey : '' }),
+    fetchImplementation: fetchMetadataThroughOwnedStrapi,
+  });
+  assert.equal(reportDownloadMetadataAction, REPORT_METADATA_ACTION);
+  const artifact = artifacts.get(`${reportRunId}:${report.artifactSha256}`);
+  assert.ok(artifact);
+  const downloads = createFeedbackReportDownload({
+    metadataReader: metadataTransport,
+    objectReader: {
+      async read(objectKey, maxBytes) {
+        assert.equal(objectKey, report.objectKey);
+        assert.equal(maxBytes, 25 * 1024 * 1024);
+        return artifact.bytes;
+      },
+    },
+  });
+  const mediated = await downloads.read(report.reportId);
+  assert.equal(mediated.metadata.reportRunId, reportRunId);
+  assert.equal(mediated.metadata.generationStatus, 'succeeded');
+  assert.deepEqual(mediated.bytes, artifact.bytes);
+  assert.deepEqual(observedMetadataRequests, [{ path: metadataPath, method: 'GET' }]);
+  assert.equal(JSON.stringify(mediated.metadata).includes(PRIVATE_WORKER_COMMENT), false);
+  assert.equal(JSON.stringify(mediated.metadata).includes('https://'), false);
+  await strapi.db.query(GENERATION_UID).update({
+    where: { reportRunId },
+    data: { status: 'failed' },
+  });
+  try {
+    const incompleteGeneration = await fetch(metadataUrl, {
+      headers: { authorization: `Bearer ${metadataToken.accessKey}` },
+    });
+    assert.equal(incompleteGeneration.status, 503);
+    assert.equal((await incompleteGeneration.text()).includes(report.objectKey), false);
+  } finally {
+    await strapi.db.query(GENERATION_UID).update({
+      where: { reportRunId },
+      data: { status: 'succeeded' },
+    });
+  }
+
   const completionReplay = await client.complete(reportRunId, {
     contractVersion: 'survey-worker-cms.v1',
     expectedStateVersion: 8,

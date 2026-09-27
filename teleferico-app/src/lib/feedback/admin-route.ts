@@ -16,6 +16,10 @@ import {
   parseRetryCommand,
 } from "./admin-command";
 import {
+  FeedbackReportDownloadError,
+  getFeedbackReportDownload,
+} from "./report-download";
+import {
   parseFeedbackAdminFilters,
   projectAspects,
   projectComments,
@@ -226,5 +230,55 @@ export async function handleFeedbackAdminRetry(
     return NextResponse.json(result, { status: 202 });
   } catch (error) {
     return commandErrorResponse(error);
+  }
+}
+
+export async function handleFeedbackAdminReportDownload(
+  req: NextRequest,
+  reportId: string,
+) {
+  if (!isFeedbackCapabilityEnabled())
+    return feedbackCapabilityUnavailableResponse();
+  const auth = await authenticate(req, "feedback.reports.read");
+  if (!auth.ok) return auth.response;
+  if (
+    req.nextUrl.search !== "" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(reportId)
+  )
+    return NextResponse.json(
+      { error: { code: "VALIDATION_FAILED", message: "The report identifier is invalid" } },
+      { status: 400 },
+    );
+
+  try {
+    const { metadata, bytes } = await getFeedbackReportDownload().read(reportId);
+    const body = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(body).set(bytes);
+    return new Response(body, {
+      status: 200,
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Content-Disposition": `attachment; filename="feedback-report-${reportId}.pdf"`,
+        "Content-Length": String(metadata.size),
+        "Content-Type": "application/pdf",
+        ETag: `"${metadata.sha256}"`,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    const code =
+      error instanceof FeedbackReportDownloadError ? error.code : "UPSTREAM_UNAVAILABLE";
+    return NextResponse.json(
+      {
+        error: {
+          code,
+          message:
+            code === "NOT_FOUND"
+              ? "The requested report was not found"
+              : "Feedback administration is temporarily unavailable",
+        },
+      },
+      { status: code === "NOT_FOUND" ? 404 : 503 },
+    );
   }
 }
