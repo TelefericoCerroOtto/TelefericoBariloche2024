@@ -18,6 +18,7 @@ const FUTURE_CAPABILITIES = [
   'feedback.reports.generate',
   'feedback.reports.read',
 ];
+const { validateQuery: validateFeedbackAdminReadQuery } = require('../../../src/api/survey-report-generation/services/private-feedback-admin-read');
 
 test('survey routes expose bounded native reads and mediated writes', () => {
   for (const api of SURVEY_APIS.filter((candidate) => ['survey-version', 'survey-settings', 'survey-qr-point'].includes(candidate))) {
@@ -47,6 +48,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     ['workerCheckpoint', 'api::survey-report-generation.survey-report-generation.workerCheckpoint'],
     ['workerComplete', 'api::survey-report-generation.survey-report-generation.workerComplete'],
     ['workerReportDownloadMetadata', 'api::survey-report-generation.survey-report-generation.workerReportDownloadMetadata'],
+    ['feedbackAdminRead', 'api::survey-report-generation.survey-report-generation.feedbackAdminRead'],
   ]);
   assert.match(generationController, /createCoreController/);
   assert.match(generationController, /dispatchFailure/);
@@ -59,6 +61,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     ['POST', '/tb113/worker/generations/:reportRunId/fail', 'survey-report-generation.workerFail'],
     ['GET', '/tb113/worker/generations/:reportRunId/snapshot', 'survey-report-generation.workerSnapshot'],
     ['POST', '/tb113/worker/report-source', 'survey-report-generation.workerSourceRead'],
+    ['POST', '/tb113/admin/feedback/read', 'survey-report-generation.feedbackAdminRead'],
     ['GET', '/tb113/worker/reports/:reportId/download-metadata', 'survey-report-generation.workerReportDownloadMetadata'],
     ['PUT', '/tb113/worker/generations/:reportRunId/checkpoints/:stageKey', 'survey-report-generation.workerCheckpoint'],
     ['POST', '/tb113/worker/generations/:reportRunId/complete', 'survey-report-generation.workerComplete'],
@@ -108,8 +111,34 @@ test('documents D31 names only as future application capabilities', () => {
   assert.match(documentation, /workerComplete/);
   assert.match(documentation, /workerFail/);
   assert.match(documentation, /workerReportDownloadMetadata/);
+  assert.match(documentation, /feedbackAdminRead/);
   assert.match(documentation, /workerClaim.*content-api-token/s);
   assert.match(documentation, /Users & Permissions JWT is denied even if its\s+role is granted the\s+same action/);
   assert.match(documentation, /no default role or API-token/);
   assert.doesNotMatch(documentation, /bootstrap-feedback-permissions|--plan|--verify|--apply/);
+});
+
+test('private feedback admin read accepts only the closed fixed-page contract', () => {
+  const request = {
+    contractVersion: 'feedback-admin-source.v1',
+    resource: 'submissions',
+    acceptedAtGte: '2026-08-01T03:00:00.000Z',
+    acceptedAtLte: '2026-08-21T02:59:59.999Z',
+    dataCutoffAt: '2026-08-21T12:00:00.000Z',
+    cursor: null,
+    pageSize: 25,
+  };
+  assert.doesNotThrow(() => validateFeedbackAdminReadQuery(request));
+  for (const invalid of [
+    { ...request, pageSize: 26 },
+    { ...request, resource: 'worker' },
+    { ...request, cursor: 'bad cursor' },
+    { ...request, unknown: true },
+    { ...request, dataCutoffAt: 'not-a-date' },
+  ]) {
+    assert.throws(
+      () => validateFeedbackAdminReadQuery(invalid),
+      (error) => error.code === 'VALIDATION_FAILED',
+    );
+  }
 });

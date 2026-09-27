@@ -289,6 +289,59 @@ platform/CMS runtime operator owns creation, least-privilege grant, and rotation
 the named individual owner remains unassigned. This operational setup and the
 real token remain separately authorized work.
 
+### Authenticated private feedback administration source pages
+
+The app's administrative reader MUST NOT use the worker-only `workerSourceRead`
+action or native collection `find` as a substitute for a complete private
+projection. CMS exposes a separate `POST /api/tb113/admin/feedback/read` action,
+`api::survey-report-generation.survey-report-generation.feedbackAdminRead`,
+restricted to Strapi's `content-api-token` strategy and that exact custom-token
+scope. The controller checks the runtime-selected strategy and custom-token
+identity before request-body measurement, validation, or database access.
+Anonymous callers, Users & Permissions JWTs (even with a synthetic matching
+action), worker tokens, and custom tokens without this action are denied. No
+default or persistent grant is added.
+
+The closed `feedback-admin-source.v1` request contains one resource
+(`submissions`, `versions`, `points`, or `reports`), the inclusive UTC accepted
+time window, immutable `dataCutoffAt`, opaque cursor, and fixed page size 25.
+Every response returns the exact contract/resource/cursor, stable complete-set
+total, up to 25 items, and a next cursor. The cursor binds resource, time window,
+and cutoff. Submissions reuse the explicit private projection and receipt-keyset
+order from `workerSourceRead`; source rows after the cutoff remain in the bounded
+window for the shared core to exclude. Reports keyset by `createdAt DESC,
+reportId ASC`, are included only through the frozen cutoff, and require the
+related generation to be succeeded. Report counts come from the persisted
+generation snapshot; private object key and artifact metadata remain server-side.
+Malformed cursors, unstable totals, missing relations/private fields, invalid
+report ownership/metadata, or interrupted pagination fail the whole read; no
+partial chart, metric, comment, or report projection is returned.
+
+The Next.js browser-facing Route Handler retains trusted-origin, session/CSRF,
+and route capability checks before creating or invoking the private transport.
+That transport requires an explicit canonical HTTPS origin allowlist and a token
+provider bound to only `feedbackAdminRead`; it rejects redirects, cross-origin
+responses, oversized bodies, malformed pages, and cursor loops. The repository
+does not provision a production custom token, approved CMS origin, or runtime
+token-provider composition. Therefore this reader remains fail-closed in the
+default runtime until those separately authorized operational inputs exist; the
+session JWT and public content token are not fallbacks. The source-to-browser
+projection strips object keys. `canDownload` remains false unless a mediated
+report reader is actually available and the report metadata is valid; no private
+object key is used to infer download capability. The production download reader
+remains unavailable without approved storage composition.
+
+Local app tests prove stable pagination over more than 25 submissions and more
+than 100 reports, one cutoff across all resource reads, and rejection of missing
+private comment/digest data. The CMS HTTP integration seeds more than 25
+submissions and proves exact-scope denial/allow, complete 25+2 pagination,
+stable totals, private fields, and cutoff-bound cursor rejection. A CMS HTTP
+scenario with more than 100 persisted reports and the production token/origin
+composition remain `not run`; report pagination uses the same 25-row cursor
+contract, while the exact CMS/database proof remains a required integrated
+checkpoint. No feature flag, persistent grant, token, environment value, or
+deployment setting changes here.
+
 ### U10-A10 same-process app↔CMS integration evidence
 
 The disposable `teleferico-cms/test/feedback/private-report-source.test.js`

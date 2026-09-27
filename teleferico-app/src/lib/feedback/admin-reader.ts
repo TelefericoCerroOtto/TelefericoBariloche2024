@@ -1,8 +1,14 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-
-import { ENV_KEYS } from "@/lib/constants/env.const";
+import type {
+  FeedbackAdminSourcePage,
+  FeedbackAdminSourcePageQuery,
+  FeedbackAdminSourceResource,
+} from "./private-admin-read-transport";
+import {
+  createPrivateFeedbackAdminReadTransport,
+  type PrivateFeedbackAdminReadTransportOptions,
+} from "./private-admin-read-transport";
 import {
   createSnapshot,
   normalizePeriod,
@@ -15,9 +21,6 @@ import type {
   FeedbackAdminSource,
 } from "@/types/api/admin/feedback";
 
-const READER_TIMEOUT_MS = 10_000;
-const PAGE_SIZE = 100;
-const MAX_SUBMISSIONS = 1_000;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export class FeedbackAdminReaderError extends Error {
@@ -30,9 +33,7 @@ export class FeedbackAdminReaderError extends Error {
 }
 
 type ReaderOptions = {
-  readonly baseUrl: string;
-  readonly token: string;
-  readonly fetchImplementation?: typeof fetch;
+  readonly readPage: (query: FeedbackAdminSourcePageQuery) => Promise<FeedbackAdminSourcePage>;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -48,20 +49,40 @@ function unwrap(value: unknown): JsonRecord | null {
   return attributes;
 }
 
-function collection(value: unknown): readonly JsonRecord[] {
-  if (!isRecord(value) || !Array.isArray(value.data))
+function sourcePage(
+  value: unknown,
+  query: FeedbackAdminSourcePageQuery,
+): FeedbackAdminSourcePage {
+  const envelopeKeys = [
+    "contractVersion",
+    "resource",
+    "cursor",
+    "nextCursor",
+    "total",
+    "items",
+  ];
+  if (
+    !isRecord(value) ||
+    Object.keys(value).length !== envelopeKeys.length ||
+    !envelopeKeys.every((key) => Object.hasOwn(value, key)) ||
+    value.contractVersion !== "feedback-admin-source.v1" ||
+    value.resource !== query.resource ||
+    value.cursor !== query.cursor ||
+    (value.nextCursor !== null && typeof value.nextCursor !== "string") ||
+    !Number.isSafeInteger(value.total) ||
+    Number(value.total) < 0 ||
+    !Array.isArray(value.items) ||
+    value.items.length > 25 ||
+    !value.items.every(isRecord) ||
+    (value.nextCursor !== null && value.nextCursor === query.cursor) ||
+    (value.nextCursor !== null && value.items.length === 0)
+  )
     throw new FeedbackAdminReaderError();
-  return value.data
-    .map(unwrap)
-    .filter((item): item is JsonRecord => item !== null);
+  return value as unknown as FeedbackAdminSourcePage;
 }
 
 function string(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
-}
-
-function sha256(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
 function recordId(value: JsonRecord): string | null {
@@ -86,19 +107,29 @@ function parseSubmission(value: JsonRecord): SnapshotSubmission | null {
   const receipt = value.receipt;
   const locale = value.locale;
   const overallRating = value.overallRating;
+  const hasComment = Object.hasOwn(value, "comment");
+  const hasPayloadDigest = Object.hasOwn(value, "payloadDigest");
   const pointKey = point?.pointKey;
   const versionKey = version?.versionKey;
   if (
     !id ||
     !string(acceptedAt) ||
     !string(receipt) ||
+    value.source !== "valid_qr" ||
     !["es", "en", "pt"].includes(String(locale)) ||
     !Number.isInteger(overallRating) ||
     Number(overallRating) < 1 ||
     Number(overallRating) > 5 ||
     !string(pointKey) ||
     !string(versionKey) ||
-    aspects.length === 0
+    aspects.length === 0 ||
+    !string(point?.id) ||
+    !string(version?.id) ||
+    !hasComment ||
+    (value.comment !== null && typeof value.comment !== "string") ||
+    !hasPayloadDigest ||
+    !string(value.payloadDigest) ||
+    !/^[a-f0-9]{64}$/.test(value.payloadDigest)
   )
     return null;
   const normalizedAspects = aspects.map((aspect) => {
@@ -126,39 +157,34 @@ function parseSubmission(value: JsonRecord): SnapshotSubmission | null {
     recordId: id,
     receipt,
     acceptedAt,
-    source: string(value.source) ? value.source : "valid_qr",
+    source: "valid_qr",
     locale: locale as "es" | "en" | "pt",
     versionKey,
     pointKey,
     overallRating: Number(overallRating) as 1 | 2 | 3 | 4 | 5,
-    commentText: typeof value.comment === "string" ? value.comment : null,
+    commentText: value.comment as string | null,
     aspects: validAspects,
-    payloadDigest: string(value.payloadDigest)
-      ? value.payloadDigest
-      : sha256({
-          receipt,
-          acceptedAt,
-          pointKey,
-          versionKey,
-          overallRating,
-          aspects: normalizedAspects,
-        }),
+    payloadDigest: value.payloadDigest,
   };
 }
 
 function parsePoints(values: readonly JsonRecord[]) {
-  return values
-    .filter(
+  if (
+    values.some(
       (value) =>
-        string(value.pointKey) &&
-        string(value.displayName) &&
-        Number.isInteger(value.sortOrder),
+        !string(value.id) ||
+        !string(value.documentId) ||
+        !string(value.pointKey) ||
+        typeof value.displayName !== "string" ||
+        !Number.isInteger(value.sortOrder),
     )
-    .map((value) => ({
-      pointKey: value.pointKey as string,
-      displayName: value.displayName as string,
-      sortOrder: Number(value.sortOrder),
-    }));
+  )
+    throw new FeedbackAdminReaderError();
+  return values.map((value) => ({
+    pointKey: value.pointKey as string,
+    displayName: value.displayName as string,
+    sortOrder: Number(value.sortOrder),
+  }));
 }
 
 function parseDefinitions(values: readonly JsonRecord[]) {
@@ -167,15 +193,22 @@ function parseDefinitions(values: readonly JsonRecord[]) {
     { aspectKey: string; sortOrder: number }
   >();
   for (const version of values) {
+    if (
+      !string(version.id) ||
+      !string(version.documentId) ||
+      !string(version.versionKey)
+    )
+      throw new FeedbackAdminReaderError();
     const aspects = Array.isArray(version.aspects) ? version.aspects : [];
     for (const raw of aspects) {
       const aspect = unwrap(raw);
       if (
         !aspect ||
+        !string(aspect.id) ||
         !string(aspect.aspectKey) ||
         !Number.isInteger(aspect.sortOrder)
       )
-        continue;
+        throw new FeedbackAdminReaderError();
       definitions.set(aspect.aspectKey, {
         aspectKey: aspect.aspectKey,
         sortOrder: Number(aspect.sortOrder),
@@ -189,10 +222,30 @@ function parseDefinitions(values: readonly JsonRecord[]) {
   );
 }
 
+function assertRelations(
+  submissions: readonly JsonRecord[],
+  points: readonly JsonRecord[],
+  versions: readonly JsonRecord[],
+): void {
+  const pointIds = new Map(points.map((point) => [String(point.id), point.pointKey]));
+  const versionIds = new Map(versions.map((version) => [String(version.id), version.versionKey]));
+  for (const submission of submissions) {
+    const point = relation(submission.qrPoint);
+    const version = relation(submission.surveyVersion);
+    if (
+      !point ||
+      !version ||
+      pointIds.get(String(point.id)) !== point.pointKey ||
+      versionIds.get(String(version.id)) !== version.versionKey
+    )
+      throw new FeedbackAdminReaderError();
+  }
+}
+
 function parseReports(
   values: readonly JsonRecord[],
 ): readonly FeedbackAdminReport[] {
-  return values.flatMap((value) => {
+  return values.map((value) => {
     const id = recordId(value);
     const reportId = value.reportId;
     const reportRunId = value.generationRunId;
@@ -205,40 +258,43 @@ function parseReports(
       !string(reportRunId) ||
       !string(periodStart) ||
       !string(periodEnd) ||
-      !string(createdAt)
+      !string(createdAt) ||
+      value.status !== "succeeded" ||
+      !string(value.dataCutoffAt) ||
+      !Number.isSafeInteger(value.analyzedResponseCount) ||
+      Number(value.analyzedResponseCount) < 0 ||
+      !Number.isSafeInteger(value.analyzedCommentCount) ||
+      Number(value.analyzedCommentCount) < 0 ||
+      !Number.isSafeInteger(value.artifactSize) ||
+      Number(value.artifactSize) < 0 ||
+      value.status !== "succeeded" ||
+      !Object.hasOwn(value, "requestedBy") ||
+      (value.requestedBy !== null && !string(value.requestedBy)) ||
+      !Object.hasOwn(value, "generatedBy") ||
+      (value.generatedBy !== null && !string(value.generatedBy)) ||
+      !string(value.artifactSha256) ||
+      !/^[a-f0-9]{64}$/.test(value.artifactSha256)
     )
-      return [];
-    return [
-      {
-        reportId,
-        reportRunId,
-        name: `Feedback report ${periodStart}–${periodEnd}`,
-        period: {
-          from: String(periodStart).slice(0, 10),
-          to: String(periodEnd).slice(0, 10),
-        },
-        status: "succeeded",
-        analyzedResponseCount: Number.isSafeInteger(value.analyzedResponseCount)
-          ? Number(value.analyzedResponseCount)
-          : 0,
-        analyzedCommentCount: Number.isSafeInteger(value.analyzedCommentCount)
-          ? Number(value.analyzedCommentCount)
-          : 0,
-        dataCutoffAt: string(value.dataCutoffAt)
-          ? value.dataCutoffAt
-          : createdAt,
-        createdAt,
-        requestedBy: null,
-        generatedBy: null,
-        canDownload: string(value.objectKey),
-        artifactSize: Number.isSafeInteger(value.artifactSize)
-          ? Number(value.artifactSize)
-          : 0,
-        artifactSha256: string(value.artifactSha256)
-          ? value.artifactSha256
-          : "0".repeat(64),
+      throw new FeedbackAdminReaderError();
+    return {
+      reportId,
+      reportRunId,
+      name: `Feedback report ${periodStart}–${periodEnd}`,
+      period: {
+        from: String(periodStart).slice(0, 10),
+        to: String(periodEnd).slice(0, 10),
       },
-    ];
+      status: "succeeded",
+      analyzedResponseCount: Number(value.analyzedResponseCount),
+      analyzedCommentCount: Number(value.analyzedCommentCount),
+      dataCutoffAt: value.dataCutoffAt,
+      createdAt,
+      requestedBy: value.requestedBy,
+      generatedBy: value.generatedBy,
+      canDownload: false,
+      artifactSize: Number(value.artifactSize),
+      artifactSha256: value.artifactSha256,
+    };
   });
 }
 
@@ -260,53 +316,53 @@ function commentRecords(
   }));
 }
 
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch {
-    throw new FeedbackAdminReaderError();
-  }
-}
-
 export function createFeedbackAdminReader(options: ReaderOptions) {
-  const fetchImplementation = options.fetchImplementation ?? fetch;
-  const request = async (path: string, query: URLSearchParams) => {
-    let response: Response;
-    try {
-      response = await fetchImplementation(
-        `${options.baseUrl.replace(/\/$/, "")}${path}?${query.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            authorization: `Bearer ${options.token}`,
-            accept: "application/json",
-          },
-          cache: "no-store",
-          signal: AbortSignal.timeout(READER_TIMEOUT_MS),
-        },
-      );
-    } catch {
-      throw new FeedbackAdminReaderError();
-    }
-    if (!response.ok) throw new FeedbackAdminReaderError();
-    return readJson(response);
-  };
-
+  if (typeof options.readPage !== "function") throw new FeedbackAdminReaderError();
   const readCollection = async (
-    path: string,
-    query: URLSearchParams,
-    max = PAGE_SIZE,
+    resource: FeedbackAdminSourceResource,
+    range: { readonly acceptedAtGte: string; readonly acceptedAtLte: string },
+    dataCutoffAt: string,
   ) => {
     const rows: JsonRecord[] = [];
-    for (let page = 1; page <= Math.ceil(max / PAGE_SIZE); page += 1) {
-      const pageQuery = new URLSearchParams(query);
-      pageQuery.set("pagination[page]", String(page));
-      pageQuery.set("pagination[pageSize]", String(PAGE_SIZE));
-      const values = collection(await request(path, pageQuery));
-      rows.push(...values);
-      if (values.length < PAGE_SIZE) return rows;
+    let expectedTotal: number | null = null;
+    let cursor: string | null = null;
+    const seenCursors = new Set<string>();
+    const seenRows = new Set<string>();
+    while (true) {
+      const query = { resource, ...range, dataCutoffAt, cursor };
+      let raw: unknown;
+      try {
+        raw = await options.readPage(query);
+      } catch {
+        throw new FeedbackAdminReaderError();
+      }
+      const result = sourcePage(raw, query);
+      if (expectedTotal === null) expectedTotal = result.total;
+      if (
+        result.total !== expectedTotal ||
+        rows.length + result.items.length > expectedTotal ||
+        (result.items.length === 0 && rows.length < expectedTotal) ||
+        (result.nextCursor === null && rows.length + result.items.length !== expectedTotal) ||
+        (result.nextCursor !== null && rows.length + result.items.length >= expectedTotal)
+      )
+        throw new FeedbackAdminReaderError();
+      for (const item of result.items) {
+        const identity =
+          resource === "submissions"
+            ? item.receipt
+            : resource === "reports"
+              ? item.reportId
+              : item.documentId;
+        if (typeof identity !== "string" || identity.length === 0 || seenRows.has(identity))
+          throw new FeedbackAdminReaderError();
+        seenRows.add(identity);
+      }
+      rows.push(...result.items);
+      if (result.nextCursor === null) return rows;
+      if (seenCursors.has(result.nextCursor)) throw new FeedbackAdminReaderError();
+      seenCursors.add(result.nextCursor);
+      cursor = result.nextCursor;
     }
-    throw new FeedbackAdminReaderError();
   };
 
   return {
@@ -317,46 +373,23 @@ export function createFeedbackAdminReader(options: ReaderOptions) {
         throw new FeedbackAdminReaderError();
       const normalized = normalizePeriod(filters);
       const dataCutoffAt = new Date().toISOString();
-      const submissionsQuery = new URLSearchParams({
-        "filters[acceptedAt][$gte]": normalized.previous.utcStart,
-        "filters[acceptedAt][$lte]": normalized.current.utcEnd,
-        "populate[0]": "qrPoint",
-        "populate[1]": "surveyVersion",
-        "populate[2]": "ratings",
-        "sort[0]": "acceptedAt:asc",
-        "sort[1]": "receipt:asc",
-      });
+      const range = {
+        acceptedAtGte: normalized.previous.utcStart,
+        acceptedAtLte: normalized.current.utcEnd,
+      };
       const [submissionRows, pointRows, versionRows, reportRows] =
         await Promise.all([
-          readCollection(
-            "/api/survey-submissions",
-            submissionsQuery,
-            MAX_SUBMISSIONS,
-          ),
-          readCollection(
-            "/api/survey-qr-points",
-            new URLSearchParams({
-              "sort[0]": "sortOrder:asc",
-              "sort[1]": "pointKey:asc",
-            }),
-          ),
-          readCollection(
-            "/api/survey-versions",
-            new URLSearchParams({
-              "populate[0]": "aspects",
-              "sort[0]": "versionKey:asc",
-            }),
-          ),
-          readCollection(
-            "/api/survey-reports",
-            new URLSearchParams({ "sort[0]": "createdAt:desc" }),
-          ),
+          readCollection("submissions", range, dataCutoffAt),
+          readCollection("points", range, dataCutoffAt),
+          readCollection("versions", range, dataCutoffAt),
+          readCollection("reports", range, dataCutoffAt),
         ]);
+      assertRelations(submissionRows, pointRows, versionRows);
       const submissions = submissionRows.map(parseSubmission);
       if (submissions.some((item) => item === null))
         throw new FeedbackAdminReaderError();
       const snapshot = createSnapshot({
-        sourceRevision: "feedback-admin.native.v1",
+        sourceRevision: "feedback-admin.private.v1",
         createdAt: dataCutoffAt,
         dataCutoffAt,
         range: { from: filters.from, to: filters.to },
@@ -387,8 +420,17 @@ export function createFeedbackAdminReader(options: ReaderOptions) {
   };
 }
 
-export function getFeedbackAdminReader(token: string) {
-  const baseUrl = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL];
-  if (!baseUrl) throw new FeedbackAdminReaderError();
-  return createFeedbackAdminReader({ baseUrl, token });
+export function createConfiguredFeedbackAdminReader(
+  options: PrivateFeedbackAdminReadTransportOptions,
+) {
+  const transport = createPrivateFeedbackAdminReadTransport(options);
+  return createFeedbackAdminReader({ readPage: transport.readPage });
+}
+
+export function getFeedbackAdminReader(): ReturnType<
+  typeof createFeedbackAdminReader
+> {
+  // No approved exact-origin/custom-token composition exists. A session JWT or
+  // the public content token cannot replace this private admin action.
+  throw new FeedbackAdminReaderError();
 }

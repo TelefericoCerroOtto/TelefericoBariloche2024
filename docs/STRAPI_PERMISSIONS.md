@@ -115,8 +115,8 @@ This server-only token is used exclusively by the visitor feedback CMS transport
 | `survey-settings.find` / `findOne` | ✅ |
 | `survey-version.find` / `findOne` | ✅ |
 | `survey-qr-point.find` / `findOne` | ✅ |
-| `survey-submission.find` / `findOne` | ✅ for admin readers only |
-| `survey-report.find` / `findOne` | ✅ for admin readers only |
+| `survey-submission.find` / `findOne` | —; private admin projection uses `feedbackAdminRead` |
+| `survey-report.find` / `findOne` | —; private admin projection uses `feedbackAdminRead` |
 | `survey-submission.submit` | ✅ |
 
 ## Transfer tokens
@@ -217,9 +217,11 @@ Anything not listed in this document is not part of the expected permission mode
 
 The survey catalog (`survey-version`, `survey-settings`, `survey-qr-point`,
 `survey-submission`, `survey-report-generation`, and `survey-report`) remains
-disabled by default. The feedback transport uses only bounded native `find`/
-`findOne` reads for the survey catalog plus the token-authenticated
-`survey-submission` command listed above. U8-B uses the native Strapi core
+disabled by default. Public feedback transport uses only bounded native `find`/
+`findOne` reads for the public survey catalog plus the token-authenticated
+`survey-submission` command listed above. Private administration reads use the
+separate custom `feedbackAdminRead` action described below, not native
+submission/report collection reads. U8-B uses the native Strapi core
 routes for `survey-report-generation` through the server-mediated application
 user JWT from the Auth.js session. The corresponding Users & Permissions role
 may receive only the native `find` and `create` actions needed by the command
@@ -406,6 +408,22 @@ denied even if a synthetic Users & Permissions role is granted the same action;
 the isolated HTTP harness grants this action only to a disposable custom content
 API token. This repository adds no persistent role/token grant and provisions no
 production credential.
+
+U8-A registers the distinct
+`api::survey-report-generation.survey-report-generation.feedbackAdminRead`
+action at `POST /api/tb113/admin/feedback/read`. It requires Strapi's native
+`content-api-token` strategy and one custom token scoped only to this action; it
+does not authorize native collection `find`/`findOne`. The controller verifies
+the selected strategy and custom-token identity before measuring or reading the
+body or querying private source data. Anonymous callers, Users & Permissions
+JWTs (even if a synthetic role has the same action), worker tokens, and custom
+tokens without this scope are denied. The closed v1 contract pages submissions,
+versions, QR points, and reports with stable totals and a cutoff-bound cursor.
+No default/persistent grant, production token, approved CMS origin, environment
+value, or runtime token-provider binding is created here. The app's Route Handler
+must still authenticate the administrator session and capability before its
+server-only transport runs; production reads remain unavailable until a
+separately authorized runtime composition is supplied.
 
 Verify the baseline with:
 

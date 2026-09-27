@@ -209,6 +209,35 @@ module.exports = createCoreController(
         };
       }
     },
+    async feedbackAdminRead(ctx) {
+      if (!hasCustomContentApiTokenIdentity(ctx)) {
+        ctx.status = 403;
+        ctx.body = { error: { code: 'FORBIDDEN', message: 'The feedback administration read is not authorized' } };
+        return;
+      }
+      const bodySize = measureDispatchFailureRequestBody(ctx.request);
+      if (bodySize === null || bodySize > 4 * 1024) {
+        ctx.status = 413;
+        ctx.body = { error: { code: 'PAYLOAD_TOO_LARGE', message: 'The feedback administration query is too large' } };
+        return;
+      }
+      try {
+        const result = await strapi.service('api::survey-report-generation.survey-report-generation')
+          .readFeedbackAdminPage(ctx.request.body);
+        ctx.status = 200;
+        ctx.body = result;
+      } catch (error) {
+        const code = error.code ?? 'INTERNAL_ERROR';
+        const status = code === 'VALIDATION_FAILED' ? 400 : code === 'SOURCE_UNAVAILABLE' ? 503 : 500;
+        ctx.status = status;
+        ctx.body = {
+          error: {
+            code: status === 400 ? 'VALIDATION_FAILED' : 'UPSTREAM_UNAVAILABLE',
+            message: status === 400 ? 'The feedback administration query is invalid' : 'Feedback administration is unavailable',
+          },
+        };
+      }
+    },
     async workerReportDownloadMetadata(ctx) {
       if (!hasCustomContentApiTokenIdentity(ctx)) {
         ctx.status = 403;

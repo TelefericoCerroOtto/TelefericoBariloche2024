@@ -166,9 +166,7 @@ export async function handleFeedbackAdminRead(
     if (!auth.ok) return auth.response;
     const filters = parseFeedbackAdminFilters(route, query(req));
     if (!filters.ok) return errorResponse(filters.code);
-    const result = await getFeedbackAdminReader(auth.session.jwt).read(
-      filters.value,
-    );
+    const result = await getFeedbackAdminReader().read(filters.value);
     return NextResponse.json(
       { ...result, data: projectAnalytics(result.data, filters.value) },
       { status: 200 },

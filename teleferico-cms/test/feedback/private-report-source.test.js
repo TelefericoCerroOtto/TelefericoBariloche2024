@@ -14,7 +14,9 @@ const OWNER = 'tb113_test_private_report_source';
 const SOURCE_ENDPOINT = '/api/tb113/worker/report-source';
 const SOURCE_ACTION = 'api::survey-report-generation.survey-report-generation.workerSourceRead';
 const REPORT_METADATA_ACTION = 'api::survey-report-generation.survey-report-generation.workerReportDownloadMetadata';
+const ADMIN_READ_ACTION = 'api::survey-report-generation.survey-report-generation.feedbackAdminRead';
 const REPORT_METADATA_PATH = '/api/tb113/worker/reports';
+const ADMIN_READ_ENDPOINT = '/api/tb113/admin/feedback/read';
 const WORKER_RUN_ID = '00000000-0000-4000-8000-000000000120';
 const GENERATION_UID = 'api::survey-report-generation.survey-report-generation';
 const WORKER_ACTIONS = {
@@ -72,6 +74,19 @@ async function readPage(port, token, input) {
   } catch {
     body = text;
   }
+  return { status: response.status, body };
+}
+
+async function readAdminPage(port, token, input) {
+  const response = await fetch(`http://127.0.0.1:${port}${ADMIN_READ_ENDPOINT}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  });
+  const body = await response.json();
   return { status: response.status, body };
 }
 
@@ -1907,6 +1922,7 @@ test('private report source requires its isolated worker action and returns comp
       where: { type: 'authenticated' },
     });
     await grant(strapi, regularRole.id, SOURCE_ACTION);
+    await grant(strapi, regularRole.id, ADMIN_READ_ACTION);
     const regularJwt = await createPrincipal(strapi, {
       name: 'tb113-source-regular-user',
       email: 'tb113-source-regular-user@local.invalid',
@@ -1928,8 +1944,16 @@ test('private report source requires its isolated worker action and returns comp
       permissions: [],
       lifespan: null,
     });
+    const adminReadToken = await tokenService.create({
+      name: 'tb113-private-feedback-admin-read',
+      description: 'Disposable token scoped only to private feedback administration reads',
+      type: 'custom',
+      permissions: [ADMIN_READ_ACTION],
+      lifespan: null,
+    });
     assert.deepEqual(workerToken.permissions, [SOURCE_ACTION]);
     assert.deepEqual(ungrantedToken.permissions, []);
+    assert.deepEqual(adminReadToken.permissions, [ADMIN_READ_ACTION]);
 
     const version = await strapi.documents('api::survey-version.survey-version').create({
       data: {
@@ -2023,6 +2047,47 @@ test('private report source requires its isolated worker action and returns comp
       headers: { authorization: `Bearer ${workerToken.accessKey}` },
     });
     assert.equal(tokenCollectionRead.status, 403);
+
+    const adminInput = {
+      contractVersion: 'feedback-admin-source.v1',
+      resource: 'submissions',
+      acceptedAtGte: '2026-08-01T00:00:00.000Z',
+      acceptedAtLte: '2026-09-12T23:59:59.999Z',
+      dataCutoffAt: RANGE.dataCutoffAt,
+      cursor: null,
+      pageSize: 25,
+    };
+    const adminAnonymous = await readAdminPage(port, null, adminInput);
+    assert.ok([401, 403].includes(adminAnonymous.status));
+    const jwtAdminDenied = await captureQueries(strapi, () => readAdminPage(port, regularJwt, adminInput));
+    assert.ok([401, 403].includes(jwtAdminDenied.result.status));
+    assert.equal(jwtAdminDenied.queries.some((sql) => /survey_submissions|survey_reports/.test(sql)), false);
+    assert.equal((await readAdminPage(port, workerToken.accessKey, adminInput)).status, 403);
+    const customUnscoped = await readAdminPage(port, ungrantedToken.accessKey, adminInput);
+    assert.equal(customUnscoped.status, 403);
+    const adminPageOne = await readAdminPage(port, adminReadToken.accessKey, adminInput);
+    assert.equal(adminPageOne.status, 200);
+    assert.equal(adminPageOne.body.contractVersion, 'feedback-admin-source.v1');
+    assert.equal(adminPageOne.body.resource, 'submissions');
+    assert.equal(adminPageOne.body.total, 27);
+    assert.equal(adminPageOne.body.items.length, 25);
+    assert.equal(typeof adminPageOne.body.nextCursor, 'string');
+    assert.equal(Object.hasOwn(adminPageOne.body.items[0], 'comment'), true);
+    assert.equal(typeof adminPageOne.body.items[0].payloadDigest, 'string');
+    const adminPageTwo = await readAdminPage(port, adminReadToken.accessKey, {
+      ...adminInput,
+      cursor: adminPageOne.body.nextCursor,
+    });
+    assert.equal(adminPageTwo.status, 200);
+    assert.equal(adminPageTwo.body.total, 27);
+    assert.equal(adminPageTwo.body.items.length, 2);
+    assert.equal(adminPageTwo.body.nextCursor, null);
+    const adminCursorCutoffMismatch = await readAdminPage(port, adminReadToken.accessKey, {
+      ...adminInput,
+      cursor: adminPageOne.body.nextCursor,
+      dataCutoffAt: '2026-09-10T12:00:01.000Z',
+    });
+    assert.equal(adminCursorCutoffMismatch.status, 400);
 
     const capturedFirst = await captureQueries(strapi, () => readPage(port, workerToken.accessKey, input));
     const first = capturedFirst.result;
