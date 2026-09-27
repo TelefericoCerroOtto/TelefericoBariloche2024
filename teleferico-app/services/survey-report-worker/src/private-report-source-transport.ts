@@ -1,6 +1,6 @@
 import "server-only";
 
-import { isIP } from "node:net";
+import { validateTrustedCmsOrigin } from "./cms-origin";
 import type {
   GenerationSourcePageQueryV1,
   GenerationSourcePageV1,
@@ -15,29 +15,6 @@ const MAX_RESPONSE_BYTES = 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 10_000;
 const MAX_WINDOW_MILLISECONDS = 732 * 24 * 60 * 60 * 1000;
 const CURSOR_PATTERN = /^[A-Za-z0-9_-]{1,1024}$/;
-const BLOCKED_HOST_SUFFIXES = [
-  ".localhost",
-  ".local",
-  ".localdomain",
-  ".internal",
-  ".lan",
-  ".home",
-  ".home.arpa",
-  ".corp",
-  ".intranet",
-  ".private",
-  ".test",
-  ".example",
-  ".invalid",
-  ".onion",
-  ".nip.io",
-  ".sslip.io",
-  ".xip.io",
-  ".localtest.me",
-  ".lvh.me",
-] as const;
-const BLOCKED_HOST_LABEL = /metadata|meta.?data|instance.?data|^localhost$|^localdomain$/i;
-const DNS_LABEL_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 export type PrivateReportSourcePageResponseV1 = {
   readonly contractVersion: typeof CONTRACT_VERSION;
@@ -79,47 +56,6 @@ function fail(code: PrivateReportSourceTransportErrorCode): never {
 
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function validPublicHttpsOrigin(value: unknown): URL {
-  try {
-    if (typeof value !== "string" || value.length === 0 || value.trim() !== value)
-      return fail("INVALID_CONFIGURATION");
-    const url = new URL(value);
-    const hostname = url.hostname.replace(/^\[|\]$/g, "");
-    const labels = hostname.split(".");
-    if (
-      url.protocol !== "https:" ||
-      url.username !== "" ||
-      url.password !== "" ||
-      url.pathname !== "/" ||
-      url.search !== "" ||
-      url.hash !== "" ||
-      value !== url.origin ||
-      hostname.endsWith(".") ||
-      !hostname.includes(".") ||
-      isIP(hostname) !== 0 ||
-      labels.some(
-        (label) =>
-          !DNS_LABEL_PATTERN.test(label) ||
-          label.startsWith("xn--") ||
-          BLOCKED_HOST_LABEL.test(label),
-      ) ||
-      BLOCKED_HOST_SUFFIXES.some((suffix) => hostname.endsWith(suffix))
-    )
-      return fail("INVALID_CONFIGURATION");
-    return url;
-  } catch {
-    return fail("INVALID_CONFIGURATION");
-  }
-}
-
-function validatedOriginAllowlist(value: unknown): ReadonlySet<string> {
-  if (!Array.isArray(value) || value.length === 0)
-    return fail("INVALID_CONFIGURATION");
-  const origins = value.map((origin) => validPublicHttpsOrigin(origin).origin);
-  if (new Set(origins).size !== origins.length) fail("INVALID_CONFIGURATION");
-  return new Set(origins);
 }
 
 function validInstant(value: string): boolean {
@@ -264,9 +200,12 @@ function safeError(error: unknown): PrivateReportSourceTransportError {
 export function createPrivateReportSourceTransport(
   options: PrivateReportSourceTransportOptions,
 ) {
-  const allowedOrigins = validatedOriginAllowlist(options.allowedOrigins);
-  const baseUrl = validPublicHttpsOrigin(options.baseUrl);
-  if (!allowedOrigins.has(baseUrl.origin)) fail("INVALID_CONFIGURATION");
+  let baseUrl: URL;
+  try {
+    baseUrl = validateTrustedCmsOrigin(options.baseUrl, options.allowedOrigins);
+  } catch {
+    return fail("INVALID_CONFIGURATION");
+  }
   if (typeof options.tokenProvider !== "function")
     fail("INVALID_CONFIGURATION");
   const fetchImplementation = options.fetchImplementation ?? fetch;

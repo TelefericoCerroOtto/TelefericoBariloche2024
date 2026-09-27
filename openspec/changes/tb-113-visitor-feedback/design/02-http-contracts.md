@@ -400,6 +400,54 @@ GCP/IAM, deployment, or operational rollback was exercised. Those runtime gates
 remain pending; the default feature flag and persistent permissions remain
 unchanged.
 
+### U10-A15 app worker CMS HTTP client
+
+`teleferico-app/services/survey-report-worker/src/worker-cms-client.ts` is a
+server-only implementation of the existing `WorkerCmsClient` seam for claim,
+snapshot, and fail. Its factory requires a canonical HTTPS DNS hostname, an
+explicit nonempty exact-origin allowlist, and an injected token provider that
+receives the exact native custom-token action identity and returns that same
+identity with the opaque token. The shared validator checks URL/hostname syntax
+and exact allowlist membership before the provider can run. It does **not**
+resolve DNS, validate resolved IP addresses, pin addresses, or prove network
+egress; split-horizon DNS or rebinding can still resolve an allowed hostname to
+a private address. Do not treat this hostname gate as a complete SSRF control.
+The fixed routes and methods are `POST W/claim`, `GET W/snapshot`, and `POST
+W/fail`; request/response schemas are closed, bodies and deadlines are bounded,
+redirects and cross-origin responses are rejected, and only fixed non-sensitive
+transport errors escape. The same syntax/allowlist helper is shared with the
+private source transport.
+
+Before wiring any operational token provider, require a separately approved
+trusted CMS origin plus verified DNS/address controls and network egress
+restriction that prevent the bearer token from reaching private, loopback,
+link-local, or otherwise unapproved addresses. This candidate provides no DNS/IP
+pinning, resolution check, or egress proof.
+
+Snapshot responses are checked by the existing snapshot-envelope digest
+validator. Private comments are returned only as part of the validated private
+snapshot result; they are never logged or included in transport errors. Claim
+and fail replay envelopes are validated without inventing or mutating state.
+`checkpoint` rejects with `UNKNOWN_VERSION` before token acquisition because CMS
+still rejects checkpoint writes before transaction entry. `complete` rejects as
+unsupported because the CMS HTTP action is not registered. Neither method makes
+a request or reports success.
+
+Fake-fetch tests prove action identity, exact requests, status/error mapping,
+closed envelope validation, digest rejection, request/response limits, redirect
+refusal, safe error handling, and the no-request checkpoint/completion behavior.
+The existing U10-A10 same-process restricted TypeScript loader can be extended
+without a child process or environment-file access, but this client integration
+was not run in U10-A15. The deferred scenario is to extend
+`teleferico-cms/test/feedback/private-report-source.test.js` to load this app
+client through that loader and call real isolated Strapi `W/claim`, `W/snapshot`,
+and `W/fail` using separate synthetic custom content API tokens in the disposable
+database; assert action-scope isolation/denial, replay, snapshot digest/private
+comment projection, and no request for checkpoint/complete, then clean up owned
+resources. Owner: TB-113 app/CMS implementer and reviewer. No production origin,
+token, grant, environment binding, or worker runtime composition is selected or
+created.
+
 ## Direct implementation runtime boundary
 
 The app-owned direct implementation now provides the local worker/PDF boundary
