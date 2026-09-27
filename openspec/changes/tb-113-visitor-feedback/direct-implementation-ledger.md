@@ -1622,3 +1622,94 @@ When a work unit has multiple focused or deferred checks, repeat the correspondi
 - **Authored size and inventory:** `976` additions plus deletions across 11 paths against exact starting HEAD `ea33a00af166825ae972738b477c13d6c6dfa4eb`, measured using tracked `git diff --numstat`. Inventory: `teleferico-cms/src/api/survey-report-generation/services/lifecycle.js`, `teleferico-cms/src/api/survey-report-generation/services/survey-report-generation.js`, `teleferico-cms/src/api/survey-report-generation/services/checkpoint-contract.js`, `teleferico-cms/test/feedback/generation-lifecycle/lifecycle.test.js`, `teleferico-cms/test/feedback/admin-report-commands.test.js`, `teleferico-cms/test/feedback/private-report-source.test.js`, `teleferico-app/services/survey-report-worker/src/worker-cms-client.ts`, `teleferico-app/src/lib/feedback/worker-cms-client.test.ts`, `openspec/changes/tb-113-visitor-feedback/design/02-http-contracts.md`, `tasks.md`, and this ledger. Candidate cap: 4,000 authored lines; this candidate-specific exception expires here and is not reusable.
 - **Rollback boundary:** Revert only the CMS worker claim validation/normalization and source-revision projection, app client's exact initial-undecided claim DTO support, updated CMS/app claim tests, and this U10-A16 design/task/ledger evidence. Preserve all prior worker actions/auth boundaries, unrelated U10 work, and earlier harness scenarios.
 - **Formal SDD reconstruction:** `pending`; this direct implementation did not invoke SDD.
+
+### `U10-A17: Guard the undecided worker claim boundary`
+
+- **Identity and scope:** Added a focused regression assertion that an initial CMS claim with `route: "undecided"` does not reach snapshot, provider, renderer, artifact staging, checkpoint writes, or completion. This is a safety-only partial of the prospective local worker execution deliverable; it does not implement route selection or claim U10/U11/U12 completion.
+- **Requirements references:** `specs/vertex-feedback-analysis/spec.md` exact CountTokens routing; `specs/report-generation-lifecycle/spec.md` resumable stages and atomic completion; `specs/deterministic-report-delivery/spec.md` validated-only rendering.
+- **Design references:** `design/02-http-contracts.md` worker claim/checkpoint/complete contracts; `design/04-ai-worker-infrastructure.md` CountTokens, graph validation, CMS CAS, and explicit incomplete-output boundary; `design/05-pdf-renderer-poc.md` validated rendering input.
+- **Task references:** `tasks.md` Execution after U10-A16; tasks 4.1–4.3 remain unchecked.
+- **Dependencies:** Existing synthetic worker runtime tests, app worker CMS client, and CMS lifecycle/checkpoint harness. No external services or real provider.
+- **Changed paths and reasons:**
+  - `teleferico-app/src/lib/feedback/worker-pdf.test.ts` — proves the initial undecided route is rejected before private snapshot/model/render/artifact work.
+  - `openspec/changes/tb-113-visitor-feedback/direct-implementation-ledger.md` — records observed verification and the incomplete execution boundary.
+- **Implementation:**
+  - Status: `partial`; regression protection only. The worker currently rejects the undecided route rather than selecting a route. Candidate size: 78 authored additions plus deletions against exact starting HEAD `e7327ff15cdea2880147fa841e2d1de6497bb0b2`, measured by tracked `git diff --numstat HEAD` across the two changed paths; below the 400-line PR default.
+  - Revision: `pending` (local uncommitted candidate).
+  - Pull request: `pending` (not authorized).
+  - Merge evidence: `pending` (not authorized).
+- **Focused tests:**
+  - Command: `pnpm --dir teleferico-app exec vitest run src/lib/feedback/worker-pdf.test.ts`
+  - Status: `passed`
+  - Exact result: exit 0; 1 file and 22 tests passed, including the new no-provider assertion.
+- **Focused tests:**
+  - Command: `pnpm --dir teleferico-app exec vitest run src/lib/feedback/worker-pdf.test.ts src/lib/feedback/worker-output-preflight.test.ts src/lib/feedback/worker-cms-client.test.ts`
+  - Status: `passed`
+  - Exact result: exit 0; 3 files and 53 tests passed.
+- **Focused tests:**
+  - Command: `npm --prefix teleferico-cms test -- feedback/generation-lifecycle`
+  - Status: `passed`
+  - Exact result: exit 0; 23 tests passed, including isolated PostgreSQL rollback coverage. The suite explicitly reports that worker checkpoint writes remain fail-closed until CMS can verify checkpoint bindings; direct semantic stages remain incomplete.
+- **Focused tests:**
+  - Command: `npm --prefix teleferico-cms test -- feedback/admin-report-commands`
+  - Status: `passed`
+  - Exact result: exit 0; 1 authenticated Strapi/PostgreSQL HTTP test passed, including worker claim/snapshot/fail boundaries, authorization denial, and bounded body behavior. No checkpoint or completion was accepted.
+- **Static validation:**
+  - Command: `pnpm --dir teleferico-app run typecheck`
+  - Status: `passed`
+  - Exact result: exit 0; `tsc -p tsconfig.json --noEmit` emitted no diagnostics. `git diff --check` — exit 0, no output after the ledger append.
+- **Intentionally deferred validation:**
+  - Exact scenario: End-to-end execution from an undecided CMS claim through exact CountTokens route selection, direct/map-reduce validated outputs, CMS-recomputed checkpoint graph/CAS writes, validated completion, and private PDF/report delivery.
+  - Status: `not run`
+  - Reason: Current CMS checkpoint verification explicitly rejects map-reduce and reports direct/map/reduce/validate semantic outputs as incomplete; the authenticated checkpoint action remains fail-closed and the app client has no complete operation. Activating the worker would require bypassing precisely the CMS-authoritative validation and completion safeguards that this work must preserve. No compatible full execution path is verified in this candidate.
+  - Intended future checkpoint: A follow-up cohesive local app–CMS–worker implementation after complete semantic/evidence validation, route-specific graph/CAS verification, completion HTTP/service wiring, and a synthetic integration scenario are implemented together.
+  - Owner: TB-113 app/CMS worker implementer and reviewer.
+- **Acceptance criteria:**
+  - An undecided claim cannot invoke provider, renderer, or artifact staging: `passed` by the focused worker test.
+  - CountTokens routing, direct/map-reduce stage graph, CMS-authoritative checkpoint persistence, atomic completion, and app↔CMS↔worker execution: `pending`; not implemented in this partial.
+  - Runtime capability remains disabled/fail-closed absent operational composition: `pending` integrated validation; no flag/configuration was changed.
+- **Residual risks:** The requested local worker execution behavior remains unimplemented. Existing fake CMS success paths in worker-PDF tests do not prove CMS checkpoint acceptance or atomic completion over HTTP. Do not infer U10, U11, or U12 completion from these checks.
+- **Rollback boundary:** Revert only the new undecided-claim regression test and this ledger entry; preserve the pre-existing fail-closed runtime and all earlier worker/CMS contracts.
+- **Later integrated validation:** `pending`; no synthetic app↔CMS↔worker model-execution or complete/report-delivery scenario ran.
+- **Correction or follow-up:** Trigger: complete the prospective local execution deliverable without weakening incomplete validation, CMS CAS, unknown-version, or completion boundaries. Status: `pending`; fix and revalidation evidence: `pending`.
+- **Formal SDD reconstruction:** `pending`; no SDD phase or formal task checkbox was changed.
+
+### `U10-A17 continuation correction: Executable local zero-comment direct route`
+
+- **Identity and relationship to prior entry:** Continued the same local writer/candidate on `feat/app-cms-root-tb-113-worker-execution`; this is a correction within the prospective cohesive local worker outcome, not another work unit/PR. The earlier 27-line test and 51-line ledger entry were work-in-progress evidence. This correction supersedes their assertion that no direct local route or CMS checkpoint/completion path was implemented; historical text above is retained unchanged.
+- **Implemented behavior:** The worker remains `undecided` until an injected CountTokens analogue receives the canonical versioned request (model config, instructions, schema, official metrics, sanitized comments). It validates exact integer segment results, computed headroom, output reservation, total budget, and stores a digest of the exact request. Only a fitting direct route continues. The app then writes `redact`, `count`, empty-evidence `direct`, `validate`, `render`, and `store` checkpoints through the scoped CMS HTTP client, stages deterministic private PDF bytes, and requests completion. Transient injected provider/count operations receive at most two retries.
+- **CMS authority/security:** Added separate `workerCheckpoint` and `workerComplete` custom content API token actions. Controllers enforce native `content-api-token` strategy and exact per-action scope before body access. Checkpoint writes lock the generation and snapshot, recompute direct graph/order/dependencies/config/input/output and CountTokens request bindings, then CAS-persist only accepted stages. Completion repeats full graph validation and checks the fixed analysis, deterministic report identity, renderer and artifact fields; it creates the report relation and succeeds the generation in one transaction. Ordinary claim/fail transactions no longer select private `snapshot_json`. `docs/STRAPI_PERMISSIONS.md` now documents the exact action boundary; no default or persistent grant was added.
+- **Deliberate local limit:** The executable route is restricted to a snapshot with zero eligible comments and the exact seven-section, no-claims, fixed insufficient-evidence output. Any nonempty-comment analysis is rejected; map/reduce remains unsupported because minimal-fit chunk proof and complete semantic validation are not available. The only provider/count implementations in the synthetic end-to-end test are injected fakes. Production generation remains disabled; no live provider/storage/queue credentials, service composition, config, or deployment changed. Do not claim full U10/U11/U12 completion.
+- **Changed paths and reasons:**
+  - `teleferico-app/services/survey-report-worker/src/direct-execution-plan.ts` — creates canonical CountTokens input, fit decision, and fixed empty-evidence output contract.
+  - `teleferico-app/services/survey-report-worker/src/{contracts.ts,checkpoint-contract.ts,worker-cms-client.ts,worker-runtime.ts}` — typed six-stage direct execution, v1 digests, exact action-scoped checkpoint/completion HTTP, retry/replay, and deterministic report/artifact identity.
+  - `teleferico-app/src/lib/feedback/{worker-pdf.test.ts,worker-cms-client.test.ts}` — verifies route selection/input digest, no semantic or budget bypass, PDF pipeline, and exact scoped HTTP operations.
+  - `teleferico-cms/src/api/survey-report-generation/{controllers/survey-report-generation.js,routes/admin.js,services/checkpoint-contract.js,services/lifecycle.js,services/survey-report-generation.js}` — authenticated endpoints, graph validation/CAS, private snapshot transaction projection, and atomic report completion.
+  - `teleferico-cms/test/feedback/{admin-report-commands.test.js,generation-lifecycle/lifecycle.test.js,permissions/permissions.test.js,permissions/postgres-permissions.test.js,private-report-source.test.js}` — verifies deny-by-default scopes, contracts, and real isolated app-client↔Strapi/PostgreSQL synthetic execution.
+  - `docs/STRAPI_PERMISSIONS.md`, `openspec/changes/tb-113-visitor-feedback/{README.md,design/02-http-contracts.md,design/04-ai-worker-infrastructure.md}` — records supported direct boundary, new action scopes, and retained fail-closed gates.
+- **Focused verification:**
+  - `pnpm --dir teleferico-app exec vitest run src/lib/feedback/worker-pdf.test.ts src/lib/feedback/worker-output-preflight.test.ts src/lib/feedback/worker-cms-client.test.ts` — `passed`; exit 0, 3 files and 54 tests.
+  - `pnpm --dir teleferico-app run typecheck` — `passed`; exit 0, no diagnostics.
+  - `npm --prefix teleferico-cms test -- feedback/generation-lifecycle` — `passed`; exit 0, 23 tests including isolated PostgreSQL lifecycle rollback coverage.
+  - `npm --prefix teleferico-cms test -- feedback/admin-report-commands` — `passed`; exit 0, 1 authenticated Strapi/PostgreSQL HTTP test.
+  - `npm --prefix teleferico-cms test -- feedback/permissions` — `passed`; exit 0, 4 tests including isolated route registration and no-default-grant assertions.
+  - `npm --prefix teleferico-cms test -- feedback/private-report-source` — `passed`; exit 0, 1 isolated Strapi/PostgreSQL HTTP integration test. It executes the app worker runtime through the restricted same-process TypeScript loader, uses only synthetic action-scoped custom tokens, proves 6 CMS checkpoint CAS writes plus report completion, rejects a bad completion digest without changing the running row or inserting a report, verifies the source-generation relation, and confirms complete/worker terminal replay without duplicates. Test-owned services/data were cleaned up.
+  - `git diff --check` — `passed`; exit 0, no output after the continuation ledger append.
+- **Intentionally deferred:** Nonempty-comment validated narrative, exact map/reduce chunk planning/output semantics, Vertex, GCS, Cloud Tasks/Cloud Run/OIDC, DNS/egress, production token/provider wiring, feature enablement, broad E2E, deployment/staging, and formal SDD closure remain `not run` or pending under their existing owners. No attempt was made to weaken these gates.
+- **Rollback boundary:** Revert this continuation's app direct execution, CMS checkpoint/completion actions/services/tests, permission/design documentation updates, and both U10-A17 ledger entries together; preserve all predecessor commits and unrelated TB-113 behavior.
+- **Current status:** `partial`—an independently exercised local empty-evidence direct path works end to end; all nonempty semantic and map/reduce paths remain unavailable. Formal tasks 4.1–4.3 and U15 remain unchecked/pending. Candidate size: `1,931` authored additions plus deletions against exact starting HEAD `e7327ff15cdea2880147fa841e2d1de6497bb0b2`, measured as tracked `git diff --numstat HEAD` plus the 157-line untracked direct-execution module. No commit or publication was authorized.
+- **Provider-call safety correction (same candidate):** RED — `pnpm --dir teleferico-app exec vitest run src/lib/feedback/worker-pdf.test.ts` exited 1; the direct-route test observed one `analysisProvider` call for an empty-comment snapshot. GREEN — the same command exited 0 with 1 file/23 tests; zero-comment direct output is now deterministic and the injected analysis provider is not invoked. Full required app triplet then passed 3 files/54 tests; `pnpm --dir teleferico-app run typecheck` and the isolated CMS lifecycle/private-source checks passed.
+
+### Current candidate-specific size exception authorization
+
+- **Identity:** `feat/app-cms-root-tb-113-worker-execution` against exact base `e7327ff15cdea2880147fa841e2d1de6497bb0b2`.
+- **Authorization:** The user explicitly approved up to `6,000` authored additions plus deletions for this one cohesive local TB-113 worker-execution candidate.
+- **Scope:** This exact branch/base/candidate only. This is not blanket authority for another candidate, branch, or base and expires with this candidate. No commit, push, PR, remote, GCP, credential, install, or SDD permission is granted by the size exception.
+
+### Same-candidate semantic and map/reduce gate assessment
+
+- **Nonempty direct blocker:** `services/survey-report-worker/src/analysis-output-preflight.ts` returns `incomplete` for clean direct output; `design/04-ai-worker-infrastructure.md` does not define machine-verifiable claim-to-metric entailment, contradictory/current-vs-previous truth, or an authorized per-run evidence-key provider. A fake model output cannot independently prove those semantics, so no nonempty direct provider output or checkpoint was enabled.
+- **Map/reduce blocker:** `preflightMapAnalysis`/`preflightReduceAnalysis` explicitly retain blockers for minimal-fit CountTokens authority, immutable key selection, CMS map-digest authority, and semantic validation; the CMS `verifyCheckpointGraphV1` rejects `route: "map-reduce"`. No graph/CAS or completion path was relaxed to force acceptance.
+- **Disposition:** No speculative semantic validators, synthetic production fallback, extra route, or additional micro-unit was added. Keep those paths blocked pending an independently specified proof contract. The zero-comment direct route and provider-call correction remain the only executable analysis path in this candidate.
+- **Current candidate measurement:** `1,941` authored additions plus deletions against exact base `e7327ff15cdea2880147fa841e2d1de6497bb0b2`, tracked `git diff --numstat HEAD` plus the 157-line untracked direct-execution module; inside the user-approved 6,000-line cap for this branch/candidate only.
+- **Post-assessment size correction:** After recording the candidate-scoped authorization in `tasks.md` and this ledger and completing the bounded gate assessment, final current candidate size is `1,949` authored additions plus deletions by the same method; no code beyond the previously validated zero-comment provider-call correction was added in this turn.

@@ -1,7 +1,11 @@
 import { createHash, createHmac } from "node:crypto";
 
-import { canonicalizeJson } from "../../../packages/survey-reporting-core/src";
-import type { PricingSnapshotV1 } from "./contracts";
+import { canonicalizeJson, type SnapshotV1 } from "../../../packages/survey-reporting-core/src";
+import type { ModelConfigV1, PricingSnapshotV1, WorkerCheckpointStage } from "./contracts";
+import {
+  isEmptyEvidenceDirectAnalysisV1,
+  isEmptyEvidencePublishedAnalysisV1,
+} from "./direct-execution-plan";
 
 export const CHECKPOINT_CONTRACT_VERSIONS = {
   snapshot: "survey-snapshot.v1",
@@ -24,16 +28,20 @@ export type ChunkMembershipV1 = {
 
 export type WorkerStageCheckpointV1 = {
   readonly checkpointVersion: "survey-checkpoint.v1";
-  readonly stageKey: "render" | "store";
+  readonly stageKey: WorkerCheckpointStage;
   readonly stageIndex: number;
-  readonly route: "direct" | "map-reduce";
-  readonly stageType: "render" | "store";
+  readonly route: "common" | "direct" | "map-reduce";
+  readonly stageType: WorkerCheckpointStage;
   readonly status: "valid";
   readonly inputDigest: string;
   readonly outputDigest: string;
   readonly attempts: number;
   readonly completedAt: string;
   readonly payload:
+    | { readonly kind: "redact"; readonly recordCount: number; readonly redactionVersion: string }
+    | { readonly kind: "count"; readonly segmentTokens: { readonly instructions: number; readonly schema: number; readonly metrics: number; readonly comments: number; readonly reservedOutput: number; readonly headroom: number }; readonly totalTokens: number }
+    | { readonly kind: "direct"; readonly validatedOutput: unknown }
+    | { readonly kind: "validate"; readonly publishedAnalysis: unknown; readonly validatorVersion: string }
     | {
         readonly kind: "render";
         readonly rendererVersion: string;
@@ -200,49 +208,75 @@ function validCheckpointInstant(value: unknown): value is string {
   return true;
 }
 
-function expectedRenderStoreIndex(stageKey: "render" | "store"): number {
-  return stageKey === "render" ? 4 : 5;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Validates the only checkpoint payloads currently produced by the worker POC. */
 export function validateWorkerStageCheckpointV1(
   value: unknown,
   expected: {
     readonly reportRunId: string;
     readonly route: "direct";
+    readonly snapshot?: SnapshotV1;
   },
 ): asserts value is WorkerStageCheckpointV1 {
   if (expected.route !== "direct") invalid();
   if (!exactKeys(value, CHECKPOINT_KEYS)) invalid();
+  const stageKeys: readonly WorkerCheckpointStage[] = [
+    "redact", "count", "direct", "validate", "render", "store",
+  ];
+  const stageKey = value.stageKey as WorkerCheckpointStage;
+  const stageIndex = value.stageIndex as number;
   if (
     value.checkpointVersion !== CHECKPOINT_CONTRACT_VERSIONS.checkpoint ||
-    (value.stageKey !== "render" && value.stageKey !== "store") ||
+    !stageKeys.includes(stageKey) ||
     value.stageType !== value.stageKey ||
-    value.route !== expected.route ||
-    value.stageIndex !== expectedRenderStoreIndex(value.stageKey) ||
+    value.route !== (stageIndex <= 1 ? "common" : expected.route) ||
+    stageIndex !== stageKeys.indexOf(stageKey) ||
     value.status !== "valid" ||
     typeof value.inputDigest !== "string" ||
     typeof value.outputDigest !== "string" ||
     !Number.isSafeInteger(value.attempts) ||
     Number(value.attempts) < 1 ||
     !validCheckpointInstant(value.completedAt) ||
-    !exactKeys(
-      value.payload,
-      value.stageKey === "render"
-        ? ["kind", "rendererVersion", "pdfSha256", "size"]
-        : ["kind", "objectKey", "artifactSha256", "size", "mimeType"],
-    )
+    !isRecord(value.payload) ||
+    value.payload.kind !== value.stageKey
   )
     invalid();
 
-  const payload = value.payload;
-  if (
-    payload.kind !== value.stageKey ||
-    !Number.isSafeInteger(payload.size) ||
-    Number(payload.size) < 1
-  )
-    invalid();
-  if (payload.kind === "render") {
+  const payload = value.payload as Record<string, unknown>;
+  if (payload.kind === "redact") {
+    const recordCount = payload.recordCount as number;
+    if (!exactKeys(payload, ["kind", "recordCount", "redactionVersion"]) ||
+        !Number.isSafeInteger(recordCount) || recordCount < 0 ||
+        typeof payload.redactionVersion !== "string" || payload.redactionVersion.length === 0)
+      invalid();
+  } else if (payload.kind === "count") {
+    const keys = ["instructions", "schema", "metrics", "comments", "reservedOutput", "headroom"];
+    const segmentTokens = payload.segmentTokens as Record<string, number>;
+    const totalTokens = payload.totalTokens as number;
+    if (!exactKeys(payload, ["kind", "requestDigest", "segmentTokens", "totalTokens"]) ||
+        typeof payload.requestDigest !== "string" || !DIGEST_PATTERN.test(payload.requestDigest) ||
+        !exactKeys(payload.segmentTokens, keys) ||
+        !keys.every((key) => Number.isSafeInteger(segmentTokens[key]) && segmentTokens[key] >= 0) ||
+        !Number.isSafeInteger(totalTokens) ||
+        totalTokens !== keys.reduce((sum, key) => sum + segmentTokens[key], 0))
+      invalid();
+  } else if (payload.kind === "direct") {
+    if (!exactKeys(payload, ["kind", "validatedOutput"]) ||
+        (expected.snapshot && expected.snapshot.comments.length !== 0) ||
+        !isEmptyEvidenceDirectAnalysisV1(payload.validatedOutput))
+      invalid();
+  } else if (payload.kind === "validate") {
+    if (!exactKeys(payload, ["kind", "publishedAnalysis", "validatorVersion"]) ||
+        typeof payload.validatorVersion !== "string" || payload.validatorVersion.length === 0 ||
+        !isEmptyEvidencePublishedAnalysisV1(payload.publishedAnalysis, expected.snapshot))
+      invalid();
+  } else if (payload.kind === "render") {
+    const size = payload.size as number;
+    if (!exactKeys(payload, ["kind", "rendererVersion", "pdfSha256", "size"]) ||
+        !Number.isSafeInteger(size) || size < 1)
+      invalid();
     if (
       typeof payload.rendererVersion !== "string" ||
       payload.rendererVersion.length === 0 ||
@@ -250,11 +284,16 @@ export function validateWorkerStageCheckpointV1(
     )
       invalid();
     assertDigest(payload.pdfSha256);
-  } else {
+  } else if (payload.kind === "store") {
+    const size = payload.size as number;
+    if (!exactKeys(payload, ["kind", "objectKey", "artifactSha256", "size", "mimeType"]) ||
+        !Number.isSafeInteger(size) || size < 1)
+      invalid();
     if (
       typeof payload.objectKey !== "string" ||
-      payload.objectKey !==
+      !(payload.objectKey ===
         `private/feedback-reports/staged/${expected.reportRunId}/report.pdf` ||
+        /^private\/feedback-reports\/[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/report\.pdf$/.test(payload.objectKey)) ||
       typeof payload.artifactSha256 !== "string" ||
       payload.mimeType !== "application/pdf"
     )
@@ -380,7 +419,8 @@ function validateModelConfig(
     !Number.isSafeInteger(value.verifiedInputTokenLimit) ||
     Number(value.verifiedInputTokenLimit) < 1 ||
     !Number.isSafeInteger(value.safetyHeadroomTokens) ||
-    Number(value.safetyHeadroomTokens) < 0 ||
+    Number(value.safetyHeadroomTokens) !==
+      Math.max(2048, Math.ceil(Number(value.verifiedInputTokenLimit) * 0.1)) ||
     typeof value.sourceRevision !== "string" ||
     !value.sourceRevision ||
     !exactKeys(value.map, ["targetMin", "targetMax", "hardMax"]) ||
@@ -567,6 +607,35 @@ export function stageInputDigestV1(input: StageInputV1): string {
   if (input.chunkMembershipDigest !== null)
     assertDigest(input.chunkMembershipDigest);
   return sha256(input);
+}
+
+export function deriveWorkerStageInputDigestV1(input: {
+  readonly stageKey: Exclude<WorkerCheckpointStage, "render" | "store">;
+  readonly stageIndex: number;
+  readonly route: "common" | "direct";
+  readonly snapshotDigest: string;
+  readonly sourceRevision: string;
+  readonly modelConfig: ModelConfigV1;
+  readonly orderedDependencyOutputDigests: readonly string[];
+}): string {
+  const projection: StageConfigProjectionV1 = {
+    version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig,
+    stageKey: input.stageKey,
+    modelConfig: input.modelConfig,
+    evidenceKeyId: input.modelConfig.evidenceKeyId,
+    rendererVersion: null,
+  };
+  return stageInputDigestV1({
+    stageKey: input.stageKey,
+    stageIndex: input.stageIndex,
+    route: input.route,
+    snapshotDigest: input.snapshotDigest,
+    sourceRevision: input.sourceRevision,
+    contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+    stageConfigDigest: stageConfigDigest(projection),
+    orderedDependencyOutputDigests: input.orderedDependencyOutputDigests,
+    chunkMembershipDigest: null,
+  });
 }
 
 export function deriveStageInputDigestV1(input: DirectStageInputV1): string {

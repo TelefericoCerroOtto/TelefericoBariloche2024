@@ -1,10 +1,15 @@
 'use strict';
 const { createHash } = require('node:crypto');
-const { validateWorkerClaimContracts } = require('./checkpoint-contract');
+const { validateWorkerClaimContracts, verifyCheckpointGraphV1 } = require('./checkpoint-contract');
 function domainError(code) { return Object.assign(new Error(code), { code }); }
 const REPORT_RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DISPATCH_EVIDENCE_VERSION = 'survey-dispatch-evidence.v1';
 const SNAPSHOT_CONTRACT_VERSION = 'survey-snapshot.v1';
+const WORKER_CHECKPOINT_KEYS = ['checkpointVersion', 'stageKey', 'stageIndex', 'route', 'stageType', 'status', 'inputDigest', 'outputDigest', 'attempts', 'completedAt', 'payload'];
+const WORKER_COMPLETE_KEYS = ['contractVersion', 'expectedStateVersion', 'validatedAnalysis', 'analysisDigest', 'rendererVersion', 'artifact'];
+const CHECKPOINT_STAGE_KEYS = ['redact', 'count', 'direct', 'validate', 'render', 'store'];
+const EMPTY_EVIDENCE_PARAGRAPH = 'No hay comentarios elegibles para respaldar esta sección en el período analizado.';
+const ANALYSIS_SECTION_KEYS = ['executive_summary', 'observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations'];
 const WORKER_FAILURE_MESSAGES = Object.freeze({
   PROVIDER_TRANSIENT: 'The report provider is temporarily unavailable.',
   PROVIDER_RATE_LIMIT: 'The report provider is temporarily busy.',
@@ -100,6 +105,38 @@ function exactKeys(value, keys) {
     Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 }
 
+function validateWorkerCheckpointCommand(stageKey, command) {
+  if (!CHECKPOINT_STAGE_KEYS.includes(stageKey) || !exactKeys(command, ['contractVersion', 'expectedStateVersion', 'checkpoint']) ||
+      command.contractVersion !== 'survey-worker-cms.v1' || !Number.isSafeInteger(command.expectedStateVersion) || command.expectedStateVersion < 1 ||
+      !exactKeys(command.checkpoint, WORKER_CHECKPOINT_KEYS) || command.checkpoint.stageKey !== stageKey ||
+      command.checkpoint.checkpointVersion !== 'survey-checkpoint.v1' || command.checkpoint.stageType !== stageKey ||
+      command.checkpoint.status !== 'valid' || !Number.isSafeInteger(command.checkpoint.stageIndex) ||
+      !Number.isSafeInteger(command.checkpoint.attempts) || command.checkpoint.attempts < 1 ||
+      !/^[a-f0-9]{64}$/.test(command.checkpoint.inputDigest ?? '') || !/^[a-f0-9]{64}$/.test(command.checkpoint.outputDigest ?? ''))
+    return false;
+  return true;
+}
+
+function validateWorkerCompleteCommand(command) {
+  if (!exactKeys(command, WORKER_COMPLETE_KEYS) || command.contractVersion !== 'survey-worker-cms.v1' ||
+      !Number.isSafeInteger(command.expectedStateVersion) || command.expectedStateVersion < 1 ||
+      !exactKeys(command.validatedAnalysis, ['schemaVersion', 'sections']) ||
+      command.validatedAnalysis.schemaVersion !== 'survey-published-analysis.v1' ||
+      !Array.isArray(command.validatedAnalysis.sections) || command.validatedAnalysis.sections.length !== ANALYSIS_SECTION_KEYS.length ||
+      !/^[a-f0-9]{64}$/.test(command.analysisDigest ?? '') || typeof command.rendererVersion !== 'string' ||
+      !command.rendererVersion || command.rendererVersion.length > 128 ||
+      !exactKeys(command.artifact, ['objectKey', 'sha256', 'size', 'mimeType']) ||
+      typeof command.artifact.objectKey !== 'string' || !/^[a-f0-9]{64}$/.test(command.artifact.sha256 ?? '') ||
+      !Number.isSafeInteger(command.artifact.size) || command.artifact.size < 1 || command.artifact.mimeType !== 'application/pdf')
+    return false;
+  const match = /^private\/feedback-reports\/([0-9a-f-]{36})\/report\.pdf$/.exec(command.artifact.objectKey);
+  if (!match || !REPORT_RUN_ID_PATTERN.test(match[1])) return false;
+  return command.validatedAnalysis.sections.every((section, index) =>
+    exactKeys(section, ['key', 'status', 'paragraphsEs']) && section.key === ANALYSIS_SECTION_KEYS[index] &&
+    section.status === 'insufficient_evidence' && Array.isArray(section.paragraphsEs) &&
+    section.paragraphsEs.length === 1 && section.paragraphsEs[0] === EMPTY_EVIDENCE_PARAGRAPH);
+}
+
 function sameDispatchEvidence(left, right) {
   if (typeof left === 'string') {
     try { left = JSON.parse(left); } catch { return false; }
@@ -111,6 +148,17 @@ function sameDispatchEvidence(left, right) {
 function expectedTaskName(reportRunId) {
   if (!REPORT_RUN_ID_PATTERN.test(reportRunId)) return null;
   return `tb113-report-${reportRunId.replaceAll('-', '')}`;
+}
+
+function deterministicReportId(reportRunId, artifactSha256) {
+  const bytes = createHash('sha256')
+    .update(`tb113-report-id.v1:${reportRunId}:${artifactSha256}`)
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function validTimestamp(value) {
@@ -409,8 +457,156 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         };
       });
     },
-    async writeWorkerCheckpoint() {
-      throw domainError('UNKNOWN_VERSION');
+    async writeWorkerCheckpoint({ reportRunId, stageKey, command }) {
+      if (!validateWorkerCheckpointCommand(stageKey, command) || !REPORT_RUN_ID_PATTERN.test(reportRunId))
+        throw domainError('VALIDATION_FAILED');
+      return withTransaction(async (transaction) => {
+        const generation = await transaction.lockWorkerExecution(reportRunId);
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+        if (generation.status !== 'running') throw domainError('INVALID_STATE');
+
+        let modelConfig;
+        let checkpoints;
+        try {
+          modelConfig = parseWorkerClaimJson(generation.modelConfigJson);
+          checkpoints = parseWorkerClaimJson(generation.checkpointsJson);
+        } catch {
+          throw domainError('INVALID_STATE');
+        }
+        const snapshotEnvelope = prepareWorkerSnapshot(generation).snapshot;
+        const storedRender = checkpoints.entries?.find(({ stageKey }) => stageKey === 'render');
+        const rendererVersion = command.checkpoint.stageKey === 'render'
+          ? command.checkpoint.payload.rendererVersion
+          : storedRender?.payload?.rendererVersion ?? null;
+        const result = verifyCheckpointGraphV1({
+          run: {
+            reportRunId: generation.reportRunId,
+            status: generation.status,
+            stateVersion: generation.stateVersion,
+            snapshotDigest: generation.snapshotDigest,
+            sourceRevision: generation.sourceRevision,
+            modelConfig,
+            rendererVersion,
+          },
+          snapshot: snapshotEnvelope.payload,
+          checkpoints,
+          candidate: command.checkpoint,
+          expectedStateVersion: command.expectedStateVersion,
+        });
+        if (result.status !== 'accepted') throw domainError('UNKNOWN_VERSION');
+        if (!result.replayed) {
+          await transaction.updateGeneration({
+            status: 'running',
+            stateVersion: result.stateVersion,
+            checkpointsJson: result.checkpoints,
+            expectedStatus: 'running',
+          });
+        }
+        return {
+          reportRunId,
+          stateVersion: result.stateVersion,
+          stageKey,
+          status: 'valid',
+          replayed: result.replayed,
+        };
+      });
+    },
+    async completeWorker({ reportRunId, command }) {
+      if (!REPORT_RUN_ID_PATTERN.test(reportRunId) || !validateWorkerCompleteCommand(command))
+        throw domainError('VALIDATION_FAILED');
+      return withTransaction(async (transaction) => {
+        const generation = await transaction.lockWorkerExecution(reportRunId);
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+        const reportId = command.artifact.objectKey.split('/')[2];
+        if (reportId !== deterministicReportId(reportRunId, command.artifact.sha256))
+          throw domainError('DIGEST_MISMATCH');
+        if (generation.status === 'succeeded') {
+          if (generation.stateVersion !== command.expectedStateVersion + 1)
+            throw domainError('TERMINAL_CONFLICT');
+          const report = await transaction.findReportForGeneration(reportRunId);
+          if (!report || report.reportId !== reportId || report.analysisDigest !== command.analysisDigest ||
+              report.rendererVersion !== command.rendererVersion || report.objectKey !== command.artifact.objectKey ||
+              report.artifactSha256 !== command.artifact.sha256 || Number(report.artifactSize) !== command.artifact.size)
+            throw domainError('TERMINAL_CONFLICT');
+          return {
+            reportRunId,
+            stateVersion: generation.stateVersion,
+            status: 'succeeded',
+            reportId,
+            artifactSha256: report.artifactSha256,
+            artifactSize: Number(report.artifactSize),
+            replayed: true,
+          };
+        }
+        if (generation.status !== 'running' || generation.stateVersion !== command.expectedStateVersion)
+          throw domainError(generation.status === 'running' ? 'STATE_VERSION_CONFLICT' : 'TERMINAL_CONFLICT');
+
+        let modelConfig;
+        let checkpoints;
+        try {
+          modelConfig = parseWorkerClaimJson(generation.modelConfigJson);
+          checkpoints = parseWorkerClaimJson(generation.checkpointsJson);
+        } catch {
+          throw domainError('INVALID_STATE');
+        }
+        const snapshot = prepareWorkerSnapshot(generation).snapshot.payload;
+        const storeCheckpoint = checkpoints.entries?.at(-1);
+        if (!storeCheckpoint || storeCheckpoint.stageKey !== 'store')
+          throw domainError('CHECKPOINT_SET_INCOMPLETE');
+        const graph = verifyCheckpointGraphV1({
+          run: {
+            reportRunId: generation.reportRunId,
+            status: generation.status,
+            stateVersion: generation.stateVersion,
+            snapshotDigest: generation.snapshotDigest,
+            sourceRevision: generation.sourceRevision,
+            modelConfig,
+            rendererVersion: command.rendererVersion,
+          },
+          snapshot,
+          checkpoints,
+          candidate: storeCheckpoint,
+          expectedStateVersion: generation.stateVersion,
+        });
+        if (graph.status !== 'accepted' || graph.checkpoints.route !== 'direct' ||
+            graph.checkpoints.entries.length !== CHECKPOINT_STAGE_KEYS.length)
+          throw domainError('CHECKPOINT_SET_INCOMPLETE');
+        const validated = graph.checkpoints.entries.find(({ stageKey }) => stageKey === 'validate');
+        const render = graph.checkpoints.entries.find(({ stageKey }) => stageKey === 'render');
+        const store = graph.checkpoints.entries.find(({ stageKey }) => stageKey === 'store');
+        if (!validated || validated.payload.kind !== 'validate' || !render || render.payload.kind !== 'render' ||
+            !store || store.payload.kind !== 'store' ||
+            canonicalizeJson(validated.payload.publishedAnalysis) !== canonicalizeJson(command.validatedAnalysis) ||
+            createHash('sha256').update(canonicalizeJson(command.validatedAnalysis)).digest('hex') !== command.analysisDigest ||
+            render.payload.rendererVersion !== command.rendererVersion ||
+            store.payload.objectKey !== command.artifact.objectKey || store.payload.artifactSha256 !== command.artifact.sha256 ||
+            store.payload.size !== command.artifact.size || store.payload.mimeType !== command.artifact.mimeType)
+          throw domainError('DIGEST_MISMATCH');
+
+        const prepared = prepareAtomicCompletion({
+          generation,
+          expectedStateVersion: command.expectedStateVersion,
+          reportId,
+          checkpoints: CHECKPOINT_STAGE_KEYS,
+          artifact: command.artifact,
+          validatedAnalysis: command.validatedAnalysis,
+          analysisDigest: command.analysisDigest,
+          rendererVersion: command.rendererVersion,
+          now: now(),
+        });
+        prepared.report.sourceGeneration = { connect: [{ id: generation.id }] };
+        await transaction.insertReport(prepared.report);
+        await transaction.updateGeneration({ ...prepared.generation, expectedStatus: 'running' });
+        return {
+          reportRunId,
+          stateVersion: prepared.generation.stateVersion,
+          status: 'succeeded',
+          reportId,
+          artifactSha256: command.artifact.sha256,
+          artifactSize: command.artifact.size,
+          replayed: false,
+        };
+      });
     },
     async retry({ sourceRunId }) {
       return withTransaction(async (transaction) => {

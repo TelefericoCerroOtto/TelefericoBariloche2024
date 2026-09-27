@@ -51,7 +51,41 @@ export type PublishedAnalysisV1 = {
   ];
 };
 
+export type DirectAnalysisV1 = {
+  readonly schemaVersion: "survey-analysis.v1";
+  readonly route: "direct";
+  readonly sections: readonly [
+    { readonly key: "executive_summary"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
+    { readonly key: "observed_changes"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
+    { readonly key: "strengths"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
+    { readonly key: "unfavorable_areas"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
+    { readonly key: "recurrent_themes"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
+    { readonly key: "minority_signals"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
+    { readonly key: "coverage_limitations"; readonly status: "insufficient_evidence"; readonly claims: readonly [] },
+  ];
+};
+
+export type WorkerCheckpointStage = "redact" | "count" | "direct" | "validate" | "render" | "store";
+
+export type CountCheckpointPayload = {
+  readonly kind: "count";
+  readonly requestDigest: string;
+  readonly segmentTokens: {
+    readonly instructions: number;
+    readonly schema: number;
+    readonly metrics: number;
+    readonly comments: number;
+    readonly reservedOutput: number;
+    readonly headroom: number;
+  };
+  readonly totalTokens: number;
+};
+
 export type CheckpointPayload =
+  | { readonly kind: "redact"; readonly recordCount: number; readonly redactionVersion: string }
+  | CountCheckpointPayload
+  | { readonly kind: "direct"; readonly validatedOutput: DirectAnalysisV1 }
+  | { readonly kind: "validate"; readonly publishedAnalysis: PublishedAnalysisV1; readonly validatorVersion: string }
   | {
       readonly kind: "render";
       readonly rendererVersion: string;
@@ -68,10 +102,10 @@ export type CheckpointPayload =
 
 export type WorkerCheckpoint = {
   readonly checkpointVersion: typeof CHECKPOINT_VERSION;
-  readonly stageKey: "render" | "store";
+  readonly stageKey: WorkerCheckpointStage;
   readonly stageIndex: number;
   readonly route: "common" | "direct" | "map-reduce";
-  readonly stageType: "render" | "store";
+  readonly stageType: WorkerCheckpointStage;
   readonly status: "valid";
   readonly inputDigest: string;
   readonly outputDigest: string;
@@ -250,7 +284,29 @@ export interface PdfRenderer {
 export type ValidatedAnalysisProvider = (
   snapshot: SnapshotV1,
   checkpoints: WorkerCheckpointSet,
-) => Promise<PublishedAnalysisV1>;
+) => Promise<DirectAnalysisV1 | PublishedAnalysisV1>;
+
+export type CountTokensRequestV1 = {
+  readonly contractVersion: "survey-count-request.v1";
+  readonly modelConfig: ModelConfigV1;
+  readonly segments: {
+    readonly instructions: string;
+    readonly schema: string;
+    readonly metrics: string;
+    readonly comments: string;
+  };
+};
+
+export type CountTokensResultV1 = {
+  readonly instructions: number;
+  readonly schema: number;
+  readonly metrics: number;
+  readonly comments: number;
+};
+
+export type CountTokensProvider = (
+  request: CountTokensRequestV1,
+) => Promise<CountTokensResultV1>;
 
 export type WorkerExecutionResult =
   | {

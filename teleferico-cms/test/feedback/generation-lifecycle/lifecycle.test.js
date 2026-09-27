@@ -84,6 +84,9 @@ function store(initial) {
           async lockWorkerSnapshot(runId) {
             return { ...generations.get(runId) };
           },
+          async lockWorkerExecution(runId) {
+            return { ...generations.get(runId) };
+          },
           async updateGeneration(patch) {
             const run = generations.get(lockedRunId);
             generations.set(run.reportRunId, { ...run, ...patch });
@@ -332,7 +335,7 @@ test("worker snapshot returns the deterministic v1 envelope only for running val
   }
 });
 
-test("worker checkpoint writes fail closed until CMS can verify checkpoint bindings", async () => {
+test("worker checkpoint writes reject when the transaction lacks an authoritative snapshot", async () => {
   const runId = "00000000-0000-4000-8000-000000000008";
   const initial = {
     reportRunId: runId,
@@ -376,9 +379,9 @@ test("worker checkpoint writes fail closed until CMS can verify checkpoint bindi
   };
 
   await assert.rejects(lifecycle.writeWorkerCheckpoint({ reportRunId: runId, stageKey: "redact", command }), {
-    code: "UNKNOWN_VERSION",
+    code: "INVALID_STATE",
   });
-  assert.equal(transactionCalls, 0);
+  assert.equal(transactionCalls, 1);
   assert.deepEqual(value.generation(runId), initial);
 });
 

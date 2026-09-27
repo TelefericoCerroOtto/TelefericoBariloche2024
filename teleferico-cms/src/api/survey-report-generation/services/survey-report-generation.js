@@ -3,6 +3,7 @@ const { createCoreService } = require('@strapi/strapi').factories;
 const lifecycle = require('./lifecycle');
 const { createPrivateReportSourceReader } = require('./private-report-source');
 const UID = 'api::survey-report-generation.survey-report-generation';
+const REPORT_UID = 'api::survey-report.survey-report';
 
 function createTransaction(strapi) {
   return (operation) =>
@@ -54,6 +55,33 @@ function createTransaction(strapi) {
           }
         );
       },
+      async lockWorkerExecution(reportRunId) {
+        lockedRunId = reportRunId;
+        const row = await trx('survey_report_generations')
+          .select(
+            'id', 'document_id', 'report_run_id', 'period_start', 'period_end',
+            'data_cutoff_at', 'status', 'state_version', 'checkpoints_json',
+            'model_config_json', 'snapshot_digest', 'source_revision', 'snapshot_json',
+          )
+          .where({ report_run_id: reportRunId })
+          .forUpdate()
+          .first();
+        return row && {
+          id: row.id,
+          documentId: row.document_id,
+          reportRunId: row.report_run_id,
+          periodStart: row.period_start,
+          periodEnd: row.period_end,
+          dataCutoffAt: row.data_cutoff_at,
+          status: row.status,
+          stateVersion: row.state_version,
+          checkpointsJson: row.checkpoints_json,
+          modelConfigJson: row.model_config_json,
+          snapshotDigest: row.snapshot_digest,
+          sourceRevision: row.source_revision,
+          snapshotJson: row.snapshot_json,
+        };
+      },
       async lockWorkerSnapshot(reportRunId) {
         const row = await trx('survey_report_generations')
           .select('report_run_id', 'status', 'state_version', 'snapshot_digest', 'source_revision', 'snapshot_json')
@@ -96,6 +124,12 @@ function createTransaction(strapi) {
           throw Object.assign(new Error('STATE_VERSION_CONFLICT'), {
             code: 'STATE_VERSION_CONFLICT',
           });
+      },
+      async insertReport(data) {
+        return strapi.db.query(REPORT_UID).create({ data });
+      },
+      async findReportForGeneration(reportRunId) {
+        return strapi.db.query(REPORT_UID).findOne({ where: { generationRunId: reportRunId } });
       },
     });
     });
@@ -147,6 +181,11 @@ module.exports = createCoreService(
       return lifecycle.createGenerationLifecycle({
         withTransaction: createTransaction(strapi),
       }).writeWorkerCheckpoint(input);
+    },
+    completeWorker(input) {
+      return lifecycle.createGenerationLifecycle({
+        withTransaction: createTransaction(strapi),
+      }).completeWorker(input);
     },
   }),
 );

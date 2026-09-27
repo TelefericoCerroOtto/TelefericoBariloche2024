@@ -34,13 +34,13 @@ The app-side `preflightMapAnalysis` and `preflightReduceAnalysis` are structural
 - Reduce preflight accepts only the exact `survey-analysis.v1`/`route: "reduce"` schema, the normative section order/status shape, and unique sorted claim IDs. It rejects empty, malformed, or duplicate `mapOutputDigests` values, but does not compare them with a caller-supplied “validated” digest list: that list has no independent CMS checkpoint authority. A syntactically clean digest list remains `incomplete` behind `independently_verified_cms_map_checkpoint_output_digests`; neither digest membership nor map-index order can be claimed until CMS-verified map checkpoint evidence is supplied.
 - Both preflights reject detected prohibited/verbatim text and malformed or foreign refs but do not prove model semantics, metric grounding, contradiction/current-previous truth, or immutable per-run key selection. Clean outputs remain `incomplete`; no default key is provided and tests use synthetic key material only.
 
-These app checks do not change the CMS checkpoint route: writes remain `UNKNOWN_VERSION` before transaction entry. The worker `claim`, `snapshot`, and `checkpoint` HTTP actions require Strapi's native `content-api-token` strategy with one exact action scope per route, and their controllers verify the selected strategy plus custom content-token `kind`/`type` before parsing or database access. A Users & Permissions JWT remains denied even if a role receives one of these worker actions; existing JWT grants no longer authorize these endpoints. The native generation CRUD and admin dispatch actions keep their existing JWT boundary. No default grant or persistent token is added; custom-token provisioning remains separately authorized operational work. Runtime key-provider wiring, complete nested semantic/evidence validation, CMS recomputation under CAS, and valid map payload fit under the existing 4 KiB request cap remain separate activation gates owned by the U10-A5 worker implementer and CMS lifecycle owner.
+These structural MapV1/ReduceV1 preflights still do not enable map/reduce checkpoint writes. The authenticated worker `claim`, `snapshot`, `checkpoint`, `complete`, and `fail` actions require Strapi's native `content-api-token` strategy with one exact action scope per route; their controllers verify the selected strategy plus custom content-token `kind`/`type` before body access or database work. A Users & Permissions JWT remains denied even if a role receives one of these worker actions; the native generation CRUD and admin dispatch actions retain their existing JWT boundary. The local checkpoint/complete implementation accepts only the CMS-proven zero-comment direct fallback. No default grant or persistent token is added, and operational token provisioning remains separately authorized. Nonempty-comment semantic validation, immutable runtime evidence-key wiring, exact chunk routing, and map payload sizing remain activation gates.
 
 ## Checkpoints and Retries
 
 ```ts
 // Normative
-type PayloadV1={kind:"redact";recordCount:number;redactionVersion:string}|{kind:"count";segmentTokens:{instructions:number;schema:number;metrics:number;comments:number;reservedOutput:number;headroom:number};totalTokens:number}|{kind:"map";chunkId:string;chunkIndex:number;chunkCount:number;evidenceKeyId:string;coveredRefs:string[];chunkMembershipDigest:string;validatedOutput:MapV1}|{kind:"direct";validatedOutput:DirectV1}|{kind:"reduce";validatedOutput:ReduceV1}|{kind:"validate";publishedAnalysis:PublishedAnalysisV1;validatorVersion:string}|{kind:"render";rendererVersion:string;pdfSha256:string;size:number}|{kind:"store";objectKey:string;artifactSha256:string;size:number;mimeType:"application/pdf"};
+type PayloadV1={kind:"redact";recordCount:number;redactionVersion:string}|{kind:"count";requestDigest:string;segmentTokens:{instructions:number;schema:number;metrics:number;comments:number;reservedOutput:number;headroom:number};totalTokens:number}|{kind:"map";chunkId:string;chunkIndex:number;chunkCount:number;evidenceKeyId:string;coveredRefs:string[];chunkMembershipDigest:string;validatedOutput:MapV1}|{kind:"direct";validatedOutput:DirectV1}|{kind:"reduce";validatedOutput:ReduceV1}|{kind:"validate";publishedAnalysis:PublishedAnalysisV1;validatorVersion:string}|{kind:"render";rendererVersion:string;pdfSha256:string;size:number}|{kind:"store";objectKey:string;artifactSha256:string;size:number;mimeType:"application/pdf"};
 type CheckpointV1={checkpointVersion:"survey-checkpoint.v1";stageKey:string;stageIndex:number;route:"common"|"direct"|"map-reduce";stageType:"redact"|"count"|"map"|"direct"|"reduce"|"validate"|"render"|"store";status:"valid";inputDigest:string;outputDigest:string;attempts:number;completedAt:string;payload:PayloadV1};
 type CheckpointSetV1={version:"survey-checkpoints.v1";snapshotDigest:string;route:"undecided"|"direct"|"map-reduce";chunkCount:number|null;entries:CheckpointV1[]};
 type CheckpointContractVersionsV1={snapshot:"survey-snapshot.v1";checkpoint:"survey-checkpoint.v1";canonicalization:"tb-json.v1";evidenceRef:"survey-evidence-ref.v1";chunkMembership:"survey-chunk-membership.v1";stageConfig:"survey-stage-config.v1";stageInput:"survey-stage-input.v1"};
@@ -57,11 +57,11 @@ Checkpoints prohibit visitor comments, raw/redacted prompts, credentials, signed
 
 Identical valid-stage replay succeeds without state/attempt change; reuse of key or index with different binding is `CHECKPOINT_CONFLICT`. Resume retries the lowest missing eligible stage, preserves valid sibling maps, and blocks reduce until all maps validate. Mismatched persisted input fails `INVARIANT`; history is never overwritten. No persisted valid stage with matching bindings repeats. Transient operations get two retries after the first attempt; invalid model output gets one controlled regeneration; other failures are terminal.
 
-**Foundation implementation gate:** App/CMS pure derivation and synthetic cross-runtime vectors are local foundations only. The authenticated CMS checkpoint route remains fail-closed with `UNKNOWN_VERSION` before transaction entry; no checkpoint write is accepted. No real verifier key is provisioned, no key ID is populated in generation rows, and no schema/auth/grant/dependency/IAM change is included. Before activation, wire an explicitly authorized runtime key provider by immutable per-run `evidenceKeyId`, validate complete nested output/evidence/privacy constraints, recompute all stage digests and dependencies inside CMS CAS, align app stage keys/indexes/payloads, and resolve the unchanged 4 KiB HTTP cap against validated map payload sizes. Byte weighting never substitutes for CountTokens or all-comment evidence validation.
+**Local direct-route boundary:** The synthetic worker accepts only a CMS-recomputed zero-comment direct graph. CountTokens is an explicit injected fake; the checkpoint binds its exact request digest and returned counts, and direct is selected only when instructions, schema, official metrics, output reservation, and headroom fit the versioned limit. CMS independently verifies the immutable snapshot, graph edges/digests, fixed no-claim analysis, and state-version CAS before writing checkpoints or atomically completing a report. Nonempty-comment semantics, map/reduce, real provider calls, and production readiness remain fail-closed. No runtime evidence key is provisioned; no schema, default grant, dependency, environment, or IAM change is included. The 4 KiB request limit remains unchanged.
 
-The local worker POC validates only closed direct-route `render` and `store`
-metadata/payloads and their canonical output digests, and emits the normative
-direct indexes 4 and 5. The app claim DTO now matches the CMS running response's
+The local worker validates the closed direct-route graph from `redact` through
+`store`, emits the normative direct indexes 0–5, and persists each checkpoint
+only after CMS graph/digest/CAS validation. The app claim DTO matches the CMS running response's
 `modelConfig` and `pricingSnapshot` fields. Before snapshot/provider work, the
 worker validates the closed model configuration, including the pinned
 `gemini-3.8-flash` model and topology/settings, and validates the exact
@@ -73,37 +73,38 @@ to the canonical render-payload output digest. Both stage-input digests use the
 v1 projection, contract versions, snapshot/source revision, full model config,
 renderer version, and the exact ordered dependency. Missing configuration or
 dependency data fails closed, and legacy POC digests have no fallback or reuse
-path. CMS now has a separate pure `verifyCheckpointGraphV1` foundation, but it
-is not connected to the lifecycle or HTTP write path. It checks the closed
-direct-route stage order/indexes, immutable snapshot/source/model bindings,
-exact contract versions, dependency output-digest order, canonical payload
-output digests, and exact replay versus stale/conflicting history. Its closed
-payload checks cover `redact`, `count`, `render`, and `store`; render/store do
-not become verified when an upstream semantic stage is incomplete. `DirectV1`,
-`MapV1`, `ReduceV1`, and published-analysis semantics remain unsupported, so
-their outputs can only produce an `incomplete` result and are never labeled
-validated. Every incomplete result contains only an explicit reason and
-structural/pending stage-key summaries; it never returns checkpoint entries,
-candidate payloads, or a proposed next state version. A persisted
-`status: "valid"` is contract data, not proof that semantic validation passed.
-Map/reduce graph verification also fails closed because this pure API does not
-receive an independently authorized snapshot/key pair. The helper performs no
-writes, and the authenticated CMS checkpoint route still returns
-`UNKNOWN_VERSION` before transaction entry. Complete nested AI/evidence
-validation and checkpoint activation remain separate gates.
+path. CMS `verifyCheckpointGraphV1` now runs inside the authenticated checkpoint
+transaction with the locked snapshot. It checks direct stage order/indexes,
+immutable snapshot/source/model bindings, exact contract versions, dependency
+and canonical payload digests, replay, and CAS. For the local zero-comment case,
+`DirectV1` must have seven ordered insufficient-evidence sections with empty
+claims; publication must match the fixed Spanish fallback. All other direct
+semantic output remains incomplete/rejected and cannot be persisted as validated.
+Map/reduce still fails closed because route/chunk selection and semantic
+validation are not implemented. Completion rechecks the entire graph and
+atomically inserts the report with the succeeded generation state. A persisted
+`status: "valid"` remains contract data, not proof by itself.
 
-The worker also has a pure direct-analysis preflight. It checks the closed
+For the local direct route, the CountTokens request is the canonical JSON object
+`{contractVersion:"survey-count-request.v1",modelConfig,segments}`. Its segments
+are the versioned instruction string, canonical direct schema, canonical
+immutable official metrics, and canonical sanitized comments. The `count`
+payload includes SHA-256 of this exact request, integer per-segment token results,
+the 3,000-token direct output reservation, computed safety headroom, and their
+sum. CMS recomputes the request digest from the locked snapshot/config and
+rejects mismatches or a total above `verifiedInputTokenLimit` before route
+selection. The caller's injected CountTokens analogue is test-only; there is no
+production CountTokens or generation provider composition.
+
+The worker retains a pure direct-analysis preflight. It checks the closed
 `DirectV1` shape and section order, evidence-ref syntax, uniqueness and
 membership derived from the supplied snapshot/run/key, recurrent/minority
 minimum counts, bounded scalar text, prohibited action/causal markers, and
-verbatim comment matches. A clean result is explicitly `incomplete`, never a
-validated analysis: the preflight cannot prove claim-to-metric entailment,
-semantic contradictions, provider-evidence meaning, or the versioned Spanish
-fallback text. The real evidence key is not provisioned or wired; synthetic
-test material is not an operational source, and immutable per-run key selection
-is not verified. `MapV1`, `ReduceV1`, checkpoint acceptance, and CMS validation
-remain unsupported. The authenticated CMS checkpoint route must continue to
-return `UNKNOWN_VERSION` before transaction entry.
+verbatim comment matches. General model-derived analysis remains `incomplete`;
+the only accepted local direct output is the exact zero-comment, no-claim
+fallback independently rechecked by CMS. Synthetic key material is not an
+operational source. Map/reduce and nonempty-comment semantic validation remain
+unsupported.
 
 The partial validator also rejects a `recurrent_themes` claim whose signal is
 not `recurrent`, and a `minority_signals` claim whose signal is not `minority`.
@@ -136,8 +137,10 @@ worker-ready and its placeholder generation fields remain a known integration
 gap. A separately bounded U10-A adapter must supply authoritative CMS-derived
 snapshot inputs and approved versioned model/pricing inputs, replace those
 placeholders, and prove creation/retry cutoff immutability before runtime use.
-Until then the feedback capability's deployment flag remains `false` and CMS
-checkpoint writes remain `UNKNOWN_VERSION` before transaction entry.
+Until operational configuration is separately approved, the feedback
+capability's deployment flag remains `false`; the local worker path is available
+only through injected synthetic dependencies and the restricted zero-comment
+direct checkpoint contract.
 
 ### Strict authoritative CMS source adapter
 
@@ -170,8 +173,9 @@ harness verifies the private-field response shape and custom content API
 token strategy/action boundary. The default application runtime still has no
 trusted production origin/token-provider or approved model/pricing/key-ID
 configuration, so it does not construct that port. Those operational sources
-remain unselected and generation remains fail-closed; CMS checkpoint writes
-remain `UNKNOWN_VERSION`.
+remain unselected and production generation remains disabled. CMS checkpoint
+writes are limited to the local zero-comment direct contract; nonempty semantic
+outputs and map/reduce still fail closed.
 
 The CMS source page includes valid-QR rows within the inclusive previous/current
 range even when `acceptedAt` is later than the frozen `dataCutoffAt`. The cutoff

@@ -18,6 +18,8 @@ const GENERATION_UID = 'api::survey-report-generation.survey-report-generation';
 const WORKER_ACTIONS = {
   claim: `${GENERATION_UID}.workerClaim`,
   snapshot: `${GENERATION_UID}.workerSnapshot`,
+  checkpoint: `${GENERATION_UID}.workerCheckpoint`,
+  complete: `${GENERATION_UID}.workerComplete`,
   fail: `${GENERATION_UID}.workerFail`,
 };
 const WORKER_ORIGIN = 'https://cms.example.com';
@@ -168,6 +170,7 @@ function loadPrivateReportSourceAppModules() {
       if (request === 'server-only') return {};
       if (request === 'node:net') return require('node:net');
       if (request === 'node:crypto') return require('node:crypto');
+      if (request === 'echarts') return require(path.join(repositoryRoot, 'teleferico-app/node_modules/echarts'));
       return load(resolveLocalModule(realPath, request));
     }
 
@@ -183,6 +186,7 @@ function loadPrivateReportSourceAppModules() {
   const feedbackRoot = sourceRoots[2];
   return {
     createWorkerCmsClient: load(path.join(workerRoot, 'worker-cms-client.ts')).createWorkerCmsClient,
+    executeReportWorker: load(path.join(workerRoot, 'worker-runtime.ts')).executeReportWorker,
     createSnapshot: load(path.join(repositoryRoot, 'teleferico-app/packages/survey-reporting-core/src/index.ts')).createSnapshot,
     createPrivateReportSourceTransport: load(
       path.join(workerRoot, 'private-report-source-transport.ts'),
@@ -235,6 +239,13 @@ function createWorkerClientFetch(
     routes.set(`${root}/claim`, { action: WORKER_ACTIONS.claim, method: 'POST' });
     routes.set(`${root}/snapshot`, { action: WORKER_ACTIONS.snapshot, method: 'GET' });
     routes.set(`${root}/fail`, { action: WORKER_ACTIONS.fail, method: 'POST' });
+    routes.set(`${root}/checkpoints/redact`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/count`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/direct`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/validate`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/render`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/store`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/complete`, { action: WORKER_ACTIONS.complete, method: 'POST' });
   }
 
   return async (input, init = {}) => {
@@ -452,6 +463,22 @@ async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRu
         safeFailureMessage: 'The report output did not satisfy its contract.',
       },
     },
+    {
+      suffix: 'checkpoints/redact',
+      action: WORKER_ACTIONS.checkpoint,
+      method: 'PUT',
+      body: {
+        contractVersion: 'survey-worker-cms.v1',
+        expectedStateVersion: 2,
+        checkpoint: { checkpointVersion: 'survey-checkpoint.v1', stageKey: 'redact' },
+      },
+    },
+    {
+      suffix: 'complete',
+      action: WORKER_ACTIONS.complete,
+      method: 'POST',
+      body: { contractVersion: 'survey-worker-cms.v1' },
+    },
   ];
   const nativeCollectionUrl = `http://127.0.0.1:${port}/api/survey-report-generations`;
   for (const route of routeDetails) {
@@ -514,12 +541,12 @@ async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRu
     console[method] = (...values) => consoleOutput.push(values.map(String).join(' '));
   }
   try {
-    const beforeUnsupportedOperations = { tokens: tokenRequests.length, requests: observedRequests.length };
-    await assert.rejects(client.checkpoint(WORKER_RUN_ID, {}), { code: 'UNKNOWN_VERSION' });
-    await assert.rejects(client.complete(WORKER_RUN_ID, {}), { code: 'UNSUPPORTED_OPERATION' });
+    const beforeInvalidOperations = { tokens: tokenRequests.length, requests: observedRequests.length };
+    await assert.rejects(client.checkpoint(WORKER_RUN_ID, {}), { code: 'INVALID_CONFIGURATION' });
+    await assert.rejects(client.complete(WORKER_RUN_ID, {}), { code: 'INVALID_CONFIGURATION' });
     assert.deepEqual(
       { tokens: tokenRequests.length, requests: observedRequests.length },
-      beforeUnsupportedOperations,
+      beforeInvalidOperations,
     );
 
     const claimed = await client.claim(WORKER_RUN_ID);
@@ -704,6 +731,178 @@ async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRu
   assert.equal(appCreatedFailureRow.status, 'failed');
   assert.equal(appCreatedFailureRow.stateVersion, 3);
   assert.equal(appCreatedFailureRow.failureCode, 'INVALID_OUTPUT');
+  await verifyEmptyEvidenceWorkerExecution(strapi, port, jwt);
+}
+
+async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt) {
+  const {
+    createSnapshot,
+    createWorkerCmsClient,
+    executeReportWorker,
+  } = loadPrivateReportSourceAppModules();
+  const reportRunId = '00000000-0000-4000-8000-000000000132';
+  const sourceRevision = 'worker-empty-evidence-v1';
+  const snapshotEnvelope = createSnapshot({
+    range: { from: '2041-09-01', to: '2041-09-02' },
+    dataCutoffAt: '2041-09-03T00:00:00.000Z',
+    sourceRevision,
+    createdAt: '2041-09-03T00:00:00.000Z',
+    filters: { pointKey: null, versionKey: null },
+    submissions: [],
+    definitions: [{ aspectKey: 'other', sortOrder: 99 }],
+    points: [{ pointKey: 'empty-point', displayName: 'Synthetic point', sortOrder: 1 }],
+  });
+  const modelConfig = sourceModelConfig(sourceRevision, 'synthetic-empty-evidence-key');
+  const pricingSnapshot = {
+    version: 'pricing.v1',
+    currency: 'USD',
+    units: [{ sku: 'gemini-input', inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
+  };
+  const checkpoints = {
+    version: 'survey-checkpoints.v1',
+    snapshotDigest: snapshotEnvelope.digestHex,
+    route: 'undecided',
+    chunkCount: null,
+    entries: [],
+  };
+  const createResponse = await fetch(`http://127.0.0.1:${port}/api/survey-report-generations`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ data: {
+      reportRunId,
+      periodStart: '2041-09-01',
+      periodEnd: '2041-09-02',
+      dataCutoffAt: '2041-09-03T00:00:00.000Z',
+      overlapOverrideAccepted: false,
+      snapshotDigest: snapshotEnvelope.digestHex,
+      sourceRevision,
+      snapshotJson: snapshotEnvelope.payload,
+      checkpointsJson: checkpoints,
+      modelConfigJson: modelConfig,
+      usageJson: {},
+      pricingSnapshotJson: pricingSnapshot,
+      status: 'queued',
+    } }),
+  });
+  assert.equal(createResponse.status, 201);
+
+  const actionTokens = {};
+  strapi.config.set('admin.secrets.encryptionKey', 'tb113-empty-worker-synthetic-encryption');
+  const tokenService = strapi.service('admin::api-token-content-api');
+  for (const [name, action] of Object.entries(WORKER_ACTIONS)) {
+    const token = await tokenService.create({
+      name: `tb113-empty-worker-${name}`,
+      description: `Disposable empty-evidence worker token scoped to ${name}`,
+      type: 'custom',
+      permissions: [action],
+      lifespan: null,
+    });
+    actionTokens[action] = token.accessKey;
+  }
+
+  const countRequests = [];
+  const observedRequests = [];
+  let providerCalls = 0;
+  const client = createWorkerCmsClient({
+    baseUrl: WORKER_ORIGIN,
+    allowedOrigins: [WORKER_ORIGIN],
+    tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
+    fetchImplementation: createWorkerClientFetch(port, actionTokens, observedRequests, undefined, [reportRunId]),
+  });
+  let invalidCompletionWasAtomic = false;
+  const workerCms = {
+    ...client,
+    async complete(id, command) {
+      await assert.rejects(client.complete(id, { ...command, analysisDigest: 'f'.repeat(64) }));
+      const unchanged = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId: id } });
+      assert.equal(unchanged.status, 'running');
+      assert.equal(unchanged.stateVersion, command.expectedStateVersion);
+      assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: id } }), 0);
+      invalidCompletionWasAtomic = true;
+      return client.complete(id, command);
+    },
+  };
+  const artifacts = new Map();
+  const result = await executeReportWorker(reportRunId, {
+    cms: workerCms,
+    countTokens: async (request) => {
+      countRequests.push(request);
+      return { instructions: 100, schema: 100, metrics: 100, comments: 0 };
+    },
+    analysisProvider: async (snapshot) => {
+      providerCalls += 1;
+      assert.equal(snapshot.comments.length, 0);
+      throw new Error('empty-comment execution must not invoke the analysis provider');
+    },
+    renderer: {
+      rendererVersion: 'synthetic-pdf-renderer.v1',
+      async render() { return new Uint8Array([37, 80, 68, 70, 45, 49]); },
+    },
+    artifacts: {
+      async stage(runId, artifact) { artifacts.set(`${runId}:${artifact.sha256}`, artifact); },
+      async readStaged(runId, digest) { return artifacts.get(`${runId}:${digest}`) ?? null; },
+      async discardStaged(runId, digest) { artifacts.delete(`${runId}:${digest}`); },
+    },
+    now: () => new Date('2041-09-03T01:00:00.000Z'),
+  });
+
+  assert.equal(result.status, 'succeeded');
+  assert.equal(invalidCompletionWasAtomic, true);
+  assert.equal(providerCalls, 0);
+  assert.equal(countRequests.length, 1);
+  assert.equal(countRequests[0].contractVersion, 'survey-count-request.v1');
+  assert.equal(countRequests[0].segments.comments, '[]');
+  assert.equal(observedRequests.filter(({ method }) => method === 'PUT').length, 6);
+  assert.equal(observedRequests.filter(({ path }) => path.endsWith('/complete')).length, 2);
+  const persistedGeneration = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId } });
+  assert.equal(persistedGeneration.status, 'succeeded');
+  assert.equal(persistedGeneration.stateVersion, 9);
+  assert.equal(persistedGeneration.checkpointsJson.route, 'direct');
+  assert.deepEqual(persistedGeneration.checkpointsJson.entries.map(({ stageKey }) => stageKey), [
+    'redact', 'count', 'direct', 'validate', 'render', 'store',
+  ]);
+  const countCheckpoint = persistedGeneration.checkpointsJson.entries[1];
+  assert.match(countCheckpoint.payload.requestDigest, /^[a-f0-9]{64}$/);
+  assert.equal(countCheckpoint.payload.segmentTokens.comments, 0);
+  const report = await strapi.db.query('api::survey-report.survey-report').findOne({
+    where: { generationRunId: reportRunId },
+    populate: { sourceGeneration: true },
+  });
+  assert.ok(report);
+  assert.equal(report.reportId, result.reportId);
+  assert.equal(report.analysisContractVersion, 'survey-published-analysis.v1');
+  assert.equal(report.validatedAnalysisJson.sections.length, 7);
+  assert.equal(report.objectKey, `private/feedback-reports/${report.reportId}/report.pdf`);
+  assert.equal(report.sourceGeneration.reportRunId, reportRunId);
+  const completionReplay = await client.complete(reportRunId, {
+    contractVersion: 'survey-worker-cms.v1',
+    expectedStateVersion: 8,
+    validatedAnalysis: report.validatedAnalysisJson,
+    analysisDigest: report.analysisDigest,
+    rendererVersion: report.rendererVersion,
+    artifact: {
+      objectKey: report.objectKey,
+      sha256: report.artifactSha256,
+      size: Number(report.artifactSize),
+      mimeType: 'application/pdf',
+    },
+  });
+  assert.equal(completionReplay.replayed, true);
+  assert.equal(completionReplay.stateVersion, 9);
+  assert.equal(observedRequests.filter(({ path }) => path.endsWith('/complete')).length, 3);
+  const replay = await executeReportWorker(reportRunId, {
+    cms: client,
+    countTokens: async () => { throw new Error('terminal replay must not count tokens'); },
+    analysisProvider: async () => { throw new Error('terminal replay must not invoke provider'); },
+    renderer: { rendererVersion: 'synthetic-pdf-renderer.v1', async render() { throw new Error('terminal replay must not render'); } },
+    artifacts: {
+      async stage() { throw new Error('terminal replay must not stage'); },
+      async readStaged() { return null; },
+      async discardStaged() {},
+    },
+  });
+  assert.deepEqual(replay, { status: 'succeeded', disposition: 'terminal-replay', reportRunId });
+  assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: reportRunId } }), 1);
 }
 
 function createSourceIntegrationFetch(port, syntheticToken, observedPages) {

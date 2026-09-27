@@ -233,7 +233,7 @@ It permits only reservation, created, and unknown states; it rejects claimed
 absence and cannot compensate a queued generation. These custom actions use the
 application user JWT, not an API token. The worker
 `survey-report-generation.workerClaim`, `workerSnapshot`, `workerCheckpoint`,
-`workerSourceRead`, and `workerFail` actions are available only through Strapi's native
+`workerSourceRead`, `workerComplete`, and `workerFail` actions are available only through Strapi's native
 `content-api-token` strategy, each with its own exact custom API-token action
 scope. Their controllers also require Strapi's runtime-selected strategy,
 `kind: "content-api"`, and `type: "custom"` before controller body measurement,
@@ -248,8 +248,17 @@ role/token grant and does not define credential issuance or rotation.
 `workerClaim` returns checkpoints/model/pricing state only to its scoped custom
 token. `workerSnapshot` returns the immutable snapshot only for a running
 generation and verifies the stored `survey-snapshot.v1` payload digest before
-exposing its private comments. `workerCheckpoint` remains fail-closed and returns
-`UNKNOWN_VERSION` before its lifecycle transaction. `workerFail` accepts only a
+exposing its private comments. `workerCheckpoint` recomputes the direct checkpoint
+graph and digests from the locked generation and immutable snapshot before
+state-version CAS. It only accepts the local zero-comment direct contract: the
+CountTokens result must fit the configured direct budget, all analysis sections
+must contain no claims, and publication must use fixed insufficient-evidence
+copy. Nonempty-comment semantic output and map/reduce remain rejected.
+`workerComplete` revalidates the full persisted graph, output digest, final
+object identity, and fixed analysis, then inserts the immutable report and marks
+the generation succeeded in one transaction. Both actions require separate exact
+custom content API token scopes; no default or persistent grant is added.
+`workerFail` accepts only a
 closed 4 KiB command with an exact failure-code-to-safe-message mapping. It
 fails only a running generation through state-version CAS and creates no report
 or partial PDF. Identical terminal replay returns the current version without a
@@ -308,7 +317,7 @@ public/admin route. The isolated HTTP harness grants it only to a synthetic
 custom token; no production role or token is changed.
 
 U10-A13 applies that same native custom-token boundary to `workerClaim`,
-`workerSnapshot`, and the fail-closed `workerCheckpoint` action. Each route names
+`workerSnapshot`, `workerCheckpoint`, `workerComplete`, and `workerFail`. Each route names
 only its own action scope. A shared controller guard checks Strapi's selected
 strategy and token `kind`/`type` before body measurement/validation or database
 access; `workerSourceRead` retains the same boundary. The native core generation
@@ -316,8 +325,8 @@ access; `workerSourceRead` retains the same boundary. The native core generation
 `dispatch-failure` actions remain on their existing Users & Permissions JWT
 contracts. No global auth behavior or default grant changes. The isolated
 HTTP test proves that JWTs with each worker action artificially granted are
-denied, exact-scope custom tokens reach their handlers, and the checkpoint
-handler still returns `UNKNOWN_VERSION`; no production role/token was changed.
+denied and exact-scope custom tokens reach their respective handlers; no
+production role/token was changed.
 
 U10-A14 adds the
 `api::survey-report-generation.survey-report-generation.workerFail` action for
@@ -371,14 +380,15 @@ projection and pagination only in a disposable PostgreSQL/Strapi instance.
 
 U10-A5 registers
 `api::survey-report-generation.survey-report-generation.workerCheckpoint` for
-the bounded worker checkpoint PUT, but the action is currently fail-closed:
-`writeWorkerCheckpoint` returns `UNKNOWN_VERSION` before opening a transaction.
-No checkpoint payload is persisted and no default or production grant exists.
-The action is separate from generic CRUD, and the route returns no persisted
-checkpoint payload. Future activation requires the versioned digest, independent
-membership and nested-output validation, runtime verifier-key provisioning, and
-resolution of the request-size limit documented in TB-113 design/04. The
-synthetic HTTP harness's temporary test grant is not a production grant.
+the bounded worker checkpoint PUT. It accepts only the CMS-verified empty-comment
+direct graph, validates the CountTokens budget and each stage's canonical input
+and output digests, and commits each checkpoint with state-version CAS.
+`workerComplete` is a separate exact-scope action that rechecks the complete
+graph and atomically inserts the immutable report while transitioning the
+generation to succeeded. Nonempty-comment semantic output and map/reduce remain
+fail-closed. Neither action returns checkpoint payloads or adds a default or
+production grant; the synthetic HTTP harness grants each scope only to a
+disposable custom content API token.
 
 Verify the baseline with:
 

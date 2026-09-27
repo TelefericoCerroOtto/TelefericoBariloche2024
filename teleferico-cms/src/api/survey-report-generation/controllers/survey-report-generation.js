@@ -215,7 +215,6 @@ module.exports = createCoreController(
         ctx.body = { error: { code: "FORBIDDEN", message: "The worker checkpoint request is not authorized" } };
         return;
       }
-      const command = ctx.request.body;
       const bodySize = measureDispatchFailureRequestBody(ctx.request);
       if (bodySize === null || bodySize > 4 * 1024) {
         ctx.status = 413;
@@ -227,6 +226,7 @@ module.exports = createCoreController(
         ctx.body = { error: { code: "VALIDATION_FAILED", message: "The worker checkpoint request is invalid" } };
         return;
       }
+      const command = ctx.request.body;
       try {
         const result = await strapi.service("api::survey-report-generation.survey-report-generation").writeWorkerCheckpoint({
           reportRunId: ctx.params.reportRunId,
@@ -242,6 +242,40 @@ module.exports = createCoreController(
         const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
         ctx.status = status;
         ctx.body = { error: { code: safeCode, message: status === 500 ? "The worker checkpoint could not be saved" : "The worker checkpoint was rejected" } };
+      }
+    },
+    async workerComplete(ctx) {
+      if (!hasCustomContentApiTokenIdentity(ctx)) {
+        ctx.status = 403;
+        ctx.body = { error: { code: "FORBIDDEN", message: "The worker completion request is not authorized" } };
+        return;
+      }
+      const bodySize = measureDispatchFailureRequestBody(ctx.request);
+      if (bodySize === null || bodySize > 4 * 1024) {
+        ctx.status = 413;
+        ctx.body = { error: { code: "PAYLOAD_TOO_LARGE", message: "The worker command is too large" } };
+        return;
+      }
+      const command = ctx.request.body;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ctx.params.reportRunId)) {
+        ctx.status = 400;
+        ctx.body = { error: { code: "VALIDATION_FAILED", message: "The worker completion request is invalid" } };
+        return;
+      }
+      try {
+        const result = await strapi.service("api::survey-report-generation.survey-report-generation").completeWorker({
+          reportRunId: ctx.params.reportRunId,
+          command,
+        });
+        ctx.status = result.replayed ? 200 : 201;
+        ctx.body = { contractVersion: "survey-worker-cms.v1", ...result };
+      } catch (error) {
+        const code = error.code ?? "INTERNAL_ERROR";
+        const statuses = { RUN_NOT_FOUND: 404, INVALID_STATE: 409, STATE_VERSION_CONFLICT: 409, CHECKPOINT_SET_INCOMPLETE: 409, DIGEST_MISMATCH: 409, TERMINAL_CONFLICT: 409, VALIDATION_FAILED: 400 };
+        const status = statuses[code] ?? 500;
+        const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
+        ctx.status = status;
+        ctx.body = { error: { code: safeCode, message: status === 500 ? "The worker completion could not be recorded" : "The worker completion was rejected" } };
       }
     },
   }),

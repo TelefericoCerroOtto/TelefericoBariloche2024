@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import {
   deriveStageInputDigestV1,
+  deriveWorkerStageInputDigestV1,
   validateDirectStageConfigV1,
   validateWorkerStageCheckpointV1,
 } from "./checkpoint-contract";
@@ -9,11 +10,11 @@ import {
   buildReportCharts,
   canonicalizeJson,
   validateSnapshotEnvelope,
+  type SnapshotV1,
 } from "../../../packages/survey-reporting-core/src";
 
 import {
   renderValidatedPdf,
-  validatePublishedAnalysis,
   type PdfArtifact,
 } from "./pdf";
 import {
@@ -30,14 +31,24 @@ import {
   type WorkerExecutionResult,
   type WorkerClaimResult,
   type ModelConfigV1,
+  type WorkerCheckpointStage,
+  type DirectAnalysisV1,
+  type CountTokensProvider,
   WorkerCmsConflictError,
 } from "./contracts";
+import {
+  createEmptyEvidenceDirectAnalysisV1,
+  planDirectExecutionV1,
+  publishEmptyEvidenceAnalysisV1,
+} from "./direct-execution-plan";
 
 type WorkerRuntimeDependencies = {
   readonly cms: WorkerCmsClient;
   readonly artifacts: WorkerArtifactStore;
   readonly renderer: PdfRenderer;
-  readonly analysisProvider: ValidatedAnalysisProvider;
+  /** Semantic model output remains outside the currently supported zero-comment route. */
+  readonly analysisProvider?: ValidatedAnalysisProvider;
+  readonly countTokens?: CountTokensProvider;
   readonly now?: () => Date;
 };
 
@@ -96,6 +107,11 @@ function isTerminal(
 
 function knownFailureCode(error: unknown): RuntimeFailureCode | null {
   if (error instanceof WorkerCmsConflictError) return "INVARIANT";
+  if (error instanceof Error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string" && code in safeFailureMessages)
+      return code as RuntimeFailureCode;
+  }
   if (error instanceof TypeError)
     return error.message === "Unknown snapshot contract"
       ? "UNKNOWN_VERSION"
@@ -121,12 +137,15 @@ async function classifyDependencyFailure<T>(
   failureCode: RetryableFailureCode,
   operation: () => Promise<T>,
 ): Promise<T> {
-  try {
-    return await operation();
-  } catch (error) {
-    if (knownFailureCode(error)) throw error;
-    throw new ClassifiedFailure(failureCode);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (knownFailureCode(error)) throw error;
+      if (attempt === 2) throw new ClassifiedFailure(failureCode);
+    }
   }
+  throw new ClassifiedFailure(failureCode);
 }
 
 function isRetryableFailure(
@@ -179,16 +198,26 @@ async function failSafely(
 
 function checkpoint(
   reportRunId: string,
-  stageKey: WorkerCheckpoint["stageKey"],
+  stageKey: WorkerCheckpointStage,
   inputDigest: string,
   payload: WorkerCheckpoint["payload"],
+  route: "common" | "direct",
+  snapshot: SnapshotV1,
   now: Date,
 ): WorkerCheckpoint {
+  const stageIndex: Record<WorkerCheckpointStage, number> = {
+    redact: 0,
+    count: 1,
+    direct: 2,
+    validate: 3,
+    render: 4,
+    store: 5,
+  };
   const value: WorkerCheckpoint = {
     checkpointVersion: "survey-checkpoint.v1",
     stageKey,
-    stageIndex: stageKey === "render" ? 4 : 5,
-    route: "direct",
+    stageIndex: stageIndex[stageKey],
+    route,
     stageType: stageKey,
     status: "valid",
     inputDigest,
@@ -200,6 +229,7 @@ function checkpoint(
   validateWorkerStageCheckpointV1(value, {
     reportRunId,
     route: "direct",
+    snapshot,
   });
   return value;
 }
@@ -223,14 +253,61 @@ async function writeCheckpoint(
 function stagedArtifact(
   reportRunId: string,
   artifact: PdfArtifact,
+  reportId: string,
 ): WorkerArtifact {
   return {
-    objectKey: `private/feedback-reports/staged/${reportRunId}/report.pdf`,
+    objectKey: `private/feedback-reports/${reportId}/report.pdf`,
     bytes: artifact.bytes,
     sha256: artifact.sha256,
     size: artifact.size,
     mimeType: artifact.mimeType,
   };
+}
+
+function deterministicReportId(reportRunId: string, artifactSha256: string): string {
+  const bytes = createHash("sha256")
+    .update(`tb113-report-id.v1:${reportRunId}:${artifactSha256}`)
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = (bytes[6]! & 0x0f) | 0x50;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function stageInputDigest(input: {
+  readonly stageKey: WorkerCheckpointStage;
+  readonly snapshotDigest: string;
+  readonly sourceRevision: string;
+  readonly modelConfig: ModelConfigV1;
+  readonly rendererVersion: string;
+  readonly dependencies: readonly { readonly stageKey: WorkerCheckpointStage; readonly outputDigest: string }[];
+}): string {
+  if (input.stageKey === "render" || input.stageKey === "store") {
+    return deriveStageInputDigestV1({
+      stageKey: input.stageKey,
+      snapshotDigest: input.snapshotDigest,
+      sourceRevision: input.sourceRevision,
+      modelConfig: input.modelConfig,
+      rendererVersion: input.rendererVersion,
+      orderedDependencies: input.dependencies,
+    });
+  }
+  const index: Record<Exclude<WorkerCheckpointStage, "render" | "store">, number> = {
+    redact: 0,
+    count: 1,
+    direct: 2,
+    validate: 3,
+  };
+  return deriveWorkerStageInputDigestV1({
+    stageKey: input.stageKey,
+    stageIndex: index[input.stageKey],
+    route: input.stageKey === "redact" || input.stageKey === "count" ? "common" : "direct",
+    snapshotDigest: input.snapshotDigest,
+    sourceRevision: input.sourceRevision,
+    modelConfig: input.modelConfig,
+    orderedDependencyOutputDigests: input.dependencies.map(({ outputDigest }) => outputDigest),
+  });
 }
 
 export async function executeReportWorker(
@@ -264,32 +341,23 @@ export async function executeReportWorker(
     const modelConfig = claim.modelConfig as ModelConfigV1;
     if (
       claim.checkpoints.version !== "survey-checkpoints.v1" ||
-      claim.checkpoints.route !== "direct" ||
+      (claim.checkpoints.route !== "direct" && claim.checkpoints.route !== "undecided") ||
       claim.checkpoints.chunkCount !== null
     )
       throw new TypeError("Unsupported worker checkpoint graph");
+    const expectedStages: readonly WorkerCheckpointStage[] = [
+      "redact", "count", "direct", "validate", "render", "store",
+    ];
     if (
-      claim.checkpoints.entries.some(
-        (value) => value.stageKey !== "render" && value.stageKey !== "store",
-      ) ||
+      claim.checkpoints.entries.some(({ stageKey }, index) => stageKey !== expectedStages[index]) ||
       new Set(claim.checkpoints.entries.map(({ stageKey }) => stageKey)).size !==
         claim.checkpoints.entries.length ||
       (claim.checkpoints.entries.some(({ stageKey }) => stageKey === "store") &&
-        !claim.checkpoints.entries.some(({ stageKey }) => stageKey === "render"))
+        !claim.checkpoints.entries.some(({ stageKey }) => stageKey === "render")) ||
+      (claim.checkpoints.route === "undecided" &&
+        claim.checkpoints.entries.some(({ stageKey }) => stageKey !== "redact"))
     )
       throw new TypeError("Invalid worker checkpoint graph");
-    const priorRender = claim.checkpoints.entries.find(
-      (value) => value.stageKey === "render",
-    );
-    const priorStore = claim.checkpoints.entries.find(
-      (value) => value.stageKey === "store",
-    );
-    for (const priorCheckpoint of claim.checkpoints.entries) {
-      validateWorkerStageCheckpointV1(priorCheckpoint, {
-        reportRunId,
-        route: "direct",
-      });
-    }
     const snapshotResult = await classifyDependencyFailure(
       "CMS_TRANSIENT",
       () => dependencies.cms.snapshot(reportRunId),
@@ -299,17 +367,131 @@ export async function executeReportWorker(
     const snapshot = validateSnapshotEnvelope(snapshotResult.snapshot);
     if (claim.checkpoints.snapshotDigest !== snapshotResult.snapshot.digestHex)
       throw new TypeError("Worker checkpoint snapshot digest mismatch");
-    const analysis = validatePublishedAnalysis(
-      await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
-        dependencies.analysisProvider(snapshot, claim.checkpoints),
-      ),
-    );
-    const validatePayload = {
-      kind: "validate" as const,
-      publishedAnalysis: analysis,
-      validatorVersion: modelConfig.validatorVersion,
+    let checkpointSet: WorkerCheckpointSet = {
+      ...claim.checkpoints,
+      entries: [...claim.checkpoints.entries],
     };
-    const validateOutputDigest = outputDigest(validatePayload);
+    for (const priorCheckpoint of checkpointSet.entries) {
+      validateWorkerStageCheckpointV1(priorCheckpoint, {
+        reportRunId,
+        route: "direct",
+        snapshot,
+      });
+    }
+    const checkpointDependencies: Record<WorkerCheckpointStage, readonly WorkerCheckpointStage[]> = {
+      redact: [],
+      count: ["redact"],
+      direct: ["count"],
+      validate: ["direct"],
+      render: ["validate"],
+      store: ["render"],
+    };
+    const boundCheckpoints = new Map<WorkerCheckpointStage, WorkerCheckpoint>();
+    for (const priorCheckpoint of checkpointSet.entries) {
+      const expectedInputDigest = stageInputDigest({
+        stageKey: priorCheckpoint.stageKey,
+        snapshotDigest: snapshotResult.snapshot.digestHex,
+        sourceRevision: snapshot.sourceRevision,
+        modelConfig,
+        rendererVersion: dependencies.renderer.rendererVersion,
+        dependencies: checkpointDependencies[priorCheckpoint.stageKey].map((stageKey) => {
+          const dependency = boundCheckpoints.get(stageKey);
+          if (!dependency) throw new TypeError("Stored worker checkpoint dependency is missing");
+          return { stageKey, outputDigest: dependency.outputDigest };
+        }),
+      });
+      if (priorCheckpoint.inputDigest !== expectedInputDigest)
+        throw new TypeError("Stored worker checkpoint input digest mismatch");
+      boundCheckpoints.set(priorCheckpoint.stageKey, priorCheckpoint);
+    }
+
+    const addCheckpoint = async (
+      stageKey: WorkerCheckpointStage,
+      payload: WorkerCheckpoint["payload"],
+      route: "common" | "direct",
+      orderedDependencies: readonly WorkerCheckpointStage[],
+    ) => {
+      const entries = new Map(checkpointSet.entries.map((entry) => [entry.stageKey, entry]));
+      const inputDigest = stageInputDigest({
+        stageKey,
+        snapshotDigest: snapshotResult.snapshot.digestHex,
+        sourceRevision: snapshot.sourceRevision,
+        modelConfig,
+        rendererVersion: dependencies.renderer.rendererVersion,
+        dependencies: orderedDependencies.map((dependency) => {
+          const entry = entries.get(dependency);
+          if (!entry) throw new TypeError("Worker stage dependency is missing");
+          return { stageKey: dependency, outputDigest: entry.outputDigest };
+        }),
+      });
+      const value = checkpoint(
+        reportRunId,
+        stageKey,
+        inputDigest,
+        payload,
+        route,
+        snapshot,
+        (dependencies.now ?? (() => new Date()))(),
+      );
+      validateWorkerStageCheckpointV1(value, { reportRunId, route: "direct", snapshot });
+      stateVersion = await writeCheckpoint(dependencies, reportRunId, stateVersion, value);
+      checkpointSet = { ...checkpointSet, entries: [...checkpointSet.entries, value] };
+    };
+
+    if (!checkpointSet.entries.some(({ stageKey }) => stageKey === "redact")) {
+      await addCheckpoint("redact", {
+        kind: "redact",
+        recordCount: snapshot.comments.length,
+        redactionVersion: modelConfig.redactionVersion,
+      }, "common", []);
+    }
+
+    if (!checkpointSet.entries.some(({ stageKey }) => stageKey === "count")) {
+      if (typeof dependencies.countTokens !== "function")
+        throw new TypeError("An injected CountTokens provider is required");
+      const plan = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
+        planDirectExecutionV1({
+          snapshot,
+          modelConfig,
+          countTokens: dependencies.countTokens!,
+        }),
+      );
+      await addCheckpoint("count", plan.checkpoint, "common", ["redact"]);
+      checkpointSet = { ...checkpointSet, route: "direct" };
+    }
+    if (checkpointSet.route !== "direct")
+      throw new TypeError("CountTokens did not select the direct worker route");
+    if (!checkpointSet.entries.some(({ stageKey }) => stageKey === "count"))
+      throw new TypeError("The direct route has no CMS-authoritative CountTokens checkpoint");
+    if (snapshot.comments.length !== 0)
+      throw new TypeError("Semantic analysis is unavailable for this local provider");
+
+    let directAnalysis: DirectAnalysisV1;
+    const existingDirect = checkpointSet.entries.find(({ stageKey }) => stageKey === "direct");
+    if (existingDirect?.payload.kind === "direct") {
+      directAnalysis = existingDirect.payload.validatedOutput as DirectAnalysisV1;
+    } else {
+      directAnalysis = createEmptyEvidenceDirectAnalysisV1();
+      await addCheckpoint("direct", {
+        kind: "direct",
+        validatedOutput: directAnalysis,
+      }, "direct", ["count"]);
+    }
+    const analysis = publishEmptyEvidenceAnalysisV1(snapshot, directAnalysis);
+    const existingValidate = checkpointSet.entries.find(({ stageKey }) => stageKey === "validate");
+    if (existingValidate?.payload.kind === "validate") {
+      if (canonicalizeJson(existingValidate.payload.publishedAnalysis) !== canonicalizeJson(analysis))
+        throw new TypeError("Stored validated analysis differs from the direct output");
+    } else {
+      await addCheckpoint("validate", {
+        kind: "validate",
+        publishedAnalysis: analysis,
+        validatorVersion: modelConfig.validatorVersion,
+      }, "direct", ["direct"]);
+    }
+
+    const validateCheckpoint = checkpointSet.entries.find(({ stageKey }) => stageKey === "validate");
+    if (!validateCheckpoint) throw new TypeError("Validated output checkpoint is missing");
     const charts = buildReportCharts(snapshot);
     const renderInputDigest = deriveStageInputDigestV1({
       stageKey: "render",
@@ -318,14 +500,12 @@ export async function executeReportWorker(
       modelConfig,
       rendererVersion: dependencies.renderer.rendererVersion,
       orderedDependencies: [
-        { stageKey: "validate", outputDigest: validateOutputDigest },
+        { stageKey: "validate", outputDigest: validateCheckpoint.outputDigest },
       ],
     });
-    const existingRender = checkpointFor(
-      claim.checkpoints,
-      "render",
-      renderInputDigest,
-    );
+    const priorRender = checkpointSet.entries.find(({ stageKey }) => stageKey === "render");
+    const priorStore = checkpointSet.entries.find(({ stageKey }) => stageKey === "store");
+    const existingRender = checkpointFor(checkpointSet, "render", renderInputDigest);
     if (priorRender && priorRender.inputDigest !== renderInputDigest)
       throw new TypeError("Worker checkpoint input digest mismatch");
     let artifact: WorkerArtifact | null = null;
@@ -335,6 +515,8 @@ export async function executeReportWorker(
         dependencies.artifacts.readStaged(reportRunId, pdfSha256),
       );
       if (artifact && artifact.size !== size) artifact = null;
+      if (artifact && artifact.objectKey !== `private/feedback-reports/${deterministicReportId(reportRunId, pdfSha256)}/report.pdf`)
+        artifact = null;
       if (artifact) staged = artifact;
     }
 
@@ -344,7 +526,11 @@ export async function executeReportWorker(
         analysis,
         dependencies.renderer,
       );
-      artifact = stagedArtifact(reportRunId, rendered);
+      artifact = stagedArtifact(
+        reportRunId,
+        rendered,
+        deterministicReportId(reportRunId, rendered.sha256),
+      );
       staged = artifact;
       const artifactToStage = artifact;
       await classifyDependencyFailure("STORAGE_TRANSIENT", () =>
@@ -360,14 +546,18 @@ export async function executeReportWorker(
           pdfSha256: rendered.sha256,
           size: rendered.size,
         },
+        "direct",
+        snapshot,
         (dependencies.now ?? (() => new Date()))(),
       );
+      validateWorkerStageCheckpointV1(renderCheckpoint, { reportRunId, route: "direct", snapshot });
       stateVersion = await writeCheckpoint(
         dependencies,
         reportRunId,
         stateVersion,
         renderCheckpoint,
       );
+      checkpointSet = { ...checkpointSet, entries: [...checkpointSet.entries, renderCheckpoint] };
     }
 
     const renderPayload = {
@@ -386,32 +576,28 @@ export async function executeReportWorker(
         { stageKey: "render", outputDigest: outputDigest(renderPayload) },
       ],
     });
-    const existingStore = checkpointFor(
-      claim.checkpoints,
-      "store",
-      storeInputDigest,
-    );
+    const existingStore = checkpointFor(checkpointSet, "store", storeInputDigest);
     if (priorStore && priorStore.inputDigest !== storeInputDigest)
       throw new TypeError("Worker checkpoint input digest mismatch");
     if (!existingStore) {
-      stateVersion = await writeCheckpoint(
-        dependencies,
+      const storeCheckpoint = checkpoint(
         reportRunId,
-        stateVersion,
-        checkpoint(
-          reportRunId,
-          "store",
-          storeInputDigest,
-          {
-            kind: "store",
-            objectKey: artifact.objectKey,
-            artifactSha256: artifact.sha256,
-            size: artifact.size,
-            mimeType: "application/pdf",
-          },
-          (dependencies.now ?? (() => new Date()))(),
-        ),
+        "store",
+        storeInputDigest,
+        {
+          kind: "store",
+          objectKey: artifact.objectKey,
+          artifactSha256: artifact.sha256,
+          size: artifact.size,
+          mimeType: "application/pdf",
+        },
+        "direct",
+        snapshot,
+        (dependencies.now ?? (() => new Date()))(),
       );
+      validateWorkerStageCheckpointV1(storeCheckpoint, { reportRunId, route: "direct", snapshot });
+      stateVersion = await writeCheckpoint(dependencies, reportRunId, stateVersion, storeCheckpoint);
+      checkpointSet = { ...checkpointSet, entries: [...checkpointSet.entries, storeCheckpoint] };
     }
 
     const complete: CompleteCommand = {

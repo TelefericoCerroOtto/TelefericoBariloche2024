@@ -45,6 +45,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     ['workerFail', 'api::survey-report-generation.survey-report-generation.workerFail'],
     ['workerSnapshot', 'api::survey-report-generation.survey-report-generation.workerSnapshot'],
     ['workerCheckpoint', 'api::survey-report-generation.survey-report-generation.workerCheckpoint'],
+    ['workerComplete', 'api::survey-report-generation.survey-report-generation.workerComplete'],
   ]);
   assert.match(generationController, /createCoreController/);
   assert.match(generationController, /dispatchFailure/);
@@ -58,6 +59,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     ['GET', '/tb113/worker/generations/:reportRunId/snapshot', 'survey-report-generation.workerSnapshot'],
     ['POST', '/tb113/worker/report-source', 'survey-report-generation.workerSourceRead'],
     ['PUT', '/tb113/worker/generations/:reportRunId/checkpoints/:stageKey', 'survey-report-generation.workerCheckpoint'],
+    ['POST', '/tb113/worker/generations/:reportRunId/complete', 'survey-report-generation.workerComplete'],
   ]);
   assert.ok(generationAdminRoutes.every(({ config }) => config?.auth !== false));
   assert.deepEqual(privateSourceRoute.config.auth, {
@@ -101,6 +103,7 @@ test('documents D31 names only as future application capabilities', () => {
   assert.match(documentation, /workerSnapshot/);
   assert.match(documentation, /workerSourceRead/);
   assert.match(documentation, /workerCheckpoint/);
+  assert.match(documentation, /workerComplete/);
   assert.match(documentation, /workerFail/);
   assert.match(documentation, /workerClaim.*content-api-token/s);
   assert.match(documentation, /Users & Permissions JWT is denied even if its\s+role is granted the\s+same action/);
