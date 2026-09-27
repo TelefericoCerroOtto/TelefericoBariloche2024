@@ -6,9 +6,11 @@ import type {
   CountTokensRequestV1,
   CountTokensResultV1,
   DirectAnalysisV1,
+  DirectModelRequestV1,
   ModelConfigV1,
   PublishedAnalysisV1,
 } from "./contracts";
+import { deriveEvidenceRef } from "./checkpoint-contract";
 
 export const EMPTY_EVIDENCE_PARAGRAPH =
   "No hay comentarios elegibles para respaldar esta sección en el período analizado.";
@@ -24,13 +26,49 @@ const SECTION_KEYS = [
 ] as const;
 
 const DIRECT_INSTRUCTIONS =
-  "Describe only evidence supported by the supplied snapshot. Do not infer when there are no eligible comments.";
+  "Return structured Spanish descriptions only. Use the exact seven-section order and closed schema. Cite eligible evidence refs on every claim. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Leave unsupported sections empty. Semantic truth is not machine-verified.";
 
 const DIRECT_SCHEMA = canonicalizeJson({
   schemaVersion: "survey-analysis.v1",
   route: "direct",
-  sections: SECTION_KEYS.map((key) => ({ key, status: "insufficient_evidence", claims: [] })),
+  sections: SECTION_KEYS.map((key) => ({
+    key,
+    status: { enum: ["supported", "insufficient_evidence"] },
+    claims: [{
+      claimId: "lowercase-stable-id",
+      textEs: "Spanish descriptive text",
+      evidenceRefs: ["e_<20-lowercase-base32-characters>"],
+      signal: { enum: ["recurrent", "minority", "descriptive"] },
+    }],
+  })),
 });
+
+export function redactCommentTextV1(text: string): string {
+  return text
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, "[EMAIL]")
+    .replace(/https?:\/\/[^\s]+|www\.[^\s]+/giu, "[URL]")
+    .replace(/(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)/gu, "[PHONE]");
+}
+
+export function createDirectModelRequestV1(input: {
+  readonly snapshot: SnapshotV1;
+  readonly reportRunId: string;
+  readonly evidenceKey: string | Uint8Array | null;
+}): DirectModelRequestV1 {
+  return {
+    contractVersion: "survey-model-input.v1",
+    metrics: input.snapshot.metrics,
+    comments: input.snapshot.comments.map((comment) => ({
+      period: comment.period,
+      text: redactCommentTextV1(comment.text),
+      evidenceRef: deriveEvidenceRef({
+        reportRunId: input.reportRunId,
+        recordId: comment.recordId,
+        evidenceKey: input.evidenceKey ?? "",
+      }),
+    })),
+  };
+}
 
 export function createEmptyEvidenceDirectAnalysisV1(): DirectAnalysisV1 {
   return {
@@ -48,19 +86,17 @@ export function publishEmptyEvidenceAnalysisV1(
   snapshot: SnapshotV1,
   direct: DirectAnalysisV1,
 ): PublishedAnalysisV1 {
-  if (snapshot.comments.length !== 0) {
-    throw new TypeError("Unsupported semantic analysis input");
-  }
-  const expected = createEmptyEvidenceDirectAnalysisV1();
-  if (canonicalizeJson(direct) !== canonicalizeJson(expected)) {
+  if (snapshot.comments.length === 0 &&
+      canonicalizeJson(direct) !== canonicalizeJson(createEmptyEvidenceDirectAnalysisV1()))
     throw new TypeError("Direct analysis did not match the empty-evidence contract");
-  }
   return {
     schemaVersion: "survey-published-analysis.v1",
-    sections: SECTION_KEYS.map((key) => ({
-      key,
-      status: "insufficient_evidence",
-      paragraphsEs: [EMPTY_EVIDENCE_PARAGRAPH],
+    sections: direct.sections.map((section) => ({
+      key: section.key,
+      status: section.status,
+      paragraphsEs: section.status === "insufficient_evidence"
+        ? [EMPTY_EVIDENCE_PARAGRAPH]
+        : section.claims.map(({ textEs }) => textEs),
     })) as unknown as PublishedAnalysisV1["sections"],
   };
 }
@@ -99,16 +135,10 @@ function validCount(value: unknown): value is number {
 
 export async function planDirectExecutionV1(input: {
   readonly snapshot: SnapshotV1;
+  readonly modelInput: DirectModelRequestV1;
   readonly modelConfig: ModelConfigV1;
   readonly countTokens: (request: CountTokensRequestV1) => Promise<CountTokensResultV1>;
 }): Promise<{ readonly route: "direct"; readonly checkpoint: CountCheckpointPayload }> {
-  if (input.snapshot.comments.length !== 0) {
-    throw Object.assign(
-      new TypeError("Semantic analysis is unavailable for this local provider"),
-      { code: "UNKNOWN_VERSION" as const },
-    );
-  }
-
   const request: CountTokensRequestV1 = {
     contractVersion: "survey-count-request.v1",
     modelConfig: input.modelConfig,
@@ -116,7 +146,12 @@ export async function planDirectExecutionV1(input: {
       instructions: DIRECT_INSTRUCTIONS,
       schema: DIRECT_SCHEMA,
       metrics: canonicalizeJson(input.snapshot.metrics),
-      comments: canonicalizeJson(input.snapshot.comments),
+      comments: input.modelInput.comments.length === 0
+        ? canonicalizeJson([])
+        : canonicalizeJson({
+            contractVersion: input.modelInput.contractVersion,
+            comments: input.modelInput.comments,
+          }),
     },
   };
   const counted = await input.countTokens(request);

@@ -34,21 +34,24 @@ import {
   type WorkerCheckpointStage,
   type DirectAnalysisV1,
   type CountTokensProvider,
+  type EvidenceKeyProvider,
   WorkerCmsConflictError,
 } from "./contracts";
 import {
   createEmptyEvidenceDirectAnalysisV1,
+  createDirectModelRequestV1,
   planDirectExecutionV1,
   publishEmptyEvidenceAnalysisV1,
 } from "./direct-execution-plan";
+import { preflightDirectAnalysis } from "./analysis-output-preflight";
 
 type WorkerRuntimeDependencies = {
   readonly cms: WorkerCmsClient;
   readonly artifacts: WorkerArtifactStore;
   readonly renderer: PdfRenderer;
-  /** Semantic model output remains outside the currently supported zero-comment route. */
   readonly analysisProvider?: ValidatedAnalysisProvider;
   readonly countTokens?: CountTokensProvider;
+  readonly evidenceKeyProvider?: EvidenceKeyProvider;
   readonly now?: () => Date;
 };
 
@@ -438,6 +441,20 @@ export async function executeReportWorker(
       checkpointSet = { ...checkpointSet, entries: [...checkpointSet.entries, value] };
     };
 
+    const needsNarrative = snapshot.comments.length > 0;
+    let evidenceKey: string | Uint8Array | undefined;
+    if (needsNarrative) {
+      if (typeof dependencies.analysisProvider !== "function" ||
+          typeof dependencies.evidenceKeyProvider !== "function")
+        throw Object.assign(new TypeError("Injected narrative and evidence-key providers are required"), { code: "CONFIGURATION" as const });
+      evidenceKey = await dependencies.evidenceKeyProvider(modelConfig.evidenceKeyId);
+    }
+    const modelRequest = createDirectModelRequestV1({
+      snapshot,
+      reportRunId,
+      evidenceKey: evidenceKey ?? null,
+    });
+
     if (!checkpointSet.entries.some(({ stageKey }) => stageKey === "redact")) {
       await addCheckpoint("redact", {
         kind: "redact",
@@ -452,6 +469,7 @@ export async function executeReportWorker(
       const plan = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
         planDirectExecutionV1({
           snapshot,
+          modelInput: modelRequest,
           modelConfig,
           countTokens: dependencies.countTokens!,
         }),
@@ -463,19 +481,46 @@ export async function executeReportWorker(
       throw new TypeError("CountTokens did not select the direct worker route");
     if (!checkpointSet.entries.some(({ stageKey }) => stageKey === "count"))
       throw new TypeError("The direct route has no CMS-authoritative CountTokens checkpoint");
-    if (snapshot.comments.length !== 0)
-      throw new TypeError("Semantic analysis is unavailable for this local provider");
-
     let directAnalysis: DirectAnalysisV1;
     const existingDirect = checkpointSet.entries.find(({ stageKey }) => stageKey === "direct");
     if (existingDirect?.payload.kind === "direct") {
       directAnalysis = existingDirect.payload.validatedOutput as DirectAnalysisV1;
+    } else if (needsNarrative) {
+      const candidate = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
+        dependencies.analysisProvider!(modelRequest),
+      );
+      if (!candidate || typeof candidate !== "object" ||
+          (candidate as { schemaVersion?: unknown }).schemaVersion !== "survey-analysis.v1")
+        throw Object.assign(new TypeError("The injected provider returned an invalid direct analysis"), { code: "INVALID_OUTPUT" as const });
+      directAnalysis = candidate as DirectAnalysisV1;
+      const preflight = preflightDirectAnalysis(directAnalysis, {
+        snapshot: snapshotResult.snapshot,
+        reportRunId,
+        evidenceKeyId: modelConfig.evidenceKeyId,
+        evidenceKey: evidenceKey!,
+      });
+      if (preflight.status !== "accepted")
+        throw Object.assign(new TypeError("The direct analysis did not pass structural and privacy validation"), { code: "INVALID_OUTPUT" as const });
+      await addCheckpoint("direct", {
+        kind: "direct",
+        validatedOutput: directAnalysis,
+      }, "direct", ["count"]);
     } else {
       directAnalysis = createEmptyEvidenceDirectAnalysisV1();
       await addCheckpoint("direct", {
         kind: "direct",
         validatedOutput: directAnalysis,
       }, "direct", ["count"]);
+    }
+    if (needsNarrative && existingDirect?.payload.kind === "direct") {
+      const preflight = preflightDirectAnalysis(directAnalysis, {
+        snapshot: snapshotResult.snapshot,
+        reportRunId,
+        evidenceKeyId: modelConfig.evidenceKeyId,
+        evidenceKey: evidenceKey!,
+      });
+      if (preflight.status !== "accepted")
+        throw Object.assign(new TypeError("The stored direct analysis failed structural and privacy validation"), { code: "INVALID_OUTPUT" as const });
     }
     const analysis = publishEmptyEvidenceAnalysisV1(snapshot, directAnalysis);
     const existingValidate = checkpointSet.entries.find(({ stageKey }) => stageKey === "validate");

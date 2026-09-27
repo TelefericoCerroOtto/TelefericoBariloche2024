@@ -2,10 +2,7 @@ import { createHash, createHmac } from "node:crypto";
 
 import { canonicalizeJson, type SnapshotV1 } from "../../../packages/survey-reporting-core/src";
 import type { ModelConfigV1, PricingSnapshotV1, WorkerCheckpointStage } from "./contracts";
-import {
-  isEmptyEvidenceDirectAnalysisV1,
-  isEmptyEvidencePublishedAnalysisV1,
-} from "./direct-execution-plan";
+import { PUBLISHED_SECTION_KEYS } from "./contracts";
 
 export const CHECKPOINT_CONTRACT_VERSIONS = {
   snapshot: "survey-snapshot.v1",
@@ -263,14 +260,32 @@ export function validateWorkerStageCheckpointV1(
         totalTokens !== keys.reduce((sum, key) => sum + segmentTokens[key], 0))
       invalid();
   } else if (payload.kind === "direct") {
+    const output = payload.validatedOutput;
     if (!exactKeys(payload, ["kind", "validatedOutput"]) ||
-        (expected.snapshot && expected.snapshot.comments.length !== 0) ||
-        !isEmptyEvidenceDirectAnalysisV1(payload.validatedOutput))
+        !exactKeys(output, ["schemaVersion", "route", "sections"]) ||
+        output.schemaVersion !== "survey-analysis.v1" || output.route !== "direct" ||
+        !Array.isArray(output.sections) || output.sections.length !== PUBLISHED_SECTION_KEYS.length ||
+        !output.sections.every((section, index) =>
+          exactKeys(section, ["key", "status", "claims"]) &&
+          section.key === PUBLISHED_SECTION_KEYS[index] &&
+          (section.status === "supported" || section.status === "insufficient_evidence") &&
+          Array.isArray(section.claims) &&
+          (section.status !== "insufficient_evidence" || section.claims.length === 0) &&
+          (section.status !== "supported" || section.claims.length > 0)))
       invalid();
   } else if (payload.kind === "validate") {
+    const output = payload.publishedAnalysis;
     if (!exactKeys(payload, ["kind", "publishedAnalysis", "validatorVersion"]) ||
         typeof payload.validatorVersion !== "string" || payload.validatorVersion.length === 0 ||
-        !isEmptyEvidencePublishedAnalysisV1(payload.publishedAnalysis, expected.snapshot))
+        !exactKeys(output, ["schemaVersion", "sections"]) ||
+        output.schemaVersion !== "survey-published-analysis.v1" ||
+        !Array.isArray(output.sections) || output.sections.length !== PUBLISHED_SECTION_KEYS.length ||
+        !output.sections.every((section, index) =>
+          exactKeys(section, ["key", "status", "paragraphsEs"]) &&
+          section.key === PUBLISHED_SECTION_KEYS[index] &&
+          (section.status === "supported" || section.status === "insufficient_evidence") &&
+          Array.isArray(section.paragraphsEs) && section.paragraphsEs.length > 0 &&
+          section.paragraphsEs.every((paragraph) => typeof paragraph === "string" && paragraph.length > 0)))
       invalid();
   } else if (payload.kind === "render") {
     const size = payload.size as number;

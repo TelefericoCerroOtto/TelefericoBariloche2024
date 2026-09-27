@@ -31,7 +31,7 @@ import {
   validateWorkerStageCheckpointV1,
   verifyChunkMembership,
 } from "../../../services/survey-report-worker/src/checkpoint-contract";
-import { WorkerCmsConflictError } from "../../../services/survey-report-worker/src/contracts";
+import { PUBLISHED_SECTION_KEYS, WorkerCmsConflictError } from "../../../services/survey-report-worker/src/contracts";
 import type {
   CompleteCommand,
   CompleteResult,
@@ -44,6 +44,7 @@ import type {
   WorkerCmsClient,
   WorkerClaimResult,
   ModelConfigV1,
+  DirectAnalysisV1,
   WorkerSnapshotResult,
   PublishedAnalysisV1,
 } from "../../../services/survey-report-worker/src/contracts";
@@ -635,7 +636,95 @@ describe("worker PDF boundary", () => {
     );
   });
 
-  it("keeps nonempty semantic analysis and over-budget direct plans fail-closed", async () => {
+  it("passes only the minimal redacted model projection to CountTokens and analysis providers", async () => {
+    const runId = "00000000-0000-4000-8000-000000000123";
+    const evidenceKeyId = "synthetic-evidence-v1";
+    const evidenceKey = "tb113 synthetic per-run evidence key";
+    const privateText = "Visitor note visitor@example.invalid +1 212 555 0100 https://example.invalid";
+    const envelope = createSnapshot({
+      sourceRevision: "test-source",
+      createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z",
+      range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: [{
+        recordId: "synthetic-private-record",
+        receipt: "00000000-0000-4000-8000-000000000124",
+        acceptedAt: "2026-09-01T12:00:00.000Z",
+        source: "valid_qr",
+        versionKey: "private-version-id",
+        pointKey: "private-point-id",
+        overallRating: 4,
+        locale: "es",
+        commentText: privateText,
+        payloadDigest: "a".repeat(64),
+        aspects: [],
+      }],
+      definitions: [{ aspectKey: "other", sortOrder: 99 }],
+      points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
+    });
+    const reference = deriveEvidenceRef({
+      reportRunId: runId,
+      recordId: "synthetic-private-record",
+      evidenceKey,
+    });
+    const analysisOutput: DirectAnalysisV1 = {
+      schemaVersion: "survey-analysis.v1",
+      route: "direct",
+      sections: [
+        { key: "executive_summary", status: "supported", claims: [{
+          claimId: "claim-a", textEs: "La visita se describe de forma positiva.",
+          evidenceRefs: [reference], signal: "descriptive",
+        }] },
+        ...PUBLISHED_SECTION_KEYS.slice(1).map((key) => ({
+          key, status: "insufficient_evidence" as const, claims: [],
+        })),
+      ],
+    } as DirectAnalysisV1;
+    const fake = fakeCms(envelope, checkpointSet(envelope.digestHex), syntheticModelConfig(evidenceKeyId));
+    const tokens = vi.fn(async (request) => {
+      const commentSegment = JSON.parse(request.segments.comments);
+      expect(commentSegment.contractVersion).toBe("survey-model-input.v1");
+      expect(Object.keys(commentSegment.comments[0]).sort()).toEqual(["evidenceRef", "period", "text"]);
+      expect(commentSegment.comments[0].evidenceRef).toBe(reference);
+      expect(commentSegment.comments[0].text).toContain("[EMAIL]");
+      expect(commentSegment.comments[0].text).toContain("[PHONE]");
+      expect(commentSegment.comments[0].text).toContain("[URL]");
+      expect(JSON.stringify(request).includes("synthetic-private-record")).toBe(false);
+      expect(JSON.stringify(request).includes("private-version-id")).toBe(false);
+      expect(JSON.stringify(request).includes("private-point-id")).toBe(false);
+      expect(JSON.stringify(request).includes("visitor@example.invalid")).toBe(false);
+      return { instructions: 100, schema: 100, metrics: 100, comments: 100 };
+    });
+    const provider = vi.fn(async (modelRequest) => {
+      expect(modelRequest.contractVersion).toBe("survey-model-input.v1");
+      expect(Object.keys(modelRequest).sort()).toEqual(["comments", "contractVersion", "metrics"]);
+      expect(Object.keys(modelRequest.comments[0]).sort()).toEqual(["evidenceRef", "period", "text"]);
+      expect(JSON.stringify(modelRequest).includes("synthetic-private-record")).toBe(false);
+      expect(JSON.stringify(modelRequest).includes("private-version-id")).toBe(false);
+      expect(JSON.stringify(modelRequest).includes("private-point-id")).toBe(false);
+      expect(JSON.stringify(modelRequest).includes("visitor@example.invalid")).toBe(false);
+      return analysisOutput;
+    });
+
+    const result = await executeReportWorker(runId, {
+      cms: fake.cms,
+      artifacts: artifactStore().store,
+      renderer: createDeterministicTestPdfRenderer(),
+      countTokens: tokens,
+      analysisProvider: provider,
+      evidenceKeyProvider: async (keyId) => {
+        expect(keyId).toBe(evidenceKeyId);
+        return evidenceKey;
+      },
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(tokens).toHaveBeenCalledTimes(1);
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps nonempty analysis fail-closed without an injected per-run evidence key and rejects over-budget plans", async () => {
     const populated = createSnapshot({
       sourceRevision: "test-source",
       createdAt: "2026-09-21T12:00:00.000Z",
@@ -669,7 +758,7 @@ describe("worker PDF boundary", () => {
       countTokens: populatedCount,
       analysisProvider: populatedProvider,
     });
-    expect(populatedResult).toMatchObject({ status: "failed", failureCode: "UNKNOWN_VERSION" });
+    expect(populatedResult).toMatchObject({ status: "failed", failureCode: "CONFIGURATION" });
     expect(populatedCount).not.toHaveBeenCalled();
     expect(populatedProvider).not.toHaveBeenCalled();
     expect(populatedRenderer).not.toHaveBeenCalled();

@@ -28,6 +28,7 @@ type DirectAnalysis = {
 
 export type DirectOutputPreflight =
   | { readonly status: "rejected"; readonly violations: readonly string[] }
+  | { readonly status: "accepted"; readonly checked: readonly string[] }
   | {
       readonly status: "incomplete";
       readonly checked: readonly string[];
@@ -112,6 +113,11 @@ function preflightContext(input: {
     !KEY_ID_PATTERN.test(input.evidenceKeyId)
   )
     return { status: "rejected", violations: ["invalid_evidence_key_id"] };
+  const evidenceKeyLength = typeof input.evidenceKey === "string"
+    ? new TextEncoder().encode(input.evidenceKey).byteLength
+    : input.evidenceKey instanceof Uint8Array ? input.evidenceKey.byteLength : 0;
+  if (evidenceKeyLength < 32)
+    return { status: "rejected", violations: ["invalid_evidence_key"] };
 
   try {
     const refs = new Set(
@@ -476,6 +482,26 @@ function leaksComment(text: string, comments: readonly string[]): boolean {
   });
 }
 
+function numericValues(value: unknown, values = new Set<string>()): Set<string> {
+  if (typeof value === "number" && Number.isFinite(value)) values.add(String(value));
+  else if (Array.isArray(value)) value.forEach((item) => numericValues(item, values));
+  else if (value && typeof value === "object")
+    Object.values(value).forEach((item) => numericValues(item, values));
+  return values;
+}
+
+function introducesMetricValue(text: string, officialValues: ReadonlySet<string>): boolean {
+  return (text.match(/(?<![\p{L}\p{N}])\d+(?:[.,]\d+)?%?/gu) ?? []).some((value) =>
+    !officialValues.has(value.replace(",", ".").replace(/%$/, "")),
+  );
+}
+
+function containsRecognizablePrivateData(text: string): boolean {
+  return /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text) ||
+    /(?:https?:\/\/|www\.)[^\s]+/iu.test(text) ||
+    /(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)/u.test(text);
+}
+
 /** Checks independently provable direct-output constraints without accepting incomplete evidence semantics. */
 export function preflightDirectAnalysis(
   value: unknown,
@@ -526,6 +552,7 @@ export function preflightDirectAnalysis(
 
   const commentText = snapshot.comments.map(({ text }) => text);
   const commentCount = snapshot.comments.length;
+  const officialValues = numericValues(snapshot.metrics);
   const recurrentMinimum = Math.max(10, Math.ceil((commentCount * 2) / 100));
   const claimIds = new Set<string>();
 
@@ -586,6 +613,10 @@ export function preflightDirectAnalysis(
         violations.add("invalid_claim_text");
       if (FORBIDDEN_CLAIM.test(claim.textEs))
         violations.add("action_or_causal_claim");
+      if (introducesMetricValue(claim.textEs, officialValues))
+        violations.add("unsupported_official_metric_value");
+      if (containsRecognizablePrivateData(claim.textEs))
+        violations.add("personal_data_or_url");
       if (leaksComment(claim.textEs, commentText))
         violations.add("verbatim_comment_leak");
       const refs = claim.evidenceRefs;
@@ -614,7 +645,7 @@ export function preflightDirectAnalysis(
       violations: [...violations].sort(compareCodePoints),
     };
   return {
-    status: "incomplete",
+    status: "accepted",
     checked: [
       "closed_direct_schema",
       "ordered_sections",
@@ -623,12 +654,7 @@ export function preflightDirectAnalysis(
       "prohibited_claim_markers",
       "verbatim_comment_leakage",
       "unicode_scalar_text",
-    ],
-    blockers: [
-      "immutable_per_run_evidence_key_selection",
-      "exact_claim_to_metric_grounding_and_contradiction_analysis",
-      "provider-evidence semantic validation",
-      "versioned insufficient-evidence Spanish text",
+      "immutable_per_run_evidence_key_membership",
     ],
   };
 }

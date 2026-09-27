@@ -129,7 +129,7 @@ Changed terminal replay and `queued`/`succeeded` states return 409
 adapter may run only after the terminal commit succeeds and must deduplicate
 replays.
 
-The checkpoint route accepts only the CMS-verified zero-comment direct execution graph described in Appendix 04. It validates each candidate against the immutable snapshot and full prior checkpoint graph under the generation row lock before state-version CAS. Map/reduce and nonempty-comment semantic outputs remain fail-closed with `UNKNOWN_VERSION`; the 4 KiB raw request limit is unchanged. `W/complete` independently rechecks all six persisted stages, the fixed no-claim publication, renderer/artifact bindings, and state version before atomically creating the report and succeeding the generation. Both actions require their own exact custom content API token scope and have no default grant.
+The local checkpoint route accepts CMS-verified zero-comment and nonempty-comment **DIRECT** execution graphs. Nonempty direct execution is available only with injected CountTokens and analysis-provider fakes and a per-run evidence key injected into both worker and CMS; CMS independently recomputes the exact CountTokens request digest and evidence-reference membership from the immutable snapshot and that key. Before checkpoint CAS, the CMS validates the closed output structure/order, deterministic evidence thresholds, privacy/prohibited/verbatim constraints, numeric metric values against the immutable core snapshot, graph digests, and state version under the generation row lock. Semantic truth and contradiction are not judged. Map/reduce remains a distinct unsupported route and fails closed with `UNKNOWN_VERSION`; live provider and storage integrations remain gated. The 4 KiB raw request limit is unchanged. `W/complete` independently rechecks all six persisted stages, the CMS-verified published projection, renderer/artifact bindings, and state version before atomically creating the report and succeeding the generation. Both actions require their own exact custom content API token scope and have no default grant.
 
 `POST W/claim`, `GET W/snapshot`, `PUT W/checkpoints/:stageKey`, `POST
 W/complete`, and `POST W/fail` require the native Strapi `content-api-token` strategy and their
@@ -152,10 +152,16 @@ succeeded/failed returns only the terminal replay identity/status/version. The
 running projection contains only checkpoints, model configuration, and pricing
 snapshot—never comments. Snapshot remains running-only, byte-equivalent on replay,
 and validates the immutable snapshot digest before exposing private comments.
-Checkpoint writes are accepted only after CMS graph/input/output digest
-recomputation and compare-and-swap. Completion revalidates that persisted graph
-and the fixed zero-comment analysis before report creation. Other semantic
-analysis and map/reduce candidates remain fail-closed.
+Direct checkpoint writes are accepted only after CMS graph/input/output digest
+recomputation and compare-and-swap. For nonempty direct output, the worker and
+CMS must resolve the immutable evidence-key ID to the same injected per-run key;
+the CMS uses it to rederive reference membership and independently enforce
+structural, privacy, threshold, and deterministic-metric checks. Completion
+revalidates the six-stage graph and published projection, then atomically creates
+the report and succeeds the generation. The implementation accepts structurally
+valid narratives without semantic-truth judgment; the local integration uses
+only synthetic provider/key fakes. Map/reduce remains fail-closed with
+`UNKNOWN_VERSION`, and live provider/storage integrations remain gated.
 
 `A/dispatch-failure` is a CMS-authenticated command action, granted explicitly
 to the corresponding Users & Permissions role for the server-mediated

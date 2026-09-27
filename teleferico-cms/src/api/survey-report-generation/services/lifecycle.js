@@ -133,8 +133,11 @@ function validateWorkerCompleteCommand(command) {
   if (!match || !REPORT_RUN_ID_PATTERN.test(match[1])) return false;
   return command.validatedAnalysis.sections.every((section, index) =>
     exactKeys(section, ['key', 'status', 'paragraphsEs']) && section.key === ANALYSIS_SECTION_KEYS[index] &&
-    section.status === 'insufficient_evidence' && Array.isArray(section.paragraphsEs) &&
-    section.paragraphsEs.length === 1 && section.paragraphsEs[0] === EMPTY_EVIDENCE_PARAGRAPH);
+    ['supported', 'insufficient_evidence'].includes(section.status) && Array.isArray(section.paragraphsEs) &&
+    section.paragraphsEs.length > 0 && section.paragraphsEs.every((paragraph) =>
+      typeof paragraph === 'string' && paragraph.length > 0 && paragraph.length <= 4000) &&
+    (section.status !== 'insufficient_evidence' ||
+      section.paragraphsEs.length === 1 && section.paragraphsEs[0] === EMPTY_EVIDENCE_PARAGRAPH));
 }
 
 function sameDispatchEvidence(left, right) {
@@ -327,8 +330,16 @@ function prepareAtomicCompletion(input, expectedStateVersion, details) {
     },
   };
 }
-function createGenerationLifecycle({ withTransaction, now = () => new Date().toISOString(), createReportRunId } = {}) {
+function createGenerationLifecycle({ withTransaction, now = () => new Date().toISOString(), createReportRunId, evidenceKeyProvider } = {}) {
   if (typeof withTransaction !== 'function') throw new TypeError('withTransaction is required');
+  const resolveEvidenceKey = async (modelConfig, snapshot) => {
+    if (!snapshot?.comments?.length) return null;
+    if (typeof evidenceKeyProvider !== 'function') throw domainError('UNKNOWN_VERSION');
+    let key;
+    try { key = await evidenceKeyProvider(modelConfig.evidenceKeyId); } catch { throw domainError('UNKNOWN_VERSION'); }
+    if (!(typeof key === 'string' || key instanceof Uint8Array)) throw domainError('UNKNOWN_VERSION');
+    return key;
+  };
   return {
     async compensateDispatchFailure({ reportRunId, expectedStateVersion, taskName, dispatchAttemptCount }) {
       return withTransaction(async (transaction) => {
@@ -474,6 +485,10 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           throw domainError('INVALID_STATE');
         }
         const snapshotEnvelope = prepareWorkerSnapshot(generation).snapshot;
+        const evidenceKey = snapshotEnvelope.payload.comments.length > 0 &&
+          (['count', 'direct', 'validate'].includes(stageKey) || checkpoints.entries.some(({ stageKey: key }) => key === 'direct'))
+          ? await resolveEvidenceKey(modelConfig, snapshotEnvelope.payload)
+          : null;
         const storedRender = checkpoints.entries?.find(({ stageKey }) => stageKey === 'render');
         const rendererVersion = command.checkpoint.stageKey === 'render'
           ? command.checkpoint.payload.rendererVersion
@@ -492,6 +507,7 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           checkpoints,
           candidate: command.checkpoint,
           expectedStateVersion: command.expectedStateVersion,
+          evidenceKey,
         });
         if (result.status !== 'accepted') throw domainError('UNKNOWN_VERSION');
         if (!result.replayed) {
@@ -524,7 +540,18 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           if (generation.stateVersion !== command.expectedStateVersion + 1)
             throw domainError('TERMINAL_CONFLICT');
           const report = await transaction.findReportForGeneration(reportRunId);
-          if (!report || report.reportId !== reportId || report.analysisDigest !== command.analysisDigest ||
+          let commandAnalysisJson;
+          let commandAnalysisDigest;
+          let storedAnalysisMatches = false;
+          try {
+            commandAnalysisJson = canonicalizeJson(command.validatedAnalysis);
+            commandAnalysisDigest = createHash('sha256').update(commandAnalysisJson).digest('hex');
+            storedAnalysisMatches = Boolean(report) && canonicalizeJson(report.validatedAnalysisJson) === commandAnalysisJson;
+          } catch {
+            throw domainError('TERMINAL_CONFLICT');
+          }
+          if (!report || !storedAnalysisMatches || commandAnalysisDigest !== command.analysisDigest ||
+              report.reportId !== reportId || report.analysisDigest !== command.analysisDigest ||
               report.rendererVersion !== command.rendererVersion || report.objectKey !== command.artifact.objectKey ||
               report.artifactSha256 !== command.artifact.sha256 || Number(report.artifactSize) !== command.artifact.size)
             throw domainError('TERMINAL_CONFLICT');
@@ -550,6 +577,7 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           throw domainError('INVALID_STATE');
         }
         const snapshot = prepareWorkerSnapshot(generation).snapshot.payload;
+        const evidenceKey = await resolveEvidenceKey(modelConfig, snapshot);
         const storeCheckpoint = checkpoints.entries?.at(-1);
         if (!storeCheckpoint || storeCheckpoint.stageKey !== 'store')
           throw domainError('CHECKPOINT_SET_INCOMPLETE');
@@ -567,6 +595,7 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           checkpoints,
           candidate: storeCheckpoint,
           expectedStateVersion: generation.stateVersion,
+          evidenceKey,
         });
         if (graph.status !== 'accepted' || graph.checkpoints.route !== 'direct' ||
             graph.checkpoints.entries.length !== CHECKPOINT_STAGE_KEYS.length)
