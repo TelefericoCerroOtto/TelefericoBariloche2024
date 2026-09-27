@@ -11,7 +11,8 @@ export type FeedbackAdminReadRoute =
   | "qr-comparison"
   | "qr-detail"
   | "comments"
-  | "reports";
+  | "reports"
+  | "generations";
 
 export type FeedbackAdminCommandStatus =
   | "queued"
@@ -102,6 +103,12 @@ export type FeedbackAdminFilters =
       readonly route: "reports";
       readonly page: number;
       readonly pageSize: number;
+    } & FeedbackAdminDateRange)
+  | ({
+      readonly route: "generations";
+      readonly status: FeedbackAdminCommandStatus | null;
+      readonly page: number;
+      readonly pageSize: number;
     } & FeedbackAdminDateRange);
 
 export type FeedbackAdminSnapshot = SnapshotV1;
@@ -184,6 +191,45 @@ export type FeedbackAdminReportsData = {
   readonly total: number;
   readonly page: number;
   readonly pageSize: number;
+};
+
+export type FeedbackAdminGenerationReport = {
+  readonly reportId: string;
+  readonly createdAt: string;
+  readonly period: FeedbackAdminDateRange;
+  readonly analyzedResponseCount: number;
+  readonly analyzedCommentCount: number;
+};
+
+export type FeedbackAdminGeneration = {
+  readonly reportRunId: string;
+  readonly status: FeedbackAdminCommandStatus;
+  readonly period: FeedbackAdminDateRange;
+  readonly dataCutoffAt: string;
+  readonly createdAt: string;
+  readonly completedAt: string | null;
+  readonly failureCode: string | null;
+  readonly safeFailureMessage: string | null;
+  readonly retryOfReportRunId: string | null;
+  readonly report: FeedbackAdminGenerationReport | null;
+};
+
+export type FeedbackAdminGenerationsData = {
+  readonly items: readonly FeedbackAdminGeneration[];
+  readonly total: number;
+  readonly page: number;
+  readonly pageSize: number;
+};
+
+export type FeedbackAdminGenerationsEnvelope = {
+  readonly contractVersion: "feedback-admin.v1";
+  readonly data: FeedbackAdminGenerationsData;
+  readonly meta: {
+    readonly filters: Extract<FeedbackAdminFilters, { route: "generations" }>;
+    readonly page: number;
+    readonly pageSize: number;
+    readonly total: number;
+  };
 };
 
 export type FeedbackAdminSource = {

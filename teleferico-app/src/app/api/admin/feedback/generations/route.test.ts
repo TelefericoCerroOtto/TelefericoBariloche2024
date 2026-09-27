@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
   retry: vi.fn(),
   getTransport: vi.fn(),
+  getFeedbackAdminReader: vi.fn(),
+  readGenerations: vi.fn(),
   CommandError: class extends Error {
     code: string;
     status: number;
@@ -33,11 +35,20 @@ vi.mock("@/lib/feedback/admin-command", () => ({
   parseRetryCommand: (value: unknown) => ({ ok: true, value }),
   getFeedbackAdminCommandTransport: mocks.getTransport,
 }));
+vi.mock("@/lib/feedback/admin-reader", () => ({
+  FeedbackAdminReaderError: class FeedbackAdminReaderError extends Error {},
+  getFeedbackAdminReader: mocks.getFeedbackAdminReader,
+}));
 
 const session = {
   jwt: "operator-jwt",
   csrfToken: "csrf-token",
   user: { capabilities: ["feedback.reports.generate"] },
+};
+
+const readSession = {
+  ...session,
+  user: { capabilities: ["feedback.reports.read"] },
 };
 
 function request(body: unknown) {
@@ -58,6 +69,13 @@ function requestFor(
   return new NextRequest(`https://telefericobariloche.com.ar${path}`, init);
 }
 
+function historyRequest(query = "from=2026-08-01&to=2026-08-31") {
+  return requestFor(`/api/admin/feedback/generations?${query}`, {
+    method: "GET",
+    headers: { "x-csrf-token": "csrf-token" },
+  });
+}
+
 describe("POST /api/admin/feedback/generations", () => {
   beforeEach(() => {
     process.env.FEEDBACK_CAPABILITY_ENABLED = "true";
@@ -67,6 +85,12 @@ describe("POST /api/admin/feedback/generations", () => {
       origin: "https://telefericobariloche.com.ar",
     });
     mocks.requireCsrfSession.mockResolvedValue({ ok: true, session });
+    mocks.getFeedbackAdminReader.mockReturnValue({ readGenerations: mocks.readGenerations });
+    mocks.readGenerations.mockResolvedValue({
+      contractVersion: "feedback-admin.v1",
+      data: { items: [], total: 0, page: 1, pageSize: 25 },
+      meta: { filters: {}, page: 1, pageSize: 25, total: 0 },
+    });
     mocks.generate.mockResolvedValue({
       reportRunId: "00000000-0000-4000-8000-000000000001",
       status: "queued",
@@ -210,6 +234,76 @@ describe("POST /api/admin/feedback/generations", () => {
       "00000000-0000-4000-8000-000000000001",
       { contractVersion: "feedback-admin.v1" },
     );
+  });
+});
+
+describe("GET /api/admin/feedback/generations", () => {
+  beforeEach(() => {
+    process.env.FEEDBACK_CAPABILITY_ENABLED = "true";
+    vi.clearAllMocks();
+    mocks.ensureTrustedBrowserRequest.mockReturnValue({ ok: true, origin: "https://telefericobariloche.com.ar" });
+    mocks.requireCsrfSession.mockResolvedValue({ ok: true, session: readSession });
+    mocks.getFeedbackAdminReader.mockReturnValue({ readGenerations: mocks.readGenerations });
+    mocks.readGenerations.mockResolvedValue({
+      contractVersion: "feedback-admin.v1",
+      data: { items: [], total: 0, page: 1, pageSize: 25 },
+      meta: { filters: {}, page: 1, pageSize: 25, total: 0 },
+    });
+  });
+
+  it("checks the capability before reading synthetic CMS metadata", async () => {
+    const { GET } = await import("./route");
+    mocks.requireCsrfSession.mockResolvedValueOnce({
+      ok: true,
+      session: { ...session, user: { capabilities: ["feedback.comments.read"] } },
+    });
+
+    const response = await GET(historyRequest());
+
+    expect(response.status).toBe(403);
+    expect(mocks.getFeedbackAdminReader).not.toHaveBeenCalled();
+    expect(mocks.readGenerations).not.toHaveBeenCalled();
+  });
+
+  it("keeps the capability flag ahead of authentication and reader creation", async () => {
+    process.env.FEEDBACK_CAPABILITY_ENABLED = "false";
+    const { GET } = await import("./route");
+
+    const response = await GET(historyRequest());
+
+    expect(response.status).toBe(503);
+    expect(mocks.ensureTrustedBrowserRequest).not.toHaveBeenCalled();
+    expect(mocks.requireCsrfSession).not.toHaveBeenCalled();
+    expect(mocks.getFeedbackAdminReader).not.toHaveBeenCalled();
+  });
+
+  it("passes the closed status and pagination filters to the reader", async () => {
+    const { GET } = await import("./route");
+
+    const response = await GET(historyRequest("from=2026-08-01&to=2026-08-31&status=failed&page=2&pageSize=10"));
+
+    expect(response.status).toBe(200);
+    expect(mocks.readGenerations).toHaveBeenCalledWith({
+      route: "generations",
+      from: "2026-08-01",
+      to: "2026-08-31",
+      status: "failed",
+      page: 2,
+      pageSize: 10,
+    });
+  });
+
+  it("rejects unknown query fields before reader creation", async () => {
+    const { GET } = await import("./route");
+
+    const response = await GET(historyRequest("from=2026-08-01&to=2026-08-31&snapshotJson=true"));
+
+    expect(response.status).toBe(400);
+    expect(mocks.getFeedbackAdminReader).not.toHaveBeenCalled();
+
+    const oversizedPage = await GET(historyRequest("from=2026-08-01&to=2026-08-31&page=100001"));
+    expect(oversizedPage.status).toBe(400);
+    expect(mocks.getFeedbackAdminReader).not.toHaveBeenCalled();
   });
 });
 

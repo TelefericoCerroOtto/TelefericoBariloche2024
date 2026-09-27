@@ -18,7 +18,10 @@ const FUTURE_CAPABILITIES = [
   'feedback.reports.generate',
   'feedback.reports.read',
 ];
-const { validateQuery: validateFeedbackAdminReadQuery } = require('../../../src/api/survey-report-generation/services/private-feedback-admin-read');
+const {
+  createPrivateFeedbackAdminReader,
+  validateQuery: validateFeedbackAdminReadQuery,
+} = require('../../../src/api/survey-report-generation/services/private-feedback-admin-read');
 
 test('survey routes expose bounded native reads and mediated writes', () => {
   for (const api of SURVEY_APIS.filter((candidate) => ['survey-version', 'survey-settings', 'survey-qr-point'].includes(candidate))) {
@@ -132,16 +135,138 @@ test('private feedback admin read accepts only the closed fixed-page contract', 
     pageSize: 25,
   };
   assert.doesNotThrow(() => validateFeedbackAdminReadQuery(request));
+  const generationRequest = {
+    ...request,
+    resource: 'generations',
+    status: 'failed',
+  };
+  assert.doesNotThrow(() => validateFeedbackAdminReadQuery(generationRequest));
   for (const invalid of [
     { ...request, pageSize: 26 },
     { ...request, resource: 'worker' },
     { ...request, cursor: 'bad cursor' },
     { ...request, unknown: true },
     { ...request, dataCutoffAt: 'not-a-date' },
+    { ...generationRequest, status: 'secret' },
+    { ...generationRequest, objectKey: 'private/path' },
   ]) {
     assert.throws(
       () => validateFeedbackAdminReadQuery(invalid),
       (error) => error.code === 'VALIDATION_FAILED',
     );
   }
+});
+
+test('generation history remains behind the exact private custom-token action', () => {
+  const route = require('../../../src/api/survey-report-generation/routes/admin').routes
+    .find(({ handler }) => handler === 'survey-report-generation.feedbackAdminRead');
+  assert.deepEqual(route.config.auth, {
+    strategies: ['content-api-token'],
+    scope: ['api::survey-report-generation.survey-report-generation.feedbackAdminRead'],
+  });
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../../src/api/survey-report-generation/services/private-feedback-admin-read.js'),
+    'utf8',
+  );
+  assert.match(source, /orderBy: \[\{ createdAt: 'desc' \}, \{ reportRunId: 'asc' \}\]/);
+  assert.match(source, /'safeFailureMessage', 'snapshotJson'/);
+  assert.match(source, /safeFailureMessage !== SAFE_FAILURE_MESSAGES\[row\.failureCode\]/);
+  assert.match(source, /retryOfReportRunId/);
+  assert.doesNotMatch(source.slice(source.indexOf('return {\n        reportRunId:'), source.indexOf('const last = rows[Math.min(rows.length, PAGE_SIZE) - 1]', source.indexOf('async function readGenerationPage'))), /snapshotJson|checkpointsJson|modelConfigJson|pricingSnapshotJson|cumulativeCostMicros|objectKey|taskName/);
+});
+
+test('generation history projects synthetic failed and succeeded rows without private metadata', async () => {
+  const runId = '00000000-0000-4000-8000-000000000001';
+  const reportId = '00000000-0000-4000-8000-000000000002';
+  const calls = [];
+  const rows = [
+    {
+      reportRunId: runId,
+      periodStart: '2026-08-01',
+      periodEnd: '2026-08-31',
+      dataCutoffAt: '2026-09-01T12:00:00.000Z',
+      status: 'failed',
+      createdAt: '2026-09-01T13:00:00.000Z',
+      completedAt: '2026-09-01T13:05:00.000Z',
+      failureCode: 'PROVIDER_TIMEOUT',
+      safeFailureMessage: 'The report provider timed out.',
+      retryOfGeneration: { reportRunId: '00000000-0000-4000-8000-000000000003' },
+      report: null,
+      snapshotJson: { private: 'snapshot' },
+      checkpointsJson: { private: 'checkpoints' },
+      modelConfigJson: { private: 'model' },
+      pricingSnapshotJson: { private: 'pricing' },
+      cumulativeCostMicros: '987654',
+      taskName: 'private-task-name',
+    },
+    {
+      reportRunId: '00000000-0000-4000-8000-000000000004',
+      periodStart: '2026-08-01',
+      periodEnd: '2026-08-31',
+      dataCutoffAt: '2026-09-01T12:00:00.000Z',
+      status: 'succeeded',
+      createdAt: '2026-09-01T12:00:00.000Z',
+      completedAt: '2026-09-01T12:10:00.000Z',
+      failureCode: null,
+      safeFailureMessage: null,
+      retryOfGeneration: null,
+      report: {
+        reportId,
+        generationRunId: '00000000-0000-4000-8000-000000000004',
+        createdAt: '2026-09-01T12:10:00.000Z',
+        periodStart: '2026-08-01',
+        periodEnd: '2026-08-31',
+      },
+      snapshotJson: { payload: { population: { currentSubmissionCount: 12, currentCommentCount: 4 } } },
+      checkpointsJson: { private: 'checkpoints' },
+      modelConfigJson: { private: 'model' },
+      pricingSnapshotJson: { private: 'pricing' },
+      cumulativeCostMicros: '111',
+      taskName: 'private-task-name',
+    },
+  ];
+  const generationQuery = {
+    count: async ({ where }) => {
+      calls.push(['count', where]);
+      return rows.length;
+    },
+    findMany: async (query) => {
+      calls.push(['findMany', query]);
+      return rows;
+    },
+  };
+  const strapi = {
+    db: { query: (uid) => {
+      assert.equal(uid, 'api::survey-report-generation.survey-report-generation');
+      return generationQuery;
+    } },
+  };
+  const reader = createPrivateFeedbackAdminReader(strapi);
+
+  const result = await reader.readPage({
+    contractVersion: 'feedback-admin-source.v1',
+    resource: 'generations',
+    acceptedAtGte: '2026-08-01T03:00:00.000Z',
+    acceptedAtLte: '2026-09-01T02:59:59.999Z',
+    dataCutoffAt: '2026-09-02T12:00:00.000Z',
+    cursor: null,
+    pageSize: 25,
+    status: null,
+  });
+
+  assert.equal(result.total, 2);
+  assert.equal(result.items[0].safeFailureMessage, 'The report provider timed out.');
+  assert.equal(result.items[0].retryOfReportRunId, '00000000-0000-4000-8000-000000000003');
+  assert.deepEqual(result.items[1].report, {
+    reportId,
+    createdAt: '2026-09-01T12:10:00.000Z',
+    periodStart: '2026-08-01',
+    periodEnd: '2026-08-31',
+    analyzedResponseCount: 12,
+    analyzedCommentCount: 4,
+  });
+  assert.doesNotMatch(JSON.stringify(result), /snapshotJson|checkpointsJson|modelConfigJson|pricingSnapshotJson|cumulativeCostMicros|private-task-name|objectKey/);
+  assert.deepEqual(calls[1][1].orderBy, [{ createdAt: 'desc' }, { reportRunId: 'asc' }]);
+  assert.equal(calls[1][1].fields.includes('snapshotJson'), true);
+  assert.equal(Object.hasOwn(result.items[0], 'snapshotJson'), false);
 });
