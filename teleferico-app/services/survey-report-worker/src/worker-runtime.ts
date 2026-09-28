@@ -183,13 +183,6 @@ async function failSafely(
     readonly durationMs: number;
   } | null,
 ): Promise<WorkerExecutionResult> {
-  if (artifact) {
-    try {
-      await dependencies.artifacts.discardStaged(reportRunId, artifact.sha256);
-    } catch {
-      // The terminal CMS failure remains the authoritative safe outcome.
-    }
-  }
   const command: FailCommand = {
     contractVersion: "survey-worker-cms.v1",
     expectedStateVersion: stateVersion,
@@ -198,6 +191,29 @@ async function failSafely(
   };
   try {
     const result = await dependencies.cms.fail(reportRunId, command);
+    const confirmedFailure =
+      result.reportRunId === reportRunId &&
+      result.status === "failed" &&
+      result.failureCode === failureCode &&
+      Number.isSafeInteger(result.stateVersion) &&
+      result.stateVersion === stateVersion + 1;
+    if (!confirmedFailure) {
+      return {
+        status: "failed",
+        disposition: "failed",
+        reportRunId,
+        failureCode,
+      };
+    }
+
+    let cleanupPending = false;
+    if (artifact) {
+      try {
+        await dependencies.artifacts.discardStaged(reportRunId, artifact.sha256);
+      } catch {
+        cleanupPending = true;
+      }
+    }
     if (!result.replayed && dependencies.diagnostics && diagnostic) {
       try {
         const bundle = createWorkerDiagnosticBundleV1({
@@ -231,6 +247,7 @@ async function failSafely(
       disposition: result.replayed ? "terminal-replay" : "failed",
       reportRunId,
       failureCode,
+      ...(cleanupPending ? { cleanupPending: true } : {}),
     };
   } catch {
     return {
@@ -852,16 +869,6 @@ export async function executeReportWorker(
         failureCode,
       };
     if (error instanceof WorkerCmsConflictError) {
-      if (staged) {
-        try {
-          await dependencies.artifacts.discardStaged(
-            reportRunId,
-            staged.sha256,
-          );
-        } catch {
-          // A concurrent owner still prevents this worker from publishing.
-        }
-      }
       return {
         status: "failed",
         disposition: "failed",

@@ -384,6 +384,32 @@ describe("private report worker HTTP entrypoint", () => {
     expect(harness.calls).toEqual({ claim: 1, snapshot: 1, checkpoint: 6, complete: 1, fail: 0, stage: 1, countTokens: 1 });
   });
 
+  it("exposes only a safe pending-cleanup marker after committed failure", async () => {
+    const harness = runtimeHarness();
+    const checkpoint = harness.dependencies.cms.checkpoint.bind(harness.dependencies.cms);
+    vi.spyOn(harness.dependencies.cms, "checkpoint").mockImplementation((runId, command) =>
+      command.checkpoint.stageKey === "store"
+        ? Promise.reject(new TypeError("Synthetic store checkpoint failure"))
+        : checkpoint(runId, command),
+    );
+    vi.spyOn(harness.dependencies.artifacts, "discardStaged").mockRejectedValue(
+      new Error("Synthetic private cleanup failure"),
+    );
+
+    const result = await request(runtimeConfig({}, harness.dependencies));
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: {
+        status: "failed",
+        failureCode: "INVARIANT",
+        cleanupPending: true,
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("Synthetic");
+    expect(harness.calls.fail).toBe(1);
+  });
+
   it("fails closed at construction when verifier or worker dependencies are absent", () => {
     const config = runtimeConfig();
     expect(() => createReportWorkerHttpHandler({
