@@ -366,6 +366,126 @@ function syntheticModelConfig(evidenceKeyId: string) {
 describe("worker PDF boundary", () => {
   beforeEach(() => vi.restoreAllMocks());
 
+  it("rejects direct output above the provider token budget before checkpointing", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000113";
+    const evidenceKey = "tb113 synthetic per-run evidence key";
+    const envelope = createSnapshot({
+      sourceRevision: "test-source",
+      createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z",
+      range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: [{
+        recordId: "synthetic-record",
+        receipt: "00000000-0000-4000-8000-000000000114",
+        acceptedAt: "2026-09-01T12:00:00.000Z",
+        source: "valid_qr",
+        versionKey: "v1",
+        pointKey: "point-a",
+        overallRating: 4,
+        locale: "es",
+        commentText: "Una observación sintética breve",
+        payloadDigest: "a".repeat(64),
+        aspects: [],
+      }],
+      definitions: [{ aspectKey: "other", sortOrder: 99 }],
+      points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
+    });
+    const evidenceRef = deriveEvidenceRef({ reportRunId, recordId: "synthetic-record", evidenceKey });
+    const output: DirectAnalysisV1 = {
+      schemaVersion: "survey-analysis.v1",
+      route: "direct",
+      sections: [
+        { key: "executive_summary", status: "supported", claims: [{
+          claimId: "claim-a", textEs: "La visita se describe de forma positiva.",
+          evidenceRefs: [evidenceRef], signal: "descriptive",
+        }] },
+        ...PUBLISHED_SECTION_KEYS.slice(1).map((key) => ({ key, status: "insufficient_evidence" as const, claims: [] })),
+      ],
+    } as DirectAnalysisV1;
+    const fake = fakeCms(envelope);
+    const renderer = vi.fn(async () => new Uint8Array([1]));
+    const provider = vi.fn(async () => ({
+      ...syntheticProviderResult(),
+      output,
+      usage: { ...syntheticProviderResult().usage, usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 8_001 } },
+    }));
+    const result = await executeReportWorker(reportRunId, {
+      cms: fake.cms,
+      artifacts: artifactStore().store,
+      renderer: { rendererVersion: "test", render: renderer },
+      analysisProvider: provider,
+      evidenceKeyProvider: async () => evidenceKey,
+    });
+
+    expect(result).toMatchObject({ status: "failed", failureCode: "INVALID_OUTPUT" });
+    expect(provider).toHaveBeenCalledTimes(2);
+    expect(fake.writtenCheckpoints.some(({ stageKey }) => stageKey === "direct")).toBe(false);
+    expect(renderer).not.toHaveBeenCalled();
+  });
+
+  it("regenerates invalid direct output once, never retries configuration failures, and bounds transient retries", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000113";
+    const evidenceKey = "tb113 synthetic per-run evidence key";
+    const envelope = createSnapshot({
+      sourceRevision: "test-source", createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z", range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: [{ recordId: "synthetic-record", receipt: "00000000-0000-4000-8000-000000000114",
+        acceptedAt: "2026-09-01T12:00:00.000Z", source: "valid_qr", versionKey: "v1", pointKey: "point-a",
+        overallRating: 4, locale: "es", commentText: "Una observación sintética breve", payloadDigest: "a".repeat(64), aspects: [] }],
+      definitions: [{ aspectKey: "other", sortOrder: 99 }], points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
+    });
+    const evidenceRef = deriveEvidenceRef({ reportRunId, recordId: "synthetic-record", evidenceKey });
+    const invalid = { ...syntheticProviderResult(), output: { schemaVersion: "survey-analysis.v2" } as unknown as DirectAnalysisV1 };
+    const configFailure = Object.assign(new Error("configuration"), { code: "CONFIGURATION" });
+    const authFailure = Object.assign(new Error("authentication"), { code: "AUTHENTICATION" });
+    const transientFailure = Object.assign(new Error("temporary"), { code: "PROVIDER_TRANSIENT" });
+
+    for (const failure of [configFailure, authFailure]) {
+      const fake = fakeCms(envelope);
+      const provider = vi.fn(async () => { throw failure; });
+      const result = await executeReportWorker(reportRunId, {
+        cms: fake.cms, artifacts: artifactStore().store,
+        renderer: createDeterministicTestPdfRenderer(), analysisProvider: provider,
+        evidenceKeyProvider: async () => evidenceKey,
+      });
+      expect(result).toMatchObject({ status: "failed", failureCode: failure.code });
+      expect(provider).toHaveBeenCalledTimes(1);
+    }
+
+    const invalidFake = fakeCms(envelope);
+    const invalidProvider = vi.fn(async () => invalid);
+    const invalidResult = await executeReportWorker(reportRunId, {
+      cms: invalidFake.cms, artifacts: artifactStore().store,
+      renderer: createDeterministicTestPdfRenderer(), analysisProvider: invalidProvider,
+      evidenceKeyProvider: async () => evidenceKey,
+    });
+    expect(invalidResult).toMatchObject({ status: "failed", failureCode: "INVALID_OUTPUT" });
+    expect(invalidProvider).toHaveBeenCalledTimes(2);
+
+    const transientFake = fakeCms(envelope);
+    const goodOutput: DirectAnalysisV1 = {
+      schemaVersion: "survey-analysis.v1", route: "direct",
+      sections: [
+        { key: "executive_summary", status: "supported", claims: [{ claimId: "claim-a", textEs: "La visita se describe de forma positiva.", evidenceRefs: [evidenceRef], signal: "descriptive" }] },
+        ...PUBLISHED_SECTION_KEYS.slice(1).map((key) => ({ key, status: "insufficient_evidence" as const, claims: [] })),
+      ],
+    } as DirectAnalysisV1;
+    const transientProvider = vi.fn()
+      .mockRejectedValueOnce(transientFailure)
+      .mockRejectedValueOnce(transientFailure)
+      .mockResolvedValueOnce({ ...syntheticProviderResult(), output: goodOutput });
+    const transientResult = await executeReportWorker(reportRunId, {
+      cms: transientFake.cms, artifacts: artifactStore().store,
+      renderer: createDeterministicTestPdfRenderer(), analysisProvider: transientProvider,
+      evidenceKeyProvider: async () => evidenceKey,
+      countTokens: async () => ({ instructions: 1, schema: 1, metrics: 1, comments: 1 }),
+    });
+    expect(transientResult).toMatchObject({ status: "succeeded" });
+    expect(transientProvider).toHaveBeenCalledTimes(3);
+  });
+
   it("writes an injected diagnostic only after CMS commits a terminal failure", async () => {
     const envelope = snapshot();
     const fake = fakeCms(envelope);
@@ -732,7 +852,8 @@ describe("worker PDF boundary", () => {
       expect(request.contractVersion).toBe("survey-count-request.v1");
       expect(request.segments.comments).toBe("[]");
       expect(request.modelConfig.model).toBe("gemini-3.8-flash");
-      if (countTokens.mock.calls.length < 3) throw new Error("synthetic transient CountTokens error");
+      if (countTokens.mock.calls.length < 3)
+        throw Object.assign(new Error("synthetic transient CountTokens error"), { code: "PROVIDER_TRANSIENT" });
       return { instructions: 100, schema: 100, metrics: 100, comments: 0 };
     });
 
@@ -816,7 +937,10 @@ describe("worker PDF boundary", () => {
     const artifacts = artifactStore();
     const renderer = createPlaywrightPdfRenderer();
     const tokens = vi.fn(async (request) => {
-      const commentSegment = JSON.parse(request.segments.comments);
+      const countedValue = JSON.parse(request.segments.comments);
+      if (countedValue.contractVersion !== "survey-model-input.v1")
+        return { instructions: 100, schema: 100, metrics: 100, comments: 1 };
+      const commentSegment = countedValue;
       expect(commentSegment.contractVersion).toBe("survey-model-input.v1");
       expect(Object.keys(commentSegment.comments[0]).sort()).toEqual(["evidenceRef", "period", "text"]);
       expect(commentSegment.comments[0].evidenceRef).toBe(reference);
@@ -860,8 +984,8 @@ describe("worker PDF boundary", () => {
       },
     });
 
-    expect(result.status).toBe("succeeded");
-    expect(tokens).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ status: "succeeded" });
+    expect(tokens).toHaveBeenCalledTimes(2);
     expect(provider).toHaveBeenCalledTimes(1);
     const directCheckpoint = fake.writtenCheckpoints.find(({ stageKey }) => stageKey === "direct");
     expect(directCheckpoint?.payload).toMatchObject({
@@ -1233,7 +1357,7 @@ describe("worker PDF boundary", () => {
 
     const cms = fakeCms(envelope);
     vi.spyOn(cms.cms, "snapshot").mockRejectedValue(
-      new Error("CMS unavailable"),
+      Object.assign(new Error("CMS unavailable"), { code: "CMS_TRANSIENT" }),
     );
     const cmsResult = await executeReportWorker("run-cms-transient", {
       cms: cms.cms,

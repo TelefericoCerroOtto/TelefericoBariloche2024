@@ -136,7 +136,7 @@ export type CountCheckpointPayload = {
 export type CheckpointPayload =
   | { readonly kind: "redact"; readonly recordCount: number; readonly redactionVersion: string }
   | CountCheckpointPayload
-  | { readonly kind: "direct"; readonly validatedOutput: DirectAnalysisV1; readonly usage?: PersistedStageUsageV1 }
+  | { readonly kind: "direct"; readonly validatedOutput: DirectAnalysisV1; readonly usage?: PersistedStageUsageV1; readonly outputTokenCount?: number; readonly outputRequestDigest?: string }
   | {
       readonly kind: "map";
       readonly chunkId: string;

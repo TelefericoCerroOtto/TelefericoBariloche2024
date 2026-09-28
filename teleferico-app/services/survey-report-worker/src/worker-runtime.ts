@@ -54,16 +54,19 @@ import {
 } from "./direct-execution-plan";
 import { preflightDirectAnalysis } from "./analysis-output-preflight";
 import { preflightMapAnalysis, preflightReduceAnalysis } from "./analysis-output-preflight";
-import { buildMapChunksV1, countGeneratedOutputV1, planWorkerRouteV1 } from "./map-reduce-execution-plan";
+import { buildMapChunksV1, planWorkerRouteV1 } from "./map-reduce-execution-plan";
 import { executeMapReduceStages } from "./map-reduce-worker-runtime";
 import { priceProviderUsageV1, validateProviderUsageV1 } from "./worker-cost";
 import { deliverPendingWorkerAlerts } from "./worker-alerts";
+import { retryTransient, retryableFailureCode } from "./retry-policy";
+import { countGeneratedOutputV1, validateGeneratedOutputBudgetV1 } from "./map-reduce-execution-plan";
 import { deterministicReportId } from "./private-report-identity";
 import { createWorkerDiagnosticBundleV1 } from "./worker-diagnostics";
 
 type RetryableFailureCode = Extract<
   RuntimeFailureCode,
-  "PROVIDER_TRANSIENT" | "CMS_TRANSIENT" | "STORAGE_TRANSIENT"
+  | "PROVIDER_TRANSIENT" | "PROVIDER_RATE_LIMIT" | "PROVIDER_TIMEOUT"
+  | "CMS_TRANSIENT" | "STORAGE_TRANSIENT"
 >;
 
 class ClassifiedFailure extends Error {
@@ -146,15 +149,13 @@ async function classifyDependencyFailure<T>(
   failureCode: RetryableFailureCode,
   operation: () => Promise<T>,
 ): Promise<T> {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      return await operation();
-    } catch (error) {
-      if (knownFailureCode(error)) throw error;
-      if (attempt === 2) throw new ClassifiedFailure(failureCode);
-    }
+  try {
+    return await retryTransient(operation);
+  } catch (error) {
+    if (!retryableFailureCode(error)) throw error;
+    const knownCode = knownFailureCode(error);
+    throw new ClassifiedFailure(knownCode && isRetryableFailure(knownCode) ? knownCode : failureCode);
   }
-  throw new ClassifiedFailure(failureCode);
 }
 
 function isRetryableFailure(
@@ -162,6 +163,8 @@ function isRetryableFailure(
 ): failureCode is RetryableFailureCode {
   return (
     failureCode === "PROVIDER_TRANSIENT" ||
+    failureCode === "PROVIDER_RATE_LIMIT" ||
+    failureCode === "PROVIDER_TIMEOUT" ||
     failureCode === "CMS_TRANSIENT" ||
     failureCode === "STORAGE_TRANSIENT"
   );
@@ -650,41 +653,78 @@ export async function executeReportWorker(
     if (!checkpointSet.entries.some(({ stageKey }) => stageKey === "count"))
       throw new TypeError("The direct route has no CMS-authoritative CountTokens checkpoint");
     let directAnalysis: DirectAnalysisV1;
+    let directOutputTokenCount: number | undefined;
+    let directOutputRequestDigest: string | undefined;
     const existingDirect = checkpointSet.entries.find(({ stageKey }) => stageKey === "direct");
     if (existingDirect?.payload.kind === "direct") {
       directAnalysis = existingDirect.payload.validatedOutput as DirectAnalysisV1;
     } else if (needsNarrative) {
       if (typeof dependencies.analysisProvider !== "function")
         throw Object.assign(new TypeError("Injected direct-analysis provider is required"), { code: "CONFIGURATION" as const });
+      if (typeof dependencies.countTokens !== "function")
+        throw Object.assign(new TypeError("Injected CountTokens provider is required for output validation"), { code: "CONFIGURATION" as const });
       diagnosticStage = "direct";
-      const response = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
-        dependencies.analysisProvider!(modelRequest),
-      );
-      diagnosticInputTokens = response.usage.usageMetadata.promptTokenCount;
-      diagnosticOutputTokens = response.usage.usageMetadata.candidatesTokenCount;
-      const candidate = response?.output;
-      const usage = priceProviderUsageV1(
-        validateProviderUsageV1(response?.usage, modelConfig.model),
-        claim.pricingSnapshot as PricingSnapshotV1,
-        modelConfig.model,
-        "direct",
-      );
-      if (!candidate || typeof candidate !== "object" ||
-          (candidate as { schemaVersion?: unknown }).schemaVersion !== "survey-analysis.v1")
-        throw Object.assign(new TypeError("The injected provider returned an invalid direct analysis"), { code: "INVALID_OUTPUT" as const });
-      directAnalysis = candidate as DirectAnalysisV1;
-      const preflight = preflightDirectAnalysis(directAnalysis, {
-        snapshot: snapshotResult.snapshot,
-        reportRunId,
-        evidenceKeyId: modelConfig.evidenceKeyId,
-        evidenceKey: evidenceKey!,
-      });
-      if (preflight.status !== "accepted")
-        throw Object.assign(new TypeError("The direct analysis did not pass structural and privacy validation"), { code: "INVALID_OUTPUT" as const });
+      let acceptedDirect: DirectAnalysisV1 | null = null;
+      let acceptedUsage: ReturnType<typeof priceProviderUsageV1> | null = null;
+      for (let generation = 0; generation < 2; generation += 1) {
+        const response = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
+          dependencies.analysisProvider!(modelRequest),
+        );
+        const providerUsage = validateProviderUsageV1(response?.usage, modelConfig.model);
+        const candidate = response?.output;
+        let valid = Boolean(candidate && typeof candidate === "object" &&
+          (candidate as { schemaVersion?: unknown }).schemaVersion === "survey-analysis.v1");
+        let outputCount: Awaited<ReturnType<typeof countGeneratedOutputV1>> | null = null;
+        if (valid) {
+          outputCount = await retryTransient(() => countGeneratedOutputV1({
+            output: candidate,
+            modelConfig,
+            countTokens: dependencies.countTokens!,
+            stage: "direct",
+          }));
+          try {
+            validateGeneratedOutputBudgetV1({
+              tokenCount: outputCount.tokenCount,
+              providerTokenCount: providerUsage.usageMetadata.candidatesTokenCount,
+              modelConfig,
+              stage: "direct",
+            });
+          } catch {
+            valid = false;
+          }
+        }
+        const preflight = valid ? preflightDirectAnalysis(candidate, {
+          snapshot: snapshotResult.snapshot,
+          reportRunId,
+          evidenceKeyId: modelConfig.evidenceKeyId,
+          evidenceKey: evidenceKey!,
+        }) : null;
+        if (preflight?.status === "accepted" && outputCount) {
+          acceptedDirect = candidate as DirectAnalysisV1;
+          acceptedUsage = priceProviderUsageV1(
+            providerUsage,
+            claim.pricingSnapshot as PricingSnapshotV1,
+            modelConfig.model,
+            "direct",
+          );
+          diagnosticInputTokens = providerUsage.usageMetadata.promptTokenCount;
+          diagnosticOutputTokens = providerUsage.usageMetadata.candidatesTokenCount;
+          directOutputTokenCount = outputCount.tokenCount;
+          directOutputRequestDigest = outputCount.requestDigest;
+          break;
+        }
+        if (generation === 1)
+          throw Object.assign(new TypeError("The direct analysis did not satisfy its structural or output-token contract"), { code: "INVALID_OUTPUT" as const });
+      }
+      if (!acceptedDirect || !acceptedUsage)
+        throw Object.assign(new TypeError("The direct analysis did not satisfy its output contract"), { code: "INVALID_OUTPUT" as const });
+      directAnalysis = acceptedDirect;
       await addCheckpoint("direct", {
         kind: "direct",
         validatedOutput: directAnalysis,
-        usage,
+        usage: acceptedUsage,
+        outputTokenCount: directOutputTokenCount,
+        outputRequestDigest: directOutputRequestDigest,
       }, "direct", ["count"]);
     } else {
       directAnalysis = createEmptyEvidenceDirectAnalysisV1();
@@ -749,10 +789,8 @@ export async function executeReportWorker(
 
     if (!artifact) {
       diagnosticStage = "render";
-      const rendered = await renderValidatedPdf(
-        snapshotResult.snapshot,
-        analysis,
-        dependencies.renderer,
+      const rendered = await classifyDependencyFailure("STORAGE_TRANSIENT", () =>
+        renderValidatedPdf(snapshotResult.snapshot, analysis, dependencies.renderer),
       );
       artifact = stagedArtifact(
         reportRunId,
