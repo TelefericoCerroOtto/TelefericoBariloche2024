@@ -166,3 +166,22 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 - [Best practices for managing service account keys](https://cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys)
 - [Gemini 3.8 Flash model documentation](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-8-flash)
 - [Gemini Enterprise Agent Platform locations](https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/locations)
+
+## Local redacted projection verifier
+
+`verify-config.mjs` reads one explicitly supplied local JSON projection and has
+no Google Cloud SDK, environment, secret-store, or network integration. The
+closed `survey-worker-config-projection.v1` input contains only declared project
+IDs/topology, required API names, Vertex/queue values, redacted identity aliases
+and permission scopes, boolean key-presence statements, private object prefixes
+and retention declarations, labels, and budget rules. It rejects unknown or
+secret-like data.
+
+Run `node --test docs/infra/survey-reporting/verify-config.test.mjs` from the
+repository root for the synthetic projection tests. A CLI result of
+`projection_valid` means only that supplied declarations match the local
+contract. It does not alter the observed statuses above or prove live readiness.
+Missing or unverifiable declarations are `blocked`; operational confirmation
+of queue/service existence, ingress, OIDC bindings, runtime identity attachment,
+credential absence, IAM, bucket policy, and lifecycle remains deferred to
+separately approved evidence. Generation remains disabled.

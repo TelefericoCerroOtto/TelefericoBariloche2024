@@ -344,6 +344,57 @@ function syntheticModelConfig(evidenceKeyId: string) {
 describe("worker PDF boundary", () => {
   beforeEach(() => vi.restoreAllMocks());
 
+  it("writes an injected diagnostic only after CMS commits a terminal failure", async () => {
+    const envelope = snapshot();
+    const fake = fakeCms(envelope);
+    const order: string[] = [];
+    const originalFail = fake.cms.fail.bind(fake.cms);
+    fake.cms.fail = async (...args) => {
+      const result = await originalFail(...args);
+      order.push("cms-terminal-commit");
+      return result;
+    };
+    const diagnostics = {
+      async writeIfAbsent(input: { objectKey: string; bytes: Uint8Array; expiresAt: string }) {
+        order.push("diagnostic-write");
+        expect(input.objectKey).toBe("private/report-diagnostics/123e4567-e89b-42d3-a456-426614174000/bundle.json");
+        expect(JSON.parse(new TextDecoder().decode(input.bytes))).toMatchObject({
+          contractVersion: "survey-worker-diagnostic-bundle.v1",
+          events: [{ reportRunId: "123e4567-e89b-42d3-a456-426614174000", error: { code: "INVALID_OUTPUT" } }],
+        });
+      },
+    };
+    const artifacts = artifactStore();
+    const failingArtifacts: WorkerArtifactStore = {
+      ...artifacts.store,
+      async stage() {
+        throw Object.assign(new Error("untrusted storage text"), { code: "INVALID_OUTPUT" });
+      },
+    };
+    const result = await executeReportWorker("123e4567-e89b-42d3-a456-426614174000", {
+      cms: fake.cms,
+      artifacts: failingArtifacts,
+      renderer: createDeterministicTestPdfRenderer(),
+      diagnostics,
+    });
+
+    expect(result).toMatchObject({ status: "failed", failureCode: "INVALID_OUTPUT" });
+    expect(order).toEqual(["cms-terminal-commit", "diagnostic-write"]);
+
+    const noCommitFake = fakeCms(envelope);
+    noCommitFake.cms.fail = async () => {
+      throw new Error("CMS did not commit");
+    };
+    const writeIfAbsent = vi.fn(async () => undefined);
+    await executeReportWorker("123e4567-e89b-42d3-a456-426614174000", {
+      cms: noCommitFake.cms,
+      artifacts: failingArtifacts,
+      renderer: createDeterministicTestPdfRenderer(),
+      diagnostics: { writeIfAbsent },
+    });
+    expect(writeIfAbsent).not.toHaveBeenCalled();
+  });
+
   it("validates closed render and store checkpoint metadata and payloads", () => {
     const renderPayload = {
       kind: "render",

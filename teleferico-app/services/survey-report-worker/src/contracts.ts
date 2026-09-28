@@ -4,6 +4,7 @@ import type {
   SnapshotV1,
 } from "../../../packages/survey-reporting-core/src";
 import type { PersistedStageUsageV1, ProviderUsageV1 } from "./worker-cost";
+import type { WorkerDiagnosticStore } from "./worker-diagnostics";
 
 export const WORKER_CMS_CONTRACT_VERSION = "survey-worker-cms.v1" as const;
 export const WORKER_COMMAND_VERSION = "survey-report-command.v1" as const;
@@ -495,4 +496,5 @@ export type WorkerRuntimeDependencies = {
   readonly now?: () => Date;
   readonly pricingSnapshot?: PricingSnapshotV1;
   readonly usageNotifier?: WorkerAlertNotifierV1;
+  readonly diagnostics?: WorkerDiagnosticStore;
 };
