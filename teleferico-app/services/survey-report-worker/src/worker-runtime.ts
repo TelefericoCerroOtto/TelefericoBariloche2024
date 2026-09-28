@@ -36,6 +36,7 @@ import {
   type ModelConfigV1,
   type WorkerCheckpointStage,
   type DirectAnalysisV1,
+  type PricingSnapshotV1,
   type CountTokensProvider,
   type EvidenceKeyProvider,
   type WorkerRuntimeDependencies,
@@ -55,6 +56,8 @@ import { preflightDirectAnalysis } from "./analysis-output-preflight";
 import { preflightMapAnalysis, preflightReduceAnalysis } from "./analysis-output-preflight";
 import { buildMapChunksV1, countGeneratedOutputV1, planWorkerRouteV1 } from "./map-reduce-execution-plan";
 import { executeMapReduceStages } from "./map-reduce-worker-runtime";
+import { priceProviderUsageV1, validateProviderUsageV1 } from "./worker-cost";
+import { deliverPendingWorkerAlerts } from "./worker-alerts";
 
 type RetryableFailureCode = Extract<
   RuntimeFailureCode,
@@ -184,6 +187,10 @@ async function failSafely(
   };
   try {
     const result = await dependencies.cms.fail(reportRunId, command);
+    if (result.pendingAlerts?.length) {
+      void deliverPendingWorkerAlerts({ reportRunId, alerts: result.pendingAlerts, dependencies })
+        .catch(() => undefined);
+    }
     return {
       status: "failed",
       disposition: result.replayed ? "terminal-replay" : "failed",
@@ -251,6 +258,10 @@ async function writeCheckpoint(
       checkpoint: value,
     }),
   );
+  if (result.pendingAlerts?.length) {
+    void deliverPendingWorkerAlerts({ reportRunId, alerts: result.pendingAlerts, dependencies })
+      .catch(() => undefined);
+  }
   return result.stateVersion;
 }
 
@@ -363,6 +374,10 @@ export async function executeReportWorker(
   dependencies: WorkerRuntimeDependencies,
 ): Promise<WorkerExecutionResult> {
   const claim = await dependencies.cms.claim(reportRunId);
+  if (claim.pendingAlerts?.length) {
+    void deliverPendingWorkerAlerts({ reportRunId, alerts: claim.pendingAlerts, dependencies })
+      .catch(() => undefined);
+  }
   if (isTerminal(claim)) {
     if (claim.status === "succeeded")
       return {
@@ -441,6 +456,7 @@ export async function executeReportWorker(
         reportRunId,
         snapshotEnvelope: snapshotResult.snapshot,
         modelConfig,
+        pricingSnapshot: claim.pricingSnapshot as PricingSnapshotV1,
         evidenceKey: key ?? "",
         dependencies,
         state,
@@ -562,6 +578,7 @@ export async function executeReportWorker(
           reportRunId,
           snapshotEnvelope: snapshotResult.snapshot,
           modelConfig,
+          pricingSnapshot: claim.pricingSnapshot as PricingSnapshotV1,
           evidenceKey: evidenceKey ?? "",
           dependencies,
           state,
@@ -586,8 +603,15 @@ export async function executeReportWorker(
     } else if (needsNarrative) {
       if (typeof dependencies.analysisProvider !== "function")
         throw Object.assign(new TypeError("Injected direct-analysis provider is required"), { code: "CONFIGURATION" as const });
-      const candidate = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
+      const response = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
         dependencies.analysisProvider!(modelRequest),
+      );
+      const candidate = response?.output;
+      const usage = priceProviderUsageV1(
+        validateProviderUsageV1(response?.usage, modelConfig.model),
+        claim.pricingSnapshot as PricingSnapshotV1,
+        modelConfig.model,
+        "direct",
       );
       if (!candidate || typeof candidate !== "object" ||
           (candidate as { schemaVersion?: unknown }).schemaVersion !== "survey-analysis.v1")
@@ -604,6 +628,7 @@ export async function executeReportWorker(
       await addCheckpoint("direct", {
         kind: "direct",
         validatedOutput: directAnalysis,
+        usage,
       }, "direct", ["count"]);
     } else {
       directAnalysis = createEmptyEvidenceDirectAnalysisV1();
@@ -763,6 +788,10 @@ export async function executeReportWorker(
     const result = await classifyDependencyFailure("CMS_TRANSIENT", () =>
       dependencies.cms.complete(reportRunId, complete),
     );
+    if (result.pendingAlerts?.length) {
+      void deliverPendingWorkerAlerts({ reportRunId, alerts: result.pendingAlerts, dependencies })
+        .catch(() => undefined);
+    }
     return {
       status: "succeeded",
       disposition: result.replayed ? "terminal-replay" : "completed",

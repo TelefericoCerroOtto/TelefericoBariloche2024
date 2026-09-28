@@ -10,6 +10,9 @@ import {
   type FailCommand,
   type FailResult,
   type RuntimeFailureCode,
+  type WorkerAlertAcknowledgeCommandV1,
+  type WorkerAlertAcknowledgeResultV1,
+  type WorkerAlertIntentV1,
   type WorkerClaimResult,
   type WorkerCheckpoint,
   type WorkerSnapshotResult,
@@ -57,7 +60,8 @@ export type WorkerCmsAction =
   | "api::survey-report-generation.survey-report-generation.workerSnapshot"
   | "api::survey-report-generation.survey-report-generation.workerCheckpoint"
   | "api::survey-report-generation.survey-report-generation.workerComplete"
-  | "api::survey-report-generation.survey-report-generation.workerFail";
+  | "api::survey-report-generation.survey-report-generation.workerFail"
+  | "api::survey-report-generation.survey-report-generation.workerAlertAck";
 
 export type WorkerCmsToken = {
   readonly action: WorkerCmsAction;
@@ -115,6 +119,31 @@ function validStateVersion(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) > 0;
 }
 
+function validatePendingAlerts(value: unknown, reportRunId: string): boolean {
+  if (!Array.isArray(value)) return false;
+  return value.every((alert) => {
+    const cost = isRecord(alert) && alert.kind === "cost-threshold";
+    const expectedKeys = cost
+      ? ["deduplicationKey", "kind", "reportRunId", "cumulativeCostMicros"]
+      : ["deduplicationKey", "kind", "reportRunId", "failureCode"];
+    return exactKeys(alert, expectedKeys) && alert.reportRunId === reportRunId &&
+      typeof alert.deduplicationKey === "string" &&
+      alert.deduplicationKey === (cost
+        ? `tb113:cost-over-10-usd:${reportRunId}:v1`
+        : alert.kind === "terminal-failure" ? `tb113:terminal-failure:${reportRunId}:v1` : null) &&
+      (cost
+        ? typeof alert.cumulativeCostMicros === "string" && /^(0|[1-9]\d*)$/.test(alert.cumulativeCostMicros) &&
+          BigInt(alert.cumulativeCostMicros) > 10_000_000n
+        : alert.kind === "terminal-failure" && typeof alert.failureCode === "string" && RUNTIME_FAILURE_CODES.includes(alert.failureCode as RuntimeFailureCode));
+  });
+}
+
+function withOptionalPendingAlerts(value: unknown, reportRunId: string, baseKeys: readonly string[]): value is JsonRecord {
+  if (exactKeys(value, baseKeys)) return true;
+  if (!exactKeys(value, [...baseKeys, "pendingAlerts"])) return false;
+  return validatePendingAlerts(value.pendingAlerts, reportRunId);
+}
+
 function validateClaim(value: unknown, reportRunId: string): WorkerClaimResult {
   if (
     !isRecord(value) ||
@@ -126,7 +155,7 @@ function validateClaim(value: unknown, reportRunId: string): WorkerClaimResult {
 
   if (value.status === "succeeded" || value.status === "failed") {
     if (
-      !exactKeys(value, [
+      !withOptionalPendingAlerts(value, reportRunId, [
         "contractVersion",
         "reportRunId",
         "stateVersion",
@@ -140,7 +169,7 @@ function validateClaim(value: unknown, reportRunId: string): WorkerClaimResult {
   }
 
   if (
-    !exactKeys(value, [
+    !withOptionalPendingAlerts(value, reportRunId, [
       "contractVersion",
       "reportRunId",
       "stateVersion",
@@ -253,10 +282,10 @@ function validDigest(value: unknown): value is string {
 }
 
 function validateCheckpointResult(value: unknown, reportRunId: string, stageKey: WorkerCheckpoint["stageKey"]): CheckpointWriteResult {
-  if (!exactKeys(value, ["contractVersion", "reportRunId", "stateVersion", "stageKey", "status", "replayed"]) ||
+  if (!withOptionalPendingAlerts(value, reportRunId, ["contractVersion", "reportRunId", "stateVersion", "stageKey", "status", "replayed", "crossedCostThreshold"]) ||
       value.contractVersion !== "survey-worker-cms.v1" || value.reportRunId !== reportRunId ||
       !validStateVersion(value.stateVersion) || value.stageKey !== stageKey || value.status !== "valid" ||
-      typeof value.replayed !== "boolean")
+      typeof value.replayed !== "boolean" || typeof value.crossedCostThreshold !== "boolean")
     return fail("INVALID_RESPONSE");
   return value as CheckpointWriteResult;
 }
@@ -273,7 +302,7 @@ function validateCompleteCommand(reportRunId: string, command: CompleteCommand):
 }
 
 function validateCompleteResult(value: unknown, reportRunId: string, command: CompleteCommand): CompleteResult {
-  if (!exactKeys(value, ["contractVersion", "reportRunId", "stateVersion", "status", "reportId", "artifactSha256", "artifactSize", "replayed"]) ||
+  if (!withOptionalPendingAlerts(value, reportRunId, ["contractVersion", "reportRunId", "stateVersion", "status", "reportId", "artifactSha256", "artifactSize", "replayed"]) ||
       value.contractVersion !== "survey-worker-cms.v1" || value.reportRunId !== reportRunId ||
       !validStateVersion(value.stateVersion) || value.status !== "succeeded" || !validRunId(String(value.reportId)) ||
       value.artifactSha256 !== command.artifact.sha256 || value.artifactSize !== command.artifact.size ||
@@ -309,23 +338,46 @@ function validateFailResult(
   failureCode: RuntimeFailureCode,
 ): FailResult {
   if (
-    !exactKeys(value, [
+    !withOptionalPendingAlerts(value, reportRunId, [
       "contractVersion",
       "reportRunId",
       "stateVersion",
       "status",
       "failureCode",
       "replayed",
+      "alertRequired",
     ]) ||
     value.contractVersion !== "survey-worker-cms.v1" ||
     value.reportRunId !== reportRunId ||
     !validStateVersion(value.stateVersion) ||
     value.status !== "failed" ||
     value.failureCode !== failureCode ||
-    typeof value.replayed !== "boolean"
+    typeof value.replayed !== "boolean" ||
+    typeof value.alertRequired !== "boolean"
   )
     return fail("INVALID_RESPONSE");
+  if (Object.hasOwn(value, "pendingAlerts") &&
+      value.alertRequired !== (value.pendingAlerts as WorkerAlertIntentV1[]).some(({ kind }) => kind === "terminal-failure"))
+    return fail("INVALID_RESPONSE");
+  if (value.alertRequired && !Object.hasOwn(value, "pendingAlerts"))
+    return fail("INVALID_RESPONSE");
   return value as FailResult;
+}
+
+function validateAlertAcknowledgeCommand(reportRunId: string, command: WorkerAlertAcknowledgeCommandV1): string {
+  if (!validRunId(reportRunId) || !exactKeys(command, ["contractVersion", "deduplicationKey"]) ||
+      command.contractVersion !== "survey-worker-alert-ack.v1" ||
+      !["cost-threshold", "terminal-failure"].some((kind) => command.deduplicationKey === `tb113:${kind === "cost-threshold" ? "cost-over-10-usd" : kind}:${reportRunId}:v1`))
+    fail("INVALID_CONFIGURATION");
+  return JSON.stringify(command);
+}
+
+function validateAlertAcknowledgeResult(value: unknown, reportRunId: string, command: WorkerAlertAcknowledgeCommandV1): WorkerAlertAcknowledgeResultV1 {
+  if (!exactKeys(value, ["contractVersion", "reportRunId", "deduplicationKey", "status", "replayed"]) ||
+      value.contractVersion !== "survey-worker-alert-ack.v1" || value.reportRunId !== reportRunId ||
+      value.deduplicationKey !== command.deduplicationKey || value.status !== "delivered" || typeof value.replayed !== "boolean")
+    return fail("INVALID_RESPONSE");
+  return value as WorkerAlertAcknowledgeResultV1;
 }
 
 function readSafeError(error: unknown): WorkerCmsClientError {
@@ -548,6 +600,17 @@ export function createWorkerCmsClient(options: WorkerCmsClientOptions) {
         suffix: "fail",
         body: JSON.stringify(command),
         validate: (value, id) => validateFailResult(value, id, command.failureCode),
+      });
+    },
+    async acknowledgeAlert(reportRunId: string, command: WorkerAlertAcknowledgeCommandV1): Promise<WorkerAlertAcknowledgeResultV1> {
+      const body = validateAlertAcknowledgeCommand(reportRunId, command);
+      return request({
+        reportRunId,
+        action: "api::survey-report-generation.survey-report-generation.workerAlertAck",
+        method: "POST",
+        suffix: "alerts/ack",
+        body,
+        validate: (value, id) => validateAlertAcknowledgeResult(value, id, command),
       });
     },
   };

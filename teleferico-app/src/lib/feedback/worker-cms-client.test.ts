@@ -113,6 +113,7 @@ describe("worker CMS HTTP client", () => {
         status: "failed",
         failureCode: "INVALID_OUTPUT",
         replayed: true,
+        alertRequired: false,
       });
     });
     const tokenProviderMock = vi.fn(tokenProvider);
@@ -403,6 +404,7 @@ describe("worker CMS HTTP client", () => {
           stageKey: "redact",
           status: "valid",
           replayed: false,
+          crossedCostThreshold: false,
         });
       }
       return jsonResponse({
@@ -475,6 +477,34 @@ describe("worker CMS HTTP client", () => {
       checkpoint: redactCheckpoint,
     });
     expect(JSON.parse(String(calls[1]?.init?.body))).toEqual(command);
+  });
+
+  it("acknowledges a durable alert intent through its exact worker action scope", async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchImplementation = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init });
+      return jsonResponse({
+        contractVersion: "survey-worker-alert-ack.v1",
+        reportRunId: RUN_ID,
+        deduplicationKey: `tb113:terminal-failure:${RUN_ID}:v1`,
+        status: "delivered",
+        replayed: false,
+      });
+    });
+    const tokenProviderMock = vi.fn(tokenProvider);
+    const cms = client({ tokenProvider: tokenProviderMock, fetchImplementation });
+    const command = {
+      contractVersion: "survey-worker-alert-ack.v1" as const,
+      deduplicationKey: `tb113:terminal-failure:${RUN_ID}:v1`,
+    };
+
+    await expect(cms.acknowledgeAlert(RUN_ID, command)).resolves.toMatchObject({ status: "delivered", replayed: false });
+    expect(calls[0]?.url).toBe(`${BASE_URL}/api/tb113/worker/generations/${RUN_ID}/alerts/ack`);
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual(command);
+    expect(tokenProviderMock.mock.calls).toEqual([[
+      "api::survey-report-generation.survey-report-generation.workerAlertAck",
+    ]]);
   });
 
   it("rejects invalid run IDs and oversized requests before token lookup", async () => {

@@ -171,6 +171,18 @@ function exactKeys(value, keys) {
   );
 }
 
+function validUsageShape(value, stageKey, model) {
+  return exactKeys(value, ['model', 'modelRevision', 'sku', 'usageMetadata', 'stageKey', 'pricingSnapshotVersion', 'costMicros']) &&
+    value.model === model && value.stageKey === stageKey &&
+    typeof value.modelRevision === 'string' && value.modelRevision.length > 0 && value.modelRevision.length <= 128 &&
+    typeof value.sku === 'string' && value.sku.length > 0 && value.sku.length <= 128 &&
+    typeof value.pricingSnapshotVersion === 'string' && value.pricingSnapshotVersion.length > 0 && value.pricingSnapshotVersion.length <= 128 &&
+    typeof value.costMicros === 'string' && /^(0|[1-9]\d*)$/.test(value.costMicros) &&
+    exactKeys(value.usageMetadata, ['promptTokenCount', 'candidatesTokenCount']) &&
+    Number.isSafeInteger(value.usageMetadata.promptTokenCount) && value.usageMetadata.promptTokenCount >= 0 &&
+    Number.isSafeInteger(value.usageMetadata.candidatesTokenCount) && value.usageMetadata.candidatesTokenCount >= 0;
+}
+
 function invalid() {
   throw new TypeError("Invalid checkpoint binding");
 }
@@ -710,9 +722,10 @@ function outputTokenRequestDigest(output, modelConfig, stage) {
 }
 
 function safeMapOutput(payload, modelConfig, snapshot, reportRunId, evidenceKey) {
-  if (!exactKeys(payload, ['kind', 'chunkId', 'chunkIndex', 'chunkCount', 'evidenceKeyId', 'coveredRefs', 'chunkMembershipDigest', 'outputTokenCount', 'outputRequestDigest', 'validatedOutput']) ||
+  if (!exactKeys(payload, ['kind', 'chunkId', 'chunkIndex', 'chunkCount', 'evidenceKeyId', 'coveredRefs', 'chunkMembershipDigest', 'outputTokenCount', 'outputRequestDigest', 'validatedOutput', 'usage']) ||
       payload.kind !== 'map' || !Number.isSafeInteger(payload.outputTokenCount) || payload.outputTokenCount < 0 ||
       payload.outputTokenCount > modelConfig.map.hardMax || !DIGEST_PATTERN.test(payload.outputRequestDigest) ||
+      !validUsageShape(payload.usage, payload.chunkId, modelConfig.model) ||
       payload.outputRequestDigest !== outputTokenRequestDigest(payload.validatedOutput, modelConfig, 'map')) return false;
   const key = /^map\.([1-9]\d*)-of-([1-9]\d*)$/.exec(payload.chunkId);
   const output = payload.validatedOutput;
@@ -774,9 +787,10 @@ function safeMapOutput(payload, modelConfig, snapshot, reportRunId, evidenceKey)
 }
 
 function safeReduceOutput(payload, modelConfig, snapshot, reportRunId, evidenceKey) {
-  if (!exactKeys(payload, ['kind', 'validatedOutput', 'outputTokenCount', 'outputRequestDigest']) ||
+  if (!exactKeys(payload, ['kind', 'validatedOutput', 'outputTokenCount', 'outputRequestDigest', 'usage']) ||
       payload.kind !== 'reduce' || !Number.isSafeInteger(payload.outputTokenCount) || payload.outputTokenCount < 0 ||
       payload.outputTokenCount > modelConfig.directReduce.hardMax || !DIGEST_PATTERN.test(payload.outputRequestDigest) ||
+      !validUsageShape(payload.usage, 'reduce', modelConfig.model) ||
       payload.outputRequestDigest !== outputTokenRequestDigest(payload.validatedOutput, modelConfig, 'reduce')) return false;
   const output = payload.validatedOutput;
   if (!exactKeys(output, ['schemaVersion', 'route', 'sections', 'mapOutputDigests']) || output.schemaVersion !== 'survey-analysis.v1' ||
@@ -816,7 +830,10 @@ function safeCheckpointPayload(stage, payload, modelConfig, snapshot, reportRunI
   }
   if (stage.type === "direct") {
     const output = payload?.validatedOutput;
-    return exactKeys(payload, ["kind", "validatedOutput"]) && payload.kind === "direct" &&
+    const hasUsage = Object.hasOwn(payload ?? {}, 'usage');
+    return (hasUsage ? exactKeys(payload, ["kind", "validatedOutput", "usage"]) : exactKeys(payload, ["kind", "validatedOutput"])) &&
+      payload.kind === "direct" &&
+      ((snapshot?.comments?.length ?? -1) === 0 ? !hasUsage : validUsageShape(payload.usage, 'direct', modelConfig.model)) &&
       Boolean(snapshot && safeDirectOutput(output, modelConfig, snapshot, reportRunId, evidenceKey));
   }
   if (stage.type === "map")
