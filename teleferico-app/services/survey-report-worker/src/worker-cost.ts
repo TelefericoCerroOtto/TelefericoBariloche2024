@@ -25,6 +25,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function validateProviderUsageV1(
   value: unknown,
   expectedModel: string,
+  maxPromptTokens?: number,
 ): ProviderUsageV1 {
   if (!isRecord(value) ||
       Object.keys(value).length !== 4 ||
@@ -33,6 +34,7 @@ export function validateProviderUsageV1(
       typeof value.sku !== "string" || value.sku.length === 0 || value.sku.length > 128 ||
       !isRecord(value.usageMetadata) || Object.keys(value.usageMetadata).length !== 2 ||
       !Number.isSafeInteger(value.usageMetadata.promptTokenCount) || Number(value.usageMetadata.promptTokenCount) < 0 ||
+      (maxPromptTokens !== undefined && (!Number.isSafeInteger(maxPromptTokens) || maxPromptTokens < 1 || Number(value.usageMetadata.promptTokenCount) > maxPromptTokens)) ||
       !Number.isSafeInteger(value.usageMetadata.candidatesTokenCount) || Number(value.usageMetadata.candidatesTokenCount) < 0)
     throw Object.assign(new TypeError("Provider usage evidence is missing or malformed"), { code: "CONFIGURATION" as const });
 

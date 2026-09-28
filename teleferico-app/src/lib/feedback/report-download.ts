@@ -6,6 +6,10 @@ import {
   validateReportDownloadMetadata,
   type PrivateReportDownloadMetadataV1,
 } from "../../../services/survey-report-worker/src/private-report-download-metadata-transport";
+import { createPrivateReportDownloadMetadataTransport } from "../../../services/survey-report-worker/src/private-report-download-metadata-transport";
+import { createGooglePrivateReportBucket } from "../../../services/survey-report-worker/src/google-private-storage";
+import { createPrivateReportObjectStorage } from "../../../services/survey-report-worker/src/private-storage";
+import { readTb113AppTokens, readTb113CmsOrigin, readTb113PrivateBucket } from "./tb113-runtime-config";
 
 const REPORT_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -79,5 +83,24 @@ export function createFeedbackReportDownload(input: {
 export function getFeedbackReportDownload(): ReturnType<
   typeof createFeedbackReportDownload
 > {
-  throw new FeedbackReportDownloadError("UPSTREAM_UNAVAILABLE");
+  try {
+    const origin = readTb113CmsOrigin();
+    const tokens = readTb113AppTokens();
+    const metadataReader = createPrivateReportDownloadMetadataTransport({
+      baseUrl: origin.baseUrl,
+      allowedOrigins: origin.allowedOrigins,
+      tokenProvider: async (action) => ({
+        action,
+        value: tokens.workerReportDownloadMetadata,
+      }),
+    });
+    const bucket = createGooglePrivateReportBucket({
+      bucketName: readTb113PrivateBucket(),
+      objectPrefix: "private/feedback-reports",
+    });
+    const { objectReader } = createPrivateReportObjectStorage({ bucket });
+    return createFeedbackReportDownload({ metadataReader, objectReader });
+  } catch {
+    throw new FeedbackReportDownloadError("UPSTREAM_UNAVAILABLE");
+  }
 }

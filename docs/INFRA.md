@@ -380,6 +380,15 @@ Separate permissions by use case:
   - Cloud Storage
   - Secret Manager
 
+### TB-113 CMS checkpoint identity (future operational gate)
+
+TB-113's CMS checkpoint/completion validators have a local, configuration-gated binding for two independent authorities: exact Vertex AI CountTokens calls and reads of one pinned Secret Manager evidence-key version. If enabled in Cloud Run, these calls use a dedicated user-managed CMS service identity through metadata-server ADC. Do not reuse the worker runtime, app runtime, Cloud Tasks invoker, or deployment identity. This CMS identity must not receive `generateContent`, Cloud Tasks, worker GCS, or unrelated Secret Manager authority.
+
+- Grant only the Vertex permission required for the fixed CountTokens method in project `teleferico-bariloche-2024`; verify the exact API permission/role before any grant.
+- Restrict Secret Manager access to the one evidence secret and use an IAM condition for its pinned numeric version where supported. Secret Manager's built-in `roles/secretmanager.secretAccessor` is granted at Secret scope, so a version-specific condition must be reviewed before claiming access is limited to one version.
+- Confirm the bound model config and evidence-key ID match the CMS environment's approved generation config. The code rejects `latest`, alternate projects/models/locations/endpoints, unapproved segment/config shapes, and service-account key-file ADC.
+- No CMS Vertex/Secret Manager IAM grants, service-identity attachment, secret creation/read, runtime value, or deployment change is authorized or performed by the local adapter implementation. These remain separate operator gates.
+
 ### Managed folders
 
 If the bucket uses managed folders, the policy must be attached to the prefixes and not to bucket-level conditions.

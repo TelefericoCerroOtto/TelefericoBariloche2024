@@ -405,6 +405,7 @@ export type DirectModelRequestV1 = {
 
 export type ValidatedAnalysisProvider = (
   request: DirectModelRequestV1,
+  countRequest: CountTokensRequestV1,
 ) => Promise<ProviderResultV1<DirectAnalysisV1 | PublishedAnalysisV1>>;
 
 export type MapModelRequestV1 = {
@@ -428,10 +429,12 @@ export type ReduceModelRequestV1 = {
 
 export type MapAnalysisProvider = (
   request: MapModelRequestV1,
+  countRequest: CountTokensRequestV1,
 ) => Promise<ProviderResultV1<MapAnalysisV1>>;
 
 export type ReduceAnalysisProvider = (
   request: ReduceModelRequestV1,
+  countRequest: CountTokensRequestV1,
 ) => Promise<ProviderResultV1<ReduceAnalysisV1>>;
 
 export type EvidenceKeyProvider = (
@@ -495,6 +498,8 @@ export type WorkerRuntimeDependencies = {
   readonly mapProvider?: MapAnalysisProvider;
   readonly reduceProvider?: ReduceAnalysisProvider;
   readonly now?: () => Date;
+  readonly approvedModelConfig?: ModelConfigV1;
+  readonly approvedPricingSnapshot?: PricingSnapshotV1;
   readonly pricingSnapshot?: PricingSnapshotV1;
   readonly usageNotifier?: WorkerAlertNotifierV1;
   readonly diagnostics?: WorkerDiagnosticStore;

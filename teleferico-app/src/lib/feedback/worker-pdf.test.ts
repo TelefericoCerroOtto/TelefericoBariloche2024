@@ -22,7 +22,7 @@ import {
 import {
   executeReportWorker as executeReportWorkerWithDependencies,
 } from "../../../services/survey-report-worker/src/worker-runtime";
-import { EMPTY_EVIDENCE_PARAGRAPH } from "../../../services/survey-report-worker/src/direct-execution-plan";
+import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA, EMPTY_EVIDENCE_PARAGRAPH } from "../../../services/survey-report-worker/src/direct-execution-plan";
 import {
   CHECKPOINT_CONTRACT_VERSIONS,
   deriveChunkMembership,
@@ -422,6 +422,205 @@ describe("worker PDF boundary", () => {
     expect(provider).toHaveBeenCalledTimes(2);
     expect(fake.writtenCheckpoints.some(({ stageKey }) => stageKey === "direct")).toBe(false);
     expect(renderer).not.toHaveBeenCalled();
+  });
+
+  it("passes the exact immutable direct CountTokens request to generation and binds it to the count checkpoint", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000113";
+    const evidenceKey = "tb113 synthetic per-run evidence key with enough bytes";
+    const envelope = createSnapshot({
+      sourceRevision: "test-source",
+      createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z",
+      range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: [{
+        recordId: "generation-record",
+        receipt: "00000000-0000-4000-8000-000000000114",
+        acceptedAt: "2026-09-01T12:00:00.000Z",
+        source: "valid_qr",
+        versionKey: "v1",
+        pointKey: "point-a",
+        overallRating: 4,
+        locale: "es",
+        commentText: "Una nota sintética sobre la experiencia del recorrido.",
+        payloadDigest: "a".repeat(64),
+        aspects: [],
+      }],
+      definitions: [{ aspectKey: "other", sortOrder: 99 }],
+      points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
+    });
+    const evidenceRef = deriveEvidenceRef({ reportRunId, recordId: "generation-record", evidenceKey });
+    const output: DirectAnalysisV1 = {
+      schemaVersion: "survey-analysis.v1",
+      route: "direct",
+      sections: [
+        { key: "executive_summary", status: "supported", claims: [{
+          claimId: "claim-a",
+          textEs: "La experiencia general se describe de manera positiva.",
+          evidenceRefs: [evidenceRef],
+          signal: "descriptive",
+        }] },
+        ...PUBLISHED_SECTION_KEYS.slice(1).map((key) => ({ key, status: "insufficient_evidence" as const, claims: [] })),
+      ],
+    } as DirectAnalysisV1;
+    const countRequests: unknown[] = [];
+    const countTokens = vi.fn(async (request: { segments: { metrics: string } }) => {
+      countRequests.push(request);
+      return request.segments.metrics === "{}"
+        ? { instructions: 1, schema: 1, metrics: 1, comments: 1 }
+        : { instructions: 100, schema: 100, metrics: 100, comments: 100 };
+    });
+    let generationCountRequest: unknown;
+    const analysisProvider = vi.fn(async (_request: unknown, countRequest: unknown) => {
+      generationCountRequest = countRequest;
+      return {
+        output,
+        usage: {
+          model: "gemini-3.8-flash",
+          modelRevision: "synthetic-revision-1",
+          sku: "synthetic-model-input",
+          usageMetadata: { promptTokenCount: 400, candidatesTokenCount: 1 },
+        },
+      };
+    });
+    const fake = fakeCms(envelope);
+    const result = await executeReportWorker(reportRunId, {
+      cms: fake.cms,
+      artifacts: artifactStore().store,
+      renderer: createDeterministicTestPdfRenderer(),
+      countTokens,
+      analysisProvider,
+      evidenceKeyProvider: async () => evidenceKey,
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(analysisProvider).toHaveBeenCalledTimes(1);
+    expect(generationCountRequest).toBe(countRequests[0]);
+    expect(generationCountRequest).toMatchObject({
+      contractVersion: "survey-count-request.v1",
+      segments: { instructions: DIRECT_INSTRUCTIONS, schema: DIRECT_SCHEMA },
+    });
+    expect(Object.isFrozen(generationCountRequest)).toBe(true);
+    const countCheckpoint = fake.writtenCheckpoints.find(({ stageKey }) => stageKey === "count");
+    expect(countCheckpoint?.payload.kind).toBe("count");
+    if (countCheckpoint?.payload.kind === "count")
+      expect(countCheckpoint.payload.requestDigest).toBe(createHash("sha256").update(canonicalizeJson(generationCountRequest)).digest("hex"));
+  });
+
+  it("binds selected map and reduce generation calls to their exact CountTokens inputs", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000113";
+    const evidenceKey = "tb113 synthetic per-run evidence key with enough bytes";
+    const envelope = createSnapshot({
+      sourceRevision: "test-source",
+      createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z",
+      range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: ["first", "second"].map((recordId, index) => ({
+        recordId,
+        receipt: `00000000-0000-4000-8000-00000000011${5 + index}`,
+        acceptedAt: `2026-09-01T12:0${index}:00.000Z`,
+        source: "valid_qr" as const,
+        versionKey: "v1",
+        pointKey: "point-a",
+        overallRating: 4 as const,
+        locale: "es" as const,
+        commentText: `Synthetic visitor comment ${index}.`,
+        payloadDigest: String.fromCharCode(98 + index).repeat(64),
+        aspects: [],
+      })),
+      definitions: [{ aspectKey: "other", sortOrder: 99 }],
+      points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
+    });
+    const config = { ...syntheticModelConfig("test-only-2026-01"), verifiedInputTokenLimit: 8_192, safetyHeadroomTokens: 2_048 };
+    const fake = fakeCms(envelope, checkpointSet(envelope.digestHex), config);
+    const countedRequests: Array<{ segments: { comments: string; metrics: string } }> = [];
+    const countTokens = vi.fn(async (request: { segments: { comments: string; metrics: string } }) => {
+      countedRequests.push(request);
+      if (request.segments.metrics === "{}") return { instructions: 1, schema: 1, metrics: 1, comments: 1 };
+      let comments: unknown;
+      try { comments = JSON.parse(request.segments.comments); } catch { comments = null; }
+      if (request.segments.metrics !== "{}" && comments && typeof comments === "object" &&
+          "contractVersion" in comments && comments.contractVersion === "survey-model-input.v1")
+        return { instructions: 10, schema: 10, metrics: 10, comments: 10_000 };
+      if (comments && typeof comments === "object" && "contractVersion" in comments && comments.contractVersion === "survey-map-input.v1") {
+        const chunkCount = (comments as unknown as { chunkCount: number }).chunkCount;
+        return { instructions: 10, schema: 10, metrics: 10, comments: chunkCount === 1 ? 10_000 : 1_000 };
+      }
+      return { instructions: 10, schema: 10, metrics: 10, comments: 1_000 };
+    });
+    const mapInputs: Array<{ request: unknown; countRequest: unknown }> = [];
+    const mapProvider = vi.fn(async (request: { chunkId: string; comments: readonly { evidenceRef: string }[] }, countRequest: unknown) => {
+      mapInputs.push({ request, countRequest });
+      return {
+        output: {
+          schemaVersion: "survey-map.v1" as const,
+          chunkId: request.chunkId,
+          coveredRefs: request.comments.map(({ evidenceRef }) => evidenceRef),
+          themes: [],
+          limitations: [],
+        },
+        usage: {
+          model: "gemini-3.8-flash",
+          modelRevision: "synthetic-revision-1",
+          sku: "synthetic-model-input",
+          usageMetadata: { promptTokenCount: 1_000, candidatesTokenCount: 1 },
+        },
+      };
+    });
+    let reduceCountRequest: unknown;
+    let reduceInputRequest: unknown;
+    const reduceProvider = vi.fn(async (request: { maps: readonly { outputDigest: string }[] }, countRequest: unknown) => {
+      reduceInputRequest = request;
+      reduceCountRequest = countRequest;
+      return {
+        output: {
+          schemaVersion: "survey-analysis.v1" as const,
+          route: "reduce" as const,
+          sections: PUBLISHED_SECTION_KEYS.map((key) => ({ key, status: "insufficient_evidence" as const, claims: [] })),
+          mapOutputDigests: request.maps.map(({ outputDigest }) => outputDigest),
+        },
+        usage: {
+          model: "gemini-3.8-flash",
+          modelRevision: "synthetic-revision-1",
+          sku: "synthetic-model-input",
+          usageMetadata: { promptTokenCount: 1_000, candidatesTokenCount: 1 },
+        },
+      };
+    });
+
+    const result = await executeReportWorker(reportRunId, {
+      cms: fake.cms,
+      artifacts: artifactStore().store,
+      renderer: createDeterministicTestPdfRenderer(),
+      countTokens,
+      evidenceKeyProvider: async () => evidenceKey,
+      mapProvider,
+      reduceProvider,
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(mapProvider).toHaveBeenCalledTimes(2);
+    expect(reduceProvider).toHaveBeenCalledTimes(1);
+    const countCheckpoint = fake.writtenCheckpoints.find(({ stageKey }) => stageKey === "count");
+    expect(countCheckpoint?.payload.kind).toBe("count");
+    if (countCheckpoint?.payload.kind === "count" && countCheckpoint.payload.route === "map-reduce") {
+      const selectedChunkCount = countCheckpoint.payload.chunkCount;
+      const chosen = countCheckpoint.payload.attempts?.find(({ chunkCount }) => chunkCount === selectedChunkCount);
+      expect(chosen?.chunkCount).toBe(selectedChunkCount);
+      for (const [index, generated] of mapInputs.entries()) {
+        const digest = createHash("sha256").update(canonicalizeJson(generated.countRequest)).digest("hex");
+        expect(digest).toBe(chosen?.chunks[index]?.requestDigest);
+      }
+    } else {
+      throw new Error("Expected a map-reduce CountTokens checkpoint");
+    }
+    expect(countedRequests).toContain(reduceCountRequest);
+    expect((reduceInputRequest as { maps: readonly { outputDigest: string }[] }).maps).toHaveLength(2);
+    expect(reduceCountRequest).toMatchObject({
+      contractVersion: "survey-count-request.v1",
+      segments: { instructions: expect.any(String), schema: expect.any(String), metrics: canonicalizeJson(envelope.payload.metrics) },
+    });
   });
 
   it("regenerates invalid direct output once, never retries configuration failures, and bounds transient retries", async () => {
