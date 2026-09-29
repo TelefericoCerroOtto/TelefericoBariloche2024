@@ -7,7 +7,7 @@ import type {
 import {
   validateMaterializedGenerationInputsV1,
   type MaterializedGenerationInputsV1,
-} from "../../../services/survey-report-worker/src/generation-inputs";
+} from "./generation-inputs";
 type Status = "queued" | "running" | "succeeded" | "failed";
 type RecordValue = Record<string, unknown>;
 export type GenerationLifecycleRow = {

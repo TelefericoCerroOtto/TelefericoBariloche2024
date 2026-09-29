@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createSnapshot } from "../../../packages/survey-reporting-core/src";
+import { createSnapshot } from "@teleferico/survey-reporting-core";
 import {
   parseFeedbackAdminFilters,
   projectComments,

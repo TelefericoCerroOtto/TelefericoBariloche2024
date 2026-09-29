@@ -11,7 +11,7 @@ import {
 import type {
   GenerationSourcePageQueryV1,
   GenerationSourceResourceV1,
-} from "../../../services/survey-report-worker/src/authoritative-generation-source";
+} from "./authoritative-generation-source";
 
 const validGenerate = {
   contractVersion: "feedback-admin.v1",

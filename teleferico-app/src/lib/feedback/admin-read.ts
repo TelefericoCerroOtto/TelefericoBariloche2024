@@ -1,7 +1,7 @@
 import {
   normalizePeriod,
   REPORTING_TIME_ZONE,
-} from "../../../packages/survey-reporting-core/src/index";
+} from "@teleferico/survey-reporting-core";
 import type {
   FeedbackAdminFilters,
   FeedbackAdminReadRoute,

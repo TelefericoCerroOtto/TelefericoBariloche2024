@@ -41,7 +41,6 @@
     "@tiptap/starter-kit": "3.23.1",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
-    "echarts": "6.1.0",
     "formik": "2.4.9",
     "framer-motion": "11.18.2",
     "google-auth-library": "10.6.2",

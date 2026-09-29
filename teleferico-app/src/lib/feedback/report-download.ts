@@ -2,14 +2,21 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import {
+  createGooglePrivateReportBucket,
+  createPrivateReportObjectStorage,
+  type PrivateReportObjectReader,
+} from "@teleferico/tb113-private-report-storage";
+import {
   MAX_REPORT_PDF_BYTES,
   validateReportDownloadMetadata,
   type PrivateReportDownloadMetadataV1,
-} from "../../../services/survey-report-worker/src/private-report-download-metadata-transport";
-import { createPrivateReportDownloadMetadataTransport } from "../../../services/survey-report-worker/src/private-report-download-metadata-transport";
-import { createGooglePrivateReportBucket } from "../../../services/survey-report-worker/src/google-private-storage";
-import { createPrivateReportObjectStorage } from "../../../services/survey-report-worker/src/private-storage";
-import { readTb113AppTokens, readTb113CmsOrigin, readTb113PrivateBucket } from "./tb113-runtime-config";
+  createPrivateReportDownloadMetadataTransport,
+} from "./private-report-download-metadata-transport";
+import {
+  readTb113AppTokens,
+  readTb113CmsOrigin,
+  readTb113PrivateBucket,
+} from "./tb113-runtime-config";
 
 const REPORT_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -20,10 +27,6 @@ export class FeedbackReportDownloadError extends Error {
     this.name = "FeedbackReportDownloadError";
   }
 }
-
-export type PrivateReportObjectReader = {
-  read(objectKey: string, maxBytes: number): Promise<Uint8Array>;
-};
 
 export function createFeedbackReportDownload(input: {
   readonly metadataReader: {

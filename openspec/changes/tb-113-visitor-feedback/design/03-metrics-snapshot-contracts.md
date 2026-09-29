@@ -1,6 +1,6 @@
 # Normative Metrics and Snapshot Contracts
 
-Pure `teleferico-app/packages/survey-reporting-core` owns these contracts with no Node/browser/framework/Strapi/renderer/model dependency. Counts and absolute values are nonnegative integers; absolute rates are basis points in `0..10000`, and non-null absolute averages are milli-stars in `1000..5000`. Delta fields and relative response changes are signed safe integers, may be negative or exceed `10000`, and are never clamped to absolute-rate bounds. Division rounds half-up and zero denominator yields `null`, including relative response change when the previous count is zero.
+Pure root package `packages/survey-reporting-core` owns these contracts with no Node/browser/framework/Strapi/renderer/model dependency. Counts and absolute values are nonnegative integers; absolute rates are basis points in `0..10000`, and non-null absolute averages are milli-stars in `1000..5000`. Delta fields and relative response changes are signed safe integers, may be negative or exceed `10000`, and are never clamped to absolute-rate bounds. Division rounds half-up and zero denominator yields `null`, including relative response change when the previous count is zero.
 
 ## Exact Arithmetic Domain
 

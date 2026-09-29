@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   priceProviderUsageV1,
   validateProviderUsageV1,
-} from "../../../services/survey-report-worker/src/worker-cost";
-import { deliverPendingWorkerAlerts } from "../../../services/survey-report-worker/src/worker-alerts";
-import type { WorkerAlertIntentV1 } from "../../../services/survey-report-worker/src/contracts";
+} from "../../../../services/survey-report-worker/src/worker-cost";
+import { deliverPendingWorkerAlerts } from "../../../../services/survey-report-worker/src/worker-alerts";
+import type { WorkerAlertIntentV1 } from "../../../../services/survey-report-worker/src/contracts";
 
 const pricingSnapshot = {
   version: "synthetic-pricing.v1",

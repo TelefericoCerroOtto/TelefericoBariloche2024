@@ -249,4 +249,4 @@ export type FeedbackAdminReadEnvelope<T> = {
     readonly total?: number;
   };
 };
-import type { SnapshotV1 } from "../../../../packages/survey-reporting-core/src";
+import type { SnapshotV1 } from "@teleferico/survey-reporting-core";

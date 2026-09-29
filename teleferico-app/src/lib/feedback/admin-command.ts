@@ -15,7 +15,7 @@ import {
 import {
   normalizePeriod,
   REPORTING_TIME_ZONE,
-} from "../../../packages/survey-reporting-core/src/index";
+} from "@teleferico/survey-reporting-core";
 import type {
   FeedbackAdminCommandResult,
   FeedbackAdminCommandStatus,
@@ -33,10 +33,10 @@ import {
   buildAuthoritativeGenerationInputsV1,
   type AuthoritativeGenerationSourceInputV1,
   type GenerationSourcePageQueryV1,
-} from "../../../services/survey-report-worker/src/authoritative-generation-source";
-import type { MaterializedGenerationInputsV1 } from "../../../services/survey-report-worker/src/generation-inputs";
-import { createPrivateReportSourceTransport } from "../../../services/survey-report-worker/src/private-report-source-transport";
-import { validateTrustedCmsOrigin } from "../../../services/survey-report-worker/src/cms-origin";
+} from "./authoritative-generation-source";
+import type { MaterializedGenerationInputsV1 } from "./generation-inputs";
+import { createPrivateReportSourceTransport } from "./private-report-source-transport";
+import { validateTrustedCmsOrigin } from "@teleferico/tb113-runtime-contracts";
 import {
   readTb113AppTokens,
   readTb113ApprovedGenerationConfiguration,
@@ -127,9 +127,7 @@ export class FeedbackAdminCommandError extends Error {
   }
 }
 
-function safeGenerationData(
-  ...args: Parameters<typeof buildGenerationData>
-) {
+function safeGenerationData(...args: Parameters<typeof buildGenerationData>) {
   try {
     return buildGenerationData(...args);
   } catch {
@@ -237,7 +235,9 @@ function coreResult(value: unknown): CoreCommandResult {
   return {
     reportRunId: row.reportRunId,
     status: row.status,
-    ...(row.stateVersion === undefined ? {} : { stateVersion: row.stateVersion }),
+    ...(row.stateVersion === undefined
+      ? {}
+      : { stateVersion: row.stateVersion }),
   };
 }
 
@@ -278,9 +278,7 @@ type ApprovedGenerationConfiguration = Pick<
 >;
 
 export type GenerationInputsPort = {
-  readonly readPage: (
-    query: GenerationSourcePageQueryV1,
-  ) => Promise<unknown>;
+  readonly readPage: (query: GenerationSourcePageQueryV1) => Promise<unknown>;
   readonly getApprovedConfiguration: () =>
     | ApprovedGenerationConfiguration
     | Promise<ApprovedGenerationConfiguration>;
@@ -290,8 +288,14 @@ export function createFeedbackAdminCommandTransport(options: Options) {
   const fetchImplementation = options.fetchImplementation ?? fetch;
   let trustedOrigin: string | null = null;
   if (options.allowedOrigins) {
-    try { trustedOrigin = validateTrustedCmsOrigin(options.baseUrl, options.allowedOrigins).origin; }
-    catch { throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503); }
+    try {
+      trustedOrigin = validateTrustedCmsOrigin(
+        options.baseUrl,
+        options.allowedOrigins,
+      ).origin;
+    } catch {
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    }
   }
   const dispatcher =
     options.dispatcher ??
@@ -302,23 +306,28 @@ export function createFeedbackAdminCommandTransport(options: Options) {
         })
       : createUnavailableFeedbackDispatcher());
   const request = (path: string, init: RequestInit = {}) =>
-    fetchImplementation(new URL(`${options.baseUrl.replace(/\/$/, "")}${path}`).toString(), {
-      ...init,
-      headers: {
-        authorization: `Bearer ${options.token}`,
-        "content-type": "application/json",
-        accept: "application/json",
-        ...init.headers,
+    fetchImplementation(
+      new URL(`${options.baseUrl.replace(/\/$/, "")}${path}`).toString(),
+      {
+        ...init,
+        headers: {
+          authorization: `Bearer ${options.token}`,
+          "content-type": "application/json",
+          accept: "application/json",
+          ...init.headers,
+        },
+        cache: "no-store",
+        redirect: "error",
+        signal: init.signal ?? AbortSignal.timeout(10_000),
       },
-      cache: "no-store",
-      redirect: "error",
-      signal: init.signal ?? AbortSignal.timeout(10_000),
-    });
+    );
 
   const coreRequest = async (
     path: string,
     init: RequestInit = {},
-    conflictCode: "ACTIVE_RANGE_CONFLICT" | "INVALID_STATE" = "ACTIVE_RANGE_CONFLICT",
+    conflictCode:
+      | "ACTIVE_RANGE_CONFLICT"
+      | "INVALID_STATE" = "ACTIVE_RANGE_CONFLICT",
   ) => {
     let response: Response;
     try {
@@ -327,7 +336,12 @@ export function createFeedbackAdminCommandTransport(options: Options) {
       throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
     }
     const value = await json(response);
-    if (response.redirected || (trustedOrigin && response.url !== "" && new URL(response.url).origin !== trustedOrigin))
+    if (
+      response.redirected ||
+      (trustedOrigin &&
+        response.url !== "" &&
+        new URL(response.url).origin !== trustedOrigin)
+    )
       throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
     if (!response.ok) {
       const errorValue =
@@ -352,14 +366,20 @@ export function createFeedbackAdminCommandTransport(options: Options) {
     return value;
   };
 
-  const dispatch = async (result: CoreCommandResult, dispatchResult: FeedbackDispatchResult) => {
+  const dispatch = async (
+    result: CoreCommandResult,
+    dispatchResult: FeedbackDispatchResult,
+  ) => {
     if (
       !isRecord(dispatchResult) ||
       dispatchResult.contractVersion !== "survey-dispatch-command.v1"
     )
       throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
     if (dispatchResult.status !== "exhausted") {
-      if (dispatchResult.status !== "queued" && dispatchResult.status !== "dispatched")
+      if (
+        dispatchResult.status !== "queued" &&
+        dispatchResult.status !== "dispatched"
+      )
         throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
       return { ...result, dispatch: dispatchResult };
     }
@@ -483,7 +503,7 @@ export function createFeedbackAdminCommandTransport(options: Options) {
             reportRunId: source.reportRunId,
             period: { from: source.from, to: source.to },
             status: source.status,
-        }
+          }
         : undefined,
     );
     const result = coreResult(
@@ -574,8 +594,12 @@ export function getFeedbackAdminCommandTransport(token: string) {
     const tasks = readTb113CloudTasksConfiguration();
     readTb113PrivateBucket();
     const configuredBaseUrl = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL];
-    if (!configuredBaseUrl || configuredBaseUrl !== origin.baseUrl || !token ||
-        Object.values(appTokens).includes(token))
+    if (
+      !configuredBaseUrl ||
+      configuredBaseUrl !== origin.baseUrl ||
+      !token ||
+      Object.values(appTokens).includes(token)
+    )
       throw new TypeError("TB-113 command configuration is incomplete");
 
     const source = createPrivateReportSourceTransport({

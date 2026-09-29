@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { canonicalizeJson, createSnapshot } from "../../../packages/survey-reporting-core/src";
+import { canonicalizeJson, createSnapshot } from "@teleferico/survey-reporting-core";
 import {
   CHECKPOINT_VERSION,
   WORKER_CMS_CONTRACT_VERSION,
@@ -12,13 +12,13 @@ import {
   type FailCommand,
   type CompleteCommand,
   type WorkerClaimResult,
-} from "../../../services/survey-report-worker/src/contracts";
+} from "../../../../services/survey-report-worker/src/contracts";
 import {
   createWorkerCmsClient,
   WorkerCmsClientError,
   type WorkerCmsAction,
-} from "../../../services/survey-report-worker/src/worker-cms-client";
-import { EMPTY_EVIDENCE_PARAGRAPH } from "../../../services/survey-report-worker/src/direct-execution-plan";
+} from "../../../../services/survey-report-worker/src/worker-cms-client";
+import { EMPTY_EVIDENCE_PARAGRAPH } from "../../../../services/survey-report-worker/src/direct-execution-plan";
 
 const BASE_URL = "https://cms.example.com";
 const TOKEN = "synthetic-action-scoped-token";

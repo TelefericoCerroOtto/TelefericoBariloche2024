@@ -1,6 +1,6 @@
 import "server-only";
 
-import { validateTrustedCmsOrigin } from "../../../services/survey-report-worker/src/cms-origin";
+import { validateTrustedCmsOrigin } from "@teleferico/tb113-runtime-contracts";
 import type { FeedbackDispatchStatePort } from "./dispatch";
 
 const PATH_ROOT = "/api/tb113/admin/generations";

@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import type { Server } from "node:http";
-import { createSnapshot } from "../../../packages/survey-reporting-core/src";
+import { createSnapshot } from "@teleferico/survey-reporting-core";
 import type {
   CompleteCommand,
   FailCommand,
@@ -10,17 +10,17 @@ import type {
   WorkerCheckpointSet,
   WorkerCmsClient,
   WorkerRuntimeDependencies,
-} from "../../../services/survey-report-worker/src/contracts";
-import { WorkerCmsConflictError } from "../../../services/survey-report-worker/src/contracts";
-import { createDeterministicTestPdfRenderer } from "../../../services/survey-report-worker/src/pdf";
-import { WorkerCmsClientError } from "../../../services/survey-report-worker/src/worker-cms-client";
+} from "../../../../services/survey-report-worker/src/contracts";
+import { WorkerCmsConflictError } from "../../../../services/survey-report-worker/src/contracts";
+import { createDeterministicTestPdfRenderer } from "../../../../services/survey-report-worker/src/pdf";
+import { WorkerCmsClientError } from "../../../../services/survey-report-worker/src/worker-cms-client";
 import {
   createReportWorkerHttpHandler,
   createReportWorkerNodeServer,
   REPORT_WORKER_EXECUTE_PATH,
   type ReportWorkerRuntimeConfig,
   type VerifiedOidcClaims,
-} from "../../../services/survey-report-worker/src/worker-http";
+} from "../../../../services/survey-report-worker/src/worker-http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const REPORT_RUN_ID = "00000000-0000-4000-8000-000000000113";

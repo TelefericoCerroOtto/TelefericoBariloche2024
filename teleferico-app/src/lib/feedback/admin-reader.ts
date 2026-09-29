@@ -13,7 +13,7 @@ import {
   createSnapshot,
   normalizePeriod,
   type SnapshotSubmission,
-} from "../../../packages/survey-reporting-core/src/index";
+} from "@teleferico/survey-reporting-core";
 import type {
   FeedbackAdminFilters,
   FeedbackAdminGeneration,

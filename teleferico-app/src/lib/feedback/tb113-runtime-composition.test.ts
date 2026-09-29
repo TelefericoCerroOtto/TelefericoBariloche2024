@@ -84,9 +84,9 @@ vi.mock("@google-cloud/storage", () => ({
 
 import { GET as getGenerationHistory, POST as postGeneration } from "@/app/api/admin/feedback/generations/route";
 import { GET as getReportDownload } from "@/app/api/admin/feedback/reports/[reportId]/download/route";
-import { createConfiguredReportWorkerHttpHandler } from "../../../services/survey-report-worker/src/report-worker-composition";
-import { createSnapshot } from "../../../packages/survey-reporting-core/src";
-import { deterministicReportId } from "../../../services/survey-report-worker/src/private-report-identity";
+import { createConfiguredReportWorkerHttpHandler } from "../../../../services/survey-report-worker/src/report-worker-composition";
+import { createSnapshot } from "@teleferico/survey-reporting-core";
+import { deterministicReportId } from "@teleferico/tb113-private-report-storage";
 
 const CMS_ORIGIN = "https://cms.teleferico.com.ar";
 const APP_ORIGIN = "https://app.teleferico.com.ar";

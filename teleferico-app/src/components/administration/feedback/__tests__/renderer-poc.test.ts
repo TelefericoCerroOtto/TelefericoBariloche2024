@@ -11,7 +11,7 @@ import {
   renderDashboardCharts,
   renderPdfCharts,
   runRendererPoc,
-} from "../../../../../services/survey-report-worker/poc/renderer-poc";
+} from "../../../../../tests/tb113/renderer-poc";
 import { chartParityFixture, edgeCaseFixtures } from "./chart-parity.fixture";
 
 describe("renderer adoption POC", () => {
@@ -22,7 +22,7 @@ describe("renderer adoption POC", () => {
         {
           fileName: resolve(sourceRoot, "lib/__synthetic_client_root__.tsx"),
           sourceText:
-            '"use client"; import "../../services/survey-report-worker/poc/renderer-poc";',
+            '"use client"; import "../../../services/survey-report-worker/poc/renderer-poc";',
         },
       ],
     });
@@ -31,7 +31,7 @@ describe("renderer adoption POC", () => {
     expect(result.blockers).toContainEqual(
       expect.objectContaining({
         source: "src/lib/__synthetic_client_root__.tsx",
-        specifier: "../../services/survey-report-worker/poc/renderer-poc",
+        specifier: "../../../services/survey-report-worker/poc/renderer-poc",
         reason: "forbidden-worker-module",
       }),
     );
@@ -63,8 +63,12 @@ describe("renderer adoption POC", () => {
     const result = await auditPublicClientGraph({
       additionalClientRoots: [
         {
-          fileName: resolve(sourceRoot, "lib/__synthetic_type_only_client_root__.js"),
-          sourceText: '"use client"; import type { Browser } from "playwright";',
+          fileName: resolve(
+            sourceRoot,
+            "lib/__synthetic_type_only_client_root__.js",
+          ),
+          sourceText:
+            '"use client"; import type { Browser } from "playwright";',
         },
       ],
     });
@@ -87,7 +91,12 @@ describe("renderer adoption POC", () => {
     const dashboard = renderDashboardCharts(chartParityFixture);
     const pdf = renderPdfCharts(chartParityFixture);
     const expectedSemantics = chartParityFixture.map((chart) => ({
-      type: chart.kind === "line" ? "line" : chart.kind === "scatter" ? "scatter" : "bar",
+      type:
+        chart.kind === "line"
+          ? "line"
+          : chart.kind === "scatter"
+            ? "scatter"
+            : "bar",
       categories: chart.categories,
       series: chart.series.map(({ name, values }) => ({ name, values })),
     }));
@@ -104,7 +113,9 @@ describe("renderer adoption POC", () => {
 
   it("renders empty and one-record states through both renderer paths", () => {
     const dashboardEmpty = renderDashboardCharts([edgeCaseFixtures.empty]);
-    const dashboardOneRecord = renderDashboardCharts([edgeCaseFixtures.oneRecord]);
+    const dashboardOneRecord = renderDashboardCharts([
+      edgeCaseFixtures.oneRecord,
+    ]);
     const pdfEmpty = renderPdfCharts([edgeCaseFixtures.empty]);
     const pdfOneRecord = renderPdfCharts([edgeCaseFixtures.oneRecord]);
 
@@ -116,37 +127,60 @@ describe("renderer adoption POC", () => {
     expect(pdfOneRecord.markup).toContain("Excelente");
   });
 
-  it(
-    "proves the complete Appendix-05 Chromium and PDF gate",
-    async () => {
-      const temporaryDirectory = await mkdtemp(join(tmpdir(), "tb113-renderer-poc-test-"));
-      const temporaryResultPath = join(temporaryDirectory, "poc-result.json");
-      const trackedResultPath = new URL("../../../../../services/survey-report-worker/poc/poc-result.json", import.meta.url);
+  it("proves the complete Appendix-05 Chromium and PDF gate", async () => {
+    const temporaryDirectory = await mkdtemp(
+      join(tmpdir(), "tb113-renderer-poc-test-"),
+    );
+    const temporaryResultPath = join(temporaryDirectory, "poc-result.json");
+    const trackedResultPath = new URL(
+      "../../../../../tests/tb113/poc-result.json",
+      import.meta.url,
+    );
 
-      try {
-        const trackedResultBefore = await readFile(trackedResultPath);
-        const result = await runRendererPoc(chartParityFixture, edgeCaseFixtures, { resultPath: temporaryResultPath });
+    try {
+      const trackedResultBefore = await readFile(trackedResultPath);
+      const result = await runRendererPoc(
+        chartParityFixture,
+        edgeCaseFixtures,
+        { resultPath: temporaryResultPath },
+      );
 
-        expect(result.criteria).toEqual(Object.fromEntries(Array.from({ length: 9 }, (_, index) => [String(index + 1), true])));
-        expect(new Set(result.pdf.semanticDigests).size).toBe(1);
-        expect(new Set(result.pdf.paginationDigests).size).toBe(1);
-        expect(result.accessibility.seriousOrCriticalViolations).toBe(0);
-        expect(result.browser.coldStartMilliseconds).toHaveLength(5);
-        expect(result.browser.p95ReadyMilliseconds).toBeLessThanOrEqual(15_000);
-        expect(result.worker.compressedGrowthBytes).toBeLessThanOrEqual(750 * 1024 * 1024);
-        expect(result.cleanup.browserProcessesAfter).toBe(0);
-        expect(Object.keys(result.digests).sort()).toEqual(["browser", "fixture", "font", "image", "lock", "runtime"]);
-        expect(result.artifacts).toEqual({ pdfSemantic: result.pdf.semanticDigests[0], pagination: result.pdf.paginationDigests[0] });
-        expect(result.edgeCases).toEqual({ dashboard: true, chromiumPdf: true });
-        expect(result.clientGraph.isolated).toBe(true);
-        expect(result.clientGraph.blockers).toEqual([]);
-        expect(resolve(result.resultPath)).toBe(temporaryResultPath);
-        expect(JSON.parse(await readFile(result.resultPath, "utf8"))).toMatchObject({ criteria: result.criteria });
-        expect(await readFile(trackedResultPath)).toEqual(trackedResultBefore);
-      } finally {
-        await rm(temporaryDirectory, { recursive: true, force: true });
-      }
-    },
-    120_000,
-  );
+      expect(result.criteria).toEqual(
+        Object.fromEntries(
+          Array.from({ length: 9 }, (_, index) => [String(index + 1), true]),
+        ),
+      );
+      expect(new Set(result.pdf.semanticDigests).size).toBe(1);
+      expect(new Set(result.pdf.paginationDigests).size).toBe(1);
+      expect(result.accessibility.seriousOrCriticalViolations).toBe(0);
+      expect(result.browser.coldStartMilliseconds).toHaveLength(5);
+      expect(result.browser.p95ReadyMilliseconds).toBeLessThanOrEqual(15_000);
+      expect(result.worker.compressedGrowthBytes).toBeLessThanOrEqual(
+        750 * 1024 * 1024,
+      );
+      expect(result.cleanup.browserProcessesAfter).toBe(0);
+      expect(Object.keys(result.digests).sort()).toEqual([
+        "browser",
+        "fixture",
+        "font",
+        "image",
+        "lock",
+        "runtime",
+      ]);
+      expect(result.artifacts).toEqual({
+        pdfSemantic: result.pdf.semanticDigests[0],
+        pagination: result.pdf.paginationDigests[0],
+      });
+      expect(result.edgeCases).toEqual({ dashboard: true, chromiumPdf: true });
+      expect(result.clientGraph.isolated).toBe(true);
+      expect(result.clientGraph.blockers).toEqual([]);
+      expect(resolve(result.resultPath)).toBe(temporaryResultPath);
+      expect(
+        JSON.parse(await readFile(result.resultPath, "utf8")),
+      ).toMatchObject({ criteria: result.criteria });
+      expect(await readFile(trackedResultPath)).toEqual(trackedResultBefore);
+    } finally {
+      await rm(temporaryDirectory, { recursive: true, force: true });
+    }
+  }, 120_000);
 });

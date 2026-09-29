@@ -9,11 +9,11 @@ import {
   prepareDispatchCompensation,
   prepareRetryGeneration,
 } from "./generation-lifecycle";
-import { canonicalizeJson } from "../../../packages/survey-reporting-core/src";
+import { canonicalizeJson } from "@teleferico/survey-reporting-core";
 import {
   materializeGenerationInputsV1,
   validateMaterializedGenerationInputsV1,
-} from "../../../services/survey-report-worker/src/generation-inputs";
+} from "./generation-inputs";
 const period = { from: "2026-08-01", to: "2026-08-20" } as const;
 const source = {
   documentId: "generation-document-1",

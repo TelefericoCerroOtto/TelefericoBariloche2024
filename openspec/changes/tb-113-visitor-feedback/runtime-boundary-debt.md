@@ -60,8 +60,8 @@ TB-113 runtime-boundary migration.
 
 ## Direct worker/PDF boundary update
 
-The app-owned worker boundary is now explicit in
-`teleferico-app/services/survey-report-worker/src/`. It validates the immutable
+The private worker boundary is now explicit in
+`services/survey-report-worker/src/`. It validates the immutable
 snapshot envelope, reuses only digest-matching render/store checkpoints,
 rejects stale state versions, stages artifacts privately, and calls CMS
 completion before publication. The PDF renderer is injected; deterministic

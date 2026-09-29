@@ -1,7 +1,7 @@
 import type {
   PrivateReportObjectBucket,
   PrivateReportObjectMetadata,
-} from "../../../services/survey-report-worker/src/private-storage";
+} from "@teleferico/tb113-private-report-storage";
 
 export function createFakePrivateReportBucket() {
   const objects = new Map<

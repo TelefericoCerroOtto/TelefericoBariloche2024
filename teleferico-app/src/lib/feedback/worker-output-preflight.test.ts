@@ -6,18 +6,19 @@ import {
   createSnapshot,
   canonicalizeJson,
   type SnapshotEnvelopeV1,
-} from "../../../packages/survey-reporting-core/src";
+} from "@teleferico/survey-reporting-core";
 import {
   deriveChunkMembership,
   deriveEvidenceRef,
-} from "../../../services/survey-report-worker/src/checkpoint-contract";
+} from "../../../../services/survey-report-worker/src/checkpoint-contract";
 import {
   preflightDirectAnalysis,
   preflightMapAnalysis,
   preflightReduceAnalysis,
-} from "../../../services/survey-report-worker/src/analysis-output-preflight";
-import { PUBLISHED_SECTION_KEYS, type ModelConfigV1 } from "../../../services/survey-report-worker/src/contracts";
-import { validateGeneratedOutputBudgetV1 } from "../../../services/survey-report-worker/src/map-reduce-execution-plan";
+} from "../../../../services/survey-report-worker/src/analysis-output-preflight";
+import { PUBLISHED_SECTION_KEYS } from "../../../../services/survey-report-worker/src/contracts";
+import type { ModelConfigV1 } from "@teleferico/survey-reporting-core";
+import { validateGeneratedOutputBudgetV1 } from "../../../../services/survey-report-worker/src/map-reduce-execution-plan";
 
 const RUN_ID = "00000000-0000-4000-8000-000000000113";
 const KEY = "synthetic-only-test-key-that-is-not-a-secret";

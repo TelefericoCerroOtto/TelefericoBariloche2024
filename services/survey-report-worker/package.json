@@ -1,0 +1,33 @@
+{
+  "name": "@teleferico/survey-report-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": "22.22.0",
+    "pnpm": "10.33.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node --conditions=react-server dist/run-worker.mjs",
+    "dev:fixture": "node --conditions=react-server scripts/dev-fixture.mjs",
+    "test": "node --conditions=react-server --test test/*.test.mjs",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "7.19.0",
+    "@playwright/test": "1.61.0",
+    "@teleferico/survey-reporting-core": "file:../../packages/survey-reporting-core",
+    "@teleferico/tb113-private-report-storage": "file:../../packages/tb113-private-report-storage",
+    "@teleferico/tb113-runtime-contracts": "file:../../packages/tb113-runtime-contracts",
+    "echarts": "6.1.0",
+    "google-auth-library": "10.6.2",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.17.0",
+    "esbuild": "0.25.12",
+    "typescript": "5.9.3"
+  }
+}

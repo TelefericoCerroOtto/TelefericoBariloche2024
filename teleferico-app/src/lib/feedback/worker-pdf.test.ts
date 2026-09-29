@@ -5,7 +5,7 @@ import {
   canonicalizeJson,
   createSnapshot,
   type SnapshotEnvelopeV1,
-} from "../../../packages/survey-reporting-core/src";
+} from "@teleferico/survey-reporting-core";
 import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -14,15 +14,15 @@ import {
   createPlaywrightPdfRenderer,
   renderReportHtml,
   renderValidatedPdf,
-} from "../../../services/survey-report-worker/src/pdf";
+} from "../../../../services/survey-report-worker/src/pdf";
 import {
   chartSemantics,
   renderCharts,
-} from "../../../services/survey-report-worker/src/renderer";
+} from "../../../../services/survey-report-worker/src/renderer";
 import {
   executeReportWorker as executeReportWorkerWithDependencies,
-} from "../../../services/survey-report-worker/src/worker-runtime";
-import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA, EMPTY_EVIDENCE_PARAGRAPH } from "../../../services/survey-report-worker/src/direct-execution-plan";
+} from "../../../../services/survey-report-worker/src/worker-runtime";
+import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA, EMPTY_EVIDENCE_PARAGRAPH } from "../../../../services/survey-report-worker/src/direct-execution-plan";
 import {
   CHECKPOINT_CONTRACT_VERSIONS,
   deriveChunkMembership,
@@ -32,13 +32,13 @@ import {
   stageInputDigestV1,
   validateWorkerStageCheckpointV1,
   verifyChunkMembership,
-} from "../../../services/survey-report-worker/src/checkpoint-contract";
-import { PUBLISHED_SECTION_KEYS, WorkerCmsConflictError } from "../../../services/survey-report-worker/src/contracts";
-import { deterministicReportId } from "../../../services/survey-report-worker/src/private-report-identity";
+} from "../../../../services/survey-report-worker/src/checkpoint-contract";
+import { PUBLISHED_SECTION_KEYS, WorkerCmsConflictError } from "../../../../services/survey-report-worker/src/contracts";
+import { deterministicReportId } from "@teleferico/tb113-private-report-storage";
 import {
   createPrivateReportObjectStorage,
   toPrivateReportDownloadMetadata,
-} from "../../../services/survey-report-worker/src/private-storage";
+} from "@teleferico/tb113-private-report-storage";
 import { createFeedbackReportDownload } from "./report-download";
 import { createFakePrivateReportBucket } from "./private-storage.test-fixtures";
 import type {
@@ -56,7 +56,7 @@ import type {
   DirectAnalysisV1,
   WorkerSnapshotResult,
   PublishedAnalysisV1,
-} from "../../../services/survey-report-worker/src/contracts";
+} from "../../../../services/survey-report-worker/src/contracts";
 
 function snapshot(): SnapshotEnvelopeV1 {
   return createSnapshot({

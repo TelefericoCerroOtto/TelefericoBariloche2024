@@ -1,0 +1,11 @@
+minimumReleaseAge: 4320
+trustPolicy: no-downgrade
+blockExoticSubdeps: true
+overrides:
+  "@types/node@20.17.0>undici-types": 6.19.2
+allowBuilds:
+  esbuild: true
+  # Browser binaries are copied and digest-verified by the package build; never download them during install.
+  playwright: false
+strictDepBuilds: true
+saveExact: true
