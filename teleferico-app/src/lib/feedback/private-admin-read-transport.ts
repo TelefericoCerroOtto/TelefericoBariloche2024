@@ -15,7 +15,8 @@ export type FeedbackAdminSourceResource =
   | "submissions"
   | "versions"
   | "points"
-  | "reports";
+  | "reports"
+  | "generations";
 
 export type FeedbackAdminSourcePageQuery = {
   readonly resource: FeedbackAdminSourceResource;
@@ -23,6 +24,7 @@ export type FeedbackAdminSourcePageQuery = {
   readonly acceptedAtLte: string;
   readonly dataCutoffAt: string;
   readonly cursor: string | null;
+  readonly status?: "queued" | "running" | "succeeded" | "failed" | null;
 };
 
 export type FeedbackAdminSourcePage = {
@@ -119,7 +121,7 @@ export function createPrivateFeedbackAdminReadTransport(
   const fetchImplementation = options.fetchImplementation ?? fetch;
   return Object.freeze({
     async readPage(query: FeedbackAdminSourcePageQuery): Promise<FeedbackAdminSourcePage> {
-      if (!options.tokenProvider || !["submissions", "versions", "points", "reports"].includes(query.resource))
+      if (!options.tokenProvider || !["submissions", "versions", "points", "reports", "generations"].includes(query.resource))
         return fail("INVALID_CONFIGURATION");
       const signal = AbortSignal.timeout(TIMEOUT_MS);
       try {
@@ -142,6 +144,7 @@ export function createPrivateFeedbackAdminReadTransport(
             dataCutoffAt: query.dataCutoffAt,
             cursor: query.cursor,
             pageSize: PAGE_SIZE,
+            ...(query.resource === "generations" ? { status: query.status ?? null } : {}),
           }),
           cache: "no-store",
           redirect: "error",

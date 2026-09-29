@@ -87,6 +87,96 @@ function reports(count: number) {
 }
 
 describe("feedback administration private CMS reader", () => {
+  it("reads generation history across stable pages and exposes only safe fields", async () => {
+    const generations = [
+      {
+        reportRunId: "00000000-0000-4000-8000-000000000002",
+        periodStart: "2026-08-01T00:00:00.000Z",
+        periodEnd: "2026-08-31T23:59:59.999Z",
+        dataCutoffAt: "2026-09-03T11:00:00.000Z",
+        status: "failed",
+        createdAt: "2026-09-03T12:00:00.000Z",
+        completedAt: "2026-09-03T12:10:00.000Z",
+        failureCode: "PROVIDER_TIMEOUT",
+        safeFailureMessage: "The report provider timed out.",
+        retryOfReportRunId: "00000000-0000-4000-8000-000000000001",
+        report: null,
+        snapshotJson: { private: true },
+        checkpointsJson: { private: true },
+        modelConfigJson: { private: true },
+        pricingSnapshotJson: { private: true },
+        cumulativeCostMicros: 999,
+        objectKey: "private/key",
+      },
+      {
+        reportRunId: "00000000-0000-4000-8000-000000000001",
+        periodStart: "2026-08-01T00:00:00.000Z",
+        periodEnd: "2026-08-31T23:59:59.999Z",
+        dataCutoffAt: "2026-09-01T11:00:00.000Z",
+        status: "succeeded",
+        createdAt: "2026-09-01T12:00:00.000Z",
+        completedAt: "2026-09-01T12:10:00.000Z",
+        failureCode: null,
+        safeFailureMessage: null,
+        retryOfReportRunId: null,
+        report: {
+          reportId: "00000000-0000-4000-8000-000000000003",
+          createdAt: "2026-09-01T12:10:00.000Z",
+          periodStart: "2026-08-01T00:00:00.000Z",
+          periodEnd: "2026-08-31T23:59:59.999Z",
+          analyzedResponseCount: 20,
+          analyzedCommentCount: 8,
+        },
+        snapshotJson: { private: true },
+        checkpointsJson: { private: true },
+        modelConfigJson: { private: true },
+        pricingSnapshotJson: { private: true },
+        cumulativeCostMicros: 123,
+        objectKey: "private/key",
+      },
+    ];
+    const readPage = vi.fn(async (query: FeedbackAdminSourcePageQuery) => {
+      const offset = query.cursor === null ? 0 : Number(query.cursor);
+      return page(query, generations.length, generations.slice(offset, offset + 1),
+        offset + 1 < generations.length ? String(offset + 1) : null);
+    });
+    const reader = createFeedbackAdminReader({ readPage });
+
+    const result = await reader.readGenerations({
+      route: "generations",
+      from: "2026-08-01",
+      to: "2026-08-31",
+      status: null,
+      page: 1,
+      pageSize: 25,
+    });
+
+    expect(result.data).toHaveProperty("total", 2);
+    expect(result.data).toHaveProperty("items[0].reportRunId", "00000000-0000-4000-8000-000000000002");
+    expect(result.data).toHaveProperty("items[0].retryOfReportRunId", "00000000-0000-4000-8000-000000000001");
+    expect(result.data).toHaveProperty("items[1].report.reportId", "00000000-0000-4000-8000-000000000003");
+    expect(JSON.stringify(result)).not.toMatch(/snapshotJson|checkpointsJson|modelConfigJson|pricingSnapshotJson|cumulativeCostMicros|objectKey/);
+    expect(readPage).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects changed totals and incomplete generation cursor chains", async () => {
+    const readPage = vi.fn(async (query: FeedbackAdminSourcePageQuery) =>
+      query.cursor === null
+        ? page(query, 2, [{ reportRunId: "run-1" }], "cursor-1")
+        : page(query, 3, [{ reportRunId: "run-2" }]),
+    );
+    const reader = createFeedbackAdminReader({ readPage });
+
+    await expect(reader.readGenerations({
+      route: "generations",
+      from: "2026-08-01",
+      to: "2026-08-31",
+      status: null,
+      page: 1,
+      pageSize: 25,
+    })).rejects.toBeInstanceOf(FeedbackAdminReaderError);
+  });
+
   it("fails closed when a page is incomplete or has an unstable total", async () => {
     const readPage = vi.fn(async (query: FeedbackAdminSourcePageQuery) => {
       if (query.resource === "submissions")
@@ -105,6 +195,7 @@ describe("feedback administration private CMS reader", () => {
     const source = {
       submissions: submissions(28),
       reports: reports(105),
+      generations: [],
       points: [{ id: "1", documentId: "point-doc", pointKey: "base", displayName: "Base", sortOrder: 1 }],
       versions: [{
         id: "2",

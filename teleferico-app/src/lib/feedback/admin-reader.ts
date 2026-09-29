@@ -16,6 +16,9 @@ import {
 } from "../../../packages/survey-reporting-core/src/index";
 import type {
   FeedbackAdminFilters,
+  FeedbackAdminGeneration,
+  FeedbackAdminGenerationsData,
+  FeedbackAdminGenerationsEnvelope,
   FeedbackAdminReadEnvelope,
   FeedbackAdminReport,
   FeedbackAdminSource,
@@ -322,6 +325,7 @@ export function createFeedbackAdminReader(options: ReaderOptions) {
     resource: FeedbackAdminSourceResource,
     range: { readonly acceptedAtGte: string; readonly acceptedAtLte: string },
     dataCutoffAt: string,
+    status?: "queued" | "running" | "succeeded" | "failed" | null,
   ) => {
     const rows: JsonRecord[] = [];
     let expectedTotal: number | null = null;
@@ -329,7 +333,13 @@ export function createFeedbackAdminReader(options: ReaderOptions) {
     const seenCursors = new Set<string>();
     const seenRows = new Set<string>();
     while (true) {
-      const query = { resource, ...range, dataCutoffAt, cursor };
+      const query = {
+        resource,
+        ...range,
+        dataCutoffAt,
+        cursor,
+        ...(resource === "generations" ? { status: status ?? null } : {}),
+      };
       let raw: unknown;
       try {
         raw = await options.readPage(query);
@@ -352,7 +362,9 @@ export function createFeedbackAdminReader(options: ReaderOptions) {
             ? item.receipt
             : resource === "reports"
               ? item.reportId
-              : item.documentId;
+              : resource === "generations"
+                ? item.reportRunId
+                : item.documentId;
         if (typeof identity !== "string" || identity.length === 0 || seenRows.has(identity))
           throw new FeedbackAdminReaderError();
         seenRows.add(identity);
@@ -366,6 +378,36 @@ export function createFeedbackAdminReader(options: ReaderOptions) {
   };
 
   return {
+    async readGenerations(
+      filters: Extract<FeedbackAdminFilters, { route: "generations" }>,
+    ): Promise<FeedbackAdminGenerationsEnvelope> {
+      if (!DATE_PATTERN.test(filters.from) || !DATE_PATTERN.test(filters.to))
+        throw new FeedbackAdminReaderError();
+      const normalized = normalizePeriod(filters);
+      const dataCutoffAt = new Date().toISOString();
+      const rows = await readCollection(
+        "generations",
+        {
+          acceptedAtGte: normalized.current.utcStart,
+          acceptedAtLte: normalized.current.utcEnd,
+        },
+        dataCutoffAt,
+        filters.status,
+      );
+      const items = rows.map(parseGeneration);
+      const start = (filters.page - 1) * filters.pageSize;
+      const data: FeedbackAdminGenerationsData = {
+        items: items.slice(start, start + filters.pageSize),
+        total: items.length,
+        page: filters.page,
+        pageSize: filters.pageSize,
+      };
+      return {
+        contractVersion: "feedback-admin.v1" as const,
+        data,
+        meta: { filters, page: filters.page, pageSize: filters.pageSize, total: items.length },
+      };
+    },
     async read(
       filters: FeedbackAdminFilters,
     ): Promise<FeedbackAdminReadEnvelope<unknown>> {
@@ -417,6 +459,84 @@ export function createFeedbackAdminReader(options: ReaderOptions) {
         meta: { filters, population: snapshot.population },
       };
     },
+  };
+}
+
+const SAFE_FAILURE_MESSAGES: Readonly<Record<string, string>> = {
+  PROVIDER_TRANSIENT: "The report provider is temporarily unavailable.",
+  PROVIDER_RATE_LIMIT: "The report provider is temporarily busy.",
+  PROVIDER_TIMEOUT: "The report provider timed out.",
+  CMS_TRANSIENT: "Report state could not be persisted.",
+  STORAGE_TRANSIENT: "The report artifact could not be staged.",
+  INVALID_OUTPUT: "The report output did not satisfy its contract.",
+  AUTHENTICATION: "The report worker authentication failed.",
+  CONFIGURATION: "Report generation is not configured.",
+  UNKNOWN_VERSION: "The report contract version is not supported.",
+  INVARIANT: "The report state failed an integrity check.",
+  PROHIBITED_CONTENT: "The report output contained prohibited content.",
+  QUEUE_ENQUEUE_EXHAUSTED: "The report could not be queued.",
+};
+
+function parseGeneration(value: JsonRecord): FeedbackAdminGeneration {
+  const status = value.status;
+  const failureCode = value.failureCode;
+  const safeFailureMessage = value.safeFailureMessage;
+  const reportRunId = value.reportRunId;
+  const periodStart = value.periodStart;
+  const periodEnd = value.periodEnd;
+  const createdAt = value.createdAt;
+  const dataCutoffAt = value.dataCutoffAt;
+  const completedAt = value.completedAt;
+  const retryOfReportRunId = value.retryOfReportRunId;
+  if (
+    typeof reportRunId !== "string" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(reportRunId) ||
+    !["queued", "running", "succeeded", "failed"].includes(String(status)) ||
+    typeof periodStart !== "string" || typeof periodEnd !== "string" ||
+    typeof createdAt !== "string" || typeof dataCutoffAt !== "string" ||
+    (completedAt !== null && typeof completedAt !== "string") ||
+    (retryOfReportRunId !== null && typeof retryOfReportRunId !== "string")
+  ) throw new FeedbackAdminReaderError();
+
+  const reportValue = value.report;
+  let report: FeedbackAdminGeneration["report"] = null;
+  if (status === "succeeded") {
+    if (!isRecord(reportValue) || typeof reportValue.reportId !== "string" ||
+        typeof reportValue.createdAt !== "string" || typeof reportValue.periodStart !== "string" ||
+        typeof reportValue.periodEnd !== "string" || !Number.isSafeInteger(reportValue.analyzedResponseCount) ||
+        !Number.isSafeInteger(reportValue.analyzedCommentCount) || Number(reportValue.analyzedResponseCount) < 0 ||
+        Number(reportValue.analyzedCommentCount) < 0)
+      throw new FeedbackAdminReaderError();
+    report = {
+      reportId: reportValue.reportId,
+      createdAt: reportValue.createdAt,
+      period: { from: reportValue.periodStart.slice(0, 10), to: reportValue.periodEnd.slice(0, 10) },
+      analyzedResponseCount: Number(reportValue.analyzedResponseCount),
+      analyzedCommentCount: Number(reportValue.analyzedCommentCount),
+    };
+  } else if (reportValue !== null) {
+    throw new FeedbackAdminReaderError();
+  }
+
+  if (status === "failed") {
+    if (typeof failureCode !== "string" ||
+        SAFE_FAILURE_MESSAGES[failureCode] !== safeFailureMessage)
+      throw new FeedbackAdminReaderError();
+  } else if (failureCode !== null || safeFailureMessage !== null) {
+    throw new FeedbackAdminReaderError();
+  }
+
+  return {
+    reportRunId,
+    status: status as FeedbackAdminGeneration["status"],
+    period: { from: periodStart.slice(0, 10), to: periodEnd.slice(0, 10) },
+    dataCutoffAt,
+    createdAt,
+    completedAt: completedAt as string | null,
+    failureCode: failureCode as string | null,
+    safeFailureMessage: safeFailureMessage as string | null,
+    retryOfReportRunId: retryOfReportRunId as string | null,
+    report,
   };
 }
 

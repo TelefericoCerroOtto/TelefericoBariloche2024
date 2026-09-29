@@ -178,6 +178,24 @@ export async function handleFeedbackAdminRead(
   }
 }
 
+export async function handleFeedbackAdminGenerations(req: NextRequest) {
+  if (!isFeedbackCapabilityEnabled())
+    return feedbackCapabilityUnavailableResponse();
+  try {
+    const auth = await authenticate(req, "feedback.reports.read");
+    if (!auth.ok) return auth.response;
+    const filters = parseFeedbackAdminFilters("generations", query(req));
+    if (!filters.ok || filters.value.route !== "generations")
+      return errorResponse("VALIDATION_FAILED");
+    const result = await getFeedbackAdminReader().readGenerations(filters.value);
+    return NextResponse.json(result, { status: 200 });
+  } catch (error) {
+    if (!(error instanceof FeedbackAdminReaderError))
+      console.error("[admin/feedback] generation history read failed", error);
+    return errorResponse("UPSTREAM_UNAVAILABLE");
+  }
+}
+
 async function readBody(req: NextRequest): Promise<unknown> {
   let bytes: Uint8Array;
   try {
