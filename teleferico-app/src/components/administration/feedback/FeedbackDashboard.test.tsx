@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSnapshot } from "../../../../packages/survey-reporting-core/src";
 import { authenticatedInternalApiFetch } from "@/lib/http/clients/auth-internal-fetch";
@@ -19,6 +19,15 @@ vi.mock("next/dynamic", () => ({
 vi.mock("@/lib/http/clients/auth-internal-fetch", () => ({ authenticatedInternalApiFetch: vi.fn() }));
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
+
+beforeEach(() => {
+  vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => {
+    if (String(path).includes("/generations?")) {
+      return Promise.resolve(Response.json({ contractVersion: "feedback-admin.v1", data: { items: [], total: 0, page: 1, pageSize: 25 }, meta: {} }));
+    }
+    return Promise.reject(new Error("Unexpected feedback request"));
+  });
+});
 
 function snapshotFor(pointKey: string | null) {
   return createSnapshot({
@@ -283,10 +292,13 @@ describe("feedback analytics UI projections", () => {
     expect(screen.getByText("September report")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Descargar PDF" })).not.toBeInTheDocument();
     expect(screen.getByText(/Descarga no disponible hasta que U12-A/)).toBeInTheDocument();
-    vi.mocked(authenticatedInternalApiFetch).mockResolvedValueOnce(Response.json({ reportRunId: "run-2", status: "queued" }, { status: 202 }));
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path, init) => {
+      if (init?.method === "POST") return Promise.resolve(Response.json({ reportRunId: "run-2", status: "queued" }, { status: 202 }));
+      return Promise.resolve(envelope(String(path).includes("/comments?") ? comments : reports));
+    });
     fireEvent.click(screen.getByRole("button", { name: "Solicitar informe" }));
     expect(await screen.findByText(/Solicitud run-2/)).toBeInTheDocument();
-    const [, commandInit] = vi.mocked(authenticatedInternalApiFetch).mock.calls.at(-1)!;
+    const [, commandInit] = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([, init]) => init?.method === "POST")!;
     expect(commandInit?.method).toBe("POST");
     expect(JSON.parse(String(commandInit?.body))).not.toHaveProperty("commentFilters");
     fireEvent.click(commentButton);
@@ -317,7 +329,7 @@ describe("feedback analytics UI projections", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("la fecha inicial debe ser anterior o igual");
     expect(screen.getByText("No hay informes exitosos para este período.")).toBeInTheDocument();
-    expect(authenticatedInternalApiFetch).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/comments?") || String(path).includes("/reports?") || String(path).includes("/generations?")).length).toBe(3);
   });
 
   it("sends every comment filter with OR ratings without refetching reports", async () => {
@@ -437,6 +449,115 @@ describe("feedback analytics UI projections", () => {
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/comments?")).length).toBe(1);
   });
 
+  it("renders persisted generation states, safe failures, lineage, and no private metadata", async () => {
+    const comments = { items: [], total: 0, page: 1, pageSize: 25 };
+    const reports = { items: [], total: 0, page: 1, pageSize: 25 };
+    const generations = {
+      items: [
+        { reportRunId: "queued-run", status: "queued", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, report: null },
+        { reportRunId: "running-run", status: "running", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T02:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, report: null },
+        { reportRunId: "succeeded-run", status: "succeeded", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T03:00:00.000Z", completedAt: "2026-09-21T03:10:00.000Z", failureCode: null, safeFailureMessage: null, retryOfReportRunId: "failed-source", report: { reportId: "immutable-report", createdAt: "2026-09-21T03:10:00.000Z", period: { from: "2026-09-01", to: "2026-09-20" }, analyzedResponseCount: 12, analyzedCommentCount: 3 } },
+        { reportRunId: "failed-run", status: "failed", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T04:00:00.000Z", completedAt: "2026-09-21T04:10:00.000Z", failureCode: "PROVIDER_TRANSIENT", safeFailureMessage: "El proveedor no está disponible temporalmente.", retryOfReportRunId: null, report: null, privateSnapshot: "never render this", modelName: "private-model", usageCost: 99 },
+      ], total: 4, page: 1, pageSize: 25,
+    };
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => {
+      const value = String(path).includes("/comments?") ? comments : String(path).includes("/reports?") ? reports : generations;
+      return Promise.resolve(Response.json({ contractVersion: "feedback-admin.v1", data: value, meta: {} }));
+    });
+
+    render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
+
+    expect(await screen.findByText("queued-run")).toBeInTheDocument();
+    expect(document.querySelector('[data-generation-status="running"]')).toHaveTextContent("En curso");
+    expect(document.querySelector('[data-generation-status="succeeded"]')).toHaveTextContent("Completada");
+    expect(document.querySelector('[data-generation-status="failed"]')).toHaveTextContent("Fallida");
+    expect(screen.getByText("El proveedor no está disponible temporalmente.")).toBeInTheDocument();
+    expect(screen.getByText("immutable-report")).toBeInTheDocument();
+    expect(screen.getByText("failed-source")).toBeInTheDocument();
+    expect(screen.queryByText(/never render this|private-model|usageCost/)).not.toBeInTheDocument();
+  });
+
+  it("applies the status filter and paginates generation history with bounded requests", async () => {
+    const comments = { items: [], total: 0, page: 1, pageSize: 25 };
+    const reports = { items: [], total: 0, page: 1, pageSize: 25 };
+    const generation = (page: number, status = "queued") => ({ items: [{ reportRunId: `run-${page}`, status, period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, report: null }], total: 26, page, pageSize: 25 });
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => {
+      const value = String(path).includes("/comments?") ? comments : String(path).includes("/reports?") ? reports : generation(Number(new URLSearchParams(String(path).split("?")[1]).get("page")), new URLSearchParams(String(path).split("?")[1]).get("status") ?? "queued");
+      return Promise.resolve(Response.json({ contractVersion: "feedback-admin.v1", data: value, meta: {} }));
+    });
+
+    render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
+    expect(await screen.findByText("run-1")).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Paginación de generaciones" })).getByRole("button", { name: "Siguiente" }));
+    await screen.findByText("run-2");
+    fireEvent.change(screen.getByRole("combobox", { name: "Estado de generación" }), { target: { value: "failed" } });
+    await waitFor(() => {
+      const call = vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/generations?")).at(-1)?.[0];
+      const params = new URLSearchParams(String(call).split("?")[1]);
+      expect(params.get("status")).toBe("failed");
+      expect(params.get("page")).toBe("1");
+      expect(params.get("pageSize")).toBe("25");
+    });
+  });
+
+  it("refreshes persisted history after create and retry commands", async () => {
+    const comments = { items: [], total: 0, page: 1, pageSize: 25 };
+    const reports = { items: [], total: 0, page: 1, pageSize: 25 };
+    let historyReads = 0;
+    let latestGeneration: { reportRunId: string; status: string; period: { from: string; to: string }; dataCutoffAt: string; createdAt: string; completedAt: string | null; failureCode: string | null; safeFailureMessage: string | null; retryOfReportRunId: string | null; report: null } = { reportRunId: "failed-source", status: "failed", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z", completedAt: "2026-09-21T02:00:00.000Z", failureCode: "PROVIDER_TRANSIENT", safeFailureMessage: "Fallo temporal seguro.", retryOfReportRunId: null, report: null };
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path, init) => {
+      const url = String(path);
+      if (url.includes("/comments?")) return Promise.resolve(Response.json({ contractVersion: "feedback-admin.v1", data: comments, meta: {} }));
+      if (url.includes("/reports?")) return Promise.resolve(Response.json({ contractVersion: "feedback-admin.v1", data: reports, meta: {} }));
+      if (init?.method === "POST") {
+        if (url.endsWith("/retry")) {
+          latestGeneration = { ...latestGeneration, reportRunId: "retry-run", status: "queued", retryOfReportRunId: "failed-source", safeFailureMessage: null };
+          return Promise.resolve(Response.json({ reportRunId: "retry-run", status: "queued" }, { status: 202 }));
+        }
+        latestGeneration = { ...latestGeneration, reportRunId: "created-run", status: "queued", retryOfReportRunId: null, safeFailureMessage: null };
+        return Promise.resolve(Response.json({ reportRunId: "created-run", status: "queued" }, { status: 202 }));
+      }
+      historyReads += 1;
+      const data = historyReads === 1 ? { items: [latestGeneration], total: 1, page: 1, pageSize: 25 } : { items: [latestGeneration], total: 1, page: 1, pageSize: 25 };
+      return Promise.resolve(Response.json({ contractVersion: "feedback-admin.v1", data, meta: {} }));
+    });
+
+    render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
+    expect(await screen.findByText("failed-source")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar generación" }));
+    expect(await screen.findByText("retry-run")).toBeInTheDocument();
+    await waitFor(() => expect(historyReads).toBeGreaterThanOrEqual(2));
+    const retryCall = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([path, init]) => String(path).endsWith("/failed-source/retry") && init?.method === "POST");
+    expect(retryCall).toBeDefined();
+    expect(JSON.parse(String(retryCall?.[1]?.body))).toEqual({ contractVersion: "feedback-admin.v1" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Solicitar informe" }));
+    expect(await screen.findByText("created-run")).toBeInTheDocument();
+    await waitFor(() => expect(historyReads).toBeGreaterThanOrEqual(3));
+  });
+
+  it("recovers generation-history read errors and renders an empty state", async () => {
+    let historyReads = 0;
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => {
+      if (String(path).includes("/generations?")) {
+        historyReads += 1;
+        if (historyReads === 1) return Promise.reject(new Error("private transport detail"));
+        return Promise.resolve(Response.json({ contractVersion: "feedback-admin.v1", data: { items: [], total: 0, page: 1, pageSize: 25 }, meta: {} }));
+      }
+      const data = String(path).includes("/comments?") ? { items: [], total: 0, page: 1, pageSize: 25 } : { items: [], total: 0, page: 1, pageSize: 25 };
+      return Promise.resolve(Response.json({ contractVersion: "feedback-admin.v1", data, meta: {} }));
+    });
+
+    render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("El historial de generaciones no está disponible temporalmente.");
+    expect(screen.queryByText("private transport detail")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar historial de generaciones" }));
+    expect(await screen.findByText("No hay generaciones para este período y estado.")).toBeInTheDocument();
+    expect(historyReads).toBe(2);
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar historial" }));
+    await waitFor(() => expect(historyReads).toBe(3));
+  });
+
   it("prevents duplicate commands while busy and requires overlap confirmation", async () => {
     const comments = { items: [], total: 0, page: 1, pageSize: 25 };
     const reports = { items: [], total: 0, page: 1, pageSize: 25 };
@@ -446,6 +567,7 @@ describe("feedback analytics UI projections", () => {
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => {
       if (String(path).includes("/comments?")) return Promise.resolve(envelope(comments));
       if (String(path).includes("/reports?")) return Promise.resolve(envelope(reports));
+      if (String(path).includes("/generations?")) return Promise.resolve(envelope({ items: [], total: 0, page: 1, pageSize: 25 }));
       generationCalls += 1;
       return Promise.resolve(generationCalls === 1 ? new Response(JSON.stringify({ error: { message: "Overlap", details: overlap } }), { status: 409 }) : Response.json({ reportRunId: "run-2", status: "queued" }, { status: 202 }));
     });
@@ -477,6 +599,7 @@ describe("feedback analytics UI projections", () => {
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => {
       if (String(path).includes("/comments?")) return Promise.resolve(envelope(comments));
       if (String(path).includes("/reports?")) return Promise.resolve(envelope(reports));
+      if (String(path).includes("/generations?")) return Promise.resolve(envelope({ items: [], total: 0, page: 1, pageSize: 25 }));
       generationCalls += 1;
       return pendingCommand;
     });

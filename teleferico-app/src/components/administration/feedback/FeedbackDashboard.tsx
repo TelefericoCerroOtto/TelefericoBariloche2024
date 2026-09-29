@@ -4,8 +4,11 @@ import { authenticatedInternalApiFetch } from "@/lib/http/clients/auth-internal-
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import type {
   FeedbackAdminAspectsData,
+  FeedbackAdminCommandStatus,
   FeedbackAdminComment,
   FeedbackAdminCommentsData,
+  FeedbackAdminGeneration,
+  FeedbackAdminGenerationsEnvelope,
   FeedbackAdminPoint,
   FeedbackAdminQrData,
   FeedbackAdminReadEnvelope,
@@ -82,6 +85,41 @@ async function read<T>(path: string, signal: AbortSignal): Promise<FeedbackAdmin
   const response = await authenticatedInternalApiFetch(path, { signal });
   if (!response.ok) throw new Error(`Feedback read failed: ${response.status}`);
   return (await response.json()) as FeedbackAdminReadEnvelope<T>;
+}
+
+async function readGenerations(path: string, signal: AbortSignal): Promise<FeedbackAdminGenerationsEnvelope> {
+  const response = await authenticatedInternalApiFetch(path, { signal });
+  if (!response.ok) throw new Error(`Feedback generation history read failed: ${response.status}`);
+  return (await response.json()) as FeedbackAdminGenerationsEnvelope;
+}
+
+const GENERATION_STATUS_LABELS: Readonly<Record<FeedbackAdminCommandStatus, string>> = {
+  queued: "En cola",
+  running: "En curso",
+  succeeded: "Completada",
+  failed: "Fallida",
+};
+
+function GenerationHistoryRow({ generation, onRetry, retrying }: {
+  generation: FeedbackAdminGeneration;
+  onRetry: (reportRunId: string) => void;
+  retrying: boolean;
+}) {
+  return (
+    <article className="min-w-0 rounded-xl border p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="break-all font-semibold" translate="no">{generation.reportRunId}</p>
+          <p className="text-sm text-foreground/70">{generation.period.from}–{generation.period.to} · solicitado {dateTime(generation.createdAt)}</p>
+        </div>
+        <span data-generation-status={generation.status} className="rounded-full border px-3 py-1 text-sm font-semibold">{GENERATION_STATUS_LABELS[generation.status]}</span>
+      </div>
+      {generation.status === "failed" ? <p className="mt-3 rounded-lg border border-dashed p-3 text-sm" role="status">{generation.safeFailureMessage ?? "No se pudo completar el informe."}</p> : null}
+      {generation.retryOfReportRunId ? <p className="mt-2 text-sm text-foreground/70">Reintento de <span className="break-all font-medium" translate="no">{generation.retryOfReportRunId}</span></p> : null}
+      {generation.report ? <div className="mt-3 rounded-lg border p-3 text-sm"><p>Informe <span className="break-all font-semibold" translate="no">{generation.report.reportId}</span></p><p className="text-foreground/70">{generation.report.analyzedResponseCount} respuestas · {generation.report.analyzedCommentCount} comentarios</p></div> : null}
+      {generation.status === "failed" ? <button type="button" disabled={retrying} className="mt-3 rounded-full border border-primary px-4 py-2 font-semibold text-primary hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50" onClick={() => onRetry(generation.reportRunId)}>{retrying ? "Reintentando…" : "Reintentar generación"}</button> : null}
+    </article>
+  );
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
@@ -311,12 +349,17 @@ export function CommentsReportsModule({ period, points, aspects }: {
   const [filters, setFilters] = useState<CommentFilterState>(EMPTY_COMMENT_FILTERS);
   const [page, setPage] = useState(1);
   const [reportsPage, setReportsPage] = useState(1);
+  const [generationsPage, setGenerationsPage] = useState(1);
+  const [generationStatus, setGenerationStatus] = useState<FeedbackAdminCommandStatus | "all">("all");
   const [comments, setComments] = useState<FeedbackAdminCommentsData | null>(null);
   const [reports, setReports] = useState<FeedbackAdminReportsData | null>(null);
+  const [generations, setGenerations] = useState<FeedbackAdminGenerationsEnvelope["data"] | null>(null);
   const [commentsState, setCommentsState] = useState<"loading" | "ready" | "error">("loading");
   const [reportsState, setReportsState] = useState<"loading" | "ready" | "error">("loading");
   const [commentsRetry, setCommentsRetry] = useState(0);
   const [reportsRetry, setReportsRetry] = useState(0);
+  const [generationsRetry, setGenerationsRetry] = useState(0);
+  const [generationsState, setGenerationsState] = useState<"loading" | "ready" | "error">("loading");
   const [selectedComment, setSelectedComment] = useState<FeedbackAdminComment | null>(null);
   const [reportPeriod, setReportPeriod] = useState(period);
   const [generation, setGeneration] = useState<{ reportRunId: string; status: string } | null>(null);
@@ -324,6 +367,7 @@ export function CommentsReportsModule({ period, points, aspects }: {
   const [overlap, setOverlap] = useState<FeedbackAdminOverlapDetails | null>(null);
   const [overrideAccepted, setOverrideAccepted] = useState(false);
   const [commandBusy, setCommandBusy] = useState(false);
+  const [retryingGenerationId, setRetryingGenerationId] = useState("");
   const commandBusyRef = useRef(false);
   const resultsRef = useRef<HTMLDivElement>(null);
   const closeDetailRef = useRef<HTMLButtonElement>(null);
@@ -374,12 +418,32 @@ export function CommentsReportsModule({ period, points, aspects }: {
   }, [period.from, period.to, reportsPage, reportsRetry]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let requestActive = true;
+    const params = new URLSearchParams({ from: period.from, to: period.to, page: String(generationsPage), pageSize: "25" });
+    if (generationStatus !== "all") params.set("status", generationStatus);
+    setGenerations(null);
+    setGenerationsState("loading");
+    readGenerations(`/api/admin/feedback/generations?${params}`, controller.signal)
+      .then(({ data }) => {
+        if (!requestActive) return;
+        setGenerations(data);
+        setGenerationsState("ready");
+      })
+      .catch((error: unknown) => {
+        if (requestActive && !(error instanceof DOMException && error.name === "AbortError")) setGenerationsState("error");
+      });
+    return () => { requestActive = false; controller.abort(); };
+  }, [period.from, period.to, generationsPage, generationStatus, generationsRetry]);
+
+  useEffect(() => {
     if (resultsRef.current) resultsRef.current.scrollTop = 0;
   }, [resultKey]);
 
   useEffect(() => {
     setPage(1);
     setReportsPage(1);
+    setGenerationsPage(1);
     setOverlap(null);
     setOverrideAccepted(false);
   }, [period.from, period.to]);
@@ -418,6 +482,8 @@ export function CommentsReportsModule({ period, points, aspects }: {
       setOverlap(null);
       setOverrideAccepted(false);
       setGeneration(value?.reportRunId && value.status ? { reportRunId: value.reportRunId, status: value.status } : null);
+      setGenerationsRetry((current) => current + 1);
+      setReportsRetry((current) => current + 1);
     } finally {
       commandBusyRef.current = false;
       setCommandBusy(false);
@@ -441,13 +507,16 @@ export function CommentsReportsModule({ period, points, aspects }: {
       setGenerationError(error instanceof Error ? error.message : "No se pudo solicitar el informe.");
     }
   };
-  const retry = async () => {
-    if (!generation || commandBusyRef.current) return;
+  const retry = async (reportRunId: string) => {
+    if (commandBusyRef.current) return;
     setGenerationError("");
+    setRetryingGenerationId(reportRunId);
     try {
-      await command(`/api/admin/feedback/generations/${generation.reportRunId}/retry`, { contractVersion: "feedback-admin.v1" });
+      await command(`/api/admin/feedback/generations/${reportRunId}/retry`, { contractVersion: "feedback-admin.v1" });
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : "No se pudo reintentar el informe.");
+    } finally {
+      setRetryingGenerationId("");
     }
   };
 
@@ -488,7 +557,6 @@ export function CommentsReportsModule({ period, points, aspects }: {
         {overlap ? <div className="rounded-xl border p-4" role="alert"><p>El rango se cruza con historial existente. Elegí otro rango o confirmá la generación.</p><ul className="mt-2 list-disc pl-5 text-sm">{overlap.overlaps.map((item) => <li key={item.reportRunId}>{item.intersection.from}–{item.intersection.to}</li>)}</ul><label className="mt-3 block text-sm"><input type="checkbox" className="mr-2" checked={overrideAccepted} onChange={(event) => setOverrideAccepted(event.target.checked)} />Confirmo generar una nueva instantánea para este rango</label></div> : null}
         {generationError ? <p role="alert" className="rounded-xl border p-3">{generationError}</p> : null}
         {generation ? <p role="status" className="rounded-xl border p-3">Solicitud {generation.reportRunId}: {generation.status === "queued" ? "en cola" : generation.status}.</p> : null}
-         {generation?.status === "failed" ? <button type="button" disabled={commandBusy} className="rounded-full border border-primary px-4 py-2 font-semibold text-primary disabled:opacity-50" onClick={retry}>Reintentar informe</button> : null}
       </Panel>
 
       <Panel title="Historial de informes">
@@ -496,6 +564,17 @@ export function CommentsReportsModule({ period, points, aspects }: {
          {reportsState === "loading" ? <div role="status" aria-live="polite"><Spinner label="Cargando historial de informes" /></div> : null}
          {reportsState === "error" ? <div role="alert" className="rounded-xl border border-dashed p-4"><p>El historial de informes no está disponible temporalmente.</p><button type="button" className="mt-3 rounded-full border border-primary px-4 py-2 font-semibold text-primary" onClick={() => setReportsRetry((value) => value + 1)}>Reintentar historial</button></div> : null}
          {reportsState === "ready" && reports?.items.length ? <><div className="grid gap-3 md:grid-cols-2">{reports.items.map((report) => <article key={report.reportId} className="rounded-xl border p-4"><h3 className="font-semibold">{report.name}</h3><p className="text-sm text-foreground/70">{report.period.from}–{report.period.to} · generado {dateTime(report.createdAt)}</p><p className="mt-2 text-sm">{report.analyzedResponseCount} respuestas · {report.analyzedCommentCount} comentarios</p>{report.canDownload && REPORT_DOWNLOAD_ROUTE_AVAILABLE ? <a className="mt-3 inline-block rounded-full border border-primary px-4 py-2 font-semibold text-primary" href={`/api/admin/feedback/reports/${report.reportId}/download`}>Descargar PDF</a> : <span className="mt-3 inline-block text-sm text-foreground/60">Descarga no disponible hasta que U12-A publique la entrega mediada.</span>}</article>)}</div><nav aria-label="Paginación de informes" className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={reportsPage <= 1} className="rounded-full border px-4 py-2 disabled:opacity-40" onClick={() => setReportsPage((value) => value - 1)}>Anterior</button><span className="text-sm">Página {reportsPage} de {reportsPageCount}</span><button type="button" disabled={reportsPage >= reportsPageCount} className="rounded-full border px-4 py-2 disabled:opacity-40" onClick={() => setReportsPage((value) => value + 1)}>Siguiente</button></nav></> : reportsState === "ready" ? <EmptyState>No hay informes exitosos para este período.</EmptyState> : null}
+      </Panel>
+
+      <Panel title="Historial de generaciones">
+        <p className="text-sm text-foreground/70">Estados e identidades provistos por el historial persistido. Los datos privados de ejecución no se muestran.</p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <label className="flex flex-col gap-1 text-sm font-semibold">Estado de generación<select className="rounded-xl border bg-background p-3" value={generationStatus} onChange={(event) => { setGenerationStatus(event.target.value as FeedbackAdminCommandStatus | "all"); setGenerationsPage(1); }}><option value="all">Todos los estados</option><option value="queued">En cola</option><option value="running">En curso</option><option value="succeeded">Completadas</option><option value="failed">Fallidas</option></select></label>
+          <button type="button" disabled={generationsState === "loading"} className="rounded-full border border-primary px-4 py-2 font-semibold text-primary hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50" onClick={() => setGenerationsRetry((current) => current + 1)}>Actualizar historial</button>
+        </div>
+        {generationsState === "loading" ? <div role="status" aria-live="polite"><Spinner label="Cargando historial de generaciones" /></div> : null}
+        {generationsState === "error" ? <div role="alert" className="rounded-xl border border-dashed p-4"><p>El historial de generaciones no está disponible temporalmente.</p><button type="button" className="mt-3 rounded-full border border-primary px-4 py-2 font-semibold text-primary focus-visible:ring-2 focus-visible:ring-primary" onClick={() => setGenerationsRetry((current) => current + 1)}>Reintentar historial de generaciones</button></div> : null}
+        {generationsState === "ready" && generations ? generations.items.length ? <><div className="grid gap-3 md:grid-cols-2">{generations.items.map((item) => <GenerationHistoryRow key={item.reportRunId} generation={item} onRetry={retry} retrying={commandBusy && retryingGenerationId === item.reportRunId} />)}</div><nav aria-label="Paginación de generaciones" className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={generationsPage <= 1} className="rounded-full border px-4 py-2 hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-40" onClick={() => setGenerationsPage((value) => value - 1)}>Anterior</button><span className="text-sm">Página {generationsPage} de {Math.max(1, Math.ceil(generations.total / generations.pageSize))}</span><button type="button" disabled={generationsPage >= Math.ceil(generations.total / generations.pageSize)} className="rounded-full border px-4 py-2 hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-40" onClick={() => setGenerationsPage((value) => value + 1)}>Siguiente</button></nav></> : <EmptyState>No hay generaciones para este período y estado.</EmptyState> : null}
       </Panel>
 
       {selectedComment ? <div role="dialog" aria-modal="true" aria-labelledby="feedback-comment-detail" className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4"><div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-background p-5 shadow-2xl"><div className="flex items-start justify-between gap-4"><h2 id="feedback-comment-detail" className="text-xl font-semibold">Detalle del comentario</h2><button ref={closeDetailRef} type="button" aria-label="Cerrar detalle" className="rounded-full border px-3 py-1 focus-visible:ring-2 focus-visible:ring-primary" onClick={() => setSelectedComment(null)}>Cerrar</button></div><dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2"><div><dt className="font-semibold">Fecha</dt><dd>{dateTime(selectedComment.acceptedAt)}</dd></div><div><dt className="font-semibold">Punto QR</dt><dd>{pointLabels.get(selectedComment.pointKey) ?? selectedComment.pointKey}</dd></div><div><dt className="font-semibold">Idioma</dt><dd>{selectedComment.locale.toUpperCase()}</dd></div><div><dt className="font-semibold">Calificación general</dt><dd>{selectedComment.overallRating}/5</dd></div></dl><p className="mt-4 rounded-xl border p-4">{selectedComment.text}</p><h3 className="mt-5 font-semibold">Evaluaciones por aspecto</h3><div className="mt-2 overflow-x-auto"><table className="w-full text-left text-sm"><caption className="sr-only">Evaluaciones individuales del comentario</caption><thead><tr><th className="p-2">Aspecto</th><th className="p-2">Evaluación</th></tr></thead><tbody>{selectedComment.aspectRatings.map((item) => <tr key={item.aspectKey} className="border-t"><th className="p-2">{aspectLabels.get(item.aspectKey) ?? item.aspectKey}</th><td className="p-2">{item.rating === "positive" ? "Positivo" : item.rating === "negative" ? "Negativo" : "Neutral"}</td></tr>)}</tbody></table></div></div></div> : null}
