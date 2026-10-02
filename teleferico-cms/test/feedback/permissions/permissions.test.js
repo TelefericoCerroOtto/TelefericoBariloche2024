@@ -11,12 +11,11 @@ const SURVEY_APIS = [
   'survey-report-generation',
   'survey-report',
 ];
-const FUTURE_CAPABILITIES = [
+const APP_FEEDBACK_CAPABILITIES = [
   'feedback.read',
   'feedback.comments.read',
   'feedback.reports.read',
   'feedback.reports.generate',
-  'feedback.reports.read',
 ];
 const {
   createPrivateFeedbackAdminReader,
@@ -98,7 +97,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
   assert.match(fs.readFileSync(path.join(root, 'routes/native.js'), 'utf8'), /only: \['find', 'findOne'\]/);
 });
 
-test('documents D31 names only as future application capabilities', () => {
+test('documents the four role-derived application capabilities without durable grants', () => {
   const documentation = fs.readFileSync(
     path.resolve(__dirname, '../../../../docs/STRAPI_PERMISSIONS.md'),
     'utf8',
@@ -106,8 +105,11 @@ test('documents D31 names only as future application capabilities', () => {
   const documentedCapabilities = [...documentation.matchAll(/^\| `(feedback\.[^`]+)` \|/gm)]
     .map((match) => match[1]);
 
-  assert.deepEqual(documentedCapabilities, FUTURE_CAPABILITIES);
-  assert.match(documentation, /not current Strapi action IDs/);
+  assert.deepEqual(documentedCapabilities, APP_FEEDBACK_CAPABILITIES);
+  assert.match(documentation, /Only the exact\s+`Administrator` and `Digital Experience Operator` role names receive this\s+bundle/);
+  assert.match(documentation, /blocked users, `Public`, `Authenticated`, and\s+`Media Manager` receive none/);
+  assert.match(documentation, /No role or token grant is provisioned automatically/);
+  assert.match(documentation, /not Strapi action IDs or durable Users &\s+Permissions rows/);
   assert.match(documentation, /U7,\s+U8, and U10/);
   assert.match(documentation, /workerClaim/);
   assert.match(documentation, /workerSnapshot/);
@@ -217,7 +219,7 @@ test('generation history projects synthetic failed and succeeded rows without pr
         periodStart: '2026-08-01',
         periodEnd: '2026-08-31',
       },
-      snapshotJson: { payload: { population: { currentSubmissionCount: 12, currentCommentCount: 4 } } },
+      snapshotJson: { population: { currentSubmissionCount: 12, currentCommentCount: 4 } },
       checkpointsJson: { private: 'checkpoints' },
       modelConfigJson: { private: 'model' },
       pricingSnapshotJson: { private: 'pricing' },

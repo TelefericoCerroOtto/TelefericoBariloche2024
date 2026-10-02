@@ -1,10 +1,10 @@
 const assert = require('node:assert/strict');
-const { createHash } = require('node:crypto');
+const { createHash, randomUUID } = require('node:crypto');
 const test = require('node:test');
 const { COMPOSE_FILE, DOCKER_EXECUTABLE, executeFixed } = require('../harness/postgres-harness');
 const { createSubmissionPersistence } = require('../../../src/api/survey-submission/services/persistence');
 
-const OWNER = 'tb113_test_submission';
+const OWNER = `tb113_test_submission_${randomUUID().replaceAll('-', '')}`;
 const compose = (...args) => executeFixed(DOCKER_EXECUTABLE, [
   'compose', '--file', COMPOSE_FILE, '--project-name', OWNER, ...args,
 ]);

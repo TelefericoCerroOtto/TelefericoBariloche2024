@@ -1282,7 +1282,6 @@ export interface ApiSurveyQrPointSurveyQrPoint
       }>;
     publicCode: Schema.Attribute.String &
       Schema.Attribute.Required &
-      Schema.Attribute.Private &
       Schema.Attribute.Unique &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 128;

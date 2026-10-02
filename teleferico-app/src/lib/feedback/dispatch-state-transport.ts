@@ -71,11 +71,12 @@ function validateResult(input: {
 export function createFeedbackDispatchStateTransport(input: {
   readonly baseUrl: string;
   readonly allowedOrigins: readonly string[];
+  readonly runtimeMode?: "development";
   readonly sessionJwt: string;
   readonly fetchImplementation?: typeof fetch;
 }): FeedbackDispatchStatePort {
   let origin: URL;
-  try { origin = validateTrustedCmsOrigin(input.baseUrl, input.allowedOrigins); }
+  try { origin = validateTrustedCmsOrigin(input.baseUrl, input.allowedOrigins, input.runtimeMode); }
   catch { return fail(); }
   if (!input.sessionJwt || input.sessionJwt.length > 8192 || /[\u0000-\u0020\u007f]/.test(input.sessionJwt)) return fail();
   const fetchImplementation = input.fetchImplementation ?? fetch;

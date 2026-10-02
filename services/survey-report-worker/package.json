@@ -11,6 +11,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "start": "node --conditions=react-server dist/run-worker.mjs",
+    "dev": "node scripts/dev.mjs",
     "dev:fixture": "node --conditions=react-server scripts/dev-fixture.mjs",
     "test": "node --conditions=react-server --test test/*.test.mjs",
     "typecheck": "tsc --noEmit --project tsconfig.json"

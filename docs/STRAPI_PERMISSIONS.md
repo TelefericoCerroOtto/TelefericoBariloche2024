@@ -25,6 +25,7 @@ application boundary documents the exact read or command action.
 | `Public`                        | Users & Permissions role | Unauthenticated visitors     | Default role for unauthenticated users.                                                                                             | N/A       | Role       |
 | `Authenticated`                 | Users & Permissions role | Authenticated users          | Default role for authenticated users.                                                                                               | N/A       | Role       |
 | `Administrator`                 | Users & Permissions role | CMS administrators           | Administrative access for managing application features and users.                                                                  | N/A       | Role       |
+| `Digital Experience Operator`   | Users & Permissions role | Feedback dashboard operators | Least-privilege CMS actions plus the four app-level feedback capabilities.                                                          | N/A       | Role       |
 | `Super Admin`                   | Strapi Admin Panel role  | Project maintainer/developer | Full direct CMS administration. Not used by `teleferico-app`, API tokens or public user flows.                                      | N/A       | Admin role |
 
 ## Secret names
@@ -47,6 +48,7 @@ These profiles are expected to exist with the same permission shape in every run
 | `Public` role                  | Same default permissions  | Same default permissions  | Same default permissions  |
 | `Authenticated` role           | Same default permissions  | Same default permissions  | Same default permissions  |
 | `Administrator` role           | Same permissions          | Same permissions          | Same permissions          |
+| `Digital Experience Operator` role | Same feedback capabilities and documented native actions | Same feedback capabilities and documented native actions | Same feedback capabilities and documented native actions |
 | `Super Admin` admin role       | Maintainer/developer only | Maintainer/developer only | Maintainer/developer only |
 
 Content exposed through the public-facing application must be treated as published/public content. Draft or preview access is not part of the token model described here.
@@ -119,6 +121,10 @@ This server-only token is used exclusively by the visitor feedback CMS transport
 | `survey-report.find` / `findOne` | —; private admin projection uses `feedbackAdminRead` |
 | `survey-submission.submit` | ✅ |
 
+The public survey transport requests only `versionKey` and `status` from `survey-version`; it must not request the private `lastSupersededAt` lifecycle field through Strapi's native Content API. This restores resolution of the current survey only. The 30-minute grace period for sessions from superseded versions remains unverified and deferred: supporting it requires a narrow server-side lifecycle read and a correction to submission-version binding. Do not make the lifecycle field public or claim that old sessions are accepted.
+
+For the public submission command, an HTTP 204 from `lookup` means no prior submission; the app handles it without JSON decoding. This is distinct from a newly accepted submission (201) or an idempotent replay (200).
+
 ## Transfer tokens
 
 ### `Local → Remote Data Migration`
@@ -179,6 +185,10 @@ The `Authenticated` role has no `image-asset` permissions.
 
 Administrative role for managing CMS application features and users.
 
+This is the **Users & Permissions `Administrator` role** used by
+`teleferico-app` authentication. It is distinct from the Strapi Admin Panel's
+`Super Admin` role described below.
+
 | Content type            | `find` | `findOne` | `create` | `update` | `delete` |
 | ----------------------- | :----: | :-------: | :------: | :------: | :------: |
 | `activity`              |   ✅   |    ✅     |    ✅    |    ✅    |    —     |
@@ -199,9 +209,42 @@ Administrative role for managing CMS application features and users.
 | `zone`                  |   ✅   |    ✅     |    ✅    |    ✅    |    —     |
 | `zone-translation`      |   ✅   |    ✅     |    ✅    |    ✅    |    —     |
 
+### `Digital Experience Operator`
+
+This Users & Permissions role is intended for staff who operate the public
+experience dashboard. It receives the same four app-level feedback capability
+claims as `Administrator`; it does not receive the Administrator role's other
+CMS collection permissions by virtue of that mapping.
+
+Both named app roles require `users-permissions.role.find` and
+`users-permissions.user.me` for credentials login and current role verification.
+These actions do not grant role management.
+
+When the Users & Permissions `Administrator` role uses TB-113 generation, it
+also needs the same native `survey-report-generation.find`,
+`survey-report-generation.create`, and `survey-report-generation.dispatchState`
+actions. This is additive to the existing Administrator matrix above; the
+application capability mapping does not grant these Strapi actions.
+
+For report generation, this role must be granted only the CMS actions used by
+the normal app command flow: `survey-report-generation.find`,
+`survey-report-generation.create`, and the explicit
+`survey-report-generation.dispatchState` action. The app and worker use
+separate grouped Custom Content API tokens: the app token has exactly
+`feedbackAdminRead`, `workerSourceRead`, and `workerReportDownloadMetadata`; the
+worker token has exactly `workerClaim`, `workerSnapshot`, `workerCheckpoint`,
+`workerComplete`, and `workerFail`. These actions must never be granted to a
+Users & Permissions role.
+Grant `survey-report-generation.dispatchFailure` only if the deployment
+requires the separately documented verified enqueue-exhaustion compensation.
+No role or token grant is provisioned automatically by this repository.
+
 ## Strapi Admin Panel access
 
-The Strapi Admin Panel is managed by the project maintainer/developer.
+The Strapi Admin Panel is managed by the project maintainer/developer. Its
+Super Admin role is separate from Users & Permissions roles such as
+`Administrator` and `Digital Experience Operator`; panel membership does not
+grant app-session feedback capabilities.
 
 | Admin role    | Purpose                 | Notes                                                                                                   |
 | ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -233,18 +276,20 @@ action for server-mediated task-name reservation and bounded outcome recording;
 it is also denied unless separately granted and is not called by the app yet.
 It permits only reservation, created, and unknown states; it rejects claimed
 absence and cannot compensate a queued generation. These custom actions use the
-application user JWT, not an API token. The worker
+application user JWT, not an API token. The
 `survey-report-generation.workerClaim`, `workerSnapshot`, `workerCheckpoint`,
 `workerSourceRead`, `workerReportDownloadMetadata`, `workerComplete`, `workerFail`, and `workerAlertAck` actions are available only through Strapi's native
-`content-api-token` strategy, each with its own exact custom API-token action
-scope. Their controllers also require Strapi's runtime-selected strategy,
+`content-api-token` strategy with exact action scopes. The app token includes
+only `workerSourceRead` and `workerReportDownloadMetadata` from this list; the
+worker token includes only its five worker lifecycle actions. Their controllers
+also require Strapi's runtime-selected strategy,
 `kind: "content-api"`, and `type: "custom"` before controller body measurement,
 validation, or database access. A Users & Permissions JWT is denied even if its
 role is granted the same action. This intentionally changes compatibility:
 existing application JWT roles with any of these worker action grants no longer
 authorize the worker routes; those grants are not a fallback and must not be
-used to authorize a worker. The worker owner must separately authorize and provision a custom
-content API token with only the required worker action. This repository adds no
+used to authorize a worker. Each process owner must separately authorize and
+provision its exact grouped Custom Content API token. This repository adds no
 role/token grant and does not define credential issuance or rotation.
 
 `workerClaim` returns checkpoints/model/pricing state only to its scoped custom
@@ -277,19 +322,24 @@ Anonymous requests and ungranted actions remain denied. Application-level
 capabilities are enforced by the Next.js administration routes, and the
 `update`/`delete` core actions remain outside the command access model.
 
-### Future application capabilities
+### App-level feedback capabilities
 
-These names are application-level capabilities enforced by the Next.js
-administration routes. They are not current Strapi action IDs or durable Users
-& Permissions rows.
+These four names are application-level capabilities enforced by the Next.js
+administration routes. They are not Strapi action IDs or durable Users &
+Permissions rows. Auth.js derives them server-side from the currently verified
+Users & Permissions role on every session verification. Only the exact
+`Administrator` and `Digital Experience Operator` role names receive this
+bundle. Missing/unknown roles, blocked users, `Public`, `Authenticated`, and
+`Media Manager` receive none. Changing a user's role or blocking the account is
+reflected by the verified `users/me?populate=role` session check; no role claim
+is accepted from the browser.
 
-| Future capability | Future operation | Route owner |
+| Capability | Operation | Route owner |
 | --- | --- | --- |
 | `feedback.read` | Summary, aspect, and QR analytics | U8 administration routes |
 | `feedback.comments.read` | Filtered comments | U8 administration routes |
-| `feedback.reports.read` | Reports and generations | U8 administration routes |
-| `feedback.reports.generate` | Generate and retry | U8 administration routes |
 | `feedback.reports.read` | Reports, generations, and mediated report download | U8 administration routes / U12 deterministic delivery |
+| `feedback.reports.generate` | Generate and retry | U8 administration routes |
 
 Exact intake, administration, and worker actions and grants remain owned by U7,
 U8, and U10 respectively. U9-A1 adds only the registered
@@ -483,5 +533,6 @@ Use this checklist when creating or rebuilding a Strapi environment.
 | Change | Date | Result | Evidence |
 | --- | --- | --- | --- |
 | `tb-113-visitor-feedback` S06a deny baseline | 2026-09-16 | Documented and tested the existing deny baseline; no grants or mutation. | Focused direct tests cover application roles, API tokens, route/controller inventory, read-only inspection, and isolated Strapi/PostgreSQL cleanup. |
+| `tb-113-visitor-feedback` L4 feedback role claims | 2026-09-29 | Documented the approved app-session role mapping and its independent native/token action gates; no persistent grant was provisioned. | Auth.js refreshes the role from verified `/users/me?populate=role`; focused callback and route tests cover allowed/denied claims. |
 | `tb-113-visitor-feedback` S04 foundation | 2026-09-15 | Added disabled definition/QR schemas with no permission grants. | Catalog tests verify disabled defaults and the approved model subset; permission bootstrap remains out of scope. |
 | `tb-71-form-protection` | 2026-05-20 | Added `form-protection-submission` collection and token delta; existing `postulation` contract stays intact. | Verified `teleferico-cms/src/api/postulation/content-types/postulation/schema.json` stayed unchanged, added `teleferico-cms/src/api/form-protection-submission/**`, expanded `Public Forms (Next.js)` token to `form-protection-submission.find/create`, and kept `teleferico-app/src/lib/services/{contact,postulation}.ts` as server-only internal callers using `Origin`, `x-internal-api-key`, and optional `x-client-ip` without exposing Strapi access client-side. |

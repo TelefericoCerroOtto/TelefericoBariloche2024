@@ -69,8 +69,8 @@ function submissions(count: number) {
 function reports(count: number) {
   return Array.from({ length: count }, (_, index) => ({
     documentId: `report-doc-${index + 1}`,
-    reportId: `report-${index + 1}`,
-    generationRunId: `run-${index + 1}`,
+    reportId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    generationRunId: `00000000-0000-4000-8000-${String(index + 1001).padStart(12, "0")}`,
     periodStart: "2026-08-01T00:00:00.000Z",
     periodEnd: "2026-08-20T23:59:59.999Z",
     createdAt: `2026-08-${String((index % 20) + 1).padStart(2, "0")}T12:00:00.000Z`,
@@ -79,7 +79,8 @@ function reports(count: number) {
     analyzedCommentCount: 0,
     artifactSize: 100,
     artifactSha256: "b".repeat(64),
-    objectKey: "private/feedback-reports/private/report.pdf",
+    mimeType: "application/pdf",
+    objectKey: `private/feedback-reports/00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}/report.pdf`,
     status: "succeeded",
     requestedBy: null,
     generatedBy: null,
@@ -224,7 +225,7 @@ describe("feedback administration private CMS reader", () => {
     ).toBe(28);
     expect(data.snapshot.metrics.qrPoints[0]?.current.submissionCount).toBe(28);
     expect(data.reports).toHaveLength(105);
-    expect(data.reports.every((report) => report.canDownload === false)).toBe(
+    expect(data.reports.every((report) => report.canDownload === true)).toBe(
       true,
     );
     expect(readPage.mock.calls.filter(([query]) => query.resource === "submissions")).toHaveLength(2);

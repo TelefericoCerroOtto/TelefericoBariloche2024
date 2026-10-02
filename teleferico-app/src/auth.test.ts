@@ -31,6 +31,10 @@ const role: UserRole = {
   publishedAt: createdAt,
   locale: null,
 };
+const verifiedUser = (roleName: UserRole["name"], blocked = false) => ({
+  blocked,
+  role: { ...role, name: roleName },
+});
 const authToken: JWT = {
   id: 42,
   documentId: "user-42",
@@ -48,6 +52,12 @@ const authToken: JWT = {
   jwt: strapiJwt,
   authExpiresAt: Math.floor(Date.now() / 1000) + 60 * 45,
   csrfToken: "csrf-token",
+  capabilities: [
+    "feedback.read",
+    "feedback.comments.read",
+    "feedback.reports.read",
+    "feedback.reports.generate",
+  ],
 };
 const authUser: AuthUser = { ...authToken, id: "42" };
 
@@ -76,7 +86,10 @@ describe("Auth.js callbacks", () => {
     vi.stubEnv("AUTH_URL", "");
     vi.stubEnv("NEXTAUTH_URL", "");
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
-    mocks.verifySession.mockResolvedValue({ isLogged: true });
+    mocks.verifySession.mockResolvedValue({
+      isLogged: true,
+      user: verifiedUser("Administrator"),
+    });
   });
 
   it("does not serialize the Strapi JWT into the browser-visible session", async () => {
@@ -92,17 +105,80 @@ describe("Auth.js callbacks", () => {
 
     expect(session).not.toHaveProperty("jwt");
     expect(JSON.stringify(session)).not.toContain(strapiJwt);
+    const userCapabilities =
+      session.user && "capabilities" in session.user
+        ? session.user.capabilities
+        : undefined;
+    expect(userCapabilities).toEqual([
+      "feedback.read",
+      "feedback.comments.read",
+      "feedback.reports.read",
+      "feedback.reports.generate",
+    ]);
   });
 
-  it("keeps the Strapi JWT in the server-side Auth.js token and verifies it", async () => {
-    const token = await authCallbacks.jwt({
-      token: authToken,
-      trigger: "signIn",
+  it.each(["Administrator", "Digital Experience Operator"] as const)(
+    "projects the four app capabilities from the verified %s role",
+    async (roleName) => {
+      mocks.verifySession.mockResolvedValue({
+        isLogged: true,
+        user: verifiedUser(roleName),
+      });
+      const token = await authCallbacks.jwt({
+        token: authToken,
+        trigger: "signIn",
+        user: authUser,
+      });
+
+      expect(token).toMatchObject({
+        id: 42,
+        jwt: strapiJwt,
+        role: { name: roleName },
+        capabilities: [
+          "feedback.read",
+          "feedback.comments.read",
+          "feedback.reports.read",
+          "feedback.reports.generate",
+        ],
+      });
+      expect(mocks.verifySession).toHaveBeenCalledWith(strapiJwt);
+      expect(token?.capabilities).toEqual([
+        "feedback.read",
+        "feedback.comments.read",
+        "feedback.reports.read",
+        "feedback.reports.generate",
+      ]);
+      expect(token?.capabilities.some((capability) => capability.includes("worker"))).toBe(false);
+    },
+  );
+
+  it("recomputes capabilities from the latest verified role and blocks revoked users", async () => {
+    mocks.verifySession.mockResolvedValueOnce({
+      isLogged: true,
+      user: verifiedUser("Media Manager"),
+    });
+    const changedRoleToken = await authCallbacks.jwt({
+      token: {
+        ...authToken,
+        capabilities: ["feedback.read", "feedback.reports.generate"],
+      },
       user: authUser,
+      trigger: "update",
     });
 
-    expect(token).toMatchObject({ id: 42, jwt: strapiJwt });
-    expect(mocks.verifySession).toHaveBeenCalledWith(strapiJwt);
+    expect(changedRoleToken).toMatchObject({
+      role: { name: "Media Manager" },
+      capabilities: [],
+    });
+
+    mocks.verifySession.mockResolvedValueOnce({ isLogged: false });
+    await expect(
+      authCallbacks.jwt({
+      token: { ...authToken, capabilities: ["feedback.reports.generate"] },
+      user: authUser,
+      trigger: "update",
+      }),
+    ).resolves.toBeNull();
   });
 
   it("retrieves the Strapi JWT from the encrypted development cookie for trusted server code", async () => {

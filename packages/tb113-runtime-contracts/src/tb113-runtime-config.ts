@@ -8,19 +8,17 @@ import { validateTrustedCmsOrigin } from "./cms-origin";
 
 const ENV_KEYS = {
   BUILD_STRAPI_BASE_URL: "BUILD_STRAPI_BASE_URL",
-  TB113_CMS_ALLOWED_ORIGIN: "TB113_CMS_ALLOWED_ORIGIN",
-  TB113_APP_CMS_TOKENS_JSON: "TB113_APP_CMS_TOKENS_JSON",
-  TB113_WORKER_CMS_TOKENS_JSON: "TB113_WORKER_CMS_TOKENS_JSON",
-  TB113_APPROVED_GENERATION_CONFIG_JSON:
-    "TB113_APPROVED_GENERATION_CONFIG_JSON",
-  TB113_WORKER_URL: "TB113_WORKER_URL",
-  TB113_WORKER_OIDC_AUDIENCE: "TB113_WORKER_OIDC_AUDIENCE",
-  TB113_TASK_INVOKER_EMAIL: "TB113_TASK_INVOKER_EMAIL",
-  TB113_WORKER_OIDC_PRINCIPAL: "TB113_WORKER_OIDC_PRINCIPAL",
-  TB113_VERTEX_PROJECT_ID: "TB113_VERTEX_PROJECT_ID",
-  TB113_TASK_QUEUE_PATH: "TB113_TASK_QUEUE_PATH",
-  TB113_PRIVATE_BUCKET: "TB113_PRIVATE_BUCKET",
-  TB113_WORKER_EVIDENCE_KEY: "TB113_WORKER_EVIDENCE_KEY",
+  FEEDBACK_CMS_ALLOWED_ORIGIN: "FEEDBACK_CMS_ALLOWED_ORIGIN",
+  FEEDBACK_APP_CMS_TOKEN: "FEEDBACK_APP_CMS_TOKEN",
+  FEEDBACK_WORKER_CMS_TOKEN: "FEEDBACK_WORKER_CMS_TOKEN",
+  FEEDBACK_WORKER_URL: "FEEDBACK_WORKER_URL",
+  FEEDBACK_WORKER_OIDC_AUDIENCE: "FEEDBACK_WORKER_OIDC_AUDIENCE",
+  FEEDBACK_TASK_INVOKER_EMAIL: "FEEDBACK_TASK_INVOKER_EMAIL",
+  FEEDBACK_WORKER_OIDC_PRINCIPAL: "FEEDBACK_WORKER_OIDC_PRINCIPAL",
+  FEEDBACK_VERTEX_PROJECT_ID: "FEEDBACK_VERTEX_PROJECT_ID",
+  FEEDBACK_TASK_QUEUE_PATH: "FEEDBACK_TASK_QUEUE_PATH",
+  FEEDBACK_PRIVATE_BUCKET: "FEEDBACK_PRIVATE_BUCKET",
+  FEEDBACK_WORKER_EVIDENCE_KEY: "FEEDBACK_WORKER_EVIDENCE_KEY",
 } as const;
 
 export const TB113_APP_TOKEN_KEYS = [
@@ -121,24 +119,6 @@ function required(
   return value;
 }
 
-function parseJsonRecord(
-  env: NodeJS.ProcessEnv,
-  key: string,
-  maxLength: number,
-): Record<string, unknown> {
-  const raw = env[key];
-  if (!raw || raw.length > maxLength) return fail();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return fail();
-  }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
-    return fail();
-  return parsed as Record<string, unknown>;
-}
-
 function exactKeys(
   value: Record<string, unknown>,
   keys: readonly string[],
@@ -147,6 +127,12 @@ function exactKeys(
     Object.keys(value).length === keys.length &&
     keys.every((key) => Object.hasOwn(value, key))
   );
+}
+
+function deepFreezeValue<T>(value: T): T {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
+  Object.values(value as Record<string, unknown>).forEach(deepFreezeValue);
+  return Object.freeze(value);
 }
 
 function validateToken(value: unknown): value is string {
@@ -159,51 +145,44 @@ function validateToken(value: unknown): value is string {
   );
 }
 
-function readTokenMap<const K extends readonly string[]>(
+function readProcessToken(
   env: NodeJS.ProcessEnv,
   key: string,
-  names: K,
-): Readonly<Record<K[number], string>> {
-  const parsed = parseJsonRecord(env, key, 32_768);
-  if (
-    !exactKeys(parsed, names) ||
-    !names.every((name) => validateToken(parsed[name]))
-  )
-    return fail();
-  const values = names.map((name) => parsed[name] as string);
-  if (new Set(values).size !== values.length) return fail();
-  return Object.freeze(
-    Object.fromEntries(names.map((name) => [name, parsed[name]])),
-  ) as Readonly<Record<K[number], string>>;
+): string {
+  const value = env[key];
+  if (!validateToken(value)) return fail();
+  return value;
 }
 
 export function readTb113AppTokens(
   env: NodeJS.ProcessEnv = process.env,
 ): Tb113CmsTokens {
-  return readTokenMap(
-    env,
-    ENV_KEYS.TB113_APP_CMS_TOKENS_JSON,
-    TB113_APP_TOKEN_KEYS,
-  );
+  const token = readProcessToken(env, ENV_KEYS.FEEDBACK_APP_CMS_TOKEN);
+  return Object.freeze(Object.fromEntries(
+    TB113_APP_TOKEN_KEYS.map((key) => [key, token]),
+  )) as Tb113CmsTokens;
 }
 
 export function readTb113WorkerTokens(
   env: NodeJS.ProcessEnv = process.env,
 ): Tb113WorkerTokens {
-  return readTokenMap(
-    env,
-    ENV_KEYS.TB113_WORKER_CMS_TOKENS_JSON,
-    Object.keys(TB113_WORKER_TOKEN_ACTIONS) as Tb113WorkerTokenKey[],
-  );
+  const token = readProcessToken(env, ENV_KEYS.FEEDBACK_WORKER_CMS_TOKEN);
+  return Object.freeze(Object.fromEntries(
+    Object.keys(TB113_WORKER_TOKEN_ACTIONS).map((key) => [key, token]),
+  )) as Tb113WorkerTokens;
 }
 
 export function readTb113CmsOrigin(
   env: NodeJS.ProcessEnv = process.env,
 ): Tb113CmsOrigin {
   const baseUrl = required(env, ENV_KEYS.BUILD_STRAPI_BASE_URL, 2048);
-  const approvedOrigin = required(env, ENV_KEYS.TB113_CMS_ALLOWED_ORIGIN, 2048);
+  const approvedOrigin = required(env, ENV_KEYS.FEEDBACK_CMS_ALLOWED_ORIGIN, 2048);
   try {
-    const target = validateTrustedCmsOrigin(baseUrl, [approvedOrigin]);
+    const target = validateTrustedCmsOrigin(
+      baseUrl,
+      [approvedOrigin],
+      env.NODE_ENV === "development" ? "development" : "production",
+    );
     return Object.freeze({
       baseUrl: target.origin,
       allowedOrigins: Object.freeze([target.origin]) as unknown as readonly [
@@ -216,13 +195,34 @@ export function readTb113CmsOrigin(
 }
 
 export function readTb113ApprovedGenerationConfiguration(
-  env: NodeJS.ProcessEnv = process.env,
+  normalizedProfile: unknown,
 ): Tb113ApprovedGenerationConfiguration {
-  const value = parseJsonRecord(
-    env,
-    ENV_KEYS.TB113_APPROVED_GENERATION_CONFIG_JSON,
-    32_768,
-  );
+  const profile = normalizedProfile as {
+    readonly profileVersion?: unknown;
+    readonly generation?: Record<string, unknown>;
+  } | undefined;
+  if (!profile || profile.profileVersion !== "feedback-report-generation-profile.v1" ||
+      !profile.generation)
+    return fail();
+  const value = profile.generation;
+  const modelConfig = value.modelConfig as Record<string, unknown> | undefined;
+  const pricingSnapshot = value.pricingSnapshot as Record<string, unknown> | undefined;
+  const pricingUnits = pricingSnapshot?.units;
+  if (
+    typeof value.sourceRevision !== "string" ||
+    typeof value.evidenceKeyId !== "string" ||
+    !modelConfig ||
+    typeof modelConfig.verifiedInputTokenLimit !== "number" ||
+    typeof modelConfig.safetyHeadroomTokens !== "number" ||
+    typeof modelConfig.sourceRevision !== "string" ||
+    !pricingSnapshot ||
+    typeof pricingSnapshot.version !== "string" ||
+    !Array.isArray(pricingUnits) ||
+    pricingUnits.some((unit) => !unit || typeof unit !== "object" ||
+      typeof (unit as Record<string, unknown>).inputMicrosPerMillion !== "number" ||
+      typeof (unit as Record<string, unknown>).outputMicrosPerMillion !== "number")
+  )
+    throw new TypeError("TB-113 report profile is not configured");
   const keys = [
     "contractVersion",
     "sourceRevision",
@@ -255,28 +255,26 @@ export function readTb113ApprovedGenerationConfiguration(
   } catch {
     return fail();
   }
-  return Object.freeze(
-    value as unknown as Tb113ApprovedGenerationConfiguration,
-  );
+  return deepFreezeValue(value as unknown as Tb113ApprovedGenerationConfiguration);
 }
 
 export function readTb113WorkerIdentityConfiguration(
   env: NodeJS.ProcessEnv = process.env,
 ): Tb113WorkerIdentityConfiguration {
   assertKeylessCloudRunEnvironment(env);
-  const workerUrlValue = required(env, ENV_KEYS.TB113_WORKER_URL, 2048);
-  const audience = required(env, ENV_KEYS.TB113_WORKER_OIDC_AUDIENCE, 2048);
+  const workerUrlValue = required(env, ENV_KEYS.FEEDBACK_WORKER_URL, 2048);
+  const audience = required(env, ENV_KEYS.FEEDBACK_WORKER_OIDC_AUDIENCE, 2048);
   const taskInvokerEmail = required(
     env,
-    ENV_KEYS.TB113_TASK_INVOKER_EMAIL,
+    ENV_KEYS.FEEDBACK_TASK_INVOKER_EMAIL,
     320,
   );
   const workerOidcPrincipal = required(
     env,
-    ENV_KEYS.TB113_WORKER_OIDC_PRINCIPAL,
+    ENV_KEYS.FEEDBACK_WORKER_OIDC_PRINCIPAL,
     320,
   );
-  const vertexProjectId = required(env, ENV_KEYS.TB113_VERTEX_PROJECT_ID, 128);
+  const vertexProjectId = required(env, ENV_KEYS.FEEDBACK_VERTEX_PROJECT_ID, 128);
   let workerUrl: URL;
   try {
     workerUrl = new URL(workerUrlValue);
@@ -311,7 +309,7 @@ export function readTb113CloudTasksConfiguration(
   env: NodeJS.ProcessEnv = process.env,
 ): Tb113CloudTasksConfiguration {
   const identity = readTb113WorkerIdentityConfiguration(env);
-  const queuePath = required(env, ENV_KEYS.TB113_TASK_QUEUE_PATH, 512);
+  const queuePath = required(env, ENV_KEYS.FEEDBACK_TASK_QUEUE_PATH, 512);
   const match = new RegExp(
     `^projects/${PROJECT_ID}/locations/${TASKS_LOCATION}/queues/([a-z][a-z0-9-]{0,62})$`,
   ).exec(queuePath);
@@ -324,10 +322,52 @@ export function readTb113CloudTasksConfiguration(
   });
 }
 
+export function readTb113LocalCloudTasksConfiguration(
+  env: NodeJS.ProcessEnv = process.env,
+): Tb113CloudTasksConfiguration {
+  if (env.NODE_ENV !== "development") return fail();
+  const workerUrlValue = required(env, ENV_KEYS.FEEDBACK_WORKER_URL, 2048);
+  const queuePath = required(env, ENV_KEYS.FEEDBACK_TASK_QUEUE_PATH, 512);
+  let workerUrl: URL;
+  try {
+    workerUrl = new URL(workerUrlValue);
+  } catch {
+    return fail();
+  }
+  const queueMatch = new RegExp(
+    `^projects/${PROJECT_ID}/locations/${TASKS_LOCATION}/queues/([a-z][a-z0-9-]{0,62})$`,
+  ).exec(queuePath);
+  if (
+    workerUrl.protocol !== "http:" ||
+    workerUrl.hostname !== "127.0.0.1" ||
+    !/^[1-9][0-9]{0,4}$/.test(workerUrl.port) ||
+    Number(workerUrl.port) >= 65_535 ||
+    workerUrl.username ||
+    workerUrl.password ||
+    workerUrl.pathname !== WORKER_PATH ||
+    workerUrl.search ||
+    workerUrl.hash ||
+    workerUrlValue !== `${workerUrl.origin}${WORKER_PATH}` ||
+    !queueMatch
+  )
+    return fail();
+  const localPrincipal = "tb113-local-task-invoker";
+  return Object.freeze({
+    projectId: PROJECT_ID,
+    location: TASKS_LOCATION,
+    queue: queueMatch[1]!,
+    workerUrl: workerUrlValue,
+    audience: workerUrl.origin,
+    taskInvokerEmail: localPrincipal,
+    workerOidcPrincipal: localPrincipal,
+    vertexProjectId: PROJECT_ID,
+  });
+}
+
 export function readTb113PrivateBucket(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const name = required(env, ENV_KEYS.TB113_PRIVATE_BUCKET, 222);
+  const name = required(env, ENV_KEYS.FEEDBACK_PRIVATE_BUCKET, 222);
   if (!/^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/.test(name)) return fail();
   return name;
 }
@@ -335,7 +375,7 @@ export function readTb113PrivateBucket(
 export function readTb113EvidenceKeySecretVersion(
   env: NodeJS.ProcessEnv = process.env,
 ): string {
-  const resource = required(env, ENV_KEYS.TB113_WORKER_EVIDENCE_KEY, 512);
+  const resource = required(env, ENV_KEYS.FEEDBACK_WORKER_EVIDENCE_KEY, 512);
   if (
     !new RegExp(
       `^projects/${PROJECT_ID}/secrets/[a-zA-Z0-9_-]{1,255}/versions/[1-9][0-9]*$`,
@@ -346,7 +386,8 @@ export function readTb113EvidenceKeySecretVersion(
 }
 
 export function readTb113WorkerConfiguration(
-  env: NodeJS.ProcessEnv = process.env,
+  env: NodeJS.ProcessEnv,
+  normalizedProfile: unknown,
 ): Tb113WorkerConfiguration {
   return Object.freeze({
     ...readTb113CmsOrigin(env),
@@ -354,6 +395,6 @@ export function readTb113WorkerConfiguration(
     workerTokens: readTb113WorkerTokens(env),
     privateBucket: readTb113PrivateBucket(env),
     evidenceKeySecretVersion: readTb113EvidenceKeySecretVersion(env),
-    generation: readTb113ApprovedGenerationConfiguration(env),
+    generation: readTb113ApprovedGenerationConfiguration(normalizedProfile),
   });
 }

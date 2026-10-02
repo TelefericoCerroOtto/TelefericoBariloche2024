@@ -275,7 +275,7 @@ describe("worker CMS HTTP client", () => {
   });
 
   it("rejects wrong-scope tokens and missing or invalid token providers without leaking values", async () => {
-    const fetchImplementation = vi.fn(async () => jsonResponse(claimResult()));
+    const fetchImplementation = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(claimResult()));
     const wrongScope = client({
       tokenProvider: async (action) => ({
         action:
@@ -313,7 +313,7 @@ describe("worker CMS HTTP client", () => {
 
   it("validates canonical allowed origin before requesting an action token", async () => {
     const provider = vi.fn(tokenProvider);
-    const fetchImplementation = vi.fn(async () => jsonResponse(claimResult()));
+    const fetchImplementation = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(claimResult()));
     for (const [baseUrl, allowedOrigins] of [
       [BASE_URL, []],
       [BASE_URL, ["https://other.example.com"]],
@@ -332,6 +332,58 @@ describe("worker CMS HTTP client", () => {
     }
     expect(provider).not.toHaveBeenCalled();
     expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it("allows only an explicitly development-scoped exact loopback CMS origin", async () => {
+    const localOrigin = "http://127.0.0.1:1337";
+    const localhostOrigin = "http://localhost:1337";
+    const fetchImplementation = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(claimResult()));
+    const provider = vi.fn(tokenProvider);
+    const localClient = createWorkerCmsClient({
+      baseUrl: localOrigin,
+      allowedOrigins: [localOrigin],
+      runtimeMode: "development",
+      tokenProvider: provider,
+      fetchImplementation,
+    } as Parameters<typeof createWorkerCmsClient>[0]);
+
+    await expect(localClient.claim(RUN_ID)).resolves.toMatchObject({ status: "running" });
+    expect(String(fetchImplementation.mock.calls[0]?.[0])).toBe(
+      `${localOrigin}/api/tb113/worker/generations/${RUN_ID}/claim`,
+    );
+    expect(provider).toHaveBeenCalledTimes(1);
+
+    const localhostClient = createWorkerCmsClient({
+      baseUrl: localhostOrigin,
+      allowedOrigins: [localhostOrigin],
+      runtimeMode: "development",
+      tokenProvider: provider,
+      fetchImplementation,
+    } as Parameters<typeof createWorkerCmsClient>[0]);
+    await expect(localhostClient.claim(RUN_ID)).resolves.toMatchObject({ status: "running" });
+    expect(String(fetchImplementation.mock.calls[1]?.[0])).toContain(`${localhostOrigin}/api/tb113/worker/generations/`);
+
+    for (const baseUrl of [
+      "http://127.0.0.1.evil.example:1337",
+      "http://10.0.0.2:1337",
+      "http://0.0.0.0:1337",
+      "http://[::1]:1337",
+      "https://127.0.0.1:1337",
+    ]) {
+      expect(() => createWorkerCmsClient({
+        baseUrl,
+        allowedOrigins: [baseUrl],
+        runtimeMode: "development",
+        tokenProvider: provider,
+        fetchImplementation,
+      } as Parameters<typeof createWorkerCmsClient>[0])).toThrow();
+    }
+    expect(() => createWorkerCmsClient({
+      baseUrl: localhostOrigin,
+      allowedOrigins: [localhostOrigin],
+      tokenProvider: provider,
+      fetchImplementation,
+    })).toThrow();
   });
 
   it("rejects malformed, extra-field, oversized, redirected, and cross-origin responses", async () => {

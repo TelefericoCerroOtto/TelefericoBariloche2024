@@ -270,12 +270,14 @@ function parseReports(
       !Number.isSafeInteger(value.analyzedCommentCount) ||
       Number(value.analyzedCommentCount) < 0 ||
       !Number.isSafeInteger(value.artifactSize) ||
-      Number(value.artifactSize) < 0 ||
+      Number(value.artifactSize) < 1 ||
       value.status !== "succeeded" ||
       !Object.hasOwn(value, "requestedBy") ||
       (value.requestedBy !== null && !string(value.requestedBy)) ||
       !Object.hasOwn(value, "generatedBy") ||
       (value.generatedBy !== null && !string(value.generatedBy)) ||
+      value.mimeType !== "application/pdf" ||
+      value.objectKey !== `private/feedback-reports/${reportId}/report.pdf` ||
       !string(value.artifactSha256) ||
       !/^[a-f0-9]{64}$/.test(value.artifactSha256)
     )
@@ -295,7 +297,7 @@ function parseReports(
       createdAt,
       requestedBy: value.requestedBy,
       generatedBy: value.generatedBy,
-      canDownload: false,
+      canDownload: true,
       artifactSize: Number(value.artifactSize),
       artifactSha256: value.artifactSha256,
     };
@@ -557,6 +559,7 @@ export function getFeedbackAdminReader(): ReturnType<
     return createConfiguredFeedbackAdminReader({
       baseUrl: origin.baseUrl,
       allowedOrigins: origin.allowedOrigins,
+      ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
       tokenProvider: async (action) => ({
         action,
         value: tokens.feedbackAdminRead,

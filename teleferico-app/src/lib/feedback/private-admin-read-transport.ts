@@ -45,6 +45,7 @@ export class FeedbackAdminTransportError extends Error {
 export type PrivateFeedbackAdminReadTransportOptions = {
   readonly baseUrl: string;
   readonly allowedOrigins: readonly string[];
+  readonly runtimeMode?: "development";
   readonly tokenProvider: (
     action: typeof FEEDBACK_ADMIN_READ_ACTION,
     signal: AbortSignal,
@@ -114,7 +115,7 @@ export function createPrivateFeedbackAdminReadTransport(
 ) {
   let origin: URL;
   try {
-    origin = validateTrustedCmsOrigin(options.baseUrl, options.allowedOrigins);
+    origin = validateTrustedCmsOrigin(options.baseUrl, options.allowedOrigins, options.runtimeMode);
   } catch {
     return fail("INVALID_CONFIGURATION");
   }

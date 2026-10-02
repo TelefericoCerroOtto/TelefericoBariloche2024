@@ -35,6 +35,26 @@ See [../docs/playwright-e2e.md](../docs/playwright-e2e.md) for the pull-request,
 
 The `.env.example` file documents each environment variable of the package.
 
+### Current TB-113 process settings
+
+The app process requires its Strapi origin, app-owned Custom Content API token, the shared report-generation profile, worker target, and queue settings. `FEEDBACK_CAPABILITY_ENABLED` is server-only and remains `false` in deployment defaults; local development may enable it for an authorized operator. `BUILD_STRAPI_BASE_URL` and `FEEDBACK_CMS_ALLOWED_ORIGIN` must identify the same exact Strapi origin.
+
+Create a separate **Custom Content API token** in Strapi for the app. Enable exactly `feedbackAdminRead`, `workerSourceRead`, and `workerReportDownloadMetadata`. The worker has its own token and must never receive the app token; the app does not need the worker token.
+
+| App-process setting | Purpose |
+| --- | --- |
+| `BUILD_STRAPI_BASE_URL` | Strapi base URL. |
+| `FEEDBACK_CMS_ALLOWED_ORIGIN` | The single approved Strapi origin; must match the base URL. |
+| `FEEDBACK_APP_CMS_TOKEN` | Plain app-owned Custom Content API token with exactly the three app permissions above. |
+| `FEEDBACK_WORKER_URL` and `FEEDBACK_TASK_QUEUE_PATH` | Worker endpoint and task queue. Local development requires the exact loopback worker endpoint. |
+| `FEEDBACK_WORKER_OIDC_AUDIENCE`, `FEEDBACK_TASK_INVOKER_EMAIL`, `FEEDBACK_WORKER_OIDC_PRINCIPAL` | Production task identity settings. |
+| `FEEDBACK_VERTEX_PROJECT_ID`, `FEEDBACK_PRIVATE_BUCKET` | Approved Vertex project and private report bucket. |
+| `FEEDBACK_WORKER_EVIDENCE_KEY` | Secret Manager resource name and pinned version in production, not key bytes. Development derives a synthetic-only key from approved nonsecret metadata and makes no Secret Manager call. |
+
+Do not put any token or key bytes in documentation, browser code, the shared report profile, or shared client settings. The app token belongs only to the app process; configure the separate worker token in the worker process.
+
+App, CMS, and worker load the same versioned nonsecret profile from `../packages/tb113-runtime-contracts/config/report-generation.json`. Do not copy it into `.env` files or override it through environment variables. The profile pins the approved model context-window budget (`1,048,576`) and standard non-global PayGo rates (`$1.65` input / `$8.25` output per million tokens), excluding promotional credits, caching, and contract discounts. Public sources: [Gemini 3.8 Flash model details](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-8-flash) and [Vertex AI pricing](https://cloud.google.com/vertex-ai/generative-ai/pricing). The existing planner reserves output tokens and derives safety headroom (`104,858` tokens); the context window is a planning budget, not a prompt allowance. These configured values do not verify live Google access. The profile owns source revision, evidence-key ID, and pricing version as code-release metadata; historical report runs keep their immutable persisted model and pricing snapshots. Increment `pricingSnapshot.version` when a verified price changes.
+
 ## TB-113 package boundaries
 
 The app keeps browser-facing feedback routes, administration, task dispatch, and mediated report downloads. Pure reporting, TB-113 runtime contracts, and private report-storage adapters are shared from root `packages/` through the `@teleferico/*` TypeScript aliases. The private worker process is an independent root package at `../services/survey-report-worker`; it is not part of the public app runtime. `next.config.mjs` enables external source compilation for these repository packages. ECharts belongs to the worker package; the app keeps Recharts for its dashboard and its parity POC calls the worker's SVG renderer from test-only code under `tests/tb113/renderer-poc.ts`.
@@ -107,12 +127,106 @@ If Google does not return `refresh_token`:
 The server-side feedback dispatch seam derives queue names only from valid
 report-run UUIDs: `tb113-report-<UUID without hyphens>`. Invalid CMS run
 identifiers fail closed before dispatch. This deterministic identity is not a
-browser contract or proof that a task was created. The CMS exposes an additive
-authenticated reservation/outcome contract, but the app does not yet use it
-and no Cloud Tasks adapter is configured. It records only reservation, created,
-or unknown states and rejects caller-asserted absence. The default dispatcher
-leaves the generation queued as `DISPATCH_UNAVAILABLE`; no verified absence or
-real dispatch path exists yet.
+browser contract or proof that a task was created. The app uses the same
+`FeedbackCloudTaskClient` create/readback contract in production and local
+development. Production remains pinned to Google Cloud Tasks REST and Cloud Run
+keyless access tokens. With `NODE_ENV=development`, the client accepts only an
+exact loopback worker URL from `FEEDBACK_WORKER_URL`, derives the local task API
+from its port, and reads the queue from the existing `FEEDBACK_TASK_QUEUE_PATH`;
+that path uses the server-only local task API credential and is unavailable for
+non-loopback or production configuration. The worker's `pnpm dev` owns the
+loopback queue and delivers task POSTs to the authenticated worker HTTP handler.
+The queue is in-memory and L1 does not configure model dependencies, so this
+boundary proves dispatch/readback/delivery only, not report generation or
+persistent task state. The existing mediated download contract can read
+digest-bound private PDFs from the shared repository-local
+`.local/tb113-private-reports` directory in development; production continues to
+read from private GCS. The worker's configured development runtime uses the same
+file bucket, actual PDF renderer, and action-scoped Strapi client. Vertex
+CountTokens and model generation use lazy local GoogleAuth ADC only after a
+report is dispatched; separately authorize that live operation before using
+credentials. Development derives a predictable synthetic evidence key from
+approved nonsecret metadata and makes no Secret Manager call. That key is not
+production security evidence and must be limited to synthetic local data. The
+CMS reservation/outcome contract and existing coordinator semantics are
+unchanged.
+
+For local TB-113 development, `BUILD_STRAPI_BASE_URL` and
+`FEEDBACK_CMS_ALLOWED_ORIGIN` may both name the same exact Strapi origin using
+`http://127.0.0.1:<port>` or `http://localhost:<port>` only while
+`NODE_ENV=development`. The server-side feedback transports keep their existing
+action-scoped CMS tokens and admin session/CSRF checks. Other private-network
+addresses and mismatched host/port pairs are rejected;
+non-development runtimes continue to require the exact allowlisted public HTTPS
+origin. Start Strapi with either `HOST=127.0.0.1 npm run develop` or
+`HOST=localhost npm run develop` from `teleferico-cms`; `HOST` controls Strapi's
+HTTP bind address and does not change the independently configured database
+host. Keep the app on its ordinary `pnpm dev` command.
+
+### Full local TB-113 report flow
+
+The dashboard uses the ordinary authenticated routes and `pnpm run dev`; it
+does not have a preview mode or a report-response fixture. To run it against
+persistent local data, set `BUILD_STRAPI_BASE_URL` and
+`FEEDBACK_CMS_ALLOWED_ORIGIN` to the same exact CMS origin (`127.0.0.1` or
+`localhost`) including its port. The worker URL and local queue remain bound to
+`127.0.0.1`:
+
+1. Start local PostgreSQL, then run `HOST=localhost npm run develop` (or
+   `HOST=127.0.0.1 npm run develop`) from `teleferico-cms`
+   using its existing local database configuration. In a second CMS terminal, run
+   `NODE_ENV=development node scripts/seed-surveys.js --local-feedback` from
+   `teleferico-cms`. This adds only the marker-owned synthetic survey and
+   submissions; cleanup is
+   `NODE_ENV=development node scripts/seed-surveys.js --cleanup-local-feedback`.
+  2. Configure the existing TB-113 CMS origin, app-owned `FEEDBACK_APP_CMS_TOKEN`, worker-owned `FEEDBACK_WORKER_CMS_TOKEN`, and worker URL/queue settings in the local app/CMS/worker configuration. The shared profile already contains the approved context budget and standard non-global rates; this does not prove live Google access. Separately authorize the destination, operation, and credential/session before exercising live Vertex. Do not copy token values into documentation or browser code.
+   Keep the worker URL on `http://127.0.0.1:<port>` and use the existing queue
+   path setting; `pnpm dev` owns both worker and queue listeners.
+3. For an authorized local operator, the existing server-only
+   `FEEDBACK_CAPABILITY_ENABLED` can be set to `true` in the local app runtime;
+   deployment defaults stay `false`. This flag does not grant user capabilities.
+   Normal Auth.js sessions derive exactly four feedback capabilities from the
+   currently verified CMS role: `Administrator` and `Digital Experience
+   Operator` receive the bundle; other, missing, or blocked users receive none.
+   Their required Strapi native actions and the app's separate custom tokens
+   remain independent permission gates; this repository provisions no grants.
+4. In separate terminals, run `pnpm dev` from `services/survey-report-worker`
+   and then `pnpm dev` from `teleferico-app`. The dashboard uses ordinary
+   authenticated routes and the existing mediated download handler.
+
+The opt-in real-browser integration is isolated from default E2E/CI discovery:
+
+```bash
+COREPACK_ENABLE_NETWORK=0 pnpm exec playwright test --config playwright.local-feedback.config.ts
+```
+
+It provisions its own PostgreSQL/Strapi database, synthetic user and scoped
+tokens, local queue/worker, and private PDF directory; it replaces only external
+Google provider responses. Browser feedback routes are not stubbed. The runner
+starts the ordinary `pnpm dev` script from a temporary app root containing the
+same app source and an explicit config whitelist; it excludes repository/user
+`.env*` and `.npmrc` files and supplies only synthetic runtime settings. It cleans
+only resources carrying its generated test owner. The normal `pnpm dev`
+worker uses lazy ADC only for Vertex. Development derives a synthetic local
+evidence key and does not call Secret Manager; real Vertex access is not
+exercised by this test and requires separate authorization.
+
+The one browser scenario logs in through Strapi/Auth.js as a synthetic
+`Digital Experience Operator`, verifies the four server-issued capabilities
+and JWT non-exposure, checks missing-CSRF and untrusted-origin requests are
+rejected, generates through the real app route, waits for persisted `succeeded`
+history, and downloads the worker PDF through the authenticated app fetch. It
+checks the PDF signature, end marker, and SHA-256 against the route's ETag.
+
+The normal worker calls the configured Vertex and Secret Manager providers
+through lazy local ADC when a report is requested. That live operation is not
+verified by local unit tests and requires separate authorization for its
+destination, operation, and credential/session. Automated local integration
+tests must use an isolated PostgreSQL/Strapi/Next/worker stack and replace only
+external Google provider responses; CMS persistence, worker HTTP/render/storage,
+and authenticated app routes remain real. The default Playwright
+`feedback-admin.spec.ts` still uses fixture-backed feedback APIs; only the
+separate local-feedback config runs the persistent full journey.
 
 Below describes how the **security architecture** is designed around:
 

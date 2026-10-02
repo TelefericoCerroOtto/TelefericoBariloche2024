@@ -290,8 +290,8 @@ describe("feedback analytics UI projections", () => {
     expect(screen.getByText(/Los comentarios son anónimos por diseño/)).toBeInTheDocument();
     expect(screen.getByText(/Hay pocos comentarios en este alcance/)).toBeInTheDocument();
     expect(screen.getByText("September report")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Descargar PDF" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Descarga no disponible hasta que U12-A/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Descargar PDF" })).toBeEnabled();
+    expect(screen.queryByText(/Descarga no disponible hasta que U12-A/)).not.toBeInTheDocument();
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path, init) => {
       if (init?.method === "POST") return Promise.resolve(Response.json({ reportRunId: "run-2", status: "queued" }, { status: 202 }));
       return Promise.resolve(envelope(String(path).includes("/comments?") ? comments : reports));

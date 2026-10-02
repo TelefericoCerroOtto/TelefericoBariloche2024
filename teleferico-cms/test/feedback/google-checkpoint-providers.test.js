@@ -2,7 +2,9 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { createFeedbackCheckpointProviders } = require('../../src/api/survey-report-generation/services/google-checkpoint-providers');
+const { createFeedbackCheckpointProviders, parseRuntimeConfiguration } = require('../../src/api/survey-report-generation/services/google-checkpoint-providers');
+const { deriveLocalEvidenceKey } = require('../../../packages/tb113-runtime-contracts/src/local-evidence-key.cjs');
+const { loadTb113ReportGenerationProfile } = require('../../../packages/tb113-runtime-contracts/src/report-generation-profile.cjs');
 
 const PROJECT_ID = 'teleferico-bariloche-2024';
 const MODEL = 'gemini-3.8-flash';
@@ -54,15 +56,42 @@ function approvedConfig(overrides = {}) {
   };
 }
 
+function approvedProfile(config = approvedConfig()) {
+  const modelConfig = { ...config.modelConfig };
+  delete modelConfig.evidenceKeyId;
+  delete modelConfig.sourceRevision;
+  delete modelConfig.safetyHeadroomTokens;
+  return {
+    profileVersion: 'feedback-report-generation-profile.v1',
+    sourceRevision: config.sourceRevision,
+    evidenceKeyId: config.evidenceKeyId,
+    modelConfig,
+    pricingSnapshot: config.pricingSnapshot,
+  };
+}
+
+function createTestProviders(options = {}) {
+  return createFeedbackCheckpointProviders({
+    approvedGenerationProfile: loadTb113ReportGenerationProfile(approvedProfile()),
+    ...options,
+  });
+}
+
 function runtimeEnv(overrides = {}) {
   return {
-    TB113_APPROVED_GENERATION_CONFIG_JSON: JSON.stringify(approvedConfig()),
-    TB113_WORKER_EVIDENCE_KEY: SECRET_VERSION,
-    TB113_VERTEX_PROJECT_ID: PROJECT_ID,
+    FEEDBACK_WORKER_EVIDENCE_KEY: SECRET_VERSION,
+    FEEDBACK_VERTEX_PROJECT_ID: PROJECT_ID,
     K_SERVICE: 'teleferico-cms',
     K_REVISION: 'teleferico-cms-00001-abc',
     ...overrides,
   };
+}
+
+function developmentEnv() {
+  const env = { ...runtimeEnv(), NODE_ENV: 'development', HOST: '127.0.0.1', PORT: 1337 };
+  delete env.K_SERVICE;
+  delete env.K_REVISION;
+  return env;
 }
 
 function countRequest(overrides = {}) {
@@ -87,7 +116,7 @@ function jsonResponse(value, init = {}) {
   });
 }
 
-test('incomplete, non-keyless, or mismatched operator configuration exposes neither provider', () => {
+test('invalid environment and profile content expose neither provider', () => {
   let fetchCalls = 0;
   const fetchImplementation = async () => {
     fetchCalls += 1;
@@ -95,31 +124,40 @@ test('incomplete, non-keyless, or mismatched operator configuration exposes neit
   };
   const invalidConfigurations = [
     {},
-    { TB113_VERTEX_PROJECT_ID: 'other-project' },
-    { TB113_WORKER_EVIDENCE_KEY: `projects/${PROJECT_ID}/secrets/key/versions/latest` },
+    { FEEDBACK_VERTEX_PROJECT_ID: 'other-project' },
+    { FEEDBACK_WORKER_EVIDENCE_KEY: `projects/${PROJECT_ID}/secrets/key/versions/latest` },
     { ...runtimeEnv(), GOOGLE_APPLICATION_CREDENTIALS: '/tmp/credential.json' },
     { ...runtimeEnv(), K_REVISION: '' },
-    { ...runtimeEnv(), TB113_APPROVED_GENERATION_CONFIG_JSON: '{' },
-    {
-      ...runtimeEnv(),
-      TB113_APPROVED_GENERATION_CONFIG_JSON: JSON.stringify(approvedConfig({
-        modelConfig: modelConfig({ model: 'unapproved-model' }),
-      })),
-    },
-    {
-      ...runtimeEnv(),
-      TB113_APPROVED_GENERATION_CONFIG_JSON: JSON.stringify(approvedConfig({
-        evidenceKeyId: 'different-key-id',
-      })),
-    },
-    {
-      ...runtimeEnv(),
-      TB113_APPROVED_GENERATION_CONFIG_JSON: JSON.stringify({ ...approvedConfig(), unexpected: true }),
-    },
   ];
 
   for (const env of invalidConfigurations)
     assert.deepEqual(createFeedbackCheckpointProviders({ env, fetchImplementation }), {});
+  const normalized = loadTb113ReportGenerationProfile(approvedProfile());
+  const unsetProfile = loadTb113ReportGenerationProfile(approvedProfile({
+    ...approvedConfig(),
+    modelConfig: modelConfig({ verifiedInputTokenLimit: null }),
+    pricingSnapshot: {
+      version: 'pricing.v1',
+      currency: 'USD',
+      units: [{ sku: MODEL, inputMicrosPerMillion: null, outputMicrosPerMillion: null }],
+    },
+  }));
+  const alterGeneration = (changes) => ({
+    ...normalized,
+    generation: { ...normalized.generation, ...changes },
+  });
+  for (const profile of [
+    unsetProfile,
+    alterGeneration({ modelConfig: { ...normalized.generation.modelConfig, model: 'unapproved-model' } }),
+    alterGeneration({ evidenceKeyId: 'different-key-id' }),
+    alterGeneration({ unexpected: true }),
+    alterGeneration({ modelConfig: { ...normalized.generation.modelConfig, evidenceKeyId: 'duplicate-key.v1' } }),
+  ])
+    assert.deepEqual(createFeedbackCheckpointProviders({
+      env: runtimeEnv(),
+      fetchImplementation,
+      approvedGenerationProfile: profile,
+    }), {});
   assert.equal(fetchCalls, 0);
 });
 
@@ -146,7 +184,7 @@ test('provider and Strapi config modules make no request during import', () => {
   assert.equal(fetchCalls, 0);
 });
 
-test('Strapi config factory installs both providers only after full validation and never calls a provider at startup', () => {
+test('Strapi config factory installs both providers from the approved default without calling them at startup', () => {
   const configFactory = require('../../config/feedback');
   let fetchCalls = 0;
   const config = configFactory({
@@ -162,7 +200,7 @@ test('Strapi config factory installs both providers only after full validation a
 
 test('CountTokens recounts every exact approved segment at the pinned Vertex endpoint', async () => {
   const requests = [];
-  const provider = createFeedbackCheckpointProviders({
+  const provider = createTestProviders({
     env: runtimeEnv(),
     accessTokenProvider: async () => 'synthetic-access-token',
     fetchImplementation: async (url, init) => {
@@ -189,9 +227,44 @@ test('CountTokens recounts every exact approved segment at the pinned Vertex end
     init.cache === 'no-store' && init.headers.authorization === 'Bearer synthetic-access-token'), true);
 });
 
+test('CMS independently validates and freezes the same explicitly injected profile used by other runtimes', () => {
+  const profile = approvedProfile();
+  const runtime = parseRuntimeConfiguration({
+    FEEDBACK_WORKER_EVIDENCE_KEY: SECRET_VERSION,
+    FEEDBACK_VERTEX_PROJECT_ID: PROJECT_ID,
+  }, loadTb113ReportGenerationProfile(profile));
+
+  assert.equal(runtime.sourceRevision, profile.sourceRevision);
+  assert.equal(runtime.evidenceKeyId, profile.evidenceKeyId);
+  assert.equal(runtime.modelConfig.evidenceKeyId, profile.evidenceKeyId);
+  assert.equal(runtime.modelConfig.sourceRevision, profile.sourceRevision);
+  assert.equal(runtime.modelConfig.safetyHeadroomTokens, 2048);
+  assert.equal(runtime.pricingSnapshot.version, profile.pricingSnapshot.version);
+  assert.deepEqual(runtime.pricingSnapshot.units, profile.pricingSnapshot.units);
+  assert.equal(Object.hasOwn(profile.modelConfig, 'safetyHeadroomTokens'), false);
+  assert.ok(Object.isFrozen(runtime.modelConfig));
+  assert.ok(Object.isFrozen(runtime.pricingSnapshot.units[0]));
+});
+
+test('CMS default profile agrees on approved context, derived headroom, and standard USD rates', () => {
+  const profile = loadTb113ReportGenerationProfile();
+  const runtime = parseRuntimeConfiguration({
+    FEEDBACK_WORKER_EVIDENCE_KEY: SECRET_VERSION,
+    FEEDBACK_VERTEX_PROJECT_ID: PROJECT_ID,
+  }, profile);
+
+  assert.equal(runtime.modelConfig.verifiedInputTokenLimit, 1_048_576);
+  assert.equal(runtime.modelConfig.safetyHeadroomTokens, 104_858);
+  assert.deepEqual(runtime.pricingSnapshot.units, [{
+    sku: MODEL,
+    inputMicrosPerMillion: 1_650_000,
+    outputMicrosPerMillion: 8_250_000,
+  }]);
+});
+
 test('CountTokens rejects config overrides and malformed segment sets before network access', async () => {
   let fetchCalls = 0;
-  const provider = createFeedbackCheckpointProviders({
+  const provider = createTestProviders({
     env: runtimeEnv(),
     accessTokenProvider: async () => 'synthetic-access-token',
     fetchImplementation: async () => {
@@ -211,7 +284,7 @@ test('CountTokens rejects config overrides and malformed segment sets before net
 
 test('default access-token acquisition uses only the fixed metadata endpoint and Google flavor header', async () => {
   const requests = [];
-  const provider = createFeedbackCheckpointProviders({
+  const provider = createTestProviders({
     env: runtimeEnv(),
     fetchImplementation: async (url, init) => {
       requests.push({ url, init });
@@ -232,7 +305,7 @@ test('default access-token acquisition uses only the fixed metadata endpoint and
 test('evidence-key provider reads only the pinned version, verifies key identity and does not cache key bytes', async () => {
   const keyBytes = Buffer.from('synthetic evidence-key material with sufficient entropy');
   const requests = [];
-  const provider = createFeedbackCheckpointProviders({
+  const provider = createTestProviders({
     env: runtimeEnv(),
     accessTokenProvider: async () => 'synthetic-access-token',
     fetchImplementation: async (url, init) => {
@@ -274,7 +347,7 @@ test('evidence-key response mismatch, short key, and oversized body fail with sa
 
   for (const scenario of cases) {
     await t.test(scenario.name, async () => {
-      const provider = createFeedbackCheckpointProviders({
+      const provider = createTestProviders({
         env: runtimeEnv(),
         accessTokenProvider: async () => 'synthetic-access-token',
         fetchImplementation: async () => scenario.response(),
@@ -287,4 +360,153 @@ test('evidence-key response mismatch, short key, and oversized body fail with sa
       });
     });
   }
+});
+
+test('development provider injection validates CMS CountTokens inputs and evidence-key identity without Google access', async () => {
+  const calls = [];
+  const key = Buffer.from('deterministic offline evidence key material');
+  const providers = createTestProviders({
+    env: developmentEnv(),
+    developmentProviders: {
+      countTokens: async (request) => {
+        calls.push(['count', request]);
+        return { instructions: 1, schema: 2, metrics: 3, comments: 4 };
+      },
+      evidenceKey: async (keyId) => {
+        calls.push(['key', keyId]);
+        return key;
+      },
+    },
+    fetchImplementation: async () => {
+      throw new Error('development injection must not access Google');
+    },
+  });
+
+  assert.deepEqual(await providers.workerCountTokensProvider(countRequest()), {
+    instructions: 1,
+    schema: 2,
+    metrics: 3,
+    comments: 4,
+  });
+  assert.deepEqual(Buffer.from(await providers.workerEvidenceKeyProvider(EVIDENCE_KEY_ID)), key);
+  await assert.rejects(providers.workerCountTokensProvider(countRequest({
+    modelConfig: modelConfig({ model: 'unapproved-model' }),
+  })), { code: 'CONFIGURATION' });
+  await assert.rejects(providers.workerEvidenceKeyProvider('different-key'), {
+    code: 'CONFIGURATION',
+  });
+  assert.equal(calls.length, 2);
+});
+
+test('development provider injection is unavailable unless both authorities are injected', () => {
+  assert.deepEqual(createFeedbackCheckpointProviders({
+    env: developmentEnv(),
+    developmentProviders: { countTokens: async () => ({}) },
+  }), {});
+});
+
+test('local evidence-key providers reject non-loopback CMS bindings and mismatched local origins', () => {
+  const invalidBindings = [
+    { ...developmentEnv(), HOST: '0.0.0.0' },
+    { ...developmentEnv(), HOST: '192.168.1.20' },
+    {
+      ...developmentEnv(),
+      BUILD_STRAPI_BASE_URL: 'http://127.0.0.1:1338',
+      FEEDBACK_CMS_ALLOWED_ORIGIN: 'http://127.0.0.1:1338',
+    },
+    {
+      ...developmentEnv(),
+      BUILD_STRAPI_BASE_URL: 'http://127.0.0.1:1337',
+      FEEDBACK_CMS_ALLOWED_ORIGIN: 'http://127.0.0.1:1338',
+    },
+  ];
+  for (const env of invalidBindings)
+    assert.deepEqual(createFeedbackCheckpointProviders({ env }), {});
+
+  const validEnv = {
+    ...developmentEnv(),
+    BUILD_STRAPI_BASE_URL: 'http://127.0.0.1:1337',
+    FEEDBACK_CMS_ALLOWED_ORIGIN: 'http://127.0.0.1:1337',
+  };
+  const providers = createTestProviders({ env: validEnv });
+  assert.equal(typeof providers.workerCountTokensProvider, 'function');
+  assert.equal(typeof providers.workerEvidenceKeyProvider, 'function');
+
+  const localhostEnv = {
+    ...developmentEnv(),
+    HOST: 'localhost',
+    BUILD_STRAPI_BASE_URL: 'http://localhost:1337',
+    FEEDBACK_CMS_ALLOWED_ORIGIN: 'http://localhost:1337',
+  };
+  const localhostProviders = createTestProviders({ env: localhostEnv });
+  assert.equal(typeof localhostProviders.workerCountTokensProvider, 'function');
+  assert.equal(typeof localhostProviders.workerEvidenceKeyProvider, 'function');
+  for (const origin of ['http://127.0.0.1:1337', 'http://localhost:1338', 'http://localhost.evil.example:1337', 'http://0.0.0.0:1337']) {
+    assert.deepEqual(createTestProviders({
+      env: { ...localhostEnv, BUILD_STRAPI_BASE_URL: origin, FEEDBACK_CMS_ALLOWED_ORIGIN: origin },
+    }), {});
+  }
+  assert.deepEqual(createTestProviders({
+    env: { ...localhostEnv, NODE_ENV: 'production' },
+  }), {});
+});
+
+test('an explicitly injected unset profile keeps development CMS providers unavailable', () => {
+  let fetchCalls = 0;
+  const unsetProfile = loadTb113ReportGenerationProfile(approvedProfile({
+    ...approvedConfig(),
+    modelConfig: modelConfig({ verifiedInputTokenLimit: null }),
+    pricingSnapshot: {
+      version: 'pricing.v1',
+      currency: 'USD',
+      units: [{ sku: MODEL, inputMicrosPerMillion: null, outputMicrosPerMillion: null }],
+    },
+  }));
+  const providers = createFeedbackCheckpointProviders({
+    env: {
+      ...developmentEnv(),
+      HOST: 'localhost',
+      BUILD_STRAPI_BASE_URL: 'http://localhost:1337',
+      FEEDBACK_CMS_ALLOWED_ORIGIN: 'http://localhost:1337',
+    },
+    approvedGenerationProfile: unsetProfile,
+    fetchImplementation: async () => {
+      fetchCalls += 1;
+      throw new Error('provider must not be created from an unset profile');
+    },
+  });
+  assert.deepEqual(providers, {});
+  assert.equal(fetchCalls, 0);
+});
+
+test('development default checkpoint providers use the approved REST endpoints with injected test transport', async () => {
+  const urls = [];
+  const providers = createTestProviders({
+    env: developmentEnv(),
+    accessTokenProvider: async () => 'synthetic-local-oauth-token',
+    fetchImplementation: async (url) => {
+      urls.push(String(url));
+      if (String(url).includes(':countTokens')) return jsonResponse({ totalTokens: 2 });
+      return jsonResponse({
+        name: SECRET_VERSION,
+        payload: { data: Buffer.from('unused remote test key material').toString('base64') },
+      });
+    },
+  });
+
+  assert.deepEqual(await providers.workerCountTokensProvider(countRequest()), {
+    instructions: 2,
+    schema: 2,
+    metrics: 2,
+    comments: 2,
+  });
+  const expectedLocalKey = deriveLocalEvidenceKey({
+    evidenceKeyId: EVIDENCE_KEY_ID,
+    sourceRevision: modelConfig().sourceRevision,
+    secretVersion: SECRET_VERSION,
+  });
+  assert.deepEqual(Buffer.from(await providers.workerEvidenceKeyProvider(EVIDENCE_KEY_ID)), expectedLocalKey);
+  assert.equal(urls.filter((url) => url === VERTEX_URL).length, 4);
+  assert.equal(urls.some((url) => url.endsWith(`${SECRET_VERSION}:access`)), false);
+  assert.equal(urls.some((url) => url === METADATA_URL), false);
 });

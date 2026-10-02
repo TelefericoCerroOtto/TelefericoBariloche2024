@@ -216,6 +216,46 @@ describe("private report source transport", () => {
     expect(tokenProvider).not.toHaveBeenCalled();
   });
 
+  it("accepts only an explicitly development-scoped allowlisted loopback origin", async () => {
+    const origin = "http://127.0.0.1:1337";
+    const localhostOrigin = "http://localhost:1337";
+    const fetchImplementation = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => response(page("submissions", null, [], 0, null)));
+    const transport = createPrivateReportSourceTransport({
+      baseUrl: origin,
+      allowedOrigins: [origin],
+      runtimeMode: "development",
+      tokenProvider: async () => TOKEN,
+      fetchImplementation,
+    });
+    await expect(transport.readPage(query())).resolves.toMatchObject({ total: 0, items: [] });
+    expect(String(fetchImplementation.mock.calls[0]?.[0])).toBe(`${origin}/api/tb113/worker/report-source`);
+    expect(new Headers(fetchImplementation.mock.calls[0]?.[1]?.headers).get("authorization")).toBe(`Bearer ${TOKEN}`);
+    const localhostTransport = createPrivateReportSourceTransport({
+      baseUrl: localhostOrigin,
+      allowedOrigins: [localhostOrigin],
+      runtimeMode: "development",
+      tokenProvider: async () => TOKEN,
+      fetchImplementation,
+    });
+    await expect(localhostTransport.readPage(query())).resolves.toMatchObject({ total: 0, items: [] });
+    expect(String(fetchImplementation.mock.calls[1]?.[0])).toBe(`${localhostOrigin}/api/tb113/worker/report-source`);
+    for (const invalidOrigin of ["http://10.0.0.2:1337", "http://localhost.evil.example:1337", "http://0.0.0.0:1337", "http://[::1]:1337"]) {
+      expect(() => createPrivateReportSourceTransport({
+        baseUrl: invalidOrigin,
+        allowedOrigins: [invalidOrigin],
+        runtimeMode: "development",
+        tokenProvider: async () => TOKEN,
+        fetchImplementation,
+      })).toThrow();
+    }
+    expect(() => createPrivateReportSourceTransport({
+      baseUrl: localhostOrigin,
+      allowedOrigins: [localhostOrigin],
+      tokenProvider: async () => TOKEN,
+      fetchImplementation,
+    })).toThrow();
+  });
+
   it.each([
     "https://127.0.0.1",
     "https://[::1]",

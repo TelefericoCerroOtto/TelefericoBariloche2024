@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { mkdtemp, mkdir, rm, symlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { MAX_REPORT_PDF_BYTES, deterministicReportId } from "@teleferico/tb113-private-report-storage";
@@ -6,6 +9,7 @@ import {
   createPrivateReportObjectStorage,
   toPrivateReportDownloadMetadata,
 } from "@teleferico/tb113-private-report-storage";
+import { createLocalPrivateReportBucket } from "../../../../packages/tb113-private-report-storage/src/local-private-storage";
 import { createFeedbackReportDownload } from "./report-download";
 import { createFakePrivateReportBucket } from "./private-storage.test-fixtures";
 
@@ -136,5 +140,50 @@ describe("private report object storage adapter", () => {
         size: PDF.byteLength,
       }),
     ).toThrow();
+  });
+});
+
+describe("local private report bucket", () => {
+  it("persists verified PDF bytes for worker staging and mediated app reads", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "tb113-local-report-"));
+    try {
+      const bucket = createLocalPrivateReportBucket({ rootDirectory: directory });
+      const storage = createPrivateReportObjectStorage({ bucket });
+      await storage.artifacts.stage(REPORT_RUN_ID, artifact());
+      const metadata = toPrivateReportDownloadMetadata({
+        reportId: REPORT_ID,
+        reportRunId: REPORT_RUN_ID,
+        sha256: SHA256,
+        size: PDF.byteLength,
+      });
+      const download = createFeedbackReportDownload({
+        metadataReader: { read: async () => metadata },
+        objectReader: storage.objectReader,
+      });
+
+      await expect(download.read(REPORT_ID)).resolves.toMatchObject({
+        metadata,
+        bytes: PDF,
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects symlinked object directories and unsafe object keys", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "tb113-local-report-"));
+    const outside = await mkdtemp(join(tmpdir(), "tb113-local-outside-"));
+    try {
+      const bucket = createLocalPrivateReportBucket({ rootDirectory: directory });
+      const storage = createPrivateReportObjectStorage({ bucket });
+      await expect(bucket.readBounded("../../outside", 1024)).rejects.toThrow();
+
+      await mkdir(join(directory, "private"), { recursive: true });
+      await symlink(outside, join(directory, "private", "feedback-reports"));
+      await expect(storage.artifacts.stage(REPORT_RUN_ID, artifact())).rejects.toThrow();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 });
