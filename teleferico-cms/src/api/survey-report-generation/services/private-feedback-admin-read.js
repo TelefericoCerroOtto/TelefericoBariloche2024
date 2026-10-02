@@ -1,5 +1,6 @@
 'use strict';
 
+const { MAX_PDF_BYTES } = require('./private-report-download-metadata');
 const SOURCE_CONTRACT = 'survey-generation-source.v1';
 const ADMIN_CONTRACT = 'feedback-admin-source.v1';
 const PAGE_SIZE = 25;
@@ -35,6 +36,14 @@ function reportingDate(value) {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Argentina/Buenos_Aires',
   }).format(new Date(value));
+}
+
+function hasValidDownloadMetadata(report, reportRunId) {
+  return report.generationRunId === reportRunId &&
+    report.objectKey === `private/feedback-reports/${report.reportId}/report.pdf` &&
+    typeof report.artifactSha256 === 'string' && /^[a-f0-9]{64}$/.test(report.artifactSha256) &&
+    Number.isSafeInteger(report.artifactSize) && report.artifactSize >= 1 &&
+    report.artifactSize <= MAX_PDF_BYTES && report.mimeType === 'application/pdf';
 }
 
 function exactKeys(value, keys) {
@@ -237,7 +246,7 @@ async function readGenerationPage(strapi, query, after) {
         fields: ['reportRunId', 'periodStart', 'periodEnd', 'dataCutoffAt', 'status', 'createdAt', 'completedAt', 'failureCode', 'safeFailureMessage', 'snapshotJson'],
         populate: {
           retryOfGeneration: { fields: ['reportRunId'] },
-          report: { fields: ['reportId', 'createdAt', 'periodStart', 'periodEnd', 'generationRunId'] },
+          report: { fields: ['reportId', 'createdAt', 'periodStart', 'periodEnd', 'generationRunId', 'objectKey', 'artifactSha256', 'artifactSize', 'mimeType'] },
         },
       }),
     ]);
@@ -283,6 +292,7 @@ async function readGenerationPage(strapi, query, after) {
           periodEnd: candidate.periodEnd,
           analyzedResponseCount: population.currentSubmissionCount,
           analyzedCommentCount: population.currentCommentCount,
+          canDownload: hasValidDownloadMetadata(candidate, row.reportRunId),
         };
       } else if (row.report !== null && row.report !== undefined) {
         throw adminReadError('SOURCE_UNAVAILABLE');

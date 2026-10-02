@@ -127,6 +127,9 @@ describe("feedback administration private CMS reader", () => {
           periodEnd: "2026-08-31T23:59:59.999Z",
           analyzedResponseCount: 20,
           analyzedCommentCount: 8,
+          canDownload: true,
+          objectKey: "private/feedback-reports/private/report.pdf",
+          artifactSha256: "private-digest",
         },
         snapshotJson: { private: true },
         checkpointsJson: { private: true },
@@ -156,8 +159,58 @@ describe("feedback administration private CMS reader", () => {
     expect(result.data).toHaveProperty("items[0].reportRunId", "00000000-0000-4000-8000-000000000002");
     expect(result.data).toHaveProperty("items[0].retryOfReportRunId", "00000000-0000-4000-8000-000000000001");
     expect(result.data).toHaveProperty("items[1].report.reportId", "00000000-0000-4000-8000-000000000003");
+    expect(result.data).toHaveProperty("items[1].report.canDownload", true);
+    expect(Object.keys(result.data.items[1].report ?? {}).sort()).toEqual([
+      "analyzedCommentCount",
+      "analyzedResponseCount",
+      "canDownload",
+      "createdAt",
+      "period",
+      "reportId",
+    ]);
     expect(JSON.stringify(result)).not.toMatch(/snapshotJson|checkpointsJson|modelConfigJson|pricingSnapshotJson|cumulativeCostMicros|objectKey/);
     expect(readPage).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects generation reports without a strict download capability boolean", async () => {
+    const generation = {
+      reportRunId: "00000000-0000-4000-8000-000000000001",
+      periodStart: "2026-08-01T00:00:00.000Z",
+      periodEnd: "2026-08-31T23:59:59.999Z",
+      dataCutoffAt: "2026-09-01T11:00:00.000Z",
+      status: "succeeded",
+      createdAt: "2026-09-01T12:00:00.000Z",
+      completedAt: "2026-09-01T12:10:00.000Z",
+      failureCode: null,
+      safeFailureMessage: null,
+      retryOfReportRunId: null,
+      report: {
+        reportId: "00000000-0000-4000-8000-000000000003",
+        createdAt: "2026-09-01T12:10:00.000Z",
+        periodStart: "2026-08-01T00:00:00.000Z",
+        periodEnd: "2026-08-31T23:59:59.999Z",
+        analyzedResponseCount: 20,
+        analyzedCommentCount: 8,
+        canDownload: "true",
+      },
+      snapshotJson: {},
+    };
+    const reader = createFeedbackAdminReader({
+      readPage: vi.fn(async (query: FeedbackAdminSourcePageQuery) =>
+        query.resource === "generations"
+          ? page(query, 1, [generation])
+          : page(query, 0, []),
+      ),
+    });
+
+    await expect(reader.readGenerations({
+      route: "generations",
+      from: "2026-08-01",
+      to: "2026-08-31",
+      status: null,
+      page: 1,
+      pageSize: 25,
+    })).rejects.toBeInstanceOf(FeedbackAdminReaderError);
   });
 
   it("rejects changed totals and incomplete generation cursor chains", async () => {

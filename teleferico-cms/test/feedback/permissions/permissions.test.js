@@ -218,6 +218,10 @@ test('generation history projects synthetic failed and succeeded rows without pr
         createdAt: '2026-09-01T12:10:00.000Z',
         periodStart: '2026-08-01',
         periodEnd: '2026-08-31',
+        objectKey: `private/feedback-reports/${reportId}/report.pdf`,
+        artifactSha256: 'a'.repeat(64),
+        artifactSize: 25 * 1024 * 1024,
+        mimeType: 'application/pdf',
       },
       snapshotJson: { population: { currentSubmissionCount: 12, currentCommentCount: 4 } },
       checkpointsJson: { private: 'checkpoints' },
@@ -266,9 +270,163 @@ test('generation history projects synthetic failed and succeeded rows without pr
     periodEnd: '2026-08-31',
     analyzedResponseCount: 12,
     analyzedCommentCount: 4,
+    canDownload: true,
   });
   assert.doesNotMatch(JSON.stringify(result), /snapshotJson|checkpointsJson|modelConfigJson|pricingSnapshotJson|cumulativeCostMicros|private-task-name|objectKey/);
   assert.deepEqual(calls[1][1].orderBy, [{ createdAt: 'desc' }, { reportRunId: 'asc' }]);
   assert.equal(calls[1][1].fields.includes('snapshotJson'), true);
   assert.equal(Object.hasOwn(result.items[0], 'snapshotJson'), false);
+});
+
+test('invalid report download metadata disables download without invalidating a safe succeeded row', async () => {
+  const reportId = '00000000-0000-4000-8000-000000000002';
+  const validMetadata = {
+    objectKey: `private/feedback-reports/${reportId}/report.pdf`,
+    artifactSha256: 'a'.repeat(64),
+    artifactSize: 1,
+    mimeType: 'application/pdf',
+  };
+  const invalidMetadata = [
+    { ...validMetadata, objectKey: 'private/other/report.pdf' },
+    { ...validMetadata, artifactSha256: 'A'.repeat(64) },
+    { ...validMetadata, artifactSha256: 'not-a-digest' },
+    { ...validMetadata, artifactSize: 0 },
+    { ...validMetadata, artifactSize: 25 * 1024 * 1024 + 1 },
+    { ...validMetadata, artifactSize: '1' },
+    { ...validMetadata, mimeType: 'text/plain' },
+  ];
+
+  for (const metadata of invalidMetadata) {
+    const row = {
+      reportRunId: '00000000-0000-4000-8000-000000000004',
+      periodStart: '2026-08-01',
+      periodEnd: '2026-08-31',
+      dataCutoffAt: '2026-09-01T12:00:00.000Z',
+      status: 'succeeded',
+      createdAt: '2026-09-01T12:00:00.000Z',
+      completedAt: '2026-09-01T12:10:00.000Z',
+      failureCode: null,
+      safeFailureMessage: null,
+      retryOfGeneration: null,
+      report: {
+        ...metadata,
+        reportId,
+        generationRunId: '00000000-0000-4000-8000-000000000004',
+        createdAt: '2026-09-01T12:10:00.000Z',
+        periodStart: '2026-08-01',
+        periodEnd: '2026-08-31',
+      },
+      snapshotJson: { population: { currentSubmissionCount: 12, currentCommentCount: 4 } },
+    };
+    const strapi = {
+      db: { query: () => ({ count: async () => 1, findMany: async () => [row] }) },
+    };
+
+    const result = await createPrivateFeedbackAdminReader(strapi).readPage({
+      contractVersion: 'feedback-admin-source.v1',
+      resource: 'generations',
+      acceptedAtGte: '2026-08-01T03:00:00.000Z',
+      acceptedAtLte: '2026-09-01T02:59:59.999Z',
+      dataCutoffAt: '2026-09-02T12:00:00.000Z',
+      cursor: null,
+      pageSize: 25,
+      status: null,
+    });
+
+    assert.equal(result.items[0].status, 'succeeded');
+    assert.equal(result.items[0].report.canDownload, false);
+    assert.deepEqual(Object.keys(result.items[0].report).sort(), [
+      'analyzedCommentCount', 'analyzedResponseCount', 'canDownload',
+      'createdAt', 'periodEnd', 'periodStart', 'reportId',
+    ]);
+    assert.doesNotMatch(JSON.stringify(result), /objectKey|artifactSha256|artifactSize|mimeType/);
+  }
+});
+
+test('generation pagination keeps all statuses in the stable created-at/report-run order', async () => {
+  const rows = Array.from({ length: 26 }, (_, index) => ({
+    reportRunId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+    periodStart: '2026-08-01',
+    periodEnd: '2026-08-31',
+    dataCutoffAt: '2026-09-01T12:00:00.000Z',
+    status: 'queued',
+    createdAt: `2026-09-${String(26 - index).padStart(2, '0')}T12:00:00.000Z`,
+    completedAt: null,
+    failureCode: null,
+    safeFailureMessage: null,
+    retryOfGeneration: null,
+    report: null,
+    snapshotJson: {},
+  }));
+  let pageIndex = 0;
+  const queries = [];
+  const strapi = {
+    db: { query: () => ({
+      count: async () => rows.length,
+      findMany: async (query) => {
+        queries.push(query);
+        return pageIndex++ === 0 ? rows : rows.slice(25);
+      },
+    }) },
+  };
+  const reader = createPrivateFeedbackAdminReader(strapi);
+  const query = {
+    contractVersion: 'feedback-admin-source.v1',
+    resource: 'generations',
+    acceptedAtGte: '2026-08-01T03:00:00.000Z',
+    acceptedAtLte: '2026-09-01T02:59:59.999Z',
+    dataCutoffAt: '2026-09-02T12:00:00.000Z',
+    cursor: null,
+    pageSize: 25,
+    status: null,
+  };
+
+  const first = await reader.readPage(query);
+  const second = await reader.readPage({ ...query, cursor: first.nextCursor });
+
+  assert.equal(first.total, 26);
+  assert.equal(first.items.length, 25);
+  assert.equal(typeof first.nextCursor, 'string');
+  assert.equal(second.items.length, 1);
+  assert.equal(second.nextCursor, null);
+  assert.deepEqual(queries[0].orderBy, [{ createdAt: 'desc' }, { reportRunId: 'asc' }]);
+  assert.ok(queries[1].where.$and);
+  assert.ok(first.items.every((item) => item.report === null));
+});
+
+test('queued, running, and failed generations keep a null report relation', async () => {
+  const statuses = ['queued', 'running', 'failed'];
+  const rows = statuses.map((status, index) => ({
+    reportRunId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+    periodStart: '2026-08-01',
+    periodEnd: '2026-08-31',
+    dataCutoffAt: '2026-09-01T12:00:00.000Z',
+    status,
+    createdAt: `2026-09-0${index + 1}T12:00:00.000Z`,
+    completedAt: status === 'failed' ? '2026-09-01T12:10:00.000Z' : null,
+    failureCode: status === 'failed' ? 'PROVIDER_TIMEOUT' : null,
+    safeFailureMessage: status === 'failed' ? 'The report provider timed out.' : null,
+    retryOfGeneration: null,
+    report: null,
+    snapshotJson: {},
+  }));
+  const strapi = {
+    db: { query: () => ({ count: async () => rows.length, findMany: async () => rows }) },
+  };
+  const result = await createPrivateFeedbackAdminReader(strapi).readPage({
+    contractVersion: 'feedback-admin-source.v1',
+    resource: 'generations',
+    acceptedAtGte: '2026-08-01T03:00:00.000Z',
+    acceptedAtLte: '2026-09-01T02:59:59.999Z',
+    dataCutoffAt: '2026-09-02T12:00:00.000Z',
+    cursor: null,
+    pageSize: 25,
+    status: null,
+  });
+
+  assert.deepEqual(result.items.map(({ status, report }) => [status, report]), [
+    ['queued', null],
+    ['running', null],
+    ['failed', null],
+  ]);
 });
