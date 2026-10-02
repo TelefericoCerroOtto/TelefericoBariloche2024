@@ -6,10 +6,19 @@ import {
   createSnapshot,
   canonicalizeJson,
   type SnapshotEnvelopeV1,
-} from "../../../packages/survey-reporting-core/src";
-import { deriveEvidenceRef } from "../../../services/survey-report-worker/src/checkpoint-contract";
-import { preflightDirectAnalysis } from "../../../services/survey-report-worker/src/analysis-output-preflight";
-import { PUBLISHED_SECTION_KEYS } from "../../../services/survey-report-worker/src/contracts";
+} from "@teleferico/survey-reporting-core";
+import {
+  deriveChunkMembership,
+  deriveEvidenceRef,
+} from "../../../../services/survey-report-worker/src/checkpoint-contract";
+import {
+  preflightDirectAnalysis,
+  preflightMapAnalysis,
+  preflightReduceAnalysis,
+} from "../../../../services/survey-report-worker/src/analysis-output-preflight";
+import { PUBLISHED_SECTION_KEYS } from "../../../../services/survey-report-worker/src/contracts";
+import type { ModelConfigV1 } from "@teleferico/survey-reporting-core";
+import { validateGeneratedOutputBudgetV1 } from "../../../../services/survey-report-worker/src/map-reduce-execution-plan";
 
 const RUN_ID = "00000000-0000-4000-8000-000000000113";
 const KEY = "synthetic-only-test-key-that-is-not-a-secret";
@@ -89,23 +98,56 @@ function evaluate(output: unknown, snapshot = inputSnapshot()) {
   });
 }
 
+function mapOutput(
+  membership: ReturnType<typeof deriveChunkMembership>[number],
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    schemaVersion: "survey-map.v1",
+    chunkId: `map.${membership.chunkIndex}-of-${membership.chunkCount}`,
+    coveredRefs: membership.coveredRefs,
+    themes: [],
+    limitations: [],
+    ...overrides,
+  };
+}
+
+function reduceOutput(
+  mapOutputDigests: readonly string[],
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    schemaVersion: "survey-analysis.v1",
+    route: "reduce",
+    sections: PUBLISHED_SECTION_KEYS.map((key) => ({
+      key,
+      status: "insufficient_evidence",
+      claims: [],
+    })),
+    mapOutputDigests,
+    ...overrides,
+  };
+}
+
+function mapInput(snapshot = inputSnapshot(), chunkCount = 2) {
+  return {
+    snapshot,
+    reportRunId: RUN_ID,
+    evidenceKeyId: KEY_ID,
+    evidenceKey: KEY,
+    chunkCount,
+  };
+}
+
 describe("direct worker output preflight", () => {
   const snapshot = inputSnapshot();
   const refs = snapshot.payload.comments.map(({ recordId }) =>
     deriveEvidenceRef({ reportRunId: RUN_ID, recordId, evidenceKey: KEY }),
   );
 
-  it("reports only the independently checked subset and never calls an object validated", () => {
+  it("accepts structurally safe direct narratives without claiming semantic truth", () => {
     const result = evaluate(directOutput([claim(refs)]), snapshot);
-    expect(result.status).toBe("incomplete");
-    if (result.status !== "incomplete")
-      throw new Error("expected incomplete inspection");
-    expect(result.blockers).toContain(
-      "exact_claim_to_metric_grounding_and_contradiction_analysis",
-    );
-    expect(result.blockers).toContain(
-      "immutable_per_run_evidence_key_selection",
-    );
+    expect(result.status).toBe("accepted");
     expect(JSON.stringify(result)).not.toContain("synthetic comment");
   });
 
@@ -156,7 +198,41 @@ describe("direct worker output preflight", () => {
         directOutput([claim(refs.slice(0, 4), { signal: "minority" })]),
         snapshot,
       ).status,
-    ).toBe("incomplete");
+    ).toBe("accepted");
+  });
+
+  it("rejects a signal that contradicts its recurrent or minority section", () => {
+    const recurrent = directOutput();
+    recurrent.sections[4]!.status = "supported";
+    recurrent.sections[4]!.claims = [claim(refs, { signal: "descriptive" })];
+    expect(evaluate(recurrent, snapshot)).toMatchObject({
+      status: "rejected",
+      violations: ["section_signal_mismatch"],
+    });
+
+    const minority = directOutput();
+    minority.sections[5]!.status = "supported";
+    minority.sections[5]!.claims = [claim(refs, { signal: "recurrent" })];
+    expect(evaluate(minority, snapshot)).toMatchObject({
+      status: "rejected",
+      violations: ["section_signal_mismatch"],
+    });
+  });
+
+  it("rejects numeric values absent from the immutable metrics snapshot", () => {
+    const result = evaluate(
+      directOutput([
+        claim(refs, {
+          textEs: "La satisfacción pasó de 20 % a 10 % en el período actual.",
+        }),
+      ]),
+      snapshot,
+    );
+
+    expect(result).toMatchObject({
+      status: "rejected",
+      violations: ["unsupported_official_metric_value"],
+    });
   });
 
   it("rejects action language and short or eight-token verbatim comment matches", () => {
@@ -168,6 +244,12 @@ describe("direct worker output preflight", () => {
         snapshot,
       ),
     ).toMatchObject({ status: "rejected" });
+    expect(
+      evaluate(
+        directOutput([claim(refs, { textEs: "Contacto visitor@example.invalid disponible." })]),
+        snapshot,
+      ),
+    ).toMatchObject({ status: "rejected", violations: ["personal_data_or_url"] });
     const privateSnapshot = inputSnapshot([
       "este comentario sintético contiene ocho palabras únicas solo para prueba",
     ]);
@@ -222,11 +304,310 @@ describe("direct worker output preflight", () => {
       }),
     ]);
     const unresolved = evaluate(contradictory, snapshot);
-    expect(unresolved.status).toBe("incomplete");
-    if (unresolved.status !== "incomplete")
-      throw new Error("expected incomplete inspection");
-    expect(unresolved.blockers).toContain(
-      "exact_claim_to_metric_grounding_and_contradiction_analysis",
-    );
+    expect(unresolved.status).toBe("accepted");
+  });
+});
+
+describe("map/reduce worker output preflight", () => {
+  const snapshot = inputSnapshot();
+  const memberships = deriveChunkMembership({
+    ...mapInput(snapshot),
+    snapshotDigest: snapshot.digestHex,
+    comments: snapshot.payload.comments,
+  });
+  const mapDigests = ["a".repeat(64), "b".repeat(64)];
+
+  it("derives map membership and accepts structurally safe MapV1 output", () => {
+    const result = preflightMapAnalysis(mapOutput(memberships[0]!), {
+      ...mapInput(snapshot),
+    });
+
+    expect(result.status).toBe("accepted");
+    if (result.status !== "accepted")
+      throw new Error("expected accepted map inspection");
+    expect(result.checked).toContain("derived_map_chunk_membership");
+    expect(JSON.stringify(result)).not.toContain("synthetic comment");
+  });
+
+  it("rejects missing, extra, duplicate, reordered, or foreign map refs", () => {
+    const expected = memberships[0]!.coveredRefs;
+    const mutations = [
+      expected.slice(1),
+      [...expected, memberships[1]!.coveredRefs[0]],
+      [...expected, expected[0]],
+      [...expected].reverse(),
+      ["e_aaaaaaaaaaaaaaaaaaaa"],
+    ];
+
+    for (const coveredRefs of mutations) {
+      expect(
+        preflightMapAnalysis(mapOutput(memberships[0]!, { coveredRefs }), {
+          ...mapInput(snapshot),
+        }).status,
+      ).toBe("rejected");
+    }
+    expect(
+      preflightMapAnalysis(
+        mapOutput(memberships[0]!, { chunkId: "map.2-of-2" }),
+        { ...mapInput(snapshot) },
+      ).status,
+    ).toBe("rejected");
+  });
+
+  it("rejects unknown map fields, unsupported versions, and unsorted theme or claim IDs", () => {
+    const validClaim = {
+      claimId: "claim-a",
+      textEs: "Observación sintética.",
+      evidenceRefs: memberships[0]!.coveredRefs,
+      signal: "descriptive",
+    };
+    const theme = (themeKey: string, claims: readonly unknown[] = []) => ({
+      themeKey,
+      labelEs: "Tema sintético",
+      claims,
+    });
+
+    for (const output of [
+      mapOutput(memberships[0]!, { extra: true }),
+      mapOutput(memberships[0]!, { schemaVersion: "survey-map.v2" }),
+      mapOutput(memberships[0]!, {
+        themes: [theme("theme-b"), theme("theme-a")],
+      }),
+      mapOutput(memberships[0]!, {
+        themes: [
+          theme("theme-a", [{ ...validClaim, claimId: "claim-b" }, validClaim]),
+        ],
+      }),
+    ]) {
+      expect(
+        preflightMapAnalysis(output, { ...mapInput(snapshot) }).status,
+      ).toBe("rejected");
+    }
+  });
+
+  it("rejects prohibited or verbatim map content", () => {
+    const privateSnapshot = inputSnapshot([
+      "este comentario sintético contiene ocho palabras únicas solo para prueba",
+    ]);
+    const membership = deriveChunkMembership({
+      ...mapInput(privateSnapshot, 1),
+      snapshotDigest: privateSnapshot.digestHex,
+      comments: privateSnapshot.payload.comments,
+    })[0]!;
+
+    expect(
+      preflightMapAnalysis(
+        mapOutput(membership, {
+          limitations: ["Recomendamos mejorar el acceso."],
+        }),
+        { ...mapInput(privateSnapshot, 1) },
+      ),
+    ).toMatchObject({ status: "rejected" });
+    expect(
+      preflightMapAnalysis(
+        mapOutput(membership, {
+          themes: [
+            {
+              themeKey: "theme-a",
+              labelEs: "Tema sintético",
+              claims: [
+                {
+                  claimId: "claim-a",
+                  textEs:
+                    "este comentario sintético contiene ocho palabras únicas solo para prueba",
+                  evidenceRefs: membership.coveredRefs,
+                  signal: "descriptive",
+                },
+              ],
+            },
+          ],
+        }),
+        { ...mapInput(privateSnapshot, 1) },
+      ),
+    ).toMatchObject({ status: "rejected" });
+  });
+
+  it("rejects malformed or duplicate reduce digests and compares ordered CMS-verified map digests", () => {
+    const input = {
+      snapshot,
+      reportRunId: RUN_ID,
+      evidenceKeyId: KEY_ID,
+      evidenceKey: KEY,
+      verifiedMapOutputDigests: mapDigests,
+    };
+
+    const result = preflightReduceAnalysis(reduceOutput(mapDigests), input);
+    expect(result.status).toBe("accepted");
+    if (result.status !== "accepted")
+      throw new Error("expected accepted reduce inspection");
+    expect(result.checked).toContain("map_output_digest_syntax_and_uniqueness");
+
+    for (const digests of [
+      [],
+      [mapDigests[0], mapDigests[0]],
+      ["not-a-digest", mapDigests[1]],
+    ]) {
+      expect(preflightReduceAnalysis(reduceOutput(digests), input).status).toBe(
+        "rejected",
+      );
+    }
+    expect(
+      preflightReduceAnalysis(reduceOutput([...mapDigests].reverse()), input),
+    ).toMatchObject({ status: "rejected" });
+  });
+
+  it("does not treat matching forged caller-supplied map digests as CMS-verified", () => {
+    const forgedDigests = ["d".repeat(64), "e".repeat(64)];
+    const input = {
+      snapshot,
+      reportRunId: RUN_ID,
+      evidenceKeyId: KEY_ID,
+      evidenceKey: KEY,
+      validatedMapOutputs: forgedDigests.map((outputDigest, index) => ({ chunkIndex: index + 1, outputDigest })),
+    };
+
+    const result = preflightReduceAnalysis(reduceOutput(forgedDigests), input);
+    expect(result.status).toBe("incomplete");
+    if (result.status !== "incomplete")
+      throw new Error("expected incomplete reduce inspection");
+    expect(result.blockers).toContain("independently_verified_cms_map_checkpoint_output_digests");
+  });
+
+  it("rejects unsupported reduce versions, unknown keys, and out-of-order sections", () => {
+    const input = {
+      snapshot,
+      reportRunId: RUN_ID,
+      evidenceKeyId: KEY_ID,
+      evidenceKey: KEY,
+    };
+
+    for (const output of [
+      reduceOutput(mapDigests, { schemaVersion: "survey-analysis.v2" }),
+      reduceOutput(mapDigests, { extra: true }),
+      reduceOutput(mapDigests, {
+        sections: [...reduceOutput(mapDigests).sections].reverse(),
+      }),
+    ]) {
+      expect(preflightReduceAnalysis(output, input).status).toBe("rejected");
+    }
+
+    const base = reduceOutput(mapDigests);
+    const foreignRefOutput = {
+      ...base,
+      sections: base.sections.map((section, index) =>
+        index === 0
+          ? {
+              ...section,
+              status: "supported",
+              claims: [
+                {
+                  claimId: "claim-a",
+                  textEs: "Observación sintética.",
+                  evidenceRefs: ["e_aaaaaaaaaaaaaaaaaaaa"],
+                  signal: "descriptive",
+                },
+              ],
+            }
+          : section,
+      ),
+    };
+    expect(preflightReduceAnalysis(foreignRefOutput, input)).toMatchObject({
+      status: "rejected",
+    });
+  });
+
+  it("rejects prohibited and verbatim content in reduce claims", () => {
+    const privateSnapshot = inputSnapshot([
+      "este comentario sintético contiene ocho palabras únicas solo para prueba",
+    ]);
+    const ref = deriveEvidenceRef({
+      reportRunId: RUN_ID,
+      recordId: "synthetic-0",
+      evidenceKey: KEY,
+    });
+    const input = {
+      snapshot: privateSnapshot,
+      reportRunId: RUN_ID,
+      evidenceKeyId: KEY_ID,
+      evidenceKey: KEY,
+    };
+    const outputWithText = (textEs: string) => {
+      const baseOutput = reduceOutput([mapDigests[0]!]);
+      return {
+        ...baseOutput,
+        sections: baseOutput.sections.map((section, index) =>
+          index === 0
+            ? {
+                ...section,
+                status: "supported",
+                claims: [
+                  {
+                    claimId: "claim-a",
+                    textEs,
+                    evidenceRefs: [ref],
+                    signal: "descriptive",
+                  },
+                ],
+              }
+            : section,
+        ),
+      };
+    };
+
+    expect(
+      preflightReduceAnalysis(
+        outputWithText("Recomendamos mejorar el acceso."),
+        input,
+      ),
+    ).toMatchObject({ status: "rejected" });
+    expect(
+      preflightReduceAnalysis(
+        outputWithText(
+          "este comentario sintético contiene ocho palabras únicas solo para prueba",
+        ),
+        input,
+      ),
+    ).toMatchObject({ status: "rejected" });
+  });
+});
+
+describe("stage output token budgets", () => {
+  const modelConfig = {
+    map: { hardMax: 4_000 },
+    directReduce: { hardMax: 8_000 },
+  } as ModelConfigV1;
+
+  it.each([
+    ["direct", 8_001],
+    ["reduce", 8_001],
+    ["map", 4_001],
+  ] as const)("rejects %s output above its hard bound", (stage, tokenCount) => {
+    expect(() => validateGeneratedOutputBudgetV1({
+      tokenCount,
+      providerTokenCount: tokenCount,
+      modelConfig,
+      stage,
+    })).toThrowError(expect.objectContaining({ code: "INVALID_OUTPUT" }));
+  });
+
+  it("requires matching provider usage and exact CountTokens evidence", () => {
+    expect(() => validateGeneratedOutputBudgetV1({
+      tokenCount: 400,
+      providerTokenCount: 399,
+      modelConfig,
+      stage: "map",
+    })).toThrowError(expect.objectContaining({ code: "INVALID_OUTPUT" }));
+    expect(() => validateGeneratedOutputBudgetV1({
+      tokenCount: 4_000,
+      providerTokenCount: 4_000,
+      modelConfig,
+      stage: "map",
+    })).not.toThrow();
+    expect(() => validateGeneratedOutputBudgetV1({
+      tokenCount: 8_000,
+      providerTokenCount: 8_000,
+      modelConfig,
+      stage: "direct",
+    })).not.toThrow();
   });
 });

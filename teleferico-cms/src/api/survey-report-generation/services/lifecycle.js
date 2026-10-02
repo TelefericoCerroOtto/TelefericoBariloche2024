@@ -1,9 +1,31 @@
 'use strict';
 const { createHash } = require('node:crypto');
+const { validateWorkerClaimContracts, verifyCheckpointGraphV1, verifyMapReduceCountAuthorityV1, verifyGeneratedOutputCountV1 } = require('./checkpoint-contract');
 function domainError(code) { return Object.assign(new Error(code), { code }); }
 const REPORT_RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const DISPATCH_EVIDENCE_VERSION = 'survey-dispatch-evidence.v1';
 const SNAPSHOT_CONTRACT_VERSION = 'survey-snapshot.v1';
+const WORKER_CHECKPOINT_KEYS = ['checkpointVersion', 'stageKey', 'stageIndex', 'route', 'stageType', 'status', 'inputDigest', 'outputDigest', 'attempts', 'completedAt', 'payload'];
+const WORKER_COMPLETE_KEYS = ['contractVersion', 'expectedStateVersion', 'validatedAnalysis', 'analysisDigest', 'rendererVersion', 'artifact'];
+const CHECKPOINT_STAGE_KEYS = ['redact', 'count', 'direct', 'validate', 'render', 'store'];
+const EMPTY_EVIDENCE_PARAGRAPH = 'No hay comentarios elegibles para respaldar esta sección en el período analizado.';
+const ANALYSIS_SECTION_KEYS = ['executive_summary', 'observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations'];
+const WORKER_FAILURE_MESSAGES = Object.freeze({
+  PROVIDER_TRANSIENT: 'The report provider is temporarily unavailable.',
+  PROVIDER_RATE_LIMIT: 'The report provider is temporarily busy.',
+  PROVIDER_TIMEOUT: 'The report provider timed out.',
+  CMS_TRANSIENT: 'Report state could not be persisted.',
+  STORAGE_TRANSIENT: 'The report artifact could not be staged.',
+  INVALID_OUTPUT: 'The report output did not satisfy its contract.',
+  AUTHENTICATION: 'The report worker authentication failed.',
+  CONFIGURATION: 'Report generation is not configured.',
+  UNKNOWN_VERSION: 'The report contract version is not supported.',
+  INVARIANT: 'The report state failed an integrity check.',
+  PROHIBITED_CONTENT: 'The report output contained prohibited content.',
+  QUEUE_ENQUEUE_EXHAUSTED: 'The report could not be queued.',
+});
+const COST_ALERT_THRESHOLD_MICROS = 10000000n;
+const ALERT_OUTBOX_VERSION = 'survey-alert-outbox.v1';
 
 function compareCodePoints(left, right) {
   const a = Array.from(left, (value) => value.codePointAt(0));
@@ -52,9 +74,74 @@ function prepareWorkerSnapshot(generation) {
     snapshot: { canonicalization: 'tb-json.v1', algorithm: 'sha256', digestHex, payload } };
 }
 
+function parseWorkerClaimJson(value) {
+  let parsed = value;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { throw domainError('INVALID_STATE'); }
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    throw domainError('INVALID_STATE');
+  return parsed;
+}
+
+function prepareWorkerClaim(generation) {
+  try {
+    const value = {
+      checkpoints: parseWorkerClaimJson(generation.checkpointsJson),
+      modelConfig: parseWorkerClaimJson(generation.modelConfigJson),
+      pricingSnapshot: parseWorkerClaimJson(generation.pricingSnapshotJson),
+    };
+    validateWorkerClaimContracts({
+      snapshotDigest: generation.snapshotDigest,
+      sourceRevision: generation.sourceRevision,
+      ...value,
+    });
+    return value;
+  } catch {
+    throw domainError('INVALID_STATE');
+  }
+}
+
 function exactKeys(value, keys) {
   return value && typeof value === 'object' && !Array.isArray(value) &&
     Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function validateWorkerCheckpointCommand(stageKey, command) {
+  const supportedStage = CHECKPOINT_STAGE_KEYS.includes(stageKey) || stageKey === 'reduce' || /^map\.[1-9]\d*-of-[1-9]\d*$/.test(stageKey);
+  const expectedStageType = stageKey.startsWith('map.') ? 'map' : stageKey;
+  if (!supportedStage || !exactKeys(command, ['contractVersion', 'expectedStateVersion', 'checkpoint']) ||
+      command.contractVersion !== 'survey-worker-cms.v1' || !Number.isSafeInteger(command.expectedStateVersion) || command.expectedStateVersion < 1 ||
+      !exactKeys(command.checkpoint, WORKER_CHECKPOINT_KEYS) || command.checkpoint.stageKey !== stageKey ||
+      command.checkpoint.checkpointVersion !== 'survey-checkpoint.v1' || command.checkpoint.stageType !== expectedStageType ||
+      command.checkpoint.status !== 'valid' || !Number.isSafeInteger(command.checkpoint.stageIndex) ||
+      !Number.isSafeInteger(command.checkpoint.attempts) || command.checkpoint.attempts < 1 ||
+      !/^[a-f0-9]{64}$/.test(command.checkpoint.inputDigest ?? '') || !/^[a-f0-9]{64}$/.test(command.checkpoint.outputDigest ?? ''))
+    return false;
+  return true;
+}
+
+function validateWorkerCompleteCommand(command) {
+  if (!exactKeys(command, WORKER_COMPLETE_KEYS) || command.contractVersion !== 'survey-worker-cms.v1' ||
+      !Number.isSafeInteger(command.expectedStateVersion) || command.expectedStateVersion < 1 ||
+      !exactKeys(command.validatedAnalysis, ['schemaVersion', 'sections']) ||
+      command.validatedAnalysis.schemaVersion !== 'survey-published-analysis.v1' ||
+      !Array.isArray(command.validatedAnalysis.sections) || command.validatedAnalysis.sections.length !== ANALYSIS_SECTION_KEYS.length ||
+      !/^[a-f0-9]{64}$/.test(command.analysisDigest ?? '') || typeof command.rendererVersion !== 'string' ||
+      !command.rendererVersion || command.rendererVersion.length > 128 ||
+      !exactKeys(command.artifact, ['objectKey', 'sha256', 'size', 'mimeType']) ||
+      typeof command.artifact.objectKey !== 'string' || !/^[a-f0-9]{64}$/.test(command.artifact.sha256 ?? '') ||
+      !Number.isSafeInteger(command.artifact.size) || command.artifact.size < 1 || command.artifact.mimeType !== 'application/pdf')
+    return false;
+  const match = /^private\/feedback-reports\/([0-9a-f-]{36})\/report\.pdf$/.exec(command.artifact.objectKey);
+  if (!match || !REPORT_RUN_ID_PATTERN.test(match[1])) return false;
+  return command.validatedAnalysis.sections.every((section, index) =>
+    exactKeys(section, ['key', 'status', 'paragraphsEs']) && section.key === ANALYSIS_SECTION_KEYS[index] &&
+    ['supported', 'insufficient_evidence'].includes(section.status) && Array.isArray(section.paragraphsEs) &&
+    section.paragraphsEs.length > 0 && section.paragraphsEs.every((paragraph) =>
+      typeof paragraph === 'string' && paragraph.length > 0 && paragraph.length <= 4000) &&
+    (section.status !== 'insufficient_evidence' ||
+      section.paragraphsEs.length === 1 && section.paragraphsEs[0] === EMPTY_EVIDENCE_PARAGRAPH));
 }
 
 function sameDispatchEvidence(left, right) {
@@ -68,6 +155,17 @@ function sameDispatchEvidence(left, right) {
 function expectedTaskName(reportRunId) {
   if (!REPORT_RUN_ID_PATTERN.test(reportRunId)) return null;
   return `tb113-report-${reportRunId.replaceAll('-', '')}`;
+}
+
+function deterministicReportId(reportRunId, artifactSha256) {
+  const bytes = createHash('sha256')
+    .update(`tb113-report-id.v1:${reportRunId}:${artifactSha256}`)
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function validTimestamp(value) {
@@ -166,6 +264,181 @@ function validateWorkerClaimCommand(value) {
   return exactKeys(value, ['commandVersion']) &&
     value.commandVersion === 'survey-report-command.v1';
 }
+function validateWorkerFailCommand(value) {
+  return exactKeys(value, ['contractVersion', 'expectedStateVersion', 'failureCode', 'safeFailureMessage']) &&
+    value.contractVersion === 'survey-worker-cms.v1' &&
+    Number.isSafeInteger(value.expectedStateVersion) && value.expectedStateVersion > 0 &&
+    Object.hasOwn(WORKER_FAILURE_MESSAGES, value.failureCode) &&
+    value.safeFailureMessage === WORKER_FAILURE_MESSAGES[value.failureCode];
+}
+function parseUsageLedger(generation) {
+  let ledger = generation.usageJson;
+  if (typeof ledger === 'string') { try { ledger = JSON.parse(ledger); } catch { throw domainError('INVALID_STATE'); } }
+  if (ledger === null || ledger === undefined ||
+      typeof ledger === 'object' && !Array.isArray(ledger) && Object.keys(ledger).length === 0) ledger = null;
+  const storedCost = generation.cumulativeCostMicros ?? ledger?.cumulativeCostMicros ?? '0';
+  if (!(typeof storedCost === 'string' && /^(0|[1-9]\d*)$/.test(storedCost)) &&
+      !(Number.isSafeInteger(storedCost) && storedCost >= 0)) throw domainError('INVALID_STATE');
+  if (ledger === null) {
+    if (BigInt(String(storedCost)) !== 0n) throw domainError('INVALID_STATE');
+    ledger = { version: 'survey-usage-ledger.v1', stages: [], cumulativeCostMicros: '0', costAlerted: false, terminalFailureAlerted: false };
+  }
+  const legacyKeys = ['version', 'stages', 'cumulativeCostMicros', 'costAlerted', 'terminalFailureAlerted'];
+  const currentKeys = [...legacyKeys, 'alertOutbox'];
+  if ((!exactKeys(ledger, legacyKeys) && !exactKeys(ledger, currentKeys)) ||
+      ledger.version !== 'survey-usage-ledger.v1' || !Array.isArray(ledger.stages) ||
+      typeof ledger.cumulativeCostMicros !== 'string' || !/^(0|[1-9]\d*)$/.test(ledger.cumulativeCostMicros) ||
+      typeof ledger.costAlerted !== 'boolean' || typeof ledger.terminalFailureAlerted !== 'boolean')
+    throw domainError('INVALID_STATE');
+  let alertOutbox = ledger.alertOutbox ?? { version: ALERT_OUTBOX_VERSION, intents: [] };
+  if (!exactKeys(alertOutbox, ['version', 'intents']) || alertOutbox.version !== ALERT_OUTBOX_VERSION ||
+      !Array.isArray(alertOutbox.intents) || alertOutbox.intents.length > 2) throw domainError('INVALID_STATE');
+  const seenKeys = new Set();
+  const seenKinds = new Set();
+  for (const intent of alertOutbox.intents) {
+    if (!intent || typeof intent !== 'object' || Array.isArray(intent)) throw domainError('INVALID_STATE');
+    const failure = intent.kind === 'terminal-failure';
+    const keys = failure
+      ? ['deduplicationKey', 'kind', 'reportRunId', 'failureCode', 'status']
+      : ['deduplicationKey', 'kind', 'reportRunId', 'cumulativeCostMicros', 'status'];
+    const expectedKey = intent.kind === 'terminal-failure'
+      ? `tb113:terminal-failure:${generation.reportRunId}:v1`
+      : intent.kind === 'cost-threshold'
+        ? `tb113:cost-over-10-usd:${generation.reportRunId}:v1` : null;
+    if (!expectedKey || !exactKeys(intent, keys) || intent.reportRunId !== generation.reportRunId ||
+        intent.deduplicationKey !== expectedKey || !['pending', 'delivered'].includes(intent.status) ||
+        failure && !Object.hasOwn(WORKER_FAILURE_MESSAGES, intent.failureCode) ||
+        !failure && (typeof intent.cumulativeCostMicros !== 'string' || !/^(0|[1-9]\d*)$/.test(intent.cumulativeCostMicros) ||
+          BigInt(intent.cumulativeCostMicros) <= COST_ALERT_THRESHOLD_MICROS) ||
+        seenKeys.has(intent.deduplicationKey) || seenKinds.has(intent.kind))
+      throw domainError('INVALID_STATE');
+    seenKeys.add(intent.deduplicationKey);
+    seenKinds.add(intent.kind);
+  }
+  const costDelivered = alertOutbox.intents.some(({ kind, status }) => kind === 'cost-threshold' && status === 'delivered');
+  const failureDelivered = alertOutbox.intents.some(({ kind, status }) => kind === 'terminal-failure' && status === 'delivered');
+  if (ledger.costAlerted !== costDelivered || ledger.terminalFailureAlerted !== failureDelivered) throw domainError('INVALID_STATE');
+  return {
+    ledger: { ...ledger, alertOutbox },
+    storedCost: BigInt(String(storedCost)),
+  };
+}
+
+function pendingWorkerAlerts(ledger) {
+  return ledger.alertOutbox.intents
+    .filter(({ status }) => status === 'pending')
+    .map(({ status: _status, ...intent }) => intent);
+}
+
+function addAlertIntent(ledger, intent) {
+  const existing = ledger.alertOutbox.intents.find(({ kind }) => kind === intent.kind);
+  if (existing) {
+    const { status: _status, ...persisted } = existing;
+    if (canonicalizeJson(persisted) !== canonicalizeJson(intent)) throw domainError('INVARIANT');
+    return ledger;
+  }
+  return {
+    ...ledger,
+    alertOutbox: { ...ledger.alertOutbox, intents: [...ledger.alertOutbox.intents, { ...intent, status: 'pending' }] },
+  };
+}
+
+function terminalFailureIntent(reportRunId, failureCode) {
+  return {
+    deduplicationKey: `tb113:terminal-failure:${reportRunId}:v1`,
+    kind: 'terminal-failure',
+    reportRunId,
+    failureCode,
+  };
+}
+
+function validateWorkerAlertAcknowledgeCommand(value) {
+  return exactKeys(value, ['contractVersion', 'deduplicationKey']) &&
+    value.contractVersion === 'survey-worker-alert-ack.v1' &&
+    typeof value.deduplicationKey === 'string' && value.deduplicationKey.length <= 128;
+}
+
+function withPendingAlerts(result, generation) {
+  const { ledger } = parseUsageLedger(generation);
+  const pendingAlerts = pendingWorkerAlerts(ledger);
+  return pendingAlerts.length ? { ...result, pendingAlerts } : result;
+}
+
+function recordCheckpointUsage(generation, checkpoint, modelConfig) {
+  const usage = checkpoint.payload?.usage;
+  const { ledger, storedCost } = parseUsageLedger(generation);
+  if (!usage) return { usageJson: ledger, cumulativeCostMicros: storedCost.toString(), crossedThreshold: false, pendingAlerts: pendingWorkerAlerts(ledger) };
+  if (!exactKeys(usage, ['model', 'modelRevision', 'sku', 'usageMetadata', 'stageKey', 'pricingSnapshotVersion', 'costMicros']) ||
+      usage.stageKey !== checkpoint.stageKey || usage.model !== modelConfig.model ||
+      typeof usage.modelRevision !== 'string' || !usage.modelRevision || usage.modelRevision.length > 128 ||
+      typeof usage.sku !== 'string' || !usage.sku || usage.sku.length > 128 ||
+      typeof usage.pricingSnapshotVersion !== 'string' || !usage.pricingSnapshotVersion || usage.pricingSnapshotVersion.length > 128 ||
+      !exactKeys(usage.usageMetadata, ['promptTokenCount', 'candidatesTokenCount']) ||
+      !Number.isSafeInteger(usage.usageMetadata.promptTokenCount) || usage.usageMetadata.promptTokenCount < 0 ||
+      !Number.isSafeInteger(usage.usageMetadata.candidatesTokenCount) || usage.usageMetadata.candidatesTokenCount < 0 ||
+      typeof usage.costMicros !== 'string' || !/^(0|[1-9]\d*)$/.test(usage.costMicros))
+    throw domainError('VALIDATION_FAILED');
+  let snapshot = generation.pricingSnapshotJson;
+  if (typeof snapshot === 'string') { try { snapshot = JSON.parse(snapshot); } catch { throw domainError('INVALID_STATE'); } }
+  if (!exactKeys(snapshot, ['version', 'currency', 'units']) || typeof snapshot.version !== 'string' ||
+      snapshot.version.length === 0 || snapshot.version !== usage.pricingSnapshotVersion || snapshot.currency !== 'USD' ||
+      !Array.isArray(snapshot.units) || snapshot.units.length === 0)
+    throw domainError('UNKNOWN_VERSION');
+  const seenSkus = new Set();
+  for (const candidate of snapshot.units) {
+    if (!exactKeys(candidate, ['sku', 'inputMicrosPerMillion', 'outputMicrosPerMillion']) ||
+        typeof candidate.sku !== 'string' || !candidate.sku || seenSkus.has(candidate.sku) ||
+        !Number.isSafeInteger(candidate.inputMicrosPerMillion) || candidate.inputMicrosPerMillion < 0 ||
+        !Number.isSafeInteger(candidate.outputMicrosPerMillion) || candidate.outputMicrosPerMillion < 0)
+      throw domainError('UNKNOWN_VERSION');
+    seenSkus.add(candidate.sku);
+  }
+  const unit = snapshot.units.find((entry) => entry.sku === usage.sku);
+  if (!unit) throw domainError('UNKNOWN_VERSION');
+  const priceUsage = (stage) => {
+    const stageUnit = snapshot.units.find((candidate) => candidate.sku === stage.sku);
+    if (!stageUnit) throw domainError('INVALID_STATE');
+    return (BigInt(stage.usageMetadata.promptTokenCount) * BigInt(stageUnit.inputMicrosPerMillion) + 999999n) / 1000000n +
+      (BigInt(stage.usageMetadata.candidatesTokenCount) * BigInt(stageUnit.outputMicrosPerMillion) + 999999n) / 1000000n;
+  };
+  const seenStages = new Set();
+  const stageTotal = ledger.stages.reduce((total, stage) => {
+    if (!exactKeys(stage, ['model', 'modelRevision', 'sku', 'usageMetadata', 'stageKey', 'pricingSnapshotVersion', 'costMicros']) ||
+        stage.model !== modelConfig.model || stage.pricingSnapshotVersion !== snapshot.version ||
+        typeof stage.stageKey !== 'string' ||
+        !(stage.stageKey === 'direct' || stage.stageKey === 'reduce' || /^map\.[1-9]\d*-of-[1-9]\d*$/.test(stage.stageKey)) ||
+        seenStages.has(stage.stageKey) ||
+        typeof stage.modelRevision !== 'string' || !stage.modelRevision || stage.modelRevision.length > 128 ||
+        typeof stage.sku !== 'string' || !stage.sku || stage.sku.length > 128 ||
+        !exactKeys(stage.usageMetadata, ['promptTokenCount', 'candidatesTokenCount']) ||
+        !Number.isSafeInteger(stage.usageMetadata.promptTokenCount) || stage.usageMetadata.promptTokenCount < 0 ||
+        !Number.isSafeInteger(stage.usageMetadata.candidatesTokenCount) || stage.usageMetadata.candidatesTokenCount < 0 ||
+        typeof stage.costMicros !== 'string' || !/^(0|[1-9]\d*)$/.test(stage.costMicros) || priceUsage(stage).toString() !== stage.costMicros)
+      throw domainError('INVALID_STATE');
+    seenStages.add(stage.stageKey);
+    return total + priceUsage(stage);
+  }, 0n);
+  if (stageTotal > BigInt(Number.MAX_SAFE_INTEGER) || stageTotal !== storedCost) throw domainError('INVALID_STATE');
+  const expectedCost = priceUsage(usage);
+  if (expectedCost.toString() !== usage.costMicros) throw domainError('DIGEST_MISMATCH');
+  const prior = ledger.stages.find((entry) => entry.stageKey === checkpoint.stageKey);
+  if (prior) {
+    if (canonicalizeJson(prior) !== canonicalizeJson(usage)) throw domainError('CHECKPOINT_CONFLICT');
+    return { usageJson: ledger, cumulativeCostMicros: storedCost.toString(), crossedThreshold: false, pendingAlerts: pendingWorkerAlerts(ledger) };
+  }
+  const cumulative = storedCost + expectedCost;
+  if (cumulative > BigInt(Number.MAX_SAFE_INTEGER)) throw domainError('VALIDATION_FAILED');
+  let next = { ...ledger, stages: [...ledger.stages, usage], cumulativeCostMicros: cumulative.toString() };
+  const hasCostIntent = next.alertOutbox.intents.some(({ kind }) => kind === 'cost-threshold');
+  const crossedThreshold = !hasCostIntent && !next.costAlerted && storedCost <= COST_ALERT_THRESHOLD_MICROS && cumulative > COST_ALERT_THRESHOLD_MICROS;
+  if (crossedThreshold) next = addAlertIntent(next, {
+    deduplicationKey: `tb113:cost-over-10-usd:${generation.reportRunId}:v1`,
+    kind: 'cost-threshold',
+    reportRunId: generation.reportRunId,
+    cumulativeCostMicros: cumulative.toString(),
+  });
+  return { usageJson: next, cumulativeCostMicros: cumulative.toString(), crossedThreshold, pendingAlerts: pendingWorkerAlerts(next) };
+}
 function prepareRetryGeneration(generation, now, createReportRunId = () => require('node:crypto').randomUUID()) {
   if (generation.status !== 'failed' || !generation.documentId) throw domainError('INVALID_STATE');
   return {
@@ -184,8 +457,18 @@ function prepareAtomicCompletion(input, expectedStateVersion, details) {
   const value = expectedStateVersion === undefined ? input : { generation: input, expectedStateVersion, ...details };
   if (value.generation.stateVersion !== value.expectedStateVersion) throw domainError('STATE_VERSION_CONFLICT');
   if (value.generation.status !== 'running') throw domainError('TERMINAL_CONFLICT');
-  const required = ['redact', 'count', 'direct', 'validate', 'render', 'store'];
-  if (!value.checkpoints || new Set(value.checkpoints).size !== required.length || required.some((key) => !value.checkpoints.includes(key))) throw domainError('CHECKPOINT_SET_INCOMPLETE');
+  const direct = ['redact', 'count', 'direct', 'validate', 'render', 'store'];
+  const mapMatch = Array.isArray(value.checkpoints) && value.checkpoints.length >= 7 &&
+    value.checkpoints[0] === 'redact' && value.checkpoints[1] === 'count' && value.checkpoints.at(-4) === 'reduce' &&
+    value.checkpoints.at(-3) === 'validate' && value.checkpoints.at(-2) === 'render' && value.checkpoints.at(-1) === 'store';
+  const mapCount = mapMatch ? value.checkpoints.length - 6 : 0;
+  const mapExpected = mapMatch ? [
+    'redact', 'count', ...Array.from({ length: mapCount }, (_, index) => `map.${index + 1}-of-${mapCount}`),
+    'reduce', 'validate', 'render', 'store',
+  ] : [];
+  if (!value.checkpoints || new Set(value.checkpoints).size !== value.checkpoints.length ||
+      !(canonicalizeJson(value.checkpoints) === canonicalizeJson(direct) || canonicalizeJson(value.checkpoints) === canonicalizeJson(mapExpected)))
+    throw domainError('CHECKPOINT_SET_INCOMPLETE');
   if (
     !value.reportId ||
     !value.generation.documentId ||
@@ -229,8 +512,35 @@ function prepareAtomicCompletion(input, expectedStateVersion, details) {
     },
   };
 }
-function createGenerationLifecycle({ withTransaction, now = () => new Date().toISOString(), createReportRunId } = {}) {
+async function verifyPersistedMapReduceOutputAuthorities({ checkpoints, usageLedger, modelConfig, countTokens }) {
+  const outputEntries = checkpoints.filter(({ stageKey }) => stageKey.startsWith('map.') || stageKey === 'reduce');
+  const results = await Promise.all(outputEntries.map((entry) => {
+    const persistedUsage = usageLedger.stages.find(({ stageKey }) => stageKey === entry.stageKey);
+    if (!persistedUsage || canonicalizeJson(persistedUsage) !== canonicalizeJson(entry.payload.usage))
+      return false;
+    return verifyGeneratedOutputCountV1({
+      output: entry.payload.validatedOutput,
+      modelConfig,
+      stage: entry.stageKey === 'reduce' ? 'reduce' : 'map',
+      outputTokenCount: entry.payload.outputTokenCount,
+      outputRequestDigest: entry.payload.outputRequestDigest,
+      usage: persistedUsage,
+      countTokens,
+    });
+  }));
+  return results.every(Boolean);
+}
+
+function createGenerationLifecycle({ withTransaction, now = () => new Date().toISOString(), createReportRunId, evidenceKeyProvider, countTokensProvider } = {}) {
   if (typeof withTransaction !== 'function') throw new TypeError('withTransaction is required');
+  const resolveEvidenceKey = async (modelConfig, snapshot) => {
+    if (!snapshot?.comments?.length) return null;
+    if (typeof evidenceKeyProvider !== 'function') throw domainError('UNKNOWN_VERSION');
+    let key;
+    try { key = await evidenceKeyProvider(modelConfig.evidenceKeyId); } catch { throw domainError('UNKNOWN_VERSION'); }
+    if (!(typeof key === 'string' || key instanceof Uint8Array)) throw domainError('UNKNOWN_VERSION');
+    return key;
+  };
   return {
     async compensateDispatchFailure({ reportRunId, expectedStateVersion, taskName, dispatchAttemptCount }) {
       return withTransaction(async (transaction) => {
@@ -283,7 +593,10 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         const generation = await transaction.lockGeneration(reportRunId);
         if (!generation) throw domainError('RUN_NOT_FOUND');
         if (['succeeded', 'failed'].includes(generation.status))
-          return { reportRunId, stateVersion: generation.stateVersion, status: generation.status, disposition: 'terminal-replay' };
+          return withPendingAlerts({ reportRunId, stateVersion: generation.stateVersion, status: generation.status, disposition: 'terminal-replay' }, generation);
+        if (generation.status !== 'queued' && generation.status !== 'running')
+          throw domainError('INVALID_STATE');
+        const claimData = prepareWorkerClaim(generation);
 
         let disposition = 'resumed';
         if (generation.status === 'queued') {
@@ -296,15 +609,15 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
           throw domainError('INVALID_STATE');
         }
 
-        return {
+        return withPendingAlerts({
           reportRunId,
           stateVersion: generation.stateVersion,
           status: 'running',
           disposition,
-          checkpoints: generation.checkpointsJson,
-          modelConfig: generation.modelConfigJson,
-          pricingSnapshot: generation.pricingSnapshotJson,
-        };
+          checkpoints: claimData.checkpoints,
+          modelConfig: claimData.modelConfig,
+          pricingSnapshot: claimData.pricingSnapshot,
+        }, generation);
       });
     },
     async workerSnapshot({ reportRunId }) {
@@ -314,8 +627,330 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         return prepareWorkerSnapshot(generation);
       });
     },
-    async writeWorkerCheckpoint() {
-      throw domainError('UNKNOWN_VERSION');
+    async failWorker({ reportRunId, command }) {
+      if (!validateWorkerFailCommand(command)) throw domainError('VALIDATION_FAILED');
+      return withTransaction(async (transaction) => {
+        const generation = await transaction.lockGeneration(reportRunId);
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+
+        if (generation.status === 'failed' &&
+            generation.stateVersion === command.expectedStateVersion + 1 &&
+            generation.failureCode === command.failureCode &&
+            generation.safeFailureMessage === command.safeFailureMessage) {
+          const pendingAlerts = pendingWorkerAlerts(parseUsageLedger(generation).ledger);
+          return withPendingAlerts({
+            reportRunId,
+            stateVersion: generation.stateVersion,
+            status: 'failed',
+            failureCode: generation.failureCode,
+            replayed: true,
+            alertRequired: pendingAlerts.some(({ kind }) => kind === 'terminal-failure'),
+          }, generation);
+        }
+        if (generation.status !== 'running') throw domainError('TERMINAL_CONFLICT');
+
+        const transition = prepareGenerationTransition(
+          generation,
+          command.expectedStateVersion,
+          'failed',
+          now(),
+        );
+        const patch = {
+          ...transition,
+          expectedStatus: 'running',
+          failureCode: command.failureCode,
+          safeFailureMessage: command.safeFailureMessage,
+        };
+        let alertLedger = parseUsageLedger(generation).ledger;
+        alertLedger = addAlertIntent(alertLedger, terminalFailureIntent(reportRunId, command.failureCode));
+        patch.usageJson = alertLedger;
+        await transaction.updateGeneration(patch);
+        const result = {
+          reportRunId,
+          stateVersion: patch.stateVersion,
+          status: 'failed',
+          failureCode: patch.failureCode,
+          replayed: false,
+          alertRequired: pendingWorkerAlerts(alertLedger).some(({ kind }) => kind === 'terminal-failure'),
+        };
+        return withPendingAlerts(result, { ...generation, usageJson: alertLedger });
+      });
+    },
+    async writeWorkerCheckpoint({ reportRunId, stageKey, command }) {
+      if (!validateWorkerCheckpointCommand(stageKey, command) || !REPORT_RUN_ID_PATTERN.test(reportRunId))
+        throw domainError('VALIDATION_FAILED');
+      return withTransaction(async (transaction) => {
+        const generation = await transaction.lockWorkerExecution(reportRunId);
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+        if (generation.status !== 'running') throw domainError('INVALID_STATE');
+
+        let modelConfig;
+        let checkpoints;
+        try {
+          modelConfig = parseWorkerClaimJson(generation.modelConfigJson);
+          checkpoints = parseWorkerClaimJson(generation.checkpointsJson);
+        } catch {
+          throw domainError('INVALID_STATE');
+        }
+        const snapshotEnvelope = prepareWorkerSnapshot(generation).snapshot;
+        const evidenceKey = snapshotEnvelope.payload.comments.length > 0 &&
+          (['count', 'direct', 'reduce', 'validate'].includes(stageKey) || stageKey.startsWith('map.') ||
+            checkpoints.entries.some(({ stageKey: key }) => key === 'direct' || key.startsWith('map.') || key === 'reduce'))
+          ? await resolveEvidenceKey(modelConfig, snapshotEnvelope.payload)
+          : null;
+        if (stageKey === 'count' && command.checkpoint.payload?.route === 'map-reduce') {
+          const validCountAuthority = await verifyMapReduceCountAuthorityV1({
+            payload: command.checkpoint.payload,
+            modelConfig,
+            snapshot: snapshotEnvelope.payload,
+            reportRunId,
+            evidenceKey,
+            countTokens: countTokensProvider,
+          });
+          if (!validCountAuthority) throw domainError('UNKNOWN_VERSION');
+        }
+        if (stageKey === 'direct' && command.checkpoint.payload?.kind === 'direct' && command.checkpoint.payload.usage) {
+          const validOutputAuthority = await verifyGeneratedOutputCountV1({
+            output: command.checkpoint.payload.validatedOutput,
+            modelConfig,
+            stage: 'direct',
+            outputTokenCount: command.checkpoint.payload.outputTokenCount,
+            outputRequestDigest: command.checkpoint.payload.outputRequestDigest,
+            usage: command.checkpoint.payload.usage,
+            countTokens: countTokensProvider,
+          });
+          if (!validOutputAuthority) throw domainError('UNKNOWN_VERSION');
+        }
+        if (stageKey.startsWith('map.') && command.checkpoint.payload?.kind === 'map') {
+          const validOutputAuthority = await verifyGeneratedOutputCountV1({
+            output: command.checkpoint.payload.validatedOutput,
+            modelConfig,
+            stage: 'map',
+            outputTokenCount: command.checkpoint.payload.outputTokenCount,
+            outputRequestDigest: command.checkpoint.payload.outputRequestDigest,
+            usage: command.checkpoint.payload.usage,
+            countTokens: countTokensProvider,
+          });
+          if (!validOutputAuthority) throw domainError('UNKNOWN_VERSION');
+        }
+        if (stageKey === 'reduce' && command.checkpoint.payload?.kind === 'reduce') {
+          const validOutputAuthority = await verifyGeneratedOutputCountV1({
+            output: command.checkpoint.payload.validatedOutput,
+            modelConfig,
+            stage: 'reduce',
+            outputTokenCount: command.checkpoint.payload.outputTokenCount,
+            outputRequestDigest: command.checkpoint.payload.outputRequestDigest,
+            usage: command.checkpoint.payload.usage,
+            countTokens: countTokensProvider,
+          });
+          if (!validOutputAuthority) throw domainError('UNKNOWN_VERSION');
+        }
+        const storedRender = checkpoints.entries?.find(({ stageKey }) => stageKey === 'render');
+        const rendererVersion = command.checkpoint.stageKey === 'render'
+          ? command.checkpoint.payload.rendererVersion
+          : storedRender?.payload?.rendererVersion ?? null;
+        const result = verifyCheckpointGraphV1({
+          run: {
+            reportRunId: generation.reportRunId,
+            status: generation.status,
+            stateVersion: generation.stateVersion,
+            snapshotDigest: generation.snapshotDigest,
+            sourceRevision: generation.sourceRevision,
+            modelConfig,
+            rendererVersion,
+          },
+          snapshot: snapshotEnvelope.payload,
+          checkpoints,
+          candidate: command.checkpoint,
+          expectedStateVersion: command.expectedStateVersion,
+          evidenceKey,
+        });
+        if (result.status !== 'accepted') throw domainError('UNKNOWN_VERSION');
+        let responseGeneration = generation;
+        if (!result.replayed) {
+          const usageUpdate = recordCheckpointUsage(generation, command.checkpoint, modelConfig);
+          await transaction.updateGeneration({
+            status: 'running',
+            stateVersion: result.stateVersion,
+            checkpointsJson: result.checkpoints,
+            usageJson: usageUpdate.usageJson,
+            cumulativeCostMicros: usageUpdate.cumulativeCostMicros,
+            expectedStatus: 'running',
+          });
+          result.crossedCostThreshold = usageUpdate.crossedThreshold;
+          responseGeneration = {
+            ...generation,
+            usageJson: usageUpdate.usageJson,
+            cumulativeCostMicros: usageUpdate.cumulativeCostMicros,
+          };
+        }
+        const response = {
+          reportRunId,
+          stateVersion: result.stateVersion,
+          stageKey,
+          status: 'valid',
+          replayed: result.replayed,
+          crossedCostThreshold: result.crossedCostThreshold === true,
+        };
+        return withPendingAlerts(response, responseGeneration);
+      });
+    },
+    async acknowledgeWorkerAlert({ reportRunId, command }) {
+      if (!REPORT_RUN_ID_PATTERN.test(reportRunId) || !validateWorkerAlertAcknowledgeCommand(command))
+        throw domainError('VALIDATION_FAILED');
+      return withTransaction(async (transaction) => {
+        const generation = await transaction.lockWorkerExecution(reportRunId);
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+        if (generation.status === 'queued') throw domainError('INVALID_STATE');
+        const { ledger } = parseUsageLedger(generation);
+        const index = ledger.alertOutbox.intents.findIndex(({ deduplicationKey }) => deduplicationKey === command.deduplicationKey);
+        if (index < 0) throw domainError('ALERT_NOT_FOUND');
+        const intent = ledger.alertOutbox.intents[index];
+        if (intent.status === 'delivered')
+          return { reportRunId, deduplicationKey: intent.deduplicationKey, status: 'delivered', replayed: true };
+        const delivered = { ...intent, status: 'delivered' };
+        const intents = ledger.alertOutbox.intents.map((entry, entryIndex) => entryIndex === index ? delivered : entry);
+        const nextLedger = {
+          ...ledger,
+          ...(intent.kind === 'cost-threshold' ? { costAlerted: true } : { terminalFailureAlerted: true }),
+          alertOutbox: { ...ledger.alertOutbox, intents },
+        };
+        await transaction.updateWorkerAlertLedger({
+          usageJson: nextLedger,
+          ...(intent.kind === 'cost-threshold' ? { costAlertedAt: now() } : { terminalAlertedAt: now() }),
+        });
+        return { reportRunId, deduplicationKey: intent.deduplicationKey, status: 'delivered', replayed: false };
+      });
+    },
+    async completeWorker({ reportRunId, command }) {
+      if (!REPORT_RUN_ID_PATTERN.test(reportRunId) || !validateWorkerCompleteCommand(command))
+        throw domainError('VALIDATION_FAILED');
+      return withTransaction(async (transaction) => {
+        const generation = await transaction.lockWorkerExecution(reportRunId);
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+        const reportId = command.artifact.objectKey.split('/')[2];
+        if (reportId !== deterministicReportId(reportRunId, command.artifact.sha256))
+          throw domainError('DIGEST_MISMATCH');
+        if (generation.status === 'succeeded') {
+          if (generation.stateVersion !== command.expectedStateVersion + 1)
+            throw domainError('TERMINAL_CONFLICT');
+          const report = await transaction.findReportForGeneration(reportRunId);
+          let commandAnalysisJson;
+          let commandAnalysisDigest;
+          let storedAnalysisMatches = false;
+          try {
+            commandAnalysisJson = canonicalizeJson(command.validatedAnalysis);
+            commandAnalysisDigest = createHash('sha256').update(commandAnalysisJson).digest('hex');
+            storedAnalysisMatches = Boolean(report) && canonicalizeJson(report.validatedAnalysisJson) === commandAnalysisJson;
+          } catch {
+            throw domainError('TERMINAL_CONFLICT');
+          }
+          if (!report || !storedAnalysisMatches || commandAnalysisDigest !== command.analysisDigest ||
+              report.reportId !== reportId || report.analysisDigest !== command.analysisDigest ||
+              report.rendererVersion !== command.rendererVersion || report.objectKey !== command.artifact.objectKey ||
+              report.artifactSha256 !== command.artifact.sha256 || Number(report.artifactSize) !== command.artifact.size)
+            throw domainError('TERMINAL_CONFLICT');
+          return withPendingAlerts({
+            reportRunId,
+            stateVersion: generation.stateVersion,
+            status: 'succeeded',
+            reportId,
+            artifactSha256: report.artifactSha256,
+            artifactSize: Number(report.artifactSize),
+            replayed: true,
+          }, generation);
+        }
+        if (generation.status !== 'running' || generation.stateVersion !== command.expectedStateVersion)
+          throw domainError(generation.status === 'running' ? 'STATE_VERSION_CONFLICT' : 'TERMINAL_CONFLICT');
+
+        let modelConfig;
+        let checkpoints;
+        try {
+          modelConfig = parseWorkerClaimJson(generation.modelConfigJson);
+          checkpoints = parseWorkerClaimJson(generation.checkpointsJson);
+        } catch {
+          throw domainError('INVALID_STATE');
+        }
+        const snapshot = prepareWorkerSnapshot(generation).snapshot.payload;
+        const evidenceKey = await resolveEvidenceKey(modelConfig, snapshot);
+        if (checkpoints.route === 'map-reduce') {
+          const count = checkpoints.entries.find(({ stageKey }) => stageKey === 'count')?.payload;
+          const reduce = checkpoints.entries.find(({ stageKey }) => stageKey === 'reduce')?.payload;
+          const countVerified = await verifyMapReduceCountAuthorityV1({
+            payload: count, modelConfig, snapshot, reportRunId, evidenceKey, countTokens: countTokensProvider,
+          });
+          const { ledger: usageLedger } = parseUsageLedger(generation);
+          const outputAuthorityVerified = await verifyPersistedMapReduceOutputAuthorities({
+            checkpoints: checkpoints.entries,
+            usageLedger,
+            modelConfig,
+            countTokens: countTokensProvider,
+          });
+          if (!countVerified || !outputAuthorityVerified) throw domainError('UNKNOWN_VERSION');
+          if (!reduce) throw domainError('CHECKPOINT_SET_INCOMPLETE');
+        }
+        const storeCheckpoint = checkpoints.entries?.at(-1);
+        if (!storeCheckpoint || storeCheckpoint.stageKey !== 'store')
+          throw domainError('CHECKPOINT_SET_INCOMPLETE');
+        const graph = verifyCheckpointGraphV1({
+          run: {
+            reportRunId: generation.reportRunId,
+            status: generation.status,
+            stateVersion: generation.stateVersion,
+            snapshotDigest: generation.snapshotDigest,
+            sourceRevision: generation.sourceRevision,
+            modelConfig,
+            rendererVersion: command.rendererVersion,
+          },
+          snapshot,
+          checkpoints,
+          candidate: storeCheckpoint,
+          expectedStateVersion: generation.stateVersion,
+          evidenceKey,
+        });
+        const expectedKeys = graph.checkpoints?.route === 'map-reduce'
+          ? ['redact', 'count', ...Array.from({ length: graph.checkpoints.chunkCount }, (_, index) => `map.${index + 1}-of-${graph.checkpoints.chunkCount}`), 'reduce', 'validate', 'render', 'store']
+          : CHECKPOINT_STAGE_KEYS;
+        if (graph.status !== 'accepted' || !graph.checkpoints ||
+            graph.checkpoints.entries.length !== expectedKeys.length ||
+            graph.checkpoints.entries.some(({ stageKey }, index) => stageKey !== expectedKeys[index]))
+          throw domainError('CHECKPOINT_SET_INCOMPLETE');
+        const validated = graph.checkpoints.entries.find(({ stageKey }) => stageKey === 'validate');
+        const render = graph.checkpoints.entries.find(({ stageKey }) => stageKey === 'render');
+        const store = graph.checkpoints.entries.find(({ stageKey }) => stageKey === 'store');
+        if (!validated || validated.payload.kind !== 'validate' || !render || render.payload.kind !== 'render' ||
+            !store || store.payload.kind !== 'store' ||
+            canonicalizeJson(validated.payload.publishedAnalysis) !== canonicalizeJson(command.validatedAnalysis) ||
+            createHash('sha256').update(canonicalizeJson(command.validatedAnalysis)).digest('hex') !== command.analysisDigest ||
+            render.payload.rendererVersion !== command.rendererVersion ||
+            store.payload.objectKey !== command.artifact.objectKey || store.payload.artifactSha256 !== command.artifact.sha256 ||
+            store.payload.size !== command.artifact.size || store.payload.mimeType !== command.artifact.mimeType)
+          throw domainError('DIGEST_MISMATCH');
+
+        const prepared = prepareAtomicCompletion({
+          generation,
+          expectedStateVersion: command.expectedStateVersion,
+          reportId,
+          checkpoints: expectedKeys,
+          artifact: command.artifact,
+          validatedAnalysis: command.validatedAnalysis,
+          analysisDigest: command.analysisDigest,
+          rendererVersion: command.rendererVersion,
+          now: now(),
+        });
+        prepared.report.sourceGeneration = { connect: [{ id: generation.id }] };
+        await transaction.insertReport(prepared.report);
+        await transaction.updateGeneration({ ...prepared.generation, expectedStatus: 'running' });
+        return withPendingAlerts({
+          reportRunId,
+          stateVersion: prepared.generation.stateVersion,
+          status: 'succeeded',
+          reportId,
+          artifactSha256: command.artifact.sha256,
+          artifactSize: command.artifact.size,
+          replayed: false,
+        }, generation);
+      });
     },
     async retry({ sourceRunId }) {
       return withTransaction(async (transaction) => {
@@ -350,6 +985,10 @@ module.exports = {
   prepareGenerationTransition,
   prepareRetryGeneration,
   prepareWorkerSnapshot,
+  verifyPersistedMapReduceOutputAuthorities,
   validateDispatchStateCommand,
   validateWorkerClaimCommand,
+  validateWorkerFailCommand,
+  validateWorkerAlertAcknowledgeCommand,
+  recordCheckpointUsage,
 };

@@ -1,0 +1,120 @@
+import "server-only";
+
+import { createHash } from "node:crypto";
+import { resolve } from "node:path";
+import {
+  createGooglePrivateReportBucket,
+  createPrivateReportObjectStorage,
+  type PrivateReportObjectReader,
+} from "@teleferico/tb113-private-report-storage";
+import { createLocalPrivateReportBucket } from "../../../../packages/tb113-private-report-storage/src/local-private-storage";
+import {
+  MAX_REPORT_PDF_BYTES,
+  validateReportDownloadMetadata,
+  type PrivateReportDownloadMetadataV1,
+  createPrivateReportDownloadMetadataTransport,
+} from "./private-report-download-metadata-transport";
+import {
+  readTb113AppTokens,
+  readTb113CmsOrigin,
+  readTb113PrivateBucket,
+} from "./tb113-runtime-config";
+
+const REPORT_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+export class FeedbackReportDownloadError extends Error {
+  constructor(readonly code: "NOT_FOUND" | "UPSTREAM_UNAVAILABLE") {
+    super("The requested report download is unavailable");
+    this.name = "FeedbackReportDownloadError";
+  }
+}
+
+export function createFeedbackReportDownload(input: {
+  readonly metadataReader: {
+    read(reportId: string): Promise<PrivateReportDownloadMetadataV1>;
+  };
+  readonly objectReader: PrivateReportObjectReader;
+}) {
+  if (
+    typeof input.metadataReader?.read !== "function" ||
+    typeof input.objectReader?.read !== "function"
+  )
+    throw new TypeError("Report download readers are required");
+
+  return Object.freeze({
+    async read(reportId: string) {
+      if (!REPORT_ID_PATTERN.test(reportId))
+        throw new FeedbackReportDownloadError("NOT_FOUND");
+
+      let metadata: PrivateReportDownloadMetadataV1;
+      try {
+        metadata = validateReportDownloadMetadata(
+          await input.metadataReader.read(reportId),
+          reportId,
+        );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "NOT_FOUND"
+        )
+          throw new FeedbackReportDownloadError("NOT_FOUND");
+        throw new FeedbackReportDownloadError("UPSTREAM_UNAVAILABLE");
+      }
+
+      try {
+        const bytes = await input.objectReader.read(
+          metadata.objectKey,
+          MAX_REPORT_PDF_BYTES,
+        );
+        if (
+          !(bytes instanceof Uint8Array) ||
+          bytes.byteLength !== metadata.size ||
+          bytes.byteLength > MAX_REPORT_PDF_BYTES ||
+          bytes.byteLength < 5 ||
+          new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-" ||
+          createHash("sha256").update(bytes).digest("hex") !== metadata.sha256
+        )
+          throw new TypeError("Stored report bytes do not match metadata");
+        return { metadata, bytes };
+      } catch {
+        throw new FeedbackReportDownloadError("UPSTREAM_UNAVAILABLE");
+      }
+    },
+  });
+}
+
+export function getFeedbackReportDownload(): ReturnType<
+  typeof createFeedbackReportDownload
+> {
+  try {
+    const origin = readTb113CmsOrigin();
+    const tokens = readTb113AppTokens();
+    const metadataReader = createPrivateReportDownloadMetadataTransport({
+      baseUrl: origin.baseUrl,
+      allowedOrigins: origin.allowedOrigins,
+      ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
+      tokenProvider: async (action) => ({
+        action,
+        value: tokens.workerReportDownloadMetadata,
+      }),
+    });
+    const bucket =
+      process.env.NODE_ENV === "development"
+        ? createLocalPrivateReportBucket({
+            rootDirectory: resolve(
+              process.cwd(),
+              "../.local/tb113-private-reports",
+            ),
+          })
+        : createGooglePrivateReportBucket({
+            bucketName: readTb113PrivateBucket(),
+            objectPrefix: "private/feedback-reports",
+          });
+    const { objectReader } = createPrivateReportObjectStorage({ bucket });
+    return createFeedbackReportDownload({ metadataReader, objectReader });
+  } catch {
+    throw new FeedbackReportDownloadError("UPSTREAM_UNAVAILABLE");
+  }
+}

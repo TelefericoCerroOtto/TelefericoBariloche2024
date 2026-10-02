@@ -185,6 +185,12 @@ Notes:
 - `TRANSFER_TOKEN_SALT`
 - `JWT_SECRET`
 
+### TB-113 private worker package (repository code only)
+
+The independent Node worker package is `services/survey-report-worker/`. Its local `pnpm run build` packages the worker bundle with pinned Chromium and font assets; its README records the exact commands and output layout. This does not build a container image or prove the 750 MiB image-growth criterion. This repository change creates or verifies no worker Cloud Run service, Artifact Registry image, Cloud Build trigger, or live configuration. The existing app Cloud Build snapshots remain unchanged.
+
+Before a staging worker can run, a separately approved operational change must select a digest-pinned Node 22.22.0 base image with the required Chromium OS libraries, define the image build/deploy route, configure a private Cloud Run service and its `PORT`/worker settings, and verify separate task-invoker and worker-runtime identities, queue/OIDC, ingress, bucket policy, Vertex quota, and least-privilege IAM. None of those resources or grants is established by local build/test evidence. Keep `FEEDBACK_CAPABILITY_ENABLED=false` until the TB-113 release gates pass.
+
 ---
 
 ## 5) Data and storage
@@ -379,6 +385,39 @@ Separate permissions by use case:
   - Cloud SQL
   - Cloud Storage
   - Secret Manager
+
+### TB-113 CMS checkpoint identity (future operational gate)
+
+TB-113's CMS checkpoint/completion validators have a local, configuration-gated binding for two independent authorities: exact Vertex AI CountTokens calls and reads of one pinned Secret Manager evidence-key version. If enabled in Cloud Run, these calls use a dedicated user-managed CMS service identity through metadata-server ADC. Do not reuse the worker runtime, app runtime, Cloud Tasks invoker, or deployment identity. This CMS identity must not receive `generateContent`, Cloud Tasks, worker GCS, or unrelated Secret Manager authority.
+
+- Grant only the Vertex permission required for the fixed CountTokens method in project `teleferico-bariloche-2024`; verify the exact API permission/role before any grant.
+- Restrict Secret Manager access to the one evidence secret and use an IAM condition for its pinned numeric version where supported. Secret Manager's built-in `roles/secretmanager.secretAccessor` is granted at Secret scope, so a version-specific condition must be reviewed before claiming access is limited to one version.
+- Confirm the bound model config and evidence-key ID match the CMS environment's approved generation config. The code rejects `latest`, alternate projects/models/locations/endpoints, unapproved segment/config shapes, and service-account key-file ADC.
+- No CMS Vertex/Secret Manager IAM grants, service-identity attachment, secret creation/read, runtime value, or deployment change is authorized or performed by the local adapter implementation. These remain separate operator gates.
+
+### TB-113 worker service-account decision (accounts created; local IAM configured; cloud access pending)
+
+On 2026-10-01, the three service accounts below were created in project `teleferico-bariloche-2024` through the named authenticated `google-cloud-sdk` container after approval of the corrected resource IDs and display names. A subsequent filtered list returned all three with `disabled=False`:
+
+| Service-account ID | Display name | Listed state |
+| --- | --- | --- |
+| `feedback-worker-local` | `Feedback report worker (local)` | Enabled (`disabled=False`) |
+| `feedback-worker-staging` | `Feedback report worker (staging)` | Enabled (`disabled=False`) |
+| `feedback-worker-production` | `Feedback report worker (production)` | Enabled (`disabled=False`) |
+
+The IDs describe the feedback-report function and do not carry a backlog identifier as a prefix. Backlog references in tracking documentation remain unchanged. The creation commands assigned no explicit roles or keys. Effective IAM policy was not inspected, so no claim is made about inherited or effective permissions.
+
+All three serve the same worker functions, but separate identities provide meaningful isolation only when their resource grants are scoped independently. The intended local scope is limited to the approved Vertex AI CountTokens and generation operations, with only applicable project quota access; do not grant it Cloud Storage or Secret Manager access. An explicitly approved operator may impersonate only this local identity; do not reuse it for either Cloud Run worker. The staging and production identities are intended for their corresponding private Cloud Run workers and may receive only reviewed access to that environment's report objects and its own evidence key. The current storage adapter also needs bucket metadata and IAM-policy reads, so object-only access must not be assumed sufficient. Confirm exact permissions and least-privilege roles before any grant.
+
+The custom role and local bindings are recorded below. Whether these permissions are the exact minimum for CountTokens or establish actual provider access remains unverified. A read-only `list-testable-permissions` preflight on 2026-10-01 returned `aiplatform.endpoints.predict` and `serviceusage.services.use`, both at stage `GA`; the response's `customRolesSupportLevel` cells were blank. The official [custom-role permissions guide](https://docs.cloud.google.com/iam/docs/creating-custom-roles) says an omitted `customRolesSupportLevel` means full support for custom roles. This confirms those permissions' custom-role support only; it does not attest that `aiplatform.endpoints.predict` is the exact CountTokens permission or establish provider access, quota behavior, or live model access. `roles/aiplatform.user` has not been selected. Staging and production bucket and Secret Manager resource identifiers, and all exact grants, remain unresolved. A prior read-only API-status check reported `aiplatform.googleapis.com` and `iamcredentials.googleapis.com` enabled in this project. Keep the app, CMS, Cloud Tasks invoker, and Cloud Build/deploy identities separate; this decision creates none of those identities. It authorizes no new bucket, secret, queue, service, service update, or deployment.
+
+Before creation, the identity preflight used a filtered service-account list for only the three proposed account emails and returned no rows (exit 0). The permission preflight targeted `//cloudresourcemanager.googleapis.com/projects/teleferico-bariloche-2024` and filtered only the two permissions above. Its first attempt timed out after 30 seconds; one bounded retry with a 120-second deadline completed with exit 0 and returned both rows. These reads do not create or modify identities, grants, or services.
+
+On 2026-10-01, after separate approval of the exact commands, the custom role `projects/teleferico-bariloche-2024/roles/feedbackReportVertexCaller` was created with title `Feedback report Vertex caller`, description `Vertex inference and quota usage for feedback reports.`, and exactly these permissions: `aiplatform.endpoints.predict` and `serviceusage.services.use`. Both preflight results were `GA` and are custom-role supported. The role was bound at the project to `feedback-worker-local` only. `roles/iam.serviceAccountTokenCreator` was separately bound on the `feedback-worker-local` service account policy to the explicitly approved operator; the operator's address is intentionally not recorded here. Each approved operation reported exit 0. These results confirm the requested policy updates, not the effective IAM policy: inheritance and actual CountTokens/provider access were not inspected or tested. No role was bound to staging or production.
+
+Local container authentication has two separate contexts: `gcloud` CLI authentication and Application Default Credentials (ADC) used by the worker libraries. `gcloud auth application-default login` changes ADC without replacing the container's `gcloud` CLI login, but it replaces any existing ADC configuration. Before any replacement, the operator must check whether ADC already exists in the named container using only an existence result, preserve any existing ADC personally, perform login, and manually transfer the resulting file to the host at `~/.config/gcloud/application_default_credentials.json`. Keep that file private with restrictive permissions; do not print it, expose tokens, or give an agent access to it. Do not use a service-account key or `GOOGLE_APPLICATION_CREDENTIALS`. The chosen local method is ADC with impersonation of `feedback-worker-local`; it remains based on the operator's source credentials, not a downloaded service-account private key. The approved operator's Token Creator binding was applied on this service account; ADC login and live provider verification remain pending.
+
+This records confirmed account creation and local IAM policy updates, not verified effective permissions or live provider access. No staging/production report-resource grant or Cloud Run service attachment has been established. Staging/production resource grants and attachments remain deferred until their targets and deployment authorization are established. Further IAM reads and all mutations require separate approval for their exact commands. See the official [ADC login reference](https://docs.cloud.google.com/sdk/gcloud/reference/auth/application-default/login) and [service-account impersonation guidance](https://docs.cloud.google.com/docs/authentication/use-service-account-impersonation).
 
 ### Managed folders
 

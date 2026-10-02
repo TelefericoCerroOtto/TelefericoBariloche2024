@@ -138,6 +138,19 @@ type RequestRecord = {
   body: unknown;
 };
 
+type TestGenerationRow = {
+  reportRunId: string;
+  status: "queued" | "failed";
+  period: { from: string; to: string };
+  dataCutoffAt: string;
+  createdAt: string;
+  completedAt: string | null;
+  failureCode: string | null;
+  safeFailureMessage: string | null;
+  retryOfReportRunId: string | null;
+  report: null;
+};
+
 function createResponseBarrier() {
   let releaseResponse!: () => void;
   let markResponseReached!: () => void;
@@ -224,6 +237,7 @@ async function installAdminStack(
 ) {
   const requests: RequestRecord[] = [];
   const browserUrls: string[] = [];
+  const generationHistory: TestGenerationRow[] = [];
   page.on("request", (request) => browserUrls.push(request.url()));
   await page.route("**/api/admin/feedback/**", async (route) => {
     const request = route.request();
@@ -250,10 +264,47 @@ async function installAdminStack(
         data,
         meta: { filters: { from: period.from, to: period.to }, population },
       });
-    if (request.method() === "POST" && url.pathname.endsWith("/generations"))
+    if (
+      request.method() === "POST" &&
+      url.pathname === "/api/admin/feedback/generations"
+    ) {
+      const commandPeriod =
+        (body as { period?: { from: string; to: string } } | null)?.period ??
+        period;
+      generationHistory.unshift({
+        reportRunId: "run-failed",
+        status: "failed",
+        period: commandPeriod,
+        dataCutoffAt: "2026-09-14T23:59:59.000Z",
+        createdAt: "2026-09-15T12:00:00.000Z",
+        completedAt: "2026-09-15T12:01:00.000Z",
+        failureCode: "PROVIDER_UNAVAILABLE",
+        safeFailureMessage: "El proveedor de informes no está disponible.",
+        retryOfReportRunId: null,
+        report: null,
+      });
       return json({ reportRunId: "run-failed", status: "failed" });
-    if (request.method() === "POST" && url.pathname.endsWith("/retry"))
-      return json({ reportRunId: "run-failed", status: "queued" });
+    }
+    if (
+      request.method() === "POST" &&
+      url.pathname.endsWith("/generations/run-failed/retry")
+    ) {
+      const source = generationHistory.find(
+        (item) => item.reportRunId === "run-failed",
+      );
+      if (!source) return json({ error: { code: "NOT_FOUND" } }, 404);
+      generationHistory.unshift({
+        ...source,
+        reportRunId: "run-retry",
+        status: "queued",
+        createdAt: "2026-09-15T12:02:00.000Z",
+        completedAt: null,
+        failureCode: null,
+        safeFailureMessage: null,
+        retryOfReportRunId: source.reportRunId,
+      });
+      return json({ reportRunId: "run-retry", status: "queued" });
+    }
     if (url.pathname.endsWith("/summary")) {
       await summaryBarrier?.waitForRelease();
       return envelope(
@@ -293,6 +344,33 @@ async function installAdminStack(
         page: Number(url.searchParams.get("page") ?? 1),
         pageSize: 25,
       });
+    if (request.method() === "GET" && url.pathname.endsWith("/generations")) {
+      const page = Number(url.searchParams.get("page") ?? 1);
+      const pageSize = Number(url.searchParams.get("pageSize") ?? 25);
+      const status = url.searchParams.get("status");
+      const filtered = status
+        ? generationHistory.filter((item) => item.status === status)
+        : generationHistory;
+      const total = filtered.length;
+      const items = filtered.slice((page - 1) * pageSize, page * pageSize);
+      return json({
+        contractVersion: "feedback-admin.v1",
+        data: { items, total, page, pageSize },
+        meta: {
+          filters: {
+            route: "generations",
+            from: url.searchParams.get("from"),
+            to: url.searchParams.get("to"),
+            status: status ?? null,
+            page,
+            pageSize,
+          },
+          page,
+          pageSize,
+          total,
+        },
+      });
+    }
     return json({ error: { code: "NOT_FOUND" } }, 404);
   });
   return { requests, browserUrls };
@@ -478,6 +556,7 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
 
   await page.getByLabel("Desde").last().fill("2026-09-12");
   await page.getByLabel("Hasta").last().fill("2026-09-14");
+  const failedHistoryRead = waitForSuccessfulAdminRead(page, "generations");
   await page.getByRole("button", { name: "Solicitar informe" }).click();
   await expect(page.getByText("Solicitud run-failed: failed.")).toBeVisible();
   const generation = requests.find(
@@ -488,8 +567,15 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
     period: { from: "2026-09-12", to: "2026-09-14" },
     override: { accepted: false, overlapDigest: null },
   });
-  await page.getByRole("button", { name: "Reintentar informe" }).click();
-  await expect(page.getByText("Solicitud run-failed: en cola.")).toBeVisible();
+  await failedHistoryRead;
+  await expect(
+    page.getByRole("button", { name: "Reintentar generación" }),
+  ).toBeVisible();
+  const retryHistoryRead = waitForSuccessfulAdminRead(page, "generations");
+  await page.getByRole("button", { name: "Reintentar generación" }).click();
+  await expect(page.getByText("Solicitud run-retry: en cola.")).toBeVisible();
+  await retryHistoryRead;
+  await expect(page.getByText("Reintento de run-failed")).toBeVisible();
   expect(
     requests
       .filter(
@@ -500,10 +586,8 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
       ),
   ).toBe(true);
   await expect(
-    page.getByText(
-      "Descarga no disponible hasta que U12-A publique la entrega mediada.",
-    ),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Descargar PDF" }),
+  ).toBeEnabled();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

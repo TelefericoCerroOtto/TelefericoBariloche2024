@@ -9,7 +9,8 @@ This file defines the portable repository-wide governance for agents working in 
   - `teleferico-cms` (Strapi): CMS/API backend
 - Separately scoped tooling:
   - `tools/image-pipeline`: local-first image authoring and batch processing. Has its own `AGENTS.md` with self-contained governance. It is NOT part of the public site runtime or the CMS; treat it as an independent tool unless a change explicitly crosses its boundary.
-- Root surfaces: `.githooks/`, `.github/scripts/`, `scripts/`, `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `docs/`, `.agents/`, `cloudbuild.playwright-e2e.json`
+- Root surfaces: `.githooks/`, `.github/scripts/`, `scripts/`, `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `packages/`, `services/`, `docs/`, `.agents/`, `cloudbuild.playwright-e2e.json`
+- Independent TB-113 packages: `packages/survey-reporting-core/`, `packages/tb113-runtime-contracts/`, `packages/tb113-private-report-storage/`, and `services/survey-report-worker/`.
 
 ## Key paths
 
@@ -33,7 +34,7 @@ This file defines the portable repository-wide governance for agents working in 
 
 ## Package-local governance
 
-- `teleferico-app/AGENTS.md`, `teleferico-cms/AGENTS.md` and `tools/image-pipeline/AGENTS.md` are critical package-local guardrail sources.
+- `teleferico-app/AGENTS.md`, `teleferico-cms/AGENTS.md`, `tools/image-pipeline/AGENTS.md`, and `services/survey-report-worker/AGENTS.md` are critical package-local guardrail sources.
 - Package-local files refine this root guidance for their own package boundaries and sensitive flows; they must not weaken runtime instructions, user approvals, or approved slice boundaries.
 
 ## Scope-sensitive changes

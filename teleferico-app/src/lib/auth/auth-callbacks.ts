@@ -1,4 +1,5 @@
 import { verifySession } from "@/lib/services/cms/users-permissions/auth";
+import { feedbackCapabilitiesForUser } from "@/lib/auth/feedback-capabilities";
 import type { NextAuthConfig, Session } from "next-auth";
 
 type AuthSessionCallbacks = Required<
@@ -18,6 +19,7 @@ export function createAuthSessionCallbacks(
 ): AuthSessionCallbacks {
   return {
     jwt: async ({ user, trigger, token }) => {
+      token.capabilities = [];
       if (trigger === "signIn") {
         token.id = Number(user.id);
         token.name = user.name;
@@ -50,11 +52,14 @@ export function createAuthSessionCallbacks(
       }
 
       if (typeof token.jwt === "string") {
-        const { isLogged } = await verifySession(token.jwt);
-        if (!isLogged) {
+        const verification = await verifySession(token.jwt);
+        if (!verification.isLogged) {
           console.log("jwt callback - session invalidated by backend");
           return null;
         }
+        token.role = verification.user.role;
+        token.blocked = verification.user.blocked;
+        token.capabilities = feedbackCapabilitiesForUser(verification.user);
       }
 
       return token;
@@ -74,6 +79,7 @@ export function createAuthSessionCallbacks(
           id: token.id,
           role: token.role,
           documentId: token.documentId,
+          capabilities: token.capabilities ?? [],
         },
         csrfToken: token.csrfToken,
         expires: session.expires,

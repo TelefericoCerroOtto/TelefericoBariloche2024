@@ -16,7 +16,7 @@ belong to U12-A (`deterministic-report-pdf`) and are not implemented by U8-B.
 
 ### Requirement: Distinct actors and exact capabilities
 
-The system MUST keep Strapi `plugin::users-permissions.user` application users distinct from `admin::user` panel users. Application authorization MUST use exactly `feedback.read`, `feedback.comments.read`, `feedback.reports.read`, `feedback.reports.generate`, and `feedback.reports.download`; absent capabilities MUST deny by default. Strapi Super Admin MUST retain standard control. (Primary: D27, D29, D31)
+The system MUST keep Strapi `plugin::users-permissions.user` application users distinct from `admin::user` panel users. Application authorization MUST use exactly four server-issued capabilities: `feedback.read`, `feedback.comments.read`, `feedback.reports.read`, and `feedback.reports.generate`; absent capabilities MUST deny by default. Only the verified Users & Permissions roles `Administrator` and `Digital Experience Operator` receive all four. Report download uses `feedback.reports.read`. Strapi Admin Panel `Super Admin` is separate and MUST retain standard control. (Primary: D27, D29, D31; role scope: approved 2026-09-02)
 
 | Operation | Required capability |
 |---|---|
@@ -24,7 +24,15 @@ The system MUST keep Strapi `plugin::users-permissions.user` application users d
 | comments | `feedback.comments.read` |
 | reports, generations | `feedback.reports.read` |
 | generate, retry | `feedback.reports.generate` |
-| download | `feedback.reports.download` |
+| download | `feedback.reports.read` |
+
+The Auth.js callback MUST derive the role from the current authenticated Strapi
+`users/me?populate=role` response. It MUST refresh the claim during existing
+session verification so changed roles lose feedback capabilities and blocked
+users lose the session. It MUST NOT accept capabilities from the browser. Other,
+unknown, missing-role, and blocked users receive no feedback capabilities. The
+mapping creates no persistent CMS permission or token grant; each downstream
+Strapi action and worker Content API token remains independently scoped.
 
 #### Scenario: Permit one authorized resource
 - GIVEN an authenticated application user with only `feedback.comments.read`

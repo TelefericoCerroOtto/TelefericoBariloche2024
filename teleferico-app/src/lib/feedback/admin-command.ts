@@ -1,16 +1,21 @@
 import "server-only";
 
 import { ENV_KEYS } from "@/lib/constants/env.const";
+import { createGoogleFeedbackTaskClient } from "./google-cloud-tasks";
+import { createFeedbackDispatchStateTransport } from "./dispatch-state-transport";
 import {
+  createCoordinatedFeedbackDispatcher,
   createFeedbackTaskName,
   createUnavailableFeedbackDispatcher,
+  type FeedbackCloudTaskClient,
+  type FeedbackDispatchStatePort,
   type FeedbackReportDispatcher,
   type FeedbackDispatchResult,
 } from "./dispatch";
 import {
   normalizePeriod,
   REPORTING_TIME_ZONE,
-} from "../../../packages/survey-reporting-core/src/index";
+} from "@teleferico/survey-reporting-core";
 import type {
   FeedbackAdminCommandResult,
   FeedbackAdminCommandStatus,
@@ -24,6 +29,23 @@ import {
   buildOverlapDetails,
   prepareRetryGeneration,
 } from "./generation-lifecycle";
+import {
+  buildAuthoritativeGenerationInputsV1,
+  type AuthoritativeGenerationSourceInputV1,
+  type GenerationSourcePageQueryV1,
+} from "./authoritative-generation-source";
+import type { MaterializedGenerationInputsV1 } from "./generation-inputs";
+import { createPrivateReportSourceTransport } from "./private-report-source-transport";
+import { validateTrustedCmsOrigin } from "@teleferico/tb113-runtime-contracts";
+import { loadTb113ReportGenerationProfile } from "../../../../packages/tb113-runtime-contracts/src/report-generation-profile.cjs";
+import {
+  readTb113AppTokens,
+  readTb113ApprovedGenerationConfiguration,
+  readTb113CloudTasksConfiguration,
+  readTb113CmsOrigin,
+  readTb113LocalCloudTasksConfiguration,
+  readTb113PrivateBucket,
+} from "./tb113-runtime-config";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const UUID_PATTERN =
@@ -80,6 +102,7 @@ export class FeedbackAdminCommandError extends Error {
     | "OVERLAP_REQUIRES_OVERRIDE"
     | "ACTIVE_RANGE_CONFLICT"
     | "INVALID_STATE"
+    | "REPORT_PROFILE_NOT_CONFIGURED"
     | "UPSTREAM_UNAVAILABLE"
     | "INTERNAL_ERROR";
   readonly status: number;
@@ -94,6 +117,7 @@ export class FeedbackAdminCommandError extends Error {
       | "OVERLAP_REQUIRES_OVERRIDE"
       | "ACTIVE_RANGE_CONFLICT"
       | "INVALID_STATE"
+      | "REPORT_PROFILE_NOT_CONFIGURED"
       | "UPSTREAM_UNAVAILABLE"
       | "INTERNAL_ERROR",
     status: number,
@@ -104,6 +128,14 @@ export class FeedbackAdminCommandError extends Error {
     this.code = code;
     this.status = status;
     this.details = details;
+  }
+}
+
+function safeGenerationData(...args: Parameters<typeof buildGenerationData>) {
+  try {
+    return buildGenerationData(...args);
+  } catch {
+    throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
   }
 }
 
@@ -207,7 +239,9 @@ function coreResult(value: unknown): CoreCommandResult {
   return {
     reportRunId: row.reportRunId,
     status: row.status,
-    ...(row.stateVersion === undefined ? {} : { stateVersion: row.stateVersion }),
+    ...(row.stateVersion === undefined
+      ? {}
+      : { stateVersion: row.stateVersion }),
   };
 }
 
@@ -233,30 +267,73 @@ async function json(response: Response): Promise<unknown> {
 
 type Options = {
   readonly baseUrl: string;
+  readonly allowedOrigins?: readonly string[];
+  readonly runtimeMode?: "development";
   readonly token: string;
   readonly fetchImplementation?: typeof fetch;
   readonly dispatcher?: FeedbackReportDispatcher;
+  readonly taskClient?: FeedbackCloudTaskClient;
+  readonly dispatchState?: FeedbackDispatchStatePort;
+  readonly generationInputs?: GenerationInputsPort;
+};
+
+type ApprovedGenerationConfiguration = Pick<
+  AuthoritativeGenerationSourceInputV1,
+  "sourceRevision" | "modelConfig" | "pricingSnapshot" | "evidenceKeyId"
+>;
+
+export type GenerationInputsPort = {
+  readonly readPage: (query: GenerationSourcePageQueryV1) => Promise<unknown>;
+  readonly getApprovedConfiguration: () =>
+    | ApprovedGenerationConfiguration
+    | Promise<ApprovedGenerationConfiguration>;
 };
 
 export function createFeedbackAdminCommandTransport(options: Options) {
   const fetchImplementation = options.fetchImplementation ?? fetch;
+  let trustedOrigin: string | null = null;
+  if (options.allowedOrigins) {
+    try {
+      trustedOrigin = validateTrustedCmsOrigin(
+        options.baseUrl,
+        options.allowedOrigins,
+        options.runtimeMode,
+      ).origin;
+    } catch {
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    }
+  }
   const dispatcher =
-    options.dispatcher ?? createUnavailableFeedbackDispatcher();
+    options.dispatcher ??
+    (options.taskClient && options.dispatchState
+      ? createCoordinatedFeedbackDispatcher({
+          taskClient: options.taskClient,
+          dispatchState: options.dispatchState,
+        })
+      : createUnavailableFeedbackDispatcher());
   const request = (path: string, init: RequestInit = {}) =>
-    fetchImplementation(`${options.baseUrl.replace(/\/$/, "")}${path}`, {
-      ...init,
-      headers: {
-        authorization: `Bearer ${options.token}`,
-        "content-type": "application/json",
-        accept: "application/json",
-        ...init.headers,
+    fetchImplementation(
+      new URL(`${options.baseUrl.replace(/\/$/, "")}${path}`).toString(),
+      {
+        ...init,
+        headers: {
+          authorization: `Bearer ${options.token}`,
+          "content-type": "application/json",
+          accept: "application/json",
+          ...init.headers,
+        },
+        cache: "no-store",
+        redirect: "error",
+        signal: init.signal ?? AbortSignal.timeout(10_000),
       },
-    });
+    );
 
   const coreRequest = async (
     path: string,
     init: RequestInit = {},
-    conflictCode: "ACTIVE_RANGE_CONFLICT" | "INVALID_STATE" = "ACTIVE_RANGE_CONFLICT",
+    conflictCode:
+      | "ACTIVE_RANGE_CONFLICT"
+      | "INVALID_STATE" = "ACTIVE_RANGE_CONFLICT",
   ) => {
     let response: Response;
     try {
@@ -265,6 +342,13 @@ export function createFeedbackAdminCommandTransport(options: Options) {
       throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
     }
     const value = await json(response);
+    if (
+      response.redirected ||
+      (trustedOrigin &&
+        response.url !== "" &&
+        new URL(response.url).origin !== trustedOrigin)
+    )
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
     if (!response.ok) {
       const errorValue =
         isRecord(value) && isRecord(value.error) ? value.error : {};
@@ -288,14 +372,20 @@ export function createFeedbackAdminCommandTransport(options: Options) {
     return value;
   };
 
-  const dispatch = async (result: CoreCommandResult, dispatchResult: FeedbackDispatchResult) => {
+  const dispatch = async (
+    result: CoreCommandResult,
+    dispatchResult: FeedbackDispatchResult,
+  ) => {
     if (
       !isRecord(dispatchResult) ||
       dispatchResult.contractVersion !== "survey-dispatch-command.v1"
     )
       throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
     if (dispatchResult.status !== "exhausted") {
-      if (dispatchResult.status !== "queued" && dispatchResult.status !== "dispatched")
+      if (
+        dispatchResult.status !== "queued" &&
+        dispatchResult.status !== "dispatched"
+      )
         throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
       return { ...result, dispatch: dispatchResult };
     }
@@ -348,11 +438,32 @@ export function createFeedbackAdminCommandTransport(options: Options) {
       dispatchResult = await dispatcher.dispatch({
         reportRunId: result.reportRunId,
         taskName,
+        expectedStateVersion: result.stateVersion,
       });
     } catch {
       throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
     }
     return dispatch(result, dispatchResult);
+  };
+
+  const materializeGenerationInputs = async (
+    period: FeedbackAdminDateRange,
+    cutoff: Date,
+  ): Promise<MaterializedGenerationInputsV1> => {
+    if (!options.generationInputs)
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    try {
+      const configuration =
+        await options.generationInputs.getApprovedConfiguration();
+      return await buildAuthoritativeGenerationInputsV1({
+        ...configuration,
+        range: period,
+        dataCutoffAt: cutoff.toISOString(),
+        readPage: options.generationInputs.readPage,
+      });
+    } catch {
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    }
   };
 
   const list = async (period: FeedbackAdminDateRange) => {
@@ -383,9 +494,14 @@ export function createFeedbackAdminCommandTransport(options: Options) {
     source?: CoreGeneration,
     cutoff = new Date(),
   ) => {
-    const data = buildGenerationData(
+    const materializedInputs = await materializeGenerationInputs(
+      source ? { from: source.from, to: source.to } : command.period,
+      cutoff,
+    );
+    const data = safeGenerationData(
       command,
       cutoff,
+      materializedInputs,
       undefined,
       source
         ? {
@@ -407,7 +523,6 @@ export function createFeedbackAdminCommandTransport(options: Options) {
 
   return {
     async generate(value: FeedbackAdminGenerateCommand) {
-      const cutoff = new Date();
       const conflicts = await list(value.period);
       const active = conflicts.find(
         (row) =>
@@ -437,24 +552,35 @@ export function createFeedbackAdminCommandTransport(options: Options) {
             details,
           );
       }
+      const cutoff = new Date();
       return create(value, undefined, cutoff);
     },
     async retry(reportRunId: string, _value: FeedbackAdminRetryCommand) {
       if (!UUID_PATTERN.test(reportRunId))
         throw new FeedbackAdminCommandError("VALIDATION_FAILED", 400);
-      const cutoff = new Date();
       const source = await find(reportRunId);
       if (!source || source.status !== "failed")
         throw new FeedbackAdminCommandError("INVALID_STATE", 409);
-      const data = prepareRetryGeneration(
-        {
-          documentId: source.documentId,
-          reportRunId: source.reportRunId,
-          period: { from: source.from, to: source.to },
-          status: source.status,
-        },
+      const cutoff = new Date();
+      const materializedInputs = await materializeGenerationInputs(
+        { from: source.from, to: source.to },
         cutoff,
       );
+      let data: ReturnType<typeof buildGenerationData>;
+      try {
+        data = prepareRetryGeneration(
+          {
+            documentId: source.documentId,
+            reportRunId: source.reportRunId,
+            period: { from: source.from, to: source.to },
+            status: source.status,
+          },
+          cutoff,
+          materializedInputs,
+        );
+      } catch {
+        throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+      }
       const result = coreResult(
         await coreRequest(GENERATION_ENDPOINT, {
           method: "POST",
@@ -467,8 +593,65 @@ export function createFeedbackAdminCommandTransport(options: Options) {
 }
 
 export function getFeedbackAdminCommandTransport(token: string) {
-  const baseUrl = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL];
-  if (!baseUrl)
+  try {
+    const origin = readTb113CmsOrigin();
+    const appTokens = readTb113AppTokens();
+    const generation = readTb113ApprovedGenerationConfiguration(
+      loadTb113ReportGenerationProfile(),
+    );
+    const tasks = process.env.NODE_ENV === "development"
+      ? readTb113LocalCloudTasksConfiguration()
+      : readTb113CloudTasksConfiguration();
+    readTb113PrivateBucket();
+    const configuredBaseUrl = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL];
+    if (
+      !configuredBaseUrl ||
+      configuredBaseUrl !== origin.baseUrl ||
+      !token ||
+      Object.values(appTokens).includes(token)
+    )
+      throw new TypeError("TB-113 command configuration is incomplete");
+
+    const source = createPrivateReportSourceTransport({
+      baseUrl: origin.baseUrl,
+      allowedOrigins: origin.allowedOrigins,
+      ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
+      tokenProvider: async () => appTokens.workerSourceRead,
+    });
+    const taskClient = createGoogleFeedbackTaskClient({
+      projectId: tasks.projectId,
+      location: tasks.location,
+      queue: tasks.queue,
+      workerUrl: tasks.workerUrl,
+      audience: tasks.audience,
+      invokerServiceAccount: tasks.taskInvokerEmail,
+    });
+    const dispatchState = createFeedbackDispatchStateTransport({
+      baseUrl: origin.baseUrl,
+      allowedOrigins: origin.allowedOrigins,
+      ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
+      sessionJwt: token,
+    });
+    return createFeedbackAdminCommandTransport({
+      baseUrl: origin.baseUrl,
+      allowedOrigins: origin.allowedOrigins,
+      ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
+      token,
+      taskClient,
+      dispatchState,
+      generationInputs: {
+        readPage: source.readPage,
+        getApprovedConfiguration: () => ({
+          sourceRevision: generation.sourceRevision,
+          modelConfig: generation.modelConfig,
+          pricingSnapshot: generation.pricingSnapshot,
+          evidenceKeyId: generation.evidenceKeyId,
+        }),
+      },
+    });
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "TB-113 report profile is not configured")
+      throw new FeedbackAdminCommandError("REPORT_PROFILE_NOT_CONFIGURED", 503);
     throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
-  return createFeedbackAdminCommandTransport({ baseUrl, token });
+  }
 }

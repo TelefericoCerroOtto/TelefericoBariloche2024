@@ -15,13 +15,23 @@ Reviewed `poc-result.json` records versions, lock/image/font/browser/runtime/fix
 5. Named charts plus keyboard-readable tables; one captioned HTML table/chart; zero serious/critical accessibility violations.
 6. Reduced-motion animation/transition duration=0; PDF never animates.
 7. Bar, line, comparison, scatter/matrix outputs are nonempty and reconcile with tables.
-8. Public production graph/image reaches no ECharts, Playwright, Chromium, Vertex, or worker module.
+8. A static source-graph audit of public client roots and their transitive runtime imports finds no reachability to ECharts, Playwright, Chromium, Vertex, or worker modules. This audit is not exact production-bundle analysis.
 9. Compressed worker image growth≤750 MiB; five staging-equivalent cold starts have p95 ready≤15s and none exceeds task deadline.
 
 Missing evidence or any failure blocks renderer implementation/adoption. Recharts and ECharts 6.1 remain conditional; no substitute renderer, dependency-free adapter, or raster fallback may be selected silently. Failure requires explicit design/spec revision; Chromium failure keeps generation/storage disabled. Dependencies/lockfile remain separately approval-gated after reviewed pass evidence.
+
+## Offline Worker Adapter Status
+
+The independent root worker package now has an explicitly injected offline Chromium adapter that reuses the pinned ECharts/Playwright stack. It validates the fixed report structure and privacy boundary, embeds the POC font, audits accessible vector charts/tables, and normalizes PDF creation/modification timestamps before hashing. Identical synthetic inputs therefore produce the same PDF bytes and artifact digest in the verified local runtime. The renderer-neutral parity POC remains app test tooling and calls the worker's actual SVG renderer; ECharts is no longer an app manifest/lock dependency, while Recharts remains for the dashboard.
+
+This is local synthetic evidence only, not production renderer adoption or runtime readiness. The initial POC run failed criterion 8 (`publicGraphExcluded=false`); that is historical failure evidence. After correcting the static source-graph classifier, the current local POC passes all nine criteria under the documented static client-root/transitive-import interpretation. The migrated POC test also passed 7 tests after switching its PDF side to the worker renderer. Criterion 8 does not establish exact production Next.js bundle reachability. Keep U12 unchecked and production renderer wiring disabled until production renderer/image integration, storage/download, and operational gates pass; no real GCS was used.
 
 ## PDF Contract
 
 Input is only `SnapshotV1+PublishedAnalysisV1`. Order: cover; executive summary; official overview; distribution/evolution; aspects; QR points; visitor voice; coverage/limitations. Charts: star distribution; satisfaction evolution; response-volume evolution; aspect comparison; QR-point comparison. Official tables/charts precede narrative. Comments, refs, prompts, and internal errors are prohibited.
 
 Pin worker image, runtime/browser, font files, locale `es-AR`, Buenos Aires time zone, CSS, adapter, and input digests. Before storage completion validate section/chart order, table reconciliation, prohibited-content absence, PDF MIME/positive size/SHA-256.
+
+## Offline Private Object Adapter
+
+`packages/tb113-private-report-storage` exposes an explicitly injected bucket port used by both the worker artifact store and the app's private object reader. It accepts only the deterministic `private/feedback-reports/{reportId}/report.pdf` key, checks UUID run ownership, exact private/no-store PDF metadata, positive size up to 25 MiB, PDF signature, and SHA-256, and uses the port's atomic create-if-absent and metadata-matched delete operations. Replays verify stored bytes instead of overwriting them. Synthetic app tests execute the worker with a fake CMS and fake bucket, then read the same staged object through the app download service; the integration fixture is a minimal xref-complete PDF because the production adapter correctly rejects the existing test-only renderer's non-PDF envelope. No SDK object, real network, approved bucket, IAM policy, public-access policy, GCS runtime binding, or diagnostic lifecycle is proven. The diagnostic prefix and 30-day retention remain deferred operational bucket configuration.

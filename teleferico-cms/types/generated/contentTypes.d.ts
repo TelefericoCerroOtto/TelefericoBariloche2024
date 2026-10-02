@@ -1282,7 +1282,6 @@ export interface ApiSurveyQrPointSurveyQrPoint
       }>;
     publicCode: Schema.Attribute.String &
       Schema.Attribute.Required &
-      Schema.Attribute.Private &
       Schema.Attribute.Unique &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 128;
@@ -1355,6 +1354,13 @@ export interface ApiSurveyReportGenerationSurveyReportGeneration
         number
       > &
       Schema.Attribute.DefaultTo<0>;
+    dispatchEvidenceJson: Schema.Attribute.JSON & Schema.Attribute.Private;
+    dispatchState: Schema.Attribute.Enumeration<
+      ['unreserved', 'reserved', 'created', 'unknown']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.DefaultTo<'unreserved'>;
     failureCode: Schema.Attribute.String &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
