@@ -67,6 +67,7 @@ export type WorkerCmsToken = {
 export type WorkerCmsClientOptions = {
   readonly baseUrl: string;
   readonly allowedOrigins: readonly string[];
+  readonly runtimeMode?: "development";
   readonly tokenProvider: (action: WorkerCmsAction) => Promise<WorkerCmsToken>;
   readonly fetchImplementation?: typeof fetch;
 };
@@ -609,7 +610,11 @@ async function withinDeadline<T>(
 export function createWorkerCmsClient(options: WorkerCmsClientOptions) {
   let baseUrl: URL;
   try {
-    baseUrl = validateTrustedCmsOrigin(options.baseUrl, options.allowedOrigins);
+    baseUrl = validateTrustedCmsOrigin(
+      options.baseUrl,
+      options.allowedOrigins,
+      options.runtimeMode,
+    );
   } catch {
     return fail("INVALID_CONFIGURATION");
   }

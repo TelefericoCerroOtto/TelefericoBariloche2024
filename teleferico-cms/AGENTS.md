@@ -22,7 +22,7 @@ This file is the package-local guardrail source for `teleferico-cms`: it complem
 
 ## Operational model
 
-This package is primarily managed through the **Strapi Admin Panel**. There is no custom application code beyond Strapi's default scaffolding — no custom controllers, services, policies or middlewares have been implemented. Content types, components, permissions and roles are all configured via the admin UI.
+This package is primarily managed through the **Strapi Admin Panel**. Domain content types, components, permissions and roles are configured via the admin UI; custom domain controllers and services support TB-113 operations.
 
 As a consequence, this `AGENTS.md` intentionally has less structural depth than `teleferico-app` or `tools/image-pipeline`. The guardrails below focus on protecting schema integrity and cross-package contracts rather than guiding code architecture.
 
@@ -32,6 +32,7 @@ As a consequence, this `AGENTS.md` intentionally has less structural depth than 
 - `src/api/<collection>/{content-types,controllers,routes,services}`: expected pattern per domain.
 - `src/components`: reusable schema components (`images-blocks`, `page-components`, `page-properties`, `utils-components`).
 - `src/extensions/users-permissions`: auth/roles overrides and sensitive schema.
+- `src/extensions/content-manager/strapi-server.js`: narrow Content Manager populate override for the two nonlocalized survey collections.
 - `database/migrations`: database migrations.
 - `config`: base CMS configuration (`server`, `database`, `plugins`, `middlewares`, `admin`, `api`).
 - `config/env/{staging,production}`: per-environment overrides.
@@ -45,7 +46,11 @@ As a consequence, this `AGENTS.md` intentionally has less structural depth than 
 - Do not modify `content-types`, `components`, `database/migrations` or `src/extensions/users-permissions` unless it is an explicit task.
 - Schema, role and permission changes are sensitive: review functional and contractual impact before assuming compatibility.
 - Do not introduce permission changes that expand public or administrative access without explicit requirement.
-- TB-113 worker-only `workerClaim`, `workerSnapshot`, `workerCheckpoint`, `workerSourceRead`, and `workerFail` actions require Strapi's `content-api-token` strategy with exact custom-token action scopes and controller identity checks before controller body access or database work. Never authorize them through a Users & Permissions JWT, even if a role has the same action; keep default and persistent grants absent unless separately approved. Native generation CRUD and admin dispatch actions retain their documented JWT boundary.
+- Keep the Content Manager populate override limited to `api::survey-version.survey-version` and `api::survey-submission.survey-submission`. The adapter relies on Strapi `5.45.1`'s `populate-builder` override order; rerun its isolated empty/seeded HTTP and public-private-field regression on upgrades, and retain required/private nested ownership fields.
+- TB-113 Custom Content API actions require Strapi's `content-api-token` strategy with exact custom-token action scopes and controller identity checks before controller body access or database work. The app token owns only `feedbackAdminRead`, `workerSourceRead`, and `workerReportDownloadMetadata`; the worker token owns only `workerClaim`, `workerSnapshot`, `workerCheckpoint`, `workerComplete`, and `workerFail`. Never authorize these actions through a Users & Permissions JWT, even if a role has the same action; keep default and persistent grants absent unless separately approved. Native generation CRUD and admin dispatch actions retain their documented JWT boundary.
+- CMS CountTokens/evidence-key checks remain independently authoritative. Development uses lazy GoogleAuth ADC only for Vertex CountTokens and independently derives a deterministic synthetic evidence key from approved nonsecret metadata; never call Secret Manager in local mode or treat the key as production security evidence. Isolated tests may replace external provider calls. Do not delegate CMS validation to the worker or weaken the production keyless Cloud Run gate.
+- CMS independently loads and validates `../packages/tb113-runtime-contracts/config/report-generation.json`; it must not consume the legacy generation-config environment JSON or trust worker validation. Keep its approved context-window budget and standard non-global prices aligned with the shared profile; explicitly injected malformed or null profiles must leave checkpoint providers unavailable. Configured values do not establish live Google authorization or access.
+- Local synthetic-key/provider activation also requires Strapi's effective `server.host` to be exactly `127.0.0.1` or `localhost`; if `FEEDBACK_CMS_ALLOWED_ORIGIN` and `BUILD_STRAPI_BASE_URL` are present, they must exactly match that host and loopback port. Keep Strapi bound with `HOST=127.0.0.1 npm run develop` or `HOST=localhost npm run develop` for local feedback work. This HTTP bind setting does not change the independently configured database host.
 
 ### Permissions documentation sync
 

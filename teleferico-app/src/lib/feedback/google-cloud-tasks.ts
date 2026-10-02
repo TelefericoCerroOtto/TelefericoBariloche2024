@@ -5,6 +5,8 @@ import { assertKeylessCloudRunEnvironment } from "@teleferico/tb113-runtime-cont
 import { createFeedbackTaskName, FeedbackTaskCreateError, type FeedbackCloudTaskClient } from "./dispatch";
 
 const API_ROOT = "https://cloudtasks.googleapis.com/v2";
+const LOCAL_API_PATH = "/_local-tasks/v2";
+const LOCAL_API_TOKEN = "tb113-local-task-api-v1";
 const PROJECT_ID = "teleferico-bariloche-2024";
 const LOCATION = "southamerica-east1";
 const EXECUTE_PATH = "/internal/v1/report-runs:execute";
@@ -33,12 +35,23 @@ function validTaskConfig(input: {
   readonly audience: string;
   readonly invokerServiceAccount: string;
 }): URL {
+  const localDevelopment = process.env.NODE_ENV === "development";
   let workerUrl: URL;
   try {
     workerUrl = new URL(input.workerUrl);
   } catch {
     throw new TypeError("Cloud Tasks runtime configuration is invalid");
   }
+  const validLocalWorker = localDevelopment &&
+    workerUrl.protocol === "http:" &&
+    workerUrl.hostname === "127.0.0.1" &&
+    /^[1-9][0-9]{0,4}$/.test(workerUrl.port) &&
+    Number(workerUrl.port) < 65_535 &&
+    !workerUrl.username && !workerUrl.password &&
+    workerUrl.pathname === EXECUTE_PATH && !workerUrl.search && !workerUrl.hash &&
+    input.audience === workerUrl.origin &&
+    input.invokerServiceAccount === "tb113-local-task-invoker";
+  if (validLocalWorker) return workerUrl;
   if (
     input.projectId !== PROJECT_ID || input.location !== LOCATION ||
     !/^[a-z][a-z0-9-]{0,62}$/.test(input.queue) ||
@@ -114,7 +127,14 @@ export function createGoogleFeedbackTaskClient(input: {
   const workerUrl = validTaskConfig(input);
   const queueName = `projects/${input.projectId}/locations/${input.location}/queues/${input.queue}`;
   const fetchImplementation = input.fetchImplementation ?? fetch;
+  const localTaskApiEnabled = process.env.NODE_ENV === "development" &&
+    workerUrl.protocol === "http:" && workerUrl.hostname === "127.0.0.1" &&
+    input.invokerServiceAccount === "tb113-local-task-invoker";
+  const localApiRoot = localTaskApiEnabled
+    ? `http://127.0.0.1:${Number(workerUrl.port) + 1}${LOCAL_API_PATH}`
+    : undefined;
   const accessTokenProvider = input.accessTokenProvider ?? (async () => {
+    if (localTaskApiEnabled) return LOCAL_API_TOKEN;
     assertKeylessCloudRunEnvironment();
     const auth = new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] });
     const client = await auth.getClient();
@@ -175,7 +195,7 @@ export function createGoogleFeedbackTaskClient(input: {
       } });
       let response: Response;
       try {
-        response = await send(`${API_ROOT}/${queueName}/tasks`, {
+        response = await send(`${localApiRoot ?? API_ROOT}/${queueName}/tasks`, {
           method: "POST", headers: { "content-type": "application/json" }, body: requestBody,
         });
       } catch (error) {
@@ -208,7 +228,7 @@ export function createGoogleFeedbackTaskClient(input: {
       const fullName = `${queueName}/tasks/${task.taskName}`;
       let response: Response;
       try {
-        response = await send(`${API_ROOT}/${fullName}?responseView=FULL`, { method: "GET" });
+        response = await send(`${localApiRoot ?? API_ROOT}/${fullName}?responseView=FULL`, { method: "GET" });
       } catch { return null; }
       if (response.status === 404) return null;
       if (!response.ok) return null;

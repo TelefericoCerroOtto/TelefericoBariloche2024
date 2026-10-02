@@ -40,9 +40,7 @@ const nativeSurveyBodies = {
     },
   },
   versions: {
-    data: [
-      { versionKey: "visitor-v1", status: "published", lastSupersededAt: null },
-    ],
+    data: [{ versionKey: "visitor-v1", status: "published" }],
   },
 };
 
@@ -62,6 +60,8 @@ function nativeFetch(
       return Response.json(bodyByResource.point);
     if (path.endsWith("survey-settings"))
       return Response.json(bodyByResource.settings);
+    if (new URL(String(input)).searchParams.has("fields[2]"))
+      return new Response(null, { status: 400 });
     return Response.json(bodyByResource.versions);
   });
 }
@@ -78,7 +78,19 @@ describe("feedback CMS transport", () => {
     const result = await transport.resolveSurvey("A".repeat(32));
 
     expect(result?.survey.aspects).toHaveLength(1);
+    expect(result?.versions).toEqual([
+      {
+        versionKey: "visitor-v1",
+        status: "published",
+        lastSupersededAtEpochSeconds: null,
+      },
+    ]);
     expect(fetchImplementation).toHaveBeenCalledTimes(3);
+    expect(
+      new URL(String(fetchImplementation.mock.calls[2]?.[0])).searchParams.has(
+        "fields[2]",
+      ),
+    ).toBe(false);
     expect(
       fetchImplementation.mock.calls.map(
         ([input]) => new URL(String(input)).pathname,
@@ -302,6 +314,40 @@ describe("feedback CMS transport", () => {
       { contractVersion: "feedback-cms-submission.v1", operation: "lookup" },
       { contractVersion: "feedback-cms-submission.v1", operation: "accept" },
     ]);
+  });
+
+  it("treats only a successful 204 lookup as no prior submission", async () => {
+    let response = new Response(null, { status: 204 });
+    const transport = createFeedbackCmsTransport({
+      baseUrl: "http://127.0.0.1:1337",
+      token: "synthetic-cms-token",
+      fetchImplementation: vi.fn(async () => response),
+    });
+    const store = transport.acceptanceStore({
+      pointDocumentId: "point-document",
+      versionDocumentId: "version-document",
+      point: { pointKey: "summit", publicCode: "A".repeat(32) },
+      survey: { versionKey: "visitor-v1" },
+    } as never);
+
+    await expect(
+      store.withTransaction((transaction) =>
+        transaction.lockAndFindByIdempotency(
+          "a".repeat(64),
+          "idem-key-0000001",
+        ),
+      ),
+    ).resolves.toBeNull();
+
+    response = new Response(null, { status: 200 });
+    await expect(
+      store.withTransaction((transaction) =>
+        transaction.lockAndFindByIdempotency(
+          "a".repeat(64),
+          "idem-key-0000001",
+        ),
+      ),
+    ).rejects.toThrow("Invalid CMS response");
   });
 
   it("maps a commit-time CMS 410 to the survey unavailable domain code", async () => {

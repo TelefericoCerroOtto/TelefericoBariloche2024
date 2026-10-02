@@ -346,7 +346,6 @@ export function createFeedbackCmsTransport(options: Options) {
         "pagination[pageSize]": String(NATIVE_VERSION_PAGE_SIZE),
         "fields[0]": "versionKey",
         "fields[1]": "status",
-        "fields[2]": "lastSupersededAt",
       });
       const [pointResponse, settingsResponse, versionsResponse] =
         await Promise.all([
@@ -399,6 +398,7 @@ export function createFeedbackCmsTransport(options: Options) {
                 }),
               });
               if (!response.ok) throw new Error("CMS unavailable");
+              if (response.status === 204) return null;
               const value = await readJson(response);
               if (value === null) return null;
               if (

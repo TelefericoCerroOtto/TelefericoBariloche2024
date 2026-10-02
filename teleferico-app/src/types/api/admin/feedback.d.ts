@@ -2,8 +2,7 @@ export type FeedbackAdminCapability =
   | "feedback.read"
   | "feedback.comments.read"
   | "feedback.reports.read"
-  | "feedback.reports.generate"
-  | "feedback.reports.download";
+  | "feedback.reports.generate";
 
 export type FeedbackAdminReadRoute =
   | "summary"

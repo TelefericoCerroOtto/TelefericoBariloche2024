@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createFeedbackAdminCommandTransport,
+  FeedbackAdminCommandError,
+  getFeedbackAdminCommandTransport,
   parseGenerateCommand,
   parseRetryCommand,
   type GenerationInputsPort,
@@ -867,6 +869,57 @@ describe("feedback administration command contracts", () => {
       expect(created[1]?.retryOfGeneration).toEqual({ connect: [validCoreRow.documentId] });
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it("ignores legacy generation JSON and reaches normal dispatch configuration with the populated profile", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("BUILD_STRAPI_BASE_URL", "http://127.0.0.1:1337");
+    vi.stubEnv("FEEDBACK_CMS_ALLOWED_ORIGIN", "http://127.0.0.1:1337");
+    vi.stubEnv("FEEDBACK_APP_CMS_TOKEN", "synthetic-app-token");
+    vi.stubEnv("FEEDBACK_APPROVED_GENERATION_CONFIG_JSON", JSON.stringify({
+      contractVersion: "survey-approved-generation-config.v1",
+      sourceRevision: "legacy-environment-source.v1",
+      evidenceKeyId: "legacy-environment-key.v1",
+      modelConfig: {
+        version: "survey-model-config.v1",
+        evidenceKeyId: "legacy-environment-key.v1",
+        provider: "vertex-ai",
+        vertexProjectId: "teleferico-bariloche-2024",
+        vertexLocation: "us",
+        vertexApiEndpoint: "aiplatform.us.rep.googleapis.com",
+        model: "gemini-3.8-flash",
+        temperature: 0,
+        reasoning: "LOW",
+        grounding: false,
+        promptVersion: "legacy-environment-prompt.v1",
+        mapSchemaVersion: "survey-map.v1",
+        analysisSchemaVersion: "survey-analysis.v1",
+        redactionVersion: "legacy-environment-redaction.v1",
+        validatorVersion: "legacy-environment-validator.v1",
+        chunkVersion: "legacy-environment-chunk.v1",
+        verifiedInputTokenLimit: 8192,
+        map: { targetMin: 600, targetMax: 1200, hardMax: 4000 },
+        directReduce: { targetMin: 1800, targetMax: 3000, hardMax: 8000 },
+        safetyHeadroomTokens: 2048,
+        sourceRevision: "legacy-environment-source.v1",
+      },
+      pricingSnapshot: {
+        version: "legacy-environment-pricing.v1",
+        currency: "USD",
+        units: [{ sku: "gemini-3.8-flash", inputMicrosPerMillion: 100, outputMicrosPerMillion: 200 }],
+      },
+    }));
+
+    try {
+      expect(() => getFeedbackAdminCommandTransport("synthetic-session-jwt"))
+        .toThrowError(expect.objectContaining({
+          code: "UPSTREAM_UNAVAILABLE",
+          status: 503,
+          message: "Feedback administration command failed",
+        } satisfies Partial<FeedbackAdminCommandError>));
+    } finally {
+      vi.unstubAllEnvs();
     }
   });
 });

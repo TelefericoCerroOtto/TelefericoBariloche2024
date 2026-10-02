@@ -95,6 +95,7 @@ export const USER_ROLES_TRANSLATIONS: LocalizedOptions<UserRoles> = {
   "es-AR": {
     Administrator: "Administrador",
     Authenticated: "Autenticado",
+    "Digital Experience Operator": "Operador de Experiencia Digital",
     "Media Manager": "Gestor de Medios",
     Public: "Público",
     Recruiter: "Reclutador",
@@ -103,6 +104,7 @@ export const USER_ROLES_TRANSLATIONS: LocalizedOptions<UserRoles> = {
   en: {
     Administrator: "Administrator",
     Authenticated: "Authenticated",
+    "Digital Experience Operator": "Digital Experience Operator",
     "Media Manager": "Media Manager",
     Public: "Public",
     Recruiter: "Recruiter",
@@ -111,6 +113,7 @@ export const USER_ROLES_TRANSLATIONS: LocalizedOptions<UserRoles> = {
   pt: {
     Administrator: "Administrador",
     Authenticated: "Autenticado",
+    "Digital Experience Operator": "Operador de Experiência Digital",
     "Media Manager": "Gerente de Mídia",
     Public: "Público",
     Recruiter: "Recrutador",

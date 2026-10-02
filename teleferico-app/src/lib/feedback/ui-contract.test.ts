@@ -125,6 +125,23 @@ describe("feedback UI contract", () => {
     );
   });
 
+  it("resolves the localized home link label without fallback telemetry", () => {
+    const onFallback = vi.fn();
+
+    const translations: FeedbackSurveyCopy = { es: {}, en: {}, pt: {} };
+
+    expect(
+      resolveFeedbackCopy(translations, "es", "homeLabel", onFallback),
+    ).toBe("Volver al inicio");
+    expect(
+      resolveFeedbackCopy(translations, "en", "homeLabel", onFallback),
+    ).toBe("Back to home");
+    expect(
+      resolveFeedbackCopy(translations, "pt", "homeLabel", onFallback),
+    ).toBe("Voltar ao início");
+    expect(onFallback).not.toHaveBeenCalled();
+  });
+
   it("accepts success only when receipt, timestamps, and guard state are authoritative", () => {
     expect(
       isAuthoritativeReceipt({

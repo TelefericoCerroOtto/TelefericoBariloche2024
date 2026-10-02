@@ -586,10 +586,8 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
       ),
   ).toBe(true);
   await expect(
-    page.getByText(
-      "Descarga no disponible hasta que U12-A publique la entrega mediada.",
-    ),
-  ).toBeVisible();
+    page.getByRole("button", { name: "Descargar PDF" }),
+  ).toBeEnabled();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

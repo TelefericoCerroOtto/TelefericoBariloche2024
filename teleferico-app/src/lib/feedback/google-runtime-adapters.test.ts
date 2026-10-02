@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { createGoogleFeedbackTaskClient } from "./google-cloud-tasks";
+import { readTb113LocalCloudTasksConfiguration } from "./tb113-runtime-config";
 import { createFeedbackTaskName, createCoordinatedFeedbackDispatcher } from "./dispatch";
 import { createGoogleTaskOidcPolicy } from "../../../../services/survey-report-worker/src/google-task-oidc";
 import { createGooglePrivateReportBucket } from "@teleferico/tb113-private-report-storage";
@@ -219,6 +220,82 @@ describe("Google TB-113 runtime adapters", () => {
 
     const mismatched = createGoogleFeedbackTaskClient({ ...input, fetchImplementation: createFetch("text/plain") });
     await expect(mismatched.verifyExistingTask({ taskName: TASK_NAME, reportRunId: RUN_ID })).resolves.toBeNull();
+  });
+
+  it("uses the authenticated loopback task API only in development and verifies duplicate identity", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const workerUrl = "http://127.0.0.1:18231/internal/v1/report-runs:execute";
+    const queuePath = "projects/teleferico-bariloche-2024/locations/southamerica-east1/queues/feedback-reports";
+    const fullName = `${queuePath}/tasks/${TASK_NAME}`;
+    const taskBody = Buffer.from(JSON.stringify({ commandVersion: "survey-report-command.v1", reportRunId: RUN_ID })).toString("base64");
+    const existingTasks: Record<string, unknown>[] = [];
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async (url, init) => {
+      requests.push({ url: String(url), init });
+      if (init?.method === "POST") {
+        const input = JSON.parse(String(init.body)) as { task: Record<string, unknown> };
+        if (existingTasks.length) return Response.json({ error: { status: "ALREADY_EXISTS" } }, { status: 409 });
+        existingTasks.push(input.task);
+        return Response.json({ name: fullName });
+      }
+      return existingTasks.length
+        ? Response.json(existingTasks[0])
+        : Response.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+    });
+    const input = {
+      projectId: "teleferico-bariloche-2024", location: "southamerica-east1", queue: "feedback-reports",
+      workerUrl, audience: "http://127.0.0.1:18231", invokerServiceAccount: "tb113-local-task-invoker",
+      fetchImplementation,
+    };
+    try {
+      const client = createGoogleFeedbackTaskClient(input);
+      await expect(client.createTask({ taskName: TASK_NAME, reportRunId: RUN_ID, commandVersion: "survey-report-command.v1" }))
+        .resolves.toEqual({ taskName: TASK_NAME, reportRunId: RUN_ID });
+      await expect(client.createTask({ taskName: TASK_NAME, reportRunId: RUN_ID, commandVersion: "survey-report-command.v1" }))
+        .rejects.toMatchObject({ kind: "already-exists" });
+      await expect(client.verifyExistingTask({ taskName: TASK_NAME, reportRunId: RUN_ID }))
+        .resolves.toMatchObject({ status: "verified", reportRunId: RUN_ID });
+      expect(requests[0]?.url).toBe(`http://127.0.0.1:18232/_local-tasks/v2/${queuePath}/tasks`);
+      expect(new Headers(requests[0]?.init?.headers).get("authorization")).toBe("Bearer tb113-local-task-api-v1");
+
+      const existing = existingTasks[0]!;
+      existingTasks[0] = { ...existing, httpRequest: {
+        ...(existing.httpRequest as Record<string, unknown>),
+        body: Buffer.from(JSON.stringify({ commandVersion: "survey-report-command.v1", reportRunId: "22222222-2222-4222-8222-222222222222" })).toString("base64"),
+      } };
+      await expect(client.verifyExistingTask({ taskName: TASK_NAME, reportRunId: RUN_ID })).resolves.toBeNull();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("does not accept a loopback worker URL outside development", () => {
+    expect(() => createGoogleFeedbackTaskClient({
+      projectId: "teleferico-bariloche-2024", location: "southamerica-east1", queue: "feedback-reports",
+      workerUrl: "http://127.0.0.1:18231/internal/v1/report-runs:execute", audience: "http://127.0.0.1:18231",
+      invokerServiceAccount: "tb113-local-task-invoker", accessTokenProvider: async () => "unused",
+      fetchImplementation: vi.fn<typeof fetch>(),
+    })).toThrow();
+  });
+
+  it("derives local task identity only from exact loopback settings in development", () => {
+    const env = {
+      NODE_ENV: "development",
+      FEEDBACK_WORKER_URL: "http://127.0.0.1:18231/internal/v1/report-runs:execute",
+      FEEDBACK_TASK_QUEUE_PATH: "projects/teleferico-bariloche-2024/locations/southamerica-east1/queues/feedback-reports",
+    } as NodeJS.ProcessEnv;
+    expect(readTb113LocalCloudTasksConfiguration(env)).toMatchObject({
+      workerUrl: env.FEEDBACK_WORKER_URL,
+      audience: "http://127.0.0.1:18231",
+      taskInvokerEmail: "tb113-local-task-invoker",
+      queue: "feedback-reports",
+    });
+    expect(() => readTb113LocalCloudTasksConfiguration({
+      ...env,
+      FEEDBACK_WORKER_URL: "http://localhost:18231/internal/v1/report-runs:execute",
+    })).toThrow();
+    expect(() => readTb113LocalCloudTasksConfiguration({ ...env, NODE_ENV: "production" }))
+      .toThrow();
   });
 
   it("creates private GCS objects conditionally, reads within bounds, and deletes only the observed generation", async () => {

@@ -2,6 +2,8 @@
 
 const { isDeepStrictEqual } = require('node:util');
 const { validateWorkerClaimContracts } = require('./checkpoint-contract');
+const { deriveLocalEvidenceKey } = require('../../../../../packages/tb113-runtime-contracts/src/local-evidence-key.cjs');
+const { loadTb113ReportGenerationProfile } = require('../../../../../packages/tb113-runtime-contracts/src/report-generation-profile.cjs');
 
 const PROJECT_ID = 'teleferico-bariloche-2024';
 const MODEL = 'gemini-3.8-flash';
@@ -13,14 +15,12 @@ const SECRET_MANAGER_BASE_URL = 'https://secretmanager.googleapis.com/v1/';
 const SECRET_VERSION_PATTERN = new RegExp(`^projects/${PROJECT_ID}/secrets/[a-zA-Z0-9_-]{1,255}/versions/[1-9][0-9]*$`);
 const EVIDENCE_KEY_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const SEGMENTS = Object.freeze(['instructions', 'schema', 'metrics', 'comments']);
-const MAX_CONFIG_BYTES = 32 * 1024;
 const MAX_REQUEST_SEGMENT_BYTES = 1024 * 1024;
 const MAX_RESPONSE_BYTES = 16 * 1024;
 const REQUEST_TIMEOUT_MS = 15_000;
 const CONFIG_KEYS = Object.freeze([
-  'TB113_APPROVED_GENERATION_CONFIG_JSON',
-  'TB113_WORKER_EVIDENCE_KEY',
-  'TB113_VERTEX_PROJECT_ID',
+  'FEEDBACK_WORKER_EVIDENCE_KEY',
+  'FEEDBACK_VERTEX_PROJECT_ID',
 ]);
 
 function isRecord(value) {
@@ -44,20 +44,18 @@ function deepFreeze(value) {
   return Object.freeze(value);
 }
 
-function parseRuntimeConfiguration(input) {
+function parseRuntimeConfiguration(input, approvedGenerationProfile) {
   if (!isRecord(input) || !exactKeys(input, CONFIG_KEYS) ||
-      !safeConfigValue(input.TB113_APPROVED_GENERATION_CONFIG_JSON, MAX_CONFIG_BYTES) ||
-      !safeConfigValue(input.TB113_WORKER_EVIDENCE_KEY, 512) ||
-      input.TB113_VERTEX_PROJECT_ID !== PROJECT_ID ||
-      !SECRET_VERSION_PATTERN.test(input.TB113_WORKER_EVIDENCE_KEY))
+      !safeConfigValue(input.FEEDBACK_WORKER_EVIDENCE_KEY, 512) ||
+      input.FEEDBACK_VERTEX_PROJECT_ID !== PROJECT_ID ||
+      !SECRET_VERSION_PATTERN.test(input.FEEDBACK_WORKER_EVIDENCE_KEY))
     return null;
 
-  let approved;
-  try {
-    approved = JSON.parse(input.TB113_APPROVED_GENERATION_CONFIG_JSON);
-  } catch {
+  const profile = approvedGenerationProfile ?? loadTb113ReportGenerationProfile();
+  if (!isRecord(profile) || profile.profileVersion !== 'feedback-report-generation-profile.v1' ||
+      !isRecord(profile.generation))
     return null;
-  }
+  const approved = profile.generation;
 
   if (!exactKeys(approved, ['contractVersion', 'sourceRevision', 'evidenceKeyId', 'modelConfig', 'pricingSnapshot']) ||
       approved.contractVersion !== 'survey-approved-generation-config.v1' ||
@@ -72,6 +70,16 @@ function parseRuntimeConfiguration(input) {
       approved.modelConfig.model !== MODEL ||
       !Array.isArray(approved.pricingSnapshot.units) ||
       !approved.pricingSnapshot.units.some((unit) => isRecord(unit) && unit.sku === MODEL))
+    return null;
+
+  const verifiedInputTokenLimit = approved.modelConfig.verifiedInputTokenLimit;
+  const pricingUnits = approved.pricingSnapshot.units;
+  if (!Number.isSafeInteger(verifiedInputTokenLimit) || verifiedInputTokenLimit < 1 ||
+      approved.modelConfig.safetyHeadroomTokens !== Math.max(2048, Math.ceil(verifiedInputTokenLimit * 0.1)) ||
+      !safeConfigValue(approved.pricingSnapshot.version, 128) ||
+      pricingUnits.some((unit) => !isRecord(unit) ||
+        !Number.isSafeInteger(unit.inputMicrosPerMillion) || unit.inputMicrosPerMillion < 0 ||
+        !Number.isSafeInteger(unit.outputMicrosPerMillion) || unit.outputMicrosPerMillion < 0))
     return null;
 
   try {
@@ -94,7 +102,7 @@ function parseRuntimeConfiguration(input) {
 
   return Object.freeze({
     evidenceKeyId: approved.evidenceKeyId,
-    evidenceKeySecretVersion: input.TB113_WORKER_EVIDENCE_KEY,
+    evidenceKeySecretVersion: input.FEEDBACK_WORKER_EVIDENCE_KEY,
     modelConfig: deepFreeze(approved.modelConfig),
     pricingSnapshot: deepFreeze(approved.pricingSnapshot),
     sourceRevision: approved.sourceRevision,
@@ -104,6 +112,33 @@ function parseRuntimeConfiguration(input) {
 function isKeylessCloudRunEnvironment(env) {
   return safeConfigValue(env.K_SERVICE, 256) && safeConfigValue(env.K_REVISION, 256) &&
     (env.GOOGLE_APPLICATION_CREDENTIALS === undefined || env.GOOGLE_APPLICATION_CREDENTIALS === '');
+}
+
+function isExactLocalCmsOrigin(value, host, port) {
+  if (typeof value !== 'string' || !value) return false;
+  try {
+    const origin = new URL(value);
+    return origin.protocol === 'http:' && origin.hostname === host &&
+      /^\d{1,5}$/.test(origin.port) && Number(origin.port) === port &&
+      !origin.username && !origin.password && origin.pathname === '/' &&
+      !origin.search && !origin.hash && value === origin.origin;
+  } catch {
+    return false;
+  }
+}
+
+function localCmsServerIsLoopback(env) {
+  if (!['127.0.0.1', 'localhost'].includes(env.HOST) || !Number.isSafeInteger(env.PORT) ||
+      env.PORT < 1 || env.PORT > 65_535)
+    return false;
+
+  const configuredOrigin = env.BUILD_STRAPI_BASE_URL;
+  const allowedOrigin = env.FEEDBACK_CMS_ALLOWED_ORIGIN;
+  if (!configuredOrigin && !allowedOrigin) return true;
+  return Boolean(
+    configuredOrigin && allowedOrigin && configuredOrigin === allowedOrigin &&
+    isExactLocalCmsOrigin(configuredOrigin, env.HOST, env.PORT),
+  );
 }
 
 function fail(code, message) {
@@ -178,6 +213,30 @@ function createMetadataAccessTokenProvider({ fetchImplementation, env }) {
         result.token_type !== 'Bearer' || !Number.isSafeInteger(result.expires_in) || result.expires_in < 1)
       fail('AUTHENTICATION', 'Cloud Run service identity response is invalid');
     return result.access_token;
+  };
+}
+
+function createLocalOAuthAccessTokenProvider({ env }) {
+  return async () => {
+    if (env.NODE_ENV !== 'development' || env.K_SERVICE || env.K_REVISION ||
+        (env.GOOGLE_APPLICATION_CREDENTIALS !== undefined && env.GOOGLE_APPLICATION_CREDENTIALS !== ''))
+      fail('AUTHENTICATION', 'Local Google OAuth credentials are unavailable');
+    let GoogleAuth;
+    try {
+      ({ GoogleAuth } = require('google-auth-library'));
+    } catch {
+      fail('AUTHENTICATION', 'Local Google OAuth credentials are unavailable');
+    }
+    try {
+      const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
+      const client = await auth.getClient();
+      const result = await client.getAccessToken();
+      if (!result.token || /[\u0000-\u0020\u007f]/.test(result.token))
+        fail('AUTHENTICATION', 'Local Google OAuth credentials are unavailable');
+      return result.token;
+    } catch {
+      fail('AUTHENTICATION', 'Local Google OAuth credentials are unavailable');
+    }
   };
 }
 
@@ -297,17 +356,84 @@ function createEvidenceKeyProvider({ runtime, fetchImplementation, accessTokenPr
   };
 }
 
-function createFeedbackCheckpointProviders({ env = {}, fetchImplementation = fetch, accessTokenProvider } = {}) {
-  if (!isRecord(env) || !isKeylessCloudRunEnvironment(env)) return Object.freeze({});
+function createDevelopmentCheckpointProviders(runtime, developmentProviders) {
+  if (!isRecord(developmentProviders) ||
+      typeof developmentProviders.countTokens !== 'function' ||
+      typeof developmentProviders.evidenceKey !== 'function')
+    return null;
+
+  return {
+    workerCountTokensProvider: async (request) => {
+      if (!validCountRequest(request, runtime))
+        fail('CONFIGURATION', 'Vertex CountTokens request is not approved');
+      const result = await developmentProviders.countTokens(request);
+      if (!exactKeys(result, SEGMENTS) || !SEGMENTS.every((segment) =>
+        Number.isSafeInteger(result[segment]) && result[segment] >= 0))
+        fail('CONFIGURATION', 'Vertex CountTokens response is invalid');
+      return Object.freeze({ ...result });
+    },
+    workerEvidenceKeyProvider: async (evidenceKeyId) => {
+      if (evidenceKeyId !== runtime.evidenceKeyId)
+        fail('CONFIGURATION', 'Evidence-key identifier is not approved');
+      const value = await developmentProviders.evidenceKey(evidenceKeyId);
+      const bytes = typeof value === 'string' ? Buffer.from(value, 'utf8') :
+        value instanceof Uint8Array ? Buffer.from(value) : null;
+      if (!bytes || bytes.byteLength < 32)
+        fail('CONFIGURATION', 'Evidence-key response is invalid');
+      return new Uint8Array(bytes);
+    },
+  };
+}
+
+function createLocalEvidenceKeyProvider(runtime) {
+  return async (evidenceKeyId) => {
+    if (evidenceKeyId !== runtime.evidenceKeyId)
+      fail('CONFIGURATION', 'Evidence-key identifier is not approved');
+    return new Uint8Array(deriveLocalEvidenceKey({
+      evidenceKeyId: runtime.evidenceKeyId,
+      sourceRevision: runtime.sourceRevision,
+      secretVersion: runtime.evidenceKeySecretVersion,
+    }));
+  };
+}
+
+function createFeedbackCheckpointProviders({ env = {}, fetchImplementation = fetch, accessTokenProvider, developmentProviders, approvedGenerationProfile } = {}) {
+  if (!isRecord(env)) return Object.freeze({});
+  const localDevelopment = env.NODE_ENV === 'development';
+  if (!localDevelopment && !isKeylessCloudRunEnvironment(env)) return Object.freeze({});
+  if (localDevelopment && (env.K_SERVICE || env.K_REVISION ||
+      (env.GOOGLE_APPLICATION_CREDENTIALS !== undefined && env.GOOGLE_APPLICATION_CREDENTIALS !== ''))) return Object.freeze({});
+  if (localDevelopment && !localCmsServerIsLoopback(env)) return Object.freeze({});
   const runtime = parseRuntimeConfiguration(Object.fromEntries(
     CONFIG_KEYS.map((key) => [key, env[key]]),
-  ));
+  ), approvedGenerationProfile);
   if (!runtime) return Object.freeze({});
 
+  if (localDevelopment && developmentProviders !== undefined) {
+    const providers = createDevelopmentCheckpointProviders(runtime, developmentProviders);
+    return providers ? Object.freeze(providers) : Object.freeze({});
+  }
+
+  const localAccessTokenProvider = localDevelopment
+    ? accessTokenProvider ?? createLocalOAuthAccessTokenProvider({ env })
+    : accessTokenProvider;
+
+  if (localDevelopment) {
+    return Object.freeze({
+      workerCountTokensProvider: createCountTokensProvider({
+        runtime,
+        fetchImplementation,
+        accessTokenProvider: localAccessTokenProvider,
+        env,
+      }),
+      workerEvidenceKeyProvider: createLocalEvidenceKeyProvider(runtime),
+    });
+  }
+
   return Object.freeze({
-    workerCountTokensProvider: createCountTokensProvider({ runtime, fetchImplementation, accessTokenProvider, env }),
-    workerEvidenceKeyProvider: createEvidenceKeyProvider({ runtime, fetchImplementation, accessTokenProvider, env }),
+    workerCountTokensProvider: createCountTokensProvider({ runtime, fetchImplementation, accessTokenProvider: localAccessTokenProvider, env }),
+    workerEvidenceKeyProvider: createEvidenceKeyProvider({ runtime, fetchImplementation, accessTokenProvider: localAccessTokenProvider, env }),
   });
 }
 
-module.exports = { createFeedbackCheckpointProviders };
+module.exports = { createFeedbackCheckpointProviders, parseRuntimeConfiguration };

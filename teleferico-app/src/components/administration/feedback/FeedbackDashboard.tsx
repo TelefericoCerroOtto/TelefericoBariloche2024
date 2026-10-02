@@ -330,7 +330,6 @@ type CommentFilterState = {
 };
 
 const EMPTY_COMMENT_FILTERS: CommentFilterState = { text: "", aspectKey: "", ratings: [], pointKey: "", locale: "" };
-const REPORT_DOWNLOAD_ROUTE_AVAILABLE = false;
 const REPORTING_TIME_ZONE = "America/Argentina/Buenos_Aires";
 
 function dateTime(value: string) {
@@ -368,6 +367,8 @@ export function CommentsReportsModule({ period, points, aspects }: {
   const [overrideAccepted, setOverrideAccepted] = useState(false);
   const [commandBusy, setCommandBusy] = useState(false);
   const [retryingGenerationId, setRetryingGenerationId] = useState("");
+  const [downloadingReportId, setDownloadingReportId] = useState("");
+  const [downloadError, setDownloadError] = useState("");
   const commandBusyRef = useRef(false);
   const resultsRef = useRef<HTMLDivElement>(null);
   const closeDetailRef = useRef<HTMLButtonElement>(null);
@@ -519,6 +520,42 @@ export function CommentsReportsModule({ period, points, aspects }: {
       setRetryingGenerationId("");
     }
   };
+  const downloadReport = async (reportId: string) => {
+    if (downloadingReportId) return;
+    setDownloadingReportId(reportId);
+    setDownloadError("");
+    try {
+      const response = await authenticatedInternalApiFetch(
+        `/api/admin/feedback/reports/${reportId}/download`,
+        { method: "GET" },
+      );
+      if (
+        !response.ok ||
+        !/^application\/pdf(?:\s*;|$)/i.test(
+          response.headers.get("content-type") ?? "",
+        )
+      )
+        throw new Error("REPORT_DOWNLOAD_UNAVAILABLE");
+      const blob = await response.blob();
+      const signature = new TextDecoder().decode(
+        new Uint8Array(await blob.slice(0, 5).arrayBuffer()),
+      );
+      if (signature !== "%PDF-") throw new Error("INVALID_PDF");
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `feedback-report-${reportId}.pdf`;
+      anchor.hidden = true;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+    } catch {
+      setDownloadError("No se pudo descargar el informe. Probá de nuevo.");
+    } finally {
+      setDownloadingReportId("");
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -563,7 +600,23 @@ export function CommentsReportsModule({ period, points, aspects }: {
         <p className="text-sm text-foreground/70">Los rangos, métricas y conteos de cada informe son inmutables. El historial distingue respuestas analizadas de comentarios analizados.</p>
          {reportsState === "loading" ? <div role="status" aria-live="polite"><Spinner label="Cargando historial de informes" /></div> : null}
          {reportsState === "error" ? <div role="alert" className="rounded-xl border border-dashed p-4"><p>El historial de informes no está disponible temporalmente.</p><button type="button" className="mt-3 rounded-full border border-primary px-4 py-2 font-semibold text-primary" onClick={() => setReportsRetry((value) => value + 1)}>Reintentar historial</button></div> : null}
-         {reportsState === "ready" && reports?.items.length ? <><div className="grid gap-3 md:grid-cols-2">{reports.items.map((report) => <article key={report.reportId} className="rounded-xl border p-4"><h3 className="font-semibold">{report.name}</h3><p className="text-sm text-foreground/70">{report.period.from}–{report.period.to} · generado {dateTime(report.createdAt)}</p><p className="mt-2 text-sm">{report.analyzedResponseCount} respuestas · {report.analyzedCommentCount} comentarios</p>{report.canDownload && REPORT_DOWNLOAD_ROUTE_AVAILABLE ? <a className="mt-3 inline-block rounded-full border border-primary px-4 py-2 font-semibold text-primary" href={`/api/admin/feedback/reports/${report.reportId}/download`}>Descargar PDF</a> : <span className="mt-3 inline-block text-sm text-foreground/60">Descarga no disponible hasta que U12-A publique la entrega mediada.</span>}</article>)}</div><nav aria-label="Paginación de informes" className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={reportsPage <= 1} className="rounded-full border px-4 py-2 disabled:opacity-40" onClick={() => setReportsPage((value) => value - 1)}>Anterior</button><span className="text-sm">Página {reportsPage} de {reportsPageCount}</span><button type="button" disabled={reportsPage >= reportsPageCount} className="rounded-full border px-4 py-2 disabled:opacity-40" onClick={() => setReportsPage((value) => value + 1)}>Siguiente</button></nav></> : reportsState === "ready" ? <EmptyState>No hay informes exitosos para este período.</EmptyState> : null}
+          {reportsState === "ready" && reports?.items.length ? <>
+            <div className="grid gap-3 md:grid-cols-2">
+              {reports.items.map((report) => <article key={report.reportId} className="rounded-xl border p-4">
+                <h3 className="font-semibold">{report.name}</h3>
+                <p className="text-sm text-foreground/70">{report.period.from}–{report.period.to} · generado {dateTime(report.createdAt)}</p>
+                <p className="mt-2 text-sm">{report.analyzedResponseCount} respuestas · {report.analyzedCommentCount} comentarios</p>
+                {report.canDownload ? <button
+                  type="button"
+                  disabled={Boolean(downloadingReportId)}
+                  className="mt-3 rounded-full border border-primary px-4 py-2 font-semibold text-primary hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                  onClick={() => void downloadReport(report.reportId)}
+                >{downloadingReportId === report.reportId ? "Descargando…" : "Descargar PDF"}</button> : <span className="mt-3 inline-block text-sm text-foreground/60">El archivo no está disponible para descarga.</span>}
+              </article>)}
+            </div>
+            {downloadError ? <p role="alert" className="rounded-xl border p-3">{downloadError}</p> : null}
+            <nav aria-label="Paginación de informes" className="mt-4 flex items-center justify-between gap-3"><button type="button" disabled={reportsPage <= 1} className="rounded-full border px-4 py-2 disabled:opacity-40" onClick={() => setReportsPage((value) => value - 1)}>Anterior</button><span className="text-sm">Página {reportsPage} de {reportsPageCount}</span><button type="button" disabled={reportsPage >= Math.ceil(reports.total / reports.pageSize)} className="rounded-full border px-4 py-2 disabled:opacity-40" onClick={() => setReportsPage((value) => value + 1)}>Siguiente</button></nav>
+          </> : reportsState === "ready" ? <EmptyState>No hay informes exitosos para este período.</EmptyState> : null}
       </Panel>
 
       <Panel title="Historial de generaciones">

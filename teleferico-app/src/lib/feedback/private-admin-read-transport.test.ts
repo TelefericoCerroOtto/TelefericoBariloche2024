@@ -79,6 +79,36 @@ describe("private feedback administration transport", () => {
     expect(tokenProvider).not.toHaveBeenCalled();
   });
 
+  it("uses the explicitly development-scoped exact loopback origin with its existing action token", async () => {
+    const origin = "http://127.0.0.1:1337";
+    const fetchImplementation = vi.fn(async () => response({
+      contractVersion: "feedback-admin-source.v1",
+      resource: query.resource,
+      cursor: null,
+      nextCursor: null,
+      total: 0,
+      items: [],
+    }));
+    const transport = createPrivateFeedbackAdminReadTransport({
+      baseUrl: origin,
+      allowedOrigins: [origin],
+      runtimeMode: "development",
+      tokenProvider: async () => ({ action: FEEDBACK_ADMIN_READ_ACTION, value: "synthetic-action-token" }),
+      fetchImplementation,
+    });
+    await expect(transport.readPage(query)).resolves.toMatchObject({ total: 0 });
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      new URL(`${origin}/api/tb113/admin/feedback/read`),
+      expect.objectContaining({ headers: expect.objectContaining({ authorization: "Bearer synthetic-action-token" }) }),
+    );
+    expect(() => createPrivateFeedbackAdminReadTransport({
+      baseUrl: origin,
+      allowedOrigins: [origin],
+      tokenProvider: async () => ({ action: FEEDBACK_ADMIN_READ_ACTION, value: "synthetic-action-token" }),
+      fetchImplementation,
+    })).toThrow();
+  });
+
   it("rejects action substitution and malformed page envelopes", async () => {
     const wrongAction = createPrivateFeedbackAdminReadTransport({
       baseUrl: "https://cms.example.com",

@@ -23,6 +23,7 @@ const BLOCKED_HOST_SUFFIXES = [
 ] as const;
 const BLOCKED_HOST_LABEL = /metadata|meta.?data|instance.?data|^localhost$|^localdomain$/i;
 const DNS_LABEL_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+export type CmsRuntimeMode = "development" | "production";
 
 function canonicalPublicHttpsOrigin(value: unknown): URL {
   if (typeof value !== "string" || value.length === 0 || value.trim() !== value)
@@ -53,17 +54,41 @@ function canonicalPublicHttpsOrigin(value: unknown): URL {
   return url;
 }
 
+function canonicalDevelopmentLoopbackOrigin(value: unknown): URL {
+  if (typeof value !== "string" || value.length === 0 || value.trim() !== value)
+    throw new TypeError("Invalid CMS origin");
+  const url = new URL(value);
+  if (
+    url.protocol !== "http:" ||
+    (url.hostname !== "127.0.0.1" && url.hostname !== "localhost") ||
+    !/^[1-9][0-9]{0,4}$/.test(url.port) ||
+    Number(url.port) > 65_535 ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.pathname !== "/" ||
+    url.search !== "" ||
+    url.hash !== "" ||
+    value !== url.origin
+  )
+    throw new TypeError("Invalid CMS origin");
+  return url;
+}
+
 /** Validates the explicit destination and exact public-origin allowlist. */
 export function validateTrustedCmsOrigin(
   baseUrl: unknown,
   allowedOrigins: unknown,
+  runtimeMode: CmsRuntimeMode = "production",
 ): URL {
   if (!Array.isArray(allowedOrigins) || allowedOrigins.length === 0)
     throw new TypeError("Invalid CMS origin");
-  const origins = allowedOrigins.map((origin) => canonicalPublicHttpsOrigin(origin).origin);
+  const canonicalize = runtimeMode === "development"
+    ? canonicalDevelopmentLoopbackOrigin
+    : canonicalPublicHttpsOrigin;
+  const origins = allowedOrigins.map((origin) => canonicalize(origin).origin);
   if (new Set(origins).size !== origins.length)
     throw new TypeError("Invalid CMS origin");
-  const target = canonicalPublicHttpsOrigin(baseUrl);
+  const target = canonicalize(baseUrl);
   if (!origins.includes(target.origin)) throw new TypeError("Invalid CMS origin");
   return target;
 }

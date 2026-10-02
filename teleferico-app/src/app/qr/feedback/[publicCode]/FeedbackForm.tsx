@@ -49,6 +49,11 @@ const STAGE_PROGRESS: Readonly<Record<FeedbackStage, number>> = {
 
 const FEEDBACK_TOTAL = 4;
 const BROWSER_CONTEXT_KEY = "tb113-feedback-browser-context";
+const HOME_PATHS: Readonly<Record<FeedbackLocale, string>> = {
+  es: "/es-AR",
+  en: "/en",
+  pt: "/pt",
+};
 
 export default function FeedbackForm({ publicCode }: Props) {
   const [survey, setSurvey] = useState<PublicSurveyPayload | null>(null);
@@ -257,7 +262,6 @@ export default function FeedbackForm({ publicCode }: Props) {
         locale={locale}
         localeLabel={survey ? t("localeLabel") : t("languageControlLabel")}
         onLocaleChange={changeLocale}
-        pointName={survey?.point.displayName}
         skipLabel={t("skipToQuestion")}
       >
         <section
@@ -274,9 +278,6 @@ export default function FeedbackForm({ publicCode }: Props) {
             >
               {survey ? t("loadingStatus") : t("loadingFallback")}
             </h2>
-            <p className="feedback-point-name">
-              {survey?.point.displayName ?? ""}
-            </p>
           </div>
         </section>
       </FeedbackShell>
@@ -290,7 +291,6 @@ export default function FeedbackForm({ publicCode }: Props) {
         locale={locale}
         localeLabel={survey ? t("localeLabel") : t("languageControlLabel")}
         onLocaleChange={changeLocale}
-        pointName={survey?.point.displayName}
         skipLabel={t("skipToQuestion")}
       >
         <section
@@ -324,7 +324,6 @@ export default function FeedbackForm({ publicCode }: Props) {
         locale={locale}
         localeLabel={t("localeLabel")}
         onLocaleChange={changeLocale}
-        pointName={survey.point.displayName}
         skipLabel={t("skipToQuestion")}
       >
         <section
@@ -353,22 +352,12 @@ export default function FeedbackForm({ publicCode }: Props) {
                 <span>{submissionReceipt}</span>
               </p>
             )}
-            {!draftExpiredRef.current && (
-              <button
-                type="button"
-                className="feedback-nav-button feedback-nav-button-secondary"
-                onClick={() => {
-                  setState(createInitialFeedbackState());
-                  setSubmissionReceipt(null);
-                  setCaptchaToken(null);
-                  setIdempotencyKey(createIdempotencyKey());
-                  setStatus("ready");
-                  setStatusKey("");
-                }}
-              >
-                {t("reset")}
-              </button>
-            )}
+            <a
+              className="feedback-nav-button feedback-nav-button-secondary"
+              href={HOME_PATHS[locale]}
+            >
+              {t("homeLabel")}
+            </a>
           </div>
         </section>
       </FeedbackShell>
@@ -508,7 +497,6 @@ export default function FeedbackForm({ publicCode }: Props) {
       locale={locale}
       localeLabel={t("localeLabel")}
       onLocaleChange={changeLocale}
-      pointName={survey.point.displayName}
       skipLabel={t("skipToQuestion")}
     >
       <section
@@ -694,7 +682,7 @@ export default function FeedbackForm({ publicCode }: Props) {
                   </div>
                   {state.selectedAspectKeys.includes("other") && (
                     <label
-                      className="mt-4 block text-sm font-medium text-slate-800"
+                      className="mt-4 block text-sm font-medium text-white"
                       htmlFor="other-aspect-input"
                     >
                       {t("otherLabel")}
@@ -960,7 +948,6 @@ type FeedbackShellProps = Readonly<{
   locale: FeedbackLocale;
   localeLabel: string;
   onLocaleChange: (_locale: FeedbackLocale) => void;
-  pointName?: string;
   skipLabel: string;
 }>;
 
@@ -970,7 +957,6 @@ function FeedbackShell({
   locale,
   localeLabel,
   onLocaleChange,
-  pointName,
   skipLabel,
 }: FeedbackShellProps) {
   return (
@@ -990,12 +976,7 @@ function FeedbackShell({
               className="feedback-brand-logo"
             />
             <div className="feedback-brand-copy">
-              {pointName && (
-                <>
-                  <h1 className="feedback-header-title">{ariaLabel}</h1>
-                  <p className="feedback-point-name">{pointName}</p>
-                </>
-              )}
+              <h1 className="feedback-header-title">{ariaLabel}</h1>
             </div>
           </div>
           <label className="feedback-language-control">

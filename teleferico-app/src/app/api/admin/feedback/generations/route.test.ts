@@ -118,6 +118,20 @@ describe("POST /api/admin/feedback/generations", () => {
     expect(mocks.generate).not.toHaveBeenCalled();
   });
 
+  it("denies an Auth.js session without server-issued capabilities before CMS access", async () => {
+    mocks.requireCsrfSession.mockResolvedValue({
+      ok: true,
+      session: { jwt: "operator-jwt", csrfToken: "csrf-token", user: {} },
+    });
+    const { POST } = await import("./route");
+
+    const response = await POST(request(validGenerate()));
+
+    expect(response.status).toBe(403);
+    expect(mocks.getTransport).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
   it("keeps capability-off requests ahead of authentication and every transport", async () => {
     process.env.FEEDBACK_CAPABILITY_ENABLED = "false";
     const { POST } = await import("./route");

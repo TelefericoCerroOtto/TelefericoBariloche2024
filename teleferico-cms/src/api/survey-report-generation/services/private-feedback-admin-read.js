@@ -168,7 +168,7 @@ function createPrivateFeedbackAdminReader(strapi) {
           if (typeof snapshot === 'string') {
             try { snapshot = JSON.parse(snapshot); } catch { throw adminReadError('SOURCE_UNAVAILABLE'); }
           }
-          const population = snapshot?.payload?.population;
+          const population = snapshot?.population;
           if (!population || !Number.isSafeInteger(population.currentSubmissionCount) ||
               !Number.isSafeInteger(population.currentCommentCount)) throw adminReadError('SOURCE_UNAVAILABLE');
           return {
@@ -269,7 +269,7 @@ async function readGenerationPage(strapi, query, after) {
         if (typeof snapshot === 'string') {
           try { snapshot = JSON.parse(snapshot); } catch { throw adminReadError('SOURCE_UNAVAILABLE'); }
         }
-        const population = snapshot?.payload?.population;
+        const population = snapshot?.population;
         if (!candidate || candidate.generationRunId !== row.reportRunId ||
             typeof candidate.reportId !== 'string' || !UUID_PATTERN.test(candidate.reportId) ||
             !isInstant(candidate.createdAt) || !candidate.periodStart || !candidate.periodEnd ||

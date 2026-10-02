@@ -190,6 +190,7 @@ describe("FeedbackForm", () => {
         name: surveyResponse.survey.translations.es.headerTitle,
       }),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Cumbre")).not.toBeInTheDocument();
     expect(
       screen.getByRole("main", {
         name: surveyResponse.survey.translations.es.headerTitle,
@@ -232,6 +233,7 @@ describe("FeedbackForm", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Cargando la encuesta…",
     );
+    expect(screen.queryByText("Cumbre")).not.toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: "Teleférico Cerro Otto" }),
     ).toBeInTheDocument();
@@ -261,6 +263,7 @@ describe("FeedbackForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "No se pudo cargar la encuesta. Intente nuevamente más tarde.",
     );
+    expect(screen.queryByText("Cumbre")).not.toBeInTheDocument();
     expect(
       screen.getByRole("main", {
         name: "No se pudo cargar la encuesta. Intente nuevamente más tarde.",
@@ -467,6 +470,71 @@ describe("FeedbackForm", () => {
       vi.useRealTimers();
     }
   });
+
+  it.each([
+    { locale: "es", label: "Volver al inicio", href: "/es-AR" },
+    { locale: "en", label: "Back to home", href: "/en" },
+    { locale: "pt", label: "Voltar ao início", href: "/pt" },
+  ] as const)(
+    "shows the accepted receipt and a localized home link for $locale without reopening the form",
+    async ({ locale, label, href }) => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify(surveyResponse)))
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              submissionReceipt: "accepted-receipt",
+              acceptedAt: "2026-09-18T12:00:00.000Z",
+              guardUntil: "2026-09-19T12:00:00.000Z",
+            }),
+            { status: 201 },
+          ),
+        );
+      vi.stubGlobal("fetch", fetchMock);
+
+      render(<FeedbackForm publicCode="summit-public" />);
+      await screen.findByRole("heading", {
+        name: surveyResponse.survey.translations.es.headerTitle,
+      });
+      if (locale !== "es") {
+        fireEvent.change(screen.getByRole("combobox", { name: "Idioma" }), {
+          target: { value: locale },
+        });
+      }
+
+      fireEvent.click(screen.getByRole("radio", { name: "5" }));
+      const nextLabel = surveyResponse.survey.translations[locale].nextLabel;
+      const submitLabel = surveyResponse.survey.translations[locale].submitLabel;
+      fireEvent.click(screen.getByRole("button", { name: nextLabel }));
+      fireEvent.click(screen.getByRole("checkbox", { name: /vistas|views/i }));
+      fireEvent.click(screen.getByRole("button", { name: nextLabel }));
+      fireEvent.click(screen.getByRole("radio", { name: /positivo|positive/i }));
+      fireEvent.click(screen.getByRole("button", { name: nextLabel }));
+      fireEvent.click(screen.getByRole("button", { name: nextLabel }));
+      fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+      fireEvent.click(screen.getByRole("button", { name: submitLabel }));
+
+      expect(await screen.findByText("accepted-receipt")).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", {
+          name: surveyResponse.survey.translations[locale].successTitle,
+        }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Cumbre")).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(
+        surveyResponse.survey.translations[locale].successMessage,
+      );
+      const homeLink = screen.getByRole("link", { name: label });
+      expect(homeLink).toHaveAttribute("href", href);
+      expect(
+        screen.queryByRole("button", {
+          name: /submit another|enviar otra|enviar nova/i,
+        }),
+      ).not.toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it("blocks stale-session resubmission after the server returns SESSION_EXPIRED", async () => {
     localStorage.setItem(

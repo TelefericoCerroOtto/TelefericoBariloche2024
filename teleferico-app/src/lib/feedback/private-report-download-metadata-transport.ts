@@ -34,6 +34,7 @@ export class ReportDownloadMetadataTransportError extends Error {
 export type ReportDownloadMetadataTransportOptions = {
   readonly baseUrl: string;
   readonly allowedOrigins: readonly string[];
+  readonly runtimeMode?: "development";
   readonly tokenProvider: (
     action: typeof REPORT_DOWNLOAD_METADATA_ACTION,
     signal: AbortSignal,
@@ -116,7 +117,7 @@ export function createPrivateReportDownloadMetadataTransport(
 ) {
   let baseUrl: URL;
   try {
-    baseUrl = validateTrustedCmsOrigin(options.baseUrl, options.allowedOrigins);
+    baseUrl = validateTrustedCmsOrigin(options.baseUrl, options.allowedOrigins, options.runtimeMode);
   } catch {
     return fail("INVALID_CONFIGURATION");
   }

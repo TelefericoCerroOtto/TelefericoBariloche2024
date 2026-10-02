@@ -28,6 +28,7 @@ export type PrivateReportSourcePageResponseV1 = {
 export type PrivateReportSourceTransportOptions = {
   readonly baseUrl: string;
   readonly allowedOrigins: readonly string[];
+  readonly runtimeMode?: "development";
   readonly tokenProvider: (signal: AbortSignal) => Promise<string>;
   readonly fetchImplementation?: typeof fetch;
 };
@@ -202,7 +203,7 @@ export function createPrivateReportSourceTransport(
 ) {
   let baseUrl: URL;
   try {
-    baseUrl = validateTrustedCmsOrigin(options.baseUrl, options.allowedOrigins);
+    baseUrl = validateTrustedCmsOrigin(options.baseUrl, options.allowedOrigins, options.runtimeMode);
   } catch {
     return fail("INVALID_CONFIGURATION");
   }

@@ -13,7 +13,6 @@ const FUTURE_CAPABILITIES = new Set([
   'feedback.comments.read',
   'feedback.reports.read',
   'feedback.reports.generate',
-  'feedback.reports.download',
 ]);
 const compose = (...args) => ['compose', '--file', COMPOSE_FILE, '--project-name', OWNER, ...args];
 const executeCompose = (...args) => executeFixed(DOCKER_EXECUTABLE, compose(...args));

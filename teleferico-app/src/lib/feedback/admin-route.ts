@@ -51,6 +51,7 @@ function errorResponse(
     | "OVERLAP_REQUIRES_OVERRIDE"
     | "ACTIVE_RANGE_CONFLICT"
     | "INVALID_STATE"
+    | "REPORT_PROFILE_NOT_CONFIGURED"
     | "INTERNAL_ERROR",
   statusOverride?: number,
   details?: FeedbackAdminOverlapDetails,
@@ -83,6 +84,7 @@ function errorResponse(
     ACTIVE_RANGE_CONFLICT:
       "A report generation is already active for this range",
     INVALID_STATE: "The report generation is not in a retryable state",
+    REPORT_PROFILE_NOT_CONFIGURED: "The TB-113 report profile is not configured",
     INTERNAL_ERROR: "Feedback administration failed",
   }[code];
   return NextResponse.json(

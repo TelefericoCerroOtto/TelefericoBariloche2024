@@ -37,11 +37,13 @@ import {
 import type { MaterializedGenerationInputsV1 } from "./generation-inputs";
 import { createPrivateReportSourceTransport } from "./private-report-source-transport";
 import { validateTrustedCmsOrigin } from "@teleferico/tb113-runtime-contracts";
+import { loadTb113ReportGenerationProfile } from "../../../../packages/tb113-runtime-contracts/src/report-generation-profile.cjs";
 import {
   readTb113AppTokens,
   readTb113ApprovedGenerationConfiguration,
   readTb113CloudTasksConfiguration,
   readTb113CmsOrigin,
+  readTb113LocalCloudTasksConfiguration,
   readTb113PrivateBucket,
 } from "./tb113-runtime-config";
 
@@ -100,6 +102,7 @@ export class FeedbackAdminCommandError extends Error {
     | "OVERLAP_REQUIRES_OVERRIDE"
     | "ACTIVE_RANGE_CONFLICT"
     | "INVALID_STATE"
+    | "REPORT_PROFILE_NOT_CONFIGURED"
     | "UPSTREAM_UNAVAILABLE"
     | "INTERNAL_ERROR";
   readonly status: number;
@@ -114,6 +117,7 @@ export class FeedbackAdminCommandError extends Error {
       | "OVERLAP_REQUIRES_OVERRIDE"
       | "ACTIVE_RANGE_CONFLICT"
       | "INVALID_STATE"
+      | "REPORT_PROFILE_NOT_CONFIGURED"
       | "UPSTREAM_UNAVAILABLE"
       | "INTERNAL_ERROR",
     status: number,
@@ -264,6 +268,7 @@ async function json(response: Response): Promise<unknown> {
 type Options = {
   readonly baseUrl: string;
   readonly allowedOrigins?: readonly string[];
+  readonly runtimeMode?: "development";
   readonly token: string;
   readonly fetchImplementation?: typeof fetch;
   readonly dispatcher?: FeedbackReportDispatcher;
@@ -292,6 +297,7 @@ export function createFeedbackAdminCommandTransport(options: Options) {
       trustedOrigin = validateTrustedCmsOrigin(
         options.baseUrl,
         options.allowedOrigins,
+        options.runtimeMode,
       ).origin;
     } catch {
       throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
@@ -590,8 +596,12 @@ export function getFeedbackAdminCommandTransport(token: string) {
   try {
     const origin = readTb113CmsOrigin();
     const appTokens = readTb113AppTokens();
-    const generation = readTb113ApprovedGenerationConfiguration();
-    const tasks = readTb113CloudTasksConfiguration();
+    const generation = readTb113ApprovedGenerationConfiguration(
+      loadTb113ReportGenerationProfile(),
+    );
+    const tasks = process.env.NODE_ENV === "development"
+      ? readTb113LocalCloudTasksConfiguration()
+      : readTb113CloudTasksConfiguration();
     readTb113PrivateBucket();
     const configuredBaseUrl = process.env[ENV_KEYS.BUILD_STRAPI_BASE_URL];
     if (
@@ -605,6 +615,7 @@ export function getFeedbackAdminCommandTransport(token: string) {
     const source = createPrivateReportSourceTransport({
       baseUrl: origin.baseUrl,
       allowedOrigins: origin.allowedOrigins,
+      ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
       tokenProvider: async () => appTokens.workerSourceRead,
     });
     const taskClient = createGoogleFeedbackTaskClient({
@@ -618,11 +629,13 @@ export function getFeedbackAdminCommandTransport(token: string) {
     const dispatchState = createFeedbackDispatchStateTransport({
       baseUrl: origin.baseUrl,
       allowedOrigins: origin.allowedOrigins,
+      ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
       sessionJwt: token,
     });
     return createFeedbackAdminCommandTransport({
       baseUrl: origin.baseUrl,
       allowedOrigins: origin.allowedOrigins,
+      ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
       token,
       taskClient,
       dispatchState,
@@ -636,7 +649,9 @@ export function getFeedbackAdminCommandTransport(token: string) {
         }),
       },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof TypeError && error.message === "TB-113 report profile is not configured")
+      throw new FeedbackAdminCommandError("REPORT_PROFILE_NOT_CONFIGURED", 503);
     throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
   }
 }

@@ -37,6 +37,8 @@ Appendices win over summaries; specs remain behavior authority. Code blocks are 
 
 `Admin browser → Next.js auth/capability route → core snapshot → CMS generation → product-project Cloud Tasks → private worker service identity → CMS checkpoints → explicit product-project Vertex gate → renderer gate → private GCS → mediated download`
 
+In `NODE_ENV=development`, task dispatch may replace only the Cloud Tasks transport with the worker package's in-memory loopback task API. It uses the existing worker URL/queue settings and delivers the unchanged command over HTTP to the real worker handler with an ephemeral signed local identity. This L1 boundary does not provide CMS/model/report dependencies, persistent task state, or an end-to-end report journey; production stays on the Cloud Tasks flow above.
+
 ## File Changes
 
 - CMS creates listed survey APIs/components/migration/tests.

@@ -3,6 +3,8 @@ tmp
 .atl
 
 .private/
+/.local/tb113-private-reports/
+/services/survey-report-worker/.env
 
 /public/*.bkp
 .atl/

@@ -1,11 +1,13 @@
 import "server-only";
 
 import { createHash } from "node:crypto";
+import { resolve } from "node:path";
 import {
   createGooglePrivateReportBucket,
   createPrivateReportObjectStorage,
   type PrivateReportObjectReader,
 } from "@teleferico/tb113-private-report-storage";
+import { createLocalPrivateReportBucket } from "../../../../packages/tb113-private-report-storage/src/local-private-storage";
 import {
   MAX_REPORT_PDF_BYTES,
   validateReportDownloadMetadata,
@@ -92,15 +94,24 @@ export function getFeedbackReportDownload(): ReturnType<
     const metadataReader = createPrivateReportDownloadMetadataTransport({
       baseUrl: origin.baseUrl,
       allowedOrigins: origin.allowedOrigins,
+      ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
       tokenProvider: async (action) => ({
         action,
         value: tokens.workerReportDownloadMetadata,
       }),
     });
-    const bucket = createGooglePrivateReportBucket({
-      bucketName: readTb113PrivateBucket(),
-      objectPrefix: "private/feedback-reports",
-    });
+    const bucket =
+      process.env.NODE_ENV === "development"
+        ? createLocalPrivateReportBucket({
+            rootDirectory: resolve(
+              process.cwd(),
+              "../.local/tb113-private-reports",
+            ),
+          })
+        : createGooglePrivateReportBucket({
+            bucketName: readTb113PrivateBucket(),
+            objectPrefix: "private/feedback-reports",
+          });
     const { objectReader } = createPrivateReportObjectStorage({ bucket });
     return createFeedbackReportDownload({ metadataReader, objectReader });
   } catch {

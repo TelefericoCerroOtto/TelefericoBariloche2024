@@ -62,7 +62,7 @@ const UI_ONLY_COPY: Readonly<
     aspectSelectionCount: "Seleccionó {selected} de {maximum} aspectos.",
     otherTooLong: "El aspecto no puede superar los 300 caracteres.",
     commentTooLong: "El comentario no puede superar los 2000 caracteres.",
-    reset: "Enviar otra respuesta",
+    homeLabel: "Volver al inicio",
   },
   en: {
     languageControlLabel: "Survey language",
@@ -82,7 +82,7 @@ const UI_ONLY_COPY: Readonly<
     aspectSelectionCount: "{selected} of {maximum} aspects selected.",
     otherTooLong: "The aspect cannot exceed 300 characters.",
     commentTooLong: "The comment cannot exceed 2,000 characters.",
-    reset: "Submit another response",
+    homeLabel: "Back to home",
   },
   pt: {
     languageControlLabel: "Idioma da pesquisa",
@@ -103,7 +103,7 @@ const UI_ONLY_COPY: Readonly<
     aspectSelectionCount: "Você selecionou {selected} de {maximum} aspectos.",
     otherTooLong: "O aspecto não pode ultrapassar 300 caracteres.",
     commentTooLong: "O comentário não pode ultrapassar 2.000 caracteres.",
-    reset: "Enviar outra resposta",
+    homeLabel: "Voltar ao início",
   },
 };
 

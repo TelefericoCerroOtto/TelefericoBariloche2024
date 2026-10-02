@@ -18,8 +18,20 @@ const storageState = vi.hoisted(() => ({
 const fetchState = vi.hoisted(() => ({
   handler: undefined as unknown as (url: string, init: RequestInit) => Promise<Response>,
 }));
+const profileState = vi.hoisted(() => ({ unavailable: false }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@teleferico/tb113-runtime-contracts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@teleferico/tb113-runtime-contracts")>();
+  return {
+    ...actual,
+    readTb113ApprovedGenerationConfiguration: () => {
+      if (profileState.unavailable)
+        throw new TypeError("TB-113 report profile is not configured");
+      return generationConfiguration();
+    },
+  };
+});
 vi.mock("@/lib/http/guards", () => ({
   ensureTrustedBrowserRequest: vi.fn(() => ({ ok: true })),
   requireCsrfSession: vi.fn(async () => ({
@@ -87,6 +99,7 @@ import { GET as getReportDownload } from "@/app/api/admin/feedback/reports/[repo
 import { createConfiguredReportWorkerHttpHandler } from "../../../../services/survey-report-worker/src/report-worker-composition";
 import { createSnapshot } from "@teleferico/survey-reporting-core";
 import { deterministicReportId } from "@teleferico/tb113-private-report-storage";
+import { readTb113CmsOrigin } from "@teleferico/tb113-runtime-contracts";
 
 const CMS_ORIGIN = "https://cms.teleferico.com.ar";
 const APP_ORIGIN = "https://app.teleferico.com.ar";
@@ -94,18 +107,8 @@ const WORKER_ORIGIN = "https://worker-abc-uc.a.run.app";
 const TASK_INVOKER = "tb113-invoker@teleferico-bariloche-2024.iam.gserviceaccount.com";
 const REPORT_ID = "22222222-2222-4222-8222-222222222222";
 const RUN_ID = "11111111-1111-4111-8111-111111111111";
-const APP_TOKENS = {
-  feedbackAdminRead: "synthetic-feedback-admin-read-token",
-  workerSourceRead: "synthetic-worker-source-read-token",
-  workerReportDownloadMetadata: "synthetic-report-download-metadata-token",
-};
-const WORKER_TOKENS = {
-  workerClaim: "synthetic-worker-claim-token",
-  workerSnapshot: "synthetic-worker-snapshot-token",
-  workerCheckpoint: "synthetic-worker-checkpoint-token",
-  workerComplete: "synthetic-worker-complete-token",
-  workerFail: "synthetic-worker-fail-token",
-};
+const APP_TOKEN = "synthetic-app-custom-token";
+const WORKER_TOKEN = "synthetic-worker-custom-token";
 
 function modelConfig() {
   return {
@@ -151,24 +154,40 @@ function generationConfiguration() {
   };
 }
 
+function reportProfile() {
+  const generation = generationConfiguration();
+  const {
+    evidenceKeyId: _evidenceKeyId,
+    sourceRevision: _sourceRevision,
+    safetyHeadroomTokens: _safetyHeadroomTokens,
+    ...model
+  } = generation.modelConfig;
+  return {
+    profileVersion: "feedback-report-generation-profile.v1",
+    sourceRevision: generation.sourceRevision,
+    evidenceKeyId: generation.evidenceKeyId,
+    modelConfig: model,
+    pricingSnapshot: generation.pricingSnapshot,
+  };
+}
+
 function installEnvironment(): void {
   vi.stubEnv("K_SERVICE", "synthetic-teleferico-app");
   vi.stubEnv("K_REVISION", "synthetic-teleferico-app-00001-test");
   vi.stubEnv("GOOGLE_APPLICATION_CREDENTIALS", "");
   vi.stubEnv("BUILD_STRAPI_BASE_URL", CMS_ORIGIN);
   vi.stubEnv("FEEDBACK_CAPABILITY_ENABLED", "true");
-  vi.stubEnv("TB113_CMS_ALLOWED_ORIGIN", CMS_ORIGIN);
-  vi.stubEnv("TB113_APP_CMS_TOKENS_JSON", JSON.stringify(APP_TOKENS));
-  vi.stubEnv("TB113_WORKER_CMS_TOKENS_JSON", JSON.stringify(WORKER_TOKENS));
-  vi.stubEnv("TB113_APPROVED_GENERATION_CONFIG_JSON", JSON.stringify(generationConfiguration()));
-  vi.stubEnv("TB113_WORKER_EVIDENCE_KEY", "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/1");
-  vi.stubEnv("TB113_TASK_QUEUE_PATH", "projects/teleferico-bariloche-2024/locations/southamerica-east1/queues/feedback-reports");
-  vi.stubEnv("TB113_WORKER_URL", `${WORKER_ORIGIN}/internal/v1/report-runs:execute`);
-  vi.stubEnv("TB113_TASK_INVOKER_EMAIL", TASK_INVOKER);
-  vi.stubEnv("TB113_WORKER_OIDC_AUDIENCE", WORKER_ORIGIN);
-  vi.stubEnv("TB113_WORKER_OIDC_PRINCIPAL", TASK_INVOKER);
-  vi.stubEnv("TB113_VERTEX_PROJECT_ID", "teleferico-bariloche-2024");
-  vi.stubEnv("TB113_PRIVATE_BUCKET", "teleferico-feedback-private");
+  vi.stubEnv("FEEDBACK_CMS_ALLOWED_ORIGIN", CMS_ORIGIN);
+  vi.stubEnv("FEEDBACK_APP_CMS_TOKEN", APP_TOKEN);
+  vi.stubEnv("FEEDBACK_WORKER_CMS_TOKEN", WORKER_TOKEN);
+  vi.stubEnv("FEEDBACK_WORKER_EVIDENCE_KEY", "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/1");
+  vi.stubEnv("FEEDBACK_TASK_QUEUE_PATH", "projects/teleferico-bariloche-2024/locations/southamerica-east1/queues/feedback-reports");
+  vi.stubEnv("FEEDBACK_WORKER_URL", `${WORKER_ORIGIN}/internal/v1/report-runs:execute`);
+  vi.stubEnv("FEEDBACK_TASK_INVOKER_EMAIL", TASK_INVOKER);
+  vi.stubEnv("FEEDBACK_WORKER_OIDC_AUDIENCE", WORKER_ORIGIN);
+  vi.stubEnv("FEEDBACK_WORKER_OIDC_PRINCIPAL", TASK_INVOKER);
+  vi.stubEnv("FEEDBACK_VERTEX_PROJECT_ID", "teleferico-bariloche-2024");
+  vi.stubEnv("FEEDBACK_PRIVATE_BUCKET", "teleferico-feedback-private");
 }
 
 function installFetch(handler: (url: URL, init: RequestInit) => Promise<Response>): void {
@@ -202,6 +221,7 @@ describe("TB-113 default runtime composition", () => {
   beforeEach(() => {
     installEnvironment();
     authState.capabilities = ["feedback.read", "feedback.comments.read", "feedback.reports.read", "feedback.reports.generate"];
+    profileState.unavailable = false;
     storageState.objects.clear();
     storageState.objects.clear();
     fetchState.handler = async () => { throw new Error("Unexpected external fetch"); };
@@ -214,13 +234,68 @@ describe("TB-113 default runtime composition", () => {
     vi.restoreAllMocks();
   });
 
+  it("reads plain app and worker credentials and denies missing or invalid process tokens", async () => {
+    const { readTb113AppTokens, readTb113WorkerTokens } = await import(
+      "@teleferico/tb113-runtime-contracts"
+    );
+    expect(readTb113AppTokens()).toEqual({
+      feedbackAdminRead: APP_TOKEN,
+      workerSourceRead: APP_TOKEN,
+      workerReportDownloadMetadata: APP_TOKEN,
+    });
+    expect(readTb113WorkerTokens()).toEqual({
+      workerClaim: WORKER_TOKEN,
+      workerSnapshot: WORKER_TOKEN,
+      workerCheckpoint: WORKER_TOKEN,
+      workerComplete: WORKER_TOKEN,
+      workerFail: WORKER_TOKEN,
+    });
+    for (const token of [undefined, "", "token with spaces", "token\u0000with-control", "x".repeat(8193)]) {
+      expect(() => readTb113AppTokens({
+        NODE_ENV: "development",
+        ...(token === undefined ? {} : { FEEDBACK_APP_CMS_TOKEN: token }),
+      })).toThrow();
+      expect(() => readTb113WorkerTokens({
+        NODE_ENV: "development",
+        ...(token === undefined ? {} : { FEEDBACK_WORKER_CMS_TOKEN: token }),
+      })).toThrow();
+    }
+  });
+
+  it("accepts an exact loopback CMS origin only in the explicit development runtime", () => {
+    const origin = "http://127.0.0.1:1337";
+    expect(readTb113CmsOrigin({
+      NODE_ENV: "development",
+      BUILD_STRAPI_BASE_URL: origin,
+      FEEDBACK_CMS_ALLOWED_ORIGIN: origin,
+    })).toEqual({ baseUrl: origin, allowedOrigins: [origin] });
+    const localhostOrigin = "http://localhost:1337";
+    expect(readTb113CmsOrigin({
+      NODE_ENV: "development",
+      BUILD_STRAPI_BASE_URL: localhostOrigin,
+      FEEDBACK_CMS_ALLOWED_ORIGIN: localhostOrigin,
+    })).toEqual({ baseUrl: localhostOrigin, allowedOrigins: [localhostOrigin] });
+    for (const invalidOrigin of ["http://10.0.0.2:1337", "https://127.0.0.1:1337", "http://localhost.evil.example:1337", "http://0.0.0.0:1337"]) {
+      expect(() => readTb113CmsOrigin({
+        NODE_ENV: "development",
+        BUILD_STRAPI_BASE_URL: invalidOrigin,
+        FEEDBACK_CMS_ALLOWED_ORIGIN: invalidOrigin,
+      })).toThrow();
+    }
+    expect(() => readTb113CmsOrigin({
+      NODE_ENV: "production",
+      BUILD_STRAPI_BASE_URL: localhostOrigin,
+      FEEDBACK_CMS_ALLOWED_ORIGIN: localhostOrigin,
+    })).toThrow();
+  });
+
   it("serves generation history through the authenticated default App Route Handler using only the admin-read token", async () => {
     const observedTokens: string[] = [];
     installFetch(async (url, init) => {
       expect(url.origin).toBe(CMS_ORIGIN);
       expect(url.pathname).toBe("/api/tb113/admin/feedback/read");
       observedTokens.push(new Headers(init.headers).get("authorization") ?? "");
-      expect(new Headers(init.headers).get("authorization")).toBe(`Bearer ${APP_TOKENS.feedbackAdminRead}`);
+      expect(new Headers(init.headers).get("authorization")).toBe(`Bearer ${APP_TOKEN}`);
       const query = JSON.parse(String(init.body)) as { resource: string };
       return Response.json({
         contractVersion: "feedback-admin-source.v1",
@@ -236,11 +311,11 @@ describe("TB-113 default runtime composition", () => {
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(body.data).toMatchObject({ items: [], total: 0, page: 1, pageSize: 25 });
-    expect(observedTokens).toEqual([`Bearer ${APP_TOKENS.feedbackAdminRead}`]);
+    expect(observedTokens).toEqual([`Bearer ${APP_TOKEN}`]);
   });
 
   it("fails closed before any native create or Cloud Tasks request when command configuration is incomplete", async () => {
-    vi.stubEnv("TB113_APP_CMS_TOKENS_JSON", JSON.stringify({ feedbackAdminRead: APP_TOKENS.feedbackAdminRead }));
+    vi.stubEnv("FEEDBACK_APP_CMS_TOKEN", "");
     const calls: string[] = [];
     installFetch(async (url) => { calls.push(url.href); return Response.json({ data: [] }); });
     const request = new NextRequest(`${APP_ORIGIN}/api/admin/feedback/generations`, {
@@ -254,6 +329,30 @@ describe("TB-113 default runtime composition", () => {
     });
     const response = await postGeneration(request);
     expect(response.status).toBe(503);
+    expect(calls).toEqual([]);
+  });
+
+  it("returns the bounded profile-unavailable reason before any CMS or queue request", async () => {
+    profileState.unavailable = true;
+    const calls: string[] = [];
+    installFetch(async (url) => { calls.push(url.href); return Response.json({ data: [] }); });
+    const request = new NextRequest(`${APP_ORIGIN}/api/admin/feedback/generations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        contractVersion: "feedback-admin.v1",
+        period: { from: "2026-09-01", to: "2026-09-01" },
+        override: { accepted: false, overlapDigest: null },
+      }),
+    });
+    const response = await postGeneration(request);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      error: {
+        code: "REPORT_PROFILE_NOT_CONFIGURED",
+        message: "The TB-113 report profile is not configured",
+      },
+    });
     expect(calls).toEqual([]);
   });
 
@@ -287,7 +386,7 @@ describe("TB-113 default runtime composition", () => {
       expect(url.origin).toBe(CMS_ORIGIN);
       if (url.pathname === "/api/tb113/worker/report-source") {
         events.push("private-source");
-        expect(authorization).toBe(`Bearer ${APP_TOKENS.workerSourceRead}`);
+        expect(authorization).toBe(`Bearer ${APP_TOKEN}`);
         const query = JSON.parse(String(init.body)) as { resource: string };
         return Response.json(sourcePage(query.resource));
       }
@@ -337,7 +436,7 @@ describe("TB-113 default runtime composition", () => {
     expect(body.status).toBe("queued");
     expect(body.dispatch.status, JSON.stringify(body.dispatch)).toBe("dispatched");
     const resultText = JSON.stringify(body);
-    for (const token of [...Object.values(APP_TOKENS), ...Object.values(WORKER_TOKENS), "synthetic-session-jwt", "synthetic-adc-token"])
+    for (const token of [APP_TOKEN, WORKER_TOKEN, "synthetic-session-jwt", "synthetic-adc-token"])
       expect(resultText).not.toContain(token);
     expect(events).toEqual([
       "generation-list",
@@ -377,7 +476,7 @@ describe("TB-113 default runtime composition", () => {
     installFetch(async (url, init) => {
       expect(url.origin).toBe(CMS_ORIGIN);
       expect(url.pathname).toBe(`/api/tb113/worker/reports/${reportId}/download-metadata`);
-      expect(new Headers(init.headers).get("authorization")).toBe(`Bearer ${APP_TOKENS.workerReportDownloadMetadata}`);
+      expect(new Headers(init.headers).get("authorization")).toBe(`Bearer ${APP_TOKEN}`);
       return Response.json({ contractVersion: "survey-report-download-metadata.v1", reportId, reportRunId, generationStatus: "succeeded", objectKey, sha256, size: bytes.byteLength, mimeType: "application/pdf" });
     });
     const request = new NextRequest(`${APP_ORIGIN}/api/admin/feedback/reports/${reportId}/download`);
@@ -401,7 +500,7 @@ describe("TB-113 default runtime composition", () => {
           : url.pathname.includes("/checkpoints/") ? "workerCheckpoint"
             : url.pathname.endsWith("/complete") ? "workerComplete" : "unknown";
       if (action === "unknown") throw new Error(`Unexpected worker CMS path: ${url.pathname}`);
-      expect(new Headers(init.headers).get("authorization")).toBe(`Bearer ${WORKER_TOKENS[action as keyof typeof WORKER_TOKENS]}`);
+      expect(new Headers(init.headers).get("authorization")).toBe(`Bearer ${WORKER_TOKEN}`);
       if (action === "workerClaim") return Response.json({
         contractVersion: "survey-worker-cms.v1",
         reportRunId: RUN_ID,
@@ -422,6 +521,7 @@ describe("TB-113 default runtime composition", () => {
       return Response.json({ contractVersion: "survey-worker-cms.v1", reportRunId: RUN_ID, stateVersion: command.expectedStateVersion + 1, status: "succeeded", reportId: REPORT_ID, artifactSha256: command.artifact.sha256, artifactSize: command.artifact.size, replayed: false });
     };
     const handler = createConfiguredReportWorkerHttpHandler(process.env, {
+      generationProfile: reportProfile(),
       fetchImplementation: (url, init) => workerFetch(String(url), init ?? {}),
       accessTokenProvider: async () => "synthetic-adc-token",
       storage: new Storage() as never,
@@ -441,12 +541,12 @@ describe("TB-113 default runtime composition", () => {
     expect(success.status).toBe(200);
     expect(success.body.status, JSON.stringify(success.body)).toBe("succeeded");
     const resultText = JSON.stringify(success.body);
-    for (const token of Object.values(WORKER_TOKENS)) expect(resultText).not.toContain(token);
+    expect(resultText).not.toContain(WORKER_TOKEN);
   });
 
   it("rejects incomplete worker configuration before constructing request-capable adapters", () => {
     const incomplete = { ...process.env };
-    delete incomplete.TB113_WORKER_CMS_TOKENS_JSON;
+    delete incomplete.FEEDBACK_WORKER_CMS_TOKEN;
     expect(() => createConfiguredReportWorkerHttpHandler(incomplete)).toThrow(/configuration/i);
   });
 });
