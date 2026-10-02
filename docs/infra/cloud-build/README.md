@@ -1,6 +1,6 @@
-# Cloud Build trigger snapshots
+# Cloud Build configurations and trigger snapshots
 
-This directory contains documentation snapshots of the Cloud Build configurations used by the platform.
+This directory contains documentation snapshots of provisioned Cloud Build triggers. The proposed executable worker configuration lives at `services/survey-report-worker/cloudbuild.yaml` and is not a snapshot.
 
 ## Convention
 
@@ -14,10 +14,16 @@ This directory contains documentation snapshots of the Cloud Build configuration
 ## Scope
 
 - The operational source of truth remains the inline configuration of the triggers in Google Cloud Platform.
-- These files exist solely for documentation and auditing purposes.
+- Files in this directory exist solely for documentation and auditing; the worker build source outside this directory is executable when an authorized trigger is connected.
 - If re-exported from GCP, make sure they do not include sensitive values.
 - `playwright-e2e-pr.yaml` records verified metadata for the disabled legacy pull-request trigger. Its runtime build configuration remains `cloudbuild.playwright-e2e.json` at the repository root; editing either file does not change the trigger.
 - `playwright-e2e-manual-dispatcher.md` records the manual trigger, its historical pilot, the proven GitHub OIDC dispatch, and the cutover state.
+- The worker configuration is a proposed Git-sourced staging build/push/deploy definition. It installs Playwright's pinned Chromium in the Node 22.22.0 build step, verifies local renderer assets through the worker build script, builds/pushes the image, and privately deploys the staging service from the same `/workspace` checkout. It creates no trigger or live resource itself.
+- **Proposed CMS build context:** the CMS image must be built from the repository root with `docker build -f teleferico-cms/Dockerfile .`. The Dockerfile-specific `teleferico-cms/Dockerfile.dockerignore` allowlists only `teleferico-cms/` and `packages/tb113-runtime-contracts/`, excluding credential-like files and generated or uploaded content. The image preserves the CMS package at `/workspace/teleferico-cms` and places the required shared package at `/workspace/packages/tb113-runtime-contracts`, matching the CMS runtime's relative import. The existing staging and production trigger snapshots still show their legacy `teleferico-cms`-only context; they remain documentary snapshots, and installing the proposed root context in either live trigger requires a separate operator change.
+- A future Git-connected trigger on the staging merge branch must include path filters for `services/survey-report-worker/**`, `packages/survey-reporting-core/**`, `packages/tb113-private-report-storage/**`, and `packages/tb113-runtime-contracts/**`. No worker trigger or live substitution values are documented as provisioned.
+- Before deriving the staging URL, the worker build asserts Cloud Build's built-in `$PROJECT_NUMBER` equals `384535443802`, sourced from the prior documentary `app-staging.yaml` snapshot (lines 176–177). This is not a live GCP observation. It then derives the URL for `feedback-worker-staging` in `southamerica-east1` using Cloud Run's deterministic URL format. The shared runtime/app guard pins deterministic URLs to that project number, the staging/production service names, and exact region; old hash-based `.a.run.app` URLs remain supported.
+- Before connecting the trigger, an operator must supply the Artifact Registry repository, CMS URL/origin, two distinct service identities, a pinned worker token `SECRET_NAME:VERSION` reference, pinned evidence-key resource, private bucket, existing app-owned queue, and least-privilege IAM. The Cloud Build identity requires image-push, deploy, and service-account act-as permissions but no secret access; the Cloud Tasks invoker needs `roles/run.invoker`. The runtime identity needs reviewed CMS, Vertex, bucket, and Secret Manager access. `FEEDBACK_WORKER_CMS_TOKEN` bytes are mounted from Secret Manager only at runtime; no secret bytes enter Cloud Build substitutions or `secretEnv`.
+- The proposed Cloud Run step uses internal ingress, private invocation, request-based CPU throttling, 1 vCPU/2 GiB, concurrency 1, min 0/max 1, and a 1800-second request timeout. No app/CMS trigger, Cloud Run service, Artifact Registry image, IAM grant, or other environment is changed or verified by this source file.
 
 ## Provisioned GitHub dispatcher
 

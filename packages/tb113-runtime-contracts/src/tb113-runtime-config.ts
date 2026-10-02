@@ -97,6 +97,21 @@ export type Tb113WorkerConfiguration = Tb113CmsOrigin &
 const PROJECT_ID = "teleferico-bariloche-2024" as const;
 const TASKS_LOCATION = "southamerica-east1" as const;
 const WORKER_PATH = "/internal/v1/report-runs:execute";
+const DETERMINISTIC_WORKER_HOST =
+  /^feedback-worker-(?:staging|production)-384535443802\.southamerica-east1\.run\.app$/;
+
+export function isAllowedTb113WorkerCloudRunUrl(
+  workerUrl: URL,
+  workerUrlValue: string,
+): boolean {
+  if (workerUrl.hostname.endsWith(".a.run.app")) return true;
+  return (
+    !workerUrl.port &&
+    DETERMINISTIC_WORKER_HOST.test(workerUrl.hostname) &&
+    workerUrlValue === `${workerUrl.origin}${WORKER_PATH}`
+  );
+}
+
 const CONFIG_ERROR = "TB-113 runtime configuration is unavailable";
 
 function fail(): never {
@@ -284,7 +299,7 @@ export function readTb113WorkerIdentityConfiguration(
   if (
     vertexProjectId !== PROJECT_ID ||
     workerUrl.protocol !== "https:" ||
-    !workerUrl.hostname.endsWith(".a.run.app") ||
+    !isAllowedTb113WorkerCloudRunUrl(workerUrl, workerUrlValue) ||
     workerUrl.username ||
     workerUrl.password ||
     workerUrl.pathname !== WORKER_PATH ||

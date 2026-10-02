@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 import { createGoogleFeedbackTaskClient } from "./google-cloud-tasks";
 import { readTb113LocalCloudTasksConfiguration } from "./tb113-runtime-config";
+import { readTb113WorkerIdentityConfiguration } from "@teleferico/tb113-runtime-contracts";
 import { createFeedbackTaskName, createCoordinatedFeedbackDispatcher } from "./dispatch";
 import { createGoogleTaskOidcPolicy } from "../../../../services/survey-report-worker/src/google-task-oidc";
 import { createGooglePrivateReportBucket } from "@teleferico/tb113-private-report-storage";
@@ -20,7 +21,42 @@ const RUN_ID = "11111111-1111-4111-8111-111111111111";
 const TASK_NAME = createFeedbackTaskName(RUN_ID)!;
 const INVOKER = "tasks@teleferico-bariloche-2024.iam.gserviceaccount.com";
 const AUDIENCE = "https://worker-abc-uc.a.run.app";
+const DOCUMENTED_PROJECT_NUMBER = "384535443802";
+const DETERMINISTIC_WORKER_ORIGIN =
+  `https://feedback-worker-staging-${DOCUMENTED_PROJECT_NUMBER}.southamerica-east1.run.app`;
+const DETERMINISTIC_PRODUCTION_WORKER_ORIGIN =
+  `https://feedback-worker-production-${DOCUMENTED_PROJECT_NUMBER}.southamerica-east1.run.app`;
+const WORKER_EXECUTE_PATH = "/internal/v1/report-runs:execute";
 const ENDPOINT = "https://aiplatform.us.rep.googleapis.com/v1/projects/teleferico-bariloche-2024/locations/us/publishers/google/models/gemini-3.8-flash:countTokens";
+
+function workerIdentityEnvironment(
+  workerUrl: string,
+  audience: string,
+): NodeJS.ProcessEnv {
+  return {
+    NODE_ENV: "production",
+    K_SERVICE: "feedback-worker-staging",
+    K_REVISION: "feedback-worker-staging-00001-test",
+    FEEDBACK_WORKER_URL: workerUrl,
+    FEEDBACK_WORKER_OIDC_AUDIENCE: audience,
+    FEEDBACK_TASK_INVOKER_EMAIL: INVOKER,
+    FEEDBACK_WORKER_OIDC_PRINCIPAL: INVOKER,
+    FEEDBACK_VERTEX_PROJECT_ID: "teleferico-bariloche-2024",
+  };
+}
+
+function createTaskClientForWorker(workerUrl: string, audience: string) {
+  return createGoogleFeedbackTaskClient({
+    projectId: "teleferico-bariloche-2024",
+    location: "southamerica-east1",
+    queue: "feedback-reports",
+    workerUrl,
+    audience,
+    invokerServiceAccount: INVOKER,
+    accessTokenProvider: async () => "synthetic-access-token",
+    fetchImplementation: vi.fn<typeof fetch>(),
+  });
+}
 
 function oidcPayload(overrides: Record<string, unknown> = {}) {
   return {
@@ -276,6 +312,90 @@ describe("Google TB-113 runtime adapters", () => {
       invokerServiceAccount: "tb113-local-task-invoker", accessTokenProvider: async () => "unused",
       fetchImplementation: vi.fn<typeof fetch>(),
     })).toThrow();
+  });
+
+  it.each([
+    ["staging", DETERMINISTIC_WORKER_ORIGIN],
+    ["production", DETERMINISTIC_PRODUCTION_WORKER_ORIGIN],
+  ])("accepts the exact deterministic %s URL in worker runtime configuration", (_environment, origin) => {
+    const workerUrl = `${origin}${WORKER_EXECUTE_PATH}`;
+    expect(readTb113WorkerIdentityConfiguration(workerIdentityEnvironment(workerUrl, origin)).workerUrl)
+      .toBe(workerUrl);
+  });
+
+  it.each([
+    ["staging", DETERMINISTIC_WORKER_ORIGIN],
+    ["production", DETERMINISTIC_PRODUCTION_WORKER_ORIGIN],
+  ])("accepts the exact deterministic %s URL in app task configuration", (_environment, origin) => {
+    expect(() => createTaskClientForWorker(`${origin}${WORKER_EXECUTE_PATH}`, origin)).not.toThrow();
+  });
+
+  it.each([
+    [
+      "malformed project number",
+      "https://feedback-worker-staging-0.southamerica-east1.run.app",
+      "https://feedback-worker-staging-0.southamerica-east1.run.app",
+    ],
+    [
+      "overlong project number",
+      "https://feedback-worker-staging-123456789012345678901.southamerica-east1.run.app",
+      "https://feedback-worker-staging-123456789012345678901.southamerica-east1.run.app",
+    ],
+    [
+      "different valid project number",
+      "https://feedback-worker-staging-123456789012.southamerica-east1.run.app",
+      "https://feedback-worker-staging-123456789012.southamerica-east1.run.app",
+    ],
+    [
+      "wrong region",
+      "https://feedback-worker-staging-123456789012.us-central1.run.app",
+      "https://feedback-worker-staging-123456789012.us-central1.run.app",
+    ],
+    [
+      "wrong service name",
+      "https://feedback-worker-other-123456789012.southamerica-east1.run.app",
+      "https://feedback-worker-other-123456789012.southamerica-east1.run.app",
+    ],
+    [
+      "extra path segment",
+      `${DETERMINISTIC_WORKER_ORIGIN}${WORKER_EXECUTE_PATH}/extra`,
+      DETERMINISTIC_WORKER_ORIGIN,
+    ],
+    [
+      "wrong OIDC audience",
+      `${DETERMINISTIC_WORKER_ORIGIN}${WORKER_EXECUTE_PATH}`,
+      "https://different.example",
+    ],
+    [
+      "unrecognized run.app host",
+      `https://other-service-123456789012.southamerica-east1.run.app${WORKER_EXECUTE_PATH}`,
+      "https://other-service-123456789012.southamerica-east1.run.app",
+    ],
+    [
+      "non-default port",
+      `https://feedback-worker-staging-123456789012.southamerica-east1.run.app:8443${WORKER_EXECUTE_PATH}`,
+      "https://feedback-worker-staging-123456789012.southamerica-east1.run.app:8443",
+    ],
+    [
+      "noncanonical default port",
+      `https://feedback-worker-staging-123456789012.southamerica-east1.run.app:443${WORKER_EXECUTE_PATH}`,
+      DETERMINISTIC_WORKER_ORIGIN,
+    ],
+  ])("rejects deterministic worker URL with %s", (_reason, workerUrl, audience) => {
+    expect(() =>
+      readTb113WorkerIdentityConfiguration(
+        workerIdentityEnvironment(workerUrl, audience),
+      ),
+    ).toThrow();
+    expect(() => createTaskClientForWorker(workerUrl, audience)).toThrow();
+  });
+
+  it("continues to accept the existing hash-based Cloud Run worker URL", () => {
+    const workerUrl = `${AUDIENCE}${WORKER_EXECUTE_PATH}`;
+    expect(() =>
+      readTb113WorkerIdentityConfiguration(workerIdentityEnvironment(workerUrl, AUDIENCE)),
+    ).not.toThrow();
+    expect(() => createTaskClientForWorker(workerUrl, AUDIENCE)).not.toThrow();
   });
 
   it("derives local task identity only from exact loopback settings in development", () => {
