@@ -39,6 +39,7 @@ export class FeedbackAdminTransportError extends Error {
   constructor(readonly code: "INVALID_CONFIGURATION" | "UNAUTHORIZED" | "FORBIDDEN" | "UPSTREAM_UNAVAILABLE" | "INVALID_RESPONSE") {
     super("Private feedback administration source is unavailable");
     this.name = "FeedbackAdminTransportError";
+    void code;
   }
 }
 
@@ -47,8 +48,8 @@ export type PrivateFeedbackAdminReadTransportOptions = {
   readonly allowedOrigins: readonly string[];
   readonly runtimeMode?: "development";
   readonly tokenProvider: (
-    action: typeof FEEDBACK_ADMIN_READ_ACTION,
-    signal: AbortSignal,
+    _action: typeof FEEDBACK_ADMIN_READ_ACTION,
+    _signal: AbortSignal,
   ) => Promise<{ readonly action: string; readonly value: string }>;
   readonly fetchImplementation?: typeof fetch;
 };

@@ -29,7 +29,7 @@ export type PrivateReportSourceTransportOptions = {
   readonly baseUrl: string;
   readonly allowedOrigins: readonly string[];
   readonly runtimeMode?: "development";
-  readonly tokenProvider: (signal: AbortSignal) => Promise<string>;
+  readonly tokenProvider: (_signal: AbortSignal) => Promise<string>;
   readonly fetchImplementation?: typeof fetch;
 };
 
@@ -46,6 +46,7 @@ export class PrivateReportSourceTransportError extends Error {
   constructor(readonly code: PrivateReportSourceTransportErrorCode) {
     super("Private report source is unavailable");
     this.name = "PrivateReportSourceTransportError";
+    void code;
   }
 }
 

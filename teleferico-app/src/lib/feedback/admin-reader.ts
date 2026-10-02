@@ -37,7 +37,7 @@ export class FeedbackAdminReaderError extends Error {
 }
 
 type ReaderOptions = {
-  readonly readPage: (query: FeedbackAdminSourcePageQuery) => Promise<FeedbackAdminSourcePage>;
+  readonly readPage: (_query: FeedbackAdminSourcePageQuery) => Promise<FeedbackAdminSourcePage>;
 };
 
 type JsonRecord = Record<string, unknown>;

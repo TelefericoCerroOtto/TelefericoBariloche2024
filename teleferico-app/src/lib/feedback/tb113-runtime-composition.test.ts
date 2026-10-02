@@ -16,7 +16,7 @@ const storageState = vi.hoisted(() => ({
 }));
 
 const fetchState = vi.hoisted(() => ({
-  handler: undefined as unknown as (url: string, init: RequestInit) => Promise<Response>,
+  handler: undefined as unknown as (_url: string, _init: RequestInit) => Promise<Response>,
 }));
 const profileState = vi.hoisted(() => ({ unavailable: false }));
 
@@ -190,7 +190,7 @@ function installEnvironment(): void {
   vi.stubEnv("FEEDBACK_PRIVATE_BUCKET", "teleferico-feedback-private");
 }
 
-function installFetch(handler: (url: URL, init: RequestInit) => Promise<Response>): void {
+function installFetch(handler: (_url: URL, _init: RequestInit) => Promise<Response>): void {
   fetchState.handler = (url, init) => handler(new URL(url), init);
   vi.stubGlobal("fetch", vi.fn((url: string | URL, init: RequestInit = {}) => fetchState.handler(String(url), init)));
 }

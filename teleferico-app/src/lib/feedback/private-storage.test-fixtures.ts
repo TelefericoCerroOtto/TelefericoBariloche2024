@@ -70,7 +70,7 @@ export function createFakePrivateReportBucket() {
     },
     tamper(
       objectKey: string,
-      update: (metadata: PrivateReportObjectMetadata) => PrivateReportObjectMetadata,
+      update: (_metadata: PrivateReportObjectMetadata) => PrivateReportObjectMetadata,
     ) {
       const object = objects.get(objectKey);
       if (object) object.metadata = update(object.metadata);

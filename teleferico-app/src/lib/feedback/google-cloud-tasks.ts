@@ -1,7 +1,10 @@
 import "server-only";
 
 import { GoogleAuth } from "google-auth-library";
-import { assertKeylessCloudRunEnvironment } from "@teleferico/tb113-runtime-contracts";
+import {
+  assertKeylessCloudRunEnvironment,
+  isAllowedTb113WorkerCloudRunUrl,
+} from "@teleferico/tb113-runtime-contracts";
 import { createFeedbackTaskName, FeedbackTaskCreateError, type FeedbackCloudTaskClient } from "./dispatch";
 
 const API_ROOT = "https://cloudtasks.googleapis.com/v2";
@@ -56,7 +59,7 @@ function validTaskConfig(input: {
     input.projectId !== PROJECT_ID || input.location !== LOCATION ||
     !/^[a-z][a-z0-9-]{0,62}$/.test(input.queue) ||
     workerUrl.protocol !== "https:" || workerUrl.username || workerUrl.password ||
-    !workerUrl.hostname.endsWith(".a.run.app") ||
+    !isAllowedTb113WorkerCloudRunUrl(workerUrl, input.workerUrl) ||
     workerUrl.pathname !== EXECUTE_PATH || workerUrl.search || workerUrl.hash ||
     input.audience !== workerUrl.origin ||
     !/^[^\s@]+@[^\s@]+\.iam\.gserviceaccount\.com$/.test(input.invokerServiceAccount)
