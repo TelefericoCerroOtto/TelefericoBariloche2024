@@ -147,7 +147,7 @@ The commit link label must be the exact full 40-character parent head SHA. Its v
 
 `/implementation-pr` is a single-shot shortcut for the current implementation-branch snapshot. It composes the existing commit and PR contracts to commit when needed, non-force-push `HEAD`, create one PR from a typed publication plan, apply required metadata, and observe repository governance with a bounded timeout. It accepts the slash command or an unambiguous natural-language authorization naming these mutations, the destination, and the current credential/session authorization. The default plan targets `development`; only a validated `stacked-to-main` plan may select the exact parent branch and draft state. An open PR for the head is an update path through `branch-pr` regenerate under fresh explicit authorization, never a duplicate create.
 
-The slash command is strict-scope by default when bare. Its only accepted option form is exactly `/implementation-pr --allow-mixed-scope "<nonblank reason>"`; missing or blank reasons, unknown or extra arguments, and alternate spellings are rejected. An equally explicit natural-language authorization may authorize mixed scope.
+The slash command is strict-scope by default when bare. Its only accepted option form is `/implementation-pr --allow-mixed-scope`; unknown or extra arguments and alternate spellings are rejected. An explicit natural-language selection may also include ad hoc non-sensitive scope. Neither form authorizes publication mutations: commit, push, and PR creation still require their own explicit authorization, destination, and current credential/session authorization.
 
 After PR creation, invoke:
 
@@ -165,25 +165,24 @@ Use `--mode stacked-preview` only while observing a draft child against its pare
 
 It does not authorize later changes, force pushes, branch changes, rebases, merges, issue closure, branch deletion, or releases. It is not a promotion workflow: continue to use the separate `development -> staging` and `staging -> main` promotion flow and its release/closure rules.
 
-#### Maintainer mixed-scope override
+#### Ad hoc scope disclosure
 
-The exact `/implementation-pr --allow-mixed-scope "<reason>"` invocation remains valid. An equally explicit natural-language authorization may approve inclusion of unrelated, non-sensitive paths without that literal flag when it names the workflow's mutation scope, destination, and current credential/session authorization. The user's concrete explanation may be converted into a non-blank, one-line English audit reason; do not invent consent or rationale.
+The exact `/implementation-pr --allow-mixed-scope` option or an explicit natural-language scope selection includes known non-sensitive paths outside the addressed item. No reason or separate path-by-path approval is required. This scope selection is not authorization to commit, push, create a PR, or change tracking; those mutations retain their independent authorization requirements, including destination and current credential/session authorization.
 
-- Empty `/implementation-pr` remains strict. Missing, blank, unknown, or extra arguments fail closed.
-- The override is bound to the complete known non-sensitive candidate path list, current branch and base, destination, remote, and current authenticated Git/GitHub session authorization. A later generic follow-up cannot reuse it.
-- It permits only non-sensitive unrelated paths in the complete known candidate inventory. One approval covers that inventory; do not ask path-by-path. Unknown or secret-like paths remain blocked and credential files are never read.
-- When active, the agent-generated implementation PR body must contain one visible English section with this shape. `implementation-pr` reads the created PR back and compares the exact reason and entries before governance observation; repository CI does not infer whether the agent override was active.
+- Empty `/implementation-pr` remains strict. Unknown or extra arguments fail closed.
+- Bind disclosure to the complete known candidate path list and current branch/base plan. A later invocation requires fresh publication authorization.
+- Only non-sensitive unrelated paths may be included. Unknown or secret-like paths remain blocked and credential files are never read.
+- When active, the agent-generated implementation PR body must contain one visible English section with this shape. `implementation-pr` reads the created PR back and compares the exact inventory before governance observation; repository CI does not infer whether the disclosure was active.
 
 ```md
-## Scope Exception
+## Scope Disclosure
 
-Reason: <non-empty maintainer reason>
+Changes outside the addressed item:
 
-Exceptional paths/work units:
 - Path: <exact path> | Work unit: <non-empty work-unit description>
 ```
 
-The entries must enumerate every exceptional path exactly once. Strict invocations omit this section. Prefer separate coherent commits/work units when possible; the override permits one mixed-scope PR under maintainer authority but does not weaken any other publication restriction.
+The entries must enumerate every ad hoc path exactly once. Strict invocations omit this section. Prefer separate coherent commits/work units when possible; disclosure does not weaken any publication or tracking restriction.
 
 ### Content rules by PR type
 

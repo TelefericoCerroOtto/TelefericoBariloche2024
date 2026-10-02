@@ -432,15 +432,15 @@ test("publication contract preserves explicit authorization, publication stops, 
   const governance = fs.readFileSync(path.join(repositoryRoot, "AGENTS.md"), "utf8");
   const policy = fs.readFileSync(path.join(repositoryRoot, "docs", "backlog-branch-pr-policy.md"), "utf8");
 
-  assert.match(policy, /natural-language/);
+  assert.match(policy, /natural language/i);
   for (const contract of [skill, command, policy]) assert.match(contract, /non-sensitive/);
-  assert.match(skill, /current request must authorize commit of the current candidate/);
+  assert.match(skill, /current request must (?:separately )?authorize commit of the current candidate/i);
   assert.match(skill, /Never infer authorization from a generic continuation/);
   assert.match(skill, /Authorization expires when the candidate, target, session, or publication outcome changes/);
   assert.match(skill, /Do not invoke the standalone `branch-pr` preflight/);
   assert.match(skill, /must not repeat discovery, branch\/base setup, authorization checks/);
-  assert.match(skill, /complete candidate list is known/);
-  assert.match(skill, /do not ask or validate path-by-path/);
+  assert.match(skill, /full exact path\/work-unit inventory/);
+  assert.match(skill, /Do not ask for a reason or repeat approval per path/);
   assert.match(skill, /published head equals local `HEAD`/);
   assert.match(skill, /repository-scoped GitHub reads/);
   assert.match(skill, /Do not replace it with unfiltered `gh pr checks --watch`/);
@@ -451,38 +451,41 @@ test("publication contract preserves explicit authorization, publication stops, 
   assert.match(governance, /Do not autonomously repair metadata or repeat the governance observation in the same `\/implementation-pr` invocation/);
 });
 
-test("implementation-pr slash syntax keeps strict scope as the sole default and rejects malformed overrides", () => {
+test("implementation-pr slash syntax keeps strict scope as the sole default and allows reason-free scope selection", () => {
   const skill = fs.readFileSync(path.join(repositoryRoot, ".agents", "skills", "implementation-pr", "SKILL.md"), "utf8");
   const command = fs.readFileSync(path.join(repositoryRoot, ".opencode", "commands", "implementation-pr.md"), "utf8");
   const conventions = fs.readFileSync(path.join(repositoryRoot, "docs", "CONVENTIONS.md"), "utf8");
   const policy = fs.readFileSync(path.join(repositoryRoot, "docs", "backlog-branch-pr-policy.md"), "utf8");
 
   for (const contract of [skill, command, conventions]) {
-    assert.match(contract, /strict-scope (?:by default when bare|default)/i);
-    assert.match(contract, /exactly `?\/implementation-pr --allow-mixed-scope "<nonblank reason>"`?/);
-    assert.match(contract, /missing or blank reasons?[^\n]*(?:unknown or extra arguments|alternate spellings)|missing or blank CLI reasons?[^\n]*(?:unknown or extra arguments|alternate spellings)/i);
-    assert.match(contract, /natural-language authorization[^\n]*valid|natural-language authorization may authorize mixed scope/i);
+    assert.match(contract, /strict-scope[^.]*default/i);
+    assert.match(contract, /\/implementation-pr --allow-mixed-scope/);
+    assert.doesNotMatch(contract, /nonblank reason|missing or blank reason/i);
+    assert.match(contract, /unknown or extra arguments/);
+    assert.match(contract, /natural-language scope selection|natural-language scope selection is also valid|explicit natural-language selection/i);
+    assert.match(contract, /authori[sz]e(?:s)? publication|publication.*not authorized/i);
   }
-  assert.match(policy, /exact `\/implementation-pr --allow-mixed-scope "<reason>"` syntax/);
-  assert.match(policy, /Missing\/blank CLI reasons, unknown or extra arguments/);
+  assert.match(policy, /`\/implementation-pr --allow-mixed-scope`/);
+  assert.match(policy, /unknown or extra (?:command )?arguments/);
 });
 
-test("publication uses one known mixed-scope approval and preserves only required boundaries", () => {
+test("publication uses one exact out-of-scope disclosure and preserves publication boundaries", () => {
   const skill = fs.readFileSync(path.join(repositoryRoot, ".agents", "skills", "implementation-pr", "SKILL.md"), "utf8");
   const command = fs.readFileSync(path.join(repositoryRoot, ".opencode", "commands", "implementation-pr.md"), "utf8");
   const policy = fs.readFileSync(path.join(repositoryRoot, "docs", "backlog-branch-pr-policy.md"), "utf8");
 
-  assert.match(skill, /one explicit mixed-scope approval covering the complete inventory/);
-  assert.match(command, /one approval for the complete known non-sensitive inventory/);
-  assert.match(policy, /One explicit approval covers the complete known non-sensitive/);
   for (const contract of [skill, command]) {
     assert.match(contract, /path[- ]by[- ]path|per path/);
-    assert.match(contract, /visible English `## Scope Exception`/);
+    assert.match(contract, /visible English `## Scope Disclosure`/);
+    assert.match(contract, /Changes outside the addressed item/);
+    assert.match(contract, /Do not ask for a reason|Do not request a reason/);
     assert.match(contract, /unknown or secret-like/);
+    assert.match(contract, /does not authorize publication/);
   }
-  assert.match(policy, /do not ask for separate approval per path/);
-  assert.match(policy, /visible English `## Scope Exception`/);
-  assert.match(policy, /sensitive or unknown paths/);
+  assert.match(policy, /do not ask for separate approval per path/i);
+  assert.match(policy, /visible English `## Scope Disclosure`/);
+  assert.match(policy, /Changes outside the addressed item/);
+  assert.match(policy, /unknown or sensitive paths/i);
   assert.match(skill, /Do not use or delegate to `delivery-state-mapper`/);
   assert.match(skill, /Do not run a second local fingerprint helper/);
   assert.match(skill, /Direct routes do not trigger generic OpenSpec\/SDD discovery/);
