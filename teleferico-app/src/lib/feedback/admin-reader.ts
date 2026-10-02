@@ -23,6 +23,7 @@ import type {
   FeedbackAdminReport,
   FeedbackAdminSource,
 } from "@/types/api/admin/feedback";
+import { readTb113AppTokens, readTb113CmsOrigin } from "./tb113-runtime-config";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -550,7 +551,19 @@ export function createConfiguredFeedbackAdminReader(
 export function getFeedbackAdminReader(): ReturnType<
   typeof createFeedbackAdminReader
 > {
-  // No approved exact-origin/custom-token composition exists. A session JWT or
-  // the public content token cannot replace this private admin action.
-  throw new FeedbackAdminReaderError();
+  try {
+    const origin = readTb113CmsOrigin();
+    const tokens = readTb113AppTokens();
+    return createConfiguredFeedbackAdminReader({
+      baseUrl: origin.baseUrl,
+      allowedOrigins: origin.allowedOrigins,
+      tokenProvider: async (action) => ({
+        action,
+        value: tokens.feedbackAdminRead,
+      }),
+    });
+  } catch {
+    // The action-scoped custom token is required; a session/public token is not a fallback.
+    throw new FeedbackAdminReaderError();
+  }
 }

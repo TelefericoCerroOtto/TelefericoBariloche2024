@@ -15,7 +15,14 @@ import {
 } from "./checkpoint-contract";
 import { EMPTY_EVIDENCE_PARAGRAPH } from "./direct-execution-plan";
 import { preflightMapAnalysis, preflightReduceAnalysis } from "./analysis-output-preflight";
-import { buildMapChunksV1, countGeneratedOutputV1, validateGeneratedOutputBudgetV1 } from "./map-reduce-execution-plan";
+import {
+  buildMapChunksV1,
+  countGeneratedOutputV1,
+  countRequestTokens,
+  createReduceCountRequestV1,
+  isValidCountTokensResult,
+  validateGeneratedOutputBudgetV1,
+} from "./map-reduce-execution-plan";
 import { renderValidatedPdf, type PdfArtifact } from "./pdf";
 import type {
   CompleteCommand,
@@ -195,6 +202,15 @@ export async function executeMapReduceStages(input: {
     modelConfig: config,
     chunkCount,
   });
+  const selectedAttempt = countCheckpoint.payload.attempts?.find((attempt) => attempt.chunkCount === chunkCount);
+  if (!selectedAttempt || selectedAttempt.chunks.length !== chunks.length)
+    throw Object.assign(new TypeError("Selected map request evidence is missing"), { code: "INVARIANT" as const });
+  for (const [index, chunk] of chunks.entries()) {
+    const counted = selectedAttempt.chunks[index];
+    const digest = createHash("sha256").update(canonicalizeJson(chunk.countRequest), "utf8").digest("hex");
+    if (!counted || counted.requestDigest !== digest || counted.totalTokens > config.verifiedInputTokenLimit)
+      throw Object.assign(new TypeError("Map provider input does not match selected CountTokens evidence"), { code: "INVARIANT" as const });
+  }
   const expectedKeys = [
     "redact", "count", ...chunks.map(({ request }) => request.chunkId),
     "reduce", "validate", "render", "store",
@@ -282,8 +298,11 @@ export async function executeMapReduceStages(input: {
     let usage: ReturnType<typeof priceProviderUsageV1> | null = null;
     let outputCount: Awaited<ReturnType<typeof countGeneratedOutputV1>> | null = null;
     for (let generation = 0; generation < 2; generation += 1) {
-      const response = await retryTransient(() => mapProvider(request));
-      const providerUsage = validateProviderUsageV1(response?.usage, config.model);
+      const countRequest = chunks[membership.chunkIndex - 1]?.countRequest;
+      if (!countRequest)
+        throw Object.assign(new TypeError("Selected map CountTokens request is missing"), { code: "INVARIANT" as const });
+      const response = await retryTransient(() => mapProvider(request, countRequest));
+      const providerUsage = validateProviderUsageV1(response?.usage, config.model, config.verifiedInputTokenLimit);
       const nextCandidate = response?.output;
       const nextOutputCount = await retryTransient(() => countGeneratedOutputV1({ output: nextCandidate, modelConfig: config, countTokens, stage: "map" }));
       let withinBudget = true;
@@ -362,16 +381,29 @@ export async function executeMapReduceStages(input: {
       throw Object.assign(new TypeError("Persisted reduce checkpoint failed structural validation"), { code: "INVALID_OUTPUT" as const });
   } else {
     const verifiedDigests = maps.map(({ outputDigest }) => outputDigest);
+    const reduceRequest = {
+      contractVersion: "survey-reduce-input.v1" as const,
+      metrics: snapshot.metrics,
+      maps,
+    };
+    const reduceCountRequest = createReduceCountRequestV1({ request: reduceRequest, modelConfig: config });
+    const reduceInputCounts = await retryTransient(() => countTokens(reduceCountRequest));
+    if (!isValidCountTokensResult(reduceInputCounts))
+      throw Object.assign(new TypeError("Reduce input CountTokens response is invalid"), { code: "CONFIGURATION" as const });
+    const reduceInputEvidence = countRequestTokens({
+      request: reduceCountRequest,
+      result: reduceInputCounts,
+      modelConfig: config,
+      reservedOutput: config.directReduce.targetMax,
+    });
+    if (reduceInputEvidence.totalTokens > config.verifiedInputTokenLimit)
+      throw Object.assign(new TypeError("Reduce request exceeds the verified token limit"), { code: "UNKNOWN_VERSION" as const });
     let candidate: ReduceAnalysisV1 | null = null;
     let usage: ReturnType<typeof priceProviderUsageV1> | null = null;
     let outputCount: Awaited<ReturnType<typeof countGeneratedOutputV1>> | null = null;
     for (let generation = 0; generation < 2; generation += 1) {
-      const response = await retryTransient(() => reduceProvider({
-        contractVersion: "survey-reduce-input.v1",
-        metrics: snapshot.metrics,
-        maps,
-      }));
-      const providerUsage = validateProviderUsageV1(response?.usage, config.model);
+      const response = await retryTransient(() => reduceProvider(reduceRequest, reduceCountRequest));
+      const providerUsage = validateProviderUsageV1(response?.usage, config.model, config.verifiedInputTokenLimit);
       const nextCandidate = response?.output;
       const nextOutputCount = await retryTransient(() => countGeneratedOutputV1({ output: nextCandidate, modelConfig: config, countTokens, stage: "reduce" }));
       let withinBudget = true;

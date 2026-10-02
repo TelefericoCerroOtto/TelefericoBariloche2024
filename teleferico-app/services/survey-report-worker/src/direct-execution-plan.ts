@@ -43,6 +43,14 @@ export const DIRECT_SCHEMA = canonicalizeJson({
   })),
 });
 
+export function freezeCountTokensRequestV1<T extends object>(value: T): T {
+  if (Object.isFrozen(value)) return value;
+  for (const item of Object.values(value)) {
+    if (item && typeof item === "object") freezeCountTokensRequestV1(item);
+  }
+  return Object.freeze(value);
+}
+
 export function redactCommentTextV1(text: string): string {
   return text
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, "[EMAIL]")
@@ -182,7 +190,7 @@ export function createDirectCountRequestV1(input: {
   readonly modelInput: DirectModelRequestV1;
   readonly modelConfig: ModelConfigV1;
 }): CountTokensRequestV1 {
-  return {
+  return freezeCountTokensRequestV1({
     contractVersion: "survey-count-request.v1",
     modelConfig: input.modelConfig,
     segments: {
@@ -196,5 +204,5 @@ export function createDirectCountRequestV1(input: {
             comments: input.modelInput.comments,
           }),
     },
-  };
+  });
 }

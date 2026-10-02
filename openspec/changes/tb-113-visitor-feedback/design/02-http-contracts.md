@@ -58,7 +58,7 @@ Top-level navigation and module projections are fixed:
 
 Every route uses the shared analyzed range and previous equal-duration comparison. Responsive projections may replace navigation, layout, or tables with equivalent cards only. Invitation/scan response rate is prohibited until a denominator contract exists. Prior-zero, zero-denominator, low-evidence, and empty states are explicit. Report history contains persisted rows only; no synthetic first row or demo download text is normative.
 
-POST `generations` requires generate capability: no overlap→202 queued; overlap without matching digest→409 `OVERLAP_REQUIRES_OVERRIDE` with all intersections ordered start/run, digest, adjustment; active exact-range race→409 `ACTIVE_RANGE_CONFLICT` plus run. POST `generations/{run}/retry` accepts only `{contractVersion:"feedback-admin.v1"}` for failed source and returns a new queued run/lineage; otherwise 409 `INVALID_STATE`. GET `reports/{id}/download` requires `feedback.reports.read`, rejects query parameters, and returns only verified PDF bytes as an attachment with SHA-256 ETag, `private, no-store`, `nosniff`, and no storage URL. It checks the capability flag before authentication or service access, then applies the existing origin, session/CSRF, and capability guards. Report IDs are lowercase UUIDs; malformed IDs return 400 and missing reports return 404. Other metadata/storage failures map to 503. The response uses `Content-Type: application/pdf`, a bounded `Content-Length`, and filename `feedback-report-{reportId}.pdf`. PDFs are capped at 25 MiB; metadata must bind the requested report to its succeeded generation and match the fixed report object-key pattern, a lowercase SHA-256, positive size, and PDF MIME. The app reads the private object through an injected server-only reader, verifies byte length, PDF signature, and digest before returning it. No production GCS reader, token, credential, or default composition is supplied, so production download remains unavailable until separately approved wiring exists. Other mappings: 401 `UNAUTHORIZED`; 403 `FORBIDDEN`; named 409; 413 `PAYLOAD_TOO_LARGE`; 500 `INTERNAL_ERROR`.
+POST `generations` requires generate capability: no overlap→202 queued; overlap without matching digest→409 `OVERLAP_REQUIRES_OVERRIDE` with all intersections ordered start/run, digest, adjustment; active exact-range race→409 `ACTIVE_RANGE_CONFLICT` plus run. POST `generations/{run}/retry` accepts only `{contractVersion:"feedback-admin.v1"}` for failed source and returns a new queued run/lineage; otherwise 409 `INVALID_STATE`. GET `reports/{id}/download` requires `feedback.reports.read`, rejects query parameters, and returns only verified PDF bytes as an attachment with SHA-256 ETag, `private, no-store`, `nosniff`, and no storage URL. It checks the capability flag before authentication or service access, then applies the existing origin, session/CSRF, and capability guards. Report IDs are lowercase UUIDs; malformed IDs return 400 and missing reports return 404. Other metadata/storage failures map to 503. The response uses `Content-Type: application/pdf`, a bounded `Content-Length`, and filename `feedback-report-{reportId}.pdf`. PDFs are capped at 25 MiB; metadata must bind the requested report to its succeeded generation and match the fixed report object-key pattern, a lowercase SHA-256, positive size, and PDF MIME. The default getter composes the action-scoped metadata transport and private GCS object reader from strict CMS-origin/token and bucket configuration; it fails closed when any is missing. Live bucket policy, IAM, and object retention have not been verified. Other mappings: 401 `UNAUTHORIZED`; 403 `FORBIDDEN`; named 409; 413 `PAYLOAD_TOO_LARGE`; 500 `INTERNAL_ERROR`.
 
 The CMS-only metadata endpoint is `GET /api/tb113/worker/reports/{reportId}/download-metadata`. It accepts no query parameters and requires the native `content-api-token` strategy plus the exact action `api::survey-report-generation.survey-report-generation.workerReportDownloadMetadata`. The controller checks Strapi's selected strategy, token kind, and custom-token type before query or database access. It verifies the report-to-generation relation and `status="succeeded"`, then returns exactly `{contractVersion:"survey-report-download-metadata.v1",reportId,reportRunId,generationStatus:"succeeded",objectKey,sha256,size,mimeType:"application/pdf"}`. The response contains no signed URL, PDF bytes, private comments, prompts, or analysis. Anonymous, JWT, and wrong-scope callers are denied; no default or persistent token/role grant is added. The app's server-only transport uses a trusted exact-origin allowlist and a token provider bound to this one action. No browser caller accesses this CMS endpoint or sees its response.
 
@@ -132,7 +132,7 @@ Changed terminal replay and `queued`/`succeeded` states return 409
 adapter may run only after the terminal commit succeeds and must deduplicate
 replays.
 
-The local checkpoint route accepts CMS-verified zero-comment and nonempty-comment **DIRECT** graphs plus synthetic **MAP/REDUCE** graphs. Direct execution uses injected CountTokens/analysis/key fakes; map/reduce uses injected CountTokens/map/reduce/key fakes. CMS independently recomputes exact serialized request digests, smallest-fit chunk routing, evidence refs and chunk membership, map output digests, stage graph dependencies/order, structural/privacy/threshold checks, and state-version CAS under the generation row lock. Reduce digests must match the persisted CMS-verified map checkpoints, and the reducer receives only those maps plus immutable core metrics. Semantic truth and contradiction are intentionally not judged. Live provider and storage integrations remain gated. `W/complete` independently rechecks the complete route-specific stage graph, CMS-verified published projection, renderer/artifact bindings, and state version before atomically creating the report and succeeding the generation. Both actions require their own exact custom content API token scope and have no default grant.
+The local checkpoint route accepts CMS-verified zero-comment and nonempty-comment **DIRECT** graphs plus synthetic **MAP/REDUCE** graphs. Direct execution uses injected CountTokens/analysis/key fakes; map/reduce uses injected CountTokens/map/reduce/key fakes. CMS independently recomputes exact serialized request digests, smallest-fit chunk routing, evidence refs and chunk membership, map output digests, stage graph dependencies/order, structural/privacy/threshold checks, and state-version CAS under the generation row lock. Reduce digests must match the persisted CMS-verified map checkpoints, and the reducer receives only those maps plus immutable core metrics. Semantic truth and contradiction are intentionally not judged. `config/feedback.js` may compose CMS-owned CountTokens and evidence-key authorities only when the same approved generation JSON, pinned Secret Manager version, pinned Vertex project, and keyless Cloud Run identity context validate; absent or malformed configuration leaves both providers absent, so nonempty evidence writes and CountTokens-dependent writes fail closed. CMS counts the exact four request segments separately at the fixed Vertex model endpoint and reads only the configured numeric Secret Manager version; it never delegates either authority to the worker. This composition makes no request at import or startup. Live IAM, key, quota, and provider access remain gated. `W/complete` independently rechecks the complete route-specific stage graph, CMS-verified published projection, renderer/artifact bindings, and state version before atomically creating the report and succeeding the generation. Both actions require their own exact custom content API token scope and have no default grant.
 
 `POST W/claim`, `GET W/snapshot`, `PUT W/checkpoints/:stageKey`, `POST
 W/complete`, and `POST W/fail` require the native Strapi `content-api-token` strategy and their
@@ -170,10 +170,13 @@ outcome; malformed or unmeasurable request bodies fail closed with 413 before
 the service is read. When raw bytes are not exposed by the runtime, the action
 requires a valid bounded `Content-Length` and rejects chunked/unmeasurable
 bodies. Thrown/ambiguous dispatcher outcomes and `DISPATCH_UNAVAILABLE` do not
-invoke compensation. The current default dispatcher remains unavailable and
-leaves runs queued. An offline coordinator is available only when a caller
-supplies both an explicitly verified task client and an explicitly verified
-dispatch-state port; the production command factory supplies neither.
+invoke compensation. The default command getter composes the deterministic
+Cloud Tasks adapter and session-authorized `A/dispatch-state` port only after
+validating queue, worker target/audience, distinct invoker identity, action-token
+maps, approved generation configuration, and private source origin. Missing or
+malformed settings fail before the generation list/create/task requests. The
+current CMS contract still rejects verified absence after reservation, so no
+`noTaskCreated`/exhausted compensation is claimed.
 
 The additive U10-A CMS seam persists `dispatchState` separately from
 `taskName`: `unreserved` → `reserved` before enqueue, then `created` or
@@ -201,9 +204,9 @@ CMS evidence contract remain a separate operational/design gate; do not infer
 absence from retries, errors, or timeouts. No real Cloud Tasks client,
 credentials, queue, Cloud Run/OIDC composition, or live enqueue was added.
 
-The private worker exposes only `POST /internal/v1/report-runs:execute` with the exact closed body `{commandVersion:"survey-report-command.v1",reportRunId}`. The request target must have no query or fragment, the media type is `application/json` with optional UTF-8 charset, and the raw body is capped at 4 KiB. Authentication runs first: an injected verifier must validate the signed OIDC token and return a verified result; the handler then requires exact membership in its immutable issuer allowlist, exact audience and invoker principal, and valid `iat`, `exp`, and optional `nbf` claims. Missing verifier/policy/dependencies fail closed. Invalid OIDC is 401 `INVALID_OIDC`; the exact verified but non-allowlisted principal is 403 `FORBIDDEN_INVOKER` (the verifier/handler boundary does not accept unverified claims); wrong method is 405, unknown route is 404, query/invalid command is 400 `INVALID_COMMAND`, wrong media type is 415 `UNSUPPORTED_MEDIA_TYPE`, and raw >4 KiB is 413 `PAYLOAD_TOO_LARGE`. No CMS, snapshot, provider, or artifact operation begins before authentication and bounded command validation.
+The private worker exposes only `POST /internal/v1/report-runs:execute` with the exact closed body `{commandVersion:"survey-report-command.v1",reportRunId}`. The request target must have no query or fragment, the media type is `application/json` with optional UTF-8 charset, and the raw body is capped at 4 KiB. Authentication runs first: the composed Google verifier validates the signed OIDC token; the handler then requires exact membership in its immutable issuer allowlist, exact audience and invoker principal, and valid `iat`, `exp`, and optional `nbf` claims. Missing or malformed worker settings fail before server construction. Invalid OIDC is 401 `INVALID_OIDC`; the exact verified but non-allowlisted principal is 403 `FORBIDDEN_INVOKER`; wrong method is 405, unknown route is 404, query/invalid command is 400 `INVALID_COMMAND`, wrong media type is 415 `UNSUPPORTED_MEDIA_TYPE`, and raw >4 KiB is 413 `PAYLOAD_TOO_LARGE`. No CMS, snapshot, provider, or artifact operation begins before authentication and bounded command validation.
 
-The pure handler invokes the existing `executeReportWorker(reportRunId, dependencies)` and maps only bounded results: success/terminal replay is 200 `{contractVersion:"survey-worker-execution.v1",reportRunId,status:"succeeded"|"failed",disposition:"completed"|"terminal-replay",failureCode?:RuntimeFailureCodeV1,cleanupPending?:true}`; retryable execution failures are 503 `RETRYABLE_EXECUTION`, missing runs are 404 `RUN_NOT_FOUND`, state conflicts are 409 `INVALID_STATE`, and safe internal failures are 500 `INTERNAL_ERROR`. `cleanupPending` is emitted only when the CMS-confirmed failed state committed but conditional object cleanup failed. Responses omit checkpoints, report artifacts, prompts, comments, credentials, and raw errors. The local adapter does not enforce a total execution deadline; Cloud Run deadline configuration and deadline-respecting production dependencies remain an activation gate. The explicit Node adapter creates no listener by itself; callers must supply runtime configuration and start a server deliberately. No production verifier, CMS origin, action-bound token provider, artifact store, Google integration, or auto-start composition is supplied. The existing CMS client requires an explicit trusted origin allowlist and action-bound token provider; its absence must continue to fail closed. Local synthetic loopback tests do not establish Cloud Run, OIDC, Tasks, CMS, provider, storage, or deployment readiness.
+The pure handler invokes the existing `executeReportWorker(reportRunId, dependencies)` and maps only bounded results: success/terminal replay is 200 `{contractVersion:"survey-worker-execution.v1",reportRunId,status:"succeeded"|"failed",disposition:"completed"|"terminal-replay",failureCode?:RuntimeFailureCodeV1,cleanupPending?:true}`; retryable execution failures are 503 `RETRYABLE_EXECUTION`, missing runs are 404 `RUN_NOT_FOUND`, state conflicts are 409 `INVALID_STATE`, and safe internal failures are 500 `INTERNAL_ERROR`. `cleanupPending` is emitted only when the CMS-confirmed failed state committed but conditional object cleanup failed. Responses omit checkpoints, report artifacts, prompts, comments, credentials, and raw errors. The configured Node server factory does not listen at import; the explicit start function binds only when called. The app worker runtime config composes exact action-token maps, approved ModelConfig/pricing, version-pinned Secret Manager evidence-key access, private GCS, ADC-backed Vertex providers, and the pinned PDF renderer. It uses existing `BUILD_STRAPI_BASE_URL` plus `TB113_CMS_ALLOWED_ORIGIN`; no token or credential fallback is present. The local adapters remain fake-tested only and do not establish Cloud Run, OIDC, Tasks, CMS, provider, storage, identity, or deployment readiness.
 
 ### Authenticated private CMS source pages
 
@@ -257,9 +260,11 @@ the browser, admin dashboard, generic native `find`, or public role/token.
 `teleferico-app/services/survey-report-worker/src/private-report-source-transport.ts`
 implements only the server-only HTTP adapter for the source-page action. Its
 factory requires an explicit CMS origin, a nonempty exact-origin allowlist,
-and a token-provider function. The allowlist must come from a trusted
-server-only composition; no production composition or approved CMS hostname
-exists yet. Both the configured target and every allowlist entry must be a
+and a token-provider function. The parameterless admin command getter now
+constructs this transport from `BUILD_STRAPI_BASE_URL`,
+`TB113_CMS_ALLOWED_ORIGIN`, and the distinct `workerSourceRead` action token in
+`TB113_APP_CMS_TOKENS_JSON`; the values remain operator-supplied and were not
+provisioned or tested against a live CMS. Both the configured target and every allowlist entry must be a
 canonical public HTTPS DNS origin. Missing/empty/mismatched allowlists, all IP
 literal destinations (including public, loopback, private, and link-local),
 localhost/private/reserved/metadata/deceptive hostnames, userinfo, noncanonical
@@ -267,9 +272,10 @@ authority, path, query, or fragment are rejected. The target origin is matched
 exactly against the allowlist before the token provider can run. The path is
 fixed to `POST /api/tb113/worker/report-source`; redirects use `redirect: error`
 and redirected/cross-origin responses are rejected, requests use
-`cache: no-store`, and the provider is called for each page. There is no
-environment lookup, default allowlist/token, fallback authentication strategy,
-U&P JWT, browser route, or admin generate/retry/dispatch wiring.
+`cache: no-store`, and the provider is called for each page. The transport
+itself remains environment-free: no default allowlist/token or fallback
+authentication strategy is embedded. The runtime getter supplies the explicit
+settings only after strict validation; the browser does not call this transport.
 
 The adapter sends the closed `survey-generation-source.v1` request with page
 size 25 and enforces a 4 KiB request-body ceiling, a 10-second per-page deadline
@@ -341,14 +347,16 @@ and route capability checks before creating or invoking the private transport.
 That transport requires an explicit canonical HTTPS origin allowlist and a token
 provider bound to only `feedbackAdminRead`; it rejects redirects, cross-origin
 responses, oversized bodies, malformed pages, and cursor loops. The repository
-does not provision a production custom token, approved CMS origin, or runtime
-token-provider composition. Therefore this reader remains fail-closed in the
-default runtime until those separately authorized operational inputs exist; the
-session JWT and public content token are not fallbacks. The source-to-browser
+does not provision production custom tokens or approve a deployment origin.
+The default getter composes the reader only when the exact operator origin and
+action-token map are valid; otherwise it remains fail-closed. The session JWT
+and public content token are never fallbacks. The source-to-browser
 projection strips object keys. `canDownload` remains false unless a mediated
 report reader is actually available and the report metadata is valid; no private
-object key is used to infer download capability. The production download reader
-remains unavailable without approved storage composition.
+object key is used to infer download capability. The default download getter
+composes the report metadata action token with the private GCS reader only when
+the same trusted origin/token settings and `TB113_PRIVATE_BUCKET` are valid;
+live bucket policy and IAM remain unverified.
 
 Local app tests prove stable pagination over more than 25 submissions and more
 than 100 reports, one cutoff across all resource reads, and rejection of missing

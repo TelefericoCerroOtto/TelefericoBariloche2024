@@ -38,6 +38,7 @@ import {
   type DirectAnalysisV1,
   type PricingSnapshotV1,
   type CountTokensProvider,
+  type CountTokensRequestV1,
   type EvidenceKeyProvider,
   type WorkerRuntimeDependencies,
   type MapAnalysisProvider,
@@ -48,6 +49,7 @@ import {
 } from "./contracts";
 import {
   createEmptyEvidenceDirectAnalysisV1,
+  createDirectCountRequestV1,
   createDirectModelRequestV1,
   planDirectExecutionV1,
   publishEmptyEvidenceAnalysisV1,
@@ -453,6 +455,12 @@ export async function executeReportWorker(
       rendererVersion: dependencies.renderer.rendererVersion,
     });
     const modelConfig = claim.modelConfig as ModelConfigV1;
+    if (dependencies.approvedModelConfig &&
+        canonicalizeJson(modelConfig) !== canonicalizeJson(dependencies.approvedModelConfig))
+      throw Object.assign(new TypeError("CMS model configuration differs from the approved worker configuration"), { code: "CONFIGURATION" as const });
+    if (dependencies.approvedPricingSnapshot &&
+        canonicalizeJson(claim.pricingSnapshot) !== canonicalizeJson(dependencies.approvedPricingSnapshot))
+      throw Object.assign(new TypeError("CMS pricing snapshot differs from the approved worker configuration"), { code: "CONFIGURATION" as const });
     diagnosticModel = modelConfig.model;
     if (
       claim.checkpoints.version !== "survey-checkpoints.v1" ||
@@ -601,6 +609,7 @@ export async function executeReportWorker(
       reportRunId,
       evidenceKey: evidenceKey ?? null,
     });
+    let directCountRequest: CountTokensRequestV1 | null = null;
 
     if (!checkpointSet.entries.some(({ stageKey }) => stageKey === "redact")) {
       await addCheckpoint("redact", {
@@ -621,6 +630,7 @@ export async function executeReportWorker(
           reportRunId,
           evidenceKey: evidenceKey ?? "",
           modelConfig,
+          modelInput: modelRequest,
           countTokens: dependencies.countTokens!,
         }),
       );
@@ -646,12 +656,27 @@ export async function executeReportWorker(
         });
         return result;
       }
+      directCountRequest = plan.countRequest;
       checkpointSet = { ...checkpointSet, route: "direct", chunkCount: null };
+    } else {
+      directCountRequest = createDirectCountRequestV1({
+        snapshot,
+        modelInput: modelRequest,
+        modelConfig,
+      });
     }
     if (checkpointSet.route !== "direct")
       throw new TypeError("CountTokens did not select the direct worker route");
     if (!checkpointSet.entries.some(({ stageKey }) => stageKey === "count"))
       throw new TypeError("The direct route has no CMS-authoritative CountTokens checkpoint");
+    const directCountCheckpoint = checkpointSet.entries.find(({ stageKey }) => stageKey === "count");
+    if (!directCountRequest ||
+      directCountCheckpoint?.payload.kind !== "count" ||
+      directCountCheckpoint.payload.route === "map-reduce" ||
+      directCountCheckpoint.payload.totalTokens > modelConfig.verifiedInputTokenLimit ||
+      directCountCheckpoint.payload.requestDigest !== createHash("sha256").update(canonicalizeJson(directCountRequest), "utf8").digest("hex")
+    )
+      throw Object.assign(new TypeError("Direct provider input does not match its CountTokens checkpoint"), { code: "INVARIANT" as const });
     let directAnalysis: DirectAnalysisV1;
     let directOutputTokenCount: number | undefined;
     let directOutputRequestDigest: string | undefined;
@@ -668,9 +693,9 @@ export async function executeReportWorker(
       let acceptedUsage: ReturnType<typeof priceProviderUsageV1> | null = null;
       for (let generation = 0; generation < 2; generation += 1) {
         const response = await classifyDependencyFailure("PROVIDER_TRANSIENT", () =>
-          dependencies.analysisProvider!(modelRequest),
+          dependencies.analysisProvider!(modelRequest, directCountRequest),
         );
-        const providerUsage = validateProviderUsageV1(response?.usage, modelConfig.model);
+        const providerUsage = validateProviderUsageV1(response?.usage, modelConfig.model, modelConfig.verifiedInputTokenLimit);
         const candidate = response?.output;
         let valid = Boolean(candidate && typeof candidate === "object" &&
           (candidate as { schemaVersion?: unknown }).schemaVersion === "survey-analysis.v1");

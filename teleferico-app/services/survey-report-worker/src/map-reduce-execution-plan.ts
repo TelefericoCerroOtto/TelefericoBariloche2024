@@ -2,21 +2,23 @@ import { createHash } from "node:crypto";
 
 import { canonicalizeJson, type SnapshotV1 } from "../../../packages/survey-reporting-core/src";
 import { deriveChunkMembership, deriveEvidenceRef } from "./checkpoint-contract";
-import { createDirectCountRequestV1, createDirectModelRequestV1, redactCommentTextV1 } from "./direct-execution-plan";
+import { createDirectCountRequestV1, createDirectModelRequestV1, freezeCountTokensRequestV1, redactCommentTextV1 } from "./direct-execution-plan";
 import type {
   CountCheckpointPayload,
   CountTokensProvider,
   CountTokensRequestV1,
   CountTokensResultV1,
+  DirectModelRequestV1,
   MapModelRequestV1,
   ModelConfigV1,
+  ReduceModelRequestV1,
 } from "./contracts";
 import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA } from "./direct-execution-plan";
 
-const MAP_INSTRUCTIONS =
+export const MAP_INSTRUCTIONS =
   "Extract descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
 
-const MAP_SCHEMA = canonicalizeJson({
+export const MAP_SCHEMA = canonicalizeJson({
   schemaVersion: "survey-map.v1",
   chunkId: "map.<index>-of-<count>",
   coveredRefs: ["e_<20-lowercase-base32-characters>"],
@@ -33,10 +35,10 @@ const MAP_SCHEMA = canonicalizeJson({
   limitations: ["Spanish descriptive limitation"],
 });
 
-const REDUCE_INSTRUCTIONS =
+export const REDUCE_INSTRUCTIONS =
   "Combine only the validated map outputs and immutable official metrics supplied. Return the exact seven-section survey-analysis.v1 reduce schema. Do not calculate or alter metrics, invent evidence refs, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
 
-const REDUCE_SCHEMA = canonicalizeJson({
+export const REDUCE_SCHEMA = canonicalizeJson({
   schemaVersion: "survey-analysis.v1",
   route: "reduce",
   sections: [{
@@ -67,15 +69,16 @@ export type MapReducePlanV1 = {
   readonly chunks: readonly {
     readonly membership: ReturnType<typeof deriveChunkMembership>[number];
     readonly request: MapModelRequestV1;
+    readonly countRequest: CountTokensRequestV1;
   }[];
   readonly checkpoint: CountCheckpointPayload;
 };
 
 export type WorkerRoutePlanV1 =
-  | { readonly route: "direct"; readonly checkpoint: CountCheckpointPayload }
+  | { readonly route: "direct"; readonly checkpoint: CountCheckpointPayload; readonly countRequest: CountTokensRequestV1 }
   | MapReducePlanV1;
 
-function validCountTokens(value: unknown): value is CountTokensResultV1 {
+export function isValidCountTokensResult(value: unknown): value is CountTokensResultV1 {
   const keys = ["instructions", "schema", "metrics", "comments"] as const;
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
@@ -84,7 +87,7 @@ function validCountTokens(value: unknown): value is CountTokensResultV1 {
   );
 }
 
-function countRequestTokens(input: {
+export function countRequestTokens(input: {
   readonly request: CountTokensRequestV1;
   readonly result: CountTokensResultV1;
   readonly modelConfig: ModelConfigV1;
@@ -154,7 +157,7 @@ function chunkRequest(input: {
     metrics: input.snapshot.metrics,
     comments: projectedComments,
   };
-  const request: CountTokensRequestV1 = {
+  const request = freezeCountTokensRequestV1<CountTokensRequestV1>({
     contractVersion: "survey-count-request.v1",
     modelConfig: input.modelConfig,
     segments: {
@@ -163,8 +166,24 @@ function chunkRequest(input: {
       metrics: canonicalizeJson(input.snapshot.metrics),
       comments: canonicalizeJson(modelRequest),
     },
-  };
+  });
   return { request, modelRequest };
+}
+
+export function createReduceCountRequestV1(input: {
+  readonly request: ReduceModelRequestV1;
+  readonly modelConfig: ModelConfigV1;
+}): CountTokensRequestV1 {
+  return freezeCountTokensRequestV1({
+    contractVersion: "survey-count-request.v1",
+    modelConfig: input.modelConfig,
+    segments: {
+      instructions: REDUCE_INSTRUCTIONS,
+      schema: REDUCE_SCHEMA,
+      metrics: canonicalizeJson(input.request.metrics),
+      comments: canonicalizeJson(input.request),
+    },
+  });
 }
 
 export function buildMapChunksV1(input: {
@@ -199,7 +218,7 @@ export async function countGeneratedOutputV1(input: {
   readonly countTokens: CountTokensProvider;
   readonly stage: "direct" | "map" | "reduce";
 }): Promise<{ readonly tokenCount: number; readonly requestDigest: string }> {
-  const request: CountTokensRequestV1 = {
+  const request = freezeCountTokensRequestV1<CountTokensRequestV1>({
     contractVersion: "survey-count-request.v1",
     modelConfig: input.modelConfig,
     segments: {
@@ -208,9 +227,9 @@ export async function countGeneratedOutputV1(input: {
       metrics: "{}",
       comments: canonicalizeJson(input.output),
     },
-  };
+  });
   const result = await input.countTokens(request);
-  if (!validCountTokens(result)) throw new TypeError("CountTokens returned an invalid output result");
+  if (!isValidCountTokensResult(result)) throw new TypeError("CountTokens returned an invalid output result");
   return {
     tokenCount: result.comments,
     requestDigest: createHash("sha256").update(canonicalizeJson(request), "utf8").digest("hex"),
@@ -253,7 +272,7 @@ export async function planMapReduceExecutionV1(input: {
       modelConfig: input.modelConfig,
     });
     const directResult = await input.countTokens(directRequest);
-    if (!validCountTokens(directResult)) throw new TypeError("CountTokens returned an invalid result");
+    if (!isValidCountTokensResult(directResult)) throw new TypeError("CountTokens returned an invalid result");
     directEvidence = countRequestTokens({
       request: directRequest,
       result: directResult,
@@ -270,7 +289,7 @@ export async function planMapReduceExecutionV1(input: {
     const counted = [] as CountEvidence[];
     for (const { countRequest } of plannedChunks) {
       const result = await input.countTokens(countRequest);
-      if (!validCountTokens(result)) throw new TypeError("CountTokens returned an invalid result");
+      if (!isValidCountTokensResult(result)) throw new TypeError("CountTokens returned an invalid result");
       counted.push(countRequestTokens({
         request: countRequest,
         result,
@@ -283,7 +302,7 @@ export async function planMapReduceExecutionV1(input: {
       return {
         route: "map-reduce",
         chunkCount,
-        chunks: plannedChunks.map(({ membership, request }) => ({ membership, request })),
+        chunks: plannedChunks.map(({ membership, request, countRequest }) => ({ membership, request, countRequest })),
         checkpoint: {
           kind: "count",
           requestDigest: directEvidence.requestDigest,
@@ -311,10 +330,11 @@ export async function planWorkerRouteV1(input: {
   readonly evidenceKey: string | Uint8Array;
   readonly modelConfig: ModelConfigV1;
   readonly countTokens: CountTokensProvider;
+  readonly modelInput?: DirectModelRequestV1;
 }): Promise<WorkerRoutePlanV1> {
   const directRequest = createDirectCountRequestV1({
     snapshot: input.snapshot,
-    modelInput: createDirectModelRequestV1({
+    modelInput: input.modelInput ?? createDirectModelRequestV1({
       snapshot: input.snapshot,
       reportRunId: input.reportRunId,
       evidenceKey: input.evidenceKey,
@@ -322,7 +342,7 @@ export async function planWorkerRouteV1(input: {
     modelConfig: input.modelConfig,
   });
   const directResult = await input.countTokens(directRequest);
-  if (!validCountTokens(directResult)) throw new TypeError("CountTokens returned an invalid result");
+  if (!isValidCountTokensResult(directResult)) throw new TypeError("CountTokens returned an invalid result");
   const directEvidence = countRequestTokens({
     request: directRequest,
     result: directResult,
@@ -332,6 +352,7 @@ export async function planWorkerRouteV1(input: {
   if (directEvidence.totalTokens <= input.modelConfig.verifiedInputTokenLimit)
     return {
       route: "direct",
+      countRequest: directRequest,
       checkpoint: {
         kind: "count",
         requestDigest: directEvidence.requestDigest,

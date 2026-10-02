@@ -43,6 +43,14 @@ describe("worker usage cost", () => {
     }
   });
 
+  it("rejects provider prompt usage above the immutable model input limit", () => {
+    expect(() => validateProviderUsageV1({
+      ...providerUsage(),
+      usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 1 },
+    }, "synthetic-model", 2)).toThrow();
+    expect(validateProviderUsageV1(providerUsage(), "synthetic-model", 2)).toEqual(providerUsage());
+  });
+
   it("rounds input and output micro-USD independently using returned token counts", () => {
     const usage = validateProviderUsageV1(providerUsage(), "synthetic-model");
     expect(priceProviderUsageV1(usage, pricingSnapshot, "synthetic-model", "direct")).toEqual({
