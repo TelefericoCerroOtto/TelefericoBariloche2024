@@ -73,7 +73,7 @@ export default function FeedbackForm({ publicCode }: Props) {
     null,
   );
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
+  const [idempotencyKey] = useState(createIdempotencyKey);
   const [status, setStatus] = useState<
     "loading" | "ready" | "submitting" | "error" | "success"
   >("loading");

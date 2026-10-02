@@ -16,6 +16,7 @@ import { MAP_INSTRUCTIONS, MAP_SCHEMA, REDUCE_INSTRUCTIONS, REDUCE_SCHEMA } from
 import { canonicalizeJson } from "@teleferico/survey-reporting-core";
 import { createReportWorkerHttpHandler } from "../../../../services/survey-report-worker/src/worker-http";
 import type { WorkerRuntimeDependencies } from "../../../../services/survey-report-worker/src/contracts";
+import { Readable } from "node:stream";
 
 const RUN_ID = "11111111-1111-4111-8111-111111111111";
 const TASK_NAME = createFeedbackTaskName(RUN_ID)!;
@@ -121,7 +122,6 @@ function fakeBucket() {
           return [object.metadata];
         },
         createReadStream() {
-          const { Readable } = require("node:stream") as typeof import("node:stream");
           const object = objects.get(key);
           if (!object || (options?.generation && options.generation !== object.generation)) throw new Error("missing");
           return Readable.from([object.bytes]);
@@ -263,7 +263,6 @@ describe("Google TB-113 runtime adapters", () => {
     const workerUrl = "http://127.0.0.1:18231/internal/v1/report-runs:execute";
     const queuePath = "projects/teleferico-bariloche-2024/locations/southamerica-east1/queues/feedback-reports";
     const fullName = `${queuePath}/tasks/${TASK_NAME}`;
-    const taskBody = Buffer.from(JSON.stringify({ commandVersion: "survey-report-command.v1", reportRunId: RUN_ID })).toString("base64");
     const existingTasks: Record<string, unknown>[] = [];
     const requests: Array<{ url: string; init?: RequestInit }> = [];
     const fetchImplementation = vi.fn<typeof fetch>(async (url, init) => {

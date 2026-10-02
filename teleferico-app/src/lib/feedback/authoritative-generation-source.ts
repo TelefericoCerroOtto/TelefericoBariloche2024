@@ -32,7 +32,7 @@ export type AuthoritativeGenerationSourceInputV1 = Omit<
   readonly range: { readonly from: string; readonly to: string };
   readonly dataCutoffAt: string;
   readonly sourceRevision: string;
-  readonly readPage: (query: GenerationSourcePageQueryV1) => Promise<unknown>;
+  readonly readPage: (_query: GenerationSourcePageQueryV1) => Promise<unknown>;
 };
 
 type RecordValue = Record<string, unknown>;
@@ -370,7 +370,7 @@ function parseSubmission(
 
 function assertUnique<T>(
   rows: readonly T[],
-  identity: (row: T) => string,
+  identity: (_row: T) => string,
 ): void {
   const identities = new Set<string>();
   for (const row of rows) {

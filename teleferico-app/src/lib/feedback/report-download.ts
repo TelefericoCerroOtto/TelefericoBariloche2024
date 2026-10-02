@@ -27,12 +27,13 @@ export class FeedbackReportDownloadError extends Error {
   constructor(readonly code: "NOT_FOUND" | "UPSTREAM_UNAVAILABLE") {
     super("The requested report download is unavailable");
     this.name = "FeedbackReportDownloadError";
+    void code;
   }
 }
 
 export function createFeedbackReportDownload(input: {
   readonly metadataReader: {
-    read(reportId: string): Promise<PrivateReportDownloadMetadataV1>;
+    read(_reportId: string): Promise<PrivateReportDownloadMetadataV1>;
   };
   readonly objectReader: PrivateReportObjectReader;
 }) {

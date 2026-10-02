@@ -173,7 +173,7 @@ function fakeCms(
   checkpoints: WorkerCheckpointSet = checkpointSet(snapshotEnvelope.digestHex),
   modelConfig: unknown = syntheticModelConfig("test-only-2026-01"),
   pricingSnapshot: unknown = syntheticPricingSnapshot(),
-  reportIdForArtifact: (reportRunId: string, sha256: string) => string = () => "report-1",
+  reportIdForArtifact: (_reportRunId: string, _sha256: string) => string = () => "report-1",
 ) {
   let stateVersion = 1;
   let terminal: "succeeded" | "failed" | null = null;

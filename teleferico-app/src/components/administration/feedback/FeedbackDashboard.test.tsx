@@ -1134,7 +1134,7 @@ describe("feedback analytics UI projections", () => {
   it("opens the rating selector on demand and closes it with Escape or outside interaction", async () => {
     const emptyPage = { items: [], total: 0, page: 1, pageSize: 25 };
     const envelope = (data: unknown) => new Response(JSON.stringify({ contractVersion: "feedback-admin.v1", data, meta: {} }), { status: 200 });
-    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => Promise.resolve(envelope(emptyPage)));
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((_path) => Promise.resolve(envelope(emptyPage)));
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
     await screen.findByText("No hay comentarios para estos filtros. Probá con otro aspecto, punto, idioma o rango.");

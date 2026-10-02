@@ -5,13 +5,14 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryDirectory = resolve(packageDirectory, "../..");
 const dockerfile = await readFile(resolve(packageDirectory, "Dockerfile"), "utf8");
 const dockerignore = await readFile(
   resolve(packageDirectory, "Dockerfile.dockerignore"),
   "utf8",
 );
 const cloudBuildConfig = await readFile(
-  resolve(packageDirectory, "cloudbuild.yaml"),
+  resolve(repositoryDirectory, "docs/infra/cloud-build/worker-staging.yaml"),
   "utf8",
 );
 const packageManifest = JSON.parse(
@@ -122,6 +123,19 @@ test("Cloud Build prepares and verifies Chromium/font assets before building the
   assert.ok(cloudBuildConfig.indexOf("unset AR_LOCATION") < cloudBuildConfig.indexOf("pnpm install --frozen-lockfile"));
   assert.ok(cloudBuildConfig.includes("_WORKER_SERVICE_NAME: feedback-worker-staging"));
   assert.ok(cloudBuildConfig.includes("_WORKER_REGION: southamerica-east1"));
+  for (const requiredSubstitution of [
+    "_AR_LOCATION",
+    "_AR_REPOSITORY",
+    "_STRAPI_BASE_URL",
+    "_CMS_ALLOWED_ORIGIN",
+    "_TASK_INVOKER_SERVICE_ACCOUNT",
+    "_WORKER_RUNTIME_SERVICE_ACCOUNT",
+    "_WORKER_CMS_TOKEN_SECRET_VERSION",
+    "_PRIVATE_BUCKET",
+    "_EVIDENCE_KEY_RESOURCE",
+  ]) {
+    assert.ok(cloudBuildConfig.includes(`${requiredSubstitution}: REQUIRED_OPERATOR_VALUE`));
+  }
   for (const deployFlag of [
     "--no-allow-unauthenticated",
     "--ingress=internal",

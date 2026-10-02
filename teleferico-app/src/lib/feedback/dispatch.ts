@@ -55,17 +55,19 @@ export class FeedbackTaskCreateError extends Error {
   ) {
     super("Feedback task creation did not return a verified result");
     this.name = "FeedbackTaskCreateError";
+    void kind;
+    void reasonCode;
   }
 }
 
 export type FeedbackCloudTaskClient = {
   readonly trust: "verified";
-  readonly createTask: (input: {
+  readonly createTask: (_input: {
     readonly taskName: string;
     readonly reportRunId: string;
     readonly commandVersion: "survey-report-command.v1";
   }) => Promise<{ readonly taskName: string; readonly reportRunId: string }>;
-  readonly verifyExistingTask: (input: {
+  readonly verifyExistingTask: (_input: {
     readonly taskName: string;
     readonly reportRunId: string;
   }) => Promise<{
@@ -87,12 +89,12 @@ export type FeedbackDispatchStateReservation = {
 
 export type FeedbackDispatchStatePort = {
   readonly trust: "verified";
-  readonly reserve: (input: {
+  readonly reserve: (_input: {
     readonly reportRunId: string;
     readonly expectedStateVersion: number;
     readonly taskName: string;
   }) => Promise<FeedbackDispatchStateReservation>;
-  readonly record: (input: {
+  readonly record: (_input: {
     readonly reportRunId: string;
     readonly expectedStateVersion: number;
     readonly taskName: string;
@@ -156,9 +158,9 @@ function isValidReservation(
 export function createCoordinatedFeedbackDispatcher(options: {
   readonly taskClient: FeedbackCloudTaskClient;
   readonly dispatchState: FeedbackDispatchStatePort;
-  readonly sleep?: (milliseconds: number) => Promise<void>;
+  readonly sleep?: (_milliseconds: number) => Promise<void>;
   readonly now?: () => string;
-  readonly observe?: (event: {
+  readonly observe?: (_event: {
     readonly outcome: "created" | "unknown" | "unavailable";
     readonly attemptCount: number;
   }) => void;

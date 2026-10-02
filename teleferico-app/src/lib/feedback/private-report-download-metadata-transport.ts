@@ -28,6 +28,7 @@ export class ReportDownloadMetadataTransportError extends Error {
   constructor(readonly code: ReportDownloadMetadataTransportErrorCode) {
     super("Private report metadata is unavailable");
     this.name = "ReportDownloadMetadataTransportError";
+    void code;
   }
 }
 
@@ -36,8 +37,8 @@ export type ReportDownloadMetadataTransportOptions = {
   readonly allowedOrigins: readonly string[];
   readonly runtimeMode?: "development";
   readonly tokenProvider: (
-    action: typeof REPORT_DOWNLOAD_METADATA_ACTION,
-    signal: AbortSignal,
+    _action: typeof REPORT_DOWNLOAD_METADATA_ACTION,
+    _signal: AbortSignal,
   ) => Promise<{ readonly action: string; readonly value: string }>;
   readonly fetchImplementation?: typeof fetch;
 };

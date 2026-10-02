@@ -283,7 +283,7 @@ type ApprovedGenerationConfiguration = Pick<
 >;
 
 export type GenerationInputsPort = {
-  readonly readPage: (query: GenerationSourcePageQueryV1) => Promise<unknown>;
+  readonly readPage: (_query: GenerationSourcePageQueryV1) => Promise<unknown>;
   readonly getApprovedConfiguration: () =>
     | ApprovedGenerationConfiguration
     | Promise<ApprovedGenerationConfiguration>;

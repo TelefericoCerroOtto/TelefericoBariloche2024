@@ -1,3 +1,6 @@
+# PROPOSED / NOT INSTALLED IN GCP
+# Documentary snapshot only; GCP's inline trigger configuration is the operational source of truth.
+# Required operator inputs remain placeholders; no worker trigger or service is provisioned by this file.
 steps:
   - name: node@sha256:7cc56ef285a8568121537d17b05e72128f01b89c54607b51acf084a50ef483f3
     id: Prepare verified worker bundle
