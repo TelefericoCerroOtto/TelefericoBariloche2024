@@ -3,7 +3,7 @@ import {
   buildAuthoritativeGenerationInputsV1,
   type AuthoritativeGenerationSourceInputV1,
   type GenerationSourcePageQueryV1,
-} from "../../../services/survey-report-worker/src/authoritative-generation-source";
+} from "./authoritative-generation-source";
 
 const CUTOFF = "2026-09-02T12:00:00.000Z";
 const RANGE = { from: "2026-09-01", to: "2026-09-10" };

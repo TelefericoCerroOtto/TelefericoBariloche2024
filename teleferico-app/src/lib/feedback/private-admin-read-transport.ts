@@ -1,6 +1,6 @@
 import "server-only";
 
-import { validateTrustedCmsOrigin } from "../../../services/survey-report-worker/src/cms-origin";
+import { validateTrustedCmsOrigin } from "@teleferico/tb113-runtime-contracts";
 
 export const FEEDBACK_ADMIN_READ_ACTION =
   "api::survey-report-generation.survey-report-generation.feedbackAdminRead" as const;

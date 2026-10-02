@@ -5,15 +5,15 @@ vi.mock("server-only", () => ({}));
 
 import { createGoogleFeedbackTaskClient } from "./google-cloud-tasks";
 import { createFeedbackTaskName, createCoordinatedFeedbackDispatcher } from "./dispatch";
-import { createGoogleTaskOidcPolicy } from "../../../services/survey-report-worker/src/google-task-oidc";
-import { createGooglePrivateReportBucket } from "../../../services/survey-report-worker/src/google-private-storage";
-import { createGoogleVertexCountTokensProvider, createGoogleVertexModelProviders } from "../../../services/survey-report-worker/src/google-vertex-count-tokens";
-import { createGoogleEvidenceKeyProvider } from "../../../services/survey-report-worker/src/google-evidence-key-provider";
-import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA } from "../../../services/survey-report-worker/src/direct-execution-plan";
-import { MAP_INSTRUCTIONS, MAP_SCHEMA, REDUCE_INSTRUCTIONS, REDUCE_SCHEMA } from "../../../services/survey-report-worker/src/map-reduce-execution-plan";
-import { canonicalizeJson } from "../../../packages/survey-reporting-core/src";
-import { createReportWorkerHttpHandler } from "../../../services/survey-report-worker/src/worker-http";
-import type { WorkerRuntimeDependencies } from "../../../services/survey-report-worker/src/contracts";
+import { createGoogleTaskOidcPolicy } from "../../../../services/survey-report-worker/src/google-task-oidc";
+import { createGooglePrivateReportBucket } from "@teleferico/tb113-private-report-storage";
+import { createGoogleVertexCountTokensProvider, createGoogleVertexModelProviders } from "../../../../services/survey-report-worker/src/google-vertex-count-tokens";
+import { createGoogleEvidenceKeyProvider } from "../../../../services/survey-report-worker/src/google-evidence-key-provider";
+import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA } from "../../../../services/survey-report-worker/src/direct-execution-plan";
+import { MAP_INSTRUCTIONS, MAP_SCHEMA, REDUCE_INSTRUCTIONS, REDUCE_SCHEMA } from "../../../../services/survey-report-worker/src/map-reduce-execution-plan";
+import { canonicalizeJson } from "@teleferico/survey-reporting-core";
+import { createReportWorkerHttpHandler } from "../../../../services/survey-report-worker/src/worker-http";
+import type { WorkerRuntimeDependencies } from "../../../../services/survey-report-worker/src/contracts";
 
 const RUN_ID = "11111111-1111-4111-8111-111111111111";
 const TASK_NAME = createFeedbackTaskName(RUN_ID)!;

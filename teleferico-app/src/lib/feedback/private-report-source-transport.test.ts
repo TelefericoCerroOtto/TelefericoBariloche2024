@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildAuthoritativeGenerationInputsV1,
   type GenerationSourcePageQueryV1,
-} from "../../../services/survey-report-worker/src/authoritative-generation-source";
+} from "./authoritative-generation-source";
 import {
   createPrivateReportSourceTransport,
   PrivateReportSourceTransportError,
   type PrivateReportSourcePageResponseV1,
-} from "../../../services/survey-report-worker/src/private-report-source-transport";
+} from "./private-report-source-transport";
 
 const BASE_URL = "https://cms.example.com";
 const TOKEN = "synthetic-custom-content-api-token";

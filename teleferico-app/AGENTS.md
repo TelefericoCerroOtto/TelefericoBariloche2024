@@ -30,6 +30,7 @@ This file is the package-local guardrail source for `teleferico-app`: it complem
 - `src/components/administration`: administrative panel components.
 - `src/components/forms`: shared form pieces (includes anti-bot UX).
 - `src/lib/actions/forms.ts`: server actions for public forms.
+- `src/lib/feedback`: app-owned feedback routes, CMS transports, dispatch and download mediation.
 - `src/lib/services/cms`: server-side services for CMS requests.
 - `src/lib/services/postulation.ts`: internal API consumption services (route handlers).
 - `src/lib/services/contact.ts`: email sending service via Gmail API (OAuth2).
@@ -104,6 +105,7 @@ This file is the package-local guardrail source for `teleferico-app`: it complem
 
 - Main stack: Next.js 15 + React 18 + strict TypeScript + Tailwind CSS v3.
 - Import alias available: `@/*` maps to `src/*` (`tsconfig.json`); prefer it over long relative paths.
+- TB-113 shared packages live at the repository root under `packages/` and are resolved through the `@teleferico/*` TypeScript aliases. The private worker process is a separate package at `../services/survey-report-worker`; do not import its runtime into app production paths.
 - UI organised by domain in `components/{institutional,administration,forms,shared,ui}`.
 - Business/network logic outside components: use `src/lib/{actions,services,adapters,http}`.
 - HTTP guards centralised in `src/lib/http/guards`; reuse existing helpers before creating new ones.

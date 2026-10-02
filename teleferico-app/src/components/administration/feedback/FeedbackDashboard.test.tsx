@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createSnapshot } from "../../../../packages/survey-reporting-core/src";
+import { createSnapshot } from "@teleferico/survey-reporting-core";
 import { authenticatedInternalApiFetch } from "@/lib/http/clients/auth-internal-fetch";
 import { projectAspects, projectQrPoints, projectSummary, type FeedbackAdminSource } from "@/lib/feedback/admin-read";
 import {

@@ -25,7 +25,7 @@ Appendices win over summaries; specs remain behavior authority. Code blocks are 
 | Choice | Tradeoff | Decision |
 |---|---|---|
 | Next.js mediation | More hops | Required to keep CMS/GCP credentials server-only |
-| Pure app-local core | New workspace package | Required for one deterministic metric authority |
+| Pure shared reporting core | Root `packages/survey-reporting-core` package | Required for one deterministic metric authority used by app and worker |
 | Separate private worker | Additional deployment/IAM | Required to isolate AI/render/runtime dependencies |
 | Single product-project topology | Product quota and operations share one boundary | Cloud Run, Cloud Tasks, storage, Vertex, billing, and telemetry remain in `teleferico-bariloche-2024`; local OpenCode identities are excluded |
 | Immutable canonical snapshot | Storage overhead | Required for reproducibility and worker validation |
@@ -40,7 +40,7 @@ Appendices win over summaries; specs remain behavior authority. Code blocks are 
 ## File Changes
 
 - CMS creates listed survey APIs/components/migration/tests.
-- App creates feedback UI/API/types/core/worker and modifies only listed workspace/manifest/lock/env/deployment/permission docs. Delete nothing.
+- App creates feedback UI/API/types and app-owned adapters; shared reporting and TB-113 contracts live under root `packages/`, and the private worker process lives under root `services/survey-report-worker/`. App modifies only listed workspace/manifest/lock/env/deployment/permission docs. Delete nothing.
 
 ## Testing, Threats, and Rollout
 

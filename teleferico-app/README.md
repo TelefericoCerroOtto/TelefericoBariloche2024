@@ -35,6 +35,12 @@ See [../docs/playwright-e2e.md](../docs/playwright-e2e.md) for the pull-request,
 
 The `.env.example` file documents each environment variable of the package.
 
+## TB-113 package boundaries
+
+The app keeps browser-facing feedback routes, administration, task dispatch, and mediated report downloads. Pure reporting, TB-113 runtime contracts, and private report-storage adapters are shared from root `packages/` through the `@teleferico/*` TypeScript aliases. The private worker process is an independent root package at `../services/survey-report-worker`; it is not part of the public app runtime. `next.config.mjs` enables external source compilation for these repository packages. ECharts belongs to the worker package; the app keeps Recharts for its dashboard and its parity POC calls the worker's SVG renderer from test-only code under `tests/tb113/renderer-poc.ts`.
+
+See [the worker package README](../services/survey-report-worker/README.md) for its local build, artifact contents, Node tests, and separate operational gates. Keeping this source layout does not create a Cloud Run service or deployment trigger.
+
 ---
 
 ## Flows

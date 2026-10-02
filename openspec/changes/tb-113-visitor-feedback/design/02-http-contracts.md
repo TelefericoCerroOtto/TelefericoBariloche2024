@@ -257,7 +257,7 @@ the browser, admin dashboard, generic native `find`, or public role/token.
 
 ### App server-only transport for private source pages
 
-`teleferico-app/services/survey-report-worker/src/private-report-source-transport.ts`
+`teleferico-app/src/lib/feedback/private-report-source-transport.ts`
 implements only the server-only HTTP adapter for the source-page action. Its
 factory requires an explicit CMS origin, a nonempty exact-origin allowlist,
 and a token-provider function. The parameterless admin command getter now
@@ -483,7 +483,7 @@ unchanged.
 
 ### U10-A15 app worker CMS HTTP client
 
-`teleferico-app/services/survey-report-worker/src/worker-cms-client.ts` is a
+`services/survey-report-worker/src/worker-cms-client.ts` is a
 server-only implementation of the existing `WorkerCmsClient` seam for claim,
 snapshot, and fail. Its factory requires a canonical HTTPS DNS hostname, an
 explicit nonempty exact-origin allowlist, and an injected token provider that
@@ -636,7 +636,7 @@ Vertex/GCS/Cloud Tasks operation, production permission, or capability enablemen
 The app-owned direct implementation now provides the local worker/PDF boundary
 without claiming external task or storage execution:
 
-- `teleferico-app/services/survey-report-worker/src/` owns typed CMS seams,
+- `services/survey-report-worker/src/` owns the private worker's typed CMS seams,
   immutable snapshot validation, checkpoint/CAS orchestration, deterministic
   ChartViewModel-to-SVG/HTML rendering, PDF metadata, and terminal failure
   handling.

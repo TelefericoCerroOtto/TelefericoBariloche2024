@@ -4,7 +4,7 @@
 
 CMS creates `src/api/survey-{version,qr-point,submission,report-generation,report}/**`, `src/api/survey-settings/**`, `src/components/survey/{aspect-definition,aspect-rating}.json`, `database/migrations/2026.09.11T0001-tb113-constraints.js`, `scripts/seed-surveys.js`, and `test/feedback/**`; regenerate, never hand-edit, `types/generated/{contentTypes,components}.d.ts`.
 
-App creates the QR page, Appendix-02 API routes, admin UI, `src/{types,lib}/feedback/**`, `packages/survey-reporting-core/**`, and `services/survey-report-worker/**`; auth changes capabilities, never JWT. Sensitive changes: manifests/locks/env examples, worker pinned image, permissions/infra docs. No dependency before POC; pnpm remains 10.33.0, installs frozen, build scripts reviewed before `allowBuilds`.
+App creates the QR page, Appendix-02 API routes, admin UI, and app-owned `src/{types,lib}/feedback/**` adapters; root `packages/survey-reporting-core/**` and `services/survey-report-worker/**` are independent packages. Auth changes capabilities, never JWT. Sensitive changes: manifests/locks/env examples, worker pinned image, permissions/infra docs. pnpm remains 10.33.0, installs frozen, build scripts reviewed before `allowBuilds`.
 
 Migration order:
 

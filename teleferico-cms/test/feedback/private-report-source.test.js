@@ -122,8 +122,10 @@ function loadPrivateReportSourceAppModules() {
 
   const repositoryRoot = path.resolve(__dirname, '../../..');
   const sourceRoots = [
-    fs.realpathSync(path.join(repositoryRoot, 'teleferico-app/services/survey-report-worker/src')),
-    fs.realpathSync(path.join(repositoryRoot, 'teleferico-app/packages/survey-reporting-core/src')),
+    fs.realpathSync(path.join(repositoryRoot, 'services/survey-report-worker/src')),
+    fs.realpathSync(path.join(repositoryRoot, 'packages/survey-reporting-core/src')),
+    fs.realpathSync(path.join(repositoryRoot, 'packages/tb113-runtime-contracts/src')),
+    fs.realpathSync(path.join(repositoryRoot, 'packages/tb113-private-report-storage/src')),
     fs.realpathSync(path.join(repositoryRoot, 'teleferico-app/src/lib/feedback')),
   ];
   const approvedAliasModules = new Map([
@@ -131,10 +133,24 @@ function loadPrivateReportSourceAppModules() {
       '@/lib/constants/env.const',
       fs.realpathSync(path.join(repositoryRoot, 'teleferico-app/src/lib/constants/env.const.ts')),
     ],
+    [
+      '@teleferico/survey-reporting-core',
+      fs.realpathSync(path.join(repositoryRoot, 'packages/survey-reporting-core/src/index.ts')),
+    ],
+    [
+      '@teleferico/tb113-runtime-contracts',
+      fs.realpathSync(path.join(repositoryRoot, 'packages/tb113-runtime-contracts/src/index.ts')),
+    ],
+    [
+      '@teleferico/tb113-private-report-storage',
+      fs.realpathSync(path.join(repositoryRoot, 'packages/tb113-private-report-storage/src/index.ts')),
+    ],
   ]);
   const moduleCache = new Map();
 
   function resolveLocalModule(parentFile, request) {
+    if (approvedAliasModules.has(request))
+      return approvedAliasModules.get(request);
     if (request.startsWith('@/')) {
       const aliased = approvedAliasModules.get(request);
       if (!aliased)
@@ -189,7 +205,8 @@ function loadPrivateReportSourceAppModules() {
       if (request === 'node:crypto') return require('node:crypto');
       if (request === 'node:fs') return require('node:fs');
       if (request === 'node:fs/promises') return require('node:fs/promises');
-      if (request === 'echarts') return require(path.join(repositoryRoot, 'teleferico-app/node_modules/echarts'));
+      if (request === 'echarts') return require(path.join(repositoryRoot, 'services/survey-report-worker/node_modules/echarts'));
+      if (request === '@google-cloud/storage') return require(path.join(repositoryRoot, 'services/survey-report-worker/node_modules/@google-cloud/storage'));
       return load(resolveLocalModule(realPath, request));
     }
 
@@ -202,26 +219,26 @@ function loadPrivateReportSourceAppModules() {
   }
 
   const workerRoot = sourceRoots[0];
-  const feedbackRoot = sourceRoots[2];
+  const feedbackRoot = sourceRoots[4];
   return {
     createWorkerCmsClient: load(path.join(workerRoot, 'worker-cms-client.ts')).createWorkerCmsClient,
     executeReportWorker: load(path.join(workerRoot, 'worker-runtime.ts')).executeReportWorker,
     deriveEvidenceRef: load(path.join(workerRoot, 'checkpoint-contract.ts')).deriveEvidenceRef,
-    createSnapshot: load(path.join(repositoryRoot, 'teleferico-app/packages/survey-reporting-core/src/index.ts')).createSnapshot,
+    createSnapshot: load(path.join(repositoryRoot, 'packages/survey-reporting-core/src/index.ts')).createSnapshot,
     createPrivateReportSourceTransport: load(
-      path.join(workerRoot, 'private-report-source-transport.ts'),
+      path.join(feedbackRoot, 'private-report-source-transport.ts'),
     ).createPrivateReportSourceTransport,
     createPrivateReportDownloadMetadataTransport: load(
-      path.join(workerRoot, 'private-report-download-metadata-transport.ts'),
+      path.join(feedbackRoot, 'private-report-download-metadata-transport.ts'),
     ).createPrivateReportDownloadMetadataTransport,
     reportDownloadMetadataAction: load(
-      path.join(workerRoot, 'private-report-download-metadata-transport.ts'),
+      path.join(feedbackRoot, 'private-report-download-metadata-transport.ts'),
     ).REPORT_DOWNLOAD_METADATA_ACTION,
     createFeedbackReportDownload: load(
       path.join(feedbackRoot, 'report-download.ts'),
     ).createFeedbackReportDownload,
     buildAuthoritativeGenerationInputsV1: load(
-      path.join(workerRoot, 'authoritative-generation-source.ts'),
+      path.join(feedbackRoot, 'authoritative-generation-source.ts'),
     ).buildAuthoritativeGenerationInputsV1,
     createFeedbackAdminCommandTransport: load(
       path.join(feedbackRoot, 'admin-command.ts'),

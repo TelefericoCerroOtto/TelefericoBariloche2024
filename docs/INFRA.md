@@ -185,6 +185,12 @@ Notes:
 - `TRANSFER_TOKEN_SALT`
 - `JWT_SECRET`
 
+### TB-113 private worker package (repository code only)
+
+The independent Node worker package is `services/survey-report-worker/`. Its local `pnpm run build` packages the worker bundle with pinned Chromium and font assets; its README records the exact commands and output layout. This does not build a container image or prove the 750 MiB image-growth criterion. This repository change creates or verifies no worker Cloud Run service, Artifact Registry image, Cloud Build trigger, or live configuration. The existing app Cloud Build snapshots remain unchanged.
+
+Before a staging worker can run, a separately approved operational change must select a digest-pinned Node 22.22.0 base image with the required Chromium OS libraries, define the image build/deploy route, configure a private Cloud Run service and its `PORT`/worker settings, and verify separate task-invoker and worker-runtime identities, queue/OIDC, ingress, bucket policy, Vertex quota, and least-privilege IAM. None of those resources or grants is established by local build/test evidence. Keep `FEEDBACK_CAPABILITY_ENABLED=false` until the TB-113 release gates pass.
+
 ---
 
 ## 5) Data and storage

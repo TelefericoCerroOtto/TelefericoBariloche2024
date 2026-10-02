@@ -1,12 +1,11 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
-import { MAX_REPORT_PDF_BYTES } from "../../../services/survey-report-worker/src/private-report-download-metadata-transport";
-import { deterministicReportId } from "../../../services/survey-report-worker/src/private-report-identity";
+import { MAX_REPORT_PDF_BYTES, deterministicReportId } from "@teleferico/tb113-private-report-storage";
 import {
   createPrivateReportObjectStorage,
   toPrivateReportDownloadMetadata,
-} from "../../../services/survey-report-worker/src/private-storage";
+} from "@teleferico/tb113-private-report-storage";
 import { createFeedbackReportDownload } from "./report-download";
 import { createFakePrivateReportBucket } from "./private-storage.test-fixtures";
 

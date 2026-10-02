@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { createSnapshot } from "../../../../../packages/survey-reporting-core/src";
+import { createSnapshot } from "@teleferico/survey-reporting-core";
 import type {
   FeedbackAdminDateRange,
   FeedbackAdminFilters,

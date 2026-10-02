@@ -1,7 +1,7 @@
 import "server-only";
 
 import { GoogleAuth } from "google-auth-library";
-import { assertKeylessCloudRunEnvironment } from "../../../services/survey-report-worker/src/google-auth-runtime";
+import { assertKeylessCloudRunEnvironment } from "@teleferico/tb113-runtime-contracts";
 import { createFeedbackTaskName, FeedbackTaskCreateError, type FeedbackCloudTaskClient } from "./dispatch";
 
 const API_ROOT = "https://cloudtasks.googleapis.com/v2";

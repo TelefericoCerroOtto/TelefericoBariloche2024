@@ -4,7 +4,7 @@ import {
   projectWorkerDiagnosticEventV1,
   WORKER_DIAGNOSTIC_MAX_BYTES,
   WORKER_DIAGNOSTIC_RETENTION_DAYS,
-} from "../../../services/survey-report-worker/src/worker-diagnostics";
+} from "../../../../services/survey-report-worker/src/worker-diagnostics";
 
 const event = {
   reportRunId: "123e4567-e89b-42d3-a456-426614174000",

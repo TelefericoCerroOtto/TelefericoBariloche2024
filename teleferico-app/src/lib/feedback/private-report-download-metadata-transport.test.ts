@@ -3,7 +3,7 @@ import {
   createPrivateReportDownloadMetadataTransport,
   REPORT_DOWNLOAD_METADATA_ACTION,
   ReportDownloadMetadataTransportError,
-} from "../../../services/survey-report-worker/src/private-report-download-metadata-transport";
+} from "./private-report-download-metadata-transport";
 
 const REPORT_ID = "00000000-0000-4000-8000-000000000100";
 const BASE_URL = "https://cms.example.com";
