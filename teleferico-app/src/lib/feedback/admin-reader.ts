@@ -508,7 +508,7 @@ function parseGeneration(value: JsonRecord): FeedbackAdminGeneration {
         typeof reportValue.createdAt !== "string" || typeof reportValue.periodStart !== "string" ||
         typeof reportValue.periodEnd !== "string" || !Number.isSafeInteger(reportValue.analyzedResponseCount) ||
         !Number.isSafeInteger(reportValue.analyzedCommentCount) || Number(reportValue.analyzedResponseCount) < 0 ||
-        Number(reportValue.analyzedCommentCount) < 0)
+        Number(reportValue.analyzedCommentCount) < 0 || typeof reportValue.canDownload !== "boolean")
       throw new FeedbackAdminReaderError();
     report = {
       reportId: reportValue.reportId,
@@ -516,6 +516,7 @@ function parseGeneration(value: JsonRecord): FeedbackAdminGeneration {
       period: { from: reportValue.periodStart.slice(0, 10), to: reportValue.periodEnd.slice(0, 10) },
       analyzedResponseCount: Number(reportValue.analyzedResponseCount),
       analyzedCommentCount: Number(reportValue.analyzedCommentCount),
+      canDownload: reportValue.canDownload,
     };
   } else if (reportValue !== null) {
     throw new FeedbackAdminReaderError();

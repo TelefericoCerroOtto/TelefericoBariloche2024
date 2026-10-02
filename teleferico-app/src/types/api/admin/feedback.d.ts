@@ -198,6 +198,7 @@ export type FeedbackAdminGenerationReport = {
   readonly period: FeedbackAdminDateRange;
   readonly analyzedResponseCount: number;
   readonly analyzedCommentCount: number;
+  readonly canDownload: boolean;
 };
 
 export type FeedbackAdminGeneration = {
