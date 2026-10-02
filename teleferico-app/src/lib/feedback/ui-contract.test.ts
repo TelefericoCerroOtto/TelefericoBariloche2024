@@ -37,7 +37,14 @@ describe("feedback UI contract", () => {
     expect(validateFeedbackStage("overall", withOverall, [])).toEqual({
       valid: true,
     });
-    expect(validateFeedbackStage("aspects", withOverall, [], ["cable-car", "views", "other"])).toEqual({
+    expect(
+      validateFeedbackStage(
+        "aspects",
+        withOverall,
+        [],
+        ["cable-car", "views", "other"],
+      ),
+    ).toEqual({
       valid: false,
       focusId: "aspect-cable-car",
       messageKey: "aspectsRequired",
@@ -62,6 +69,23 @@ describe("feedback UI contract", () => {
     });
   });
 
+  it("enforces the normative 300-character custom-aspect bound", () => {
+    const state = {
+      ...createInitialFeedbackState(),
+      overallRating: 5 as const,
+      selectedAspectKeys: ["other"],
+      otherText: "a".repeat(301),
+    };
+
+    expect(
+      validateFeedbackStage("aspects", state, ["other"], ["other"]),
+    ).toEqual({
+      valid: false,
+      focusId: "other-aspect-input",
+      messageKey: "otherTooLong",
+    });
+  });
+
   it("falls back to Spanish copy and emits only bounded telemetry", () => {
     const onFallback = vi.fn();
 
@@ -80,6 +104,24 @@ describe("feedback UI contract", () => {
     );
     expect(resolveFeedbackCopy(copy, "pt", "receiptLabel")).toBe(
       "Número de referência:",
+    );
+  });
+
+  it("keeps CMS copy authoritative and localizes UI-only copy by locale", () => {
+    const translations: FeedbackSurveyCopy = {
+      es: { commentLabel: "Comentario del CMS" },
+      en: { commentLabel: "CMS comment" },
+      pt: { commentLabel: "Comentário do CMS" },
+    };
+
+    expect(resolveFeedbackCopy(translations, "en", "commentLabel")).toBe(
+      "CMS comment",
+    );
+    expect(resolveFeedbackCopy(translations, "en", "commentPlaceholder")).toBe(
+      "Write your comment",
+    );
+    expect(resolveFeedbackCopy(translations, "pt", "commentPlaceholder")).toBe(
+      "Escreva seu comentário",
     );
   });
 

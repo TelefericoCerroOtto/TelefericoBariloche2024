@@ -34,52 +34,77 @@ export type FeedbackStageValidation =
         | "ratingRequired"
         | "aspectsRequired"
         | "aspectsLimit"
-        | "otherAspectRequired"
+        | "otherRequired"
+        | "otherTooLong"
         | "sentimentsRequired"
         | "commentTooLong";
     };
 
-const DEFAULT_SPANISH_COPY: Readonly<Record<string, string>> = {
-  headerTitle: "Contanos cómo fue tu experiencia",
-  loadingStatus: "Cargando la encuesta…",
-  loadingError: "No pudimos cargar la encuesta. Intentá nuevamente más tarde.",
-  localeLabel: "Idioma",
-  localeEs: "ES",
-  localeEn: "EN",
-  localePt: "PT",
-  progressLabel: "Pregunta {current} de {total}",
-  overallQuestion: "¿Cómo fue tu experiencia general?",
-  aspectsQuestion: "¿Qué aspectos querés destacar?",
-  aspectsHint: "Podés elegir hasta tres opciones.",
-  otherAspectLabel: "Otro",
-  otherAspectPlaceholder: "Contanos cuál",
-  sentimentsQuestion: "¿Cómo calificarías cada aspecto?",
-  sentimentNegative: "Negativo",
-  sentimentNeutral: "Neutral",
-  sentimentPositive: "Positivo",
-  commentQuestion: "¿Querés agregar un comentario?",
-  commentHint: "No compartas datos personales.",
-  commentPlaceholder: "Escribí tu comentario",
-  commentLimit: "{count}/2000",
-  verificationTitle: "Antes de enviar",
-  verificationHint: "Completá la verificación para proteger este canal.",
-  privacyNotice:
-    "Usamos tu respuesta para mejorar la experiencia. No guardamos datos personales en esta encuesta.",
-  back: "Atrás",
-  next: "Continuar",
-  submit: "Enviar respuesta",
-  ratingRequired: "Elegí una calificación para continuar.",
-  aspectsRequired: "Elegí al menos un aspecto para continuar.",
-  aspectsLimit: "Elegí hasta tres aspectos.",
-  otherAspectRequired: "Describí el aspecto que elegiste.",
-  sentimentsRequired: "Elegí una valoración para cada aspecto.",
-  commentTooLong: "El comentario no puede superar los 2000 caracteres.",
-  submissionError:
-    "No pudimos enviar tu respuesta. Revisá los datos e intentá nuevamente.",
-  successTitle: "¡Gracias por compartir tu experiencia!",
-  successBody: "Tu respuesta fue recibida correctamente.",
-  receiptLabel: "Número de referencia:",
-  reset: "Enviar otra respuesta",
+const UI_ONLY_COPY: Readonly<
+  Record<FeedbackLocale, Readonly<Record<string, string>>>
+> = {
+  es: {
+    languageControlLabel: "Idioma de la encuesta",
+    loadingFallback: "Cargando la encuesta…",
+    loadingError:
+      "No se pudo cargar la encuesta. Intente nuevamente más tarde.",
+    sessionExpired: "La sesión de esta encuesta venció.",
+    retry: "Reintentar",
+    ratingSelection: "Seleccionaste {rating} de 5 estrellas.",
+    skipToQuestion: "Saltar a la pregunta",
+    otherAspectPlaceholder: "Describa el aspecto",
+    sentimentNegative: "Negativo",
+    sentimentNeutral: "Neutral",
+    sentimentPositive: "Positivo",
+    commentPlaceholder: "Escriba su comentario",
+    commentLimit: "{count}/2000",
+    aspectsLimit: "Seleccione hasta tres aspectos.",
+    aspectSelectionCount: "Seleccionó {selected} de {maximum} aspectos.",
+    otherTooLong: "El aspecto no puede superar los 300 caracteres.",
+    commentTooLong: "El comentario no puede superar los 2000 caracteres.",
+    reset: "Enviar otra respuesta",
+  },
+  en: {
+    languageControlLabel: "Survey language",
+    loadingFallback: "Loading the survey…",
+    loadingError: "The survey could not be loaded. Please try again later.",
+    sessionExpired: "This survey session has expired.",
+    retry: "Try again",
+    ratingSelection: "You selected {rating} of 5 stars.",
+    skipToQuestion: "Skip to question",
+    otherAspectPlaceholder: "Describe the aspect",
+    sentimentNegative: "Negative",
+    sentimentNeutral: "Neutral",
+    sentimentPositive: "Positive",
+    commentPlaceholder: "Write your comment",
+    commentLimit: "{count}/2000",
+    aspectsLimit: "Select up to three aspects.",
+    aspectSelectionCount: "{selected} of {maximum} aspects selected.",
+    otherTooLong: "The aspect cannot exceed 300 characters.",
+    commentTooLong: "The comment cannot exceed 2,000 characters.",
+    reset: "Submit another response",
+  },
+  pt: {
+    languageControlLabel: "Idioma da pesquisa",
+    loadingFallback: "Carregando a pesquisa…",
+    loadingError:
+      "Não foi possível carregar a pesquisa. Tente novamente mais tarde.",
+    sessionExpired: "A sessão desta pesquisa expirou.",
+    retry: "Tentar novamente",
+    ratingSelection: "Você selecionou {rating} de 5 estrelas.",
+    skipToQuestion: "Pular para a pergunta",
+    otherAspectPlaceholder: "Descreva o aspecto",
+    sentimentNegative: "Negativo",
+    sentimentNeutral: "Neutro",
+    sentimentPositive: "Positivo",
+    commentPlaceholder: "Escreva seu comentário",
+    commentLimit: "{count}/2000",
+    aspectsLimit: "Selecione até três aspectos.",
+    aspectSelectionCount: "Você selecionou {selected} de {maximum} aspectos.",
+    otherTooLong: "O aspecto não pode ultrapassar 300 caracteres.",
+    commentTooLong: "O comentário não pode ultrapassar 2.000 caracteres.",
+    reset: "Enviar outra resposta",
+  },
 };
 
 export function createInitialFeedbackState(): FeedbackFormState {
@@ -102,8 +127,11 @@ export function resolveFeedbackCopy(
   const localized = translations[locale]?.[key];
   if (localized) return localized;
 
+  const uiOnly = UI_ONLY_COPY[locale][key];
+  if (uiOnly) return uiOnly;
+
   onFallback?.(locale, key);
-  return translations.es?.[key] ?? DEFAULT_SPANISH_COPY[key] ?? key;
+  return translations.es?.[key] ?? UI_ONLY_COPY.es[key] ?? key;
 }
 
 export function validateFeedbackStage(
@@ -134,7 +162,9 @@ export function validateFeedbackStage(
         focusId: `aspect-${
           selectedAspectKeys.find(
             (key) => key === "other" || availableAspectKeys.includes(key),
-          ) ?? availableAspectKeys[0] ?? "other"
+          ) ??
+          availableAspectKeys[0] ??
+          "other"
         }`,
         messageKey: "aspectsLimit",
       };
@@ -146,7 +176,14 @@ export function validateFeedbackStage(
       return {
         valid: false,
         focusId: "other-aspect-input",
-        messageKey: "otherAspectRequired",
+        messageKey: "otherRequired",
+      };
+    }
+    if (selectedAspectKeys.includes("other") && state.otherText.length > 300) {
+      return {
+        valid: false,
+        focusId: "other-aspect-input",
+        messageKey: "otherTooLong",
       };
     }
   }
