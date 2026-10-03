@@ -34,11 +34,21 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 
 ## Deferred evidence
 
-- No dedicated TB-113 worker service or Cloud Tasks queue exists in the matching regional inventory. Worker attachment, private ingress, OIDC audience, retry policy, and distinct invoker/runtime identities remain deferred to approved infrastructure work.
-- The bucket reads returned null for location type, uniform bucket-level access, and public access prevention. Those controls remain unverified.
+- The historical S01 inventory found no dedicated TB-113 worker service or Cloud Tasks queue in the matching region. The queue now exists but remains `PAUSED`; no worker service exists. Worker attachment, private ingress, OIDC audience, and runtime invocation remain deferred to approved infrastructure work.
+- The historical S01 bucket projection returned null for location type, uniform bucket-level access, and public access prevention. The 2026-10-03 staging-bucket readback later verified uniform bucket-level access enabled and Public Access Prevention enforced; location type remains unverified.
 - The bounded bucket IAM projections returned empty binding arrays. This is inconclusive and does not prove that either IAM policy has no bindings, no public grants, or the required least-privilege worker access.
 - Production deployment evidence for a dedicated user-managed keyless worker identity, absence of service-account JSON keys, and absence of `GOOGLE_APPLICATION_CREDENTIALS` remains deferred. The credential boundary forbids substituting local credential inspection for deployment evidence.
 - Effective runtime quota attribution, billing labels, feature labels, logs, metrics, per-generation pricing snapshots, and alerts remain deferred until the worker and approved infrastructure exist.
+
+## Fresh staging gate deltas — 2026-10-03 UTC
+
+This delta supplements the historical S01 record above; the canonical full staging chronology is in [docs/INFRA.md](../../INFRA.md#fresh-staging-state--2026-10-03-utc).
+
+- **G05:** The queue exists and is `PAUSED`; its retry/rate settings and the Cloud Tasks service agent's `roles/iam.serviceAccountUser` binding on `feedback-task-invoker-staging` were read back. G05 remains deferred: there is no worker service or confirmed `roles/run.invoker` binding, and the app-side `1800s` task deadline is unresolved.
+- **G06:** The dedicated staging bucket has uniform bucket-level access enabled, Public Access Prevention enforced, and an applied 30-day `private/report-diagnostics/` deletion rule. This does not establish report retention, direct-delivery controls, or full G06 completion; the shared CMS bucket is unchanged.
+- **G07:** The first worker bucket-binding attempt failed HTTP 400. Read-only follow-up confirmed role permissions at `GA`, bucket grantability, and no grant after failure; a fresh approved binding was then confirmed on the dedicated bucket only. This does not prove effective runtime access or complete IAM policy state, so G07 remains deferred.
+
+App/CMS still share the broad-role `appspot` identity, including Editor; do not grant it queue roles before CMS identity migration and operator review. No runtime access or inline-trigger parity is established. The user owns manual inline-trigger updates; no worker service, trigger, secret, or deployment exists, and `FEEDBACK_CAPABILITY_ENABLED` remains false.
 
 ## Gate register
 
@@ -90,7 +100,7 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 
 - **Owner**: Platform maintainer and generation dispatch implementer.
 - **Source/evidence**: Approved regional queue inventory; normative queue/OIDC contract; official IAM documentation.
-- **Observed status**: `DEFERRED`. The filtered inventory returned zero matching queues, so queue state, rates, retry policy, audience, and invoker binding cannot pass yet.
+- **Observed status**: `DEFERRED`. The 2026-10-03 UTC readback confirms the queue exists and remains `PAUSED`, and the Cloud Tasks primary service agent has `roles/iam.serviceAccountUser` on `feedback-task-invoker-staging`. The worker service and `roles/run.invoker` binding are absent, and the app-side task deadline remains unresolved. App/CMS share the broad-role `appspot` identity; do not grant it queue roles before CMS identity migration and operator review.
 - **Pass criterion**: One approved product-project queue in `southamerica-east1` has the specified delivery deadline/retry contract and invokes only the private worker through a distinct least-privilege OIDC invoker identity.
 - **Fail criterion**: Missing or divergent queue, wrong region, wrong audience, shared invoker/runtime identity, broader permissions, or an unapproved retry/deadline configuration.
 - **Fallback**: None. Do not dispatch; generation remains disabled.
@@ -101,18 +111,18 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 
 - **Owner**: Platform maintainer and report delivery implementer.
 - **Source/evidence**: Approved bounded describes of the staging and production CMS buckets; normative report and diagnostics prefixes.
-- **Observed status**: `FAIL` for TB-113 readiness and otherwise `DEFERRED`. Both buckets reported `SOUTHAMERICA-EAST1` and no lifecycle rules. Location type, uniform bucket-level access, and public access prevention returned null and remain unproven.
-- **Pass criterion**: Approved storage evidence proves the selected private bucket, report retention, 30-day diagnostics expiration by prefix, uniform bucket-level access, public access prevention, and no direct public delivery.
+- **Observed status**: `FAIL` for TB-113 readiness and otherwise `DEFERRED`. Historical S01 reads returned no lifecycle rules and null for location type, uniform access, and public access prevention. The 2026-10-03 UTC readback verifies uniform bucket-level access, enforced Public Access Prevention, and the 30-day diagnostics-prefix deletion rule. It does not prove report retention or no direct public delivery; G06 remains incomplete.
+- **Pass criterion**: Approved storage evidence proves the selected private bucket, report retention, 30-day diagnostics expiration by prefix, uniform bucket-level access, public access prevention, and no direct public delivery. The diagnostics lifecycle subcriterion is evidenced for `private/report-diagnostics/`; the remaining criteria are not thereby satisfied.
 - **Fail criterion**: Missing diagnostics lifecycle, public access, unproven required controls, wrong location, destructive report expiry, or divergent prefixes.
 - **Fallback**: None. Rendering/storage/publication remain disabled; immutable reports must never be written under an unreviewed policy.
-- **Timestamp/evidence provenance**: Both approved bucket describes attempted once at `2026-09-12T00:55:51Z`; bounded fields only.
+- **Timestamp/evidence provenance**: Historical bucket describes attempted once at `2026-09-12T00:55:51Z`; scoped staging bucket lifecycle and guard readback succeeded on `2026-10-03` UTC.
 - **Affected decisions**: D78, D79, D92.
 
 ### Gate G07 — Bucket IAM least privilege
 
 - **Owner**: Platform maintainer.
 - **Source/evidence**: Approved bounded IAM policy reads for the staging and production CMS buckets; official IAM grant/change/revoke guidance.
-- **Observed status**: `DEFERRED`. Both projected responses contained zero bindings. Because the projection did not establish policy completeness, S01 does not infer absent grants, public access, or worker authorization.
+- **Observed status**: `DEFERRED`. The initial 2026-10-03 binding attempt returned HTTP 400. Read-only checks confirmed role permissions at `GA`, bucket grantability, and no grant after failure; a fresh approved bucket-scoped worker binding was confirmed by policy readback. This does not prove effective runtime access or complete policy state. Historical projections remain inconclusive, and reviewed least-privilege access remains unresolved.
 - **Pass criterion**: Reviewed complete redacted evidence proves no public grants and only the required worker access to the exact report and diagnostics prefixes/resources.
 - **Fail criterion**: Public principals, shared application identity reuse, excess member kinds/roles, missing required worker access, or incomplete evidence.
 - **Fallback**: None. Storage access and generation remain disabled.

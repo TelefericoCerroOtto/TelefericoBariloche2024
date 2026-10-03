@@ -1,26 +1,5 @@
 # PRODUCCION NEXTJS
-# Snapshot note (TB-74): this file documents the intended trigger configuration.
 # The live Cloud Build trigger must still be updated/applied out-of-repo.
-# Documented safe defaults for tb-71-form-protection:
-# - FORM_PROTECTION_REDIS_URL comes from Secret Manager secret APP__PRODUCTION__FORM_PROTECTION_REDIS_URL at runtime.
-# - Local development never uses managed Redis; it stays on a local Redis container at redis://127.0.0.1:6379.
-# - FORM_PROTECTION_REDIS_NAMESPACE=production
-# - FORM_PROTECTION_REDIS_CONNECT_TIMEOUT_MS=500
-# - CONTACT_RATE_LIMIT_ENABLED=true
-# - CONTACT_RATE_LIMIT_MAX=10
-# - CONTACT_RATE_LIMIT_WINDOW_MS=3600000
-# - CONTACT_EMAIL_LIMIT_ENABLED=true
-# - CONTACT_EMAIL_LIMIT_MAX=5
-# - CONTACT_EMAIL_LIMIT_WINDOW_MS=86400000
-# - POSTULATION_RATE_LIMIT_ENABLED=true
-# - POSTULATION_RATE_LIMIT_MAX=5
-# - POSTULATION_RATE_LIMIT_WINDOW_MS=900000
-# - POSTULATION_EMAIL_LIMIT_ENABLED=true
-# - POSTULATION_EMAIL_LIMIT_MAX=2
-# - POSTULATION_EMAIL_LIMIT_WINDOW_MS=2592000000
-# - Live secret/env wiring for Redis must later go through the Docker MCP google-cloud-sdk container path, not this doc snapshot alone.
-# TB-119: the GitHub deployment reporter image is pinned to the Docker Hub
-# node:22.16.0-bookworm-slim linux/amd64 OCI image manifest verified on 2026-09-04.
 
 steps:
   - name: node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488
