@@ -48,6 +48,20 @@ The PDF MUST contain exactly these ordered sections: cover; executive summary; o
 - WHEN prepublication validation runs
 - THEN publication MUST fail and no downloadable report MUST be created.
 
+### Requirement: Private deterministic report object
+
+The worker MAY stage only a validated PDF at the exact key `private/feedback-reports/{reportId}/report.pdf`, where `reportId` is deterministically bound to the UUID `reportRunId` and PDF SHA-256. The storage boundary MUST require an explicitly injected private bucket port, atomic create-if-absent and metadata-matched deletion, `application/pdf`, private/no-store metadata, positive bounded size, and matching SHA-256. Identical replay MUST preserve the original bytes; mismatched ownership, key, metadata, or bytes MUST fail closed. The app reader MUST accept only this exact key and MUST return bytes only after private metadata, size, PDF signature, run/report binding, and digest agree. No public ACL, URL, arbitrary object path, or global/default storage composition is allowed.
+
+#### Scenario: Replay or clean up an owned staged object
+- GIVEN a staged PDF with matching run ID, deterministic report ID, and digest
+- WHEN the same artifact is staged again or its owner discards it
+- THEN identical staging MUST be idempotent and cleanup MUST conditionally delete only the exact owned object.
+
+#### Scenario: Reject altered or foreign object state
+- GIVEN public, malformed, oversized, cross-run, wrong-key, or digest-mismatched object metadata or bytes
+- WHEN the worker resumes or an authenticated app reader fetches the PDF
+- THEN no object bytes MUST be returned or deleted.
+
 ## Traceability
 
 Primary decisions: D80-D84.

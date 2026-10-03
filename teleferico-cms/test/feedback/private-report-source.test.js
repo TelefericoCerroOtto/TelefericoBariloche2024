@@ -1,0 +1,2242 @@
+const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const test = require('node:test');
+const {
+  COMPOSE_FILE,
+  DOCKER_EXECUTABLE,
+  executeFixed,
+} = require('./harness/postgres-harness');
+const { createSubmissionPersistence } = require('../../src/api/survey-submission/services/persistence');
+
+const OWNER = 'tb113_test_private_report_source';
+const SOURCE_ENDPOINT = '/api/tb113/worker/report-source';
+const SOURCE_ACTION = 'api::survey-report-generation.survey-report-generation.workerSourceRead';
+const REPORT_METADATA_ACTION = 'api::survey-report-generation.survey-report-generation.workerReportDownloadMetadata';
+const ADMIN_READ_ACTION = 'api::survey-report-generation.survey-report-generation.feedbackAdminRead';
+const REPORT_METADATA_PATH = '/api/tb113/worker/reports';
+const ADMIN_READ_ENDPOINT = '/api/tb113/admin/feedback/read';
+const WORKER_RUN_ID = '00000000-0000-4000-8000-000000000120';
+const GENERATION_UID = 'api::survey-report-generation.survey-report-generation';
+const WORKER_ACTIONS = {
+  claim: `${GENERATION_UID}.workerClaim`,
+  snapshot: `${GENERATION_UID}.workerSnapshot`,
+  checkpoint: `${GENERATION_UID}.workerCheckpoint`,
+  complete: `${GENERATION_UID}.workerComplete`,
+  fail: `${GENERATION_UID}.workerFail`,
+};
+const WORKER_ORIGIN = 'https://cms.example.com';
+const WORKER_PATH_ROOT = '/api/tb113/worker/generations';
+const WORKER_PATH = `/api/tb113/worker/generations/${WORKER_RUN_ID}`;
+const PRIVATE_WORKER_COMMENT = 'Synthetic private worker comment must not reach logs';
+const RANGE = {
+  acceptedAtGte: '2026-09-01T03:00:00.000Z',
+  acceptedAtLte: '2026-09-12T02:59:59.999Z',
+  dataCutoffAt: '2026-09-10T12:00:00.000Z',
+};
+const compose = (...args) => executeFixed(DOCKER_EXECUTABLE, [
+  'compose', '--file', COMPOSE_FILE, '--project-name', OWNER, ...args,
+]);
+
+async function grant(strapi, roleId, action) {
+  await strapi.db.query('plugin::users-permissions.permission').create({
+    data: { action, role: roleId },
+  });
+}
+
+async function createPrincipal(strapi, { name, email, role }) {
+  const user = await strapi.plugin('users-permissions').service('user').add({
+    username: name,
+    email,
+    password: `${name}-synthetic-password`,
+    provider: 'local',
+    confirmed: true,
+    blocked: false,
+    role: role.id,
+  });
+  return strapi.plugin('users-permissions').service('jwt').issue({ id: user.id });
+}
+
+async function readPage(port, token, input) {
+  const response = await fetch(`http://127.0.0.1:${port}${SOURCE_ENDPOINT}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  });
+  const text = await response.text();
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = text;
+  }
+  return { status: response.status, body };
+}
+
+async function readAdminPage(port, token, input) {
+  const response = await fetch(`http://127.0.0.1:${port}${ADMIN_READ_ENDPOINT}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(input),
+  });
+  const body = await response.json();
+  return { status: response.status, body };
+}
+
+async function captureQueries(strapi, operation) {
+  const queries = [];
+  const listener = ({ sql }) => queries.push(sql);
+  strapi.db.connection.on('query', listener);
+  try {
+    return { result: await operation(), queries };
+  } finally {
+    strapi.db.connection.off('query', listener);
+  }
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value, 'utf8').digest('hex');
+}
+
+function isWithin(root, candidate) {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+function loadPrivateReportSourceAppModules() {
+  let ts;
+  try {
+    ts = require('typescript');
+  } catch {
+    throw new Error('The isolated source integration requires transitive TypeScript 5.4.5');
+  }
+  if (ts.version !== '5.4.5' || typeof ts.transpileModule !== 'function')
+    throw new Error('The isolated source integration requires transitive TypeScript 5.4.5');
+
+  const repositoryRoot = path.resolve(__dirname, '../../..');
+  const sourceRoots = [
+    fs.realpathSync(path.join(repositoryRoot, 'services/survey-report-worker/src')),
+    fs.realpathSync(path.join(repositoryRoot, 'packages/survey-reporting-core/src')),
+    fs.realpathSync(path.join(repositoryRoot, 'packages/tb113-runtime-contracts/src')),
+    fs.realpathSync(path.join(repositoryRoot, 'packages/tb113-private-report-storage/src')),
+    fs.realpathSync(path.join(repositoryRoot, 'teleferico-app/src/lib/feedback')),
+  ];
+  const approvedAliasModules = new Map([
+    [
+      '@/lib/constants/env.const',
+      fs.realpathSync(path.join(repositoryRoot, 'teleferico-app/src/lib/constants/env.const.ts')),
+    ],
+    [
+      '@teleferico/survey-reporting-core',
+      fs.realpathSync(path.join(repositoryRoot, 'packages/survey-reporting-core/src/index.ts')),
+    ],
+    [
+      '@teleferico/tb113-runtime-contracts',
+      fs.realpathSync(path.join(repositoryRoot, 'packages/tb113-runtime-contracts/src/index.ts')),
+    ],
+    [
+      '@teleferico/tb113-private-report-storage',
+      fs.realpathSync(path.join(repositoryRoot, 'packages/tb113-private-report-storage/src/index.ts')),
+    ],
+  ]);
+  const moduleCache = new Map();
+
+  function resolveLocalModule(parentFile, request) {
+    if (approvedAliasModules.has(request))
+      return approvedAliasModules.get(request);
+    if (request.startsWith('@/')) {
+      const aliased = approvedAliasModules.get(request);
+      if (!aliased)
+        throw new Error('The isolated app module graph contains an unapproved alias import');
+      return aliased;
+    }
+    if (!request.startsWith('.'))
+      throw new Error('The isolated app module graph contains an unsupported external import');
+
+    const requestedPath = path.resolve(path.dirname(parentFile), request);
+    if (!sourceRoots.some((root) => isWithin(root, requestedPath)))
+      throw new Error('The isolated app module graph escaped its approved source roots');
+
+    const candidates = path.extname(requestedPath)
+      ? [requestedPath]
+      : [`${requestedPath}.ts`, path.join(requestedPath, 'index.ts')];
+    const resolved = candidates.find((candidate) => fs.existsSync(candidate));
+    if (!resolved)
+      throw new Error('The isolated app module graph references an unavailable local module');
+
+    const realPath = fs.realpathSync(resolved);
+    if (!sourceRoots.some((root) => isWithin(root, realPath)) || !realPath.endsWith('.ts'))
+      throw new Error('The isolated app module graph resolved outside approved TypeScript sources');
+    return realPath;
+  }
+
+  function load(filePath) {
+    const realPath = fs.realpathSync(filePath);
+    const approvedRoot = sourceRoots.some((root) => isWithin(root, realPath));
+    const approvedAlias = [...approvedAliasModules.values()].includes(realPath);
+    if ((!approvedRoot && !approvedAlias) || !realPath.endsWith('.ts'))
+      throw new Error('The isolated app module loader rejected a non-approved source path');
+    if (moduleCache.has(realPath)) return moduleCache.get(realPath).exports;
+
+    const module = { exports: {} };
+    moduleCache.set(realPath, module);
+    const source = fs.readFileSync(realPath, 'utf8');
+    const output = ts.transpileModule(source, {
+      fileName: realPath,
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+      },
+      reportDiagnostics: true,
+    });
+    if (output.diagnostics?.some(({ category }) => category === ts.DiagnosticCategory.Error))
+      throw new Error('The isolated app TypeScript source could not be transpiled');
+
+    function localRequire(request) {
+      if (request === 'server-only') return {};
+      if (request === 'node:net') return require('node:net');
+      if (request === 'node:crypto') return require('node:crypto');
+      if (request === 'node:fs') return require('node:fs');
+      if (request === 'node:fs/promises') return require('node:fs/promises');
+      if (request === 'echarts') return require(path.join(repositoryRoot, 'services/survey-report-worker/node_modules/echarts'));
+      if (request === '@google-cloud/storage') return require(path.join(repositoryRoot, 'services/survey-report-worker/node_modules/@google-cloud/storage'));
+      return load(resolveLocalModule(realPath, request));
+    }
+
+    new Function('require', 'module', 'exports', output.outputText)(
+      localRequire,
+      module,
+      module.exports,
+    );
+    return module.exports;
+  }
+
+  const workerRoot = sourceRoots[0];
+  const feedbackRoot = sourceRoots[4];
+  return {
+    createWorkerCmsClient: load(path.join(workerRoot, 'worker-cms-client.ts')).createWorkerCmsClient,
+    executeReportWorker: load(path.join(workerRoot, 'worker-runtime.ts')).executeReportWorker,
+    deriveEvidenceRef: load(path.join(workerRoot, 'checkpoint-contract.ts')).deriveEvidenceRef,
+    createSnapshot: load(path.join(repositoryRoot, 'packages/survey-reporting-core/src/index.ts')).createSnapshot,
+    createPrivateReportSourceTransport: load(
+      path.join(feedbackRoot, 'private-report-source-transport.ts'),
+    ).createPrivateReportSourceTransport,
+    createPrivateReportDownloadMetadataTransport: load(
+      path.join(feedbackRoot, 'private-report-download-metadata-transport.ts'),
+    ).createPrivateReportDownloadMetadataTransport,
+    reportDownloadMetadataAction: load(
+      path.join(feedbackRoot, 'private-report-download-metadata-transport.ts'),
+    ).REPORT_DOWNLOAD_METADATA_ACTION,
+    createFeedbackReportDownload: load(
+      path.join(feedbackRoot, 'report-download.ts'),
+    ).createFeedbackReportDownload,
+    buildAuthoritativeGenerationInputsV1: load(
+      path.join(feedbackRoot, 'authoritative-generation-source.ts'),
+    ).buildAuthoritativeGenerationInputsV1,
+    createFeedbackAdminCommandTransport: load(
+      path.join(feedbackRoot, 'admin-command.ts'),
+    ).createFeedbackAdminCommandTransport,
+  };
+}
+
+function sourceModelConfig(sourceRevision, evidenceKeyId) {
+  return {
+    version: 'survey-model-config.v1',
+    evidenceKeyId,
+    provider: 'vertex-ai',
+    vertexProjectId: 'teleferico-bariloche-2024',
+    vertexLocation: 'us',
+    vertexApiEndpoint: 'aiplatform.us.rep.googleapis.com',
+    model: 'gemini-3.8-flash',
+    temperature: 0,
+    reasoning: 'LOW',
+    grounding: false,
+    promptVersion: 'prompt.v1',
+    mapSchemaVersion: 'survey-map.v1',
+    analysisSchemaVersion: 'survey-analysis.v1',
+    redactionVersion: 'redaction.v1',
+    validatorVersion: 'validator.v1',
+    chunkVersion: 'chunk.v1',
+    verifiedInputTokenLimit: 10000,
+    map: { targetMin: 600, targetMax: 1200, hardMax: 4000 },
+    directReduce: { targetMin: 1800, targetMax: 3000, hardMax: 8000 },
+    safetyHeadroomTokens: 2048,
+    sourceRevision,
+  };
+}
+
+function createWorkerClientFetch(
+  port,
+  actionTokens,
+  observedRequests,
+  transformResponse,
+  reportRunIds = [WORKER_RUN_ID],
+) {
+  const routes = new Map();
+  for (const reportRunId of reportRunIds) {
+    const root = `${WORKER_PATH_ROOT}/${reportRunId}`;
+    routes.set(`${root}/claim`, { action: WORKER_ACTIONS.claim, method: 'POST' });
+    routes.set(`${root}/snapshot`, { action: WORKER_ACTIONS.snapshot, method: 'GET' });
+    routes.set(`${root}/fail`, { action: WORKER_ACTIONS.fail, method: 'POST' });
+    routes.set(`${root}/checkpoints/redact`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/count`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/direct`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/reduce`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/validate`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/render`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/checkpoints/store`, { action: WORKER_ACTIONS.checkpoint, method: 'PUT' });
+    routes.set(`${root}/complete`, { action: WORKER_ACTIONS.complete, method: 'POST' });
+  }
+
+  return async (input, init = {}) => {
+    if (!(input instanceof URL) || input.origin !== WORKER_ORIGIN || input.search !== '')
+      throw new Error('The test fetch rejected a non-approved logical worker URL');
+    const route = routes.get(input.pathname) ?? (/\/checkpoints\/map\.[1-9]\d*-of-[1-9]\d*$/.test(input.pathname)
+      ? { action: WORKER_ACTIONS.checkpoint, method: 'PUT' }
+      : undefined);
+    if (!route) throw new Error('The test fetch rejected an unregistered worker path');
+    if (init.method !== route.method || init.redirect !== 'error')
+      throw new Error('The test fetch rejected an unexpected worker transport policy');
+
+    const authorization = new Headers(init.headers).get('authorization');
+    const expectedToken = actionTokens[route.action];
+    if (!expectedToken || authorization !== `Bearer ${expectedToken}`)
+      throw new Error('The test fetch rejected an unexpected synthetic worker token');
+
+    const localUrl = `http://127.0.0.1:${port}${input.pathname}`;
+    const upstreamResponse = await fetch(localUrl, {
+      method: init.method,
+      headers: init.headers,
+      body: init.body,
+      cache: 'no-store',
+      redirect: 'error',
+      signal: init.signal,
+    });
+    if (upstreamResponse.redirected || upstreamResponse.url !== localUrl)
+      throw new Error('The test fetch observed an unexpected local Strapi response origin');
+
+    const request = {
+      path: input.pathname,
+      method: init.method,
+      action: route.action,
+      authorizationMatchesAction: authorization === `Bearer ${expectedToken}`,
+    };
+    observedRequests.push(request);
+
+    let logicalResponse;
+    if (transformResponse && upstreamResponse.ok) {
+      const body = await upstreamResponse.clone().json();
+      const transformed = transformResponse({ route, body });
+      const headers = new Headers(upstreamResponse.headers);
+      headers.delete('content-length');
+      logicalResponse = new Response(JSON.stringify(transformed), {
+        status: upstreamResponse.status,
+        statusText: upstreamResponse.statusText,
+        headers,
+      });
+    } else {
+      logicalResponse = new Response(upstreamResponse.body, {
+        status: upstreamResponse.status,
+        statusText: upstreamResponse.statusText,
+        headers: upstreamResponse.headers,
+      });
+    }
+    Object.defineProperties(logicalResponse, {
+      url: { value: input.href },
+      redirected: { value: false },
+    });
+    return logicalResponse;
+  };
+}
+
+async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRunId, testContext) {
+  const { createSnapshot, createWorkerCmsClient } = loadPrivateReportSourceAppModules();
+  const userPermissions = strapi.plugin('users-permissions');
+  const role = await strapi.db.query('plugin::users-permissions.role').findOne({
+    where: { type: 'authenticated' },
+  });
+  for (const action of Object.values(WORKER_ACTIONS)) await grant(strapi, role.id, action);
+  await grant(strapi, role.id, REPORT_METADATA_ACTION);
+  await grant(strapi, role.id, `${GENERATION_UID}.create`);
+  const jwtUser = await userPermissions.service('user').add({
+    username: 'tb113-worker-client-jwt',
+    email: 'tb113-worker-client-jwt@local.invalid',
+    password: 'tb113-worker-client-synthetic-password',
+    provider: 'local',
+    confirmed: true,
+    blocked: false,
+    role: role.id,
+  });
+  const jwt = await userPermissions.service('jwt').issue({ id: jwtUser.id });
+
+  strapi.config.set('admin.secrets.encryptionKey', 'tb113-worker-client-synthetic-encryption');
+  const tokenService = strapi.service('admin::api-token-content-api');
+  const actionTokens = {};
+  for (const [name, action] of Object.entries(WORKER_ACTIONS)) {
+    const token = await tokenService.create({
+      name: `tb113-worker-client-${name}`,
+      description: `Disposable ${name}-only worker client token`,
+      type: 'custom',
+      permissions: [action],
+      lifespan: null,
+    });
+    assert.deepEqual(token.permissions, [action]);
+    actionTokens[action] = token.accessKey;
+  }
+  const actualWorkerPermissions = await strapi.db.query('plugin::users-permissions.permission').findMany({
+    where: { role: role.id },
+  });
+  assert.ok(Object.values(WORKER_ACTIONS).every((action) =>
+    actualWorkerPermissions.some(({ action: grantedAction }) => grantedAction === action),
+  ));
+
+  const snapshotEnvelope = createSnapshot({
+    range: { from: '2040-09-01', to: '2040-09-10' },
+    dataCutoffAt: '2040-09-11T12:00:00.000Z',
+    sourceRevision: 'worker-client-integration-v1',
+    createdAt: '2040-09-11T12:00:00.000Z',
+    filters: { pointKey: null, versionKey: null },
+    submissions: [{
+      recordId: 'synthetic-worker-record',
+      receipt: '00000000-0000-4000-8000-000000000121',
+      acceptedAt: '2040-09-05T12:00:00.000Z',
+      source: 'valid_qr',
+      versionKey: 'synthetic-worker-version',
+      pointKey: 'synthetic-worker-point',
+      overallRating: 5,
+      locale: 'en',
+      commentText: PRIVATE_WORKER_COMMENT,
+      payloadDigest: 'a'.repeat(64),
+      aspects: [],
+    }],
+    definitions: [{ aspectKey: 'other', sortOrder: 99 }],
+    points: [{ pointKey: 'synthetic-worker-point', displayName: 'Synthetic point', sortOrder: 1 }],
+  });
+  const sourceRevision = 'worker-client-integration-v1';
+  const modelConfig = sourceModelConfig(sourceRevision, 'synthetic-worker-evidence-key');
+  const pricingSnapshot = {
+    version: 'pricing.v1',
+    currency: 'USD',
+    units: [{ sku: 'gemini-input', inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
+  };
+  const checkpoints = {
+    version: 'survey-checkpoints.v1',
+    snapshotDigest: snapshotEnvelope.digestHex,
+    route: 'direct',
+    chunkCount: null,
+    entries: [],
+  };
+  const createResponse = await fetch(`http://127.0.0.1:${port}/api/survey-report-generations`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${jwt}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ data: {
+      reportRunId: WORKER_RUN_ID,
+      periodStart: '2040-09-01',
+      periodEnd: '2040-09-10',
+      dataCutoffAt: '2040-09-11T12:00:00.000Z',
+      overlapOverrideAccepted: false,
+      snapshotDigest: snapshotEnvelope.digestHex,
+      sourceRevision,
+      snapshotJson: snapshotEnvelope.payload,
+      checkpointsJson: checkpoints,
+      modelConfigJson: modelConfig,
+      usageJson: {},
+      pricingSnapshotJson: pricingSnapshot,
+      status: 'queued',
+    } }),
+  });
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json();
+  assert.equal(created.data.reportRunId, WORKER_RUN_ID);
+  const seeded = await strapi.db.query(GENERATION_UID).findOne({
+    where: { reportRunId: WORKER_RUN_ID },
+  });
+  assert.equal(seeded.status, 'queued');
+  assert.equal(seeded.stateVersion, 1);
+  assert.equal(seeded.snapshotDigest, snapshotEnvelope.digestHex);
+  assert.deepEqual(seeded.checkpointsJson, checkpoints);
+  assert.deepEqual(seeded.modelConfigJson, modelConfig);
+  assert.deepEqual(seeded.pricingSnapshotJson, pricingSnapshot);
+
+  await strapi.db.connection('survey_report_generations')
+    .where({ report_run_id: WORKER_RUN_ID })
+    .update({ checkpoints_json: JSON.stringify('{') });
+  const invalidStoredClaim = await fetch(`http://127.0.0.1:${port}${WORKER_PATH}/claim`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${actionTokens[WORKER_ACTIONS.claim]}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ commandVersion: 'survey-report-command.v1' }),
+  });
+  assert.equal(invalidStoredClaim.status, 409);
+  const invalidStoredClaimBody = await invalidStoredClaim.json();
+  assert.deepEqual(invalidStoredClaimBody, {
+    error: { code: 'INVALID_STATE', message: 'The worker command was rejected' },
+  });
+  assert.equal(JSON.stringify(invalidStoredClaimBody).includes(PRIVATE_WORKER_COMMENT), false);
+  assert.ok(Object.values(actionTokens).every((token) =>
+    !JSON.stringify(invalidStoredClaimBody).includes(token),
+  ));
+  const unchangedQueuedRow = await strapi.db.connection('survey_report_generations')
+    .where({ report_run_id: WORKER_RUN_ID })
+    .select('status', 'state_version', 'claimed_at')
+    .first();
+  assert.equal(unchangedQueuedRow.status, 'queued');
+  assert.equal(unchangedQueuedRow.state_version, 1);
+  assert.equal(unchangedQueuedRow.claimed_at, null);
+  await strapi.db.connection('survey_report_generations')
+    .where({ report_run_id: WORKER_RUN_ID })
+    .update({ checkpoints_json: checkpoints });
+
+  const routeDetails = [
+    { suffix: 'claim', action: WORKER_ACTIONS.claim, method: 'POST', body: { commandVersion: 'survey-report-command.v1' } },
+    { suffix: 'snapshot', action: WORKER_ACTIONS.snapshot, method: 'GET' },
+    {
+      suffix: 'fail',
+      action: WORKER_ACTIONS.fail,
+      method: 'POST',
+      body: {
+        contractVersion: 'survey-worker-cms.v1',
+        expectedStateVersion: 2,
+        failureCode: 'INVALID_OUTPUT',
+        safeFailureMessage: 'The report output did not satisfy its contract.',
+      },
+    },
+    {
+      suffix: 'checkpoints/redact',
+      action: WORKER_ACTIONS.checkpoint,
+      method: 'PUT',
+      body: {
+        contractVersion: 'survey-worker-cms.v1',
+        expectedStateVersion: 2,
+        checkpoint: { checkpointVersion: 'survey-checkpoint.v1', stageKey: 'redact' },
+      },
+    },
+    {
+      suffix: 'complete',
+      action: WORKER_ACTIONS.complete,
+      method: 'POST',
+      body: { contractVersion: 'survey-worker-cms.v1' },
+    },
+  ];
+  const nativeCollectionUrl = `http://127.0.0.1:${port}/api/survey-report-generations`;
+  for (const route of routeDetails) {
+    const jwtAttempt = await captureQueries(strapi, () => fetch(
+      `http://127.0.0.1:${port}${WORKER_PATH}/${route.suffix}`,
+      {
+        method: route.method,
+        headers: {
+          authorization: `Bearer ${jwt}`,
+          ...(route.body ? { 'content-type': 'application/json' } : {}),
+        },
+        ...(route.body ? { body: JSON.stringify(route.body) } : {}),
+      },
+    ));
+    assert.ok([401, 403].includes(jwtAttempt.result.status));
+    assert.equal(jwtAttempt.queries.some((sql) => /survey_report_generations/i.test(sql)), false);
+  }
+  for (const route of routeDetails) {
+    for (const [wrongAction, wrongToken] of Object.entries(actionTokens)) {
+      if (wrongAction === route.action) continue;
+      const denied = await captureQueries(strapi, () => fetch(
+        `http://127.0.0.1:${port}${WORKER_PATH}/${route.suffix}`,
+        {
+          method: route.method,
+          headers: {
+            authorization: `Bearer ${wrongToken}`,
+            ...(route.body ? { 'content-type': 'application/json' } : {}),
+          },
+          ...(route.body ? { body: JSON.stringify(route.body) } : {}),
+        },
+      ));
+      assert.equal(denied.result.status, 403);
+      assert.equal(denied.queries.some((sql) => /survey_report_generations/i.test(sql)), false);
+    }
+  }
+
+  for (const token of [jwt, ...Object.values(actionTokens)]) {
+    const nativeRead = await captureQueries(strapi, () => fetch(nativeCollectionUrl, {
+      headers: { authorization: `Bearer ${token}` },
+    }));
+    assert.equal(nativeRead.result.status, 403);
+    assert.equal(nativeRead.queries.some((sql) => /survey_report_generations/i.test(sql)), false);
+  }
+
+  const observedRequests = [];
+  const tokenRequests = [];
+  const client = createWorkerCmsClient({
+    baseUrl: WORKER_ORIGIN,
+    allowedOrigins: [WORKER_ORIGIN],
+    tokenProvider: async (action) => {
+      tokenRequests.push(action);
+      return { action, value: actionTokens[action] };
+    },
+    fetchImplementation: createWorkerClientFetch(port, actionTokens, observedRequests),
+  });
+  const consoleOutput = [];
+  const consoleMethods = ['debug', 'info', 'log', 'warn', 'error'];
+  const originalConsole = new Map(consoleMethods.map((method) => [method, console[method]]));
+  for (const method of consoleMethods) {
+    console[method] = (...values) => consoleOutput.push(values.map(String).join(' '));
+  }
+  try {
+    const beforeInvalidOperations = { tokens: tokenRequests.length, requests: observedRequests.length };
+    await assert.rejects(client.checkpoint(WORKER_RUN_ID, {}), { code: 'INVALID_CONFIGURATION' });
+    await assert.rejects(client.complete(WORKER_RUN_ID, {}), { code: 'INVALID_CONFIGURATION' });
+    assert.deepEqual(
+      { tokens: tokenRequests.length, requests: observedRequests.length },
+      beforeInvalidOperations,
+    );
+
+    const claimed = await client.claim(WORKER_RUN_ID);
+    const claimReplay = await client.claim(WORKER_RUN_ID);
+    assert.equal(claimed.status, 'running');
+    assert.equal(claimed.disposition, 'claimed');
+    assert.equal(claimed.stateVersion, 2);
+    assert.equal(claimReplay.status, 'running');
+    assert.equal(claimReplay.disposition, 'resumed');
+    assert.equal(claimReplay.stateVersion, 2);
+
+    const snapshot = await client.snapshot(WORKER_RUN_ID);
+    assert.equal(snapshot.snapshot.digestHex, snapshotEnvelope.digestHex);
+    assert.deepEqual(snapshot.snapshot.payload, snapshotEnvelope.payload);
+    assert.equal(snapshot.snapshot.payload.comments[0].text, PRIVATE_WORKER_COMMENT);
+
+    const malformedClaimClient = createWorkerCmsClient({
+      baseUrl: WORKER_ORIGIN,
+      allowedOrigins: [WORKER_ORIGIN],
+      tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
+      fetchImplementation: createWorkerClientFetch(port, actionTokens, [], ({ route, body }) =>
+        route.action === WORKER_ACTIONS.claim ? { ...body, unexpected: PRIVATE_WORKER_COMMENT } : body,
+      ),
+    });
+    const malformedClaim = await malformedClaimClient.claim(WORKER_RUN_ID).catch((error) => error);
+    assert.equal(malformedClaim.code, 'INVALID_RESPONSE');
+    assert.equal(`${malformedClaim.name} ${malformedClaim.message}`.includes(PRIVATE_WORKER_COMMENT), false);
+    assert.ok(Object.values(actionTokens).every((token) =>
+      !`${malformedClaim.name} ${malformedClaim.message}`.includes(token),
+    ));
+
+    const alteredDigestClient = createWorkerCmsClient({
+      baseUrl: WORKER_ORIGIN,
+      allowedOrigins: [WORKER_ORIGIN],
+      tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
+      fetchImplementation: createWorkerClientFetch(port, actionTokens, [], ({ route, body }) => {
+        if (route.action !== WORKER_ACTIONS.snapshot) return body;
+        return {
+          ...body,
+          snapshot: {
+            ...body.snapshot,
+            payload: {
+              ...body.snapshot.payload,
+              comments: body.snapshot.payload.comments.map((comment) => ({
+                ...comment,
+                text: `${comment.text} altered`,
+              })),
+            },
+          },
+        };
+      }),
+    });
+    const alteredSnapshot = await alteredDigestClient.snapshot(WORKER_RUN_ID).catch((error) => error);
+    assert.equal(alteredSnapshot.code, 'INVALID_RESPONSE');
+    assert.equal(`${alteredSnapshot.name} ${alteredSnapshot.message}`.includes(PRIVATE_WORKER_COMMENT), false);
+    assert.ok(Object.values(actionTokens).every((token) =>
+      !`${alteredSnapshot.name} ${alteredSnapshot.message}`.includes(token),
+    ));
+
+    const failCommand = routeDetails.find(({ suffix }) => suffix === 'fail').body;
+    const failed = await client.fail(WORKER_RUN_ID, failCommand);
+    const failReplay = await client.fail(WORKER_RUN_ID, failCommand);
+    assert.deepEqual(
+      { status: failed.status, stateVersion: failed.stateVersion, failureCode: failed.failureCode, replayed: failed.replayed },
+      { status: 'failed', stateVersion: 3, failureCode: 'INVALID_OUTPUT', replayed: false },
+    );
+    assert.deepEqual(
+      { status: failReplay.status, stateVersion: failReplay.stateVersion, failureCode: failReplay.failureCode, replayed: failReplay.replayed },
+      { status: 'failed', stateVersion: 3, failureCode: 'INVALID_OUTPUT', replayed: true },
+    );
+
+    const appCreatedRow = await strapi.db.query(GENERATION_UID).findOne({
+      where: { reportRunId: appCreatedReportRunId },
+    });
+    assert.ok(appCreatedRow);
+    assert.equal(appCreatedRow.status, 'queued');
+    assert.equal(appCreatedRow.stateVersion, 1);
+    assert.equal(appCreatedRow.checkpointsJson.route, 'undecided');
+    assert.deepEqual(appCreatedRow.checkpointsJson.entries, []);
+    const appCreatedRequests = [];
+    const appCreatedTokenRequests = [];
+    const appCreatedClient = createWorkerCmsClient({
+      baseUrl: WORKER_ORIGIN,
+      allowedOrigins: [WORKER_ORIGIN],
+      tokenProvider: async (action) => {
+        appCreatedTokenRequests.push(action);
+        return { action, value: actionTokens[action] };
+      },
+      fetchImplementation: createWorkerClientFetch(
+        port,
+        actionTokens,
+        appCreatedRequests,
+        undefined,
+        [appCreatedReportRunId],
+      ),
+    });
+    const appCreatedClaim = await appCreatedClient.claim(appCreatedReportRunId);
+    assert.equal(appCreatedClaim.status, 'running');
+    assert.equal(appCreatedClaim.disposition, 'claimed');
+    assert.equal(appCreatedClaim.stateVersion, 2);
+    assert.equal(appCreatedClaim.checkpoints.route, 'undecided');
+    assert.equal(appCreatedClaim.checkpoints.chunkCount, null);
+    assert.deepEqual(appCreatedClaim.checkpoints.entries, []);
+    const appCreatedReplay = await appCreatedClient.claim(appCreatedReportRunId);
+    assert.equal(appCreatedReplay.status, 'running');
+    assert.equal(appCreatedReplay.disposition, 'resumed');
+    assert.equal(appCreatedReplay.stateVersion, 2);
+    const appCreatedSnapshot = await appCreatedClient.snapshot(appCreatedReportRunId);
+    assert.equal(appCreatedSnapshot.snapshot.digestHex, appCreatedRow.snapshotDigest);
+    assert.equal(appCreatedSnapshot.snapshot.payload.comments.length, appCreatedRow.snapshotJson.comments.length);
+    assert.ok(appCreatedSnapshot.snapshot.payload.comments.some(({ text }) => typeof text === 'string' && text.length > 0));
+    const appCreatedFailCommand = {
+      contractVersion: 'survey-worker-cms.v1',
+      expectedStateVersion: 2,
+      failureCode: 'INVALID_OUTPUT',
+      safeFailureMessage: 'The report output did not satisfy its contract.',
+    };
+    const appCreatedFailure = await appCreatedClient.fail(appCreatedReportRunId, appCreatedFailCommand);
+    const appCreatedFailReplay = await appCreatedClient.fail(appCreatedReportRunId, appCreatedFailCommand);
+    assert.deepEqual(
+      { status: appCreatedFailure.status, stateVersion: appCreatedFailure.stateVersion, failureCode: appCreatedFailure.failureCode, replayed: appCreatedFailure.replayed },
+      { status: 'failed', stateVersion: 3, failureCode: 'INVALID_OUTPUT', replayed: false },
+    );
+    assert.deepEqual(
+      { status: appCreatedFailReplay.status, stateVersion: appCreatedFailReplay.stateVersion, failureCode: appCreatedFailReplay.failureCode, replayed: appCreatedFailReplay.replayed },
+      { status: 'failed', stateVersion: 3, failureCode: 'INVALID_OUTPUT', replayed: true },
+    );
+    assert.deepEqual(appCreatedTokenRequests, [
+      WORKER_ACTIONS.claim,
+      WORKER_ACTIONS.claim,
+      WORKER_ACTIONS.snapshot,
+      WORKER_ACTIONS.fail,
+      WORKER_ACTIONS.fail,
+    ]);
+    assert.deepEqual(appCreatedRequests.map(({ path, method }) => ({ path, method })), [
+      { path: `${WORKER_PATH_ROOT}/${appCreatedReportRunId}/claim`, method: 'POST' },
+      { path: `${WORKER_PATH_ROOT}/${appCreatedReportRunId}/claim`, method: 'POST' },
+      { path: `${WORKER_PATH_ROOT}/${appCreatedReportRunId}/snapshot`, method: 'GET' },
+      { path: `${WORKER_PATH_ROOT}/${appCreatedReportRunId}/fail`, method: 'POST' },
+      { path: `${WORKER_PATH_ROOT}/${appCreatedReportRunId}/fail`, method: 'POST' },
+    ]);
+
+  } finally {
+    for (const [method, original] of originalConsole) console[method] = original;
+  }
+
+  assert.deepEqual(tokenRequests, [
+    WORKER_ACTIONS.claim,
+    WORKER_ACTIONS.claim,
+    WORKER_ACTIONS.snapshot,
+    WORKER_ACTIONS.fail,
+    WORKER_ACTIONS.fail,
+  ]);
+  assert.deepEqual(observedRequests.map(({ path, method }) => ({ path, method })), [
+    { path: `${WORKER_PATH}/claim`, method: 'POST' },
+    { path: `${WORKER_PATH}/claim`, method: 'POST' },
+    { path: `${WORKER_PATH}/snapshot`, method: 'GET' },
+    { path: `${WORKER_PATH}/fail`, method: 'POST' },
+    { path: `${WORKER_PATH}/fail`, method: 'POST' },
+  ]);
+  assert.ok(observedRequests.every(({ authorizationMatchesAction }) => authorizationMatchesAction));
+  assert.ok(consoleOutput.every((line) =>
+    !line.includes(PRIVATE_WORKER_COMMENT) && !Object.values(actionTokens).some((token) => line.includes(token)),
+  ));
+
+  const storedFailure = await strapi.db.query(GENERATION_UID).findOne({
+    where: { reportRunId: WORKER_RUN_ID },
+  });
+  assert.equal(storedFailure.status, 'failed');
+  assert.equal(storedFailure.stateVersion, 3);
+  assert.equal(storedFailure.failureCode, 'INVALID_OUTPUT');
+  assert.equal(storedFailure.safeFailureMessage, 'The report output did not satisfy its contract.');
+  assert.ok(storedFailure.completedAt);
+  const generationQuery = await strapi.db.connection('survey_report_generations')
+    .where({ report_run_id: WORKER_RUN_ID })
+    .select('status', 'state_version', 'failure_code', 'safe_failure_message', 'snapshot_json')
+    .first();
+  assert.equal(JSON.stringify(generationQuery.snapshot_json).includes(PRIVATE_WORKER_COMMENT), true);
+  const appCreatedFailureRow = await strapi.db.query(GENERATION_UID).findOne({
+    where: { reportRunId: appCreatedReportRunId },
+  });
+  assert.equal(appCreatedFailureRow.status, 'failed');
+  assert.equal(appCreatedFailureRow.stateVersion, 3);
+  assert.equal(appCreatedFailureRow.failureCode, 'INVALID_OUTPUT');
+  await verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext);
+}
+
+async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext) {
+  const {
+    createSnapshot,
+    createWorkerCmsClient,
+    executeReportWorker,
+  } = loadPrivateReportSourceAppModules();
+  const reportRunId = '00000000-0000-4000-8000-000000000132';
+  const sourceRevision = 'worker-empty-evidence-v1';
+  const snapshotEnvelope = createSnapshot({
+    range: { from: '2041-09-01', to: '2041-09-02' },
+    dataCutoffAt: '2041-09-03T00:00:00.000Z',
+    sourceRevision,
+    createdAt: '2041-09-03T00:00:00.000Z',
+    filters: { pointKey: null, versionKey: null },
+    submissions: [],
+    definitions: [{ aspectKey: 'other', sortOrder: 99 }],
+    points: [{ pointKey: 'empty-point', displayName: 'Synthetic point', sortOrder: 1 }],
+  });
+  const modelConfig = sourceModelConfig(sourceRevision, 'synthetic-empty-evidence-key');
+  const pricingSnapshot = {
+    version: 'pricing.v1',
+    currency: 'USD',
+    units: [{ sku: 'gemini-input', inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
+  };
+  const checkpoints = {
+    version: 'survey-checkpoints.v1',
+    snapshotDigest: snapshotEnvelope.digestHex,
+    route: 'undecided',
+    chunkCount: null,
+    entries: [],
+  };
+  const createResponse = await fetch(`http://127.0.0.1:${port}/api/survey-report-generations`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ data: {
+      reportRunId,
+      periodStart: '2041-09-01',
+      periodEnd: '2041-09-02',
+      dataCutoffAt: '2041-09-03T00:00:00.000Z',
+      overlapOverrideAccepted: false,
+      snapshotDigest: snapshotEnvelope.digestHex,
+      sourceRevision,
+      snapshotJson: snapshotEnvelope.payload,
+      checkpointsJson: checkpoints,
+      modelConfigJson: modelConfig,
+      usageJson: {},
+      pricingSnapshotJson: pricingSnapshot,
+      status: 'queued',
+    } }),
+  });
+  assert.equal(createResponse.status, 201);
+
+  const actionTokens = {};
+  strapi.config.set('admin.secrets.encryptionKey', 'tb113-empty-worker-synthetic-encryption');
+  const tokenService = strapi.service('admin::api-token-content-api');
+  for (const [name, action] of Object.entries(WORKER_ACTIONS)) {
+    const token = await tokenService.create({
+      name: `tb113-empty-worker-${name}`,
+      description: `Disposable empty-evidence worker token scoped to ${name}`,
+      type: 'custom',
+      permissions: [action],
+      lifespan: null,
+    });
+    actionTokens[action] = token.accessKey;
+  }
+
+  const countRequests = [];
+  const observedRequests = [];
+  let providerCalls = 0;
+  const client = createWorkerCmsClient({
+    baseUrl: WORKER_ORIGIN,
+    allowedOrigins: [WORKER_ORIGIN],
+    tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
+    fetchImplementation: createWorkerClientFetch(port, actionTokens, observedRequests, undefined, [reportRunId]),
+  });
+  let invalidCompletionWasAtomic = false;
+  const workerCms = {
+    ...client,
+    async complete(id, command) {
+      await assert.rejects(client.complete(id, { ...command, analysisDigest: 'f'.repeat(64) }));
+      const unchanged = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId: id } });
+      assert.equal(unchanged.status, 'running');
+      assert.equal(unchanged.stateVersion, command.expectedStateVersion);
+      assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: id } }), 0);
+      invalidCompletionWasAtomic = true;
+      return client.complete(id, command);
+    },
+  };
+  const artifacts = new Map();
+  const result = await executeReportWorker(reportRunId, {
+    cms: workerCms,
+    countTokens: async (request) => {
+      countRequests.push(request);
+      return { instructions: 100, schema: 100, metrics: 100, comments: 0 };
+    },
+    analysisProvider: async (snapshot) => {
+      providerCalls += 1;
+      assert.equal(snapshot.comments.length, 0);
+      throw new Error('empty-comment execution must not invoke the analysis provider');
+    },
+    renderer: {
+      rendererVersion: 'synthetic-pdf-renderer.v1',
+      async render() { return new Uint8Array([37, 80, 68, 70, 45, 49]); },
+    },
+    artifacts: {
+      async stage(runId, artifact) { artifacts.set(`${runId}:${artifact.sha256}`, artifact); },
+      async readStaged(runId, digest) { return artifacts.get(`${runId}:${digest}`) ?? null; },
+      async discardStaged(runId, digest) { artifacts.delete(`${runId}:${digest}`); },
+    },
+    now: () => new Date('2041-09-03T01:00:00.000Z'),
+  });
+
+  assert.equal(result.status, 'succeeded');
+  assert.equal(invalidCompletionWasAtomic, true);
+  assert.equal(providerCalls, 0);
+  assert.equal(countRequests.length, 1);
+  assert.equal(countRequests[0].contractVersion, 'survey-count-request.v1');
+  assert.equal(countRequests[0].segments.comments, '[]');
+  assert.equal(observedRequests.filter(({ method }) => method === 'PUT').length, 6);
+  assert.equal(observedRequests.filter(({ path }) => path.endsWith('/complete')).length, 2);
+  const persistedGeneration = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId } });
+  assert.equal(persistedGeneration.status, 'succeeded');
+  assert.equal(persistedGeneration.stateVersion, 9);
+  assert.equal(persistedGeneration.checkpointsJson.route, 'direct');
+  assert.deepEqual(persistedGeneration.checkpointsJson.entries.map(({ stageKey }) => stageKey), [
+    'redact', 'count', 'direct', 'validate', 'render', 'store',
+  ]);
+  const countCheckpoint = persistedGeneration.checkpointsJson.entries[1];
+  assert.match(countCheckpoint.payload.requestDigest, /^[a-f0-9]{64}$/);
+  assert.equal(countCheckpoint.payload.segmentTokens.comments, 0);
+  const report = await strapi.db.query('api::survey-report.survey-report').findOne({
+    where: { generationRunId: reportRunId },
+    populate: { sourceGeneration: true },
+  });
+  assert.ok(report);
+  assert.equal(report.reportId, result.reportId);
+  assert.equal(report.analysisContractVersion, 'survey-published-analysis.v1');
+  assert.equal(report.validatedAnalysisJson.sections.length, 7);
+  assert.equal(report.objectKey, `private/feedback-reports/${report.reportId}/report.pdf`);
+  assert.equal(report.sourceGeneration.reportRunId, reportRunId);
+
+  const metadataToken = await tokenService.create({
+    name: 'tb113-report-download-metadata-synthetic',
+    description: 'Disposable token scoped only to private report download metadata',
+    type: 'custom',
+    permissions: [REPORT_METADATA_ACTION],
+    lifespan: null,
+  });
+  assert.deepEqual(metadataToken.permissions, [REPORT_METADATA_ACTION]);
+  const metadataPath = `${REPORT_METADATA_PATH}/${report.reportId}/download-metadata`;
+  const metadataUrl = `http://127.0.0.1:${port}${metadataPath}`;
+  const anonymousMetadata = await fetch(metadataUrl);
+  assert.ok([401, 403].includes(anonymousMetadata.status));
+  const jwtMetadata = await captureQueries(strapi, () => fetch(metadataUrl, {
+    headers: { authorization: `Bearer ${jwt}` },
+  }));
+  assert.ok([401, 403].includes(jwtMetadata.result.status));
+  assert.equal(jwtMetadata.queries.some(({ sql }) => /survey_reports|survey_report_generations/.test(sql)), false);
+  const wrongScopeMetadata = await captureQueries(strapi, () => fetch(metadataUrl, {
+    headers: { authorization: `Bearer ${actionTokens[WORKER_ACTIONS.claim]}` },
+  }));
+  assert.equal(wrongScopeMetadata.result.status, 403);
+  assert.equal(wrongScopeMetadata.queries.some(({ sql }) => /survey_reports|survey_report_generations/.test(sql)), false);
+  const malformedMetadataId = await fetch(`http://127.0.0.1:${port}${REPORT_METADATA_PATH}/not-a-uuid/download-metadata`, {
+    headers: { authorization: `Bearer ${metadataToken.accessKey}` },
+  });
+  assert.equal(malformedMetadataId.status, 400);
+  const unexpectedMetadataQuery = await captureQueries(strapi, () => fetch(`${metadataUrl}?unexpected=value`, {
+    headers: { authorization: `Bearer ${metadataToken.accessKey}` },
+  }));
+  assert.equal(unexpectedMetadataQuery.result.status, 400);
+  assert.equal(unexpectedMetadataQuery.queries.some(({ sql }) => /survey_reports|survey_report_generations/.test(sql)), false);
+  const missingMetadata = await fetch(`http://127.0.0.1:${port}${REPORT_METADATA_PATH}/00000000-0000-4000-8000-000000000199/download-metadata`, {
+    headers: { authorization: `Bearer ${metadataToken.accessKey}` },
+  });
+  assert.equal(missingMetadata.status, 404);
+
+  const observedMetadataRequests = [];
+  const fetchMetadataThroughOwnedStrapi = async (input, init = {}) => {
+    if (
+      !(input instanceof URL) ||
+      input.origin !== WORKER_ORIGIN ||
+      input.pathname !== metadataPath ||
+      input.search !== '' ||
+      init.method !== 'GET' ||
+      init.redirect !== 'error' ||
+      init.cache !== 'no-store' ||
+      new Headers(init.headers).get('authorization') !== `Bearer ${metadataToken.accessKey}`
+    )
+      throw new Error('The metadata integration rejected an unapproved URL or token');
+    const localResponse = await fetch(`http://127.0.0.1:${port}${input.pathname}`, {
+      method: init.method,
+      headers: init.headers,
+      cache: 'no-store',
+      redirect: 'error',
+      signal: init.signal,
+    });
+    const logicalResponse = new Response(localResponse.body, {
+      status: localResponse.status,
+      statusText: localResponse.statusText,
+      headers: localResponse.headers,
+    });
+    Object.defineProperties(logicalResponse, {
+      url: { value: input.href },
+      redirected: { value: false },
+    });
+    observedMetadataRequests.push({ path: input.pathname, method: init.method });
+    return logicalResponse;
+  };
+  const { createPrivateReportDownloadMetadataTransport, reportDownloadMetadataAction, createFeedbackReportDownload } = loadPrivateReportSourceAppModules();
+  const metadataTransport = createPrivateReportDownloadMetadataTransport({
+    baseUrl: WORKER_ORIGIN,
+    allowedOrigins: [WORKER_ORIGIN],
+    tokenProvider: async (action) => ({ action, value: action === REPORT_METADATA_ACTION ? metadataToken.accessKey : '' }),
+    fetchImplementation: fetchMetadataThroughOwnedStrapi,
+  });
+  assert.equal(reportDownloadMetadataAction, REPORT_METADATA_ACTION);
+  const artifact = artifacts.get(`${reportRunId}:${report.artifactSha256}`);
+  assert.ok(artifact);
+  const downloads = createFeedbackReportDownload({
+    metadataReader: metadataTransport,
+    objectReader: {
+      async read(objectKey, maxBytes) {
+        assert.equal(objectKey, report.objectKey);
+        assert.equal(maxBytes, 25 * 1024 * 1024);
+        return artifact.bytes;
+      },
+    },
+  });
+  const mediated = await downloads.read(report.reportId);
+  assert.equal(mediated.metadata.reportRunId, reportRunId);
+  assert.equal(mediated.metadata.generationStatus, 'succeeded');
+  assert.deepEqual(mediated.bytes, artifact.bytes);
+  assert.deepEqual(observedMetadataRequests, [{ path: metadataPath, method: 'GET' }]);
+  assert.equal(JSON.stringify(mediated.metadata).includes(PRIVATE_WORKER_COMMENT), false);
+  assert.equal(JSON.stringify(mediated.metadata).includes('https://'), false);
+  await strapi.db.query(GENERATION_UID).update({
+    where: { reportRunId },
+    data: { status: 'failed' },
+  });
+  try {
+    const incompleteGeneration = await fetch(metadataUrl, {
+      headers: { authorization: `Bearer ${metadataToken.accessKey}` },
+    });
+    assert.equal(incompleteGeneration.status, 503);
+    assert.equal((await incompleteGeneration.text()).includes(report.objectKey), false);
+  } finally {
+    await strapi.db.query(GENERATION_UID).update({
+      where: { reportRunId },
+      data: { status: 'succeeded' },
+    });
+  }
+
+  const completionReplay = await client.complete(reportRunId, {
+    contractVersion: 'survey-worker-cms.v1',
+    expectedStateVersion: 8,
+    validatedAnalysis: report.validatedAnalysisJson,
+    analysisDigest: report.analysisDigest,
+    rendererVersion: report.rendererVersion,
+    artifact: {
+      objectKey: report.objectKey,
+      sha256: report.artifactSha256,
+      size: Number(report.artifactSize),
+      mimeType: 'application/pdf',
+    },
+  });
+  assert.equal(completionReplay.replayed, true);
+  assert.equal(completionReplay.stateVersion, 9);
+  assert.equal(observedRequests.filter(({ path }) => path.endsWith('/complete')).length, 3);
+  const replay = await executeReportWorker(reportRunId, {
+    cms: client,
+    countTokens: async () => { throw new Error('terminal replay must not count tokens'); },
+    analysisProvider: async () => { throw new Error('terminal replay must not invoke provider'); },
+    renderer: { rendererVersion: 'synthetic-pdf-renderer.v1', async render() { throw new Error('terminal replay must not render'); } },
+    artifacts: {
+      async stage() { throw new Error('terminal replay must not stage'); },
+      async readStaged() { return null; },
+      async discardStaged() {},
+    },
+  });
+  assert.deepEqual(replay, { status: 'succeeded', disposition: 'terminal-replay', reportRunId });
+  assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: reportRunId } }), 1);
+
+  await testContext.test('executes a synthetic nonempty direct report through app, worker, and CMS', async () => {
+  const narrativeRunId = '00000000-0000-4000-8000-000000000133';
+  const narrativeKeyId = 'synthetic-direct-evidence-key-v1';
+  const narrativeKey = 'tb113 synthetic direct evidence key only';
+  const narrativePrivateComment = 'Synthetic note visitor@example.invalid +1 212 555 0100 https://example.invalid';
+  const narrativeSnapshot = createSnapshot({
+    range: { from: '2042-09-01', to: '2042-09-02' },
+    dataCutoffAt: '2042-09-03T00:00:00.000Z',
+    sourceRevision: 'worker-nonempty-direct-v1',
+    createdAt: '2042-09-03T00:00:00.000Z',
+    filters: { pointKey: null, versionKey: null },
+    submissions: [{
+      recordId: 'synthetic-narrative-record',
+      receipt: '00000000-0000-4000-8000-000000000134',
+      acceptedAt: '2042-09-01T12:00:00.000Z',
+      source: 'valid_qr',
+      versionKey: 'synthetic-narrative-version',
+      pointKey: 'synthetic-narrative-point',
+      overallRating: 5,
+      locale: 'en',
+      commentText: narrativePrivateComment,
+      payloadDigest: 'b'.repeat(64),
+      aspects: [],
+    }],
+    definitions: [{ aspectKey: 'other', sortOrder: 99 }],
+    points: [{ pointKey: 'synthetic-narrative-point', displayName: 'Synthetic point', sortOrder: 1 }],
+  });
+  const narrativeConfig = sourceModelConfig('worker-nonempty-direct-v1', narrativeKeyId);
+  const narrativeCheckpoints = {
+    version: 'survey-checkpoints.v1', snapshotDigest: narrativeSnapshot.digestHex,
+    route: 'undecided', chunkCount: null, entries: [],
+  };
+  const narrativeCreated = await fetch(`http://127.0.0.1:${port}/api/survey-report-generations`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ data: {
+      reportRunId: narrativeRunId, periodStart: '2042-09-01', periodEnd: '2042-09-02',
+      dataCutoffAt: '2042-09-03T00:00:00.000Z', overlapOverrideAccepted: false,
+      snapshotDigest: narrativeSnapshot.digestHex, sourceRevision: narrativeConfig.sourceRevision,
+      snapshotJson: narrativeSnapshot.payload, checkpointsJson: narrativeCheckpoints,
+      modelConfigJson: narrativeConfig, usageJson: {}, pricingSnapshotJson: pricingSnapshot, status: 'queued',
+    } }),
+  });
+  assert.equal(narrativeCreated.status, 201);
+  strapi.config.set('feedback.workerEvidenceKeyProvider', async (keyId) => {
+    assert.equal(keyId, narrativeKeyId);
+    return narrativeKey;
+  });
+  const narrativeRequests = [];
+  const narrativeClient = createWorkerCmsClient({
+    baseUrl: WORKER_ORIGIN,
+    allowedOrigins: [WORKER_ORIGIN],
+    tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
+    fetchImplementation: createWorkerClientFetch(port, actionTokens, narrativeRequests, undefined, [narrativeRunId]),
+  });
+  const evidenceRef = loadPrivateReportSourceAppModules().deriveEvidenceRef({
+    reportRunId: narrativeRunId, recordId: 'synthetic-narrative-record', evidenceKey: narrativeKey,
+  });
+  const narrativeOutput = {
+    schemaVersion: 'survey-analysis.v1', route: 'direct',
+    sections: [
+      { key: 'executive_summary', status: 'supported', claims: [{ claimId: 'claim-a', textEs: 'La visita se percibe acogedora.', evidenceRefs: [evidenceRef], signal: 'descriptive' }] },
+      ...['observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations']
+        .map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
+    ],
+  };
+  const narrativeArtifacts = new Map();
+  let narrativeProviderCalls = 0;
+  const narrativeResult = await executeReportWorker(narrativeRunId, {
+    cms: narrativeClient,
+    countTokens: async (request) => {
+      assert.notEqual(request.segments.comments, '[]');
+      const modelInput = JSON.parse(request.segments.comments);
+      assert.equal(modelInput.contractVersion, 'survey-model-input.v1');
+      assert.deepEqual(Object.keys(modelInput.comments[0]).sort(), ['evidenceRef', 'period', 'text']);
+      assert.ok(modelInput.comments[0].text.includes('[EMAIL]'));
+      assert.ok(modelInput.comments[0].text.includes('[PHONE]'));
+      assert.ok(modelInput.comments[0].text.includes('[URL]'));
+      assert.equal(JSON.stringify(modelInput).includes('visitor@example.invalid'), false);
+      assert.equal(JSON.stringify(modelInput).includes('synthetic-narrative-record'), false);
+      assert.equal(JSON.stringify(modelInput).includes('synthetic-narrative-version'), false);
+      assert.equal(JSON.stringify(modelInput).includes('synthetic-narrative-point'), false);
+      return { instructions: 120, schema: 180, metrics: 80, comments: 95 };
+    },
+    evidenceKeyProvider: async (keyId) => {
+      assert.equal(keyId, narrativeKeyId);
+      return narrativeKey;
+    },
+    analysisProvider: async (providerSnapshot) => {
+      narrativeProviderCalls += 1;
+      assert.equal(providerSnapshot.contractVersion, 'survey-model-input.v1');
+      assert.deepEqual(Object.keys(providerSnapshot).sort(), ['comments', 'contractVersion', 'metrics']);
+      assert.deepEqual(Object.keys(providerSnapshot.comments[0]).sort(), ['evidenceRef', 'period', 'text']);
+      assert.ok(providerSnapshot.comments[0].text.includes('[EMAIL]'));
+      assert.ok(providerSnapshot.comments[0].text.includes('[PHONE]'));
+      assert.ok(providerSnapshot.comments[0].text.includes('[URL]'));
+      assert.equal(JSON.stringify(providerSnapshot).includes('visitor@example.invalid'), false);
+      const commentProjection = JSON.stringify(providerSnapshot.comments);
+      assert.equal(commentProjection.includes('synthetic-narrative-record'), false);
+      assert.equal(commentProjection.includes('synthetic-narrative-version'), false);
+      assert.equal(commentProjection.includes('synthetic-narrative-point'), false);
+      return narrativeOutput;
+    },
+    renderer: {
+      rendererVersion: 'synthetic-direct-renderer.v1',
+      async render() { return new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]); },
+    },
+    artifacts: {
+      async stage(runId, artifact) { narrativeArtifacts.set(`${runId}:${artifact.sha256}`, artifact); },
+      async readStaged(runId, digest) { return narrativeArtifacts.get(`${runId}:${digest}`) ?? null; },
+      async discardStaged(runId, digest) { narrativeArtifacts.delete(`${runId}:${digest}`); },
+    },
+    now: () => new Date('2042-09-03T01:00:00.000Z'),
+  });
+  assert.equal(narrativeResult.status, 'succeeded');
+  assert.equal(narrativeProviderCalls, 1);
+  const narrativeGeneration = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId: narrativeRunId } });
+  assert.equal(narrativeGeneration.status, 'succeeded');
+  assert.equal(narrativeGeneration.checkpointsJson.route, 'direct');
+  assert.deepEqual(narrativeGeneration.checkpointsJson.entries.map(({ stageKey }) => stageKey), [
+    'redact', 'count', 'direct', 'validate', 'render', 'store',
+  ]);
+  assert.equal(narrativeGeneration.checkpointsJson.entries[1].payload.segmentTokens.comments, 95);
+  assert.equal(JSON.stringify(narrativeGeneration.checkpointsJson).includes(PRIVATE_WORKER_COMMENT), false);
+  const narrativeReport = await strapi.db.query('api::survey-report.survey-report').findOne({
+    where: { generationRunId: narrativeRunId }, populate: { sourceGeneration: true },
+  });
+  assert.equal(narrativeReport.validatedAnalysisJson.sections[0].paragraphsEs[0], 'La visita se percibe acogedora.');
+  assert.equal(JSON.stringify(narrativeReport.validatedAnalysisJson).includes(evidenceRef), false);
+  assert.equal(narrativeReport.sourceGeneration.reportRunId, narrativeRunId);
+  const narrativeReplay = await executeReportWorker(narrativeRunId, {
+    cms: narrativeClient,
+    countTokens: async () => { throw new Error('terminal replay must not count tokens'); },
+    evidenceKeyProvider: async () => { throw new Error('terminal replay must not request an evidence key'); },
+    analysisProvider: async () => { throw new Error('terminal replay must not invoke the analysis provider'); },
+    renderer: { rendererVersion: 'synthetic-direct-renderer.v1', async render() { throw new Error('terminal replay must not render'); } },
+    artifacts: { async stage() { throw new Error('terminal replay must not stage'); }, async readStaged() { return null; }, async discardStaged() {} },
+  });
+  assert.deepEqual(narrativeReplay, { status: 'succeeded', disposition: 'terminal-replay', reportRunId: narrativeRunId });
+  assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: narrativeRunId } }), 1);
+  assert.ok(narrativeRequests.filter(({ method }) => method === 'PUT').length === 6);
+  });
+
+  await testContext.test('executes two verified map chunks and reduce through worker HTTP and CMS', async () => {
+    const runId = '00000000-0000-4000-8000-000000000135';
+    const keyId = 'synthetic-map-reduce-evidence-v1';
+    const key = 'tb113 synthetic map reduce evidence key only';
+    const sourceRevision = 'worker-map-reduce-v1';
+    const { createSnapshot, createWorkerCmsClient, executeReportWorker } = loadPrivateReportSourceAppModules();
+    const snapshotEnvelope = createSnapshot({
+      range: { from: '2043-09-01', to: '2043-09-02' },
+      dataCutoffAt: '2043-09-03T00:00:00.000Z',
+      sourceRevision,
+      createdAt: '2043-09-03T00:00:00.000Z',
+      filters: { pointKey: null, versionKey: null },
+      submissions: ['synthetic-map-record-a', 'synthetic-map-record-b'].map((recordId, index) => ({
+        recordId,
+        receipt: `00000000-0000-4000-8000-${String(136 + index).padStart(12, '0')}`,
+        acceptedAt: `2043-09-0${index + 1}T12:00:00.000Z`,
+        source: 'valid_qr',
+        versionKey: 'synthetic-map-version',
+        pointKey: 'synthetic-map-point',
+        overallRating: 4,
+        locale: 'es',
+        commentText: `Synthetic complete comment ${index} visitor${index}@example.invalid`,
+        payloadDigest: String(index + 1).repeat(64),
+        aspects: [],
+      })),
+      definitions: [{ aspectKey: 'other', sortOrder: 99 }],
+      points: [{ pointKey: 'synthetic-map-point', displayName: 'Synthetic point', sortOrder: 1 }],
+    });
+    const modelConfig = sourceModelConfig(sourceRevision, keyId);
+    const pricingSnapshot = {
+      version: 'pricing.v1', currency: 'USD',
+      units: [{ sku: 'gemini-input', inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
+    };
+    const checkpoints = {
+      version: 'survey-checkpoints.v1', snapshotDigest: snapshotEnvelope.digestHex,
+      route: 'undecided', chunkCount: null, entries: [],
+    };
+    const created = await fetch(`http://127.0.0.1:${port}/api/survey-report-generations`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ data: {
+        reportRunId: runId, periodStart: '2043-09-01', periodEnd: '2043-09-02',
+        dataCutoffAt: '2043-09-03T00:00:00.000Z', overlapOverrideAccepted: false,
+        snapshotDigest: snapshotEnvelope.digestHex, sourceRevision, snapshotJson: snapshotEnvelope.payload,
+        checkpointsJson: checkpoints, modelConfigJson: modelConfig, usageJson: {}, pricingSnapshotJson: pricingSnapshot, status: 'queued',
+      } }),
+    });
+    assert.equal(created.status, 201);
+    strapi.config.set('feedback.workerEvidenceKeyProvider', async (candidateKeyId) => {
+      assert.equal(candidateKeyId, keyId);
+      return key;
+    });
+    const observedRequests = [];
+    const client = createWorkerCmsClient({
+      baseUrl: WORKER_ORIGIN,
+      allowedOrigins: [WORKER_ORIGIN],
+      tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
+      fetchImplementation: createWorkerClientFetch(port, actionTokens, observedRequests, undefined, [runId]),
+    });
+    let forgedPersistedDigestRejected = false;
+    const workerCms = {
+      ...client,
+      async checkpoint(id, command) {
+        if (command.checkpoint.stageKey === 'reduce' && !forgedPersistedDigestRejected) {
+          const row = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId: id } });
+          const original = row.checkpointsJson;
+          const forged = {
+            ...original,
+            entries: original.entries.map((entry) => entry.stageKey === 'map.1-of-2'
+              ? { ...entry, outputDigest: 'f'.repeat(64) }
+              : entry),
+          };
+          await strapi.db.connection('survey_report_generations')
+            .where({ report_run_id: id }).update({ checkpoints_json: JSON.stringify(forged) });
+          try {
+            await assert.rejects(client.checkpoint(id, command), { code: 'STATE_VERSION_CONFLICT' });
+          } finally {
+            await strapi.db.connection('survey_report_generations')
+              .where({ report_run_id: id }).update({ checkpoints_json: JSON.stringify(original) });
+          }
+          forgedPersistedDigestRejected = true;
+        }
+        return client.checkpoint(id, command);
+      },
+    };
+    const artifacts = new Map();
+    const countRequests = [];
+    const mapRequests = [];
+    const reduceRequests = [];
+    const countTokens = async (request) => {
+      countRequests.push(request);
+      const value = JSON.parse(request.segments.comments);
+      if (value.contractVersion === 'survey-model-input.v1')
+        return { instructions: 100, schema: 100, metrics: 100, comments: 9000 };
+      if (value.contractVersion === 'survey-map-input.v1' && value.comments.length > 1)
+        return { instructions: 100, schema: 100, metrics: 100, comments: 9000 };
+      return { instructions: 100, schema: 100, metrics: 100, comments: 100 };
+    };
+    strapi.config.set('feedback.workerCountTokensProvider', async (request) => {
+      const value = JSON.parse(request.segments.comments);
+      if (value.contractVersion === 'survey-model-input.v1')
+        return { instructions: 100, schema: 100, metrics: 100, comments: 9000 };
+      if (value.contractVersion === 'survey-map-input.v1' && value.comments.length > 1)
+        return { instructions: 100, schema: 100, metrics: 100, comments: 9000 };
+      return { instructions: 100, schema: 100, metrics: 100, comments: 100 };
+    });
+    const mapProvider = async (request) => {
+      mapRequests.push(request);
+      return {
+        schemaVersion: 'survey-map.v1',
+        chunkId: request.chunkId,
+        coveredRefs: request.comments.map(({ evidenceRef }) => evidenceRef),
+        themes: [],
+        limitations: [],
+      };
+    };
+    const reduceProvider = async (request) => {
+      reduceRequests.push(request);
+      return {
+        schemaVersion: 'survey-analysis.v1',
+        route: 'reduce',
+        sections: ['executive_summary', 'observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations']
+          .map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
+        mapOutputDigests: request.maps.map(({ outputDigest }) => outputDigest),
+      };
+    };
+    const result = await executeReportWorker(runId, {
+      cms: workerCms,
+      countTokens,
+      mapProvider,
+      reduceProvider,
+      evidenceKeyProvider: async (candidateKeyId) => {
+        assert.equal(candidateKeyId, keyId);
+        return key;
+      },
+      renderer: {
+        rendererVersion: 'synthetic-map-reduce-renderer.v1',
+        async render() { return new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]); },
+      },
+      artifacts: {
+        async stage(id, artifact) { artifacts.set(`${id}:${artifact.sha256}`, artifact); },
+        async readStaged(id, digest) { return artifacts.get(`${id}:${digest}`) ?? null; },
+        async discardStaged(id, digest) { artifacts.delete(`${id}:${digest}`); },
+      },
+      now: () => new Date('2043-09-03T01:00:00.000Z'),
+    });
+
+    assert.equal(result.status, 'succeeded');
+    assert.equal(forgedPersistedDigestRejected, true);
+    assert.equal(countRequests.length, 7);
+    assert.equal(mapRequests.length, 2);
+    assert.equal(reduceRequests.length, 1);
+    assert.deepEqual(mapRequests.map(({ chunkId }) => chunkId), ['map.1-of-2', 'map.2-of-2']);
+    assert.ok(mapRequests.every((request) => request.comments.every(({ text }) => !text.includes('@example.invalid'))));
+    const generation = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId: runId } });
+    assert.equal(generation.checkpointsJson.route, 'map-reduce');
+    assert.equal(generation.checkpointsJson.chunkCount, 2);
+    assert.deepEqual(generation.checkpointsJson.entries.map(({ stageKey }) => stageKey), [
+      'redact', 'count', 'map.1-of-2', 'map.2-of-2', 'reduce', 'validate', 'render', 'store',
+    ]);
+    const mapEntries = generation.checkpointsJson.entries.filter(({ stageKey }) => stageKey.startsWith('map.'));
+    assert.equal(mapEntries.length, 2);
+    const countCheckpoint = generation.checkpointsJson.entries.find(({ stageKey }) => stageKey === 'count');
+    assert.equal(countCheckpoint.payload.chunkCount, 2);
+    assert.deepEqual(countCheckpoint.payload.attempts.map(({ chunkCount }) => chunkCount), [1, 2]);
+    assert.ok(countCheckpoint.payload.directTotalTokens > modelConfig.verifiedInputTokenLimit);
+    assert.ok(countCheckpoint.payload.attempts[0].chunks[0].totalTokens > modelConfig.verifiedInputTokenLimit);
+    assert.ok(countCheckpoint.payload.attempts[1].chunks.every(({ totalTokens }) => totalTokens <= modelConfig.verifiedInputTokenLimit));
+    assert.deepEqual(reduceRequests[0].maps.map(({ outputDigest }) => outputDigest), mapEntries.map(({ outputDigest }) => outputDigest));
+    assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: runId } }), 1);
+    const replay = await executeReportWorker(runId, {
+      cms: client,
+      countTokens: async () => { throw new Error('terminal replay must not count tokens'); },
+      mapProvider: async () => { throw new Error('terminal replay must not map comments'); },
+      reduceProvider: async () => { throw new Error('terminal replay must not reduce maps'); },
+      renderer: { rendererVersion: 'synthetic-map-reduce-renderer.v1', async render() { throw new Error('terminal replay must not render'); } },
+      artifacts: { async stage() { throw new Error('terminal replay must not stage'); }, async readStaged() { return null; }, async discardStaged() {} },
+    });
+    assert.deepEqual(replay, { status: 'succeeded', disposition: 'terminal-replay', reportRunId: runId });
+    assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: runId } }), 1);
+
+    assert.ok(observedRequests.some(({ path: requestPath }) => requestPath.includes('/checkpoints/map.1-of-2')));
+  });
+}
+
+function createSourceIntegrationFetch(port, syntheticToken, observedPages) {
+  const logicalUrl = new URL(`https://cms.example.com${SOURCE_ENDPOINT}`);
+  const localUrl = `http://127.0.0.1:${port}${SOURCE_ENDPOINT}`;
+
+  return async (input, init = {}) => {
+    if (!(input instanceof URL) || input.href !== logicalUrl.href)
+      throw new Error('The test fetch rejected a non-approved logical CMS URL');
+    if (init.method !== 'POST' || init.redirect !== 'error')
+      throw new Error('The test fetch rejected an unexpected transport policy');
+
+    const headers = new Headers(init.headers);
+    if (headers.get('authorization') !== `Bearer ${syntheticToken}`)
+      throw new Error('The test fetch rejected an unexpected synthetic token');
+
+    const upstreamResponse = await fetch(localUrl, {
+      method: init.method,
+      headers,
+      body: init.body,
+      cache: 'no-store',
+      redirect: 'error',
+      signal: init.signal,
+    });
+    if (upstreamResponse.redirected || upstreamResponse.url !== localUrl)
+      throw new Error('The test fetch observed an unexpected local Strapi response origin');
+
+    const request = JSON.parse(String(init.body));
+    const page = await upstreamResponse.clone().json();
+    observedPages.push({ request, page });
+
+    const logicalResponse = new Response(upstreamResponse.body, {
+      status: upstreamResponse.status,
+      statusText: upstreamResponse.statusText,
+      headers: upstreamResponse.headers,
+    });
+    Object.defineProperties(logicalResponse, {
+      url: { value: logicalUrl.href },
+      redirected: { value: false },
+    });
+    return logicalResponse;
+  };
+}
+
+async function verifyAppSourceIntegration(port, syntheticToken) {
+  const {
+    buildAuthoritativeGenerationInputsV1,
+    createPrivateReportSourceTransport,
+  } = loadPrivateReportSourceAppModules();
+  const observedPages = [];
+  const fetchImplementation = createSourceIntegrationFetch(port, syntheticToken, observedPages);
+  const transport = createPrivateReportSourceTransport({
+    baseUrl: 'https://cms.example.com',
+    allowedOrigins: ['https://cms.example.com'],
+    tokenProvider: async () => syntheticToken,
+    fetchImplementation,
+  });
+  const sourceRevision = 'private-source-integration-v1';
+  const evidenceKeyId = 'synthetic-integration-key-1';
+  const sourceInput = {
+    range: { from: '2026-09-01', to: '2026-09-10' },
+    dataCutoffAt: '2026-09-02T12:00:00.000Z',
+    sourceRevision,
+    modelConfig: sourceModelConfig(sourceRevision, evidenceKeyId),
+    pricingSnapshot: {
+      version: 'pricing.v1',
+      currency: 'USD',
+      units: [{ sku: 'gemini-input', inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
+    },
+    evidenceKeyId,
+    readPage: transport.readPage,
+  };
+
+  const materialized = await buildAuthoritativeGenerationInputsV1(sourceInput);
+  const snapshot = materialized.snapshotJson;
+  const submissionsPages = observedPages.filter(({ page }) => page.resource === 'submissions');
+  const versionPages = observedPages.filter(({ page }) => page.resource === 'versions');
+  const pointPages = observedPages.filter(({ page }) => page.resource === 'points');
+  assert.equal(snapshot.population.previousSubmissionCount, 13);
+  assert.equal(snapshot.population.currentSubmissionCount, 13);
+  assert.equal(snapshot.population.excludedAfterCutoffCount, 1);
+  assert.equal(snapshot.population.dataCutoffAt, sourceInput.dataCutoffAt);
+  assert.equal(snapshot.comments.length, 25);
+  assert.equal(new Set(submissionsPages.flatMap(({ page }) => page.items).map(({ receipt }) => receipt)).size, 27);
+  assert.equal(new Set(snapshot.comments.map(({ receipt }) => receipt)).size, 25);
+  assert.equal(materialized.checkpointsJson.entries.length, 0);
+  assert.equal(Object.isFrozen(snapshot), true);
+
+  assert.equal(observedPages.length, 4);
+  assert.equal(submissionsPages.length, 2);
+  assert.deepEqual(submissionsPages.map(({ page }) => page.items.length).sort((a, b) => a - b), [2, 25]);
+  assert.deepEqual(submissionsPages.map(({ page }) => page.total), [27, 27]);
+  assert.deepEqual(submissionsPages.map(({ page }) => page.cursor === null).sort(), [false, true]);
+  const firstSubmissionPage = submissionsPages.find(({ page }) => page.cursor === null).page;
+  const finalSubmissionPage = submissionsPages.find(({ page }) => page.cursor !== null).page;
+  assert.equal(firstSubmissionPage.nextCursor, finalSubmissionPage.cursor);
+  assert.equal(finalSubmissionPage.nextCursor, null);
+  assert.equal(versionPages.length, 1);
+  assert.equal(versionPages[0].page.total, 1);
+  assert.equal(versionPages[0].page.items.length, 1);
+  assert.equal(pointPages.length, 1);
+  assert.equal(pointPages[0].page.total, 1);
+  assert.equal(pointPages[0].page.items.length, 1);
+  assert.equal(submissionsPages.flatMap(({ page }) => page.items).length, 27);
+  assert.ok(submissionsPages.flatMap(({ page }) => page.items).some(({ comment }) => comment === null));
+  assert.ok(submissionsPages.flatMap(({ page }) => page.items).every(({ payloadDigest }) => /^[a-f0-9]{64}$/.test(payloadDigest)));
+  assert.ok(observedPages.every(({ request }) => request.dataCutoffAt === sourceInput.dataCutoffAt));
+  assert.ok(observedPages.every(({ request }) => request.pageSize === 25));
+
+  const interruptedTransport = createPrivateReportSourceTransport({
+    baseUrl: 'https://cms.example.com',
+    allowedOrigins: ['https://cms.example.com'],
+    tokenProvider: async () => syntheticToken,
+    fetchImplementation: async (input, init) => {
+      const request = JSON.parse(String(init.body));
+      if (request.resource === 'submissions' && request.cursor !== null)
+        throw new Error('Synthetic continuation interruption');
+      return fetchImplementation(input, init);
+    },
+  });
+  await assert.rejects(
+    buildAuthoritativeGenerationInputsV1({ ...sourceInput, readPage: interruptedTransport.readPage }),
+    /INVALID_GENERATION_SOURCE/,
+  );
+}
+
+function createAdminCommandFetch(port, generationJwt, createBodies, events) {
+  const logicalOrigin = 'https://cms.example.com';
+
+  return async (input, init = {}) => {
+    const logicalUrl = new URL(String(input));
+    if (
+      logicalUrl.origin !== logicalOrigin ||
+      logicalUrl.pathname !== '/api/survey-report-generations'
+    )
+      throw new Error('The test fetch rejected a non-approved generation URL');
+
+    const method = init.method ?? 'GET';
+    if (!['GET', 'POST'].includes(method))
+      throw new Error('The test fetch rejected an unexpected generation method');
+    const headers = new Headers(init.headers);
+    if (headers.get('authorization') !== `Bearer ${generationJwt}`)
+      throw new Error('The test fetch rejected an unexpected generation principal');
+
+    if (method === 'POST') {
+      const envelope = JSON.parse(String(init.body));
+      assert.deepEqual(Object.keys(envelope), ['data']);
+      createBodies.push(envelope.data);
+      events.push('cms:create:request');
+    }
+
+    const localUrl = `http://127.0.0.1:${port}${logicalUrl.pathname}${logicalUrl.search}`;
+    const response = await fetch(localUrl, {
+      ...init,
+      redirect: 'error',
+    });
+    if (response.redirected || response.url !== localUrl)
+      throw new Error('The test fetch observed an unexpected generation response origin');
+    if (method === 'POST') {
+      if (response.ok) {
+        events.push('cms:create:response');
+      } else {
+        const body = await response.clone().json().catch(() => null);
+        const paths = Array.isArray(body?.error?.details?.errors)
+          ? body.error.details.errors.map(({ path: issuePath }) => issuePath)
+          : [];
+        const knownFields = [
+          'reportRunId', 'periodStart', 'periodEnd', 'dataCutoffAt',
+          'overlapOverrideAccepted', 'overlapDigest', 'snapshotDigest',
+          'sourceRevision', 'snapshotJson', 'checkpointsJson', 'modelConfigJson',
+          'usageJson', 'pricingSnapshotJson', 'requestedBy', 'retryOfGeneration',
+        ].filter((field) => JSON.stringify(body?.error ?? {}).includes(field));
+        events.push(`cms:create:error:${response.status}:${body?.error?.name ?? 'unknown'}:${JSON.stringify(paths)}:${knownFields.join(',')}`);
+      }
+    } else if (response.ok) events.push('cms:find:response');
+    return response;
+  };
+}
+
+async function verifyAppGenerationCommandIntegration(strapi, port, workerToken) {
+  const generationUid = 'api::survey-report-generation.survey-report-generation';
+  const createAction = `${generationUid}.create`;
+  const findAction = `${generationUid}.find`;
+  const permissionQuery = strapi.db.query('plugin::users-permissions.permission');
+  const generationRole = await strapi.db.query('plugin::users-permissions.role').create({
+    data: {
+      name: 'TB-113 Synthetic Generation Command',
+      description: 'Disposable find/create-only integration role',
+      type: 'tb113-generation-command',
+    },
+  });
+  await grant(strapi, generationRole.id, findAction);
+  await grant(strapi, generationRole.id, createAction);
+
+  const generationPermissions = await permissionQuery.findMany({
+    where: { role: generationRole.id },
+  });
+  assert.deepEqual(
+    generationPermissions.map(({ action }) => action).sort(),
+    [createAction, findAction].sort(),
+  );
+  const generationJwt = await createPrincipal(strapi, {
+    name: 'tb113-generation-command-user',
+    email: 'tb113-generation-command-user@local.invalid',
+    role: generationRole,
+  });
+  assert.deepEqual(workerToken.permissions, [SOURCE_ACTION]);
+
+  const sourceRequest = sourceInput('submissions');
+  const jwtOnPrivateSource = await captureQueries(strapi, () =>
+    readPage(port, generationJwt, sourceRequest),
+  );
+  assert.ok([401, 403].includes(jwtOnPrivateSource.result.status));
+  assert.equal(
+    jwtOnPrivateSource.queries.some((sql) => /survey_submissions/.test(sql)),
+    false,
+  );
+
+  const generationEndpoint = `http://127.0.0.1:${port}/api/survey-report-generations`;
+  const beforeCrossUse = await strapi.db.query(generationUid).count();
+  const workerTokenFind = await fetch(generationEndpoint, {
+    headers: { authorization: `Bearer ${workerToken.accessKey}` },
+  });
+  assert.equal(workerTokenFind.status, 403);
+  const workerTokenCreate = await fetch(generationEndpoint, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${workerToken.accessKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ data: {} }),
+  });
+  assert.equal(workerTokenCreate.status, 403);
+  assert.equal(await strapi.db.query(generationUid).count(), beforeCrossUse);
+
+  const failedGeneration = await strapi.documents(generationUid).create({
+    data: {
+      reportRunId: '00000000-0000-4000-8000-000000000101',
+      periodStart: '2026-08-29',
+      periodEnd: '2026-09-05',
+      dataCutoffAt: '2026-09-10T12:00:00.000Z',
+      overlapOverrideAccepted: false,
+      snapshotDigest: 'f'.repeat(64),
+      sourceRevision: 'synthetic-failed-source',
+      snapshotJson: { seeded: 'failed-source' },
+      checkpointsJson: {
+        version: 'survey-checkpoints.v1',
+        snapshotDigest: 'f'.repeat(64),
+        route: 'undecided',
+        chunkCount: null,
+        entries: [],
+      },
+      modelConfigJson: {},
+      usageJson: {},
+      pricingSnapshotJson: {},
+      status: 'failed',
+      completedAt: '2026-09-10T12:01:00.000Z',
+      failureCode: 'SYNTHETIC_FAILURE',
+    },
+  });
+  const originalFailedRow = await strapi.db.query(generationUid).findOne({
+    where: { reportRunId: failedGeneration.reportRunId },
+  });
+  const originalFailedState = {
+    reportRunId: originalFailedRow.reportRunId,
+    periodStart: originalFailedRow.periodStart,
+    periodEnd: originalFailedRow.periodEnd,
+    dataCutoffAt: originalFailedRow.dataCutoffAt,
+    status: originalFailedRow.status,
+    snapshotDigest: originalFailedRow.snapshotDigest,
+    sourceRevision: originalFailedRow.sourceRevision,
+    snapshotJson: originalFailedRow.snapshotJson,
+  };
+
+  const {
+    createFeedbackAdminCommandTransport,
+    createPrivateReportSourceTransport,
+  } = loadPrivateReportSourceAppModules();
+  const sourcePages = [];
+  const sourceFetch = createSourceIntegrationFetch(port, workerToken.accessKey, sourcePages);
+  const sourceTransport = createPrivateReportSourceTransport({
+    baseUrl: 'https://cms.example.com',
+    allowedOrigins: ['https://cms.example.com'],
+    tokenProvider: async () => workerToken.accessKey,
+    fetchImplementation: sourceFetch,
+  });
+  const sourceRevision = 'admin-command-http-integration-v1';
+  const evidenceKeyId = 'synthetic-admin-integration-key-1';
+  const approvedConfiguration = {
+    sourceRevision,
+    modelConfig: sourceModelConfig(sourceRevision, evidenceKeyId),
+    pricingSnapshot: {
+      version: 'pricing.v1',
+      currency: 'USD',
+      units: [{ sku: 'gemini-input', inputMicrosPerMillion: 1, outputMicrosPerMillion: 2 }],
+    },
+    evidenceKeyId,
+  };
+  const createBodies = [];
+  const events = [];
+  const dispatchCalls = [];
+  const dispatcher = {
+    async dispatch(request) {
+      dispatchCalls.push(request);
+      events.push('dispatch');
+      return {
+        contractVersion: 'survey-dispatch-command.v1',
+        status: 'queued',
+        disposition: 'dispatcher-unavailable',
+        taskName: request.taskName,
+        dispatchAttemptCount: 0,
+        failureCode: 'DISPATCH_UNAVAILABLE',
+      };
+    },
+  };
+  const createInputsPort = (readPage = sourceTransport.readPage) => ({
+    readPage,
+    getApprovedConfiguration: async () => approvedConfiguration,
+  });
+  const createTransport = (generationInputs, fetchImplementation = createAdminCommandFetch(
+    port,
+    generationJwt,
+    createBodies,
+    events,
+  )) => createFeedbackAdminCommandTransport({
+    baseUrl: 'https://cms.example.com',
+    token: generationJwt,
+    fetchImplementation,
+    dispatcher,
+    generationInputs,
+  });
+  const transport = createTransport(createInputsPort());
+  const generateCommand = {
+    contractVersion: 'feedback-admin.v1',
+    period: { from: '2026-09-01', to: '2026-09-10' },
+    override: { accepted: false, overlapDigest: null },
+  };
+
+  let overlapError;
+  await assert.rejects(transport.generate(generateCommand), (error) => {
+    overlapError = error;
+    return error.code === 'OVERLAP_REQUIRES_OVERRIDE' && error.status === 409;
+  });
+  assert.equal(typeof overlapError.details.overlapDigest, 'string');
+  assert.equal(sourcePages.length, 0);
+  assert.equal(createBodies.length, 0);
+  assert.equal(dispatchCalls.length, 0);
+
+  const countBeforeRejectedSourceReads = await strapi.db.query(generationUid).count();
+  const deniedSourceTransport = createPrivateReportSourceTransport({
+    baseUrl: 'https://cms.example.com',
+    allowedOrigins: ['https://cms.example.com'],
+    tokenProvider: async () => generationJwt,
+    fetchImplementation: createSourceIntegrationFetch(port, generationJwt, []),
+  });
+  const deniedSourceCommand = createTransport(createInputsPort(deniedSourceTransport.readPage));
+  const retryableGenerateCommand = {
+    ...generateCommand,
+    override: { accepted: true, overlapDigest: overlapError.details.overlapDigest },
+  };
+  await assert.rejects(
+    deniedSourceCommand.generate(retryableGenerateCommand),
+    { code: 'UPSTREAM_UNAVAILABLE', status: 503 },
+  );
+
+  const interruptedSourcePages = [];
+  const interruptedSourceFetch = createSourceIntegrationFetch(
+    port,
+    workerToken.accessKey,
+    interruptedSourcePages,
+  );
+  const interruptedSourceTransport = createPrivateReportSourceTransport({
+    baseUrl: 'https://cms.example.com',
+    allowedOrigins: ['https://cms.example.com'],
+    tokenProvider: async () => workerToken.accessKey,
+    fetchImplementation: async (input, init) => {
+      const request = JSON.parse(String(init.body));
+      if (request.resource === 'submissions' && request.cursor !== null)
+        throw new Error('Synthetic source continuation interruption');
+      return interruptedSourceFetch(input, init);
+    },
+  });
+  const interruptedCommand = createTransport(createInputsPort(interruptedSourceTransport.readPage));
+  await assert.rejects(
+    interruptedCommand.generate(retryableGenerateCommand),
+    { code: 'UPSTREAM_UNAVAILABLE', status: 503 },
+  );
+  assert.ok(interruptedSourcePages.some(({ request, page }) =>
+    request.resource === 'submissions' && request.cursor === null && typeof page.nextCursor === 'string',
+  ));
+  assert.equal(await strapi.db.query(generationUid).count(), countBeforeRejectedSourceReads);
+  assert.equal(createBodies.length, 0);
+  assert.equal(dispatchCalls.length, 0);
+
+  let generationResult;
+  try {
+    generationResult = await transport.generate({
+      ...generateCommand,
+      override: {
+        accepted: true,
+        overlapDigest: overlapError.details.overlapDigest,
+      },
+    });
+  } catch (error) {
+    assert.fail(`Native generation create failed (${error.code ?? 'unknown'}; ${events.at(-1) ?? 'no CMS create response'})`);
+  }
+  assert.equal(generationResult.status, 'queued');
+  assert.equal(sourcePages.length, 4);
+  const firstGenerationPages = sourcePages.slice();
+  assert.equal(firstGenerationPages.filter(({ page }) => page.resource === 'submissions').length, 2);
+  assert.deepEqual(
+    firstGenerationPages
+      .filter(({ page }) => page.resource === 'submissions')
+      .map(({ page }) => page.items.length)
+      .sort((left, right) => left - right),
+    [2, 25],
+  );
+  assert.ok(firstGenerationPages.every(({ request }) => request.pageSize === 25));
+
+  const generationBody = createBodies[0];
+  assert.equal(generationBody.reportRunId, generationResult.reportRunId);
+  const persistedGeneration = await strapi.db.query(generationUid).findOne({
+    where: { reportRunId: generationResult.reportRunId },
+  });
+  assert.ok(persistedGeneration);
+  assert.equal(persistedGeneration.dataCutoffAt, generationBody.dataCutoffAt);
+  assert.equal(generationBody.snapshotJson.population.dataCutoffAt, generationBody.dataCutoffAt);
+  assert.deepEqual(persistedGeneration.snapshotJson, generationBody.snapshotJson);
+  assert.equal(persistedGeneration.snapshotDigest, generationBody.snapshotDigest);
+  assert.equal(
+    persistedGeneration.snapshotDigest,
+    persistedGeneration.checkpointsJson.snapshotDigest,
+  );
+  assert.deepEqual(persistedGeneration.checkpointsJson, generationBody.checkpointsJson);
+  assert.deepEqual(persistedGeneration.modelConfigJson, approvedConfiguration.modelConfig);
+  assert.deepEqual(persistedGeneration.pricingSnapshotJson, approvedConfiguration.pricingSnapshot);
+  assert.equal(persistedGeneration.sourceRevision, sourceRevision);
+  assert.equal(Object.hasOwn(generationBody, 'requestedBy'), false);
+  const requesterLinks = await strapi.db.connection('survey_report_generations_requested_by_lnk')
+    .where({ survey_report_generation_id: persistedGeneration.id })
+    .count({ count: 'id' })
+    .first();
+  assert.equal(Number(requesterLinks.count), 0);
+  assert.ok(firstGenerationPages.every(({ request }) => request.dataCutoffAt === generationBody.dataCutoffAt));
+  assert.equal(events.indexOf('cms:create:response') < events.indexOf('dispatch'), true);
+  assert.equal(dispatchCalls.length, 1);
+
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const sourcePageCountBeforeRetry = sourcePages.length;
+  const retryResult = await transport.retry(
+    failedGeneration.reportRunId,
+    { contractVersion: 'feedback-admin.v1' },
+  );
+  assert.equal(retryResult.status, 'queued');
+  assert.equal(createBodies.length, 2);
+  assert.equal(dispatchCalls.length, 2);
+  const retryBody = createBodies[1];
+  const retryPages = sourcePages.slice(sourcePageCountBeforeRetry);
+  assert.equal(new Set(retryPages.map(({ page }) => page.resource)).size, 3);
+  assert.ok(retryPages.every(({ request }) => request.dataCutoffAt === retryBody.dataCutoffAt));
+  assert.notEqual(retryBody.dataCutoffAt, generationBody.dataCutoffAt);
+  assert.notEqual(retryBody.snapshotDigest, generationBody.snapshotDigest);
+  assert.deepEqual(retryBody.snapshotJson.population.current, {
+    ...retryBody.snapshotJson.population.current,
+    from: '2026-08-29',
+    to: '2026-09-05',
+  });
+  assert.equal(retryBody.snapshotJson.population.dataCutoffAt, retryBody.dataCutoffAt);
+  assert.equal(retryBody.snapshotDigest, retryBody.checkpointsJson.snapshotDigest);
+
+  const persistedRetry = await strapi.documents(generationUid).findFirst({
+    filters: { reportRunId: retryResult.reportRunId },
+    populate: ['retryOfGeneration'],
+  });
+  assert.ok(persistedRetry);
+  assert.equal(persistedRetry.retryOfGeneration.reportRunId, failedGeneration.reportRunId);
+  assert.equal(persistedRetry.dataCutoffAt, retryBody.dataCutoffAt);
+  assert.deepEqual(persistedRetry.snapshotJson, retryBody.snapshotJson);
+  assert.equal(persistedRetry.snapshotDigest, retryBody.snapshotDigest);
+  assert.deepEqual(persistedRetry.checkpointsJson, retryBody.checkpointsJson);
+  assert.deepEqual(persistedRetry.modelConfigJson, approvedConfiguration.modelConfig);
+  assert.deepEqual(persistedRetry.pricingSnapshotJson, approvedConfiguration.pricingSnapshot);
+
+  const unchangedFailedRow = await strapi.db.query(generationUid).findOne({
+    where: { reportRunId: failedGeneration.reportRunId },
+  });
+  assert.deepEqual({
+    reportRunId: unchangedFailedRow.reportRunId,
+    periodStart: unchangedFailedRow.periodStart,
+    periodEnd: unchangedFailedRow.periodEnd,
+    dataCutoffAt: unchangedFailedRow.dataCutoffAt,
+    status: unchangedFailedRow.status,
+    snapshotDigest: unchangedFailedRow.snapshotDigest,
+    sourceRevision: unchangedFailedRow.sourceRevision,
+    snapshotJson: unchangedFailedRow.snapshotJson,
+  }, originalFailedState);
+
+  return generationResult.reportRunId;
+}
+
+function sourceInput(resource, cursor = null, pageSize = 1, overrides = {}) {
+  return {
+    contractVersion: 'survey-generation-source.v1',
+    resource,
+    ...RANGE,
+    cursor,
+    pageSize,
+    ...overrides,
+  };
+}
+
+test('private report source requires its isolated worker action and returns complete raw-source pages', async (testContext) => {
+  let strapi;
+  let strapiStarted = false;
+  let cronStopped = false;
+  const previous = { ...process.env };
+  try {
+    await compose('down', '--volumes', '--remove-orphans', '--timeout=5');
+    await compose('up', '--detach', '--wait');
+    const databasePort = (await compose('port', 'postgres', '5432')).stdout.trim().split(':').at(-1);
+    const secret = 'tb113-private-report-source-local-only';
+    Object.assign(process.env, {
+      NODE_ENV: 'test',
+      ENV_PATH: '/dev/null',
+      DATABASE_CLIENT: 'postgres',
+      DATABASE_HOST: '127.0.0.1',
+      DATABASE_PORT: databasePort,
+      DATABASE_NAME: 'tb113_test_feedback',
+      DATABASE_USERNAME: 'tb113_test_runner',
+      DATABASE_PASSWORD: 'tb113_test_local_only',
+      DATABASE_SSL: 'false',
+      APP_KEYS: `${secret}-1,${secret}-2`,
+      API_TOKEN_SALT: `${secret}-api`,
+      ADMIN_JWT_SECRET: `${secret}-admin`,
+      TRANSFER_TOKEN_SALT: `${secret}-transfer`,
+      JWT_SECRET: `${secret}-jwt`,
+      PORT: '0',
+    });
+
+    const { createStrapi } = require('@strapi/strapi');
+    strapi = createStrapi({ autoReload: false, serveAdminPanel: false });
+    await strapi.load();
+    const regularRole = await strapi.db.query('plugin::users-permissions.role').findOne({
+      where: { type: 'authenticated' },
+    });
+    await grant(strapi, regularRole.id, SOURCE_ACTION);
+    await grant(strapi, regularRole.id, ADMIN_READ_ACTION);
+    const regularJwt = await createPrincipal(strapi, {
+      name: 'tb113-source-regular-user',
+      email: 'tb113-source-regular-user@local.invalid',
+      role: regularRole,
+    });
+    strapi.config.set('admin.secrets.encryptionKey', `${secret}-encryption`);
+    const tokenService = strapi.service('admin::api-token-content-api');
+    const workerToken = await tokenService.create({
+      name: 'tb113-private-source-synthetic-worker',
+      description: 'Disposable source-read token for isolated HTTP coverage',
+      type: 'custom',
+      permissions: [SOURCE_ACTION],
+      lifespan: null,
+    });
+    const ungrantedToken = await tokenService.create({
+      name: 'tb113-private-source-synthetic-ungranted',
+      description: 'Disposable custom token with no source permission',
+      type: 'custom',
+      permissions: [],
+      lifespan: null,
+    });
+    const adminReadToken = await tokenService.create({
+      name: 'tb113-private-feedback-admin-read',
+      description: 'Disposable token scoped only to private feedback administration reads',
+      type: 'custom',
+      permissions: [ADMIN_READ_ACTION],
+      lifespan: null,
+    });
+    assert.deepEqual(workerToken.permissions, [SOURCE_ACTION]);
+    assert.deepEqual(ungrantedToken.permissions, []);
+    assert.deepEqual(adminReadToken.permissions, [ADMIN_READ_ACTION]);
+
+    const version = await strapi.documents('api::survey-version.survey-version').create({
+      data: {
+        versionKey: 'private-source-v1',
+        status: 'published',
+        copyEs: {},
+        copyEn: {},
+        copyPt: {},
+        aspects: [
+          { ownerVersionKey: 'private-source-v1', aspectKey: 'views', sortOrder: 1, labelEs: 'Vistas', labelEn: 'Views', labelPt: 'Vistas' },
+          { ownerVersionKey: 'private-source-v1', aspectKey: 'other', sortOrder: 13, labelEs: 'Otro', labelEn: 'Other', labelPt: 'Outro' },
+        ],
+      },
+    });
+    const point = await strapi.documents('api::survey-qr-point.survey-qr-point').create({
+      data: {
+        pointKey: 'private-source-point',
+        publicCode: 'S'.repeat(32),
+        displayName: 'Private source point',
+        status: 'active',
+        sortOrder: 4,
+      },
+    });
+    const persistence = createSubmissionPersistence(strapi);
+    const sourceSubmissions = Array.from({ length: 27 }, (_, index) => {
+      const acceptedAt = index < 13
+        ? `2026-08-25T15:${String(index).padStart(2, '0')}:00.000Z`
+        : index < 26
+          ? `2026-09-02T04:${String(index - 13).padStart(2, '0')}:00.000Z`
+          : '2026-09-03T15:00:00.000Z';
+      const digestIndex = index + 1;
+      return {
+        index,
+        acceptedAt,
+        receipt: `00000000-0000-4000-8000-${String(digestIndex + 10).padStart(12, '0')}`,
+        payloadDigest: sha256(`private-source-payload-${index}`),
+      };
+    });
+    for (const { index, acceptedAt, receipt, payloadDigest } of sourceSubmissions) {
+      const nonceHash = sha256(`private-source-nonce-${index}`);
+      const browserHash = sha256(`private-source-browser-${index}`);
+      await persistence.accept({
+        contractVersion: 'feedback-cms-submission.v1',
+        operation: 'accept',
+        claims: { pointKey: point.pointKey, publicCodeHash: sha256(point.publicCode), versionKey: version.versionKey },
+        pointDocumentId: point.documentId,
+        versionDocumentId: version.documentId,
+        submission: {
+          receipt,
+          acceptedAt,
+          source: 'valid_qr',
+          locale: 'en',
+          overallRating: (index % 5) + 1,
+          ratings: [
+            { aspectKey: 'views', label: 'Views', sortOrder: 1, rating: 'positive' },
+            { aspectKey: 'other', label: 'Other', sortOrder: 13, rating: 'neutral', customText: 'Access' },
+          ],
+          ...(index === 14 ? { comment: null } : { comment: `Private report comment ${index + 1}` }),
+          sessionNonceHash: nonceHash,
+          payloadDigest,
+          browserTokenHash: browserHash,
+          idempotencyKey: `private-source-key-${String(index + 1).padStart(3, '0')}`,
+        },
+      });
+    }
+
+    await strapi.start();
+    strapiStarted = true;
+    const port = strapi.server.httpServer.address().port;
+    const input = sourceInput('submissions');
+    const anonymous = await readPage(port, null, input);
+    assert.ok([401, 403].includes(anonymous.status));
+    const regularActionGranted = await captureQueries(strapi, () => readPage(port, regularJwt, input));
+    assert.ok([401, 403].includes(regularActionGranted.result.status));
+    assert.equal(regularActionGranted.queries.some((sql) => /survey_submissions/.test(sql)), false);
+    const deniedBeforeValidation = await readPage(port, regularJwt, {
+      ...input,
+      unknown: 'x'.repeat(4096),
+    });
+    assert.ok([401, 403].includes(deniedBeforeValidation.status));
+    const missingAction = await readPage(port, ungrantedToken.accessKey, input);
+    assert.equal(missingAction.status, 403);
+
+    const publicCollectionRead = await fetch(`http://127.0.0.1:${port}/api/survey-submissions`);
+    assert.ok([401, 403].includes(publicCollectionRead.status));
+    const ordinaryCollectionRead = await fetch(`http://127.0.0.1:${port}/api/survey-submissions`, {
+      headers: { authorization: `Bearer ${regularJwt}` },
+    });
+    assert.equal(ordinaryCollectionRead.status, 403);
+    const tokenCollectionRead = await fetch(`http://127.0.0.1:${port}/api/survey-submissions`, {
+      headers: { authorization: `Bearer ${workerToken.accessKey}` },
+    });
+    assert.equal(tokenCollectionRead.status, 403);
+
+    const adminInput = {
+      contractVersion: 'feedback-admin-source.v1',
+      resource: 'submissions',
+      acceptedAtGte: '2026-08-01T00:00:00.000Z',
+      acceptedAtLte: '2026-09-12T23:59:59.999Z',
+      dataCutoffAt: RANGE.dataCutoffAt,
+      cursor: null,
+      pageSize: 25,
+    };
+    const adminAnonymous = await readAdminPage(port, null, adminInput);
+    assert.ok([401, 403].includes(adminAnonymous.status));
+    const jwtAdminDenied = await captureQueries(strapi, () => readAdminPage(port, regularJwt, adminInput));
+    assert.ok([401, 403].includes(jwtAdminDenied.result.status));
+    assert.equal(jwtAdminDenied.queries.some((sql) => /survey_submissions|survey_reports/.test(sql)), false);
+    assert.equal((await readAdminPage(port, workerToken.accessKey, adminInput)).status, 403);
+    const customUnscoped = await readAdminPage(port, ungrantedToken.accessKey, adminInput);
+    assert.equal(customUnscoped.status, 403);
+    const adminPageOne = await readAdminPage(port, adminReadToken.accessKey, adminInput);
+    assert.equal(adminPageOne.status, 200);
+    assert.equal(adminPageOne.body.contractVersion, 'feedback-admin-source.v1');
+    assert.equal(adminPageOne.body.resource, 'submissions');
+    assert.equal(adminPageOne.body.total, 27);
+    assert.equal(adminPageOne.body.items.length, 25);
+    assert.equal(typeof adminPageOne.body.nextCursor, 'string');
+    assert.equal(Object.hasOwn(adminPageOne.body.items[0], 'comment'), true);
+    assert.equal(typeof adminPageOne.body.items[0].payloadDigest, 'string');
+    const adminPageTwo = await readAdminPage(port, adminReadToken.accessKey, {
+      ...adminInput,
+      cursor: adminPageOne.body.nextCursor,
+    });
+    assert.equal(adminPageTwo.status, 200);
+    assert.equal(adminPageTwo.body.total, 27);
+    assert.equal(adminPageTwo.body.items.length, 2);
+    assert.equal(adminPageTwo.body.nextCursor, null);
+    const adminCursorCutoffMismatch = await readAdminPage(port, adminReadToken.accessKey, {
+      ...adminInput,
+      cursor: adminPageOne.body.nextCursor,
+      dataCutoffAt: '2026-09-10T12:00:01.000Z',
+    });
+    assert.equal(adminCursorCutoffMismatch.status, 400);
+
+    const capturedFirst = await captureQueries(strapi, () => readPage(port, workerToken.accessKey, input));
+    const first = capturedFirst.result;
+    assert.equal(first.status, 200);
+    assert.equal(first.body.contractVersion, 'survey-generation-source.v1');
+    assert.equal(first.body.resource, 'submissions');
+    assert.equal(first.body.cursor, null);
+    assert.equal(typeof first.body.nextCursor, 'string');
+    assert.equal(first.body.total, 14);
+    assert.equal(first.body.items.length, 1);
+    const firstItem = first.body.items[0];
+    assert.equal(firstItem.receipt, '00000000-0000-4000-8000-000000000024');
+    assert.equal(firstItem.comment, 'Private report comment 14');
+    assert.equal(firstItem.payloadDigest, sourceSubmissions[13].payloadDigest);
+    assert.equal(firstItem.source, 'valid_qr');
+    assert.deepEqual(firstItem.ratings.map(({ aspectKey, sortOrder, rating }) => ({ aspectKey, sortOrder, rating })), [
+      { aspectKey: 'views', sortOrder: 1, rating: 'positive' },
+      { aspectKey: 'other', sortOrder: 13, rating: 'neutral' },
+    ]);
+    assert.equal(firstItem.qrPoint.documentId, point.documentId);
+    assert.equal(firstItem.qrPoint.pointKey, point.pointKey);
+    assert.equal(firstItem.surveyVersion.documentId, version.documentId);
+    assert.equal(firstItem.surveyVersion.versionKey, version.versionKey);
+    const sourceProjection = capturedFirst.queries.find((sql) => /select\b/i.test(sql) && /survey_submissions/.test(sql) && /payload_digest/.test(sql));
+    assert.ok(sourceProjection);
+    assert.match(sourceProjection, /submission"\."comment"/i);
+    assert.match(sourceProjection, /submission"\."payload_digest"/i);
+    assert.doesNotMatch(sourceProjection, /session_nonce_hash|browser_token_hash|idempotency_key/i);
+
+    const second = await readPage(port, workerToken.accessKey, sourceInput('submissions', first.body.nextCursor));
+    assert.equal(second.status, 200);
+    assert.equal(second.body.cursor, first.body.nextCursor);
+    assert.equal(typeof second.body.nextCursor, 'string');
+    assert.equal(second.body.total, 14);
+    assert.equal(second.body.items.length, 1);
+    assert.equal(second.body.items[0].receipt, '00000000-0000-4000-8000-000000000025');
+    assert.equal(Object.hasOwn(second.body.items[0], 'comment'), true);
+    assert.equal(second.body.items[0].comment, null);
+
+    for (const changedCursorScope of [
+      sourceInput('submissions', first.body.nextCursor, 1, { dataCutoffAt: '2026-09-10T12:00:01.000Z' }),
+      sourceInput('versions', first.body.nextCursor, 1),
+      sourceInput('submissions', first.body.nextCursor, 1, { acceptedAtGte: '2026-09-02T03:00:00.000Z' }),
+    ]) {
+      const rejected = await readPage(port, workerToken.accessKey, changedCursorScope);
+      assert.equal(rejected.status, 400);
+      assert.equal(rejected.body.error.code, 'VALIDATION_FAILED');
+    }
+
+    for (const resource of ['versions', 'points']) {
+      const page = await readPage(port, workerToken.accessKey, sourceInput(resource, null, 25));
+      assert.equal(page.status, 200);
+      assert.equal(page.body.total, 1);
+      assert.equal(page.body.items.length, 1);
+      if (resource === 'versions') {
+        assert.equal(page.body.items[0].documentId, version.documentId);
+        assert.equal(page.body.items[0].versionKey, version.versionKey);
+        assert.deepEqual(page.body.items[0].aspects.map(({ aspectKey, sortOrder }) => ({ aspectKey, sortOrder })), [
+          { aspectKey: 'views', sortOrder: 1 },
+          { aspectKey: 'other', sortOrder: 13 },
+        ]);
+      } else {
+        assert.equal(page.body.items[0].documentId, point.documentId);
+        assert.equal(page.body.items[0].pointKey, point.pointKey);
+      }
+    }
+
+    await verifyAppSourceIntegration(port, workerToken.accessKey);
+    const appCreatedReportRunId = await verifyAppGenerationCommandIntegration(strapi, port, workerToken);
+    await verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRunId, testContext);
+
+    for (const malformed of [
+      { ...input, unknown: true },
+      { ...input, acceptedAtGte: '2026-09-01' },
+      { ...input, acceptedAtLte: '2026-08-01T00:00:00.000Z' },
+      { ...input, dataCutoffAt: '2026-09-10' },
+      { ...input, pageSize: 0 },
+      { ...input, pageSize: 26 },
+      { ...input, resource: 'survey-report-generation' },
+      { ...input, cursor: 'forged-invalid-cursor' },
+    ]) {
+      const rejected = await readPage(port, workerToken.accessKey, malformed);
+      assert.equal(rejected.status, 400);
+      assert.equal(rejected.body.error.code, 'VALIDATION_FAILED');
+    }
+
+    const oversized = await readPage(port, workerToken.accessKey, {
+      ...sourceInput('submissions', null, 25),
+      extra: 'x'.repeat(4096),
+    });
+    assert.equal(oversized.status, 413);
+    assert.equal(oversized.body.error.code, 'PAYLOAD_TOO_LARGE');
+
+    const service = strapi.service('api::survey-report-generation.survey-report-generation');
+    const originalReader = service.readWorkerReportSourcePage;
+    service.readWorkerReportSourcePage = async () => {
+      throw Object.assign(new Error('synthetic database detail must not escape'), { code: 'SOURCE_UNAVAILABLE' });
+    };
+    try {
+      const unavailable = await readPage(port, workerToken.accessKey, input);
+      assert.equal(unavailable.status, 503);
+      assert.equal(unavailable.body.error.code, 'UPSTREAM_UNAVAILABLE');
+      assert.equal(JSON.stringify(unavailable.body).includes('synthetic database detail'), false);
+      service.readWorkerReportSourcePage = async () => {
+        throw new Error('synthetic internal detail must not escape');
+      };
+      const internal = await readPage(port, workerToken.accessKey, input);
+      assert.equal(internal.status, 500);
+      assert.equal(internal.body.error.code, 'INTERNAL_ERROR');
+      assert.equal(JSON.stringify(internal.body).includes('synthetic internal detail'), false);
+    } finally {
+      service.readWorkerReportSourcePage = originalReader;
+    }
+  } finally {
+    if (strapi) {
+      if (strapi.cron && typeof strapi.cron.stop === 'function') {
+        strapi.cron.stop();
+        cronStopped = true;
+        if (strapiStarted)
+          assert.equal(strapi.cron.jobs.every(({ job }) => job.nextInvocation() === null), true);
+      }
+      await strapi.destroy();
+      if (strapiStarted) assert.equal(strapi.server.httpServer.listening, false);
+    }
+    if (strapiStarted) assert.equal(cronStopped, true);
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    await compose('down', '--volumes', '--remove-orphans', '--timeout=5');
+    const label = `label=com.docker.compose.project=${OWNER}`;
+    assert.equal((await executeFixed(DOCKER_EXECUTABLE, ['ps', '-aq', '--filter', label])).stdout.trim(), '');
+    assert.equal((await executeFixed(DOCKER_EXECUTABLE, ['volume', 'ls', '-q', '--filter', label])).stdout.trim(), '');
+  }
+});

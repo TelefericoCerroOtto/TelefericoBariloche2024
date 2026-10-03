@@ -59,7 +59,7 @@ Each generation MUST accumulate model cost from returned `usageMetadata` using a
 
 ### Requirement: Private storage and retention
 
-The environment's existing private bucket MUST use `private/feedback-reports/{reportId}/...` for report artifacts and `private/report-diagnostics/{reportRunId}/...` for sanitized failures unless separately approved isolation requirements diverge. Direct public access and signed-URL disclosure MUST be denied. Metadata and validated output MUST be retained indefinitely; sanitized diagnostics MUST expire after 30 days; raw prompts/comments MUST NOT be retained in diagnostics. (Primary: D78-D79)
+The environment's existing private bucket MUST use the exact report object key `private/feedback-reports/{reportId}/report.pdf` and `private/report-diagnostics/{reportRunId}/...` for sanitized failures unless separately approved isolation requirements diverge. Report storage MUST require an explicitly injected private bucket port, private/no-store PDF metadata, a positive bounded size, a SHA-256 binding, and run ownership; create and cleanup MUST be conditional and idempotent. Direct public access and signed-URL disclosure MUST be denied. Metadata and validated output MUST be retained indefinitely; sanitized diagnostics MUST expire after 30 days; raw prompts/comments MUST NOT be retained in diagnostics. Offline adapter tests do not prove bucket policy, IAM, or lifecycle configuration. (Primary: D78-D79)
 
 #### Scenario: Apply lifecycle by prefix
 - GIVEN report and diagnostic objects

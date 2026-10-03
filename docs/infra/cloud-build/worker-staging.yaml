@@ -1,0 +1,181 @@
+# PROPOSED / NOT INSTALLED IN GCP
+# Documentary snapshot only; GCP's inline trigger configuration is the operational source of truth.
+# Required operator inputs remain placeholders; no worker trigger or service is provisioned by this file.
+steps:
+  - name: node@sha256:7cc56ef285a8568121537d17b05e72128f01b89c54607b51acf084a50ef483f3
+    id: Prepare verified worker bundle
+    dir: services/survey-report-worker
+    entrypoint: bash
+    env:
+      - COREPACK_DEFAULT_TO_LATEST=0
+      - CLOUD_BUILD_PROJECT_ID=$PROJECT_ID
+      - CLOUD_BUILD_PROJECT_NUMBER=$PROJECT_NUMBER
+      - SOURCE_COMMIT_SHA=$COMMIT_SHA
+      - AR_LOCATION=${_AR_LOCATION}
+      - AR_REPOSITORY=${_AR_REPOSITORY}
+      - STRAPI_BASE_URL=${_STRAPI_BASE_URL}
+      - CMS_ALLOWED_ORIGIN=${_CMS_ALLOWED_ORIGIN}
+      - TASK_INVOKER_SERVICE_ACCOUNT=${_TASK_INVOKER_SERVICE_ACCOUNT}
+      - WORKER_RUNTIME_SERVICE_ACCOUNT=${_WORKER_RUNTIME_SERVICE_ACCOUNT}
+      - WORKER_CMS_TOKEN_SECRET_VERSION=${_WORKER_CMS_TOKEN_SECRET_VERSION}
+      - PRIVATE_BUCKET=${_PRIVATE_BUCKET}
+      - EVIDENCE_KEY_RESOURCE=${_EVIDENCE_KEY_RESOURCE}
+      - WORKER_SERVICE_NAME=${_WORKER_SERVICE_NAME}
+      - WORKER_REGION=${_WORKER_REGION}
+    args:
+      - -ceu
+      - |
+        require_operator_value() {
+          case "$$1" in
+            ""|REQUIRED_OPERATOR_VALUE)
+              printf 'Required nonsecret Cloud Build input is not configured.\n' >&2
+              exit 2
+              ;;
+          esac
+        }
+        for value in \
+          "$$AR_LOCATION" "$$AR_REPOSITORY" "$$STRAPI_BASE_URL" \
+          "$$CMS_ALLOWED_ORIGIN" "$$TASK_INVOKER_SERVICE_ACCOUNT" \
+          "$$WORKER_RUNTIME_SERVICE_ACCOUNT" \
+          "$$WORKER_CMS_TOKEN_SECRET_VERSION" "$$PRIVATE_BUCKET" \
+          "$$EVIDENCE_KEY_RESOURCE"; do
+          require_operator_value "$$value"
+        done
+        for value in \
+          "$$AR_LOCATION" "$$AR_REPOSITORY" "$$STRAPI_BASE_URL" \
+          "$$CMS_ALLOWED_ORIGIN" "$$TASK_INVOKER_SERVICE_ACCOUNT" \
+          "$$WORKER_RUNTIME_SERVICE_ACCOUNT" \
+          "$$WORKER_CMS_TOKEN_SECRET_VERSION" "$$PRIVATE_BUCKET" \
+          "$$EVIDENCE_KEY_RESOURCE"; do
+          case "$$value" in
+            *,*|*=*)
+              printf 'A nonsecret Cloud Build input contains an unsupported delimiter.\n' >&2
+              exit 2
+              ;;
+          esac
+        done
+        test "$$(node --version)" = "v22.22.0"
+        corepack enable
+        test "$$(pnpm --version)" = "10.33.0"
+        test "$$CLOUD_BUILD_PROJECT_ID" = "teleferico-bariloche-2024"
+        test "$$CLOUD_BUILD_PROJECT_NUMBER" = "384535443802"
+        [[ "$$AR_LOCATION" =~ ^[a-z0-9-]+$$ ]]
+        [[ "$$AR_REPOSITORY" =~ ^[a-z][a-z0-9-]{0,62}$$ ]]
+        [[ "$$SOURCE_COMMIT_SHA" =~ ^[a-f0-9]{40}$$ ]]
+        test "$$WORKER_SERVICE_NAME" = "feedback-worker-staging"
+        test "$$WORKER_REGION" = "southamerica-east1"
+        [[ "$$CLOUD_BUILD_PROJECT_NUMBER" =~ ^[1-9][0-9]{0,19}$$ ]]
+        [[ "$$WORKER_CMS_TOKEN_SECRET_VERSION" =~ ^[A-Za-z0-9_-]{1,255}:[1-9][0-9]*$$ ]]
+        [[ "$$EVIDENCE_KEY_RESOURCE" =~ ^projects/teleferico-bariloche-2024/secrets/[A-Za-z0-9_-]{1,255}/versions/[1-9][0-9]*$$ ]]
+        [[ "$$TASK_INVOKER_SERVICE_ACCOUNT" =~ ^[^[:space:]@]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$$ ]]
+        [[ "$$WORKER_RUNTIME_SERVICE_ACCOUNT" =~ ^[^[:space:]@]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$$ ]]
+        [[ "$$TASK_INVOKER_SERVICE_ACCOUNT" == "$$WORKER_RUNTIME_SERVICE_ACCOUNT" ]] && {
+          printf 'Task invoker and worker runtime service accounts must be distinct.\n' >&2
+          exit 2
+        }
+        worker_host_label="$$WORKER_SERVICE_NAME-$$CLOUD_BUILD_PROJECT_NUMBER"
+        test "$${#worker_host_label}" -le 63
+        worker_origin="https://$$worker_host_label.$$WORKER_REGION.run.app"
+        worker_url="$$worker_origin/internal/v1/report-runs:execute"
+        node --input-type=module -e '
+          const base = new URL(process.env.STRAPI_BASE_URL);
+          const allowed = new URL(process.env.CMS_ALLOWED_ORIGIN);
+          if (base.protocol !== "https:" || base.username || base.password ||
+              base.pathname !== "/" || base.search || base.hash ||
+              process.env.STRAPI_BASE_URL !== base.origin ||
+              process.env.CMS_ALLOWED_ORIGIN !== allowed.origin ||
+              base.origin !== allowed.origin) process.exit(2);
+        '
+        unset AR_LOCATION AR_REPOSITORY STRAPI_BASE_URL CMS_ALLOWED_ORIGIN \
+          TASK_INVOKER_SERVICE_ACCOUNT WORKER_RUNTIME_SERVICE_ACCOUNT \
+          WORKER_CMS_TOKEN_SECRET_VERSION PRIVATE_BUCKET EVIDENCE_KEY_RESOURCE
+        pnpm install --frozen-lockfile
+        node --test test/image-contract.test.mjs
+        pnpm run typecheck
+        pnpm exec playwright install --with-deps chromium
+        apt-get update
+        apt-get install --yes --no-install-recommends fonts-dejavu-core
+        rm -rf /var/lib/apt/lists/*
+        pnpm run build
+    timeout: 1800s
+
+  - name: gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c
+    id: Build worker image
+    args:
+      - build
+      - --file
+      - services/survey-report-worker/Dockerfile
+      - --tag
+      - ${_AR_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/survey-report-worker:$COMMIT_SHA
+      - .
+    timeout: 1800s
+
+  - name: gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c
+    id: Push worker image
+    args:
+      - push
+      - ${_AR_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPOSITORY}/survey-report-worker:$COMMIT_SHA
+    timeout: 600s
+
+  - name: gcr.io/google.com/cloudsdktool/google-cloud-cli@sha256:cf49fc2128c4b140379aeb7532be42fefb5616e59952a99d4b548ca472752a74
+    id: Deploy private staging worker
+    entrypoint: bash
+    env:
+      - CLOUD_BUILD_PROJECT_ID=$PROJECT_ID
+      - CLOUD_BUILD_PROJECT_NUMBER=$PROJECT_NUMBER
+      - BUILD_COMMIT_SHA=$COMMIT_SHA
+      - AR_LOCATION=${_AR_LOCATION}
+      - AR_REPOSITORY=${_AR_REPOSITORY}
+      - STRAPI_BASE_URL=${_STRAPI_BASE_URL}
+      - CMS_ALLOWED_ORIGIN=${_CMS_ALLOWED_ORIGIN}
+      - TASK_INVOKER_SERVICE_ACCOUNT=${_TASK_INVOKER_SERVICE_ACCOUNT}
+      - WORKER_RUNTIME_SERVICE_ACCOUNT=${_WORKER_RUNTIME_SERVICE_ACCOUNT}
+      - WORKER_CMS_TOKEN_SECRET_VERSION=${_WORKER_CMS_TOKEN_SECRET_VERSION}
+      - PRIVATE_BUCKET=${_PRIVATE_BUCKET}
+      - EVIDENCE_KEY_RESOURCE=${_EVIDENCE_KEY_RESOURCE}
+      - WORKER_SERVICE_NAME=${_WORKER_SERVICE_NAME}
+      - WORKER_REGION=${_WORKER_REGION}
+    args:
+      - -ceu
+      - |
+        test "$$CLOUD_BUILD_PROJECT_NUMBER" = "384535443802"
+        worker_host_label="$$WORKER_SERVICE_NAME-$$CLOUD_BUILD_PROJECT_NUMBER"
+        worker_origin="https://$$worker_host_label.$$WORKER_REGION.run.app"
+        worker_url="$$worker_origin/internal/v1/report-runs:execute"
+        worker_image="$$AR_LOCATION-docker.pkg.dev/$$CLOUD_BUILD_PROJECT_ID/$$AR_REPOSITORY/survey-report-worker:$$BUILD_COMMIT_SHA"
+        test "$${#worker_host_label}" -le 63
+        gcloud run deploy "$$WORKER_SERVICE_NAME" \
+          --project="$$CLOUD_BUILD_PROJECT_ID" \
+          --region="$$WORKER_REGION" \
+          --image="$$worker_image" \
+          --no-allow-unauthenticated \
+          --ingress=internal \
+          --service-account="$$WORKER_RUNTIME_SERVICE_ACCOUNT" \
+          --cpu=1 \
+          --memory=2Gi \
+          --concurrency=1 \
+          --min-instances=0 \
+          --max-instances=1 \
+          --cpu-throttling \
+          --timeout=1800s \
+          --set-env-vars="BUILD_STRAPI_BASE_URL=$$STRAPI_BASE_URL,FEEDBACK_CMS_ALLOWED_ORIGIN=$$CMS_ALLOWED_ORIGIN,FEEDBACK_WORKER_URL=$$worker_url,FEEDBACK_WORKER_OIDC_AUDIENCE=$$worker_origin,FEEDBACK_TASK_INVOKER_EMAIL=$$TASK_INVOKER_SERVICE_ACCOUNT,FEEDBACK_WORKER_OIDC_PRINCIPAL=$$TASK_INVOKER_SERVICE_ACCOUNT,FEEDBACK_VERTEX_PROJECT_ID=$$CLOUD_BUILD_PROJECT_ID,FEEDBACK_PRIVATE_BUCKET=$$PRIVATE_BUCKET,FEEDBACK_WORKER_EVIDENCE_KEY=$$EVIDENCE_KEY_RESOURCE" \
+          --set-secrets="FEEDBACK_WORKER_CMS_TOKEN=$$WORKER_CMS_TOKEN_SECRET_VERSION"
+    timeout: 1800s
+
+substitutions:
+  _AR_LOCATION: southamerica-east1
+  _AR_REPOSITORY: REQUIRED_OPERATOR_VALUE
+  _STRAPI_BASE_URL: https://cms-staging-teleferico-ra2cbgog2a-rj.a.run.app
+  _CMS_ALLOWED_ORIGIN: https://cms-staging-teleferico-ra2cbgog2a-rj.a.run.app
+  _TASK_INVOKER_SERVICE_ACCOUNT: feedback-task-invoker-staging@teleferico-bariloche-2024.iam.gserviceaccount.com
+  _WORKER_RUNTIME_SERVICE_ACCOUNT: feedback-worker-staging@teleferico-bariloche-2024.iam.gserviceaccount.com
+  _WORKER_CMS_TOKEN_SECRET_VERSION: REQUIRED_OPERATOR_VALUE
+  _PRIVATE_BUCKET: feedback-reports-staging-384535443802
+  _EVIDENCE_KEY_RESOURCE: REQUIRED_OPERATOR_VALUE
+  _WORKER_SERVICE_NAME: feedback-worker-staging
+  _WORKER_REGION: southamerica-east1
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 7200s

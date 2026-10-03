@@ -20,7 +20,17 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@teleferico/survey-reporting-core": [
+        "../packages/survey-reporting-core/src/index.ts"
+      ],
+      "@teleferico/tb113-private-report-storage": [
+        "../packages/tb113-private-report-storage/src/index.ts"
+      ],
+      "@teleferico/tb113-runtime-contracts": [
+        "../packages/tb113-runtime-contracts/src/index.ts"
+      ],
+      "@google-cloud/storage": ["./node_modules/@google-cloud/storage"]
     },
     "target": "ES2020"
   },

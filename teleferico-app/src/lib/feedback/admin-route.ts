@@ -16,6 +16,10 @@ import {
   parseRetryCommand,
 } from "./admin-command";
 import {
+  FeedbackReportDownloadError,
+  getFeedbackReportDownload,
+} from "./report-download";
+import {
   parseFeedbackAdminFilters,
   projectAspects,
   projectComments,
@@ -47,6 +51,7 @@ function errorResponse(
     | "OVERLAP_REQUIRES_OVERRIDE"
     | "ACTIVE_RANGE_CONFLICT"
     | "INVALID_STATE"
+    | "REPORT_PROFILE_NOT_CONFIGURED"
     | "INTERNAL_ERROR",
   statusOverride?: number,
   details?: FeedbackAdminOverlapDetails,
@@ -79,6 +84,7 @@ function errorResponse(
     ACTIVE_RANGE_CONFLICT:
       "A report generation is already active for this range",
     INVALID_STATE: "The report generation is not in a retryable state",
+    REPORT_PROFILE_NOT_CONFIGURED: "The TB-113 report profile is not configured",
     INTERNAL_ERROR: "Feedback administration failed",
   }[code];
   return NextResponse.json(
@@ -162,9 +168,7 @@ export async function handleFeedbackAdminRead(
     if (!auth.ok) return auth.response;
     const filters = parseFeedbackAdminFilters(route, query(req));
     if (!filters.ok) return errorResponse(filters.code);
-    const result = await getFeedbackAdminReader(auth.session.jwt).read(
-      filters.value,
-    );
+    const result = await getFeedbackAdminReader().read(filters.value);
     return NextResponse.json(
       { ...result, data: projectAnalytics(result.data, filters.value) },
       { status: 200 },
@@ -172,6 +176,24 @@ export async function handleFeedbackAdminRead(
   } catch (error) {
     if (!(error instanceof FeedbackAdminReaderError))
       console.error("[admin/feedback] read failed", error);
+    return errorResponse("UPSTREAM_UNAVAILABLE");
+  }
+}
+
+export async function handleFeedbackAdminGenerations(req: NextRequest) {
+  if (!isFeedbackCapabilityEnabled())
+    return feedbackCapabilityUnavailableResponse();
+  try {
+    const auth = await authenticate(req, "feedback.reports.read");
+    if (!auth.ok) return auth.response;
+    const filters = parseFeedbackAdminFilters("generations", query(req));
+    if (!filters.ok || filters.value.route !== "generations")
+      return errorResponse("VALIDATION_FAILED");
+    const result = await getFeedbackAdminReader().readGenerations(filters.value);
+    return NextResponse.json(result, { status: 200 });
+  } catch (error) {
+    if (!(error instanceof FeedbackAdminReaderError))
+      console.error("[admin/feedback] generation history read failed", error);
     return errorResponse("UPSTREAM_UNAVAILABLE");
   }
 }
@@ -226,5 +248,55 @@ export async function handleFeedbackAdminRetry(
     return NextResponse.json(result, { status: 202 });
   } catch (error) {
     return commandErrorResponse(error);
+  }
+}
+
+export async function handleFeedbackAdminReportDownload(
+  req: NextRequest,
+  reportId: string,
+) {
+  if (!isFeedbackCapabilityEnabled())
+    return feedbackCapabilityUnavailableResponse();
+  const auth = await authenticate(req, "feedback.reports.read");
+  if (!auth.ok) return auth.response;
+  if (
+    req.nextUrl.search !== "" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(reportId)
+  )
+    return NextResponse.json(
+      { error: { code: "VALIDATION_FAILED", message: "The report identifier is invalid" } },
+      { status: 400 },
+    );
+
+  try {
+    const { metadata, bytes } = await getFeedbackReportDownload().read(reportId);
+    const body = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(body).set(bytes);
+    return new Response(body, {
+      status: 200,
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Content-Disposition": `attachment; filename="feedback-report-${reportId}.pdf"`,
+        "Content-Length": String(metadata.size),
+        "Content-Type": "application/pdf",
+        ETag: `"${metadata.sha256}"`,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch (error) {
+    const code =
+      error instanceof FeedbackReportDownloadError ? error.code : "UPSTREAM_UNAVAILABLE";
+    return NextResponse.json(
+      {
+        error: {
+          code,
+          message:
+            code === "NOT_FOUND"
+              ? "The requested report was not found"
+              : "Feedback administration is temporarily unavailable",
+        },
+      },
+      { status: code === "NOT_FOUND" ? 404 : 503 },
+    );
   }
 }

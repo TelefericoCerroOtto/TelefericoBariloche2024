@@ -25,6 +25,7 @@ application boundary documents the exact read or command action.
 | `Public`                        | Users & Permissions role | Unauthenticated visitors     | Default role for unauthenticated users.                                                                                             | N/A       | Role       |
 | `Authenticated`                 | Users & Permissions role | Authenticated users          | Default role for authenticated users.                                                                                               | N/A       | Role       |
 | `Administrator`                 | Users & Permissions role | CMS administrators           | Administrative access for managing application features and users.                                                                  | N/A       | Role       |
+| `Digital Experience Operator`   | Users & Permissions role | Feedback dashboard operators | Least-privilege CMS actions plus the four app-level feedback capabilities.                                                          | N/A       | Role       |
 | `Super Admin`                   | Strapi Admin Panel role  | Project maintainer/developer | Full direct CMS administration. Not used by `teleferico-app`, API tokens or public user flows.                                      | N/A       | Admin role |
 
 ## Secret names
@@ -47,6 +48,7 @@ These profiles are expected to exist with the same permission shape in every run
 | `Public` role                  | Same default permissions  | Same default permissions  | Same default permissions  |
 | `Authenticated` role           | Same default permissions  | Same default permissions  | Same default permissions  |
 | `Administrator` role           | Same permissions          | Same permissions          | Same permissions          |
+| `Digital Experience Operator` role | Same feedback capabilities and documented native actions | Same feedback capabilities and documented native actions | Same feedback capabilities and documented native actions |
 | `Super Admin` admin role       | Maintainer/developer only | Maintainer/developer only | Maintainer/developer only |
 
 Content exposed through the public-facing application must be treated as published/public content. Draft or preview access is not part of the token model described here.
@@ -115,9 +117,13 @@ This server-only token is used exclusively by the visitor feedback CMS transport
 | `survey-settings.find` / `findOne` | ✅ |
 | `survey-version.find` / `findOne` | ✅ |
 | `survey-qr-point.find` / `findOne` | ✅ |
-| `survey-submission.find` / `findOne` | ✅ for admin readers only |
-| `survey-report.find` / `findOne` | ✅ for admin readers only |
+| `survey-submission.find` / `findOne` | —; private admin projection uses `feedbackAdminRead` |
+| `survey-report.find` / `findOne` | —; private admin projection uses `feedbackAdminRead` |
 | `survey-submission.submit` | ✅ |
+
+The public survey transport requests only `versionKey` and `status` from `survey-version`; it must not request the private `lastSupersededAt` lifecycle field through Strapi's native Content API. This restores resolution of the current survey only. The 30-minute grace period for sessions from superseded versions remains unverified and deferred: supporting it requires a narrow server-side lifecycle read and a correction to submission-version binding. Do not make the lifecycle field public or claim that old sessions are accepted.
+
+For the public submission command, an HTTP 204 from `lookup` means no prior submission; the app handles it without JSON decoding. This is distinct from a newly accepted submission (201) or an idempotent replay (200).
 
 ## Transfer tokens
 
@@ -179,6 +185,10 @@ The `Authenticated` role has no `image-asset` permissions.
 
 Administrative role for managing CMS application features and users.
 
+This is the **Users & Permissions `Administrator` role** used by
+`teleferico-app` authentication. It is distinct from the Strapi Admin Panel's
+`Super Admin` role described below.
+
 | Content type            | `find` | `findOne` | `create` | `update` | `delete` |
 | ----------------------- | :----: | :-------: | :------: | :------: | :------: |
 | `activity`              |   ✅   |    ✅     |    ✅    |    ✅    |    —     |
@@ -199,9 +209,42 @@ Administrative role for managing CMS application features and users.
 | `zone`                  |   ✅   |    ✅     |    ✅    |    ✅    |    —     |
 | `zone-translation`      |   ✅   |    ✅     |    ✅    |    ✅    |    —     |
 
+### `Digital Experience Operator`
+
+This Users & Permissions role is intended for staff who operate the public
+experience dashboard. It receives the same four app-level feedback capability
+claims as `Administrator`; it does not receive the Administrator role's other
+CMS collection permissions by virtue of that mapping.
+
+Both named app roles require `users-permissions.role.find` and
+`users-permissions.user.me` for credentials login and current role verification.
+These actions do not grant role management.
+
+When the Users & Permissions `Administrator` role uses TB-113 generation, it
+also needs the same native `survey-report-generation.find`,
+`survey-report-generation.create`, and `survey-report-generation.dispatchState`
+actions. This is additive to the existing Administrator matrix above; the
+application capability mapping does not grant these Strapi actions.
+
+For report generation, this role must be granted only the CMS actions used by
+the normal app command flow: `survey-report-generation.find`,
+`survey-report-generation.create`, and the explicit
+`survey-report-generation.dispatchState` action. The app and worker use
+separate grouped Custom Content API tokens: the app token has exactly
+`feedbackAdminRead`, `workerSourceRead`, and `workerReportDownloadMetadata`; the
+worker token has exactly `workerClaim`, `workerSnapshot`, `workerCheckpoint`,
+`workerComplete`, and `workerFail`. These actions must never be granted to a
+Users & Permissions role.
+Grant `survey-report-generation.dispatchFailure` only if the deployment
+requires the separately documented verified enqueue-exhaustion compensation.
+No role or token grant is provisioned automatically by this repository.
+
 ## Strapi Admin Panel access
 
-The Strapi Admin Panel is managed by the project maintainer/developer.
+The Strapi Admin Panel is managed by the project maintainer/developer. Its
+Super Admin role is separate from Users & Permissions roles such as
+`Administrator` and `Digital Experience Operator`; panel membership does not
+grant app-session feedback capabilities.
 
 | Admin role    | Purpose                 | Notes                                                                                                   |
 | ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -217,9 +260,11 @@ Anything not listed in this document is not part of the expected permission mode
 
 The survey catalog (`survey-version`, `survey-settings`, `survey-qr-point`,
 `survey-submission`, `survey-report-generation`, and `survey-report`) remains
-disabled by default. The feedback transport uses only bounded native `find`/
-`findOne` reads for the survey catalog plus the token-authenticated
-`survey-submission` command listed above. U8-B uses the native Strapi core
+disabled by default. Public feedback transport uses only bounded native `find`/
+`findOne` reads for the public survey catalog plus the token-authenticated
+`survey-submission` command listed above. Private administration reads use the
+separate custom `feedbackAdminRead` action described below, not native
+submission/report collection reads. U8-B uses the native Strapi core
 routes for `survey-report-generation` through the server-mediated application
 user JWT from the Auth.js session. The corresponding Users & Permissions role
 may receive only the native `find` and `create` actions needed by the command
@@ -231,34 +276,70 @@ action for server-mediated task-name reservation and bounded outcome recording;
 it is also denied unless separately granted and is not called by the app yet.
 It permits only reservation, created, and unknown states; it rejects claimed
 absence and cannot compensate a queued generation. These custom actions use the
-application user JWT, not an API token. The worker
-`survey-report-generation.workerClaim` action is separately denied unless
-explicitly granted to an approved worker credential. This repository adds no
+application user JWT, not an API token. The
+`survey-report-generation.workerClaim`, `workerSnapshot`, `workerCheckpoint`,
+`workerSourceRead`, `workerReportDownloadMetadata`, `workerComplete`, `workerFail`, and `workerAlertAck` actions are available only through Strapi's native
+`content-api-token` strategy with exact action scopes. The app token includes
+only `workerSourceRead` and `workerReportDownloadMetadata` from this list; the
+worker token includes only its five worker lifecycle actions. Their controllers
+also require Strapi's runtime-selected strategy,
+`kind: "content-api"`, and `type: "custom"` before controller body measurement,
+validation, or database access. A Users & Permissions JWT is denied even if its
+role is granted the same action. This intentionally changes compatibility:
+existing application JWT roles with any of these worker action grants no longer
+authorize the worker routes; those grants are not a fallback and must not be
+used to authorize a worker. Each process owner must separately authorize and
+provision its exact grouped Custom Content API token. This repository adds no
 role/token grant and does not define credential issuance or rotation.
-The worker `survey-report-generation.workerSnapshot` action is likewise denied
-unless separately granted to an approved worker credential. It returns the
-immutable snapshot only for a running generation and verifies the stored
-`survey-snapshot.v1` payload digest before exposing its private comments. No
-default permission is added.
-Report history remains owned by U8-A, and PDF artifact storage/download remains
-deferred to U12. No production permission mutation is performed.
+
+`workerClaim` returns checkpoints/model/pricing state only to its scoped custom
+token. `workerSnapshot` returns the immutable snapshot only for a running
+generation and verifies the stored `survey-snapshot.v1` payload digest before
+exposing its private comments. `workerCheckpoint` recomputes the direct checkpoint
+graph and digests from the locked generation and immutable snapshot before
+state-version CAS. It only accepts the local zero-comment direct contract: the
+CountTokens result must fit the configured direct budget, all analysis sections
+must contain no claims, and publication must use fixed insufficient-evidence
+copy. Nonempty-comment semantic output and map/reduce remain rejected.
+`workerComplete` revalidates the full persisted graph, output digest, final
+object identity, and fixed analysis, then inserts the immutable report and marks
+the generation succeeded in one transaction. Both actions require separate exact
+custom content API token scopes; no default or persistent grant is added.
+`workerFail` accepts only a
+closed 4 KiB command with an exact failure-code-to-safe-message mapping. It
+fails only a running generation through state-version CAS and creates no report
+or partial PDF. Identical terminal replay returns the current version without a
+write; changed replay and non-running states return bounded conflicts. It also
+persists one versioned terminal-alert intent in private `usageJson` in the same
+transaction. `workerAlertAck` uses a separate exact custom-token scope to mark a
+pending intent delivered only after the app's injected notifier confirms
+acceptance with the same idempotency key. No default permission is added.
+Report history remains owned by U8-A. U12 adds only the server-mediated private
+metadata action; production artifact storage/download remains unavailable until
+separately approved reader and credential wiring exists. No production permission
+mutation is performed.
 Anonymous requests and ungranted actions remain denied. Application-level
 capabilities are enforced by the Next.js administration routes, and the
 `update`/`delete` core actions remain outside the command access model.
 
-### Future application capabilities
+### App-level feedback capabilities
 
-These names are application-level capabilities enforced by the Next.js
-administration routes. They are not current Strapi action IDs or durable Users
-& Permissions rows.
+These four names are application-level capabilities enforced by the Next.js
+administration routes. They are not Strapi action IDs or durable Users &
+Permissions rows. Auth.js derives them server-side from the currently verified
+Users & Permissions role on every session verification. Only the exact
+`Administrator` and `Digital Experience Operator` role names receive this
+bundle. Missing/unknown roles, blocked users, `Public`, `Authenticated`, and
+`Media Manager` receive none. Changing a user's role or blocking the account is
+reflected by the verified `users/me?populate=role` session check; no role claim
+is accepted from the browser.
 
-| Future capability | Future operation | Route owner |
+| Capability | Operation | Route owner |
 | --- | --- | --- |
 | `feedback.read` | Summary, aspect, and QR analytics | U8 administration routes |
 | `feedback.comments.read` | Filtered comments | U8 administration routes |
-| `feedback.reports.read` | Reports and generations | U8 administration routes |
+| `feedback.reports.read` | Reports, generations, and mediated report download | U8 administration routes / U12 deterministic delivery |
 | `feedback.reports.generate` | Generate and retry | U8 administration routes |
-| `feedback.reports.download` | Mediated report download | U12 deterministic delivery |
 
 Exact intake, administration, and worker actions and grants remain owned by U7,
 U8, and U10 respectively. U9-A1 adds only the registered
@@ -276,16 +357,133 @@ isolated HTTP test grants it only to its synthetic role. No production role is
 changed by this repository update. U10-A also registers
 `api::survey-report-generation.survey-report-generation.workerClaim` for the
 bounded worker claim command. It returns checkpoint/model/pricing state only to
-an authorized caller and omits comments; it has no default role or API-token
-grant. Credential provisioning and any non-default grant remain separately
-authorized operational work. No production role or token is changed here.
+a custom content API token with this exact action and omits comments; the route
+rejects Users & Permissions JWTs even when their roles carry the same action.
+It has no default role or API-token grant. Credential provisioning and any
+non-default grant remain separately authorized operational work. No production
+role or token is changed here.
 U10-A4 registers
 `api::survey-report-generation.survey-report-generation.workerSnapshot` for the
 bodyless worker snapshot read. It requires an explicit grant, returns data only
 for running generations, and rejects unsupported snapshot versions or digest
-mismatches. The action does not grant native collection reads or expose the
-snapshot through a public/admin route. The isolated HTTP harness grants it only
-to its synthetic worker-role equivalent; no production role or token is changed.
+mismatches. It requires the `content-api-token` strategy and an exact custom
+content API token action scope; a JWT grant is intentionally insufficient. The
+action does not grant native collection reads or expose the snapshot through a
+public/admin route. The isolated HTTP harness grants it only to a synthetic
+custom token; no production role or token is changed.
+
+U10-A13 applies that same native custom-token boundary to `workerClaim`,
+`workerSnapshot`, `workerCheckpoint`, `workerComplete`, and `workerFail`. Each route names
+only its own action scope. A shared controller guard checks Strapi's selected
+strategy and token `kind`/`type` before body measurement/validation or database
+access; `workerSourceRead` retains the same boundary. The native core generation
+`find`/`create`, submission/report reads, and admin `dispatch-state`/
+`dispatch-failure` actions remain on their existing Users & Permissions JWT
+contracts. No global auth behavior or default grant changes. The isolated
+HTTP test proves that JWTs with each worker action artificially granted are
+denied and exact-scope custom tokens reach their respective handlers; no
+production role/token was changed.
+
+U10-A14 adds the
+`api::survey-report-generation.survey-report-generation.workerFail` action for
+terminal worker failure. It is restricted to the native `content-api-token`
+strategy and its exact custom-token scope; the controller checks the selected
+strategy and custom-token identity before measuring or reading the command or
+accessing the lifecycle service. Users & Permissions JWTs remain denied even
+when granted the action. The command persists only the fixed safe message
+associated with its known `RuntimeFailureCodeV1`, and only for a running
+generation under a locked state-version transition. Identical replay is
+read-only; no report, partial PDF, alert, default grant, persistent permission,
+or production token is created. The isolated synthetic HTTP test covers denied
+and allowed identities, bounded commands, concurrent identical replay,
+conflicts, and safe persisted output.
+
+U10-A8 registers
+`api::survey-report-generation.survey-report-generation.workerSourceRead` for
+the bounded private report-source page action. The route accepts only Strapi's
+`content-api-token` auth strategy and that exact action scope; it does not
+include the Users & Permissions strategy as a fallback. The controller also
+checks the actual Strapi auth result (`ctx.state.auth.strategy.name`, token
+`kind`, and custom token `type`) before measuring or validating the body or
+calling the source service. This uses the runtime auth context populated by
+Strapi's content API auth middleware, not a role name or caller-supplied field.
+The worker source is read with explicit SQL projections and does not grant
+native `survey-submission.find` or `findOne`. The response includes the original
+nullable comment and `payloadDigest`, plus canonical submission, version, point,
+and rating fields required by the authoritative snapshot adapter.
+
+The isolated HTTP harness proves anonymous denial; denial of an ordinary
+application-user JWT even after its synthetic Users & Permissions role is
+granted the same action; denial of a custom API token without that action; and
+allow only for a synthetic custom content API token with that one action. The
+authorized token still cannot call native `survey-submission.find`. Test tokens
+and role permissions exist only in the disposable database. No persistent
+role/token grant, schema change, generated-type change, or credential setup is
+included. Provisioning the real custom content API token remains separately
+authorized operational work owned by the TB-113 worker/platform owner.
+
+The page input is a closed `survey-generation-source.v1` contract with an
+inclusive UTC accepted-time window, immutable `dataCutoffAt`, resource, cursor,
+and page size `1..25`; raw request bodies above 4 KiB fail with 413. Submissions
+are restricted to `source=valid_qr` and the requested window. Rows after the
+cutoff are deliberately still returned within that window so the authoritative
+snapshot core can count and exclude them against the frozen cutoff. The cutoff
+is bound into every cursor, not substituted with a fresh time or used to trim
+the source set. Receipt-keyset submission pages and document-ID-keyset
+version/point pages return stable totals and no partial-success mode; malformed
+or incomplete reads fail closed. The local HTTP test proves the exact private
+projection and pagination only in a disposable PostgreSQL/Strapi instance.
+
+U10-A5 registers
+`api::survey-report-generation.survey-report-generation.workerCheckpoint` for
+the bounded worker checkpoint PUT. It accepts only the CMS-verified empty-comment
+direct graph, validates the CountTokens budget and each stage's canonical input
+and output digests, and commits each checkpoint with state-version CAS.
+`workerComplete` is a separate exact-scope action that rechecks the complete
+graph and atomically inserts the immutable report while transitioning the
+generation to succeeded. Nonempty-comment semantic output and map/reduce remain
+fail-closed. Neither action returns checkpoint payloads or adds a default or
+production grant; the synthetic HTTP harness grants each scope only to a
+disposable custom content API token.
+
+U12 registers
+`api::survey-report-generation.survey-report-generation.workerReportDownloadMetadata`
+on `GET /api/tb113/worker/reports/:reportId/download-metadata`. It requires
+Strapi's native `content-api-token` strategy and this exact custom-token scope.
+The controller checks Strapi's selected strategy and custom-token identity before
+validating the report ID or querying the database. It returns only the report ID,
+owning generation ID/status, private object key, SHA-256, byte size, and fixed PDF
+MIME after confirming the immutable report belongs to a succeeded generation.
+It returns no signed/storage URL, report content, comments, or prompts. It does
+not authorize native report collection reads. JWT and anonymous callers are
+denied even if a synthetic Users & Permissions role is granted the same action;
+the isolated HTTP harness grants this action only to a disposable custom content
+API token. This repository adds no persistent role/token grant and provisions no
+production credential.
+
+The offline worker usage ledger also persists cost-threshold intents before a
+notifier call. `workerClaim`, `workerCheckpoint`, `workerFail`, and
+`workerComplete` project only pending alert intents to the scoped worker token;
+`workerAlertAck` locks the generation row and records delivered state and the
+existing alert timestamp. The stable deduplication key must be honored by the
+injected notifier across retries for exactly-once alert effects. No real notifier,
+default action grant, or production token is configured.
+
+U8-A registers the distinct
+`api::survey-report-generation.survey-report-generation.feedbackAdminRead`
+action at `POST /api/tb113/admin/feedback/read`. It requires Strapi's native
+`content-api-token` strategy and one custom token scoped only to this action; it
+does not authorize native collection `find`/`findOne`. The controller verifies
+the selected strategy and custom-token identity before measuring or reading the
+body or querying private source data. Anonymous callers, Users & Permissions
+JWTs (even if a synthetic role has the same action), worker tokens, and custom
+tokens without this scope are denied. The closed v1 contract pages submissions,
+versions, QR points, and reports with stable totals and a cutoff-bound cursor.
+No default/persistent grant, production token, approved CMS origin, environment
+value, or runtime token-provider binding is created here. The app's Route Handler
+must still authenticate the administrator session and capability before its
+server-only transport runs; production reads remain unavailable until a
+separately authorized runtime composition is supplied.
 
 Verify the baseline with:
 
@@ -335,5 +533,6 @@ Use this checklist when creating or rebuilding a Strapi environment.
 | Change | Date | Result | Evidence |
 | --- | --- | --- | --- |
 | `tb-113-visitor-feedback` S06a deny baseline | 2026-09-16 | Documented and tested the existing deny baseline; no grants or mutation. | Focused direct tests cover application roles, API tokens, route/controller inventory, read-only inspection, and isolated Strapi/PostgreSQL cleanup. |
+| `tb-113-visitor-feedback` L4 feedback role claims | 2026-09-29 | Documented the approved app-session role mapping and its independent native/token action gates; no persistent grant was provisioned. | Auth.js refreshes the role from verified `/users/me?populate=role`; focused callback and route tests cover allowed/denied claims. |
 | `tb-113-visitor-feedback` S04 foundation | 2026-09-15 | Added disabled definition/QR schemas with no permission grants. | Catalog tests verify disabled defaults and the approved model subset; permission bootstrap remains out of scope. |
 | `tb-71-form-protection` | 2026-05-20 | Added `form-protection-submission` collection and token delta; existing `postulation` contract stays intact. | Verified `teleferico-cms/src/api/postulation/content-types/postulation/schema.json` stayed unchanged, added `teleferico-cms/src/api/form-protection-submission/**`, expanded `Public Forms (Next.js)` token to `form-protection-submission.find/create`, and kept `teleferico-app/src/lib/services/{contact,postulation}.ts` as server-only internal callers using `Origin`, `x-internal-api-key`, and optional `x-client-ip` without exposing Strapi access client-side. |

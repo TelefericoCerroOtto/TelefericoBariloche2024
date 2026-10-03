@@ -6,10 +6,11 @@ All content is normative except provider facts behind explicit gates.
 
 ```ts
 // Normative
-type ModelConfigV1={version:"survey-model-config.v1";provider:"vertex-ai";vertexProjectId:"teleferico-bariloche-2024";vertexLocation:"us";vertexApiEndpoint:"aiplatform.us.rep.googleapis.com";model:"gemini-3.8-flash";temperature:0;reasoning:"LOW";grounding:false;promptVersion:string;mapSchemaVersion:"survey-map.v1";analysisSchemaVersion:"survey-analysis.v1";redactionVersion:string;validatorVersion:string;chunkVersion:string;verifiedInputTokenLimit:number;map:{targetMin:600;targetMax:1200;hardMax:4000};directReduce:{targetMin:1800;targetMax:3000;hardMax:8000};safetyHeadroomTokens:number;sourceRevision:string};
+type ModelConfigV1={version:"survey-model-config.v1";evidenceKeyId:string;provider:"vertex-ai";vertexProjectId:"teleferico-bariloche-2024";vertexLocation:"us";vertexApiEndpoint:"aiplatform.us.rep.googleapis.com";model:"gemini-3.8-flash";temperature:0;reasoning:"LOW";grounding:false;promptVersion:string;mapSchemaVersion:"survey-map.v1";analysisSchemaVersion:"survey-analysis.v1";redactionVersion:string;validatorVersion:string;chunkVersion:string;verifiedInputTokenLimit:number;map:{targetMin:600;targetMax:1200;hardMax:4000};directReduce:{targetMin:1800;targetMax:3000;hardMax:8000};safetyHeadroomTokens:number;sourceRevision:string};
 type WorkerDeploymentConfigV1={version:"survey-worker-deployment.v1";operationalProjectId:"teleferico-bariloche-2024";vertexProjectId:"teleferico-bariloche-2024";vertexLocation:"us";vertexApiEndpoint:"aiplatform.us.rep.googleapis.com";cloudTasksLocation:"southamerica-east1";workerRuntimeServiceAccount:string;taskInvokerServiceAccount:string;workerOidcAudience:string};
 type EvidenceClaimV1={claimId:string;textEs:string;evidenceRefs:string[];signal:"recurrent"|"minority"|"descriptive"};
 type MapV1={schemaVersion:"survey-map.v1";chunkId:string;coveredRefs:string[];themes:Array<{themeKey:string;labelEs:string;claims:EvidenceClaimV1[]}>;limitations:string[]};
+type MapInputV1={contractVersion:"survey-map-input.v1";chunkId:string;chunkIndex:number;chunkCount:number;metrics:SnapshotMetrics;comments:Array<{period:"current"|"previous";text:string;evidenceRef:string}>};
 type SectionKey="executive_summary"|"observed_changes"|"strengths"|"unfavorable_areas"|"recurrent_themes"|"minority_signals"|"coverage_limitations";
 type SectionV1={key:SectionKey;status:"supported"|"insufficient_evidence";claims:EvidenceClaimV1[]};
 type DirectV1={schemaVersion:"survey-analysis.v1";route:"direct";sections:[SectionV1,SectionV1,SectionV1,SectionV1,SectionV1,SectionV1,SectionV1]};
@@ -17,66 +18,347 @@ type ReduceV1=Omit<DirectV1,"route">&{route:"reduce";mapOutputDigests:string[]};
 type PublishedAnalysisV1={schemaVersion:"survey-published-analysis.v1";sections:Array<{key:SectionKey;status:SectionV1["status"];paragraphsEs:string[]}>};
 ```
 
-The worker MUST initialize Vertex with `vertexProjectId=teleferico-bariloche-2024`, `vertexLocation=us`, and `vertexApiEndpoint=aiplatform.us.rep.googleapis.com` from validated model and deployment configuration. Missing or mismatched values are terminal `CONFIGURATION` failures before client initialization, token counting, or generation. `southamerica-east1`, `us-aiplatform.googleapis.com`, runtime project/location, quota-project, local ADC, CLI defaults, and alternate models MUST NOT be used as fallbacks. `Teleferico-AI`, `opencode-vertex-local`, and every local OpenCode principal/configuration are outside the production trust and quota boundary. Only sanitized visitor-comment copies may cross this provider boundary.
+The worker MUST initialize Vertex with `vertexProjectId=teleferico-bariloche-2024`, `vertexLocation=us`, and `vertexApiEndpoint=aiplatform.us.rep.googleapis.com` from validated model and deployment configuration. Missing or mismatched values are terminal `CONFIGURATION` failures before client initialization, token counting, or generation. Production and staging MUST NOT use `southamerica-east1`, `us-aiplatform.googleapis.com`, runtime project/location, quota-project, local ADC, CLI defaults, or alternate models as fallbacks. A separately gated `NODE_ENV=development` loopback runtime may use local GoogleAuth ADC only for this same approved Vertex project/location/endpoint/model; it rejects Cloud Run identity variables and `GOOGLE_APPLICATION_CREDENTIALS`. This development exception does not weaken the production trust/quota boundary. `Teleferico-AI`, `opencode-vertex-local`, and every local OpenCode principal/configuration are outside the production trust and quota boundary. Only sanitized visitor-comment copies may cross this provider boundary.
 
-Headroom=`max(2048,ceil(limit*10/100))`; `available=limit-instructions-schema-metrics-reservedOutput-headroom`, with exact token counts per serialized segment. Direct is selected only when the complete request fits. Otherwise sort complete redacted records by period/time/ID, token-count each, choose the minimum fitting chunk count, then place each record in the lowest-token chunk (tie: index). Never split, sample, or duplicate. Reduce receives validated maps plus immutable metrics.
+Headroom=`max(2048,ceil(limit*10/100))`; `available=limit-instructions-schema-metrics-reservedOutput-headroom`, with exact CountTokens results for the serialized request segments. Direct is selected only when CountTokens proves the complete request fits. Otherwise, for `n=1..recordCount`, derive the deterministic byte-weighted chunks below and CountTokens each complete serialized map request; select the smallest `n` for which every request fits. Byte weights choose membership only: they are not token estimates, do not prove token safety, and do not replace CountTokens. Never split, sample, or omit a comment. Every comment in the immutable snapshot belongs to exactly one chunk. Reduce receives validated maps plus immutable metrics.
 
-Evidence ref=`e_` plus the first 20 lowercase base32 characters of `HMAC-SHA256(evidenceSecret,run+":"+recordId)`; its ref-to-comment map is memory-only. Objects reject unknown fields; IDs match `^[a-z0-9][a-z0-9._-]{0,63}$`; refs are unique/nonempty; `coveredRefs` exactly equals chunk refs. Sort themes/claims/digests by key/ID/chunk; sections use union order. Supported claims require threshold-valid refs and exact metrics; insufficient sections have no claims and fixed versioned Spanish text. Publication strips IDs/refs.
+Evidence ref=`e_` plus the first 20 lowercase base32 characters of `HMAC-SHA256(evidenceSecret,canonicalRunId+":"+canonicalRecordId)`; `evidenceSecret` is at least 32 bytes, `canonicalRunId` is a lowercase UUID, and record IDs match `^[a-z0-9][a-z0-9._-]{0,63}$`. The nonsecret `evidenceKeyId` is immutable in each run's `modelConfigJson` and selects a future provisioned runtime key; the key itself is injected only, never persisted or logged. The in-memory ref-to-comment map remains worker-only. Both worker and CMS derive the same ref and membership from the canonical snapshot plus the injected key. Order complete snapshot comment records by `period`, `acceptedAt` instant, then `recordId`, using code-point order; for `n` chunks, assign each record in that order to the lowest accumulated weight, where weight is the UTF-8 byte length of `tb-json.v1` canonical JSON for the complete original `CommentRecordV1` (tie: lowest one-based chunk index). Do not normalize Unicode; unpaired surrogates reject. Every comment is assigned once; duplicate record IDs reject. `chunkMembershipDigest=SHA-256(tb-json.v1({version:"survey-chunk-membership.v1",evidenceKeyId,reportRunId,snapshotDigest,chunkIndex,chunkCount,records:[{recordId,evidenceRef,weightBytes}]}))`. The preimage and ref map are transient; persisted payloads contain only ordered `coveredRefs`, key ID, and digest, never comment text, record IDs, or key bytes. Objects reject unknown fields; refs are unique/nonempty; `coveredRefs` must exactly equal the independently derived ordered refs. Sort themes/claims/digests by key/ID/chunk; sections use union order. Supported claims require threshold-valid refs and exact metrics; insufficient sections have no claims and fixed versioned Spanish text. Publication strips IDs/refs.
 
-Model copies replace recognized versioned spans with `[EMAIL]`, `[PHONE]`, `[URL]`; originals remain unchanged. Validators reject parse/schema/version/order/language/token/ref/threshold/signal/metric/support/action/recommendation/causality/verbatim/exposed-ref/extra-section violations. Verbatim detection rejects a complete normalized comment under eight tokens or any contiguous eight-token match. Invalid output never renders.
+Model copies replace recognized versioned spans with `[EMAIL]`, `[PHONE]`, `[URL]`; originals remain unchanged. Validators reject parse/schema/version/order/language/token/ref/threshold/signal/privacy/action/recommendation/causality/verbatim/exposed-ref/extra-section violations. They do not infer semantic truth from lexical heuristics, judge whether a narrative is entailed by comment meaning, or require automated metric-grounding/contradiction checks. Official metrics are produced and displayed only from deterministic core snapshots; the model MUST NOT calculate, modify, or introduce authoritative metric values. Verbatim detection rejects a complete normalized comment under eight tokens or any contiguous eight-token match. Invalid output never renders.
+
+### Pure MapV1 and ReduceV1 Preflight Boundary
+
+The app-side `preflightMapAnalysis` and `preflightReduceAnalysis` are structural preflights only. They return `rejected` for independently detectable schema, reference, privacy, or prohibited-content violations. Under the prospective acceptance contract, structural validity is sufficient for narrative acceptance; it is not certification of semantic truth. Existing local code may still return `incomplete` until the remaining worker/CMS behavior is implemented; that status records an implementation or authority gap, not a missing semantic-truth check. These preflights alone do not establish route/chunk authority, CMS checkpoint authority, operational readiness, or enable checkpoint writes.
+
+- Map preflight accepts only the exact `survey-map.v1` keys and canonical `map.<i>-of-<n>` chunk ID. It independently derives membership from the immutable snapshot comments, report-run ID, injected evidence key/key ID, snapshot digest, and supplied chunk count; `coveredRefs` must exactly match that derived ordered chunk list. Caller-supplied `coveredRefs` is never the authority. Themes and claims require exact object shapes, unique code-point-sorted keys/IDs, valid reference syntax and chunk-local claim refs. Prohibited claim language, exposed refs, malformed Unicode, and the normative verbatim-comment match are rejected.
+- The preflight cannot establish that the supplied chunk count is the smallest count selected by exact CountTokens over complete serialized requests. Exact derived membership alone therefore does not authorize map checkpoint writes; authoritative worker routing evidence and CMS-recomputed checkpoint bindings remain required.
+- Reduce preflight accepts only the exact `survey-analysis.v1`/`route: "reduce"` schema, the normative section order/status shape, and unique sorted claim IDs. It rejects empty, malformed, or duplicate `mapOutputDigests` values, but does not compare them with a caller-supplied “validated” digest list: that list has no independent CMS checkpoint authority. Digest membership and map-index order require CMS-verified map checkpoint evidence before map/reduce checkpoint writes.
+- Both preflights reject detected prohibited/verbatim text and malformed or foreign refs. They do not judge narrative truth, metric grounding, contradiction, or current/previous-period truth; those are not automated acceptance gates. Immutable per-run key selection remains an independent security requirement. Production has no default key; explicit local development derives predictable synthetic key material from approved nonsecret metadata, only for synthetic data.
+
+Clarify “exact metrics” in the supported-claim contract as a deterministic numeric-data invariant: any official metric values present in output must match the values computed and carried by the immutable core snapshot, never values generated or recomputed by the model. This does not establish that free-text claim wording is entailed by those numbers or by comment meaning, and is not an automated semantic-truth gate. Human editorial review is optional and is not a publication gate.
+
+These structural MapV1/ReduceV1 preflights alone do not establish route or persistence authority. The authenticated worker `claim`, `snapshot`, `checkpoint`, `complete`, and `fail` actions require Strapi's native `content-api-token` strategy with one exact action scope per route; their controllers verify the selected strategy plus custom content-token `kind`/`type` before body access or database work. A Users & Permissions JWT remains denied even if a role receives one of these worker actions; the native generation CRUD and admin dispatch actions retain their existing JWT boundary. Local direct and map/reduce execution uses the approved Vertex provider in normal configured development; isolated tests may inject external provider responses. Worker and CMS independently derive the same predictable local-only evidence key from approved metadata; CMS never accepts key bytes from the worker. Map/reduce writes fail closed unless CMS has an independent CountTokens authority; CMS re-counts the complete serialized direct/map/output requests, recomputes the smallest-fit route, per-run map membership/ref bindings, checkpoint output digests, ordered graph dependencies, and state-version CAS before accepting writes or atomic completion. Reduce digests are matched to the persisted CMS-verified map stages; caller-supplied digest lists alone are not authority. Narrative semantic truth remains outside automated validation. `config/feedback.js` composes production CMS authorities from approved inputs and keyless Cloud Run context, or local CountTokens plus deterministic local-key authority only from explicit development configuration. No IAM grant, persistent token, or live provider call is added here; operational identity/IAM approval and verification remain separate.
 
 ## Checkpoints and Retries
 
 ```ts
 // Normative
-type PayloadV1={kind:"redact";recordCount:number;redactionVersion:string}|{kind:"count";segmentTokens:{instructions:number;schema:number;metrics:number;comments:number;reservedOutput:number;headroom:number};totalTokens:number}|{kind:"map";chunkId:string;chunkIndex:number;chunkCount:number;coveredRefs:string[];validatedOutput:MapV1}|{kind:"direct";validatedOutput:DirectV1}|{kind:"reduce";validatedOutput:ReduceV1}|{kind:"validate";publishedAnalysis:PublishedAnalysisV1;validatorVersion:string}|{kind:"render";rendererVersion:string;pdfSha256:string;size:number}|{kind:"store";objectKey:string;artifactSha256:string;size:number;mimeType:"application/pdf"};
+type CountSegmentsV1={instructions:number;schema:number;metrics:number;comments:number;reservedOutput:number;headroom:number};
+type PayloadV1={kind:"redact";recordCount:number;redactionVersion:string}|{kind:"count";requestDigest:string;segmentTokens:CountSegmentsV1;totalTokens:number}|{kind:"count";requestDigest:string;segmentTokens:CountSegmentsV1;totalTokens:number;route:"map-reduce";directRequestDigest:string;directSegmentTokens:CountSegmentsV1;directTotalTokens:number;attempts:Array<{chunkCount:number;chunks:Array<{requestDigest:string;segmentTokens:CountSegmentsV1;totalTokens:number}>}>;chunkCount:number}|{kind:"map";chunkId:string;chunkIndex:number;chunkCount:number;evidenceKeyId:string;coveredRefs:string[];chunkMembershipDigest:string;outputTokenCount:number;outputRequestDigest:string;validatedOutput:MapV1}|{kind:"direct";validatedOutput:DirectV1}|{kind:"reduce";outputTokenCount:number;outputRequestDigest:string;validatedOutput:ReduceV1}|{kind:"validate";publishedAnalysis:PublishedAnalysisV1;validatorVersion:string}|{kind:"render";rendererVersion:string;pdfSha256:string;size:number}|{kind:"store";objectKey:string;artifactSha256:string;size:number;mimeType:"application/pdf"};
 type CheckpointV1={checkpointVersion:"survey-checkpoint.v1";stageKey:string;stageIndex:number;route:"common"|"direct"|"map-reduce";stageType:"redact"|"count"|"map"|"direct"|"reduce"|"validate"|"render"|"store";status:"valid";inputDigest:string;outputDigest:string;attempts:number;completedAt:string;payload:PayloadV1};
 type CheckpointSetV1={version:"survey-checkpoints.v1";snapshotDigest:string;route:"undecided"|"direct"|"map-reduce";chunkCount:number|null;entries:CheckpointV1[]};
+type CheckpointContractVersionsV1={snapshot:"survey-snapshot.v1";checkpoint:"survey-checkpoint.v1";canonicalization:"tb-json.v1";evidenceRef:"survey-evidence-ref.v1";chunkMembership:"survey-chunk-membership.v1";stageConfig:"survey-stage-config.v1";stageInput:"survey-stage-input.v1"};
+type StageConfigProjectionV1={version:"survey-stage-config.v1";stageKey:string;modelConfig:ModelConfigV1;evidenceKeyId:string;rendererVersion:string|null};
 type RuntimeFailureCodeV1="PROVIDER_TRANSIENT"|"PROVIDER_RATE_LIMIT"|"PROVIDER_TIMEOUT"|"CMS_TRANSIENT"|"STORAGE_TRANSIENT"|"INVALID_OUTPUT"|"AUTHENTICATION"|"CONFIGURATION"|"UNKNOWN_VERSION"|"INVARIANT"|"PROHIBITED_CONTENT"|"QUEUE_ENQUEUE_EXHAUSTED";
 type PricingSnapshotV1={version:string;currency:"USD";units:Array<{sku:string;inputMicrosPerMillion:number;outputMicrosPerMillion:number}>};
 ```
 
 Keys are exactly `redact`, `count`, `direct`, `map.<i>-of-<n>`, `reduce`, `validate`, `render`, `store`; `<i>`/`<n>` are canonical decimals, `1<=i<=n`. `redact,count` use route `common`. Unique ordered indexes are direct: `0,1,2,3,4,5`; map/reduce: redact `0`, count `1`, map `i+1`, reduce `n+2`, validate `n+3`, render `n+4`, store `n+5`. Closed-set validation enforces unique key/index, one selected route/count, and every map index exactly once without another model/collection.
 
-Required direct set: `{redact,count,direct,validate,render,store}`. Required map/reduce set: `{redact,count,map.1-of-n..map.n-of-n,reduce,validate,render,store}`. Edges are `redact→count→direct→validate→render→store` or `redact→count→all maps→reduce→validate→render→store`; only eligible stages commit. `inputDigest=SHA-256(tb-json.v1({stageKey,stageIndex,route,snapshotDigest,sourceRevision,contractVersions,stageConfigDigest,orderedDependencyOutputDigests,chunkMembershipDigest}))`; map membership binds ordered refs/index/count and is null otherwise. `outputDigest` hashes the canonical validated payload. CMS recomputes both before CAS.
+Required direct set: `{redact,count,direct,validate,render,store}`. Required map/reduce set: `{redact,count,map.1-of-n..map.n-of-n,reduce,validate,render,store}`. Edges are `redact→count→direct→validate→render→store` or `redact→count→all maps→reduce→validate→render→store`; only eligible stages commit. `contractVersions` is the closed exact-key type above. `stageConfigDigest=SHA-256(tb-json.v1(StageConfigProjectionV1))`; the projection includes the full immutable model config, key ID, stage key, and renderer version (`null` except render/store). `orderedDependencyOutputDigests` are: none for redact; redact for count; count for direct and each map; count then map outputs by ascending chunk index for reduce; direct or reduce for validate; validate for render; render for store. `inputDigest=SHA-256(tb-json.v1({stageKey,stageIndex,route,snapshotDigest,sourceRevision,contractVersions,stageConfigDigest,orderedDependencyOutputDigests,chunkMembershipDigest}))`; `chunkMembershipDigest` is the derived map digest and is null otherwise. Arrays retain this specified order. `outputDigest` hashes the canonical validated payload. CMS recomputes both before CAS.
 
 Checkpoints prohibit visitor comments, raw/redacted prompts, credentials, signed URLs, the ref map, and unvalidated output. Persist only minimum fully schema/evidence/metric/language/token/verbatim-validated map/direct/reduce outputs and required refs/digests. Invalid output is memory-only and discarded before checkpoint, response, log, or diagnostic. Valid metadata/minimum outputs are indefinite (D55/D63/D78); 30-day diagnostics contain only keys/indexes, digests, counters, timings, validator codes, safe errors—never checkpoint text.
 
-Identical valid-stage replay succeeds without state/attempt change; reuse of key or index with different binding is `CHECKPOINT_CONFLICT`. Resume retries the lowest missing eligible stage, preserves valid sibling maps, and blocks reduce until all maps validate. Mismatched persisted input fails `INVARIANT`; history is never overwritten. No persisted valid stage with matching bindings repeats. Transient operations get two retries after the first attempt; invalid model output gets one controlled regeneration; other failures are terminal.
+Identical valid-stage replay succeeds without state/attempt change; reuse of key or index with different binding is `CHECKPOINT_CONFLICT`. Resume retries the lowest missing eligible stage, preserves valid sibling maps, and blocks reduce until all maps validate. Mismatched persisted input fails `INVARIANT`; history is never overwritten. No persisted valid stage with matching bindings repeats. Transient provider, CMS, and storage operations get at most two retries after the first attempt, only after the failure is classified transient. Authentication, configuration, prohibited-content, invariant, and state-conflict failures are terminal. Invalid model output gets one controlled regeneration (two generation calls maximum per missing stage), then terminal `INVALID_OUTPUT`.
+
+Every direct, map, and reduce output is checked before its CMS checkpoint with both validated provider `usageMetadata.candidatesTokenCount` and exact CountTokens evidence over the canonical output request bound to that stage and immutable `modelConfig`. The counts must agree; direct/reduce are capped at 8,000 and map at 4,000 returned tokens. Missing, malformed, mismatched, or over-limit evidence is `INVALID_OUTPUT` and cannot advance to a CMS checkpoint, renderer, object store, or completion. CMS independently recounts direct/map/reduce output using its injected CountTokens authority, recomputes the exact stage request digest, checks the model-config hard bound and equality with provider usage metadata, and rejects caller-asserted counts that do not match. Target ranges remain advisory generation targets; hard maxima are rejection limits.
+
+**Local direct-route boundary:** The local worker accepts CMS-recomputed zero-comment and nonempty-comment direct graphs. CountTokens uses the approved Vertex adapter in normal configured development; isolated tests may inject a deterministic provider. The checkpoint binds its exact request digest and returned counts, and direct is selected only when instructions, closed schema, official metrics, complete redacted comments, output reservation, and headroom fit the versioned limit. For synthetic local data only, worker and CMS independently derive identical 32-byte evidence-key material from the existing approved evidence-key ID, source revision, pinned resource name, and fixed closed domain tag. This predictable local key is NOT production security evidence. CMS derives it independently and never accepts key bytes or authority from the worker. Production continues to resolve the pinned Secret Manager version through its CMS identity. CMS recomputes evidence membership, structure, thresholds, privacy/prohibited-text constraints, and state-version CAS before checkpoint writes or atomic report completion. No schema, permission, new environment-variable name, IAM grant, or live service call is included. The 4 KiB request limit remains unchanged.
+
+The local worker validates the closed direct-route graph from `redact` through
+`store`, emits the normative direct indexes 0–5, and persists each checkpoint
+only after CMS graph/digest/CAS validation. The app claim DTO matches the CMS running response's
+`modelConfig` and `pricingSnapshot` fields. Before snapshot/provider work, the
+worker validates the closed model configuration, including the pinned
+`gemini-3.8-flash` model and topology/settings, and validates the exact
+`PricingSnapshotV1` shape, USD currency, unique SKUs, and finite nonnegative
+safe-integer prices. This POC does not yet use pricing values for cost
+accounting. It then binds render to the
+canonical output digest of the locally validated `validate` payload and store
+to the canonical render-payload output digest. Both stage-input digests use the
+v1 projection, contract versions, snapshot/source revision, full model config,
+renderer version, and the exact ordered dependency. Missing configuration or
+dependency data fails closed, and legacy POC digests have no fallback or reuse
+path. CMS `verifyCheckpointGraphV1` now runs inside the authenticated checkpoint
+transaction with the locked snapshot. It checks direct stage order/indexes,
+immutable snapshot/source/model bindings, exact contract versions, dependency
+and canonical payload digests, replay, and CAS. Direct output uses seven ordered
+closed sections. Nonempty claims require exact evidence refs derived from the
+immutable snapshot and injected per-run key, deterministic signal thresholds,
+prohibited-content and verbatim/privacy checks; published paragraphs are
+recomputed from the validated claims and fixed fallback. The worker and CMS
+accept the same synthetic key only when both injected providers resolve the
+claim's immutable key ID. Validated narrative is structurally safe, not
+semantically certified.
+The local Map/Reduce route starts only after the complete direct CountTokens
+request is proven over budget. It tests map chunk counts in ascending order,
+serializes every complete redacted record into deterministic byte-balanced
+chunks, and selects the first count for which every complete serialized map
+request fits. The count checkpoint records the direct request evidence and all
+attempted map request digests/counts; CMS reconstructs those requests and checks
+the smallest-fit selection before committing the `undecided`→`map-reduce` CAS.
+Map stages persist the closed MapV1 result, output-token count/request digest,
+chunk index/count, evidence key ID, derived refs, membership digest, and ordered
+stage digests. CMS independently derives membership/ref vectors with its
+injected key and recomputes output/input digests, stage order, and CAS under the
+generation row lock. Reduce is gated on every persisted map checkpoint; CMS
+requires its digest list to equal the recomputed output digests of those map
+checkpoints in chunk order. The Reduce provider receives only those verified map
+outputs and immutable core metrics. Reduce/Validate/Render/Store are then bound
+to the same graph and CMS atomically creates the report and succeeds the
+generation. A persisted `status: "valid"` remains contract data, not proof by
+itself.
+
+The local Map/Reduce execution is verified only with injected synthetic
+CountTokens, map/reduce, and per-run key providers. No real Vertex or live key
+provisioning is included; production operation remains gated, and semantic
+truth remains an accepted model risk rather than an automated or per-report
+human approval gate.
+
+For the local direct route, the CountTokens request is the canonical JSON object
+`{contractVersion:"survey-count-request.v1",modelConfig,segments}`. Its segments
+are the versioned instruction string, canonical direct schema, canonical
+immutable official metrics, and the canonical `survey-model-input.v1` comment
+projection. That model-input allowlist contains only the deterministic metrics
+and comments with `period`, PII-redacted `text`, and opaque per-run `evidenceRef`;
+it never contains source record IDs, receipts, version/point IDs, ratings, or
+payload digests. The zero-comment route preserves its canonical empty-array
+CountTokens comment segment. The worker retains the immutable source snapshot and ref mapping
+privately, while CMS independently derives refs from its locked snapshot and the
+same injected evidence key. The `count` payload includes SHA-256 of this exact
+sanitized request, integer per-segment token results,
+the 3,000-token direct output reservation, computed safety headroom, and their
+sum. CMS recomputes the request digest from the locked snapshot/config and
+rejects mismatches or a total above `verifiedInputTokenLimit` before route
+selection. The caller's injected CountTokens analogue is test-only. The CMS
+production CountTokens authority independently counts the same four canonical
+segments; it does not provide generation or use a worker-supplied count as
+authority.
+
+The direct-analysis preflight checks the closed `DirectV1` shape and section
+order, evidence-ref syntax, uniqueness and membership derived from the immutable
+snapshot/run/injected key, recurrent/minority minimum counts, bounded scalar
+text, prohibited action/causal content, verbatim text, and numeric values absent
+from deterministic snapshot metrics. It validates structure and privacy, not
+semantic truth. Synthetic end-to-end evidence now proves the direct path and a
+two-chunk map/reduce path; synthetic key material is not an operational source,
+and U10/U11/U12 remain formally incomplete. Live provider/key provisioning,
+external queue/storage, integrated development acceptance, and operational
+readiness remain separate gates.
+
+The partial validator also rejects a `recurrent_themes` claim whose signal is
+not `recurrent`, and a `minority_signals` claim whose signal is not `minority`.
+This checks declared section/signal consistency only. The product accepts that
+model narrative may be semantically inaccurate; automated claim-to-comment
+truth, contradiction, or comparison checks are not required, and a human
+editorial review is optional rather than a per-report gate. Do not infer truth
+from lexical heuristics or invent metric references. Any authoritative metric
+number remains sourced exclusively from the deterministic snapshot/core, never
+from a model-generated value. Automated checks reject numeric values that do not
+occur in the immutable core metrics, but do not infer that wording is entailed by
+those numbers or by comment meaning. Structurally valid nonempty outputs are
+eligible under the prospective contract; local direct and two-chunk map/reduce
+routes now execute with injected synthetic dependencies, while formal
+U10/U11/U12 remain incomplete.
+
+### Pure initial generation-input materialization
+
+`materializeGenerationInputsV1` is an app-local pure boundary for constructing
+the immutable values needed before worker execution. Its caller must inject the
+complete `SnapshotInput`, exact `ModelConfigV1`, nonempty `PricingSnapshotV1`,
+and nonsecret `evidenceKeyId`; the snapshot source revision, model-config source
+revision, and injected key ID must agree. It invokes the existing
+`survey-reporting-core.createSnapshot`, persists only its payload and canonical
+SHA-256 digest, and initializes the closed `survey-checkpoints.v1` envelope
+(`route: "undecided"`, `chunkCount: null`, `entries: []`). This versioned
+checkpoint envelope is intentionally not `{}`; zero completed stages is valid
+at queue creation. The returned materialization is validated and deeply frozen.
+
+The boundary has no CMS reader, provider, credential, runtime-key, or default
+model/pricing configuration. The current admin command has no injected source
+for all submissions, definitions, QR points, model settings, or pricing inputs;
+therefore this work does not wire the materializer into `buildGenerationData`
+or change public generation/dispatch behavior. That existing path is not proven
+worker-ready and its placeholder generation fields remain a known integration
+gap. A separately bounded U10-A adapter must supply authoritative CMS-derived
+snapshot inputs and approved versioned model/pricing inputs, replace those
+placeholders, and prove creation/retry cutoff immutability before runtime use.
+Until operational configuration is separately approved, the feedback
+capability's deployment flag remains `false`; the local worker path is available
+only through injected synthetic dependencies. Nonempty direct writes require the
+CMS and worker evidence-key providers to resolve the same key ID to the same
+synthetic key. Neither provider has a production default.
+
+### Strict authoritative CMS source adapter
+
+The local U10-A source foundation uses a separate server-only injected page
+reader. It accepts only complete cursor chains for submissions, versions, and
+QR points: each page must echo its requested cursor, report one stable total,
+and terminate with exactly that many rows. Repeated cursors, missing rows,
+malformed rows, and pagination failures reject the entire source; there is no
+response cap or partial-snapshot mode. The requested window is the normalized
+previous-period start through current-period end, while `dataCutoffAt` remains
+the immutable cutoff captured before the read. The shared core excludes valid
+in-range rows accepted after that cutoff.
+
+Submission identity, receipt, valid-QR source, accepted time, locale, rating,
+point/version relations, every aspect definition/rating, the private `comment`
+field (including explicit `null`), and the private lowercase SHA-256
+`payloadDigest` are mandatory. Duplicate identities, missing relations,
+duplicate definitions within a version, conflicting row metadata, or unknown
+aspect bindings reject before `materializeGenerationInputsV1`. Each relation's
+source-row ID must match the canonical row ID collected for its point/version
+key; missing IDs and known keys bound to another row reject. Duplicate source
+row IDs or keys also reject. No digest is substituted and no private content is
+logged. Across versions, the core's minimum snapshotted sort-order rule remains
+authoritative.
+
+The page reader remains an injected app adapter; U10-A11 now composes it with
+the admin generation/retry command through an explicit server-only input port.
+A separate authenticated CMS source-page action exists, and its isolated HTTP
+harness verifies the private-field response shape and custom content API
+token strategy/action boundary. The default application runtime still has no
+trusted production origin/token-provider or approved model/pricing/key-ID
+configuration, so it does not construct that port. Those operational sources
+remain unselected and production generation remains disabled. The local worker
+integration injects matching test-only evidence-key providers for nonempty
+direct and map/reduce analysis. Without the CMS key provider, nonempty direct or
+map checkpoint writes fail closed. Map/reduce remains available only through the
+synthetic injected-key/count-provider path; no operational default is installed.
+
+The CMS source page includes valid-QR rows within the inclusive previous/current
+range even when `acceptedAt` is later than the frozen `dataCutoffAt`. The cutoff
+is fixed before the read and bound into all cursor pages; it is not used to trim
+rows in SQL because the immutable snapshot core must compute
+`excludedAfterCutoffCount`. The action returns only the required comment and
+payload digest plus ratings and canonical version/point identity. It does not
+use native collection `find`, change a schema, expose fields to the browser, or
+create a default permission. The endpoint's machine boundary is enforced by
+the native Strapi `content-api-token` strategy plus a single custom action scope;
+an ordinary Users & Permissions JWT remains denied even when its role is granted
+that action. The controller corroborates the runtime-selected strategy and
+custom content-token type before body measurement/validation or source access.
+The isolated HTTP harness tests this with a synthetic custom token bearing only
+the source-read action. Real source-token provisioning remains separately
+authorized.
+
+### Admin generation/retry composition
+
+U10-A11 composes the strict source adapter and pure materializer into the
+server-only admin command transport through an explicit injected
+`generationInputs` port. The port supplies the private-source page transport
+and an approved-configuration provider; every call must provide a versioned
+`ModelConfigV1`, nonempty `PricingSnapshotV1`, nonsecret `evidenceKeyId`, and
+one matching source revision. The admin command performs authorization,
+capability, overlap or failed-state preflight first, freezes a cutoff, obtains
+all three complete CMS collections, and validates the materialized exact
+snapshot digest, snapshot, initial checkpoint envelope, model config, and
+pricing snapshot before CMS create or dispatch. A failed retry retains its
+original row and lineage while receiving a new cutoff and independent complete
+source read.
+
+The command boundary additionally requires
+`snapshotJson.population.current.from/to` to equal the effective persisted
+period and `snapshotJson.population.dataCutoffAt` to equal the exact frozen
+generation cutoff. This contextual binding is not implied by a valid snapshot
+digest: the independent materialized-input validator proves internal envelope
+consistency, while the lifecycle builder proves association with the generation
+being created. A mismatch fails before persistence and dispatch; the app maps it
+to bounded `UPSTREAM_UNAVAILABLE`. This correction adds no
+`createdAt`-versus-cutoff ordering requirement.
+
+No production composition is installed: the default command factory supplies
+no generation-input port because the trusted CMS origin/token provider and
+approved model/pricing/key-ID sources are not configured. The command therefore
+fails with a bounded unavailable result before create or dispatch instead of
+persisting placeholders. The capability flag remains false by default; no
+credential, configuration approval, environment variable, grant, deployment,
+or provider readiness is claimed. The empty initial usage object is not a
+snapshot/config/pricing/checkpoint substitute.
 
 Cost/call=`ceil(input*inputRate/1e6)+ceil(output*outputRate/1e6)` for persisted SKU; cached tokens require explicit cached SKU. Missing usage/SKU is `CONFIGURATION`; never estimate; sum checked integer costs.
 
 ## Task, Identity, Alerts, and Storage
+
+### Worker terminal failure command policy
+
+The authenticated `POST W/fail` command accepts only the closed 4 KiB `FailV1`
+shape. The CMS allowlist below is the sole accepted relationship between a
+failure code and `safeFailureMessage`; message matching is exact and
+case-sensitive. These bounded messages contain no caller data:
+
+| `failureCode` | `safeFailureMessage` |
+| --- | --- |
+| `PROVIDER_TRANSIENT` | `The report provider is temporarily unavailable.` |
+| `PROVIDER_RATE_LIMIT` | `The report provider is temporarily busy.` |
+| `PROVIDER_TIMEOUT` | `The report provider timed out.` |
+| `CMS_TRANSIENT` | `Report state could not be persisted.` |
+| `STORAGE_TRANSIENT` | `The report artifact could not be staged.` |
+| `INVALID_OUTPUT` | `The report output did not satisfy its contract.` |
+| `AUTHENTICATION` | `The report worker authentication failed.` |
+| `CONFIGURATION` | `Report generation is not configured.` |
+| `UNKNOWN_VERSION` | `The report contract version is not supported.` |
+| `INVARIANT` | `The report state failed an integrity check.` |
+| `PROHIBITED_CONTENT` | `The report output contained prohibited content.` |
+| `QUEUE_ENQUEUE_EXHAUSTED` | `The report could not be queued.` |
+
+Only a `running` row with the exact expected state version can fail. CMS locks
+the generation row, commits `status=failed`, `stateVersion+1`, `failureCode`,
+the mapped message, and `completedAt` atomically, and creates no report or
+partial PDF. A same-command replay is recognized before stale-CAS rejection
+only when the persisted failed row has `stateVersion=expectedStateVersion+1`
+and the same code and mapped message; it returns the current version and makes
+no write. Changed terminal commands, queued rows, and succeeded rows return a
+safe terminal conflict; stale running commands return a state-version conflict.
+The endpoint does not emit an alert. Any future terminal alert must occur only
+after commit and use an idempotent deduplication key; replay cannot re-alert.
 
 Task name=`tb113-report-`+run UUID without hyphens, stored by CMS before enqueue; body/route are Appendix 02. The authorized Next.js `GenerationDispatchCoordinator` alone creates tasks: three attempts, deterministic 1s then 2s delay, transient transport/rate/5xx only. Same-name succeeds only for the same stored run/name. Auth/config rejection or third-attempt exhaustion before claim invokes Appendix-02 dispatch-failure CAS; CMS alone commits queued→failed `QUEUE_ENQUEUE_EXHAUSTED`. Replay is idempotent; running/terminal races conflict; no report/object is created.
 
 U9-A1 supplies only the authenticated CMS dispatch-failure CAS endpoint and
 app-side wiring for a dispatcher result that proves no task was created. It does
 not reserve or persist `taskName`, create Cloud Tasks, or implement retry
-classification. Task-name pre-reservation and the production dispatcher remain
-U10-owned; until that evidence exists, `DISPATCH_UNAVAILABLE` leaves the run
-queued and ambiguous outcomes are not compensated.
+classification. The offline app coordinator now consumes explicitly verified
+task-client and CMS dispatch-state ports. Its default production composition
+still supplies neither, so `DISPATCH_UNAVAILABLE` leaves the run queued.
 
 The local U10-A CMS contract now reserves the deterministic `taskName` with
 `dispatchState=reserved` before enqueue and records `created` or `unknown`
 through the authenticated server-mediated action with state-version CAS and
-idempotent replay. An unknown outcome leaves the generation queued and blocks
-another reservation; there is no blind retry or automated reconciliation. The
-new action rejects `absent` and cannot commit queued→failed because its caller
-cannot supply independently verifiable Cloud Tasks absence evidence. The U9-A1
-v1 compensation guard remains unchanged and rejects a stored task name. There
-is no verified absence path, production queue adapter, or real dispatch; these
-remain pending until separately authorized provider integration.
+idempotent replay. The app coordinator records `created` only after the task
+client returns matching run/name identity; `AlreadyExists` also requires
+independent verification of that exact identity and created state. It retries
+only failures that the injected client classifies as transient and proves were
+never sent, using one- and two-second delays and no more than three calls.
+Timeouts, 5xx/ambiguous outcomes, and terminal auth/config rejections do not
+retry; after reservation they are recorded as `unknown` where possible. Unknown
+leaves the generation queued and prevents another reservation. Same-process
+replay returns its settled result. Lost CMS responses may repeat only the exact
+same reserve/outcome CAS command, relying on CMS identical-command replay; a
+replayed reservation never triggers another enqueue.
+
+The CMS action rejects `absent` and cannot commit queued→failed because its
+caller cannot supply independently verifiable Cloud Tasks absence evidence. The
+U9-A1 v1 compensation guard remains unchanged and rejects a stored task name.
+Therefore the coordinator never claims `noTaskCreated` or returns exhaustion
+after reservation. A verified absence path and compensation-compatible CMS
+evidence contract remain deferred; neither `not-sent` retries nor provider
+errors establish that contract. No production queue adapter, real dispatch,
+credentials, Cloud Run/OIDC configuration, or operational readiness is claimed.
 
 After successful creation, Cloud Tasks exclusively owns delivery retries: deadline 1,800s, attempts 5, backoff 30..600s, doublings 4, all provider-gated. Worker 503 requests redelivery/resume. Delivery retry/exhaustion never invokes pre-claim compensation or creates another task.
 
 The operational project and Vertex consumer/quota project are both `teleferico-bariloche-2024`. The worker MUST run as a dedicated user-managed `WORKER_RUNTIME_SERVICE_ACCOUNT` attached as its Cloud Run service identity. It uses metadata-provided keyless credentials only: production MUST provision no service-account JSON key and MUST omit `GOOGLE_APPLICATION_CREDENTIALS`. The Cloud Tasks OIDC `TASK_INVOKER_SERVICE_ACCOUNT` is a distinct service account with only invocation duty; it MUST NOT inherit the worker's Vertex, storage, CMS, logging, or metric permissions. IAM bindings attach each principal only to the policy of the required product-project resource.
 
-OIDC requires valid signature/time, exact audience `WORKER_OIDC_AUDIENCE`, issuer in verified immutable allowlist, and exact principal `TASK_INVOKER_SERVICE_ACCOUNT`; audience is canonical HTTPS worker origin without path/query/trailing slash; unset issuers reject all. App may create on one queue/read required secrets only; invoker may invoke one worker; worker runtime may use the gated Vertex model, CMS token, two object prefixes, logs/metrics; CMS gets no GCP authority. The effective quota/billing project MUST be `teleferico-bariloche-2024`; any explicit quota-project mechanism requires the worker principal to hold `roles/serviceusage.serviceUsageConsumer` on that project. Vertex usage, feature labels, logs, metrics, per-generation pricing snapshots, cumulative cost, and alerts all remain attributable there, distinct from OpenCode usage.
+OIDC requires valid signature/time, exact audience `WORKER_OIDC_AUDIENCE`, issuer in verified immutable allowlist, and exact principal `TASK_INVOKER_SERVICE_ACCOUNT`; audience is canonical HTTPS worker origin without path/query/trailing slash; unset issuers reject all. App may create on one queue/read required secrets only; invoker may invoke one worker; worker runtime may use the gated Vertex model, CMS token, two object prefixes, logs/metrics. The CMS uses a separate dedicated user-managed Cloud Run service identity for only the approved Vertex CountTokens method and pinned evidence-key read; it does not inherit the worker, app, or task-invoker identity, cannot call `generateContent`, and has no Cloud Tasks or worker-bucket authority. Its Vertex consumer/quota project is `teleferico-bariloche-2024`. Secret Manager access is restricted to the evidence secret; use an IAM condition on the pinned version resource where supported, and verify the resulting policy before granting. Secret Manager IAM roles are granted no lower than the Secret resource, so a version-specific condition is required to narrow access to one version. This is a future operator/IAM gate, not a grant made by this repository change. The effective worker quota/billing project MUST be `teleferico-bariloche-2024`; any explicit quota-project mechanism requires the worker principal to hold `roles/serviceusage.serviceUsageConsumer` on that project. Vertex usage, feature labels, logs, metrics, per-generation pricing snapshots, cumulative cost, and alerts all remain attributable there, distinct from OpenCode usage.
 
-Terminal key `tb113:terminal-failure:{run}:v1` is created once after any failed commit, including enqueue exhaustion, never on retries; replay cannot re-alert. Cost key `tb113:cost-over-10-usd:{run}:v1` is created once crossing `<=10_000_000` to `>10_000_000` micros and is nonblocking.
+The private app HTTP boundary still accepts only the exact execute command through a signed-token verifier and immutable issuer/audience/principal policy; signature and temporal claims are checked before reading the body or invoking dependencies. `createConfiguredReportWorkerNodeServer` and `startConfiguredReportWorkerFromEnvironment` now compose that handler only after the complete operator configuration validates. Importing the module starts no listener and makes no service call. The worker action-token map is restricted to `workerClaim`, `workerSnapshot`, `workerCheckpoint`, `workerComplete`, and `workerFail`; no public token or session JWT fallback exists. Missing config prevents server construction. Synthetic HTTP/adapter tests do not satisfy the Cloud Run/Tasks/OIDC operations gate or complete U10.
 
-Report key `private/feedback-reports/{reportId}/report.pdf` is private/no-store/indefinite. Sanitized `private/report-diagnostics/{run}/bundle.json` expires after 30 days. Final-key upload remains pending/non-downloadable until atomic CMS report completion; terminal failure requires deletion/verified absence; duplicate delivery resumes cleanup/completion by digest.
+Terminal key `tb113:terminal-failure:{run}:v1` and cost key `tb113:cost-over-10-usd:{run}:v1` are durable pending intents in the generation's private `usageJson`. The terminal intent is committed atomically with any failed transition, including enqueue exhaustion. The cost intent is committed atomically with the stage that crosses `<=10_000_000` to `>10_000_000` cumulative micros. Only after commit may the worker call the injected notifier. It acknowledges an intent only after the notifier confirms acceptance for the same idempotency key; failed sends or acknowledgements leave the intent pending for replay/resume. Cost notification is nonblocking for report generation.
+
+**Offline usage and alert-intent implementation:** The local worker validates each provider response's returned model, revision, SKU, and `usageMetadata`, prices the stage against the immutable generation pricing snapshot with integer micro-USD rounding, and persists stage usage/cumulative cost in the same row-locked state-version transaction as its checkpoint. Identical checkpoint replay does not add cost again. The same private `usageJson` carries a versioned alert-outbox projection. Pending intents are returned on claim/resume, checkpoint, failure, and completion replay. `workerAlertAck` uses Strapi's exact custom-token action scope and row-locks the generation while changing an intent to delivered only after the injected notifier confirms acceptance with the same idempotency key. Cost delivery is best-effort and does not block report execution. Exactly-once external effect depends on the notifier durably honoring that key; the offline fake verifies the protocol, but no real notifier is composed or operationally proven. Failed sends/acknowledgements remain pending for replay. No schema change, default permission, or default notifier is added. U10/U11/U12/U13 and formal task state remain open.
+
+Report key `private/feedback-reports/{reportId}/report.pdf` is private/no-store/indefinite. Sanitized `private/report-diagnostics/{run}/bundle.json` expires after 30 days. The default worker/download composition binds the existing private-object adapter to `@google-cloud/storage` only after `FEEDBACK_PRIVATE_BUCKET` and the prefix contract validate. The adapter verifies uniform bucket-level access, enforced public-access prevention, and no public IAM members at operation time; create is generation-zero conditional, reads pin the observed generation, and deletion uses the observed generation precondition plus exact metadata ownership. Staged reads and app downloads validate run/report/digest and bounded PDF bytes before exposing content. Final-key upload remains pending/non-downloadable until atomic CMS report completion. Cleanup follows the failure CAS: delete only after CMS confirms a terminal failed transition or identical failed replay for that run and failure code; conflict, succeeded state, malformed response, or unknown outcome must leave the object untouched. A failed conditional deletion does not alter committed failed state and returns only the safe `cleanupPending` marker. Duplicate delivery resumes cleanup/completion by digest. Bucket IAM, lifecycle, and diagnostic retention remain operator/live gates; fake-only tests do not establish these controls.
 
 ## Verification Gates
 
@@ -85,3 +367,61 @@ Report key `private/feedback-reports/{reportId}/report.pdf` is private/no-store/
 - **Tasks/Run/OIDC / platform:** docs+redacted probes prove route/audience/issuer/name/deadline/retry/ingress, distinct invoker/runtime identities, and worker attachment; failure disables dispatch/generation.
 - **Region/storage/IAM / platform:** inventory/docs prove locations, least-privilege resource policies, lifecycle, prefixes, keyless runtime identity, absence of service-account JSON keys from deployment, and absence of `GOOGLE_APPLICATION_CREDENTIALS`; divergence needs approval.
 - **Strapi / CMS:** version docs/metadata+isolated PostgreSQL prove policies, transactions, relations, hooks, constraints; custom services own invariants, never CRUD.
+
+### Sanitized terminal diagnostics and offline configuration projection
+
+The app worker may build one `survey-worker-diagnostic-bundle.v1` only from the
+closed allowlist in `worker-diagnostics.ts`: report-run ID, stage/status/attempt,
+the pinned model, integer token/chunk/duration counters, a fixed safe failure
+code and its fixed message, source revision, and fixed nonsecret feature/service
+labels. Unknown fields reject. Prompts, comments, raw model output, credentials,
+signed URLs, and caller-supplied error text are not representable. The bundle is
+bounded to 4 KiB and uses exactly
+`private/report-diagnostics/{reportRunId}/bundle.json` with an `expiresAt` 30
+days after creation.
+
+Persistence exists only as an explicitly injected `WorkerDiagnosticStore` port;
+there is no production adapter or default. The worker invokes it only after the
+CMS fail command returns a committed terminal result, never for an uncommitted
+failure or a replay. Diagnostic write errors are best-effort and cannot change
+the terminal CMS outcome. The port's metadata does not prove that a bucket
+retention policy was applied.
+
+`docs/infra/survey-reporting/verify-config.mjs` checks only a closed,
+redacted `survey-worker-config-projection.v1` JSON document. It reports
+`projection_valid` when the supplied declaration matches the selected project,
+API, Vertex, queue, identity-scope, keyless, private-prefix/retention, labels,
+and budget contracts; missing, unknown, mismatched, or secret-like fields are
+`blocked`. This is a local document check, not infrastructure evidence. No live
+GCP, environment, secret, IAM policy, or deployment is inspected; unverifiable
+operational facts remain deferred and generation remains disabled.
+
+### Configuration-ready Google runtime composition
+
+The parameterless app reader, command, and download getters now build server-only transports from a closed set of operator inputs. The private worker exposes an explicit environment-backed HTTP/Node bootstrap. No module import calls a service or starts a listener. Missing, extra, mismatched, or malformed inputs produce bounded unavailable errors before app CMS list/create/dispatch calls or worker server construction. There is no test registry, environment fallback token, service-account key, public token, or session-JWT fallback for private custom-token actions. Production ADC-backed composition requires the Cloud Run-provided `K_SERVICE`/`K_REVISION` identity context and rejects nonempty `GOOGLE_APPLICATION_CREDENTIALS`; development has a distinct exact-loopback GoogleAuth path that rejects both Cloud Run identity variables and the service-key environment path. These are modes selected by `NODE_ENV`, not new configurable keys. The deployment capability flag remains false by default.
+
+The app/worker process settings include `FEEDBACK_CMS_ALLOWED_ORIGIN`, `FEEDBACK_APP_CMS_TOKEN`, `FEEDBACK_WORKER_CMS_TOKEN`, `FEEDBACK_WORKER_EVIDENCE_KEY`, `FEEDBACK_TASK_QUEUE_PATH`, `FEEDBACK_WORKER_URL`, `FEEDBACK_TASK_INVOKER_EMAIL`, `FEEDBACK_WORKER_OIDC_AUDIENCE`, `FEEDBACK_WORKER_OIDC_PRINCIPAL`, `FEEDBACK_VERTEX_PROJECT_ID`, and `FEEDBACK_PRIVATE_BUCKET`. App, worker, and CMS load the same nonsecret versioned report profile from `packages/tb113-runtime-contracts/config/report-generation.json`; the CMS also consumes `FEEDBACK_WORKER_EVIDENCE_KEY` and `FEEDBACK_VERTEX_PROJECT_ID`, plus `FEEDBACK_CMS_ALLOWED_ORIGIN` when configured. `BUILD_STRAPI_BASE_URL` remains the CMS base and must equal the single approved origin. `FEEDBACK_CAPABILITY_ENABLED` remains unchanged and deploys false. `.env.example` files were not read or edited; remove the obsolete `FEEDBACK_APPROVED_GENERATION_CONFIG_JSON` entry manually if it is present.
+
+- `FEEDBACK_APP_CMS_TOKEN` is one plain opaque Custom Content API token configured only in the app process. Its exact Strapi permissions are `feedbackAdminRead`, `workerSourceRead`, and `workerReportDownloadMetadata`.
+- `FEEDBACK_WORKER_CMS_TOKEN` is a separate plain opaque Custom Content API token configured only in the worker process. Its exact Strapi permissions are `workerClaim`, `workerSnapshot`, `workerCheckpoint`, `workerComplete`, and `workerFail`; `workerAlertAck` is intentionally absent because no notifier destination/idempotency contract is approved. Neither process token can authorize the other process's actions. These values are never browser session JWTs or the public content token.
+- The shared profile projects the closed generation envelope `{contractVersion:"survey-approved-generation-config.v1",sourceRevision,evidenceKeyId,modelConfig,pricingSnapshot}` and existing validators. Its source revision and evidence-key ID are code-release identifiers copied into the model config; headroom is derived from the input limit. It pins the project/model/location/endpoint and pricing SKU. Only the verified input-token limit and model input/output rates remain `null`; all three consumers fail closed until supplied. `pricingSnapshot.version` is code-owned and changes with a verified price update. The legacy JSON environment variable is ignored and cannot override the profile. No token values are stored in it.
+- `FEEDBACK_WORKER_EVIDENCE_KEY` is a pinned Secret Manager version resource name, not key bytes. Production worker and CMS read it only on explicit evidence-key requests through their own keyless Cloud Run identities, check returned version and minimum key length, and do not cache/log the secret. In explicit development loopback mode, this resource name is only nonsecret derivation metadata for a synthetic key; no Secret Manager request is made. Worker and CMS independently derive the same SHA-256 output from approved evidence key ID, source revision, pinned resource name, and fixed `tb113-local-synthetic-evidence-key.v1` domain tag. This predictable key is suitable only for synthetic local data and is not production security evidence. CMS additionally pins the evidence-key ID to the approved generation envelope. Operator IAM conditions/grants, secret creation/rotation, and identity attachment remain external.
+- `FEEDBACK_TASK_QUEUE_PATH` must be the exact project/location/queue resource for `teleferico-bariloche-2024`/`southamerica-east1`. `FEEDBACK_WORKER_URL` is the exact HTTPS Cloud Run `*.a.run.app` execute URL in production and exact loopback URL in development; audience is its canonical origin. `FEEDBACK_TASK_INVOKER_EMAIL` and `FEEDBACK_WORKER_OIDC_PRINCIPAL` must match each other and the configured task OIDC identity.
+- `FEEDBACK_VERTEX_PROJECT_ID` must equal `teleferico-bariloche-2024`; the model endpoint remains fixed to `aiplatform.us.rep.googleapis.com` in `us`. `FEEDBACK_PRIVATE_BUCKET` selects the private report bucket; the `private/feedback-reports` prefix is fixed in code.
+
+Production `BUILD_STRAPI_BASE_URL` and its exact allowlisted origin pass the existing canonical public-HTTPS hostname gate; redirects are refused. Development accepts only exact loopback `127.0.0.1` or `localhost` CMS origins. The local provider guard reads the same effective `HOST`/`PORT` binding as `config/server.js` and activates the synthetic key only when the effective host is one of those loopback hosts; when `BUILD_STRAPI_BASE_URL` or `FEEDBACK_CMS_ALLOWED_ORIGIN` is present, both must match that exact listener origin and port. Wildcard, LAN hosts, and mismatches fail closed. The CMS `config/feedback.js` exposes production CountTokens and pinned Secret Manager providers only when all agreed inputs and keyless Cloud Run context validate. In development it exposes independent CMS CountTokens plus deterministic synthetic evidence-key derivation only with approved inputs, bound loopback server, and no Cloud Run/service-key context. CountTokens makes a Vertex request only when checkpoint validation invokes it; local key derivation makes no Google request. CMS independently recounts and derives the key; worker claims are not substitutes. No local Secret Manager request, runtime credential access, IAM grant, deployment value, or live Google request is included. Verified task absence/compensation and alert delivery remain separate operational gates.
+
+- `createGoogleTaskOidcPolicy` uses `google-auth-library` signed ID-token verification with a configured canonical HTTPS audience, configured invoker service-account principal, Google issuer allowlist, verified email identity, and temporal claims. The worker bootstrap supplies this policy only after validation.
+- `createGoogleFeedbackTaskClient` uses keyless `GoogleAuth` ADC plus Cloud Tasks REST at the validated project, `southamerica-east1` queue, deterministic task name, exact private worker route, audience, and invoker identity. The default admin command composes it only from valid task/worker settings plus the JWT-authenticated CMS dispatch-state port. A transport failure, timeout, 5xx, or malformed response is `unknown`; only a returned 429 is classified as a rejected/not-created request. `ALREADY_EXISTS` is exposed only after the service's exact status and the existing coordinator independently verifies the stored task body, JSON content type, route, OIDC identity, and name. The adapter never creates an alternate task or compensates an ambiguous result.
+- `createGooglePrivateReportBucket` requires an explicit bucket and exact `private/feedback-reports` prefix. It requires uniform bucket-level access, enforced public-access prevention, and no public IAM binding; it uses `ifGenerationMatch: 0` for create, bounds object reads to the existing 25 MiB contract, pins reads to the observed generation, and deletes only after matching metadata and the observed generation. The app's default download getter and worker bootstrap both use this private port. It exposes no ACL, URL, or credential operation. Live bucket policy, IAM, retention, and GCS behavior remain unverified.
+- The Vertex CountTokens/generation adapters accept only the immutable project `teleferico-bariloche-2024`, location `us`, endpoint `aiplatform.us.rep.googleapis.com`, and model `gemini-3.8-flash`. Production uses keyless Cloud Run ADC; explicit local development uses lazy GoogleAuth ADC only when a task calls the adapter. Both use fixed REST URLs, bounded requests/responses, and strict usage/output decoding. `generateContent` serializes the same four immutable segments—instructions, schema, metrics, comments—in the same order from the paired `CountTokensRequestV1`; it does not rebuild prompts from a parallel template or caller override. Temperature remains 0, thinking level LOW, response MIME is JSON, grounding/tools are absent, and the output cap is the pinned route hard maximum. The worker checks `usageMetadata.promptTokenCount` against `verifiedInputTokenLimit`, and preserves exact output CountTokens equality/hard-cap validation before checkpoint writes. Pricing uses the pinned model identity as the provider SKU and therefore fails closed if the immutable pricing snapshot has no matching unit. No live request verifies model availability, SKU pricing, quota, or runtime identity.
+
+The provider ports now receive the immutable CountTokens request paired with their domain request. Direct generation reuses the exact count request whose digest is in the `count` checkpoint. Each map request is matched against its exact selected-count attempt digest before generation. Reduce constructs one shared count request from the verified map outputs and immutable metrics, bounds its CountTokens total plus the existing reservation/headroom before generation, and passes that same request to the adapter; its immutable map-checkpoint graph and stage-input digest bind the reducer inputs. Provider-reported prompt usage is separately bounded, while the existing post-generation CountTokens recount remains authoritative for candidate tokens. Normal development does not substitute a fake model response. The development evidence key is synthetic, deterministic, and explicitly not security evidence; production always uses its pinned Secret Manager provider.
+
+### Independent root worker package
+
+The private worker process is isolated at `services/survey-report-worker/`; app routes, administration, dispatch, and mediated download remain app-owned. Shared reporting, runtime configuration, and private-storage code live under root `packages/`. The worker has an exact-version package manifest and lockfile, a direct esbuild dependency, and Node's built-in `node:test` suite. No app runtime module is imported by the worker.
+
+The local `pnpm run build` emits `dist/server.cjs` and `dist/run-worker.mjs`. It copies and verifies Playwright Chromium revision `1228`, its headless shell, and DejaVuSans by SHA-256. The output directory was observed at `670,323,080` bytes; it includes the bundles and renderer assets, not `node_modules`, a Cloud Run image, or image OS libraries. `pnpm start` uses the package-local browser/font paths and validates environment configuration before binding `PORT`. The built Node tests use fake OIDC/CMS dependencies and loopback HTTP only.
+
+Observed local verification on Node `v22.22.0` and pnpm `10.33.0`: worker build passed; Node smoke/contract tests passed 4/4; worker typecheck passed; app typecheck passed; focused app worker HTTP/PDF tests passed 42/42 across two files. No GCP, Docker, live CMS/Google request, image, worker Cloud Build trigger, Cloud Run service, IAM grant, or staging deployment was created or verified. Future staging requires a separately approved pinned base/image with Chromium OS dependencies, private service, queue/OIDC, runtime/task-invoker identities, and least-privilege IAM. The capability flag remains false and U10/U11/U12 formal tasks remain unchecked.

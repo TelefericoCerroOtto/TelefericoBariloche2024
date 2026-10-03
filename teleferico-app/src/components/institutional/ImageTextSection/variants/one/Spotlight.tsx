@@ -1,3 +1,4 @@
+import CustomLink from "@/components/shared/CustomLink";
 import { blocksToExcerpt, selectOriginalCmsImageUrl } from "@/lib/adapters";
 import { typography } from "@/lib/constants/typography.const";
 import notFoundImg from "@/public/image-not-found.jpg";
@@ -6,7 +7,8 @@ import type { OneImageProps } from "../../shared/types";
 import { IMAGE_TEXT_IMAGE_QUALITY } from "../../shared/image-policy";
 
 export function Spotlight(props: OneImageProps) {
-  const { desktopImages, mobileImages, title, description, epigraph } = props;
+  const { desktopImages, mobileImages, title, description, epigraph, link } =
+    props;
 
   const mobile0 = mobileImages?.[0] ?? desktopImages?.[0] ?? null;
   const desktop0 = desktopImages?.[0] ?? mobileImages?.[0] ?? null;
@@ -86,11 +88,23 @@ export function Spotlight(props: OneImageProps) {
         {/* Contenido */}
         <div className="relative flex w-full flex-col justify-center p-5 md:w-1/2 md:self-center md:p-7 lg:p-8">
           <div className="max-w-xl">
-            <div className="mb-3 h-1 w-12 bg-gray-900/90 md:hidden" />
-
             <h2 className="mb-3 text-2xl font-bold uppercase leading-[1] tracking-tight text-gray-900 md:text-3xl lg:text-4xl">
               {title}
             </h2>
+
+            {epigraph ? (
+              <>
+                <div
+                  aria-hidden="true"
+                  className="mb-3 block h-1 w-12 bg-gray-900/90"
+                />
+                <p
+                  className={`mb-4 font-medium uppercase not-italic tracking-[0.2em] text-gray-500 ${typography.meta.featureEyebrow}`}
+                >
+                  {epigraph}
+                </p>
+              </>
+            ) : null}
 
             <p
               className={`mb-5 leading-relaxed text-gray-700 ${typography.content.feature}`}
@@ -98,13 +112,13 @@ export function Spotlight(props: OneImageProps) {
               {blocksToExcerpt(description, { maxLength: 500 })}
             </p>
 
-            {epigraph ? (
-              <div
-                className={`inline-flex items-center gap-2 rounded-full border border-red-200/70 bg-white/85 px-4 py-2 font-bold italic text-red-700 shadow-sm backdrop-blur-md ${typography.meta.featureEyebrow}`}
+            {link ? (
+              <CustomLink
+                href={link.href}
+                className={`inline-flex min-h-11 items-center rounded-full border border-red-200/70 bg-white/85 px-4 py-2 font-bold not-italic text-red-700 shadow-sm backdrop-blur-md transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none ${typography.meta.featureEyebrow}`}
               >
-                {/* ...icon... */}
-                {epigraph}
-              </div>
+                {link.label}
+              </CustomLink>
             ) : null}
           </div>
         </div>

@@ -1,7 +1,7 @@
 import {
   normalizePeriod,
   REPORTING_TIME_ZONE,
-} from "../../../packages/survey-reporting-core/src/index";
+} from "@teleferico/survey-reporting-core";
 import type {
   FeedbackAdminFilters,
   FeedbackAdminReadRoute,
@@ -92,8 +92,9 @@ function page(
   const size =
     rawPageSize === undefined ? PAGE_SIZE_DEFAULT : Number(rawPageSize);
   if (
-    !Number.isInteger(value) ||
+    !Number.isSafeInteger(value) ||
     value < 1 ||
+    value > 100_000 ||
     !Number.isInteger(size) ||
     size < 1 ||
     size > PAGE_SIZE_MAX
@@ -125,25 +126,45 @@ export function parseFeedbackAdminFilters(
   if (!isDateRange(from, to) || !to)
     return { ok: false, code: "VALIDATION_FAILED" };
 
-  if (route === "summary" || route === "reports") {
+  if (route === "summary" || route === "reports" || route === "generations") {
     if (
       hasAmbiguousSingleValue(
         query,
-        route === "reports" ? ["page", "pageSize"] : [],
+        route === "reports" || route === "generations"
+          ? ["page", "pageSize", ...(route === "generations" ? ["status"] : [])]
+          : [],
       )
     )
       return { ok: false, code: "VALIDATION_FAILED" };
     if (
       !hasOnlyKeys(
         query,
-        route === "reports"
-          ? ["from", "to", "page", "pageSize"]
+        route === "reports" || route === "generations"
+          ? ["from", "to", "page", "pageSize", ...(route === "generations" ? ["status"] : [])]
           : ["from", "to"],
       )
     )
       return { ok: false, code: "VALIDATION_FAILED" };
     if (route === "summary") return { ok: true, value: { route, from, to } };
     const pagination = page(query);
+    if (route === "generations") {
+      const status = one(query, "status");
+      if (
+        !pagination ||
+        (status !== undefined && !["queued", "running", "succeeded", "failed"].includes(status))
+      )
+        return { ok: false, code: "VALIDATION_FAILED" };
+      return {
+        ok: true,
+        value: {
+          route,
+          from,
+          to,
+          status: (status as "queued" | "running" | "succeeded" | "failed" | undefined) ?? null,
+          ...pagination,
+        },
+      };
+    }
     return pagination
       ? { ok: true, value: { route, from, to, ...pagination } }
       : { ok: false, code: "VALIDATION_FAILED" };

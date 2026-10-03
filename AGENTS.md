@@ -9,7 +9,8 @@ This file defines the portable repository-wide governance for agents working in 
   - `teleferico-cms` (Strapi): CMS/API backend
 - Separately scoped tooling:
   - `tools/image-pipeline`: local-first image authoring and batch processing. Has its own `AGENTS.md` with self-contained governance. It is NOT part of the public site runtime or the CMS; treat it as an independent tool unless a change explicitly crosses its boundary.
-- Root surfaces: `.githooks/`, `.github/scripts/`, `scripts/`, `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `docs/`, `.agents/`, `cloudbuild.playwright-e2e.json`
+- Root surfaces: `.githooks/`, `.github/scripts/`, `scripts/`, `public/`, `teleferico-app/`, `teleferico-cms/`, `tools/`, `packages/`, `services/`, `docs/`, `.agents/`, `cloudbuild.playwright-e2e.json`
+- Independent TB-113 packages: `packages/survey-reporting-core/`, `packages/tb113-runtime-contracts/`, `packages/tb113-private-report-storage/`, and `services/survey-report-worker/`.
 
 ## Key paths
 
@@ -33,7 +34,7 @@ This file defines the portable repository-wide governance for agents working in 
 
 ## Package-local governance
 
-- `teleferico-app/AGENTS.md`, `teleferico-cms/AGENTS.md` and `tools/image-pipeline/AGENTS.md` are critical package-local guardrail sources.
+- `teleferico-app/AGENTS.md`, `teleferico-cms/AGENTS.md`, `tools/image-pipeline/AGENTS.md`, and `services/survey-report-worker/AGENTS.md` are critical package-local guardrail sources.
 - Package-local files refine this root guidance for their own package boundaries and sensitive flows; they must not weaken runtime instructions, user approvals, or approved slice boundaries.
 
 ## Scope-sensitive changes
@@ -102,6 +103,7 @@ For each command, include:
 - Direct deployments from the console are prohibited.
 - The only operational path to deploy is through a merge of a pull request into the branch associated with the target environment.
 - The agent may prepare the pull request and supporting changes, but it must not decide, approve, or perform the merge.
+- Narrow exception: while TB-113 feedback remains incomplete, an operator may manually toggle only `FEEDBACK_CAPABILITY_ENABLED` on `app-staging-teleferico` or `app-production-teleferico` for a bounded test window, using the exact approved `gcloud run services update` command documented in `docs/INFRA.md`. The command still requires explicit approval for the exact environment and value, and all other direct deployment/environment changes remain prohibited. Set the flag back to `false` after testing; the next Cloud Build deployment also resets it to `false`.
 
 ### Practical default
 
@@ -130,17 +132,16 @@ When a command is not clearly safe, treat it as sensitive and ask before executi
 
 ## Implementation PR finalization
 
-- `/implementation-pr` is a single-invocation shortcut for one implementation branch snapshot. Load `.agents/skills/implementation-pr/SKILL.md`; it composes the active commit and PR contracts without replacing them. It accepts the slash command or an unambiguous natural-language request that explicitly authorizes commit of the captured candidate, non-force-push of `HEAD` to `origin`, and creation of one implementation PR, with destination and current credential/session authorization. This authorization never carries to a new candidate or later mutation.
-- The exact `/implementation-pr --allow-mixed-scope "<reason>"` form remains valid; an equally explicit natural-language request may approve inclusion of unrelated, non-sensitive paths. For that form, the agent may draft a one-line English audit reason from the user's concrete explanation. Never infer authorization, invent rationale, or waive unknown/sensitive paths, ambiguity, or truncation. Bind the reason and exact exceptional path inventory to the same candidate, selected `origin`, typed plan, destination, and current session. The generated PR must visibly disclose `## Scope Exception`, which is read back before governance observation. Repository CI cannot infer whether the override was active.
-- A pre-mutation blocked continuation may resolve only its identified blocker with unchanged candidate and authorization bindings. Expired authorization, candidate/binding change, and terminal publication outcomes require fresh classification and authorization. An open implementation PR is an update path through `branch-pr` regenerate, not a reason to create a duplicate.
-- The coordinator retains policy, authorization, and mutation decisions; `.opencode/agents/delivery-state-mapper.md` remains a separate read-only fact-gathering actor except for an explicitly authorized fetch. A single bounded publication actor may perform operation-specific PR creation/readback, metadata readback, the repository governance helper, and the one post-creation Vitest run when delegation is permitted and useful. It may also run inline when the operation is bounded; do not force an agent or chain delegates. The mapper uses one deterministic local/authorized-remote query plan, reuses observations, and performs only narrow final binding revalidation.
-- The default typed plan targets `development`; `stacked-to-main` may instead create a draft child against the exact immediate parent branch. The parent must be an open same-repository implementation PR into `development` or an open same-repository draft stacked-child preview. Validate every preview ancestor's visible Chain Context and runtime-base binding to an open implementation root; reject cycles, orphans, and malformed or hidden ancestry. It never accepts an arbitrary base or authorizes promotion PRs, later changes, force pushes, branch changes, rebases, merges, issue closure, branch deletion, or releases.
+- `/implementation-pr` is a single-invocation shortcut for the current implementation branch. Load `.agents/skills/implementation-pr/SKILL.md`; it directly gathers minimal local Git facts once and performs only explicitly authorized, repository-scoped GitHub reads. Do not use `delivery-state-mapper`, launch generic SDD discovery, repeat candidate discovery, or create a candidate fingerprint. The request must explicitly authorize commit, non-force-push to the named remote, and creation of one implementation PR, and identify the destination and current credential/session authorization.
+- Run `.github/scripts/implementation-candidate-paths.js` once against the complete candidate path list; it checks names only and never opens candidate files. Stop for unknown or secret-like paths; never read credential files or secret values. Also stop for the wrong branch, remote, or base; an existing open PR; failed or unknown commit/push; or a published head/base mismatch. When ad hoc non-sensitive paths are explicitly included, preserve one exact `## Scope Disclosure` in the PR body that says they are outside the addressed item and lists every path and work unit; do not ask for a reason or repeat approval per path. This disclosure does not authorize commit, push, PR creation, sensitive paths, or separate tracking changes. Use `branch-pr`'s PR policy/content and creation clauses only, without its standalone preflight.
+- A pre-mutation blocker may be resolved only when candidate and authorization are unchanged. Existing `development` and validated stacked-preview target restrictions still apply. Never accept an arbitrary base or authorize promotion PRs, later changes, force pushes, branch changes, rebases, merges, issue closure, branch deletion, or releases.
+- Run the repository governance helper once. After it returns for any outcome, run post-PR Vitest exactly once; its result and functional/Cloud Build status are advisory evidence and never publication gates.
 - `.github/scripts/wait-for-implementation-governance.js` is the sole implementation for polling and classifying implementation PR checks. Default mode is strict for `development`; explicit stacked-preview mode binds the exact base SHA and draft state, observes governance only, and defers Cloud Build/functional CI until retargeting.
 
 ## Automatic SDD slice transitions
 
 - Load `.agents/skills/sdd-slice-transition/SKILL.md` only at a native SDD implementation/apply boundary where one bounded work unit is complete and verified or reviewed, implementation remains, and sequential chained delivery is already selected.
-- At that boundary, reconstruct local facts through `delivery-state-mapper` and automatically present the skill's one closed candidate-scoped decision. Do not require a `/next-slice` command.
+- At that boundary, inspect local Git facts once and automatically present the skill's one closed candidate-scoped decision. Do not require a `/next-slice` command or use a delegated mapper.
 - Do not activate this workflow for ordinary interaction, planning, incomplete work, final SDD completion, or strict-TDD decisions. Strict TDD is independent of delivery transitions.
 - Publication remains owned by `implementation-pr`; next-slice implementation remains owned by the native SDD apply actor. Child work may continue from the exact published parent commit. Before the parent merges, a child may be published only as a same-repository draft `stacked-to-main` preview against that immediate parent branch; the parent may be an open implementation PR into `development` or another open same-repository draft preview. Validate the full visible Chain Context ancestry to the implementation root and require each preview base ref/SHA to match its immediate parent. Require exact Chain Context and governance-only observation. After the parent merges, retarget the existing child PR to `development` under fresh candidate-scoped authorization; never create a duplicate PR or automate ancestry repair.
 
