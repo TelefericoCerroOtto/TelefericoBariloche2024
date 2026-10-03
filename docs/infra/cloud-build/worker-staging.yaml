@@ -163,14 +163,14 @@ steps:
     timeout: 1800s
 
 substitutions:
-  _AR_LOCATION: REQUIRED_OPERATOR_VALUE
+  _AR_LOCATION: southamerica-east1
   _AR_REPOSITORY: REQUIRED_OPERATOR_VALUE
-  _STRAPI_BASE_URL: REQUIRED_OPERATOR_VALUE
-  _CMS_ALLOWED_ORIGIN: REQUIRED_OPERATOR_VALUE
-  _TASK_INVOKER_SERVICE_ACCOUNT: REQUIRED_OPERATOR_VALUE
-  _WORKER_RUNTIME_SERVICE_ACCOUNT: REQUIRED_OPERATOR_VALUE
+  _STRAPI_BASE_URL: https://cms-staging-teleferico-ra2cbgog2a-rj.a.run.app
+  _CMS_ALLOWED_ORIGIN: https://cms-staging-teleferico-ra2cbgog2a-rj.a.run.app
+  _TASK_INVOKER_SERVICE_ACCOUNT: feedback-task-invoker-staging@teleferico-bariloche-2024.iam.gserviceaccount.com
+  _WORKER_RUNTIME_SERVICE_ACCOUNT: feedback-worker-staging@teleferico-bariloche-2024.iam.gserviceaccount.com
   _WORKER_CMS_TOKEN_SECRET_VERSION: REQUIRED_OPERATOR_VALUE
-  _PRIVATE_BUCKET: REQUIRED_OPERATOR_VALUE
+  _PRIVATE_BUCKET: feedback-reports-staging-384535443802
   _EVIDENCE_KEY_RESOURCE: REQUIRED_OPERATOR_VALUE
   _WORKER_SERVICE_NAME: feedback-worker-staging
   _WORKER_REGION: southamerica-east1

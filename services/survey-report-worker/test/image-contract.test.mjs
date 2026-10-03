@@ -123,18 +123,22 @@ test("Cloud Build prepares and verifies Chromium/font assets before building the
   assert.ok(cloudBuildConfig.indexOf("unset AR_LOCATION") < cloudBuildConfig.indexOf("pnpm install --frozen-lockfile"));
   assert.ok(cloudBuildConfig.includes("_WORKER_SERVICE_NAME: feedback-worker-staging"));
   assert.ok(cloudBuildConfig.includes("_WORKER_REGION: southamerica-east1"));
-  for (const requiredSubstitution of [
-    "_AR_LOCATION",
+  for (const [name, value] of [
+    ["_AR_LOCATION", "southamerica-east1"],
+    ["_STRAPI_BASE_URL", "https://cms-staging-teleferico-ra2cbgog2a-rj.a.run.app"],
+    ["_CMS_ALLOWED_ORIGIN", "https://cms-staging-teleferico-ra2cbgog2a-rj.a.run.app"],
+    ["_TASK_INVOKER_SERVICE_ACCOUNT", "feedback-task-invoker-staging@teleferico-bariloche-2024.iam.gserviceaccount.com"],
+    ["_WORKER_RUNTIME_SERVICE_ACCOUNT", "feedback-worker-staging@teleferico-bariloche-2024.iam.gserviceaccount.com"],
+    ["_PRIVATE_BUCKET", "feedback-reports-staging-384535443802"],
+  ]) {
+    assert.ok(cloudBuildConfig.includes(`  ${name}: ${value}\n`));
+  }
+  for (const pendingSubstitution of [
     "_AR_REPOSITORY",
-    "_STRAPI_BASE_URL",
-    "_CMS_ALLOWED_ORIGIN",
-    "_TASK_INVOKER_SERVICE_ACCOUNT",
-    "_WORKER_RUNTIME_SERVICE_ACCOUNT",
     "_WORKER_CMS_TOKEN_SECRET_VERSION",
-    "_PRIVATE_BUCKET",
     "_EVIDENCE_KEY_RESOURCE",
   ]) {
-    assert.ok(cloudBuildConfig.includes(`${requiredSubstitution}: REQUIRED_OPERATOR_VALUE`));
+    assert.ok(cloudBuildConfig.includes(`  ${pendingSubstitution}: REQUIRED_OPERATOR_VALUE\n`));
   }
   for (const deployFlag of [
     "--no-allow-unauthenticated",
