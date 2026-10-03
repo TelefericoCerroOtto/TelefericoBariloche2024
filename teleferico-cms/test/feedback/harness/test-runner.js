@@ -18,6 +18,7 @@ const TESTS_BY_SELECTOR = {
   ],
   'feedback/submission': path.join(__dirname, '../submission/postgres-submission.test.js'),
   'feedback/admin-report-commands': path.join(__dirname, '../admin-report-commands.test.js'),
+  'feedback/private-report-source': path.join(__dirname, '../private-report-source.test.js'),
   'feedback/generation-lifecycle': [
     path.join(__dirname, '../generation-lifecycle/lifecycle.test.js'),
     path.join(__dirname, '../generation-lifecycle/postgres.test.js'),

@@ -11,12 +11,15 @@ const copy: FeedbackSurveyCopy = {
   es: {
     headerTitle: "Encuesta",
     overallQuestion: "¿Cómo fue tu experiencia general?",
+    receiptLabel: "Número de referencia:",
   },
   en: {
     headerTitle: "Survey",
+    receiptLabel: "Reference number:",
   },
   pt: {
     headerTitle: "Pesquisa",
+    receiptLabel: "Número de referência:",
   },
 };
 
@@ -34,9 +37,16 @@ describe("feedback UI contract", () => {
     expect(validateFeedbackStage("overall", withOverall, [])).toEqual({
       valid: true,
     });
-    expect(validateFeedbackStage("aspects", withOverall, [])).toEqual({
+    expect(
+      validateFeedbackStage(
+        "aspects",
+        withOverall,
+        [],
+        ["cable-car", "views", "other"],
+      ),
+    ).toEqual({
       valid: false,
-      focusId: "aspect-views",
+      focusId: "aspect-cable-car",
       messageKey: "aspectsRequired",
     });
   });
@@ -59,6 +69,23 @@ describe("feedback UI contract", () => {
     });
   });
 
+  it("enforces the normative 300-character custom-aspect bound", () => {
+    const state = {
+      ...createInitialFeedbackState(),
+      overallRating: 5 as const,
+      selectedAspectKeys: ["other"],
+      otherText: "a".repeat(301),
+    };
+
+    expect(
+      validateFeedbackStage("aspects", state, ["other"], ["other"]),
+    ).toEqual({
+      valid: false,
+      focusId: "other-aspect-input",
+      messageKey: "otherTooLong",
+    });
+  });
+
   it("falls back to Spanish copy and emits only bounded telemetry", () => {
     const onFallback = vi.fn();
 
@@ -66,6 +93,53 @@ describe("feedback UI contract", () => {
       "¿Cómo fue tu experiencia general?",
     );
     expect(onFallback).toHaveBeenCalledWith("pt", "overallQuestion");
+  });
+
+  it("resolves the authoritative receipt label in each supported locale", () => {
+    expect(resolveFeedbackCopy(copy, "es", "receiptLabel")).toBe(
+      "Número de referencia:",
+    );
+    expect(resolveFeedbackCopy(copy, "en", "receiptLabel")).toBe(
+      "Reference number:",
+    );
+    expect(resolveFeedbackCopy(copy, "pt", "receiptLabel")).toBe(
+      "Número de referência:",
+    );
+  });
+
+  it("keeps CMS copy authoritative and localizes UI-only copy by locale", () => {
+    const translations: FeedbackSurveyCopy = {
+      es: { commentLabel: "Comentario del CMS" },
+      en: { commentLabel: "CMS comment" },
+      pt: { commentLabel: "Comentário do CMS" },
+    };
+
+    expect(resolveFeedbackCopy(translations, "en", "commentLabel")).toBe(
+      "CMS comment",
+    );
+    expect(resolveFeedbackCopy(translations, "en", "commentPlaceholder")).toBe(
+      "Write your comment",
+    );
+    expect(resolveFeedbackCopy(translations, "pt", "commentPlaceholder")).toBe(
+      "Escreva seu comentário",
+    );
+  });
+
+  it("resolves the localized home link label without fallback telemetry", () => {
+    const onFallback = vi.fn();
+
+    const translations: FeedbackSurveyCopy = { es: {}, en: {}, pt: {} };
+
+    expect(
+      resolveFeedbackCopy(translations, "es", "homeLabel", onFallback),
+    ).toBe("Volver al inicio");
+    expect(
+      resolveFeedbackCopy(translations, "en", "homeLabel", onFallback),
+    ).toBe("Back to home");
+    expect(
+      resolveFeedbackCopy(translations, "pt", "homeLabel", onFallback),
+    ).toBe("Voltar ao início");
+    expect(onFallback).not.toHaveBeenCalled();
   });
 
   it("accepts success only when receipt, timestamps, and guard state are authoritative", () => {

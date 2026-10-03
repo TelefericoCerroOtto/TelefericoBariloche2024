@@ -1,17 +1,19 @@
 # Apply Progress: TB-113 Visitor Feedback
 
+**Historical native-apply snapshot — not current execution status or budget guidance.** This artifact records an earlier formal apply state and its contemporaneous evidence. For current TB-113 routing and prospective work, use the [implementation route](./README.md), [Execution after U10-A16](./tasks.md#execution-after-u10-a16), and [standing TB-113 review-size exception](./README.md#standing-tb-113-review-size-exception).
+
 ## Status
 
 - Change: `tb-113-visitor-feedback`
 - Apply mode: Strict TDD; U6 complete and U7 foundations through U7-B5 are implemented
 - Delivery mode: bounded chained slice under `ask-on-risk`
-- Chain strategy: `stacked-to-main`; draft child previews may target the exact immediate parent, then the same PR retargets to `development` after parent merge
-- Review budget: mandatory sequential B3a/B3b split; current U8-B remediation must remain at or below 1,600 authored additions+deletions against `dcda03d`
-- Current slice/work unit: `U8-B-admin-report-commands`; native Strapi core boundary remediation
-- Progress: 7 of 15 parent tasks complete; U8-A and U8-B subtasks complete and U8 parent/UI work remains pending
+- Chain strategy at this snapshot: `stacked-to-main`; draft child previews could target the exact immediate parent, then the same PR was retargeted to `development` after parent merge
+- Historical review budget: mandatory sequential B3a/B3b split; the U8-B remediation candidate had a 1,600 authored additions+deletions ceiling against `dcda03d` under the then-applicable policy.
+- Snapshot slice/work unit: `U8-B-admin-report-commands`; native Strapi core boundary remediation
+- Progress at this snapshot: 7 of 15 parent tasks complete; U8-A and U8-B subtasks complete and U8 parent/UI work remained pending
 - Generation status: disabled
 - Vertex gate: G03 passed for sanitized comments with `gemini-3.8-flash` in `us`; no fallback
-- Apply outcome: U8-B native-core remediation is focused-green and ready for independent SDD verification; parent-owned settlement remains separate. The exact candidate delta is 1,457 authored additions+deletions against `dcda03d`; U8 parent remains unchecked because UI and admin E2E are separate work units.
+- Apply outcome at this snapshot: U8-B native-core remediation was focused-green and ready for independent SDD verification; parent-owned settlement remained separate. The exact candidate delta was 1,457 authored additions+deletions against `dcda03d`; U8 parent remained unchecked because UI and admin E2E were separate work units.
 
 ## Completed tasks
 
@@ -648,7 +650,7 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - The 22-slice remaining-work baseline in `tasks.md` replaces legacy S11–S24 for future work only. Historical S01–S10 and completed U7 foundation evidence remain unchanged.
 - The next proposed unit is U7-B1 persistence adapter on `feat/app-cms-tb-113-feedback-persistence-adapter`, with U7-A6/PR #318 as predecessor.
 - Canonical payload identity includes stable signed session/domain claims, `browserTokenHash`, locale, standard aspects, optional other aspect, and comment. It excludes `sessionToken`, `pointDocumentId`, and `versionDocumentId`; the persistence IDs must resolve and validate against signed stable point/version claims before transaction/insert.
-- No remaining `size:exception` has been granted. Every concrete 401–800-line candidate requires fresh explicit candidate-scoped approval; forecasts or final counts above 800 stop and require reslicing.
+- Historical snapshot evidence: At the time this planning state was recorded, no remaining `size:exception` had been granted under the then-applicable policy; candidates measuring 401–800 lines required candidate-scoped approval, and forecasts or final counts above 800 called for reslicing. These thresholds are historical, not current TB-113 guidance.
 - This passive planning edit completes no U7–U15 task and records no implementation progress.
 
 ## U7-B1 Persistence Adapter — U7 Remains Open
@@ -973,8 +975,8 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Full app Vitest: exit 1; 326/328 passed. The only failures are the two acknowledged base-only `form-protection.test.ts` expectations for `TOO_MANY_REQUESTS` versus unchanged `EMAIL_LIMIT_EXCEEDED`; no U8-B test failed.
 - CMS focused contract/runtime selector: `npm --prefix teleferico-cms test -- feedback/admin-report-commands`; one isolated run exited 0 with 5/5 passed, including Strapi/PostgreSQL generation and cleanup. A later rerun after the aggregate suite hit a Knex pool timeout; no owned Docker container or volume remained afterward.
 - CMS aggregate selector: `npm --prefix teleferico-cms test -- feedback`; exit 1 with 57/59 passed. The two failures were Docker/Strapi readiness or pool-resource failures in existing PostgreSQL migration/permission suites; the U8-B command test passed. The aggregate was not run concurrently with another test after the focused rerun.
-- The current non-SDD authored delta is 1,689 lines relative to `HEAD`, exceeding the requested 1,600-line ceiling by 89 lines. The implementation was not compressed by deleting tests, documentation, comments, or blank lines. This slice requires an explicit `size:exception` or reslicing before publication.
-- Status: not ready for independent verification settlement. U8-B task `3.2b` remains checked because implementation and focused evidence are complete; U8 parent `3.2` remains unchecked.
+- At that snapshot, the non-SDD authored delta measured 1,689 lines relative to `HEAD`, 89 lines above the then-requested 1,600-line ceiling. The implementation was not compressed by deleting tests, documentation, comments, or blank lines. Under the policy recorded at that time, the slice required an explicit `size:exception` or reslicing before publication.
+- Snapshot status: the candidate was not ready for independent verification settlement. U8-B task `3.2b` was checked because implementation and focused evidence were complete; U8 parent `3.2` remained unchecked.
 
 ## U8-B Pre-Native Remediation Continuation — Historical (Superseded)
 
@@ -983,11 +985,11 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 - Propagated immutable `requestedBy` attribution through both generation and retry persistence paths. The isolated HTTP/PostgreSQL harness now proves `401` unauthenticated denial, `202` authenticated generation, queued persistence, populated `requestedBy`, and owned-resource cleanup.
 - Focused evidence after this continuation: app command/generation selector `10/10`; CMS command/runtime selector `4/4`; CMS permissions selector `4/4`; CMS syntax checks and `git diff --check` passed.
 - Documentation now describes the explicit bearer-JWT application-user check and keeps Next.js capability enforcement as the application authorization boundary.
-- Mechanical current candidate delta relative to `HEAD`, excluding OpenSpec artifacts but including the permissions documentation, is `1,804` changed lines (`1,682` additions and `122` deletions) when untracked implementation files are included. This exceeds the authorized `1,600`-line change-level ceiling; no code, test, comment, or documentation compression was performed.
+- The mechanical candidate delta recorded at that time, relative to `HEAD` and excluding OpenSpec artifacts but including the permissions documentation, was `1,804` changed lines (`1,682` additions and `122` deletions) when untracked implementation files were included. It exceeded the then-authorized `1,600`-line change-level ceiling; no code, test, comment, or documentation compression was performed.
 - Full app and CMS aggregate suites were not rerun after this continuation. The last aggregate evidence remains `326/328` app tests with only the two acknowledged baseline form-protection failures and `57/59` CMS feedback tests with existing Docker/Strapi readiness or pool-resource failures.
-- Status: implementation evidence is focused-green, but apply is blocked from final settlement until the maintainer authorizes `size:exception` or selects a reslice/chain boundary for the over-ceiling candidate.
+- Snapshot status: implementation evidence was focused-green, but final settlement was blocked pending maintainer authorization of `size:exception` or selection of a reslice/chain boundary for that over-ceiling candidate.
 
-## U8-B Native Strapi Boundary Remediation — Current Scope
+## U8-B Native Strapi Boundary Remediation — Snapshot Scope
 
 - Binding correction: U8-B no longer owns custom CMS command code. Generation uses the native Strapi core controller/router; `survey-report` controller/routes were restored to the pre-U8-B empty factory state; `services/admin-commands.js` was removed.
 - App ownership: `teleferico-app/src/lib/feedback/admin-command.ts` now owns date validation, overlap detection/disclosure, generation/retry decisions, core CRUD payload construction, and safe native-core error mapping. The server-side transport targets `/api/survey-report-generations` and never exposes the CMS token to browser code. U8-B current scope is app-owned generation/retry only; report history and PDF download are not implemented here.
@@ -1007,7 +1009,7 @@ Explicit authorization installed candidate dependencies before the reviewed pass
 | Runtime harness command/scenario and exact result | Native core Strapi/PostgreSQL scenario started isolated local services, denied unauthenticated core access with `403`, authorized native-role create with `201`, authorized native-role read with `200`, asserted persisted `requestedBy` is null, and ended with zero owned containers and volumes. |
 | Rollback boundary | Revert the U8-B app command helper/tests and Route Handler retry test; restore the custom CMS files only if the maintainer explicitly rejects native core CRUD; revert native permission tests/docs and this remediation section. Preserve pre-U8-B lifecycle services, schemas, migrations, U8-A readers, and U8 parent/UI pending state. |
 
-### U8-B Current Status
+### U8-B Status at Snapshot
 
 - U8-B custom CMS production code remaining: none. Pre-existing custom CMS lifecycle code remains only for named CAS/terminal/report-creation invariants in `survey-report-generation/services/lifecycle.js` and the pre-U8-B submission boundary; it is outside this remediation.
 - PDF download, report history implementation, U9 lifecycle/CAS/worker behavior, schema/migration/config/dependency/infrastructure changes remain out of scope.

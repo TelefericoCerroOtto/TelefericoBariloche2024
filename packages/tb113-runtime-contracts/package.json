@@ -1,0 +1,15 @@
+{
+  "name": "@teleferico/tb113-runtime-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@teleferico/survey-reporting-core": "file:../survey-reporting-core"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  }
+}

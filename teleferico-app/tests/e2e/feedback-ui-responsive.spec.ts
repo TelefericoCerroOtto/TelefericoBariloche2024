@@ -1,44 +1,18 @@
 import { expect, test, type Page } from "@playwright/test";
-
-const surveyResponse = {
-  contractVersion: "feedback-public.v1",
-  point: { pointKey: "summit", displayName: "Cumbre" },
-  survey: {
-    versionKey: "visitor-v1",
-    translations: {
-      es: {
-        headerTitle: "Contanos cómo fue tu experiencia",
-        overallQuestion: "¿Cómo fue tu experiencia general?",
-        aspectsQuestion: "¿Qué aspectos querés destacar?",
-        sentimentsQuestion: "¿Cómo calificarías cada aspecto?",
-        commentQuestion: "¿Querés agregar un comentario?",
-        verificationTitle: "Antes de enviar",
-        verificationHint: "Completá la verificación para proteger este canal.",
-        privacyNotice: "Tu respuesta nos ayuda a mejorar.",
-        successTitle: "Gracias",
-        successBody: "Tu respuesta fue recibida correctamente.",
-      },
-      en: {},
-      pt: {},
-    },
-    aspects: [
-      {
-        aspectKey: "views",
-        sortOrder: 1,
-        labels: { es: "Vistas", en: "Views", pt: "Vistas" },
-      },
-    ],
-  },
-  sessionToken: "synthetic-session-token",
-  expiresAt: "2030-09-18T14:00:00.000Z",
-};
+import {
+  installSyntheticCaptchaStub,
+  publicCopy as copy,
+  publicSurveyResponse,
+  selectPublicRating,
+} from "./feedback-public-fixture";
 
 async function stubFeedbackApi(page: Page) {
+  await installSyntheticCaptchaStub(page);
   await page.route("**/api/feedback/surveys/**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(surveyResponse),
+      body: JSON.stringify(publicSurveyResponse),
     });
   });
   await page.route("**/api/feedback/submissions", async (route) => {
@@ -57,19 +31,33 @@ async function stubFeedbackApi(page: Page) {
 async function advanceToVerification(page: Page) {
   await expect(
     page.getByRole("heading", {
-      name: surveyResponse.survey.translations.es.headerTitle,
+      name: copy.es.headerTitle,
     }),
   ).toBeVisible();
-  await page.getByRole("radio", { name: "5" }).check();
-  await page.getByRole("button", { name: "Continuar" }).click();
+  await selectPublicRating(page, 5);
+  await page.getByRole("button", { name: copy.es.nextLabel }).click();
   await page.getByRole("checkbox", { name: "Vistas" }).check();
-  await page.getByRole("button", { name: "Continuar" }).click();
+  await page.getByRole("button", { name: copy.es.nextLabel }).click();
   await page.getByRole("radio", { name: "Positivo" }).check();
-  await page.getByRole("button", { name: "Continuar" }).click();
-  await page.getByRole("button", { name: "Continuar" }).click();
+  await page.getByRole("button", { name: copy.es.nextLabel }).click();
+  await page.getByRole("button", { name: copy.es.nextLabel }).click();
   await expect(
-    page.getByRole("heading", { name: "Antes de enviar" }),
+    page.getByRole("heading", { name: copy.es.verificationTitle }),
   ).toBeVisible();
+}
+
+async function expectFooterAtViewportBottom(page: Page) {
+  const stage = await page.locator(".feedback-stage-viewport").boundingBox();
+  const footer = await page.locator(".feedback-form-footer").boundingBox();
+  const viewportHeight = page.viewportSize()?.height;
+  expect(stage).not.toBeNull();
+  expect(footer).not.toBeNull();
+  expect(footer!.y).toBeGreaterThanOrEqual(stage!.y + stage!.height - 1);
+  expect(footer!.y + footer!.height).toBeLessThanOrEqual(viewportHeight!);
+  await expect(page.locator(".feedback-stage-scroll")).toHaveCSS(
+    "overflow-y",
+    "auto",
+  );
 }
 
 test("visitor feedback responsive journey preserves a draft on mobile", async ({
@@ -81,19 +69,36 @@ test("visitor feedback responsive journey preserves a draft on mobile", async ({
     waitUntil: "domcontentloaded",
   });
 
-  await expect(page.getByRole("radio", { name: "5" })).toBeVisible();
-  await page.getByRole("radio", { name: "5" }).check();
-  await page.getByRole("button", { name: "Continuar" }).click();
-  await page.getByRole("checkbox", { name: "Vistas" }).check();
-  await page.getByRole("button", { name: "Continuar" }).click();
   await expect(
-    page.getByRole("heading", { name: "¿Cómo calificarías cada aspecto?" }),
+    page.getByRole("combobox", { name: copy.es.localeLabel }),
+  ).toHaveValue("es");
+  await expect(
+    page.getByRole("img", { name: "Teleférico Cerro Otto" }),
   ).toBeVisible();
+  await expect(page.getByRole("radio", { name: "5" })).toBeVisible();
+  await expectFooterAtViewportBottom(page);
+  await selectPublicRating(page, 5);
+  await page.getByRole("button", { name: copy.es.nextLabel }).click();
+  await page.getByRole("checkbox", { name: "Vistas" }).check();
+  await page.getByRole("button", { name: copy.es.nextLabel }).click();
+  await expect(
+    page.getByRole("heading", { name: copy.es.sentimentQuestion }),
+  ).toBeVisible();
+  await page
+    .getByRole("combobox", { name: copy.es.localeLabel })
+    .selectOption("en");
+  await expect(
+    page.getByRole("heading", { name: copy.en.sentimentQuestion }),
+  ).toBeVisible();
+  await expect(page.getByRole("group", { name: "Views" })).toBeVisible();
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(
-    page.getByRole("heading", { name: "¿Cómo calificarías cada aspecto?" }),
+    page.getByRole("heading", { name: copy.en.sentimentQuestion }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: copy.en.localeLabel }),
+  ).toHaveValue("en");
   await expect
     .poll(async () =>
       page.evaluate(() => {
@@ -107,6 +112,7 @@ test("visitor feedback responsive journey preserves a draft on mobile", async ({
       overallRating: 5,
       selectedAspectKeys: ["views"],
       stage: "sentiments",
+      locale: "en",
     });
   expect(
     await page.evaluate(
@@ -125,13 +131,11 @@ test("visitor feedback responsive journey reaches privacy verification on deskto
   });
 
   await advanceToVerification(page);
+  await expect(page.getByText(copy.es.privacyNotice)).toBeVisible();
   await expect(
-    page.getByText("Tu respuesta nos ayuda a mejorar."),
+    page.getByRole("region", { name: "Pregunta 4 de 4" }),
   ).toBeVisible();
-  await expect(page.getByRole("progressbar")).toHaveAttribute(
-    "aria-valuenow",
-    "4",
-  );
+  await expectFooterAtViewportBottom(page);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,

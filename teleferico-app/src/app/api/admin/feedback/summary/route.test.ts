@@ -40,7 +40,11 @@ function createRequest(
 
 describe("GET /api/admin/feedback/summary", () => {
   beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "test");
     process.env.FEEDBACK_CAPABILITY_ENABLED = "true";
+    process.env.DEPLOYMENT_ENV = "";
+    process.env.APP_ENV = "";
+    process.env.VERCEL_ENV = "";
     vi.clearAllMocks();
     mocks.ensureTrustedBrowserRequest.mockReturnValue({
       ok: true,
@@ -98,6 +102,25 @@ describe("GET /api/admin/feedback/summary", () => {
       contractVersion: "feedback-admin.v1",
     });
   });
+
+  it.each(["staging", "production"])(
+    "keeps origin and CSRF checks when feedback is enabled in %s",
+    async (environment) => {
+      vi.stubEnv("NODE_ENV", "production");
+      process.env.DEPLOYMENT_ENV = environment;
+      process.env.APP_ENV = "production";
+      process.env.VERCEL_ENV = "production";
+      process.env.FEEDBACK_CAPABILITY_ENABLED = "true";
+      const { GET } = await import("./route");
+
+      const response = await GET(createRequest());
+
+      expect(response.status).toBe(200);
+      expect(mocks.ensureTrustedBrowserRequest).toHaveBeenCalledOnce();
+      expect(mocks.requireCsrfSession).toHaveBeenCalledOnce();
+      expect(mocks.read).toHaveBeenCalledOnce();
+    },
+  );
 
   it("does not expose upstream details", async () => {
     mocks.read.mockRejectedValue(new Error("database password leaked"));

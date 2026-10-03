@@ -54,7 +54,7 @@ The mobile-first public form MUST expose the same business stages and validation
 
 Forward navigation MUST remain blocked while the current stage is invalid, expose a visible and assistive-technology status, and move focus to the first invalid control. Back navigation and ES/EN/PT locale changes MUST preserve entered state. Every visible state, instruction, validation message, loading state, failure, and success message MUST use semantic ES/EN/PT keys; a missing selected-locale value MUST fall back to ES and emit telemetry without changing answers.
 
-The privacy notice MUST appear before submission. Submission itself acknowledges the notice: the UI MUST NOT require a consent checkbox and the system MUST NOT persist a separate consent event or notice version. Success MUST render only from authoritative `submissionReceipt`, `acceptedAt`, and guard state returned by acceptance.
+The privacy notice MUST appear before submission. Submission itself acknowledges the notice: the UI MUST NOT require a consent checkbox and the system MUST NOT persist a separate consent event or notice version. Success MUST render only from authoritative `submissionReceipt`, `acceptedAt`, and guard state returned by acceptance. After acceptance, the confirmation and receipt MUST remain visible with a localized link to the matching Teleférico home route; navigation occurs only when the visitor activates the link, and the success view MUST NOT offer a control to reset or reopen the questionnaire. This link is navigation only and MUST NOT be treated as a repeat-submission defense.
 
 #### Scenario: Keep responsive behavior semantically identical
 - GIVEN the same valid QR session and answers on mobile and desktop

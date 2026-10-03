@@ -2,7 +2,7 @@
 
 ## Authority and Technical Approach
 
-This index and appendices form one normative design. Strapi owns state; Next.js mediates browsers; a pure core computes metrics; a private worker validates, analyzes, renders, and stores. Evidence gates block unverified behavior; D93 blocks apply until tasks exist.
+This index and appendices form one normative design. Strapi owns state; Next.js mediates browsers; a pure core computes metrics; a private worker validates, analyzes, renders, and stores. Local implementation uses fake-provider and synthetic boundaries; external evidence gates govern live operations and enablement, not offline coding. D93's planning prerequisite remains historical and does not override the repository's direct-implementation route.
 
 ## Normative Manifest
 
@@ -25,7 +25,7 @@ Appendices win over summaries; specs remain behavior authority. Code blocks are 
 | Choice | Tradeoff | Decision |
 |---|---|---|
 | Next.js mediation | More hops | Required to keep CMS/GCP credentials server-only |
-| Pure app-local core | New workspace package | Required for one deterministic metric authority |
+| Pure shared reporting core | Root `packages/survey-reporting-core` package | Required for one deterministic metric authority used by app and worker |
 | Separate private worker | Additional deployment/IAM | Required to isolate AI/render/runtime dependencies |
 | Single product-project topology | Product quota and operations share one boundary | Cloud Run, Cloud Tasks, storage, Vertex, billing, and telemetry remain in `teleferico-bariloche-2024`; local OpenCode identities are excluded |
 | Immutable canonical snapshot | Storage overhead | Required for reproducibility and worker validation |
@@ -37,14 +37,16 @@ Appendices win over summaries; specs remain behavior authority. Code blocks are 
 
 `Admin browser → Next.js auth/capability route → core snapshot → CMS generation → product-project Cloud Tasks → private worker service identity → CMS checkpoints → explicit product-project Vertex gate → renderer gate → private GCS → mediated download`
 
+In `NODE_ENV=development`, task dispatch may replace only the Cloud Tasks transport with the worker package's in-memory loopback task API. It uses the existing worker URL/queue settings and delivers the unchanged command over HTTP to the real worker handler with an ephemeral signed local identity. This L1 boundary does not provide CMS/model/report dependencies, persistent task state, or an end-to-end report journey; production stays on the Cloud Tasks flow above.
+
 ## File Changes
 
 - CMS creates listed survey APIs/components/migration/tests.
-- App creates feedback UI/API/types/core/worker and modifies only listed workspace/manifest/lock/env/deployment/permission docs. Delete nothing.
+- App creates feedback UI/API/types and app-owned adapters; shared reporting and TB-113 contracts live under root `packages/`, and the private worker process lives under root `services/survey-report-worker/`. App modifies only listed workspace/manifest/lock/env/deployment/permission docs. Delete nothing.
 
 ## Testing, Threats, and Rollout
 
-Appendix 06 owns RED-first verification; Appendix 07 cases enter `tasks.md` unchanged. Disabled rollout: CMS→core/app→worker→approved infra→read-only UI→intake→reporting→generation.
+Appendix 06 owns RED-first verification; Appendix 07 cases enter `tasks.md` unchanged. The remaining local worker behavior is delivered as a cohesive disabled code path with fake-provider and synthetic app–CMS–worker coverage. Integrated development acceptance uses existing PR CI and broad synthetic/local validation. Google configuration, credentials, Vertex, Cloud Tasks, Cloud Run, GCS, and bounded staging smoke remain separately approved post-development operational gates; keep generation disabled until those gates pass. See the prospective execution plan in `tasks.md`.
 
 ## Open Questions
 

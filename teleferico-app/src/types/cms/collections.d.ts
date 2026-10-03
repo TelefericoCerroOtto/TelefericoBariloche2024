@@ -14,6 +14,7 @@ export type UserRoles =
   | "Public"
   | "Authenticated"
   | "Administrator"
+  | "Digital Experience Operator"
   | "Media Manager"
   | "Recruiter"
   | "Operations Supervisor";

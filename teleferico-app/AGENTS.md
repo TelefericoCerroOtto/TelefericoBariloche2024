@@ -30,6 +30,7 @@ This file is the package-local guardrail source for `teleferico-app`: it complem
 - `src/components/administration`: administrative panel components.
 - `src/components/forms`: shared form pieces (includes anti-bot UX).
 - `src/lib/actions/forms.ts`: server actions for public forms.
+- `src/lib/feedback`: app-owned feedback routes, CMS transports, dispatch and download mediation.
 - `src/lib/services/cms`: server-side services for CMS requests.
 - `src/lib/services/postulation.ts`: internal API consumption services (route handlers).
 - `src/lib/services/contact.ts`: email sending service via Gmail API (OAuth2).
@@ -104,6 +105,12 @@ This file is the package-local guardrail source for `teleferico-app`: it complem
 
 - Main stack: Next.js 15 + React 18 + strict TypeScript + Tailwind CSS v3.
 - Import alias available: `@/*` maps to `src/*` (`tsconfig.json`); prefer it over long relative paths.
+- TB-113 shared packages live at the repository root under `packages/` and are resolved through the `@teleferico/*` TypeScript aliases. The private worker process is a separate package at `../services/survey-report-worker`; do not import its runtime into app production paths.
+- Private report downloads use the shared digest-bound object reader; only development reads from the ignored repository-local `.local/tb113-private-reports` directory, while non-development uses the configured private GCS bucket.
+- The feedback dashboard exposes its existing mediated PDF download route only when the persisted report metadata says `canDownload`; route authentication, CSRF, origin validation, capability checks, metadata validation, and digest verification remain authoritative.
+- Auth.js derives the four app-level feedback capabilities only from the freshly verified Users & Permissions role name: `Administrator` and `Digital Experience Operator` receive them; unknown, missing, blocked, Public, Authenticated, and Media Manager users receive none. This mapping is independent of the role's Strapi route grants, and Strapi Admin Panel `Super Admin` is not an app user role.
+- TB-113 production dispatch remains on Google Cloud Tasks with Cloud Run keyless identity. Only `NODE_ENV=development` plus an exact `127.0.0.1` `FEEDBACK_WORKER_URL` selects the worker-owned local task API; this keeps the same task client contract and is not a user-facing feature toggle. The app reads only its own plain `FEEDBACK_APP_CMS_TOKEN`.
+- App report generation reads the shared nonsecret profile at `../packages/tb113-runtime-contracts/config/report-generation.json`; never accept environment JSON as a profile override. Keep the approved context-window budget and standard non-global prices with their documented source/policy; tests must keep malformed or null injected profiles fail-closed before CMS creation or task dispatch. Configured values do not establish live Google authorization or access.
 - UI organised by domain in `components/{institutional,administration,forms,shared,ui}`.
 - Business/network logic outside components: use `src/lib/{actions,services,adapters,http}`.
 - HTTP guards centralised in `src/lib/http/guards`; reuse existing helpers before creating new ones.
