@@ -61,6 +61,8 @@ The app keeps browser-facing feedback routes, administration, task dispatch, and
 
 The app Dockerfile is built from the repository root so those shared sources are available at their existing paths. Its Dockerfile-specific ignore file allowlists only the app and those three packages, excluding local environment files, `.npmrc`, credentials, dependencies, generated output, and uploads. The build-only Strapi content token is consumed through a BuildKit secret mount and must not be passed as a build argument or persisted in the image. The Cloud Build YAML files are documentary snapshots; an operator must manually update the live inline trigger after review.
 
+`@heroui/theme` must remain a direct app dependency because `tailwind.config.ts` scans its `dist` files for HeroUI utility classes. Keep its exact version in `package.json` and `pnpm-lock.yaml` so a frozen clean Docker install can expose the package at the configured root `node_modules` path. Clean-image installation and linking verification is still pending; the local offline install stopped before linking because its package cache was incomplete.
+
 See [the worker package README](../services/survey-report-worker/README.md) for its local build, artifact contents, Node tests, and separate operational gates. Keeping this source layout does not create a Cloud Run service or deployment trigger.
 
 ---
