@@ -60,14 +60,14 @@ test('Strapi persistence validates domain identity and commits one immutable sub
     await strapi.load();
 
     const version = await strapi.documents('api::survey-version.survey-version').create({ data: {
-      versionKey: 'visitor-v1', status: 'published', copyEs: {}, copyEn: {}, copyPt: {},
+      versionKey: 'visitor-v1', surveyVersionStatus: 'published', copyEs: {}, copyEn: {}, copyPt: {},
       aspects: [
         { ownerVersionKey: 'visitor-v1', aspectKey: 'views', sortOrder: 1, labelEs: 'Vistas', labelEn: 'Views', labelPt: 'Vistas' },
         { ownerVersionKey: 'visitor-v1', aspectKey: 'other', sortOrder: 13, labelEs: 'Otro', labelEn: 'Other', labelPt: 'Outro' },
       ],
     } });
     const point = await strapi.documents('api::survey-qr-point.survey-qr-point').create({ data: {
-      pointKey: 'summit', publicCode: 'A'.repeat(32), displayName: 'Summit', status: 'active', sortOrder: 1,
+      pointKey: 'summit', publicCode: 'A'.repeat(32), displayName: 'Summit', qrPointStatus: 'active', sortOrder: 1,
     } });
     const persistence = createSubmissionPersistence(strapi);
 

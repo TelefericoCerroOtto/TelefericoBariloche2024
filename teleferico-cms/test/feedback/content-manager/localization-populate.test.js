@@ -155,6 +155,58 @@ const strapi = createStrapi({ appDir: process.cwd(), distDir: process.cwd(), aut
       ...(sessionCookie ? { cookie: sessionCookie } : {}),
       ...(typeof bearer === 'string' ? { authorization: 'Bearer ' + bearer } : {}),
     };
+    let contentManagerQrPoint = null;
+    if (phase === 'empty') {
+      const qrPointUrl = origin + '/content-manager/collection-types/api::survey-qr-point.survey-qr-point';
+      const qrPointData = {
+        pointKey: owner + '-cm-point',
+        publicCode: 'C'.repeat(32),
+        displayName: 'Content Manager regression point',
+        qrPointStatus: 'active',
+        sortOrder: 999,
+      };
+      const createdQrPoint = await fetch(qrPointUrl, {
+        method: 'POST',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify(qrPointData),
+      });
+      const createdQrPointBody = await createdQrPoint.json().catch(() => ({}));
+      const legacyQrPoint = await fetch(qrPointUrl, {
+        method: 'POST',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          ...qrPointData,
+          pointKey: owner + '-legacy-status-point',
+          publicCode: 'D'.repeat(32),
+          status: 'active',
+        }),
+      });
+      const legacyQrPointBody = await legacyQrPoint.json().catch(() => ({}));
+      const qrPointDocumentId = createdQrPointBody?.data?.documentId ?? createdQrPointBody?.documentId;
+      let updatedQrPoint = null;
+      let updatedQrPointBody = {};
+      if (typeof qrPointDocumentId === 'string') {
+        updatedQrPoint = await fetch(qrPointUrl + '/' + encodeURIComponent(qrPointDocumentId), {
+          method: 'PUT',
+          headers: { ...headers, 'content-type': 'application/json' },
+          body: JSON.stringify({ ...qrPointData, displayName: 'Updated Content Manager regression point' }),
+        });
+        updatedQrPointBody = await updatedQrPoint.json().catch(() => ({}));
+      }
+      const updatedRecord = updatedQrPointBody?.data ?? updatedQrPointBody;
+      contentManagerQrPoint = {
+        createStatus: createdQrPoint.status,
+        legacyStatus: legacyQrPoint.status,
+        legacyStatusRejected: JSON.stringify(legacyQrPointBody).includes('Invalid status'),
+        updateStatus: updatedQrPoint?.status ?? null,
+        createdDomainStatus: createdQrPointBody?.data?.qrPointStatus ?? createdQrPointBody?.qrPointStatus ?? null,
+        updatedDomainStatus: updatedRecord?.qrPointStatus ?? null,
+        hasStatusField: Boolean(
+          createdQrPointBody?.data && Object.hasOwn(createdQrPointBody.data, 'qrPointStatus') &&
+          !Object.hasOwn(createdQrPointBody.data, 'status'),
+        ),
+      };
+    }
     const versionSort = phase === 'populated' ? 'versionKey%3AASC' : 'createdAt%3ADESC';
     const submissionSort = phase === 'populated' ? 'receipt%3AASC' : 'createdAt%3ADESC';
     const versionQuery = '?page=1&pageSize=10&sort=' + versionSort + '&locale=pt';
@@ -249,6 +301,7 @@ const strapi = createStrapi({ appDir: process.cwd(), distDir: process.cwd(), aut
     process.stdout.write('TB113_CM_RESULT=' + JSON.stringify({
       phase,
       adminLoginStatus: login.status,
+      contentManagerQrPoint,
       version: {
         status: versionResponse.status,
         key: privateKey(versionBody),
@@ -345,6 +398,13 @@ test('Content Manager lists empty and marker-seeded nonlocalized survey collecti
     const empty = await runRuntime(cmsRoot, runtimeEnvironment(stackRoot, databasePort), 'empty');
     assert.equal(empty.adminLoginStatus, 200);
     assert.equal(empty.phase, 'empty');
+    assert.ok([200, 201].includes(empty.contentManagerQrPoint.createStatus));
+    assert.equal(empty.contentManagerQrPoint.legacyStatus, 400);
+    assert.equal(empty.contentManagerQrPoint.legacyStatusRejected, true);
+    assert.ok([200, 201].includes(empty.contentManagerQrPoint.updateStatus));
+    assert.equal(empty.contentManagerQrPoint.createdDomainStatus, 'active');
+    assert.equal(empty.contentManagerQrPoint.updatedDomainStatus, 'active');
+    assert.equal(empty.contentManagerQrPoint.hasStatusField, true);
     assert.equal(empty.otherContentTypeStatus, 200);
     assert.ok([401, 403].includes(empty.anonymousPublicStatus));
     if (expectation === 'red') {

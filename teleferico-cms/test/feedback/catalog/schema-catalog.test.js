@@ -54,8 +54,8 @@ test('definition foundation is disabled and draft-safe by default', () => {
   const settings = readJson(SURVEY_SCHEMAS['survey-settings']);
 
   assert.equal(version.options.draftAndPublish, false);
-  assert.deepEqual(version.attributes.status.enum, ['draft', 'published']);
-  assert.equal(version.attributes.status.default, 'draft');
+  assert.deepEqual(version.attributes.surveyVersionStatus.enum, ['draft', 'published']);
+  assert.equal(version.attributes.surveyVersionStatus.default, 'draft');
   assert.equal('publishedAt' in version.attributes, false);
   assert.deepEqual(version.attributes.lifecyclePublishedAt, { type: 'datetime', private: true });
   assert.equal(settings.options.draftAndPublish, false);
@@ -94,8 +94,8 @@ test('QR point identity and lifecycle fields are constrained without visitor own
   assert.equal(point.attributes.pointKey.unique, true);
   assert.equal(point.attributes.publicCode.unique, true);
   assert.equal(point.attributes.publicCode.regex, '^[A-Za-z0-9_-]+$');
-  assert.deepEqual(point.attributes.status.enum, ['active', 'inactive']);
-  assert.equal(point.attributes.status.default, 'active');
+  assert.deepEqual(point.attributes.qrPointStatus.enum, ['active', 'inactive']);
+  assert.equal(point.attributes.qrPointStatus.default, 'active');
   assert.equal(point.attributes.sortOrder.min, 0);
   assert.equal('visitor' in point.attributes, false);
   assert.equal('ticket' in point.attributes, false);
@@ -134,8 +134,8 @@ test('remaining persistence schemas preserve critical constraints and private ow
   assert.equal(rating.attributes.customText.maxLength, 300);
 
   assert.equal(generation.attributes.reportRunId.unique, true);
-  assert.deepEqual(generation.attributes.status.enum, ['queued', 'running', 'succeeded', 'failed']);
-  assert.equal(generation.attributes.status.default, 'queued');
+  assert.deepEqual(generation.attributes.generationStatus.enum, ['queued', 'running', 'succeeded', 'failed']);
+  assert.equal(generation.attributes.generationStatus.default, 'queued');
   assert.equal(generation.attributes.stateVersion.min, 1);
   assert.deepEqual(generation.attributes.dispatchState.enum, ['unreserved', 'reserved', 'created', 'unknown']);
   assert.equal(generation.attributes.dispatchState.default, 'unreserved');
@@ -158,6 +158,26 @@ test('remaining persistence schemas preserve critical constraints and private ow
   assert.equal(report.attributes.objectKey.private, true);
   assert.equal(report.attributes.mimeType.default, 'application/pdf');
   assert.equal(report.attributes.generatedBy.target, 'plugin::users-permissions.user');
+});
+
+test('survey API schemas do not use Strapi document status as a domain attribute', () => {
+  const apiRoot = path.join(CMS_ROOT, 'src/api');
+  const statusAttributes = [];
+  for (const { name: apiName } of readdirSync(apiRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())) {
+    const contentTypesRoot = path.join(apiRoot, apiName, 'content-types');
+    for (const contentTypeName of readdirSync(contentTypesRoot)) {
+      const schemaPath = path.join(contentTypesRoot, contentTypeName, 'schema.json');
+      const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+      if ('status' in schema.attributes) statusAttributes.push(`${apiName}/${contentTypeName}`);
+    }
+  }
+  assert.deepEqual(statusAttributes, []);
+
+  const generatedTypes = readFileSync(path.join(CMS_ROOT, 'types/generated/contentTypes.d.ts'), 'utf8');
+  for (const field of ['qrPointStatus', 'surveyVersionStatus', 'generationStatus']) {
+    assert.match(generatedTypes, new RegExp(`\\b${field}: Schema\\.Attribute\\.Enumeration`));
+  }
 });
 
 test('new persistence definitions remain inert and deny generic runtime exposure', () => {

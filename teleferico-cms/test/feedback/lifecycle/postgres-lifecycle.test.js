@@ -5,6 +5,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const migration = require('../../../database/migrations/2026.09.11T0001-tb113-constraints');
+const statusColumnMigration = require('../../../database/migrations/2026.10.03T0001-tb113-status-columns');
 const {
   COMPOSE_FILE,
   DOCKER_EXECUTABLE,
@@ -77,8 +78,10 @@ const SCHEMA_SQL = `
   CREATE TABLE survey_submissions(id bigserial PRIMARY KEY,session_nonce_hash text NOT NULL,idempotency_key text NOT NULL);
   CREATE TABLE components_survey_aspect_definitions(id bigserial PRIMARY KEY,owner_version_key text NOT NULL,aspect_key text NOT NULL,sort_order integer NOT NULL);
   CREATE TABLE components_survey_aspect_ratings(id bigserial PRIMARY KEY,owner_receipt text NOT NULL,aspect_key text NOT NULL);
-  CREATE TABLE survey_qr_points(id bigserial PRIMARY KEY,status text NOT NULL,inactive_at timestamptz);
+  CREATE TABLE survey_qr_points(id bigserial PRIMARY KEY,status text NOT NULL,inactive_at timestamptz,CONSTRAINT ck_qr_point_status_time CHECK ((status='active' AND inactive_at IS NULL) OR (status='inactive' AND inactive_at IS NOT NULL)));
+  CREATE TABLE survey_versions(id bigserial PRIMARY KEY,status text NOT NULL);
   CREATE TABLE survey_report_generations(id bigserial PRIMARY KEY,period_start date NOT NULL,period_end date NOT NULL,status text NOT NULL,completed_at timestamptz,task_name text);
+  CREATE UNIQUE INDEX uq_generation_active_range ON survey_report_generations(period_start,period_end) WHERE status IN ('queued','running');
   CREATE TABLE survey_reports(id bigserial PRIMARY KEY,generation_run_id text NOT NULL);
   CREATE TABLE survey_settings(id bigserial PRIMARY KEY,document_id text NOT NULL,singleton_key text NOT NULL,intake_enabled boolean NOT NULL,generation_enabled boolean NOT NULL,settings_revision integer NOT NULL,created_at timestamptz NOT NULL,updated_at timestamptz NOT NULL);
 `;
@@ -88,6 +91,44 @@ test('PostgreSQL migration is additive, idempotent, transactional, and enforces 
     await executeCompose('down', '--volumes', '--remove-orphans', '--timeout=5');
     await executeCompose('up', '--detach', '--wait');
     await psql(SCHEMA_SQL);
+
+    await psql(`
+      INSERT INTO survey_qr_points(status,inactive_at) VALUES ('active',NULL),('inactive',CURRENT_TIMESTAMP);
+      INSERT INTO survey_versions(status) VALUES ('draft'),('published');
+      INSERT INTO survey_report_generations(period_start,period_end,status,completed_at,task_name)
+      VALUES ('2026-01-01','2026-01-02','queued',NULL,'queued-old'),
+             ('2026-02-01','2026-02-02','running',NULL,'running-old'),
+             ('2026-03-01','2026-03-02','succeeded',CURRENT_TIMESTAMP,'succeeded-old'),
+             ('2026-04-01','2026-04-02','failed',CURRENT_TIMESTAMP,'failed-old');
+    `);
+    const publishedPort = await executeCompose('port', 'postgres', '5432');
+    const databasePort = Number(publishedPort.stdout.trim().split(':').at(-1));
+    const knex = require('knex')({
+      client: 'pg',
+      connection: {
+        host: '127.0.0.1',
+        port: databasePort,
+        database: 'tb113_test_feedback',
+        user: 'tb113_test_runner',
+        password: 'tb113_test_local_only',
+      },
+      pool: { min: 0, max: 2 },
+    });
+    try {
+      assert.equal(await statusColumnMigration.up(knex), true);
+      assert.equal(await statusColumnMigration.up(knex), true);
+    } finally {
+      await knex.destroy();
+    }
+
+    const preserved = await psql(`
+      SELECT (SELECT string_agg(qr_point_status, ',' ORDER BY id) FROM survey_qr_points),
+             (SELECT string_agg(survey_version_status, ',' ORDER BY id) FROM survey_versions),
+             (SELECT string_agg(generation_status, ',' ORDER BY id) FROM survey_report_generations),
+             (SELECT count(*) FROM pg_constraint WHERE conname='ck_qr_point_status_time'),
+             (SELECT count(*) FROM pg_indexes WHERE indexname='uq_generation_active_range');
+    `);
+    assert.equal(preserved.stdout.trim(), 'active,inactive|draft,published|queued,running,succeeded,failed|1|1');
 
     const applySql = `BEGIN;${migration.STATEMENTS.join(';')};COMMIT;`;
     await psql(applySql);
@@ -103,19 +144,19 @@ test('PostgreSQL migration is additive, idempotent, transactional, and enforces 
 
     await psql("INSERT INTO survey_submissions(session_nonce_hash,idempotency_key) VALUES ('nonce','idem')");
     await assert.rejects(
-      psql("BEGIN; INSERT INTO survey_submissions(session_nonce_hash,idempotency_key) VALUES ('nonce','idem'); INSERT INTO survey_qr_points(status,inactive_at) VALUES ('active',CURRENT_TIMESTAMP); COMMIT;"),
+      psql("BEGIN; INSERT INTO survey_submissions(session_nonce_hash,idempotency_key) VALUES ('nonce','idem'); INSERT INTO survey_qr_points(qr_point_status,inactive_at) VALUES ('active',CURRENT_TIMESTAMP); COMMIT;"),
       { name: 'HarnessProcessError' },
     );
     const rollbackProof = await psql("SELECT (SELECT count(*) FROM survey_submissions),(SELECT count(*) FROM survey_qr_points)");
-    assert.equal(rollbackProof.stdout.trim(), '1|0');
+    assert.equal(rollbackProof.stdout.trim(), '1|2');
 
-    await psql("INSERT INTO survey_report_generations(period_start,period_end,status,completed_at,task_name) VALUES ('2026-09-01','2026-09-30','queued',NULL,'task-a')");
+    await psql("INSERT INTO survey_report_generations(period_start,period_end,generation_status,completed_at,task_name) VALUES ('2026-09-01','2026-09-30','queued',NULL,'task-a')");
     await assert.rejects(
-      psql("INSERT INTO survey_report_generations(period_start,period_end,status,completed_at,task_name) VALUES ('2026-09-01','2026-09-30','running',NULL,'task-b')"),
+      psql("INSERT INTO survey_report_generations(period_start,period_end,generation_status,completed_at,task_name) VALUES ('2026-09-01','2026-09-30','running',NULL,'task-b')"),
       { name: 'HarnessProcessError' },
     );
     await assert.rejects(
-      psql("INSERT INTO survey_report_generations(period_start,period_end,status,completed_at,task_name) VALUES ('2026-10-02','2026-10-01','failed',NULL,'task-c')"),
+      psql("INSERT INTO survey_report_generations(period_start,period_end,generation_status,completed_at,task_name) VALUES ('2026-10-02','2026-10-01','failed',NULL,'task-c')"),
       { name: 'HarnessProcessError' },
     );
   } finally {

@@ -37,12 +37,12 @@ function postgresStore(client) {
       catch (error) { await client.query('ROLLBACK'); throw error; }
     },
     read: async () => {
-      const parent = (await client.query('SELECT version_key AS "versionKey",status,fixture_marker AS "fixtureMarker",synthetic FROM survey_versions WHERE version_key=$1', [FIXTURE_MANIFEST.versionKey])).rows[0];
+      const parent = (await client.query('SELECT version_key AS "versionKey",survey_version_status AS status,fixture_marker AS "fixtureMarker",synthetic FROM survey_versions WHERE version_key=$1', [FIXTURE_MANIFEST.versionKey])).rows[0];
       if (!parent) return null;
       parent.aspects = (await client.query('SELECT owner_version_key AS "ownerVersionKey",aspect_key AS "aspectKey",sort_order AS "sortOrder",label_es AS "labelEs",label_en AS "labelEn",label_pt AS "labelPt" FROM survey_aspects WHERE version_key=$1 ORDER BY sort_order', [parent.versionKey])).rows;
       return parent;
     },
-    createParent: (parent) => client.query('INSERT INTO survey_versions(version_key,status,fixture_marker,synthetic) VALUES($1,$2,$3,$4)', [parent.versionKey, parent.status, parent.fixtureMarker, parent.synthetic]),
+    createParent: (parent) => client.query('INSERT INTO survey_versions(version_key,survey_version_status,fixture_marker,synthetic) VALUES($1,$2,$3,$4)', [parent.versionKey, parent.status, parent.fixtureMarker, parent.synthetic]),
     createChild: (child) => client.query('INSERT INTO survey_aspects(version_key,owner_version_key,aspect_key,sort_order,label_es,label_en,label_pt) VALUES($1,$2,$3,$4,$5,$6,$7)', [FIXTURE_MANIFEST.versionKey, child.ownerVersionKey, child.aspectKey, child.sortOrder, child.labelEs, child.labelEn, child.labelPt]),
     deleteChild: (key) => client.query('DELETE FROM survey_aspects WHERE version_key=$1 AND aspect_key=$2', [FIXTURE_MANIFEST.versionKey, key]),
     deleteParent: () => client.query('DELETE FROM survey_versions WHERE version_key=$1', [FIXTURE_MANIFEST.versionKey]),
@@ -56,7 +56,7 @@ test('PostgreSQL fixture apply, replay, rollback, and cleanup are transactional'
     await compose('up', '--detach', '--wait');
     const port = (await compose('port', 'postgres', '5432')).stdout.trim().split(':').at(-1);
     client = await connectWhenReady({ host: '127.0.0.1', port: Number(port), database: 'tb113_test_feedback', user: 'tb113_test_runner', password: 'tb113_test_local_only' });
-    await client.query('CREATE TABLE survey_versions(version_key text PRIMARY KEY,status text,fixture_marker text,synthetic boolean); CREATE TABLE survey_aspects(version_key text REFERENCES survey_versions,owner_version_key text,aspect_key text,sort_order int,label_es text,label_en text,label_pt text,PRIMARY KEY(version_key,aspect_key))');
+    await client.query('CREATE TABLE survey_versions(version_key text PRIMARY KEY,survey_version_status text,fixture_marker text,synthetic boolean); CREATE TABLE survey_aspects(version_key text REFERENCES survey_versions,owner_version_key text,aspect_key text,sort_order int,label_es text,label_en text,label_pt text,PRIMARY KEY(version_key,aspect_key))');
     const store = postgresStore(client);
     const failingStore = { ...store, createChild: async (child) => {
       if (child.aspectKey === 'views') throw new Error('synthetic child failure');
@@ -80,6 +80,7 @@ test('PostgreSQL fixture apply, replay, rollback, and cleanup are transactional'
     const secret = 'tb113-seed-local-only';
     const environment = {
       PATH: process.env.PATH, HOME: '/tmp/opencode', NODE_ENV: 'test', ENV_PATH: '/dev/null',
+      HOST: '127.0.0.1', PORT: '0',
       DATABASE_CLIENT: 'postgres', DATABASE_HOST: '127.0.0.1', DATABASE_PORT: port,
       DATABASE_NAME: 'tb113_test_feedback', DATABASE_USERNAME: 'tb113_test_runner',
       DATABASE_PASSWORD: 'tb113_test_local_only', DATABASE_SSL: 'false',
@@ -98,7 +99,7 @@ test('PostgreSQL fixture apply, replay, rollback, and cleanup are transactional'
       process.env = previousEnvironment;
     }
     await client.query(
-      'INSERT INTO survey_versions(document_id,version_key,status,copy_es,copy_en,copy_pt,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,NOW(),NOW())',
+      'INSERT INTO survey_versions(document_id,version_key,survey_version_status,copy_es,copy_en,copy_pt,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,NOW(),NOW())',
       ['tb113-unrelated-local-seed-document', 'tb113-unrelated-local-seed-check', 'published', '{}', '{}', '{}'],
     );
     const seedCommand = [path.join(cmsRoot, 'scripts/seed-surveys.js'), '--local-feedback'];
