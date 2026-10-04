@@ -96,6 +96,28 @@ function shouldIncludeContextPath(path: string): boolean {
 }
 
 describe("pnpm build policy", () => {
+  it("declares the HeroUI theme scanned by Tailwind as a direct dependency", () => {
+    const packageManifest = JSON.parse(
+      readFileSync(join(process.cwd(), "package.json"), "utf8"),
+    );
+    const lockfile = readFileSync(
+      join(process.cwd(), "pnpm-lock.yaml"),
+      "utf8",
+    );
+    const tailwindConfig = readFileSync(
+      join(process.cwd(), "tailwind.config.ts"),
+      "utf8",
+    );
+
+    expect(packageManifest.dependencies["@heroui/theme"]).toBe("2.4.26");
+    expect(lockfile).toMatch(
+      /'@heroui\/theme':\s*\n\s+specifier: 2\.4\.26\n\s+version: 2\.4\.26\(tailwindcss@3\.4\.19\)/,
+    );
+    expect(tailwindConfig).toContain(
+      '"./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}"',
+    );
+  });
+
   it("keeps strictDepBuilds enabled", () => {
     const workspaceYaml = readFileSync(
       join(process.cwd(), "pnpm-workspace.yaml"),
