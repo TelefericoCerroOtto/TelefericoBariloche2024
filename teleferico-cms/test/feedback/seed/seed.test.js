@@ -107,8 +107,8 @@ test('local feedback cleanup safely removes a partial interrupted seed using onl
 });
 
 test('local seed submission keeps row, components, relations, and marker in the acceptance transaction', async () => {
-  const point = { id: 41, documentId: 'point-document', pointKey: 'local-point', publicCode: 'A'.repeat(32), status: 'active' };
-  const version = { id: 52, documentId: 'version-document', versionKey: 'local-version', status: 'published' };
+  const point = { id: 41, documentId: 'point-document', pointKey: 'local-point', publicCode: 'A'.repeat(32), qrPointStatus: 'active' };
+  const version = { id: 52, documentId: 'version-document', versionKey: 'local-version', surveyVersionStatus: 'published' };
   const inserted = [];
   let id = 100;
   const existing = {

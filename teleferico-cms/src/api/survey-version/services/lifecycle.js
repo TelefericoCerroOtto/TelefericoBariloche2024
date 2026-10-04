@@ -35,16 +35,16 @@ function validateAspects(version) {
 }
 
 function preparePublish(version, now) {
-  if (version.status !== 'draft') throw domainError('PUBLISHED_VERSION_IMMUTABLE');
+  if (version.surveyVersionStatus !== 'draft') throw domainError('PUBLISHED_VERSION_IMMUTABLE');
   if (![version.copyEs, version.copyEn, version.copyPt].every(hasCompleteCopy)) {
     throw domainError('INCOMPLETE_TRANSLATIONS');
   }
   validateAspects(version);
-  return Object.freeze({ lifecyclePublishedAt: now, status: 'published' });
+  return Object.freeze({ lifecyclePublishedAt: now, surveyVersionStatus: 'published' });
 }
 
 function prepareActivation(settings, target, previous, now) {
-  if (target.status !== 'published') throw domainError('VERSION_NOT_PUBLISHED');
+  if (target.surveyVersionStatus !== 'published') throw domainError('VERSION_NOT_PUBLISHED');
   return Object.freeze({
     previous: previous && previous.documentId !== target.documentId
       ? Object.freeze({ lastSupersededAt: now })

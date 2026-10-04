@@ -6,6 +6,7 @@ const TESTS_BY_SELECTOR = {
   'feedback/harness': path.join(__dirname, 'process-boundary.test.js'),
   'feedback/lifecycle': [
     path.join(__dirname, '../lifecycle/lifecycle.test.js'),
+    path.join(__dirname, '../lifecycle/status-column-migration.test.js'),
     path.join(__dirname, '../lifecycle/postgres-lifecycle.test.js'),
   ],
   'feedback/permissions': [
@@ -23,6 +24,7 @@ const TESTS_BY_SELECTOR = {
     path.join(__dirname, '../generation-lifecycle/lifecycle.test.js'),
     path.join(__dirname, '../generation-lifecycle/postgres.test.js'),
   ],
+  'feedback/content-manager': path.join(__dirname, '../content-manager/localization-populate.test.js'),
 };
 TESTS_BY_SELECTOR.feedback = [...new Set(Object.values(TESTS_BY_SELECTOR).flat())];
 const selector = process.argv[2];

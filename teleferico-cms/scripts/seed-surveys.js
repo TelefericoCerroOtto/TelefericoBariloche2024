@@ -188,7 +188,7 @@ function createStrapiLocalFeedbackStore(strapi) {
           const [created] = await trx('survey_versions').insert({
             document_id: record.documentId,
             version_key: record.versionKey,
-            status: record.status,
+            survey_version_status: record.status,
             copy_es: record.copyEs,
             copy_en: record.copyEn,
             copy_pt: record.copyPt,
@@ -222,7 +222,7 @@ function createStrapiLocalFeedbackStore(strapi) {
           point_key: record.pointKey,
           public_code: record.publicCode,
           display_name: record.displayName,
-          status: record.status,
+          qr_point_status: record.status,
           sort_order: record.sortOrder,
           fixture_marker: record.fixtureMarker,
           created_at: new Date(),
@@ -406,7 +406,7 @@ function createStrapiSurveyStore(strapi) {
     }),
     read: async (versionKey) => {
       const record = await table('survey_versions')
-        .select({ versionKey: 'version_key', status: 'status', fixtureMarker: 'fixture_marker' })
+        .select({ versionKey: 'version_key', status: 'survey_version_status', fixtureMarker: 'fixture_marker' })
         .where({ version_key: versionKey })
         .first();
       if (!record) return null;
@@ -422,7 +422,7 @@ function createStrapiSurveyStore(strapi) {
       parentVersionKey = parent.versionKey;
       const [created] = await table('survey_versions').insert({
         document_id: PRODUCTION_DOCUMENT_ID, version_key: parent.versionKey,
-        status: parent.status, copy_es: {}, copy_en: {}, copy_pt: {},
+        survey_version_status: parent.status, copy_es: {}, copy_en: {}, copy_pt: {},
         fixture_marker: parent.fixtureMarker, created_at: new Date(), updated_at: new Date(),
       }).returning('id');
       parentId = created.id;

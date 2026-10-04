@@ -19,7 +19,7 @@ function createTransaction(strapi) {
         const row = await trx('survey_report_generations')
           .select(
             'report_run_id',
-            'status',
+            'generation_status',
             'state_version',
             'task_name',
             'dispatch_state',
@@ -43,7 +43,7 @@ function createTransaction(strapi) {
         return (
           row && {
             reportRunId: row.report_run_id,
-            status: row.status,
+            status: row.generation_status,
             stateVersion: row.state_version,
             taskName: row.task_name,
             dispatchState: row.dispatch_state,
@@ -68,14 +68,14 @@ function createTransaction(strapi) {
         const row = await trx('survey_report_generations')
           .select(
             'id', 'document_id', 'report_run_id', 'period_start', 'period_end',
-            'data_cutoff_at', 'status', 'state_version', 'checkpoints_json',
+            'data_cutoff_at', 'generation_status', 'state_version', 'checkpoints_json',
             'model_config_json', 'pricing_snapshot_json', 'usage_json', 'cumulative_cost_micros', 'snapshot_digest', 'source_revision', 'snapshot_json',
           )
           .where({ report_run_id: reportRunId })
           .forUpdate()
           .first();
         lockedStateVersion = row?.state_version;
-        lockedStatus = row?.status;
+        lockedStatus = row?.generation_status;
         return row && {
           id: row.id,
           documentId: row.document_id,
@@ -83,7 +83,7 @@ function createTransaction(strapi) {
           periodStart: row.period_start,
           periodEnd: row.period_end,
           dataCutoffAt: row.data_cutoff_at,
-          status: row.status,
+          status: row.generation_status,
           stateVersion: row.state_version,
           checkpointsJson: row.checkpoints_json,
           modelConfigJson: row.model_config_json,
@@ -97,13 +97,13 @@ function createTransaction(strapi) {
       },
       async lockWorkerSnapshot(reportRunId) {
         const row = await trx('survey_report_generations')
-          .select('report_run_id', 'status', 'state_version', 'snapshot_digest', 'source_revision', 'snapshot_json')
+          .select('report_run_id', 'generation_status', 'state_version', 'snapshot_digest', 'source_revision', 'snapshot_json')
           .where({ report_run_id: reportRunId })
           .forUpdate()
           .first();
         return row && {
           reportRunId: row.report_run_id,
-          status: row.status,
+          status: row.generation_status,
           stateVersion: row.state_version,
           snapshotDigest: row.snapshot_digest,
           sourceRevision: row.source_revision,
@@ -113,7 +113,7 @@ function createTransaction(strapi) {
       async updateGeneration(patch) {
         const values = Object.fromEntries(
           Object.entries({
-            status: patch.status,
+            generation_status: patch.status,
             state_version: patch.stateVersion,
             completed_at: patch.completedAt,
             claimed_at: patch.claimedAt,
@@ -132,7 +132,7 @@ function createTransaction(strapi) {
           .where({
             report_run_id: lockedRunId,
             state_version: patch.stateVersion - 1,
-            status: patch.expectedStatus ?? 'queued',
+            generation_status: patch.expectedStatus ?? 'queued',
           })
           .update(values);
         if (changed !== 1)
@@ -142,7 +142,7 @@ function createTransaction(strapi) {
       },
       async updateWorkerAlertLedger(patch) {
         const changed = await trx('survey_report_generations')
-          .where({ report_run_id: lockedRunId, state_version: lockedStateVersion, status: lockedStatus })
+          .where({ report_run_id: lockedRunId, state_version: lockedStateVersion, generation_status: lockedStatus })
           .update(Object.fromEntries(Object.entries({
             usage_json: patch.usageJson,
             cost_alerted_at: patch.costAlertedAt,

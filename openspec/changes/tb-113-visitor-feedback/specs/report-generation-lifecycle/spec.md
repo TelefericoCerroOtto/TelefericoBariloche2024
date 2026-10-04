@@ -15,7 +15,9 @@ cutoffs, and atomic publication are deferred to U9.
 
 ### Requirement: Separate generation and report records
 
-`survey-report-generation` MUST be the mutable process record with unique immutable `reportRunId`, inclusive `periodStart`/`periodEnd`, `dataCutoffAt`, `status: queued|running|succeeded|failed`, nullable `requestedBy`, nullable `retryOfGeneration`, snapshot identity, stage checkpoints, attempts, safe failure, and cost metadata. It MUST relate to at most one `survey-report`. A report MUST be created only on success with unique report identity, source generation, immutable period/cutoff/snapshot/validated-output/artifact metadata, `generatedBy`, and creation time. (Primary: D40, D71)
+`survey-report-generation` MUST be the mutable process record with unique immutable `reportRunId`, inclusive `periodStart`/`periodEnd`, `dataCutoffAt`, `generationStatus: queued|running|succeeded|failed`, nullable `requestedBy`, nullable `retryOfGeneration`, snapshot identity, stage checkpoints, attempts, safe failure, and cost metadata. It MUST relate to at most one `survey-report`. A report MUST be created only on success with unique report identity, source generation, immutable period/cutoff/snapshot/validated-output/artifact metadata, `generatedBy`, and creation time. (Primary: D40, D71)
+
+The Strapi content attribute MUST be named `generationStatus`, not `status`, to avoid collision with native document status. Existing `status` response fields in the worker and app command contracts remain unchanged and are explicitly mapped at the CMS boundary.
 
 #### Scenario: Observe asynchronous history
 - GIVEN a queued generation whose requester leaves the page

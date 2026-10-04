@@ -1,5 +1,3 @@
-# STAGING STRAPI
-
 steps:
   - name: gcr.io/cloud-builders/docker
     args:
@@ -64,4 +62,4 @@ substitutions:
   _NODE_ENV: staging
   _RUNTIME_SA: teleferico-bariloche-2024@appspot.gserviceaccount.com
   _FEEDBACK_VERTEX_PROJECT_ID: teleferico-bariloche-2024
-  _FEEDBACK_WORKER_EVIDENCE_KEY: projects/teleferico-bariloche-2024/secrets/OPERATOR_REQUIRED__STAGING__FEEDBACK_WORKER_EVIDENCE_KEY/versions/latest
+  _FEEDBACK_WORKER_EVIDENCE_KEY: projects/teleferico-bariloche-2024/secrets/OPERATOR_REQUIRED__STAGING__FEEDBACK_WORKER_EVIDENCE_KEY/versions/1

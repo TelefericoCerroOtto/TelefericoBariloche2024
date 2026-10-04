@@ -1,6 +1,3 @@
-# PROPOSED / NOT INSTALLED IN GCP
-# Documentary snapshot only; GCP's inline trigger configuration is the operational source of truth.
-# Required operator inputs remain placeholders; no worker trigger or service is provisioned by this file.
 steps:
   - name: node@sha256:7cc56ef285a8568121537d17b05e72128f01b89c54607b51acf084a50ef483f3
     id: Prepare verified worker bundle
@@ -17,9 +14,7 @@ steps:
       - CMS_ALLOWED_ORIGIN=${_CMS_ALLOWED_ORIGIN}
       - TASK_INVOKER_SERVICE_ACCOUNT=${_TASK_INVOKER_SERVICE_ACCOUNT}
       - WORKER_RUNTIME_SERVICE_ACCOUNT=${_WORKER_RUNTIME_SERVICE_ACCOUNT}
-      - WORKER_CMS_TOKEN_SECRET_VERSION=${_WORKER_CMS_TOKEN_SECRET_VERSION}
       - PRIVATE_BUCKET=${_PRIVATE_BUCKET}
-      - EVIDENCE_KEY_RESOURCE=${_EVIDENCE_KEY_RESOURCE}
       - WORKER_SERVICE_NAME=${_WORKER_SERVICE_NAME}
       - WORKER_REGION=${_WORKER_REGION}
     args:
@@ -36,17 +31,13 @@ steps:
         for value in \
           "$$AR_LOCATION" "$$AR_REPOSITORY" "$$STRAPI_BASE_URL" \
           "$$CMS_ALLOWED_ORIGIN" "$$TASK_INVOKER_SERVICE_ACCOUNT" \
-          "$$WORKER_RUNTIME_SERVICE_ACCOUNT" \
-          "$$WORKER_CMS_TOKEN_SECRET_VERSION" "$$PRIVATE_BUCKET" \
-          "$$EVIDENCE_KEY_RESOURCE"; do
+          "$$WORKER_RUNTIME_SERVICE_ACCOUNT" "$$PRIVATE_BUCKET"; do
           require_operator_value "$$value"
         done
         for value in \
           "$$AR_LOCATION" "$$AR_REPOSITORY" "$$STRAPI_BASE_URL" \
           "$$CMS_ALLOWED_ORIGIN" "$$TASK_INVOKER_SERVICE_ACCOUNT" \
-          "$$WORKER_RUNTIME_SERVICE_ACCOUNT" \
-          "$$WORKER_CMS_TOKEN_SECRET_VERSION" "$$PRIVATE_BUCKET" \
-          "$$EVIDENCE_KEY_RESOURCE"; do
+          "$$WORKER_RUNTIME_SERVICE_ACCOUNT" "$$PRIVATE_BUCKET"; do
           case "$$value" in
             *,*|*=*)
               printf 'A nonsecret Cloud Build input contains an unsupported delimiter.\n' >&2
@@ -65,8 +56,6 @@ steps:
         test "$$WORKER_SERVICE_NAME" = "feedback-worker-staging"
         test "$$WORKER_REGION" = "southamerica-east1"
         [[ "$$CLOUD_BUILD_PROJECT_NUMBER" =~ ^[1-9][0-9]{0,19}$$ ]]
-        [[ "$$WORKER_CMS_TOKEN_SECRET_VERSION" =~ ^[A-Za-z0-9_-]{1,255}:[1-9][0-9]*$$ ]]
-        [[ "$$EVIDENCE_KEY_RESOURCE" =~ ^projects/teleferico-bariloche-2024/secrets/[A-Za-z0-9_-]{1,255}/versions/[1-9][0-9]*$$ ]]
         [[ "$$TASK_INVOKER_SERVICE_ACCOUNT" =~ ^[^[:space:]@]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$$ ]]
         [[ "$$WORKER_RUNTIME_SERVICE_ACCOUNT" =~ ^[^[:space:]@]+@[A-Za-z0-9.-]+\.iam\.gserviceaccount\.com$$ ]]
         [[ "$$TASK_INVOKER_SERVICE_ACCOUNT" == "$$WORKER_RUNTIME_SERVICE_ACCOUNT" ]] && {
@@ -87,8 +76,7 @@ steps:
               base.origin !== allowed.origin) process.exit(2);
         '
         unset AR_LOCATION AR_REPOSITORY STRAPI_BASE_URL CMS_ALLOWED_ORIGIN \
-          TASK_INVOKER_SERVICE_ACCOUNT WORKER_RUNTIME_SERVICE_ACCOUNT \
-          WORKER_CMS_TOKEN_SECRET_VERSION PRIVATE_BUCKET EVIDENCE_KEY_RESOURCE
+          TASK_INVOKER_SERVICE_ACCOUNT WORKER_RUNTIME_SERVICE_ACCOUNT PRIVATE_BUCKET
         pnpm install --frozen-lockfile
         node --test test/image-contract.test.mjs
         pnpm run typecheck
@@ -130,9 +118,7 @@ steps:
       - CMS_ALLOWED_ORIGIN=${_CMS_ALLOWED_ORIGIN}
       - TASK_INVOKER_SERVICE_ACCOUNT=${_TASK_INVOKER_SERVICE_ACCOUNT}
       - WORKER_RUNTIME_SERVICE_ACCOUNT=${_WORKER_RUNTIME_SERVICE_ACCOUNT}
-      - WORKER_CMS_TOKEN_SECRET_VERSION=${_WORKER_CMS_TOKEN_SECRET_VERSION}
       - PRIVATE_BUCKET=${_PRIVATE_BUCKET}
-      - EVIDENCE_KEY_RESOURCE=${_EVIDENCE_KEY_RESOURCE}
       - WORKER_SERVICE_NAME=${_WORKER_SERVICE_NAME}
       - WORKER_REGION=${_WORKER_REGION}
     args:
@@ -144,6 +130,7 @@ steps:
         worker_url="$$worker_origin/internal/v1/report-runs:execute"
         worker_image="$$AR_LOCATION-docker.pkg.dev/$$CLOUD_BUILD_PROJECT_ID/$$AR_REPOSITORY/survey-report-worker:$$BUILD_COMMIT_SHA"
         test "$${#worker_host_label}" -le 63
+        [[ "projects/teleferico-bariloche-2024/secrets/WORKER__STAGING__FEEDBACK_WORKER_EVIDENCE_KEY/versions/1" =~ ^projects/teleferico-bariloche-2024/secrets/WORKER__STAGING__FEEDBACK_WORKER_EVIDENCE_KEY/versions/[1-9][0-9]*$$ ]]
         gcloud run deploy "$$WORKER_SERVICE_NAME" \
           --project="$$CLOUD_BUILD_PROJECT_ID" \
           --region="$$WORKER_REGION" \
@@ -158,20 +145,18 @@ steps:
           --max-instances=1 \
           --cpu-throttling \
           --timeout=1800s \
-          --set-env-vars="BUILD_STRAPI_BASE_URL=$$STRAPI_BASE_URL,FEEDBACK_CMS_ALLOWED_ORIGIN=$$CMS_ALLOWED_ORIGIN,FEEDBACK_WORKER_URL=$$worker_url,FEEDBACK_WORKER_OIDC_AUDIENCE=$$worker_origin,FEEDBACK_TASK_INVOKER_EMAIL=$$TASK_INVOKER_SERVICE_ACCOUNT,FEEDBACK_WORKER_OIDC_PRINCIPAL=$$TASK_INVOKER_SERVICE_ACCOUNT,FEEDBACK_VERTEX_PROJECT_ID=$$CLOUD_BUILD_PROJECT_ID,FEEDBACK_PRIVATE_BUCKET=$$PRIVATE_BUCKET,FEEDBACK_WORKER_EVIDENCE_KEY=$$EVIDENCE_KEY_RESOURCE" \
-          --set-secrets="FEEDBACK_WORKER_CMS_TOKEN=$$WORKER_CMS_TOKEN_SECRET_VERSION"
+          --set-env-vars="BUILD_STRAPI_BASE_URL=$$STRAPI_BASE_URL,FEEDBACK_CMS_ALLOWED_ORIGIN=$$CMS_ALLOWED_ORIGIN,FEEDBACK_WORKER_URL=$$worker_url,FEEDBACK_WORKER_OIDC_AUDIENCE=$$worker_origin,FEEDBACK_TASK_INVOKER_EMAIL=$$TASK_INVOKER_SERVICE_ACCOUNT,FEEDBACK_WORKER_OIDC_PRINCIPAL=$$TASK_INVOKER_SERVICE_ACCOUNT,FEEDBACK_VERTEX_PROJECT_ID=$$CLOUD_BUILD_PROJECT_ID,FEEDBACK_PRIVATE_BUCKET=$$PRIVATE_BUCKET,FEEDBACK_WORKER_EVIDENCE_KEY=projects/teleferico-bariloche-2024/secrets/WORKER__STAGING__FEEDBACK_WORKER_EVIDENCE_KEY/versions/1" \
+          --set-secrets="FEEDBACK_WORKER_CMS_TOKEN=WORKER__STAGING__FEEDBACK_WORKER_CMS_TOKEN:latest"
     timeout: 1800s
 
 substitutions:
   _AR_LOCATION: southamerica-east1
-  _AR_REPOSITORY: REQUIRED_OPERATOR_VALUE
+  _AR_REPOSITORY: feedback-worker-staging
   _STRAPI_BASE_URL: https://cms-staging-teleferico-ra2cbgog2a-rj.a.run.app
   _CMS_ALLOWED_ORIGIN: https://cms-staging-teleferico-ra2cbgog2a-rj.a.run.app
   _TASK_INVOKER_SERVICE_ACCOUNT: feedback-task-invoker-staging@teleferico-bariloche-2024.iam.gserviceaccount.com
   _WORKER_RUNTIME_SERVICE_ACCOUNT: feedback-worker-staging@teleferico-bariloche-2024.iam.gserviceaccount.com
-  _WORKER_CMS_TOKEN_SECRET_VERSION: REQUIRED_OPERATOR_VALUE
   _PRIVATE_BUCKET: feedback-reports-staging-384535443802
-  _EVIDENCE_KEY_RESOURCE: REQUIRED_OPERATOR_VALUE
   _WORKER_SERVICE_NAME: feedback-worker-staging
   _WORKER_REGION: southamerica-east1
 

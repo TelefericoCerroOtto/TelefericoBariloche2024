@@ -1,5 +1,3 @@
-# Cloud Build trigger snapshot (documentary only; not operational source of truth).
-# This records verified trigger metadata and does not apply changes in GCP.
 name: playwright-e2e-pr
 id: c2133674-afdc-46ae-87d0-afe06e605ca6
 region: southamerica-east1

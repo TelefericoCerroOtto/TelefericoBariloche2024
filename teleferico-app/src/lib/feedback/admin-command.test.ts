@@ -35,7 +35,8 @@ const validResult = {
 } as const;
 const validCoreRow = {
   documentId: "generation-document-1",
-  ...validResult,
+  reportRunId: validResult.reportRunId,
+  generationStatus: "queued",
   periodStart: validGenerate.period.from,
   periodEnd: validGenerate.period.to,
 } as const;
@@ -415,7 +416,7 @@ describe("feedback administration command contracts", () => {
         });
       if (init?.method === "POST")
         return Response.json({ data: { ...validCoreRow, reportRunId: JSON.parse(String(init.body)).data.reportRunId, stateVersion: 1 } }, { status: 201 });
-      return Response.json({ data: [{ ...validCoreRow, status: "failed" }] });
+      return Response.json({ data: [{ ...validCoreRow, generationStatus: "failed" }] });
     });
     const dispatcher = {
       dispatch: vi.fn(async ({ taskName }: { taskName: string }) => ({
@@ -569,7 +570,7 @@ describe("feedback administration command contracts", () => {
                 reportRunId: details.overlaps[0]!.reportRunId,
                 periodStart: details.overlaps[0]!.period.from,
                 periodEnd: details.overlaps[0]!.period.to,
-                status: "succeeded",
+                generationStatus: "succeeded",
               },
             ],
           },
@@ -596,7 +597,7 @@ describe("feedback administration command contracts", () => {
               data: {
                 ...validCoreRow,
                 reportRunId: "00000000-0000-4000-8000-000000000004",
-                status: "queued",
+                generationStatus: "queued",
               },
             },
             { status: 201 },
@@ -606,7 +607,7 @@ describe("feedback administration command contracts", () => {
               data: [
                 {
                   ...validCoreRow,
-                  status: "failed",
+                  generationStatus: "failed",
                 },
               ],
             },
@@ -628,9 +629,13 @@ describe("feedback administration command contracts", () => {
       reportRunId: "00000000-0000-4000-8000-000000000004",
       status: "queued",
     });
-    const [, init] = fetchImplementation.mock.calls[1]!;
-    expect(JSON.parse(String(init?.body))).toMatchObject({
+    const [, init] = fetchImplementation.mock.calls.find(
+      ([, requestInit]) => requestInit?.method === "POST",
+    )!;
+    const sentBody = JSON.parse(String(init?.body));
+    expect(sentBody).toMatchObject({
       data: {
+        generationStatus: "queued",
         retryOfGeneration: { connect: [validCoreRow.documentId] },
         snapshotDigest: expect.stringMatching(/^(?!0{64}$)[a-f0-9]{64}$/),
         sourceRevision: "source-revision-42",
@@ -722,7 +727,7 @@ describe("feedback administration command contracts", () => {
   it("does not read source inputs or dispatch when overlap preflight is stale", async () => {
     const generationInputs = generationInputsSource();
     const fetchImplementation = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
-      Response.json({ data: [{ ...validCoreRow, status: "succeeded" }] }),
+      Response.json({ data: [{ ...validCoreRow, generationStatus: "succeeded" }] }),
     );
     const dispatch = vi.fn();
     const transport = createFeedbackAdminCommandTransport({
@@ -793,7 +798,7 @@ describe("feedback administration command contracts", () => {
           const url = String(input);
           if (init?.method !== "POST" && url.includes("reportRunId"))
             return Response.json({
-              data: [{ ...validCoreRow, status: "failed" }],
+              data: [{ ...validCoreRow, generationStatus: "failed" }],
             });
           if (init?.method === "POST") {
             createAttempts.push(url);
@@ -845,7 +850,7 @@ describe("feedback administration command contracts", () => {
           { status: 201 },
         );
       }
-      return Response.json({ data: [{ ...validCoreRow, status: "failed" }] });
+      return Response.json({ data: [{ ...validCoreRow, generationStatus: "failed" }] });
     });
     const transport = createFeedbackAdminCommandTransport({
       baseUrl: "https://cms.example.test",

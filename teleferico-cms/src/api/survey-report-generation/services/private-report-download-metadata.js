@@ -21,7 +21,7 @@ function createPrivateReportDownloadMetadataReader(strapi) {
           where: { reportId },
           fields: ['reportId', 'generationRunId', 'objectKey', 'artifactSha256', 'artifactSize', 'mimeType'],
           populate: {
-            sourceGeneration: { fields: ['reportRunId', 'status'] },
+            sourceGeneration: { fields: ['reportRunId', 'generationStatus'] },
           },
         });
       } catch {
@@ -37,7 +37,7 @@ function createPrivateReportDownloadMetadataReader(strapi) {
         !UUID_PATTERN.test(report.generationRunId) ||
         !generation ||
         generation.reportRunId !== report.generationRunId ||
-        generation.status !== 'succeeded' ||
+        generation.generationStatus !== 'succeeded' ||
         report.objectKey !== REPORT_OBJECT_KEY(reportId) ||
         !/^[a-f0-9]{64}$/.test(report.artifactSha256) ||
         !Number.isSafeInteger(size) || size < 1 || size > MAX_PDF_BYTES ||
