@@ -63,7 +63,7 @@ Staging and production are separated in:
 - **Role:** institutional site + administrative area.
 - **Exposure:** public on Cloud Run.
 - **Access to Strapi:** always server-side.
-- **Build:** uses buildpacks.
+- **Build:** the app snapshots propose a Docker image built from the repository root so Next.js can resolve the three TB-113 shared packages.
 
 #### Traffic pattern to Strapi
 
@@ -333,6 +333,8 @@ Repository-level rollback for this teardown slice is limited to restoring the ou
 - `docs/infra/cloud-build/worker-staging.yaml` — documentary worker build snapshot; its earlier build content was imported into the disabled trigger, but the local `_AR_REPOSITORY` value now differs from the live trigger.
 
 These files are for reference only. The operational triggers remain defined inline in GCP.
+
+The app snapshots propose `docker build -f teleferico-app/Dockerfile .` using the pinned Docker builder. The Dockerfile-specific `teleferico-app/Dockerfile.dockerignore` limits the context to `teleferico-app/` and `packages/{survey-reporting-core,tb113-runtime-contracts,tb113-private-report-storage}/`, excluding `.env*`, `.npmrc`, credentials, generated output, dependencies, and uploads. The image keeps the app at `/workspace/teleferico-app` and the packages under `/workspace/packages`, matching the existing TypeScript aliases and relative runtime-profile import. The build-only Strapi content token uses a BuildKit secret mount for `pnpm run build`; it must not be passed as a Docker build argument or persistent environment variable. The snapshots do not update live triggers, establish builder BuildKit support, or prove staging readiness. An operator must manually apply a separately reviewed snapshot to its inline trigger.
 
 ### 6.1.1 GitHub Deployments bridge
 
