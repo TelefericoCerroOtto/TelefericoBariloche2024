@@ -19,6 +19,8 @@ module.exports = {
    * run jobs, or perform some special logic.
    */
   async bootstrap({ strapi }) {
+    // The forward-only column rename runs as a Strapi database migration before schema sync.
+    // Keep this bootstrap pass for constraints and defaults that require the synchronized schema.
     const constraintsApplied = await strapi.db.transaction(({ trx }) =>
       tb113Constraints.up(trx),
     );

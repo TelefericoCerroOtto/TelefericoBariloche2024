@@ -1288,6 +1288,9 @@ export interface ApiSurveyQrPointSurveyQrPoint
         minLength: 32;
       }>;
     publishedAt: Schema.Attribute.DateTime;
+    qrPointStatus: Schema.Attribute.Enumeration<['active', 'inactive']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'active'>;
     sortOrder: Schema.Attribute.Integer &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMax<
@@ -1296,9 +1299,6 @@ export interface ApiSurveyQrPointSurveyQrPoint
         },
         number
       >;
-    status: Schema.Attribute.Enumeration<['active', 'inactive']> &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'active'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1371,6 +1371,11 @@ export interface ApiSurveyReportGenerationSurveyReportGeneration
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 64;
       }>;
+    generationStatus: Schema.Attribute.Enumeration<
+      ['queued', 'running', 'succeeded', 'failed']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'queued'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -1445,11 +1450,6 @@ export interface ApiSurveyReportGenerationSurveyReportGeneration
         number
       > &
       Schema.Attribute.DefaultTo<1>;
-    status: Schema.Attribute.Enumeration<
-      ['queued', 'running', 'succeeded', 'failed']
-    > &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'queued'>;
     taskName: Schema.Attribute.String &
       Schema.Attribute.Private &
       Schema.Attribute.Unique &
@@ -1782,7 +1782,7 @@ export interface ApiSurveyVersionSurveyVersion
     > &
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
-    status: Schema.Attribute.Enumeration<['draft', 'published']> &
+    surveyVersionStatus: Schema.Attribute.Enumeration<['draft', 'published']> &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'draft'>;
     updatedAt: Schema.Attribute.DateTime;

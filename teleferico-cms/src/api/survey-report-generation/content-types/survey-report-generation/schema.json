@@ -31,7 +31,7 @@
     "modelConfigJson": { "type": "json", "required": true, "private": true },
     "usageJson": { "type": "json", "required": true, "private": true },
     "pricingSnapshotJson": { "type": "json", "required": true, "private": true },
-    "status": {
+    "generationStatus": {
       "type": "enumeration",
       "enum": ["queued", "running", "succeeded", "failed"],
       "required": true,

@@ -21,8 +21,9 @@ const CONSTRAINT_NAMES = Object.freeze([
 const REQUIRED_COLUMNS = Object.freeze({
   components_survey_aspect_definitions: ['owner_version_key', 'aspect_key', 'sort_order'],
   components_survey_aspect_ratings: ['owner_receipt', 'aspect_key'],
-  survey_qr_points: ['status', 'inactive_at'],
-  survey_report_generations: ['period_start', 'period_end', 'status', 'completed_at', 'task_name'],
+  survey_qr_points: ['qr_point_status', 'inactive_at'],
+  survey_versions: ['survey_version_status'],
+  survey_report_generations: ['period_start', 'period_end', 'generation_status', 'completed_at', 'task_name'],
   survey_reports: ['generation_run_id'],
   survey_settings: ['document_id', 'singleton_key', 'intake_enabled', 'generation_enabled', 'settings_revision'],
   survey_submissions: ['session_nonce_hash', 'idempotency_key'],
@@ -39,7 +40,7 @@ const INDEX_SQL = Object.freeze([
   'CREATE UNIQUE INDEX IF NOT EXISTS uq_definition_owner_key ON components_survey_aspect_definitions(owner_version_key,aspect_key)',
   'CREATE UNIQUE INDEX IF NOT EXISTS uq_definition_owner_order ON components_survey_aspect_definitions(owner_version_key,sort_order)',
   'CREATE UNIQUE INDEX IF NOT EXISTS uq_rating_owner_key ON components_survey_aspect_ratings(owner_receipt,aspect_key)',
-  "CREATE UNIQUE INDEX IF NOT EXISTS uq_generation_active_range ON survey_report_generations(period_start,period_end) WHERE status IN ('queued','running')",
+  "CREATE UNIQUE INDEX IF NOT EXISTS uq_generation_active_range ON survey_report_generations(period_start,period_end) WHERE generation_status IN ('queued','running')",
   'CREATE UNIQUE INDEX IF NOT EXISTS uq_generation_task ON survey_report_generations(task_name) WHERE task_name IS NOT NULL',
   'CREATE UNIQUE INDEX IF NOT EXISTS uq_report_generation ON survey_reports(generation_run_id)',
   'CREATE UNIQUE INDEX IF NOT EXISTS uq_settings_singleton ON survey_settings(singleton_key)',
@@ -47,9 +48,9 @@ const INDEX_SQL = Object.freeze([
 
 const CONSTRAINT_SQL = Object.freeze([
   ['survey_settings', 'ck_settings_singleton', "singleton_key='default'"],
-  ['survey_qr_points', 'ck_qr_point_status_time', "(status='active' AND inactive_at IS NULL) OR (status='inactive' AND inactive_at IS NOT NULL)"],
+  ['survey_qr_points', 'ck_qr_point_status_time', "(qr_point_status='active' AND inactive_at IS NULL) OR (qr_point_status='inactive' AND inactive_at IS NOT NULL)"],
   ['survey_report_generations', 'ck_generation_range', 'period_start<=period_end'],
-  ['survey_report_generations', 'ck_generation_terminal', "(status IN ('queued','running') AND completed_at IS NULL) OR (status IN ('succeeded','failed') AND completed_at IS NOT NULL)"],
+  ['survey_report_generations', 'ck_generation_terminal', "(generation_status IN ('queued','running') AND completed_at IS NULL) OR (generation_status IN ('succeeded','failed') AND completed_at IS NOT NULL)"],
 ]);
 
 function assertionSql() {

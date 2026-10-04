@@ -149,7 +149,7 @@ function createPrivateFeedbackAdminReader(strapi) {
             ],
             populate: {
               sourceGeneration: {
-                fields: ['reportRunId', 'status', 'snapshotJson'],
+                fields: ['reportRunId', 'generationStatus', 'snapshotJson'],
                 populate: { requestedBy: { fields: ['id'] } },
               },
               generatedBy: { fields: ['id'] },
@@ -161,7 +161,7 @@ function createPrivateFeedbackAdminReader(strapi) {
         const hasMore = rows.length > PAGE_SIZE;
         const items = rows.slice(0, PAGE_SIZE).map((row) => {
           const generation = row.sourceGeneration;
-          if (!generation || generation.status !== 'succeeded' ||
+          if (!generation || generation.generationStatus !== 'succeeded' ||
               generation.reportRunId !== row.generationRunId ||
               typeof row.reportId !== 'string' || !UUID_PATTERN.test(row.reportId) ||
               typeof row.generationRunId !== 'string' || !UUID_PATTERN.test(row.generationRunId) ||
@@ -194,7 +194,7 @@ function createPrivateFeedbackAdminReader(strapi) {
             artifactSize: Number(row.artifactSize),
             mimeType: row.mimeType,
             objectKey: row.objectKey,
-            status: generation.status,
+            status: generation.generationStatus,
             requestedBy: generation.requestedBy ? String(generation.requestedBy.id) : null,
             generatedBy: row.generatedBy ? String(row.generatedBy.id) : null,
           };
@@ -225,7 +225,7 @@ async function readGenerationPage(strapi, query, after) {
     periodEnd: { $gte: reportingDate(query.acceptedAtGte) },
     createdAt: { $lte: query.dataCutoffAt },
   };
-  if (query.status !== null) where.status = query.status;
+  if (query.status !== null) where.generationStatus = query.status;
   if (after) {
     where.$and = [{
       $or: [
@@ -243,7 +243,7 @@ async function readGenerationPage(strapi, query, after) {
         where,
         orderBy: [{ createdAt: 'desc' }, { reportRunId: 'asc' }],
         limit: PAGE_SIZE + 1,
-        fields: ['reportRunId', 'periodStart', 'periodEnd', 'dataCutoffAt', 'status', 'createdAt', 'completedAt', 'failureCode', 'safeFailureMessage', 'snapshotJson'],
+        fields: ['reportRunId', 'periodStart', 'periodEnd', 'dataCutoffAt', 'generationStatus', 'createdAt', 'completedAt', 'failureCode', 'safeFailureMessage', 'snapshotJson'],
         populate: {
           retryOfGeneration: { fields: ['reportRunId'] },
           report: { fields: ['reportId', 'createdAt', 'periodStart', 'periodEnd', 'generationRunId', 'objectKey', 'artifactSha256', 'artifactSize', 'mimeType'] },
@@ -255,13 +255,13 @@ async function readGenerationPage(strapi, query, after) {
     const hasMore = rows.length > PAGE_SIZE;
     const items = rows.slice(0, PAGE_SIZE).map((row) => {
       if (typeof row.reportRunId !== 'string' || !UUID_PATTERN.test(row.reportRunId) ||
-          !GENERATION_STATUSES.includes(row.status) || !row.periodStart || !row.periodEnd ||
+          !GENERATION_STATUSES.includes(row.generationStatus) || !row.periodStart || !row.periodEnd ||
           !isInstant(row.createdAt) || !isInstant(row.dataCutoffAt) ||
           (row.completedAt !== null && row.completedAt !== undefined && !isInstant(row.completedAt)))
         throw adminReadError('SOURCE_UNAVAILABLE');
       let failureCode = null;
       let safeFailureMessage = null;
-      if (row.status === 'failed') {
+      if (row.generationStatus === 'failed') {
         if (typeof row.failureCode !== 'string' || !Object.hasOwn(SAFE_FAILURE_MESSAGES, row.failureCode) ||
             row.safeFailureMessage !== SAFE_FAILURE_MESSAGES[row.failureCode])
           throw adminReadError('SOURCE_UNAVAILABLE');
@@ -272,7 +272,7 @@ async function readGenerationPage(strapi, query, after) {
         throw adminReadError('SOURCE_UNAVAILABLE');
       }
       let report = null;
-      if (row.status === 'succeeded') {
+      if (row.generationStatus === 'succeeded') {
         const candidate = row.report;
         let snapshot = row.snapshotJson;
         if (typeof snapshot === 'string') {
@@ -305,7 +305,7 @@ async function readGenerationPage(strapi, query, after) {
         periodStart: row.periodStart,
         periodEnd: row.periodEnd,
         dataCutoffAt: row.dataCutoffAt,
-        status: row.status,
+        status: row.generationStatus,
         createdAt: row.createdAt,
         completedAt: row.completedAt ?? null,
         failureCode,

@@ -139,6 +139,13 @@ function safeGenerationData(...args: Parameters<typeof buildGenerationData>) {
   }
 }
 
+function toCmsGenerationData(data: RecordValue): RecordValue {
+  if (data.status !== "queued")
+    throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+  const { status: _status, ...attributes } = data;
+  return { ...attributes, generationStatus: "queued" };
+}
+
 function isRecord(value: unknown): value is RecordValue {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -215,7 +222,7 @@ function asCoreGeneration(value: unknown): CoreGeneration | undefined {
     typeof attributes.periodStart !== "string" ||
     typeof attributes.periodEnd !== "string" ||
     !["queued", "running", "succeeded", "failed"].includes(
-      String(attributes.status),
+      String(attributes.generationStatus),
     )
   )
     return undefined;
@@ -224,7 +231,7 @@ function asCoreGeneration(value: unknown): CoreGeneration | undefined {
     reportRunId: attributes.reportRunId,
     from: attributes.periodStart,
     to: attributes.periodEnd,
-    status: attributes.status as FeedbackAdminCommandStatus,
+    status: attributes.generationStatus as FeedbackAdminCommandStatus,
     ...(Number.isSafeInteger(attributes.stateVersion)
       ? { stateVersion: attributes.stateVersion as number }
       : {}),
@@ -515,7 +522,7 @@ export function createFeedbackAdminCommandTransport(options: Options) {
     const result = coreResult(
       await coreRequest(GENERATION_ENDPOINT, {
         method: "POST",
-        body: JSON.stringify({ data }),
+        body: JSON.stringify({ data: toCmsGenerationData(data) }),
       }),
     );
     return dispatchCreated(result);
@@ -584,7 +591,7 @@ export function createFeedbackAdminCommandTransport(options: Options) {
       const result = coreResult(
         await coreRequest(GENERATION_ENDPOINT, {
           method: "POST",
-          body: JSON.stringify({ data }),
+          body: JSON.stringify({ data: toCmsGenerationData(data) }),
         }),
       );
       return dispatchCreated(result);

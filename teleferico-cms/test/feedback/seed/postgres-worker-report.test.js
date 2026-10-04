@@ -141,12 +141,13 @@ test('configured local worker processes seeded Strapi data over HTTP and stores 
   let localStorageRoot;
   const previousEnvironment = process.env;
   const secret = `tb113-worker-report-${randomUUID()}`;
-  const cmsPort = 1337;
+  let cmsPort;
   let databasePort;
   try {
     await compose('down', '--volumes', '--remove-orphans', '--timeout=5');
     await compose('up', '--detach', '--wait');
     databasePort = Number((await compose('port', 'postgres', '5432')).stdout.trim().split(':').at(-1));
+    cmsPort = await reservePortPair();
     const generationConfig = {
       contractVersion: 'survey-approved-generation-config.v1',
       sourceRevision: 'feedback-admin.v1',
@@ -316,7 +317,7 @@ test('configured local worker processes seeded Strapi data over HTTP and stores 
         modelConfigJson: config,
         usageJson: {},
         pricingSnapshotJson: pricing,
-        status: 'queued',
+        generationStatus: 'queued',
         stateVersion: 1,
         attemptCount: 0,
         dispatchAttemptCount: 0,
@@ -393,10 +394,10 @@ test('configured local worker processes seeded Strapi data over HTTP and stores 
     let generation;
     while (Date.now() < deadline) {
       generation = await strapi.db.query(CMS_UID).findOne({ where: { reportRunId: REPORT_RUN_ID } });
-      if (generation?.status === 'succeeded' || generation?.status === 'failed') break;
+      if (generation?.generationStatus === 'succeeded' || generation?.generationStatus === 'failed') break;
       await new Promise((resolveWait) => setTimeout(resolveWait, 100));
     }
-    assert.equal(generation?.status, 'succeeded', JSON.stringify({ status: generation?.status, code: generation?.failureCode }));
+    assert.equal(generation?.generationStatus, 'succeeded', JSON.stringify({ status: generation?.generationStatus, code: generation?.failureCode }));
     const report = await strapi.db.query(REPORT_UID).findOne({ where: { generationRunId: REPORT_RUN_ID } });
     assert.ok(report);
     assert.equal(report.mimeType, 'application/pdf');

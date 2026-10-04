@@ -452,7 +452,7 @@ async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRu
       modelConfigJson: modelConfig,
       usageJson: {},
       pricingSnapshotJson: pricingSnapshot,
-      status: 'queued',
+      generationStatus: 'queued',
     } }),
   });
   assert.equal(createResponse.status, 201);
@@ -461,7 +461,7 @@ async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRu
   const seeded = await strapi.db.query(GENERATION_UID).findOne({
     where: { reportRunId: WORKER_RUN_ID },
   });
-  assert.equal(seeded.status, 'queued');
+  assert.equal(seeded.generationStatus, 'queued');
   assert.equal(seeded.stateVersion, 1);
   assert.equal(seeded.snapshotDigest, snapshotEnvelope.digestHex);
   assert.deepEqual(seeded.checkpointsJson, checkpoints);
@@ -490,7 +490,7 @@ async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRu
   ));
   const unchangedQueuedRow = await strapi.db.connection('survey_report_generations')
     .where({ report_run_id: WORKER_RUN_ID })
-    .select('status', 'state_version', 'claimed_at')
+    .select({ status: 'generation_status' }, 'state_version', 'claimed_at')
     .first();
   assert.equal(unchangedQueuedRow.status, 'queued');
   assert.equal(unchangedQueuedRow.state_version, 1);
@@ -765,20 +765,20 @@ async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRu
   const storedFailure = await strapi.db.query(GENERATION_UID).findOne({
     where: { reportRunId: WORKER_RUN_ID },
   });
-  assert.equal(storedFailure.status, 'failed');
+  assert.equal(storedFailure.generationStatus, 'failed');
   assert.equal(storedFailure.stateVersion, 3);
   assert.equal(storedFailure.failureCode, 'INVALID_OUTPUT');
   assert.equal(storedFailure.safeFailureMessage, 'The report output did not satisfy its contract.');
   assert.ok(storedFailure.completedAt);
   const generationQuery = await strapi.db.connection('survey_report_generations')
     .where({ report_run_id: WORKER_RUN_ID })
-    .select('status', 'state_version', 'failure_code', 'safe_failure_message', 'snapshot_json')
+    .select({ status: 'generation_status' }, 'state_version', 'failure_code', 'safe_failure_message', 'snapshot_json')
     .first();
   assert.equal(JSON.stringify(generationQuery.snapshot_json).includes(PRIVATE_WORKER_COMMENT), true);
   const appCreatedFailureRow = await strapi.db.query(GENERATION_UID).findOne({
     where: { reportRunId: appCreatedReportRunId },
   });
-  assert.equal(appCreatedFailureRow.status, 'failed');
+  assert.equal(appCreatedFailureRow.generationStatus, 'failed');
   assert.equal(appCreatedFailureRow.stateVersion, 3);
   assert.equal(appCreatedFailureRow.failureCode, 'INVALID_OUTPUT');
   await verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext);
@@ -831,7 +831,7 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
       modelConfigJson: modelConfig,
       usageJson: {},
       pricingSnapshotJson: pricingSnapshot,
-      status: 'queued',
+      generationStatus: 'queued',
     } }),
   });
   assert.equal(createResponse.status, 201);
@@ -1975,7 +1975,7 @@ test('private report source requires its isolated worker action and returns comp
     const version = await strapi.documents('api::survey-version.survey-version').create({
       data: {
         versionKey: 'private-source-v1',
-        status: 'published',
+        surveyVersionStatus: 'published',
         copyEs: {},
         copyEn: {},
         copyPt: {},
@@ -1990,7 +1990,7 @@ test('private report source requires its isolated worker action and returns comp
         pointKey: 'private-source-point',
         publicCode: 'S'.repeat(32),
         displayName: 'Private source point',
-        status: 'active',
+        qrPointStatus: 'active',
         sortOrder: 4,
       },
     });

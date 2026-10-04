@@ -11,7 +11,7 @@ const nativeSurveyBodies = {
         pointKey: "summit",
         publicCode: "A".repeat(32),
         displayName: "Summit",
-        status: "active",
+        qrPointStatus: "active",
         inactiveAt: null,
       },
     ],
@@ -23,7 +23,7 @@ const nativeSurveyBodies = {
       activeSurveyVersion: {
         documentId: "version-document",
         versionKey: "visitor-v1",
-        status: "published",
+        surveyVersionStatus: "published",
         copyEs: {},
         copyEn: {},
         copyPt: {},
@@ -40,7 +40,7 @@ const nativeSurveyBodies = {
     },
   },
   versions: {
-    data: [{ versionKey: "visitor-v1", status: "published" }],
+    data: [{ versionKey: "visitor-v1", surveyVersionStatus: "published" }],
   },
 };
 
@@ -91,6 +91,16 @@ describe("feedback CMS transport", () => {
         "fields[2]",
       ),
     ).toBe(false);
+    expect(
+      new URL(String(fetchImplementation.mock.calls[0]?.[0])).searchParams.get(
+        "filters[qrPointStatus][$eq]",
+      ),
+    ).toBe("active");
+    expect(
+      new URL(String(fetchImplementation.mock.calls[2]?.[0])).searchParams.get(
+        "fields[1]",
+      ),
+    ).toBe("surveyVersionStatus");
     expect(
       fetchImplementation.mock.calls.map(
         ([input]) => new URL(String(input)).pathname,
@@ -260,7 +270,7 @@ describe("feedback CMS transport", () => {
           data: [
             {
               versionKey: "visitor-v1",
-              status: "retired",
+              surveyVersionStatus: "retired",
               lastSupersededAt: null,
             },
           ],

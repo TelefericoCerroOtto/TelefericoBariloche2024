@@ -27,11 +27,11 @@ function createSubmissionPersistence(strapi) {
     const [point, version] = await Promise.all(localFixture ? [
       strapi.db.query(POINT_UID).findOne({
         where: { documentId: command.pointDocumentId },
-        select: ['id', 'documentId', 'pointKey', 'publicCode', 'status'],
+        select: ['id', 'documentId', 'pointKey', 'publicCode', 'qrPointStatus'],
       }),
       strapi.db.query(VERSION_UID).findOne({
         where: { documentId: command.versionDocumentId },
-        select: ['id', 'documentId', 'versionKey', 'status'],
+        select: ['id', 'documentId', 'versionKey', 'surveyVersionStatus'],
       }),
     ] : [
       strapi.documents(POINT_UID).findOne({ documentId: command.pointDocumentId }),
@@ -39,9 +39,9 @@ function createSubmissionPersistence(strapi) {
     ]);
     const claims = command.claims;
     if (
-      !point || point.status !== 'active' || point.pointKey !== claims.pointKey ||
+      !point || point.qrPointStatus !== 'active' || point.pointKey !== claims.pointKey ||
       sha256(point.publicCode) !== claims.publicCodeHash ||
-      !version || version.versionKey !== claims.versionKey || version.status !== 'published'
+      !version || version.versionKey !== claims.versionKey || version.surveyVersionStatus !== 'published'
     ) {
       throw domainError('SURVEY_UNAVAILABLE');
     }

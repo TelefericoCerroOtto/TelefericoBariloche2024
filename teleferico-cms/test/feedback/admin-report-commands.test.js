@@ -285,7 +285,7 @@ test("native role authorization creates only through the core generation endpoin
       `${endpoint}?filters[reportRunId][$eq]=${REPORT_RUN_ID}`,
       { headers: { authorization: `Bearer ${jwt}` } },
     );
-    assert.equal((await stillQueued.json()).data[0].status, "queued");
+    assert.equal((await stillQueued.json()).data[0].generationStatus, "queued");
 
     const sendDispatchFailure = () => fetch(dispatchFailureUrl, {
       method: "POST",
@@ -758,7 +758,7 @@ test("native role authorization creates only through the core generation endpoin
     assert.equal(JSON.stringify(failResults).includes("safeFailureMessage"), false);
     const storedFailure = await strapi.db.connection("survey_report_generations")
       .where({ report_run_id: WORKER_FAIL_RUN_ID })
-      .select("status", "state_version", "failure_code", "safe_failure_message", "completed_at").first();
+      .select({ status: "generation_status" }, "state_version", "failure_code", "safe_failure_message", "completed_at").first();
     assert.equal(storedFailure.status, "failed");
     assert.equal(storedFailure.state_version, 3);
     assert.equal(storedFailure.failure_code, "INVALID_OUTPUT");

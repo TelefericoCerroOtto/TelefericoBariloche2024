@@ -16,7 +16,7 @@ function postgresTransaction(pool, { afterUpdateGeneration } = {}) {
         async lockGeneration(reportRunId) {
           lockedRunId = reportRunId;
           const { rows } = await client.query(
-            "SELECT document_id AS \"documentId\", report_run_id AS \"reportRunId\", period_start AS \"periodStart\", period_end AS \"periodEnd\", data_cutoff_at AS \"dataCutoffAt\", snapshot_digest AS \"snapshotDigest\", source_revision AS \"sourceRevision\", status, state_version AS \"stateVersion\", task_name AS \"taskName\", dispatch_state AS \"dispatchState\", dispatch_evidence_json AS \"dispatchEvidenceJson\", dispatch_attempt_count AS \"dispatchAttemptCount\", failure_code AS \"failureCode\", safe_failure_message AS \"safeFailureMessage\", completed_at AS \"completedAt\" FROM survey_report_generations WHERE report_run_id = $1 FOR UPDATE",
+            "SELECT document_id AS \"documentId\", report_run_id AS \"reportRunId\", period_start AS \"periodStart\", period_end AS \"periodEnd\", data_cutoff_at AS \"dataCutoffAt\", snapshot_digest AS \"snapshotDigest\", source_revision AS \"sourceRevision\", generation_status AS status, state_version AS \"stateVersion\", task_name AS \"taskName\", dispatch_state AS \"dispatchState\", dispatch_evidence_json AS \"dispatchEvidenceJson\", dispatch_attempt_count AS \"dispatchAttemptCount\", failure_code AS \"failureCode\", safe_failure_message AS \"safeFailureMessage\", completed_at AS \"completedAt\" FROM survey_report_generations WHERE report_run_id = $1 FOR UPDATE",
             [reportRunId],
           );
           return rows[0];
@@ -33,7 +33,7 @@ function postgresTransaction(pool, { afterUpdateGeneration } = {}) {
         },
         async updateGeneration(patch) {
           const result = await client.query(
-            "UPDATE survey_report_generations SET status = COALESCE($1,status), state_version = $2, completed_at = COALESCE($3,completed_at), task_name = COALESCE($4,task_name), dispatch_state = COALESCE($5,dispatch_state), dispatch_evidence_json = COALESCE($6,dispatch_evidence_json), dispatch_attempt_count = COALESCE($7,dispatch_attempt_count), failure_code = COALESCE($8,failure_code), safe_failure_message = COALESCE($9,safe_failure_message) WHERE report_run_id = $10 AND state_version = $11 AND status = $12 RETURNING status, state_version, failure_code, safe_failure_message, completed_at",
+            "UPDATE survey_report_generations SET generation_status = COALESCE($1,generation_status), state_version = $2, completed_at = COALESCE($3,completed_at), task_name = COALESCE($4,task_name), dispatch_state = COALESCE($5,dispatch_state), dispatch_evidence_json = COALESCE($6,dispatch_evidence_json), dispatch_attempt_count = COALESCE($7,dispatch_attempt_count), failure_code = COALESCE($8,failure_code), safe_failure_message = COALESCE($9,safe_failure_message) WHERE report_run_id = $10 AND state_version = $11 AND generation_status = $12 RETURNING generation_status AS status, state_version, failure_code, safe_failure_message, completed_at",
             [patch.status ?? null, patch.stateVersion, patch.completedAt ?? null, patch.taskName ?? null,
               patch.dispatchState ?? null, patch.dispatchEvidenceJson ?? null, patch.dispatchAttemptCount ?? null,
               patch.failureCode ?? null, patch.safeFailureMessage ?? null, lockedRunId,
@@ -61,12 +61,12 @@ test("PostgreSQL serializes active-range races and rolls back failed completion"
     await compose("up", "--detach", "--wait");
     const port = Number((await compose("port", "postgres", "5432")).stdout.trim().split(":").at(-1));
     pool = new Pool({ host: "127.0.0.1", port, database: "tb113_test_feedback", user: "tb113_test_runner", password: "tb113_test_local_only", max: 4 });
-    await pool.query(`CREATE TABLE survey_report_generations(id bigserial PRIMARY KEY, document_id text UNIQUE NOT NULL, report_run_id text UNIQUE NOT NULL, period_start date NOT NULL, period_end date NOT NULL, data_cutoff_at timestamptz NOT NULL, snapshot_digest text NOT NULL, source_revision text NOT NULL, status text NOT NULL, state_version integer NOT NULL DEFAULT 1, completed_at timestamptz, task_name text, dispatch_state text NOT NULL DEFAULT 'unreserved', dispatch_evidence_json jsonb, dispatch_attempt_count integer NOT NULL DEFAULT 0, failure_code text, safe_failure_message text); CREATE TABLE survey_reports(id bigserial PRIMARY KEY, report_id text UNIQUE NOT NULL, generation_run_id text UNIQUE NOT NULL, period_start date NOT NULL, period_end date NOT NULL, data_cutoff_at timestamptz NOT NULL, snapshot_digest text NOT NULL, source_revision text NOT NULL, validated_analysis_json jsonb NOT NULL, analysis_contract_version text NOT NULL, analysis_digest text NOT NULL, renderer_version text NOT NULL, object_key text NOT NULL, artifact_sha256 text NOT NULL, artifact_size bigint NOT NULL, mime_type text NOT NULL, source_generation_id text NOT NULL); CREATE UNIQUE INDEX uq_generation_active_range ON survey_report_generations(period_start,period_end) WHERE status IN ('queued','running');`);
+    await pool.query(`CREATE TABLE survey_report_generations(id bigserial PRIMARY KEY, document_id text UNIQUE NOT NULL, report_run_id text UNIQUE NOT NULL, period_start date NOT NULL, period_end date NOT NULL, data_cutoff_at timestamptz NOT NULL, snapshot_digest text NOT NULL, source_revision text NOT NULL, generation_status text NOT NULL, state_version integer NOT NULL DEFAULT 1, completed_at timestamptz, task_name text, dispatch_state text NOT NULL DEFAULT 'unreserved', dispatch_evidence_json jsonb, dispatch_attempt_count integer NOT NULL DEFAULT 0, failure_code text, safe_failure_message text); CREATE TABLE survey_reports(id bigserial PRIMARY KEY, report_id text UNIQUE NOT NULL, generation_run_id text UNIQUE NOT NULL, period_start date NOT NULL, period_end date NOT NULL, data_cutoff_at timestamptz NOT NULL, snapshot_digest text NOT NULL, source_revision text NOT NULL, validated_analysis_json jsonb NOT NULL, analysis_contract_version text NOT NULL, analysis_digest text NOT NULL, renderer_version text NOT NULL, object_key text NOT NULL, artifact_sha256 text NOT NULL, artifact_size bigint NOT NULL, mime_type text NOT NULL, source_generation_id text NOT NULL); CREATE UNIQUE INDEX uq_generation_active_range ON survey_report_generations(period_start,period_end) WHERE generation_status IN ('queued','running');`);
     const insert = async (run) => {
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
-        await client.query("INSERT INTO survey_report_generations(document_id,report_run_id,period_start,period_end,data_cutoff_at,snapshot_digest,source_revision,status) VALUES($1,$1,'2026-08-01','2026-08-20','2026-08-20T00:00:00Z',$2,'v1','queued')", [run, "a".repeat(64)]);
+        await client.query("INSERT INTO survey_report_generations(document_id,report_run_id,period_start,period_end,data_cutoff_at,snapshot_digest,source_revision,generation_status) VALUES($1,$1,'2026-08-01','2026-08-20','2026-08-20T00:00:00Z',$2,'v1','queued')", [run, "a".repeat(64)]);
         await client.query("COMMIT");
         return true;
       } catch (error) {
@@ -77,7 +77,7 @@ test("PostgreSQL serializes active-range races and rolls back failed completion"
       }
     };
     assert.deepEqual((await Promise.all([insert("run-a"), insert("run-b")])).sort(), [false, true]);
-    await pool.query("INSERT INTO survey_report_generations(document_id,report_run_id,period_start,period_end,data_cutoff_at,snapshot_digest,source_revision,status,state_version) VALUES('doc-complete','run-complete','2026-09-01','2026-09-10','2026-09-22T00:00:00Z',$1,'v1','running',3)", ["a".repeat(64)]);
+    await pool.query("INSERT INTO survey_report_generations(document_id,report_run_id,period_start,period_end,data_cutoff_at,snapshot_digest,source_revision,generation_status,state_version) VALUES('doc-complete','run-complete','2026-09-01','2026-09-10','2026-09-22T00:00:00Z',$1,'v1','running',3)", ["a".repeat(64)]);
     const lifecycle = createGenerationLifecycle({ withTransaction: postgresTransaction(pool), now: () => "2026-09-22T15:04:05.000Z" });
     const completion = {
       reportRunId: "run-complete",
@@ -90,15 +90,15 @@ test("PostgreSQL serializes active-range races and rolls back failed completion"
       artifact: { objectKey: "private/report.pdf", sha256: "b".repeat(64), size: 12, mimeType: "application/pdf" },
     };
     await lifecycle.complete(completion);
-    assert.equal((await pool.query("SELECT status FROM survey_report_generations WHERE report_run_id='run-complete'")).rows[0].status, "succeeded");
+    assert.equal((await pool.query("SELECT generation_status FROM survey_report_generations WHERE report_run_id='run-complete'")).rows[0].generation_status, "succeeded");
     assert.equal((await pool.query("SELECT count(*)::int AS count FROM survey_reports WHERE generation_run_id='run-complete'")).rows[0].count, 1);
 
-    await pool.query("INSERT INTO survey_report_generations(document_id,report_run_id,period_start,period_end,data_cutoff_at,snapshot_digest,source_revision,status,state_version) VALUES('doc-failed','run-failed','2026-10-01','2026-10-10','2026-10-22T00:00:00Z',$1,'v1','running',3)", ["a".repeat(64)]);
-    await pool.query("ALTER TABLE survey_report_generations ADD CONSTRAINT reject_test_completion CHECK (report_run_id <> 'run-failed' OR status <> 'succeeded')");
+    await pool.query("INSERT INTO survey_report_generations(document_id,report_run_id,period_start,period_end,data_cutoff_at,snapshot_digest,source_revision,generation_status,state_version) VALUES('doc-failed','run-failed','2026-10-01','2026-10-10','2026-10-22T00:00:00Z',$1,'v1','running',3)", ["a".repeat(64)]);
+    await pool.query("ALTER TABLE survey_report_generations ADD CONSTRAINT reject_test_completion CHECK (report_run_id <> 'run-failed' OR generation_status <> 'succeeded')");
     await assert.rejects(lifecycle.complete({ ...completion, reportRunId: "run-failed", reportId: "report-failed" }), { code: "23514" });
     const rollback = await pool.connect();
     try {
-      const state = await rollback.query("SELECT status, state_version FROM survey_report_generations WHERE report_run_id='run-failed'");
+      const state = await rollback.query("SELECT generation_status AS status, state_version FROM survey_report_generations WHERE report_run_id='run-failed'");
       const reports = await rollback.query("SELECT count(*)::int AS count FROM survey_reports WHERE generation_run_id='run-failed'");
       assert.deepEqual(state.rows[0], { status: "running", state_version: 3 });
       assert.equal(reports.rows[0].count, 0);
@@ -110,7 +110,7 @@ test("PostgreSQL serializes active-range races and rolls back failed completion"
       const workerFailRunId = "run-worker-fail-rollback";
       const failureMessage = "The report output did not satisfy its contract.";
       await pool.query(
-        "INSERT INTO survey_report_generations(document_id,report_run_id,period_start,period_end,data_cutoff_at,snapshot_digest,source_revision,status,state_version,failure_code,safe_failure_message,completed_at) VALUES($1,$1,'2026-11-01','2026-11-10','2026-11-11T00:00:00Z',$2,'v1','running',7,NULL,NULL,NULL)",
+        "INSERT INTO survey_report_generations(document_id,report_run_id,period_start,period_end,data_cutoff_at,snapshot_digest,source_revision,generation_status,state_version,failure_code,safe_failure_message,completed_at) VALUES($1,$1,'2026-11-01','2026-11-10','2026-11-11T00:00:00Z',$2,'v1','running',7,NULL,NULL,NULL)",
         [workerFailRunId, "a".repeat(64)],
       );
       assert.equal((await pool.query("SELECT count(*)::int AS count FROM survey_reports WHERE generation_run_id=$1", [workerFailRunId])).rows[0].count, 0);
@@ -148,7 +148,7 @@ test("PostgreSQL serializes active-range races and rolls back failed completion"
       const independent = await pool.connect();
       try {
         const state = await independent.query(
-          "SELECT status, state_version, failure_code, safe_failure_message, completed_at FROM survey_report_generations WHERE report_run_id=$1",
+          "SELECT generation_status AS status, state_version, failure_code, safe_failure_message, completed_at FROM survey_report_generations WHERE report_run_id=$1",
           [workerFailRunId],
         );
         const reports = await independent.query(

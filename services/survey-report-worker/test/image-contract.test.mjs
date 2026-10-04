@@ -125,6 +125,7 @@ test("Cloud Build prepares and verifies Chromium/font assets before building the
   assert.ok(cloudBuildConfig.includes("_WORKER_REGION: southamerica-east1"));
   for (const [name, value] of [
     ["_AR_LOCATION", "southamerica-east1"],
+    ["_AR_REPOSITORY", "feedback-worker-staging"],
     ["_STRAPI_BASE_URL", "https://cms-staging-teleferico-ra2cbgog2a-rj.a.run.app"],
     ["_CMS_ALLOWED_ORIGIN", "https://cms-staging-teleferico-ra2cbgog2a-rj.a.run.app"],
     ["_TASK_INVOKER_SERVICE_ACCOUNT", "feedback-task-invoker-staging@teleferico-bariloche-2024.iam.gserviceaccount.com"],
@@ -133,13 +134,16 @@ test("Cloud Build prepares and verifies Chromium/font assets before building the
   ]) {
     assert.ok(cloudBuildConfig.includes(`  ${name}: ${value}\n`));
   }
-  for (const pendingSubstitution of [
-    "_AR_REPOSITORY",
-    "_WORKER_CMS_TOKEN_SECRET_VERSION",
-    "_EVIDENCE_KEY_RESOURCE",
-  ]) {
-    assert.ok(cloudBuildConfig.includes(`  ${pendingSubstitution}: REQUIRED_OPERATOR_VALUE\n`));
-  }
+  assert.doesNotMatch(
+    cloudBuildConfig,
+    /(?:_WORKER_CMS_TOKEN_SECRET_VERSION|_EVIDENCE_KEY_RESOURCE|^\s*_FEEDBACK_WORKER_(?:CMS_TOKEN_SECRET_VERSION|EVIDENCE_KEY):|\$\{_FEEDBACK_WORKER_(?:CMS_TOKEN_SECRET_VERSION|EVIDENCE_KEY)\}|\$\$FEEDBACK_WORKER_(?:CMS_TOKEN_SECRET_VERSION|EVIDENCE_KEY)\b|^\s*- FEEDBACK_WORKER_CMS_TOKEN_SECRET_VERSION=|^\s*- FEEDBACK_WORKER_EVIDENCE_KEY=)/m,
+  );
+  assert.ok(cloudBuildConfig.includes("WORKER__STAGING__FEEDBACK_WORKER_CMS_TOKEN:latest"));
+  assert.doesNotMatch(
+    cloudBuildConfig,
+    /WORKER__STAGING__FEEDBACK_WORKER_CMS_TOKEN:(?:REQUIRED_OPERATOR_VALUE|[1-9][0-9]*)/,
+  );
+  assert.ok(cloudBuildConfig.includes("projects/teleferico-bariloche-2024/secrets/WORKER__STAGING__FEEDBACK_WORKER_EVIDENCE_KEY/versions/1"));
   for (const deployFlag of [
     "--no-allow-unauthenticated",
     "--ingress=internal",
@@ -154,9 +158,14 @@ test("Cloud Build prepares and verifies Chromium/font assets before building the
   ]) {
     assert.ok(cloudBuildConfig.includes(deployFlag));
   }
-  assert.ok(cloudBuildConfig.includes("--set-secrets=\"FEEDBACK_WORKER_CMS_TOKEN=$$WORKER_CMS_TOKEN_SECRET_VERSION\""));
-  assert.equal((cloudBuildConfig.match(/FEEDBACK_WORKER_CMS_TOKEN/g) ?? []).length, 1);
-  assert.ok(cloudBuildConfig.includes("FEEDBACK_WORKER_EVIDENCE_KEY=$$EVIDENCE_KEY_RESOURCE"));
+  assert.ok(cloudBuildConfig.includes("--set-secrets=\"FEEDBACK_WORKER_CMS_TOKEN=WORKER__STAGING__FEEDBACK_WORKER_CMS_TOKEN:latest\""));
+  assert.ok(cloudBuildConfig.includes("FEEDBACK_WORKER_EVIDENCE_KEY=projects/teleferico-bariloche-2024/secrets/WORKER__STAGING__FEEDBACK_WORKER_EVIDENCE_KEY/versions/1"));
+  assert.doesNotMatch(
+    cloudBuildConfig,
+    /\[\[ "WORKER__STAGING__FEEDBACK_WORKER_CMS_TOKEN:/,
+  );
+  assert.ok(cloudBuildConfig.includes('[[ "projects/teleferico-bariloche-2024/secrets/WORKER__STAGING__FEEDBACK_WORKER_EVIDENCE_KEY/versions/1" =~'));
+  assert.doesNotMatch(cloudBuildConfig, /secretEnv:|availableSecrets:/);
   assert.ok(cloudBuildConfig.includes("FEEDBACK_TASK_INVOKER_EMAIL=$$TASK_INVOKER_SERVICE_ACCOUNT"));
   assert.ok(cloudBuildConfig.includes("FEEDBACK_WORKER_OIDC_PRINCIPAL=$$TASK_INVOKER_SERVICE_ACCOUNT"));
   assert.ok(cloudBuildConfig.includes("FEEDBACK_WORKER_URL=$$worker_url"));

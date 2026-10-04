@@ -121,7 +121,7 @@ This server-only token is used exclusively by the visitor feedback CMS transport
 | `survey-report.find` / `findOne` | —; private admin projection uses `feedbackAdminRead` |
 | `survey-submission.submit` | ✅ |
 
-The public survey transport requests only `versionKey` and `status` from `survey-version`; it must not request the private `lastSupersededAt` lifecycle field through Strapi's native Content API. This restores resolution of the current survey only. The 30-minute grace period for sessions from superseded versions remains unverified and deferred: supporting it requires a narrow server-side lifecycle read and a correction to submission-version binding. Do not make the lifecycle field public or claim that old sessions are accepted.
+The public survey transport requests only `versionKey` and `surveyVersionStatus` from `survey-version`, and filters QR points by `qrPointStatus`; it must not request the private `lastSupersededAt` lifecycle field through Strapi's native Content API. These domain attributes deliberately avoid the Strapi-reserved `status` name. The app maps the native names into the existing public `status` response field, so the external contract and permission grants do not change. This restores resolution of the current survey only. The 30-minute grace period for sessions from superseded versions remains unverified and deferred: supporting it requires a narrow server-side lifecycle read and a correction to submission-version binding. Do not make the lifecycle field public or claim that old sessions are accepted.
 
 For the public submission command, an HTTP 204 from `lookup` means no prior submission; the app handles it without JSON decoding. This is distinct from a newly accepted submission (201) or an idempotent replay (200).
 
