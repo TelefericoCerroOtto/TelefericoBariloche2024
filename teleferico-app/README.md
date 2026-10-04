@@ -23,7 +23,7 @@ Frontend application of the project, implemented with Next.js (App Router).
 
 Playwright is Chromium-only in the initial browser test layer. Its local fixtures run as a separate HTTP server and are supplied to the Next.js server through `BUILD_STRAPI_BASE_URL`; no test route or production-accessible bypass is added to the application.
 
-Feedback pages, APIs, and dashboard navigation are closed unless the server-side `FEEDBACK_CAPABILITY_ENABLED` value is exactly `true`. The same explicit flag controls local, staging, and production; no runtime or deployment label overrides it. Playwright's fixture app process opts in explicitly. The flag is server-only and must never use a `NEXT_PUBLIC_` name. While TB-113 remains incomplete, Cloud Build deployment snapshots explicitly reset it to `false`; an approved bounded operational test window may set it to `true`, but the next deployment resets it. A future, separately approved feature-completion change is required to make deployment defaults `true`.
+Feedback pages, APIs, and dashboard navigation are closed unless the server-side `FEEDBACK_CAPABILITY_ENABLED` value is exactly `true`. The same explicit flag controls local, staging, and production; no runtime or deployment label overrides it. Playwright's fixture app process opts in explicitly. The flag is server-only and must never use a `NEXT_PUBLIC_` name. The documentary staging snapshot currently sets it to `true`, while production sets it to `false`; neither value proves what is deployed or that staging is ready. Any operator update to a live trigger remains separate and manual. A future, separately approved feature-completion change is required to make deployment defaults `true`.
 
 Agents run `pnpm run test:e2e` while implementing or diagnosing browser behavior. Developers are not required to run E2E commands manually, and no pre-commit or pre-push hook runs the suite.
 
@@ -58,6 +58,8 @@ App, CMS, and worker load the same versioned nonsecret profile from `../packages
 ## TB-113 package boundaries
 
 The app keeps browser-facing feedback routes, administration, task dispatch, and mediated report downloads. Pure reporting, TB-113 runtime contracts, and private report-storage adapters are shared from root `packages/` through the `@teleferico/*` TypeScript aliases. The private worker process is an independent root package at `../services/survey-report-worker`; it is not part of the public app runtime. `next.config.mjs` enables external source compilation for these repository packages. ECharts belongs to the worker package; the app keeps Recharts for its dashboard and its parity POC calls the worker's SVG renderer from test-only code under `tests/tb113/renderer-poc.ts`.
+
+The app Dockerfile is built from the repository root so those shared sources are available at their existing paths. Its Dockerfile-specific ignore file allowlists only the app and those three packages, excluding local environment files, `.npmrc`, credentials, dependencies, generated output, and uploads. The build-only Strapi content token is consumed through a BuildKit secret mount and must not be passed as a build argument or persisted in the image. The Cloud Build YAML files are documentary snapshots; an operator must manually update the live inline trigger after review.
 
 See [the worker package README](../services/survey-report-worker/README.md) for its local build, artifact contents, Node tests, and separate operational gates. Keeping this source layout does not create a Cloud Run service or deployment trigger.
 

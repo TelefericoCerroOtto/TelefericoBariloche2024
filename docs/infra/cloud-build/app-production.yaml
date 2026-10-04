@@ -20,53 +20,58 @@ steps:
       - GITHUB_DEPLOYMENTS_METADATA_PATH=/workspace/github-deployment-metadata.json
     secretEnv:
       - GITHUB_DEPLOYMENTS_APP_PRIVATE_KEY
-  - name: gcr.io/k8s-skaffold/pack
+  - name: gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c
     args:
       - "-c"
       - |
         set -u
-        pack build \
-          "$_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA" \
-          --builder="gcr.io/buildpacks/builder:google-22" \
-          --network=cloudbuild \
-          --path=teleferico-app \
-          --publish \
-          --env="NPM_CONFIG_OPTIONAL=true" \
-          --env="NPM_CONFIG_PREFER_OFFLINE=true" \
-          --env="NPM_CONFIG_CPU=x64" \
-          --env="NPM_CONFIG_OS=linux" \
-          --env="NPM_CONFIG_LIBC=glibc" \
-          --env="BUILD_STRAPI_BASE_URL=${_BUILD_STRAPI_BASE_URL}" \
-          --env="BUILD_STRAPI_BUCKET_HOSTNAME=${_BUILD_STRAPI_BUCKET_HOSTNAME}" \
-          --env="BUILD_STRAPI_BUCKET_PATHNAME=${_BUILD_STRAPI_BUCKET_PATHNAME}" \
-          --env="CV_STORAGE_DRIVER=${_CV_STORAGE_DRIVER}" \
-          --env="GCS_BUCKET_NAME=${_GCS_BUCKET_NAME}" \
-          --env="GCS_PRIVATE_BASE_PATH=${_GCS_PRIVATE_BASE_PATH}" \
-          --env="GCS_SIGNED_URL_TTL_SECONDS=${_GCS_SIGNED_URL_TTL_SECONDS}" \
-          --env="CONTACT_RATE_LIMIT_ENABLED=${_CONTACT_RATE_LIMIT_ENABLED}" \
-          --env="CONTACT_RATE_LIMIT_MAX=${_CONTACT_RATE_LIMIT_MAX}" \
-          --env="CONTACT_RATE_LIMIT_WINDOW_MS=${_CONTACT_RATE_LIMIT_WINDOW_MS}" \
-          --env="CONTACT_EMAIL_LIMIT_ENABLED=${_CONTACT_EMAIL_LIMIT_ENABLED}" \
-          --env="CONTACT_EMAIL_LIMIT_MAX=${_CONTACT_EMAIL_LIMIT_MAX}" \
-          --env="CONTACT_EMAIL_LIMIT_WINDOW_MS=${_CONTACT_EMAIL_LIMIT_WINDOW_MS}" \
-          --env="POSTULATION_RATE_LIMIT_ENABLED=${_POSTULATION_RATE_LIMIT_ENABLED}" \
-          --env="POSTULATION_RATE_LIMIT_MAX=${_POSTULATION_RATE_LIMIT_MAX}" \
-          --env="POSTULATION_RATE_LIMIT_WINDOW_MS=${_POSTULATION_RATE_LIMIT_WINDOW_MS}" \
-          --env="POSTULATION_EMAIL_LIMIT_ENABLED=${_POSTULATION_EMAIL_LIMIT_ENABLED}" \
-          --env="POSTULATION_EMAIL_LIMIT_MAX=${_POSTULATION_EMAIL_LIMIT_MAX}" \
-          --env="POSTULATION_EMAIL_LIMIT_WINDOW_MS=${_POSTULATION_EMAIL_LIMIT_WINDOW_MS}" \
-          --env="NEXT_PUBLIC_SITE_URL=${_NEXT_PUBLIC_SITE_URL}" \
-          --env="APP_INTERNAL_BASE_URL=${_APP_INTERNAL_BASE_URL}" \
-          --env="NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${_BUILD_NEXT_PUBLIC_RECAPTCHA_SITE_KEY}" \
-          --env="ENABLE_STATIC_LOCALE_PARAMS=${_ENABLE_STATIC_LOCALE_PARAMS}" \
-          --env="BUILD_STRAPI_CONTENT_TOKEN=$$APP__PRODUCTION__BUILD_STRAPI_CONTENT_TOKEN"
+        image="$_AR_HOSTNAME/$PROJECT_ID/cloud-run-source-deploy/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA"
+        DOCKER_BUILDKIT=1 docker build \
+          --file teleferico-app/Dockerfile \
+          --tag "$image" \
+          --build-arg="NPM_CONFIG_OPTIONAL=true" \
+          --build-arg="NPM_CONFIG_PREFER_OFFLINE=true" \
+          --build-arg="NPM_CONFIG_CPU=x64" \
+          --build-arg="NPM_CONFIG_OS=linux" \
+          --build-arg="NPM_CONFIG_LIBC=glibc" \
+          --build-arg="BUILD_STRAPI_BASE_URL=${_BUILD_STRAPI_BASE_URL}" \
+          --build-arg="BUILD_STRAPI_BUCKET_HOSTNAME=${_BUILD_STRAPI_BUCKET_HOSTNAME}" \
+          --build-arg="BUILD_STRAPI_BUCKET_PATHNAME=${_BUILD_STRAPI_BUCKET_PATHNAME}" \
+          --build-arg="CV_STORAGE_DRIVER=${_CV_STORAGE_DRIVER}" \
+          --build-arg="GCS_BUCKET_NAME=${_GCS_BUCKET_NAME}" \
+          --build-arg="GCS_PRIVATE_BASE_PATH=${_GCS_PRIVATE_BASE_PATH}" \
+          --build-arg="GCS_SIGNED_URL_TTL_SECONDS=${_GCS_SIGNED_URL_TTL_SECONDS}" \
+          --build-arg="CONTACT_RATE_LIMIT_ENABLED=${_CONTACT_RATE_LIMIT_ENABLED}" \
+          --build-arg="CONTACT_RATE_LIMIT_MAX=${_CONTACT_RATE_LIMIT_MAX}" \
+          --build-arg="CONTACT_RATE_LIMIT_WINDOW_MS=${_CONTACT_RATE_LIMIT_WINDOW_MS}" \
+          --build-arg="CONTACT_EMAIL_LIMIT_ENABLED=${_CONTACT_EMAIL_LIMIT_ENABLED}" \
+          --build-arg="CONTACT_EMAIL_LIMIT_MAX=${_CONTACT_EMAIL_LIMIT_MAX}" \
+          --build-arg="CONTACT_EMAIL_LIMIT_WINDOW_MS=${_CONTACT_EMAIL_LIMIT_WINDOW_MS}" \
+          --build-arg="POSTULATION_RATE_LIMIT_ENABLED=${_POSTULATION_RATE_LIMIT_ENABLED}" \
+          --build-arg="POSTULATION_RATE_LIMIT_MAX=${_POSTULATION_RATE_LIMIT_MAX}" \
+          --build-arg="POSTULATION_RATE_LIMIT_WINDOW_MS=${_POSTULATION_RATE_LIMIT_WINDOW_MS}" \
+          --build-arg="POSTULATION_EMAIL_LIMIT_ENABLED=${_POSTULATION_EMAIL_LIMIT_ENABLED}" \
+          --build-arg="POSTULATION_EMAIL_LIMIT_MAX=${_POSTULATION_EMAIL_LIMIT_MAX}" \
+          --build-arg="POSTULATION_EMAIL_LIMIT_WINDOW_MS=${_POSTULATION_EMAIL_LIMIT_WINDOW_MS}" \
+          --build-arg="NEXT_PUBLIC_SITE_URL=${_NEXT_PUBLIC_SITE_URL}" \
+          --build-arg="APP_INTERNAL_BASE_URL=${_APP_INTERNAL_BASE_URL}" \
+          --build-arg="NEXT_PUBLIC_RECAPTCHA_SITE_KEY=${_BUILD_NEXT_PUBLIC_RECAPTCHA_SITE_KEY}" \
+          --build-arg="ENABLE_STATIC_LOCALE_PARAMS=${_ENABLE_STATIC_LOCALE_PARAMS}" \
+          --secret="id=BUILD_STRAPI_CONTENT_TOKEN,env=APP__PRODUCTION__BUILD_STRAPI_CONTENT_TOKEN" \
+          .
+        command_exit=$?
+        if [ "$command_exit" -ne 0 ]; then
+          printf 'build:%s\n' "$command_exit" > /workspace/github-deployment-command-result
+          exit 0
+        fi
+        docker push "$image"
         command_exit=$?
         if [ "$command_exit" -ne 0 ]; then
           printf 'build:%s\n' "$command_exit" > /workspace/github-deployment-command-result
         fi
         exit 0
-    id: Buildpack
-    entrypoint: sh
+    id: Build and push image
+    entrypoint: bash
     secretEnv:
       - APP__PRODUCTION__BUILD_STRAPI_CONTENT_TOKEN
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
