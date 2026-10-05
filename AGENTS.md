@@ -61,13 +61,13 @@ These rules apply to **all commands** executed through Google Cloud SDK / CLI (a
 
 | Command type | Rule |
 |---|---|
-| Safe read-only commands | Run without asking. |
-| Sensitive reads | Ask first. This includes secrets, secret metadata, IAM-sensitive inspection, or any read that could expose private information directly or indirectly. |
-| Mixed batches | Run the safe part first, then stop and ask before any sensitive part. |
+| Task-scoped read-only commands | Run without separate repository-semantic approval; runtime tool permissions still apply. This includes non-secret IAM inspection and Secret Manager metadata. |
+| Credential files or secret values | Never read, retrieve, or expose them. |
+| Mixed batches | Run the permitted read-only part first; stop before any prohibited read or unapproved mutation. |
 | Non-destructive but irreversible / hard-to-revert changes | Ask first. |
 | Production changes | Ask first, always. |
 | Destructive changes | Ask first, always. |
-| Ambiguous commands | Ask first. If you cannot classify a command with confidence, default to confirmation. |
+| Ambiguous commands | Clarify the target or classify the command's effects before running. A confirmed read-only consultation needs no separate repository-semantic approval; a classified mutation needs its applicable approval. |
 
 ### Required preflight
 
@@ -90,7 +90,7 @@ For each command, include:
 
 ### Small examples
 
-- `gcloud secrets versions access ...` → sensitive read, ask first.
+- `gcloud secrets versions access ...` → retrieves secret values; do not run.
 - `gcloud app deploy` or a production deploy script → production change, ask first.
 - `gcloud ... delete ...` / `destroy` / `purge` → destructive, ask first.
 
@@ -103,7 +103,7 @@ For each command, include:
 
 ### Practical default
 
-When a command is not clearly safe, treat it as sensitive and ask before executing.
+When a command's effects are unclear, stop to clarify its classification. A task-scoped read-only consultation does not need separate repository-semantic approval, but credential files and secret values remain off-limits. Mutations, production changes, destructive or hard-to-revert operations, and other commands requiring approval still need that approval.
 
 ## Language Policy
 
