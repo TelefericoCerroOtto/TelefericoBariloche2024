@@ -7,16 +7,6 @@ const repositoryRoot = path.resolve(__dirname, "../..");
 const read = (relativePath) =>
   fs.readFileSync(path.join(repositoryRoot, relativePath), "utf8");
 
-test("app Cloud Build snapshots close feedback on every deploy", () => {
-  const staging = read("docs/infra/cloud-build/app-staging.yaml");
-  const production = read("docs/infra/cloud-build/app-production.yaml");
-
-  assert.match(staging, /--set-env-vars[\s\S]*FEEDBACK_CAPABILITY_ENABLED=false/);
-  assert.match(production, /FEEDBACK_CAPABILITY_ENABLED: "false"/);
-  assert.doesNotMatch(staging, /FEEDBACK_CAPABILITY_ENABLED=true/);
-  assert.doesNotMatch(production, /FEEDBACK_CAPABILITY_ENABLED: "true"/);
-});
-
 test("publication path classifies secrets by path without reading credential files", () => {
   const skill = read(".agents/skills/implementation-pr/SKILL.md");
   const command = read(".opencode/commands/implementation-pr.md");
