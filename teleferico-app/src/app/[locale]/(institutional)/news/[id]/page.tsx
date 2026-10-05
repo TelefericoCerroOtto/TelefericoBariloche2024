@@ -4,7 +4,9 @@ import type { Locales } from "@/types";
 import { Spacer } from "@heroui/react";
 import { BlocksContent } from "@strapi/blocks-react-renderer";
 import { notFound } from "next/navigation";
-import NewsDetailImage from "./NewsDetailImage";
+import NewsDetailImage, {
+  NEWS_DETAIL_IMAGE_FRAME_CLASS,
+} from "./NewsDetailImage";
 
 export default async function NewDetailPage({
   params,
@@ -26,7 +28,7 @@ export default async function NewDetailPage({
         size="lg"
         align="center"
       />
-      <div className="relative mb-14 h-[550px] w-full">
+      <div className={NEWS_DETAIL_IMAGE_FRAME_CLASS}>
         <NewsDetailImage
           cover={data.data.cover}
           detailImageDesktop={data.data.detailImageDesktop}

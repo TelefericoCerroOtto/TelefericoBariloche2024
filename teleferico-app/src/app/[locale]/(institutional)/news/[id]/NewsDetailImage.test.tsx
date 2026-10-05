@@ -10,19 +10,21 @@ const { getImagePropsMock } = vi.hoisted(() => ({
 
 vi.mock("next/image", () => ({ getImageProps: getImagePropsMock }));
 
-import NewsDetailImage from "./NewsDetailImage";
+import NewsDetailImage, {
+  NEWS_DETAIL_IMAGE_FRAME_CLASS,
+} from "./NewsDetailImage";
 import type { Image as StrapiImageComponent, StrapiImage } from "@/types";
 
-const createImage = (url: string, alternativeText: string) =>
+const createImage = (url: string, alternativeText: string, largeUrl?: string) =>
   ({
     url,
     alternativeText,
-    formats: {},
+    formats: largeUrl ? { large: { url: largeUrl } } : {},
   }) as StrapiImage;
 
-const createImageComponent = (url: string, alt: string) =>
+const createImageComponent = (url: string, alt: string, largeUrl?: string) =>
   ({
-    image: createImage(url, "Nested media alternative text"),
+    image: createImage(url, "Nested media alternative text", largeUrl),
     alt,
   }) as StrapiImageComponent;
 
@@ -43,9 +45,21 @@ describe("NewsDetailImage", () => {
   });
 
   it("uses the matching optional image at each breakpoint and prefers desktop alt text", () => {
-    const cover = createImage("/cover.jpg", "Cover alternative text");
-    const mobile = createImageComponent("/mobile.jpg", "Mobile alt text");
-    const desktop = createImageComponent("/desktop.jpg", "Desktop alt text");
+    const cover = createImage(
+      "/cover.jpg",
+      "Cover alternative text",
+      "/cover-large.jpg",
+    );
+    const mobile = createImageComponent(
+      "/mobile.jpg",
+      "Mobile alt text",
+      "/mobile-large.jpg",
+    );
+    const desktop = createImageComponent(
+      "/desktop.jpg",
+      "Desktop alt text",
+      "/desktop-large.jpg",
+    );
 
     const markup = renderImage({
       cover,
@@ -67,8 +81,29 @@ describe("NewsDetailImage", () => {
     expect(markup).toContain("object-cover");
   });
 
+  it("uses the authored mobile and desktop aspect ratios from the 768px breakpoint", () => {
+    renderImage({ cover: createImage("/cover.jpg", "Cover alt") });
+
+    expect(NEWS_DETAIL_IMAGE_FRAME_CLASS).toBe(
+      "relative mb-14 w-full aspect-[2/3] min-[768px]:aspect-[21/9]",
+    );
+    expect(
+      getImagePropsMock.mock.calls.map(([props]) => [
+        props.width,
+        props.height,
+      ]),
+    ).toEqual([
+      [2100, 900],
+      [1080, 1620],
+    ]);
+  });
+
   it("falls back to cover for both breakpoints when optional images are absent", () => {
-    const cover = createImage("/cover.jpg", "Cover alternative text");
+    const cover = createImage(
+      "/cover.jpg",
+      "Cover alternative text",
+      "/cover-large.jpg",
+    );
 
     const markup = renderImage({ cover });
 
@@ -82,8 +117,16 @@ describe("NewsDetailImage", () => {
 
   it("falls back to cover on mobile without replacing the desktop image", () => {
     const markup = renderImage({
-      cover: createImage("/cover.jpg", "Cover alternative text"),
-      detailImageDesktop: createImageComponent("/desktop.jpg", "Desktop alt"),
+      cover: createImage(
+        "/cover.jpg",
+        "Cover alternative text",
+        "/cover-large.jpg",
+      ),
+      detailImageDesktop: createImageComponent(
+        "/desktop.jpg",
+        "Desktop alt",
+        "/desktop-large.jpg",
+      ),
     });
 
     expect(getImagePropsMock.mock.calls.map(([props]) => props.src)).toEqual([
@@ -96,8 +139,16 @@ describe("NewsDetailImage", () => {
 
   it("falls back to cover on desktop without replacing the mobile image", () => {
     const markup = renderImage({
-      cover: createImage("/cover.jpg", "Cover alternative text"),
-      detailImageMobile: createImageComponent("/mobile.jpg", "Mobile alt"),
+      cover: createImage(
+        "/cover.jpg",
+        "Cover alternative text",
+        "/cover-large.jpg",
+      ),
+      detailImageMobile: createImageComponent(
+        "/mobile.jpg",
+        "Mobile alt",
+        "/mobile-large.jpg",
+      ),
     });
 
     expect(getImagePropsMock.mock.calls.map(([props]) => props.src)).toEqual([
