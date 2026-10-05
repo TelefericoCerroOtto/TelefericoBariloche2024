@@ -1,11 +1,10 @@
 import { BlockRendererClient, TitleDescBlock } from "@/components";
-import { selectCmsImageUrl } from "@/lib/adapters";
 import { getNew } from "@/lib/services";
 import type { Locales } from "@/types";
 import { Spacer } from "@heroui/react";
 import { BlocksContent } from "@strapi/blocks-react-renderer";
-import Image from "next/image";
 import { notFound } from "next/navigation";
+import NewsDetailImage from "./NewsDetailImage";
 
 export default async function NewDetailPage({
   params,
@@ -17,7 +16,7 @@ export default async function NewDetailPage({
 
   if (!ok) notFound();
 
-  const { body, title, brief, cover } = data.data;
+  const { body, title, brief } = data.data;
 
   return (
     <>
@@ -28,14 +27,10 @@ export default async function NewDetailPage({
         align="center"
       />
       <div className="relative mb-14 h-[550px] w-full">
-        <Image
-          src={
-            selectCmsImageUrl(cover, ["large", "medium", "small", "thumbnail"]) ??
-            cover.url
-          }
-          alt={cover.alternativeText || "News cover image"}
-          fill
-          className="object-cover"
+        <NewsDetailImage
+          cover={data.data.cover}
+          detailImageDesktop={data.data.detailImageDesktop}
+          detailImageMobile={data.data.detailImageMobile}
         />
       </div>
       <BlockRendererClient
