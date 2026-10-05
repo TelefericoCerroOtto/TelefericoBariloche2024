@@ -405,7 +405,7 @@ test("implementation instructions run governance observation before post-PR Vite
     assert.match(contract, /never (?:a )?publication (?:authorization )?gate|not treat advisory evidence as a publication gate/);
   }
   assert.match(skillExecution, /published head equals local `HEAD`/);
-  assert.match(skillExecution, /verify its head\/base and exact scope disclosure/);
+  assert.match(skillExecution, /verify its head\/base, draft state, chain context, and exact scope disclosure/);
 });
 
 test("implementation publication uses a single local preflight without mapper or fingerprint ceremony", () => {
@@ -414,7 +414,7 @@ test("implementation publication uses a single local preflight without mapper or
 
   assert.match(skill, /local Git facts once/);
   assert.match(skill, /Validate the path list once with `\.github\/scripts\/implementation-candidate-paths\.js`/);
-  assert.match(command, /candidate paths, and intended base facts once with native Git/);
+  assert.match(command, /Capture local repository, branch, `HEAD`, Git status, candidate paths, and the selected base facts once with native Git/);
   assert.match(command, /implementation-candidate-paths\.js <candidate-path\.\.\./);
   for (const contract of [skill, command]) {
     assert.match(contract, /unknown or secret-like candidate paths?/);
@@ -426,17 +426,89 @@ test("implementation publication uses a single local preflight without mapper or
   }
 });
 
-test("publication contract preserves explicit authorization, publication stops, and one scope disclosure", () => {
+test("implementation publication preflight pins repository, target, and validated preview boundaries", () => {
   const skill = fs.readFileSync(path.join(repositoryRoot, ".agents", "skills", "implementation-pr", "SKILL.md"), "utf8");
   const command = fs.readFileSync(path.join(repositoryRoot, ".opencode", "commands", "implementation-pr.md"), "utf8");
   const governance = fs.readFileSync(path.join(repositoryRoot, "AGENTS.md"), "utf8");
-  const policy = fs.readFileSync(path.join(repositoryRoot, "docs", "backlog-branch-pr-policy.md"), "utf8");
 
-  assert.match(policy, /natural language/i);
-  for (const contract of [skill, command, policy]) assert.match(contract, /non-sensitive/);
-  assert.match(skill, /current request must (?:separately )?authorize commit of the current candidate/i);
-  assert.match(skill, /Never infer authorization from a generic continuation/);
-  assert.match(skill, /Authorization expires when the candidate, target, session, or publication outcome changes/);
+  assert.match(skill, /Stop for a wrong repository, branch, remote, or base/);
+  assert.match(command, /incorrect repository\/branch\/remote\/base/);
+  assert.match(governance, /wrong repository, branch, remote, or base/);
+  for (const contract of [skill, command, governance]) {
+    assert.match(contract, /published head\/base mismatch/);
+  }
+
+  assert.match(skill, /defaults to `origin\/development`/);
+  assert.match(command, /defaults to `origin\/development`/);
+  for (const contract of [skill, command, governance]) {
+    assert.match(contract, /current request explicitly selects[\s\S]{0,100}stacked-to-main` preview/);
+    assert.match(contract, /same-repository[\s\S]{0,100}draft/);
+    assert.match(contract, /exact immediate parent branch and head SHA/);
+    assert.match(contract, /visible `Chain Context`/);
+    assert.match(contract, /Never infer[\s\S]{0,100}ambient branch/);
+    assert.match(contract, /accept an arbitrary base/i);
+  }
+
+  assert.match(skill, /Runtime tool permissions still apply[\s\S]*?access is denied[\s\S]*?stop without bypassing permissions/);
+  assert.match(command, /Runtime tool permissions remain in force[\s\S]*?permission denial[\s\S]*?stop the workflow/);
+});
+
+test("publication contract makes workflow invocation the bounded explicit request", () => {
+  const skill = fs.readFileSync(path.join(repositoryRoot, ".agents", "skills", "implementation-pr", "SKILL.md"), "utf8");
+  const command = fs.readFileSync(path.join(repositoryRoot, ".opencode", "commands", "implementation-pr.md"), "utf8");
+  const governance = fs.readFileSync(path.join(repositoryRoot, "AGENTS.md"), "utf8");
+  const conventions = fs.readFileSync(path.join(repositoryRoot, "docs", "CONVENTIONS.md"), "utf8");
+  const policy = fs.readFileSync(path.join(repositoryRoot, "docs", "backlog-branch-pr-policy.md"), "utf8");
+  const intake = fs.readFileSync(path.join(repositoryRoot, "docs", "change-intake-preflight.md"), "utf8");
+  const workflowContracts = [skill, command, governance, conventions, policy, intake];
+
+  assert.doesNotMatch(governance, /## Authorized read-only GitHub and Notion access/);
+  for (const contract of workflowContracts) {
+    assert.match(contract, /\/implementation-pr/);
+    assert.match(contract, /one (?:implementation )?PR/i);
+    assert.match(contract, /non-force push/i);
+    assert.match(contract, /`?origin`?/);
+    assert.match(contract, /default.{0,40}`?development`?|origin\/development/i);
+    assert.match(contract, /no second consent/i);
+    assert.match(contract, /natural[- ]language.{0,80}implementation-PR publication/i);
+    assert.match(contract, /generic (?:continuation|request to continue)/i);
+  }
+  assert.match(skill, /Bare invocation is strict-scope by default/i);
+  for (const contract of [skill, command, conventions, policy, intake]) {
+    assert.match(contract, /`\/implementation-pr --allow-mixed-scope`/);
+    assert.match(contract, /non-sensitive/i);
+    assert.match(contract, /Scope Disclosure/);
+    assert.match(contract, /unknown or extra arguments|unknown or extra command arguments|unknown or extra CLI arguments/i);
+  }
+  assert.match(skill, /at most one commit of the current candidate when needed/i);
+  assert.match(skill, /current active GitHub CLI session/i);
+  assert.match(skill, /Do not read credentials or probe authentication/i);
+  assert.match(skill, /Runtime tool permissions still apply/i);
+  assert.match(skill, /missing, access is denied|access is unavailable or denied/i);
+  assert.match(skill, /Never infer authorization from a generic continuation|Generic continuation, ambient commands/i);
+  assert.match(skill, /Do not switch branches, force-push/);
+  assert.match(skill, /existing open PR/);
+  assert.match(skill, /replay a terminal outcome, or substitute a new candidate/);
+  assert.match(skill, /SDD slice-transition publication (?:still )?requires independent user consent/i);
+  for (const contract of [skill, command, governance]) {
+    assert.match(contract, /(?:wrong|incorrect) repository.{0,50}(?:branch|remote|base)/i);
+    assert.match(contract, /existing open PR/i);
+    assert.match(contract, /failed or (?:ambiguous|unknown) commit\/push|ambiguous\/failing commit or push/i);
+    assert.match(contract, /published head\/base mismatch/i);
+  }
+  for (const contract of [skill, command, governance, conventions, policy, intake]) {
+    assert.match(contract, /current request explicitly selects?.{0,60}`stacked-to-main` preview/i);
+    assert.match(contract, /same-repository.{0,60}draft/i);
+    assert.match(contract, /exact immediate parent branch and head SHA/i);
+    assert.match(contract, /visible `Chain Context`/);
+    assert.match(contract, /never infer (?:a preview|preview selection) from (?:the )?(?:current or )?ambient branch/i);
+  }
+  assert.match(command, /Runtime tool permissions remain in force/i);
+  assert.match(command, /Missing capability, permission denial, or operation errors stop/i);
+  assert.match(command, /SDD slice-transition publication requires independent user consent/i);
+  assert.match(conventions, /An existing open PR for the head is a stop/i);
+  assert.match(conventions, /SDD slice-transition publication requires independent user consent/i);
+  assert.match(intake, /SDD slice-transition publication (?:still )?requires independent user consent/i);
   assert.match(skill, /Do not invoke the standalone `branch-pr` preflight/);
   assert.match(skill, /must not repeat discovery, branch\/base setup, authorization checks/);
   assert.match(skill, /full exact path\/work-unit inventory/);
@@ -446,7 +518,6 @@ test("publication contract preserves explicit authorization, publication stops, 
   assert.match(skill, /Do not replace it with unfiltered `gh pr checks --watch`/);
   assert.match(skill, /result and other CI status are advisory evidence/);
   assert.match(command, /Do not invoke standalone `branch-pr` preflight/);
-  assert.match(command, /plus the destination and credential\/session authorization/);
   assert.match(command, /do not retry an unknown\/failed observation/);
   assert.match(governance, /Do not autonomously repair metadata or repeat the governance observation in the same `\/implementation-pr` invocation/);
 });
@@ -462,8 +533,8 @@ test("implementation-pr slash syntax keeps strict scope as the sole default and 
     assert.match(contract, /\/implementation-pr --allow-mixed-scope/);
     assert.doesNotMatch(contract, /nonblank reason|missing or blank reason/i);
     assert.match(contract, /unknown or extra arguments/);
-    assert.match(contract, /natural-language scope selection|natural-language scope selection is also valid|explicit natural-language selection/i);
-    assert.match(contract, /authori[sz]e(?:s)? publication|publication.*not authorized/i);
+    assert.match(contract, /natural[- ]language (?:scope selection|request naming)|explicit natural-language selection/i);
+    assert.match(contract, /authori[sz]e.*(?:publication|commit)|publication.*not authorized/i);
   }
   assert.match(policy, /`\/implementation-pr --allow-mixed-scope`/);
   assert.match(policy, /unknown or extra (?:command )?arguments/);
@@ -480,7 +551,7 @@ test("publication uses one exact out-of-scope disclosure and preserves publicati
     assert.match(contract, /Changes outside the addressed item/);
     assert.match(contract, /Do not ask for a reason|Do not request a reason/);
     assert.match(contract, /unknown or secret-like/);
-    assert.match(contract, /does not authorize publication/);
+    assert.match(contract, /does not broaden (?:that )?authorization|does not authorize separate tracking changes/);
   }
   assert.match(policy, /do not ask for separate approval per path/i);
   assert.match(policy, /visible English `## Scope Disclosure`/);
@@ -490,7 +561,7 @@ test("publication uses one exact out-of-scope disclosure and preserves publicati
   assert.match(skill, /Do not run a second local fingerprint helper/);
   assert.match(skill, /Direct routes do not trigger generic OpenSpec\/SDD discovery/);
   assert.match(command, /Do not invoke `delivery-state-mapper`/);
-  assert.match(policy, /Do not use a delegated mapper, run candidate fingerprint helpers, retry discovery/);
+  assert.match(policy, /Do not use a delegated mapper, run candidate fingerprint helpers/);
   assert.doesNotMatch(policy, /delivery-state-snapshot\.v2/);
 });
 
