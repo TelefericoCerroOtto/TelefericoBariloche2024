@@ -1,8 +1,9 @@
-import { selectCmsImageUrl } from "@/lib/adapters";
+import { selectOriginalCmsImageUrl } from "@/lib/adapters";
 import type { Image as StrapiImageComponent, StrapiImage } from "@/types";
 import { getImageProps } from "next/image";
 
-const PREFERRED_FORMATS = ["large", "medium", "small", "thumbnail"] as const;
+export const NEWS_DETAIL_IMAGE_FRAME_CLASS =
+  "relative mb-14 w-full aspect-[2/3] min-[768px]:aspect-[21/9]";
 
 type Props = {
   cover: StrapiImage;
@@ -15,14 +16,11 @@ export default function NewsDetailImage({
   detailImageMobile,
   detailImageDesktop,
 }: Props) {
-  const coverSrc =
-    selectCmsImageUrl(cover, [...PREFERRED_FORMATS]) ?? cover.url;
+  const coverSrc = selectOriginalCmsImageUrl(cover) ?? cover.url;
   const desktopSrc =
-    selectCmsImageUrl(detailImageDesktop?.image, [...PREFERRED_FORMATS]) ??
-    coverSrc;
+    selectOriginalCmsImageUrl(detailImageDesktop?.image) ?? coverSrc;
   const mobileSrc =
-    selectCmsImageUrl(detailImageMobile?.image, [...PREFERRED_FORMATS]) ??
-    coverSrc;
+    selectOriginalCmsImageUrl(detailImageMobile?.image) ?? coverSrc;
   const alt =
     (detailImageDesktop?.image && detailImageDesktop.alt) ||
     (detailImageMobile?.image && detailImageMobile.alt) ||
@@ -35,8 +33,8 @@ export default function NewsDetailImage({
     src: desktopSrc,
     alt,
     sizes: "100vw",
-    width: 1920,
-    height: 823,
+    width: 2100,
+    height: 900,
   });
   const {
     props: { srcSet: mobileSrcSet, ...imageProps },
