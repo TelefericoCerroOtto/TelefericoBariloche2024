@@ -22,7 +22,7 @@ const CHROMIUM_SHA256 =
 const HEADLESS_SHELL_SHA256 =
   "670ba079b75107746ba41abad131180a31a7c7219aa1bd4061fb471f4535d541";
 const FONT_SHA256 =
-  "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280";
+  "abdc775b21b1bc470d50c97e790d276f2054b7504e56e5bd3e64f48d68582322";
 const FONT_SOURCE = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
 const EXTERNAL_RUNTIME_PACKAGES = [
   "@google-cloud/storage",

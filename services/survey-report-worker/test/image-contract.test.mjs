@@ -22,6 +22,14 @@ const buildScript = await readFile(
   resolve(packageDirectory, "scripts/build.mjs"),
   "utf8",
 );
+const runtimePdf = await readFile(
+  resolve(packageDirectory, "src/pdf.ts"),
+  "utf8",
+);
+const workerReadme = await readFile(
+  resolve(packageDirectory, "README.md"),
+  "utf8",
+);
 
 test("worker image pins its Node 22.22.0 Linux/amd64 base and runtime command", () => {
   assert.match(
@@ -174,8 +182,30 @@ test("Cloud Build prepares and verifies Chromium/font assets before building the
   assert.doesNotMatch(cloudBuildConfig, /secretEnv:|availableSecrets:|FEEDBACK_TASK_QUEUE_PATH/);
   assert.match(buildScript, /2d18db9d8608b052b6a552ee00ec1e830f93692e928b65ecc67d693bd33fe801/);
   assert.match(buildScript, /670ba079b75107746ba41abad131180a31a7c7219aa1bd4061fb471f4535d541/);
-  assert.match(buildScript, /ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280/);
+  assert.match(buildScript, /abdc775b21b1bc470d50c97e790d276f2054b7504e56e5bd3e64f48d68582322/);
   assert.equal(packageManifest.engines.node, "22.22.0");
   assert.equal(packageManifest.packageManager, "pnpm@10.33.0");
   assert.equal(packageManifest.dependencies["@playwright/test"], "1.61.0");
+});
+
+test("worker font package version and digest pins stay aligned", () => {
+  const fontPackageVersion = "2.37-6";
+  const fontDigest =
+    "abdc775b21b1bc470d50c97e790d276f2054b7504e56e5bd3e64f48d68582322";
+
+  assert.ok(
+    cloudBuildConfig.includes(
+      `apt-get install --yes --no-install-recommends fonts-dejavu-core=${fontPackageVersion}`,
+    ),
+  );
+  for (const [sourceName, source] of [
+    ["build script", buildScript],
+    ["runtime renderer", runtimePdf],
+    ["worker README", workerReadme],
+  ]) {
+    assert.ok(
+      source.includes(fontDigest),
+      `${sourceName} has the pinned font digest`,
+    );
+  }
 });

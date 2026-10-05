@@ -28,13 +28,13 @@ The build output is `dist/`:
 
 ## Container image build
 
-The proposed staging Cloud Build configuration is documented in [`docs/infra/cloud-build/worker-staging.yaml`](../../docs/infra/cloud-build/worker-staging.yaml). GCP's inline trigger configuration is the operational source of truth; an approved operator must copy and configure this snapshot there. It installs the frozen package graph, downloads the Playwright-pinned Chromium revision in the build step, installs the pinned font package, runs the worker build (which verifies the Chromium, headless-shell, and font SHA-256 values below), then builds, pushes, and deploys the image from the same `/workspace` checkout. `dist/` is generated and ignored; it is not expected in Git.
+The proposed staging Cloud Build configuration is documented in [`docs/infra/cloud-build/worker-staging.yaml`](../../docs/infra/cloud-build/worker-staging.yaml). GCP's inline trigger configuration is the operational source of truth; an approved operator must copy and configure this snapshot there. It installs the frozen package graph, downloads the Playwright-pinned Chromium revision in the build step, installs Debian `fonts-dejavu-core=2.37-6`, runs the worker build (which verifies the Chromium, headless-shell, and font SHA-256 values below), then builds, pushes, and deploys the image from the same `/workspace` checkout. `dist/` is generated and ignored; it is not expected in Git.
 
 The build verifies these pinned renderer assets before Docker runs:
 
 - Chromium executable: `2d18db9d8608b052b6a552ee00ec1e830f93692e928b65ecc67d693bd33fe801`
 - Chromium headless shell: `670ba079b75107746ba41abad131180a31a7c7219aa1bd4061fb471f4535d541`
-- DejaVuSans font: `ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280`
+- DejaVuSans font from Debian `fonts-dejavu-core=2.37-6`: `abdc775b21b1bc470d50c97e790d276f2054b7504e56e5bd3e64f48d68582322`
 
 The image uses the Node `22.22.0` Linux/amd64 image digest recorded in the public [Docker Hub tag metadata](https://hub.docker.com/v2/repositories/library/node/tags/22.22.0-bookworm-slim). The Docker step uses the public Linux/amd64 [`cloud-builders/docker` manifest](https://gcr.io/v2/cloud-builders/docker/manifests/sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c), and the deploy step uses the public Linux/amd64 [`google-cloud-cli` manifest](https://gcr.io/v2/google.com/cloudsdktool/google-cloud-cli/manifests/sha256:cf49fc2128c4b140379aeb7532be42fefb5616e59952a99d4b548ca472752a74); both image manifests/configs were verified through the public GCR registry API. The worker package pins pnpm `10.33.0` and Playwright `1.61.0`, which provides Chromium revision `1228`. Browser downloads occur only in the explicit Cloud Build preparation step, never in `scripts/build.mjs` or the Dockerfile. The Dockerfile installs Chromium OS runtime dependencies from the pinned Playwright CLI and copies only the generated `dist/`; Debian system package versions are resolved at build time, so byte-for-byte image layers across dates are not promised.
 

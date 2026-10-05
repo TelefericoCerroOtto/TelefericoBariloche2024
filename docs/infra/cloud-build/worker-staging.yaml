@@ -82,7 +82,7 @@ steps:
         pnpm run typecheck
         pnpm exec playwright install --with-deps chromium
         apt-get update
-        apt-get install --yes --no-install-recommends fonts-dejavu-core
+        apt-get install --yes --no-install-recommends fonts-dejavu-core=2.37-6
         rm -rf /var/lib/apt/lists/*
         pnpm run build
     timeout: 1800s
