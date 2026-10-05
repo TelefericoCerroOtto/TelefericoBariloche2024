@@ -14,6 +14,8 @@ This file defines the portable repository-wide governance for agents working in 
 
 ## Key paths
 
+- Agent tool routing: [docs/external-tool-routing.md](docs/external-tool-routing.md)
+
 ### teleferico-app
 
 - Routing/layouts: `teleferico-app/src/app`
