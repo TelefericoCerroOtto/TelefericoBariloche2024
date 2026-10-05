@@ -1,5 +1,6 @@
 import type {
   DynamicZone,
+  Image,
   RendereableBlocks,
   ServiceStateValues,
   StrapiBlocksPayload,
@@ -90,6 +91,8 @@ export type New = StrapiRecord<{
   brief: StrapiBlocksPayload;
   date: string; // format: yyyy-mm-dd
   cover: StrapiImage;
+  detailImageMobile?: Image | null;
+  detailImageDesktop?: Image | null;
 }>;
 
 export type LiftingMean = "cablecar" | "road&funicular";

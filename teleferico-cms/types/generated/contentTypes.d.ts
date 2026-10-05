@@ -889,6 +889,24 @@ export interface ApiNewNew extends Struct.CollectionTypeSchema {
           localized: false;
         };
       }>;
+    detailImageDesktop: Schema.Attribute.Component<
+      'utils-components.image',
+      false
+    > &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: false;
+        };
+      }>;
+    detailImageMobile: Schema.Attribute.Component<
+      'utils-components.image',
+      false
+    > &
+      Schema.Attribute.SetPluginOptions<{
+        i18n: {
+          localized: false;
+        };
+      }>;
     highlighted: Schema.Attribute.Boolean &
       Schema.Attribute.Required &
       Schema.Attribute.SetPluginOptions<{

@@ -80,11 +80,15 @@ export const getNew = async <T extends Locales | "all">({
 }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const query: Record<string, any> = {
-    populate: ["cover"],
+    populate: {
+      cover: true,
+      detailImageMobile: { populate: { image: true } },
+      detailImageDesktop: { populate: { image: true } },
+    },
   };
 
   if (locale === "all") {
-    query.populate.push("localizations");
+    query.populate.localizations = true;
   } else if (!!locale) {
     query.locale = locale;
   }
