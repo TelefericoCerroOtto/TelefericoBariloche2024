@@ -280,13 +280,18 @@ News is a **separate content type**, not a page block. It has its own management
 | `body` | Yes | Full article content (rich text) |
 | `brief` | Yes | Short summary — displayed in the news listing as the preview excerpt |
 | `date` | Yes | Publication date |
-| `cover` | Yes | Cover image for the listing card and article header |
+| `cover` | Yes | Cover image for listing cards and featured news; required fallback for the article detail image |
+| `detailImageMobile` | No | Optional, nonlocalized `Image` component for the article detail below 768px; its `image` media and `alt` text define the mobile variant |
+| `detailImageDesktop` | No | Optional, nonlocalized `Image` component for the article detail at 768px and above; its `image` media and `alt` text define the desktop variant |
 | `highlighted` | No | Pins the article as featured at the top of the listing |
 
 **Content notes:**
 - `brief` is what visitors see in the news grid before clicking. It should be self-contained: one or two sentences that convey the essence. Not a teaser — a summary.
 - Apply the over-explanation rule strictly here. News about promotions or events should state what is offered and when. Nothing more.
 - Date is the publication date, not the event date. If the news is about a future event, state the event date in the body.
+- Edit `detailImageMobile` and `detailImageDesktop` in Strapi Admin only; the app dashboard does not expose these fields. Each field is an optional, nonlocalized `Image` component. Its required `image` media holds the file and `alt` holds its semantic description. The detail page uses the mobile image below 768px and the desktop image at 768px or wider; if a component or its nested media is absent, that viewport independently falls back to the required `cover`.
+- The article detail uses a responsive `<picture>` to select one source by viewport. Both variants depict the same news scene and share one semantic alternative text. The app prefers `alt` from the first detail component with nested image media (desktop, then mobile), then `alternativeText` from `cover`, and finally the generic fallback. Listing cards and featured news continue to use `cover`.
+- The detail image remains full-width and 550px tall with `object-cover`. Use a 2:3 mobile image (about 367px wide at 550px tall) and a 21:9 desktop image (about 1283px wide at 550px tall).
 
 **Example:**
 > **title**: "Temporada invernal 2025"
