@@ -52,6 +52,10 @@ This delta supplements the historical S01 record above; the canonical full stagi
 
 App/CMS still share the broad-role `appspot` identity, including Editor; do not grant it queue roles before CMS identity migration and operator review. The current CMS and worker snapshots reference the same pinned evidence-key resource/version, following the user's correction. The user's secret check is user-reported; resource/version existence and effective IAM/runtime access have not been independently verified. A read-only gcloud describe on 2026-10-04 found the worker trigger enabled and approval-required; current live substitutions and snapshot parity remain unverified. The CMS and app inline-trigger updates remain user-owned. No worker service, secret setup, or deployment exists. The current app-staging snapshot sets `FEEDBACK_CAPABILITY_ENABLED=true`; no evidence confirms this is deployed or safe to enable.
 
+## Worker trigger approval proposal — 2026-10-05
+
+The latest observed worker trigger state is enabled and approval-required. The separate [`worker-staging-trigger.yaml`](../cloud-build/worker-staging-trigger.yaml) is a partial, non-importable proposal to set `approvalRequired: false`; only the operator can update the live trigger. If changed, future eligible staging pushes could automatically build, push, and privately deploy after a qualifying merge, subject to unresolved configuration and readiness gates. This is future-only and does not alter existing builds. The historical approved build `4d59496d` failed at `2026-10-05T17:58:58Z`, and the worker service was absent at the last read; this does not prove deployment or secret/IAM access. A docs-only pull request does not match the worker trigger's path filter. Trigger substitutions remain unverified, and no deployment/readiness gate passes by virtue of this proposal.
+
 ## Gate register
 
 ### Gate G01 — Product project and explicit runtime topology
