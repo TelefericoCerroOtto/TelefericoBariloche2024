@@ -592,3 +592,40 @@ test("the CLI rejects execution without the post-creation signal", () => {
   assert.equal(JSON.parse(stdout).status, "error");
   assert.equal(JSON.parse(stdout).runs, 0);
 });
+
+test("task-scoped read-only consultations do not require repository consent", () => {
+  const routing = fs.readFileSync(path.join(repositoryRoot, "docs", "external-tool-routing.md"), "utf8");
+  const governance = fs.readFileSync(path.join(repositoryRoot, "AGENTS.md"), "utf8");
+  const infrastructure = fs.readFileSync(path.join(repositoryRoot, "docs", "INFRA.md"), "utf8");
+  const conventions = fs.readFileSync(path.join(repositoryRoot, "docs", "CONVENTIONS.md"), "utf8");
+  const sliceTransition = fs.readFileSync(path.join(repositoryRoot, ".agents", "skills", "sdd-slice-transition", "SKILL.md"), "utf8");
+
+  assert.match(routing, /Task-scoped read-only consultations do not require separate repository-semantic authorization/i);
+  assert.match(routing, /runtime tool permissions remain in force/i);
+  assert.match(routing, /If the requested project cannot be inferred[\s\S]{0,120}ask one clarification/i);
+  assert.match(routing, /Task-scoped reads may consult an identified canonical source without separate repository-semantic approval/i);
+  assert.match(routing, /creating or changing destinations and writes still need their applicable authorization/i);
+  assert.match(routing, /Task-scoped read-only consultations of the identified repository do not require separate repository-semantic approval/i);
+  assert.match(routing, /If the repository target or current session is unclear, stop and ask/i);
+  assert.match(routing, /If a command's target or effects are ambiguous, clarify or classify it before running; a confirmed read-only consultation needs no separate repository-semantic approval, while a classified mutation needs its applicable approval/i);
+  assert.match(routing, /implementation-PR publication governance.*AGENTS\.md#implementation-pr-finalization/i);
+  assert.match(routing, /Discover the available OpenDesign MCP tools and project\/file operations in the current runtime/);
+  assert.doesNotMatch(routing, /A read, a write, or a new destination still needs its applicable authorization/i);
+  assert.doesNotMatch(governance, /Sensitive reads \| Ask first\. This includes secrets, secret metadata, IAM-sensitive inspection/);
+  assert.match(governance, /Never read credential files or secret values/i);
+  assert.match(governance, /`gcloud secrets versions access \.\.\.` → retrieves secret values; do not run/);
+  assert.match(governance, /Production changes \| Ask first, always/);
+  assert.match(governance, /Destructive changes \| Ask first, always/);
+  assert.match(governance, /Direct deployments from the console are prohibited/);
+  assert.match(governance, /When a command's effects are unclear, stop to clarify its classification/i);
+  assert.match(governance, /A task-scoped read-only consultation does not need separate repository-semantic approval/i);
+  assert.doesNotMatch(infrastructure, /Further IAM reads and all mutations require separate approval for their exact commands/i);
+  assert.match(infrastructure, /reference\/application-default\/login/);
+  assert.doesNotMatch(sliceTransition, /fresh candidate-scoped authorization for remote read\/fetch observation/i);
+  assert.match(routing, /Ask one focused clarification when the target is ambiguous, or when required authorization for a write\/operational change is unclear/i);
+  assert.match(routing, /Prefer the available tool appropriate for the requested system; do not substitute a different system or destination\. Runtime tool permissions remain binding/i);
+  assert.match(governance, /Ambiguous commands \| Clarify the target or classify the command's effects before running\. A confirmed read-only consultation needs no separate repository-semantic approval; a classified mutation needs its applicable approval/);
+  assert.match(conventions, /Diagnose failures with task-scoped, repository-scoped GitHub CLI reads through the current active CLI session/i);
+  assert.doesNotMatch(conventions, /authorized, repository-scoped GitHub CLI reads/i);
+  assert.match(conventions, /Any later metadata-only repair \(a write\) and observation requires fresh explicit authorization and permission/i);
+});
