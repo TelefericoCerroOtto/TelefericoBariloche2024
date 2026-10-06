@@ -1,8 +1,0 @@
-snapshotType: documentary-cloud-build-trigger-metadata
-importable: false
-trigger:
-  name: feedback-worker-staging-deploy-cr
-  id: 7ee6da31-f842-407d-a635-afba62e90c6b
-  region: southamerica-east1
-  approvalConfig:
-    approvalRequired: false

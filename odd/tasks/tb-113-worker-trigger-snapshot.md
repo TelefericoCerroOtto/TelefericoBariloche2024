@@ -1,0 +1,23 @@
+# TB-113 complete worker trigger snapshot
+
+## Objective
+
+Provide one self-contained, versioned YAML for the intended `feedback-worker-staging-deploy-cr` Cloud Build trigger configuration that the operator can apply manually. Consolidate the existing build recipe and the separately proposed approval change instead of claiming to export or mirror the current live GCP resource.
+
+## Scope and constraints
+
+- Work only in the new `fix/root-tb-113-worker-trigger-snapshot` worktree based on `origin/development` at `82c4c47fd3a4f0c95ffb72600fd3a76c3908ffba`. The prior font-pin worktree was clean apart from ignored generated artifacts and was removed; its branch and merged PR remain intact. The root worktree contains unrelated changes and must not be touched.
+- This follow-up addresses the worker trigger and the repository guidance/tests directly affected by its split snapshot. Do not silently convert unrelated app/CMS or Playwright triggers, change live GCP resources, access credential files, or describe the intended new configuration as observed live state.
+- User authorized implementation, one coherent commit, a non-force push, and a development-targeting implementation PR after checks. Tracking: existing TB-113 work and GitHub issue #227; no automatic merge or deployment.
+- Before S2, the repository stored a build-only `docs/infra/cloud-build/worker-staging.yaml` and a partial `worker-staging-trigger.yaml` proposal. S2 consolidates these into one prospective complete `BuildTrigger` resource using the historical nonsecret repository metadata supplied by the parent; this is not a current-live export or parity claim. No GCP readback or trigger mutation is required.
+- Testing mode: TB-113 direct work expects focused RED/GREEN tests; no package-wide strict TDD setting is established. Runner: `node --test services/survey-report-worker/test/image-contract.test.mjs` and relevant snapshot checks. Candidate-size estimate: under 400 authored changed lines, advisory only.
+
+## Tasks
+
+- [x] **S1 — Isolate and map the correction.** Safely remove the clean previous worktree, create a fresh follow-up worktree, and map the worker YAML, references, tests, and required trigger shape. Route: delegated read-only mapping because understanding spans more than three files. Evidence: prior worktree removed without deleting its branch; new worktree started at the remote development head. A live GCP readback was initially assumed necessary but the user explicitly rejected that requirement for this prospective change.
+- [x] **S2 — Consolidate one prospective worker trigger YAML.** Restructured the build recipe under `build` in a complete prospective `BuildTrigger` resource, incorporated the historical repository/event/filter/service-account metadata and intended `approvalRequired: false`, deleted the partial trigger YAML, and updated the focused test plus directly affected documentation. RED: `node --test services/survey-report-worker/test/image-contract.test.mjs` failed the new complete-trigger assertion as expected against the split baseline (5 passed, 1 failed; missing top-level `build`). GREEN: the same command passed 6/6 after implementation and again after the schema correction. PyYAML 6.0.1 parsed the resource; confirmed the nested build matches the prior recipe, the repository and branch remain pinned, output-only `repositoryType` is omitted, and the split file is absent. `git diff --check` passed. No GCP request or mutation, dependency change, commit, push, or PR occurred. Route: one delegated writer for multiple nontrivial files; parent owns the Engram task mirror.
+- [ ] **S3 — Verify and publish the work unit.** Run focused tests, structural review, and `git diff --check`; ensure the YAML is a coherent trigger configuration rather than a build-only YAML and state clearly that it is intended for future operator application, not a live export. Then create one coherent Conventional Commit, one non-force push, and one implementation PR to `development` under repository governance. No live trigger update or merge.
+
+## Progress and next step
+
+S2 is complete: one prospective trigger-resource YAML contains both the build recipe and the intended approval setting, with the output-only repository type omitted. Independent review and a parent spot check both passed the six focused worker contract tests; the resource parsed as YAML and preserves the prior build recipe. S3 remains: confirm publication scope, commit, push, create the implementation PR, and observe governance. Do not describe the file as a copy of current live GCP settings. This file is mirrored in Engram under `odd/tb-113-worker-trigger-snapshot/tasks`.
