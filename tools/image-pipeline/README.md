@@ -9,7 +9,7 @@ Este tooling automatiza un flujo de **art direction** para imágenes:
 
 ### Selecting a seeded profile when building jobs
 
-The `cli:build-jobs` script selects a seeded profile from the final filename suffix. Use `<source-name>-<profile-id>.<ext>`; hyphenated profile IDs are matched as a complete suffix. For example, `portada-noticia-news-detail-image.png` selects the `news-detail-image` profile and its mobile and desktop slots. Existing single-segment suffixes such as `-card` keep their current behavior.
+The `cli:build-jobs` script selects a seeded profile from the final filename suffix. Use `<source-name>-<profile-id>.<ext>`; hyphenated profile IDs are matched as a complete suffix. For example, `portada-noticia-news-detail-image.png` selects the `news-detail-image` profile and its mobile and desktop slots. Their seeded slot IDs use the default `<profile-id>-<ratio-tag>` naming, so planned outputs retain the ratio suffix (for example, `-news-detail-image-2x3` and `-news-detail-image-21x9`). Existing single-segment suffixes such as `-card` keep their current behavior.
 
 > Pensado para proyectos Next.js + Tailwind + Strapi, donde se necesitan assets optimizados por ratio (desktop/mobile u otros), sin inflar tamaños y permitiendo que `next/image` funcione con `sizes` correctos.
 

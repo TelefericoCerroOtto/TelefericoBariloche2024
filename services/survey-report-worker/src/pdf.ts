@@ -40,7 +40,7 @@ const PINNED_HEADLESS_SHELL_SHA256 =
   "670ba079b75107746ba41abad131180a31a7c7219aa1bd4061fb471f4535d541";
 const PINNED_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
 const PINNED_FONT_SHA256 =
-  "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280";
+  "abdc775b21b1bc470d50c97e790d276f2054b7504e56e5bd3e64f48d68582322";
 const REPORT_CHART_IDS = [
   "star-distribution",
   "satisfaction-evolution",
