@@ -45,9 +45,10 @@ test("worker image pins its Node 22.22.0 Linux/amd64 base and runtime command", 
 });
 
 test("image installs frozen production dependencies without downloading browsers", () => {
+  const normalizedDockerfile = dockerfile.replace(/\\\n\s*/g, " ");
   assert.match(
-    dockerfile,
-    /pnpm install --prod --frozen-lockfile --ignore-scripts/,
+    normalizedDockerfile,
+    /RUN corepack enable\s+&& corepack prepare pnpm@10\.33\.0 --activate\s+&& pnpm install --prod --frozen-lockfile --ignore-scripts\s+&& pnpm exec playwright install-deps chromium/,
   );
   assert.match(dockerfile, /PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1/);
   assert.match(dockerfile, /playwright install-deps chromium/);

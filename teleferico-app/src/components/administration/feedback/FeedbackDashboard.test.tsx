@@ -10,6 +10,8 @@ import {
   FEEDBACK_MODULE_ORDER,
   QrModule,
   SummaryModule,
+  formatSummaryChartDateTick,
+  getSummaryChartTickLabels,
   getSummaryLineChartGeometry,
   default as FeedbackDashboard,
 } from "./FeedbackDashboard";
@@ -112,7 +114,7 @@ describe("feedback analytics UI projections", () => {
     expect(screen.getByText(/^\+[\d,]+ puntos$/)).toBeInTheDocument();
     expect(screen.getAllByText(/^[+−]?[\d,]+ puntos porcentuales$/)).toHaveLength(2);
     expect(screen.getByRole("heading", { name: "Evolución de la satisfacción" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Último informe de IA exitoso" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Último informe generado por IA" })).toBeInTheDocument();
   });
 
   it("switches the single Summary temporal chart and exposes selected values accessibly", () => {
@@ -127,11 +129,21 @@ describe("feedback analytics UI projections", () => {
     expect(satisfactionButton).toHaveAttribute("aria-pressed", "true");
     expect(responsesButton).toHaveAttribute("aria-pressed", "false");
     const satisfactionValues = screen.getByRole("list", { name: "Valores de satisfacción" });
+    expect(satisfactionValues.querySelectorAll("[tabindex]")).toHaveLength(0);
     const satisfactionDay = days[0]!;
     const satisfactionValue = satisfactionDay.satisfactionRateBps === null
       ? "No disponible"
       : `${(satisfactionDay.satisfactionRateBps / 100).toFixed(1)}%`;
-    expect(within(satisfactionValues).getByText(`${satisfactionDay.from}: ${satisfactionValue}`)).toBeInTheDocument();
+    expect(within(satisfactionValues).getByText(`${satisfactionDay.from}: ${satisfactionValue}; ${satisfactionDay.submissionCount} respuestas`)).toBeInTheDocument();
+    expect(screen.queryByText("Consultar valores exactos del gráfico")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ver datos exactos")).not.toBeInTheDocument();
+    expect(satisfactionValues).toHaveClass("sr-only");
+    expect(screen.getByRole("progressbar", { name: "5 estrellas" })).toHaveAttribute("aria-valuetext");
+
+    const chartGrid = screen.getByRole("region", { name: "Evolución y distribución del período" });
+    expect(chartGrid).toHaveClass("min-w-0", "w-full");
+    expect(chartGrid.firstElementChild).toHaveClass("min-w-0", "w-full");
+    expect(chartGrid.lastElementChild).toHaveClass("min-w-0", "w-full");
 
     responsesButton.focus();
     fireEvent.click(responsesButton);
@@ -140,10 +152,11 @@ describe("feedback analytics UI projections", () => {
     expect(responsesButton).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("heading", { name: "Evolución de encuestas respondidas" })).toBeInTheDocument();
     const responseValues = screen.getByRole("list", { name: "Valores de encuestas respondidas" });
-    expect(within(responseValues).getByText(`${days[0]!.from}: ${days[0]!.submissionCount}`)).toBeInTheDocument();
+    expect(within(responseValues).getByText(`${days[0]!.from}: ${days[0]!.submissionCount}; ${days[0]!.submissionCount} respuestas`)).toBeInTheDocument();
     expect(screen.queryByRole("table", { name: "Evolución temporal de respuestas: datos exactos" })).not.toBeInTheDocument();
     expect(screen.queryByRole("table", { name: "Evolución temporal de satisfacción: datos exactos" })).not.toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Distribución de estrellas: datos exactos" })).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Distribución de estrellas: datos exactos" })).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "5 estrellas" })).toHaveAttribute("aria-valuetext", "50.0%; 1 respuesta");
   });
 
   it("switches authoritative Summary week and month buckets independently from the metric", () => {
@@ -172,7 +185,7 @@ describe("feedback analytics UI projections", () => {
     const weekValues = screen.getByRole("list", { name: "Valores de satisfacción" });
     expect(within(weekValues).getAllByRole("listitem")).toHaveLength(weeks.length);
     for (const bucket of weeks) {
-      expect(within(weekValues).getByText(`${interval(bucket)}: ${satisfactionText(bucket)}`)).toBeInTheDocument();
+      expect(within(weekValues).getByText(`${interval(bucket)}: ${satisfactionText(bucket)}; ${bucket.submissionCount} respuestas`)).toBeInTheDocument();
     }
 
     fireEvent.click(responsesButton);
@@ -180,7 +193,7 @@ describe("feedback analytics UI projections", () => {
     expect(responsesButton).toHaveAttribute("aria-pressed", "true");
     const weeklyResponses = screen.getByRole("list", { name: "Valores de encuestas respondidas" });
     for (const bucket of weeks) {
-      expect(within(weeklyResponses).getByText(`${interval(bucket)}: ${bucket.submissionCount}`)).toBeInTheDocument();
+      expect(within(weeklyResponses).getByText(`${interval(bucket)}: ${bucket.submissionCount}; ${bucket.submissionCount} respuestas`)).toBeInTheDocument();
     }
 
     fireEvent.click(monthButton);
@@ -189,7 +202,7 @@ describe("feedback analytics UI projections", () => {
     const monthlyResponses = screen.getByRole("list", { name: "Valores de encuestas respondidas" });
     expect(within(monthlyResponses).getAllByRole("listitem")).toHaveLength(months.length);
     for (const bucket of months) {
-      expect(within(monthlyResponses).getByText(`${interval(bucket)}: ${bucket.submissionCount}`)).toBeInTheDocument();
+      expect(within(monthlyResponses).getByText(`${interval(bucket)}: ${bucket.submissionCount}; ${bucket.submissionCount} respuestas`)).toBeInTheDocument();
     }
   });
 
@@ -233,6 +246,80 @@ describe("feedback analytics UI projections", () => {
     expect(responses.yAxisTicks[0]).toBe(0);
     expect(responses.yAxisTicks.at(-1)).toBe(80);
     expect(responses.yAxisTicks.every((tick) => tick >= 0 && tick <= 80)).toBe(true);
+    expect(responses.yAxisTicks.every(Number.isInteger)).toBe(true);
+  });
+
+  it("formats Summary axis dates compactly in es-AR across days and month boundaries", () => {
+    expect(formatSummaryChartDateTick("2026-06-01", "day")).toBe("1 jun");
+    expect(formatSummaryChartDateTick("2026-05-31–2026-06-06", "week")).toBe("31 may–6 jun");
+    expect(formatSummaryChartDateTick("2026-06-01–2026-06-30", "month")).toBe("1 jun–30 jun");
+    expect(formatSummaryChartDateTick("Not a date", "day")).toBe("Not a date");
+  });
+
+  it("chooses readable Summary satisfaction ticks for sparse high and boundary values", () => {
+    const high = getSummaryLineChartGeometry([
+      { label: "first", primary: 8_400 },
+      { label: "last", primary: 9_800 },
+    ], "percent");
+    expect(high.yAxisTicks).toEqual([7_000, 8_000, 9_000, 10_000]);
+
+    const constantHigh = getSummaryLineChartGeometry([
+      { label: "first", primary: 10_000 },
+      { label: "last", primary: 10_000 },
+    ], "percent");
+    expect(constantHigh.yAxisTicks).toEqual([7_000, 8_000, 9_000, 10_000]);
+    expect(constantHigh.yAxisDomain[1]).toBeGreaterThan(10_000);
+    expect(constantHigh.yAxisDomain[1]).toBeLessThanOrEqual(10_500);
+    expect(constantHigh.yAxisDomain[0]).toBeGreaterThanOrEqual(6_500);
+
+    const constantZero = getSummaryLineChartGeometry([
+      { label: "first", primary: 0 },
+      { label: "last", primary: 0 },
+    ], "percent");
+    expect(constantZero.yAxisTicks).toEqual([0, 1_000]);
+    expect(constantZero.yAxisDomain[0]).toBeLessThan(0);
+    expect(constantZero.yAxisDomain[0]).toBeGreaterThanOrEqual(-500);
+
+    const unavailable = getSummaryLineChartGeometry([
+      { label: "first", primary: null },
+      { label: "last", primary: null },
+    ], "percent");
+    expect(unavailable.yAxisTicks).toEqual([0, 2_500, 5_000, 7_500, 10_000]);
+
+    const extremes = getSummaryLineChartGeometry([
+      { label: "zero", primary: 0 },
+      { label: "full", primary: 10_000 },
+    ], "percent");
+    expect(extremes.yAxisTicks).toEqual([0, 2_500, 5_000, 7_500, 10_000]);
+    expect(extremes.yAxisDomain[0]).toBeLessThan(0);
+    expect(extremes.yAxisDomain[1]).toBeGreaterThan(10_000);
+  });
+
+  it("selects at most five evenly distributed Summary date ticks without changing exact values", () => {
+    const labels = Array.from({ length: 30 }, (_, index) => `2026-06-${String(index + 1).padStart(2, "0")}`);
+    const selected = getSummaryChartTickLabels(labels);
+
+    expect(selected).toHaveLength(5);
+    expect(selected[0]).toBe(labels[0]);
+    expect(selected.at(-1)).toBe(labels.at(-1));
+    expect(selected[2]).toBe(labels[15]);
+    expect(getSummaryChartTickLabels(labels.slice(0, 4))).toEqual(labels.slice(0, 4));
+  });
+
+  it("shows the selected Summary period in its chart caption and a truthful status strip", () => {
+    const summary = projectSummary(source);
+    render(<SummaryModule data={summary} period={{ from: "2026-09-11", to: "2026-09-20" }} />);
+
+    const periodFormat = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+    const caption = screen.getByText(`Tiempo · ${periodFormat.format(new Date("2026-09-11T00:00:00Z"))}–${periodFormat.format(new Date("2026-09-20T00:00:00Z"))} · Satisfacción (%)`);
+    expect(caption).toBeInTheDocument();
+    expect(screen.getByText("Los puntos representan intervalos con datos disponibles; los intervalos sin datos se conservan sin conectar.")).toBeInTheDocument();
+    const metricGroup = screen.getByRole("group", { name: "Métrica del gráfico" });
+    expect(within(metricGroup).getByRole("button", { name: "Satisfacción" })).toHaveClass("aria-pressed:border-primary", "aria-pressed:bg-white");
+    const temporalGroup = screen.getByRole("group", { name: "Presentación temporal" });
+    expect(within(temporalGroup).getByRole("button", { name: "Día" })).toHaveClass("rounded-full");
+    expect(screen.queryByText(/Tab.*puntos/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /datos exactos/i })).not.toBeInTheDocument();
   });
 
   it("renders the Summary KPI introduction, copy, order, and responsive layout", () => {
@@ -271,6 +358,152 @@ describe("feedback analytics UI projections", () => {
       "min-[421px]:grid-cols-2",
       "min-[901px]:grid-cols-4",
     );
+  });
+
+  it("presents Summary evolution and live star distribution in a responsive two-column layout", () => {
+    const summary = projectSummary(source);
+    render(<SummaryModule data={summary} />);
+
+    expect(screen.getByRole("region", { name: "Evolución y distribución del período" })).toHaveClass(
+      "grid",
+      "w-full",
+      "min-w-0",
+      "min-[1051px]:grid-cols-[minmax(0,1.45fr)_minmax(0,0.55fr)]",
+    );
+    expect(screen.getByText(/Porcentaje de respuestas satisfechas a lo largo del tiempo/)).toBeInTheDocument();
+    expect(screen.getByText("Porcentaje de respuestas satisfechas a lo largo del tiempo.")).toBeInTheDocument();
+    expect(screen.queryByText(/Cada punto muestra la fecha/)).not.toBeInTheDocument();
+    const distribution = screen.getByRole("list", { name: "Distribución de estrellas" });
+    const rows = within(distribution).getAllByRole("listitem");
+    expect(rows.map((row) => row.querySelector('[aria-hidden="true"]')?.textContent)).toEqual(["5 ★", "4 ★", "3 ★", "2 ★", "1 ★"]);
+    expect(rows.map((row) => within(row).getByText(/^[1-5] estrellas?$/, { selector: ".sr-only" }).textContent)).toEqual([
+      "5 estrellas", "4 estrellas", "3 estrellas", "2 estrellas", "1 estrella",
+    ]);
+    const fiveStars = rows[0]!;
+    const fiveStarValue = summary.current.starDistribution.find((item) => item.star === 5)!;
+    const responseCopy = fiveStarValue.count === 1 ? "1 respuesta" : `${fiveStarValue.count} respuestas`;
+    expect(fiveStars).toHaveTextContent(responseCopy);
+    expect(fiveStars).toHaveTextContent(`${(fiveStarValue.rateBps! / 100).toFixed(1)}%`);
+    expect(within(fiveStars).getByRole("progressbar", { name: "5 estrellas" })).toHaveAttribute(
+      "aria-valuenow",
+      String(fiveStarValue.count),
+    );
+    expect(within(fiveStars).getByRole("progressbar", { name: "5 estrellas" })).toHaveAttribute(
+      "aria-valuetext",
+      `${(fiveStarValue.rateBps! / 100).toFixed(1)}%; ${responseCopy}`,
+    );
+    expect(within(rows[4]!).getByRole("progressbar", { name: "1 estrella" })).toBeInTheDocument();
+    const chartCard = screen.getByRole("heading", { name: "Evolución de la satisfacción" }).closest("section")!;
+    expect(screen.queryByText("Consultar valores exactos del gráfico")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ver datos exactos")).not.toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Distribución de estrellas: datos exactos" })).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Valores de satisfacción" })).toHaveClass("sr-only");
+    expect(chartCard).toHaveClass("h-full");
+    expect(screen.getByRole("heading", { name: "Distribución de estrellas" }).closest("section")).toHaveClass("h-full", "w-full", "min-w-0");
+  });
+
+  it("uses singular response copy for a one-star Summary count", () => {
+    const summary = projectSummary(source);
+    const oneResponse = {
+      ...summary,
+      current: {
+        ...summary.current,
+        submissionCount: 3,
+        starDistribution: summary.current.starDistribution.map((item) => item.star === 1
+          ? { ...item, count: 1, rateBps: 3_333 }
+          : item),
+      },
+    };
+    render(<SummaryModule data={oneResponse} />);
+
+    const oneStarRow = within(screen.getByRole("list", { name: "Distribución de estrellas" })).getAllByRole("listitem")[4]!;
+    expect(oneStarRow).toHaveTextContent("1 ★");
+    expect(oneStarRow).toHaveTextContent("33.3% · 1 respuesta");
+    const progressbar = within(oneStarRow).getByRole("progressbar", { name: "1 estrella" });
+    expect(progressbar).toHaveAttribute("aria-valuenow", "1");
+    expect(progressbar).toHaveAttribute("aria-valuemax", "3");
+    expect(progressbar).toHaveAttribute("aria-valuetext", "33.3%; 1 respuesta");
+  });
+
+  it("uses 8px neutral Summary panels without changing shared panels in Aspects", () => {
+    const summary = projectSummary(source);
+    const view = render(<SummaryModule data={summary} />);
+    const summaryPanel = screen.getByRole("heading", { name: "Distribución de estrellas" }).closest("section")!;
+    expect(summaryPanel).toHaveClass("rounded-[8px]", "border-[#e3e3e5]", "bg-white", "shadow-none");
+
+    view.rerender(<AspectsModule data={projectAspects(source)} selectedKey="views" onSelect={noop} />);
+    const sharedPanel = screen.getByRole("heading", { name: "Detalle del aspecto seleccionado" }).closest("section")!;
+    expect(sharedPanel).toHaveClass("border-red-500/15", "shadow-sm");
+    expect(sharedPanel).not.toHaveClass("rounded-[8px]");
+  });
+
+  it("keeps selected response values accessible without an exact-values disclosure", () => {
+    const summary = projectSummary(source);
+    render(<SummaryModule data={summary} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Encuestas respondidas" }));
+    expect(screen.getByText("Cantidad de encuestas recibidas en cada intervalo.")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Valores de encuestas respondidas" })).toHaveClass("sr-only");
+    expect(screen.queryByText(/Cada punto muestra la fecha/)).not.toBeInTheDocument();
+  });
+
+  it("uses authoritative aspect counts and rates for classifications and keeps the real-report empty state", () => {
+    const summary = projectSummary(source);
+    const viewAspect = summary.aspects.find((item) => item.aspectKey === "views")!;
+    const classified = {
+      ...summary,
+      strengths: ["views"],
+      aspects: summary.aspects.map((item) => item.aspectKey === "views" ? {
+        ...item,
+        hasSufficientEvidence: true,
+        selectionCount: 20,
+        current: { ...item.current, total: 20, positive: { count: 15, rateBps: 7500 } },
+      } : item),
+    };
+    const view = render(<SummaryModule data={summary} />);
+    expect(screen.getAllByText("Evidencia insuficiente para clasificar fortalezas u oportunidades con este volumen de respuestas.")).toHaveLength(2);
+    view.rerender(<SummaryModule data={classified} />);
+
+    expect(screen.getByRole("heading", { name: "Fortalezas y oportunidades de mejora" })).toBeInTheDocument();
+    expect(screen.getByText(/Las fortalezas son los aspectos con predominio de valoraciones positivas/)).toBeInTheDocument();
+    expect(screen.getByText(viewAspect.labelVariants[0]!.label)).toBeInTheDocument();
+    expect(screen.getByText("15 respuestas")).toBeInTheDocument();
+    expect(screen.getByText("75.0%")).toBeInTheDocument();
+    expect(screen.getByText("No se identificaron aspectos con predominio negativo en este período.")).toBeInTheDocument();
+    expect(screen.getByText("No hay un informe exitoso disponible para este período.")).toBeInTheDocument();
+  });
+
+  it("shows only persisted successful report metadata and routes report actions to the existing history", () => {
+    const onViewReports = vi.fn();
+    const summary = {
+      ...projectSummary(source),
+      latestSuccessfulReport: {
+        reportId: "report-1",
+        reportRunId: "run-1",
+        name: "Feedback report 2026-09-11–2026-09-20",
+        period: { from: "2026-09-11", to: "2026-09-20" },
+        status: "succeeded" as const,
+        analyzedResponseCount: 2,
+        analyzedCommentCount: 1,
+        dataCutoffAt: "2026-09-20T12:00:00.000Z",
+        createdAt: "2026-09-20T13:00:00.000Z",
+        requestedBy: null,
+        generatedBy: null,
+        canDownload: true,
+        artifactSize: 512,
+        artifactSha256: "a".repeat(64),
+      },
+    };
+    render(<SummaryModule data={summary} onViewReports={onViewReports} />);
+
+    const report = screen.getByRole("heading", { name: "Último informe generado por IA" }).closest("section")!;
+    expect(within(report).getByText(summary.latestSuccessfulReport.name)).toBeInTheDocument();
+    expect(within(report).getByText("2", { selector: "dd" })).toBeInTheDocument();
+    expect(within(report).getByText("1", { selector: "dd" })).toBeInTheDocument();
+    expect(within(report).getByRole("button", { name: "Ver informes e historial" })).toBeInTheDocument();
+    expect(within(report).queryByRole("button", { name: /Descargar/ })).not.toBeInTheDocument();
+    fireEvent.click(within(report).getByRole("button", { name: "Ver informes e historial" }));
+    expect(onViewReports).toHaveBeenCalledOnce();
   });
 
   it("explains zero and unavailable previous-period baselines without duplicate placeholders", () => {
@@ -318,6 +551,32 @@ describe("feedback analytics UI projections", () => {
     const fallback = within(updatedResponseCard).getByText("Sin base del período anterior.");
     expect(fallback).not.toHaveClass("font-bold", "text-[#045009]");
     expect(within(updatedResponseCard).queryByText("frente al período anterior.")).not.toBeInTheDocument();
+  });
+
+  it("shows the shared inclusive Summary period and keeps period editing available on every view", async () => {
+    const summary = projectSummary(source);
+    vi.mocked(authenticatedInternalApiFetch).mockResolvedValueOnce(Response.json({
+      contractVersion: "feedback-admin.v1",
+      data: summary,
+      meta: { population: snapshot.population },
+    }));
+    render(<FeedbackDashboard />);
+
+    const scope = await screen.findByRole("region", { name: "Período analizado" });
+    expect(within(scope).getByText("Período anterior")).toBeInTheDocument();
+    expect(within(scope).getByText("Los resultados se comparan con el período inmediatamente anterior de la misma cantidad de días.")).toBeInTheDocument();
+    expect(within(scope).getAllByText("10 días")).toHaveLength(2);
+    const changePeriod = within(scope).getByRole("button", { name: "Cambiar período" });
+    expect(changePeriod).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(changePeriod);
+    expect(changePeriod).toHaveAttribute("aria-expanded", "true");
+    const appliedRange = new URLSearchParams(String(vi.mocked(authenticatedInternalApiFetch).mock.calls[0]?.[0]).split("?")[1]);
+    expect(within(scope).getByLabelText("Desde")).toHaveValue(appliedRange.get("from"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Aspectos" }));
+    expect(screen.queryByRole("button", { name: "Cambiar período" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Desde")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Analizar período" })).toBeVisible();
   });
 
   it("omits the opening KPI cards from Aspects while retaining the selected aspect", () => {
@@ -403,6 +662,7 @@ describe("feedback analytics UI projections", () => {
     const skipLink = screen.getByRole("link", { name: "Saltar al contenido de Feedback del público" });
     const tabs = screen.getByRole("navigation", { name: "Módulos de Feedback del público" });
     const pageHeader = screen.getByRole("heading", { level: 1, name: "Feedback del público" }).closest("header")!;
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar período" }));
     const periodForm = screen.getByRole("button", { name: "Analizar período" }).closest("form")!;
     const content = screen.getByRole("region", { name: "Contenido de Feedback del público" });
     const moduleButtons = within(tabs).getAllByRole("button");
