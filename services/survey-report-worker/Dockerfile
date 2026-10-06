@@ -13,7 +13,8 @@ COPY packages/survey-reporting-core/ /workspace/packages/survey-reporting-core/
 COPY packages/tb113-private-report-storage/ /workspace/packages/tb113-private-report-storage/
 COPY packages/tb113-runtime-contracts/ /workspace/packages/tb113-runtime-contracts/
 
-RUN corepack prepare pnpm@10.33.0 --activate \
+RUN corepack enable \
+    && corepack prepare pnpm@10.33.0 --activate \
     && pnpm install --prod --frozen-lockfile --ignore-scripts \
     && pnpm exec playwright install-deps chromium
 
