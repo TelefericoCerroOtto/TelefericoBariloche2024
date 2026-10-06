@@ -23,7 +23,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 const Bar = dynamic(() => import("recharts").then((module) => module.Bar), { ssr: false });
 const BarChart = dynamic(() => import("recharts").then((module) => module.BarChart), { ssr: false });
+const Area = dynamic(() => import("recharts").then((module) => module.Area), { ssr: false });
 const CartesianGrid = dynamic(() => import("recharts").then((module) => module.CartesianGrid), { ssr: false });
+const ComposedChart = dynamic(() => import("recharts").then((module) => module.ComposedChart), { ssr: false });
 const Line = dynamic(() => import("recharts").then((module) => module.Line), { ssr: false });
 const LineChart = dynamic(() => import("recharts").then((module) => module.LineChart), { ssr: false });
 const ResponsiveContainer = dynamic(() => import("recharts").then((module) => module.ResponsiveContainer), { ssr: false });
@@ -70,6 +72,17 @@ const SUMMARY_KPI_COPY = [
 const SUMMARY_INTEGER_FORMAT = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
 const SUMMARY_NUMBER_FORMAT = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
 const SUMMARY_STAR_FORMAT = new Intl.NumberFormat("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const SUMMARY_PERIOD_DATE_FORMAT = new Intl.DateTimeFormat("es-AR", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+const SUMMARY_CHART_DATE_FORMAT = new Intl.DateTimeFormat("es-AR", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
 const percent = (value: number | null) =>
   value === null ? "No disponible" : `${(value / 100).toFixed(1)}%`;
 const stars = (value: number | null) =>
@@ -128,6 +141,30 @@ function initialPeriod(): Period {
   return { from: formatter.format(start), to: formatter.format(end) };
 }
 
+function inclusiveDays(period: Period) {
+  return Math.floor((Date.parse(`${period.to}T00:00:00Z`) - Date.parse(`${period.from}T00:00:00Z`)) / 86_400_000) + 1;
+}
+
+function displayPeriod(period: Period) {
+  const from = SUMMARY_PERIOD_DATE_FORMAT.format(new Date(`${period.from}T00:00:00Z`));
+  const to = SUMMARY_PERIOD_DATE_FORMAT.format(new Date(`${period.to}T00:00:00Z`));
+  return `${from}–${to}`;
+}
+
+export function formatSummaryChartDateTick(label: string, _unit: "day" | "week" | "month") {
+  const dates = label.split("–");
+  if (dates.length < 1 || dates.length > 2 || dates.some((date) => !/^\d{4}-\d{2}-\d{2}$/.test(date))) return label;
+  const parsed = dates.map((date) => new Date(`${date}T00:00:00Z`));
+  if (parsed.some((date, index) => Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== dates[index])) return label;
+  const formatted = parsed.map((date) => SUMMARY_CHART_DATE_FORMAT.format(date));
+  return formatted.join("–");
+}
+
+export function getSummaryChartTickLabels(labels: readonly string[]) {
+  if (labels.length <= 5) return [...labels];
+  return Array.from({ length: 5 }, (_, index) => labels[Math.round(index * (labels.length - 1) / 4)]!);
+}
+
 function query(period: Period, values: Record<string, string | undefined> = {}) {
   const parameters = new URLSearchParams(period);
   Object.entries(values).forEach(([key, value]) => {
@@ -155,11 +192,11 @@ const GENERATION_STATUS_LABELS: Readonly<Record<FeedbackAdminCommandStatus, stri
   failed: "Fallida",
 };
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({ title, children, variant = "standard" }: { title: string; children: React.ReactNode; variant?: "standard" | "summary" }) {
   return (
-    <Card as="section" className="border border-red-500/15 shadow-sm">
-      <CardBody className="gap-4 p-5 md:p-6">
-        <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+    <Card as="section" className={variant === "summary" ? "flex h-full w-full min-w-0 flex-col rounded-[8px] border border-[#e3e3e5] bg-white shadow-none" : "border border-red-500/15 shadow-sm"}>
+      <CardBody className={variant === "summary" ? "flex h-full w-full min-w-0 flex-col gap-3 p-4" : "gap-4 p-5 md:p-6"}>
+        <h2 className={variant === "summary" ? "text-[14px] font-semibold leading-5 text-foreground" : "text-xl font-semibold text-foreground"}>{title}</h2>
         {children}
       </CardBody>
     </Card>
@@ -174,10 +211,46 @@ export function getSummaryLineChartGeometry(rows: readonly ChartRow[], unit: "co
   const values = rows.flatMap(({ primary }) => primary !== null && Number.isFinite(primary) ? [primary] : []);
   const xAxisPadding = { left: 12, right: 12 };
   if (unit === "percent") {
+    if (!values.length) {
+      return {
+        xAxisPadding,
+        yAxisDomain: [-500, 10_500] as [number, number],
+        yAxisTicks: [0, 2_500, 5_000, 7_500, 10_000],
+      };
+    }
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const span = max - min;
+    if (span >= 7_000) {
+      return {
+        xAxisPadding,
+        yAxisDomain: [-500, 10_500] as [number, number],
+        yAxisTicks: [0, 2_500, 5_000, 7_500, 10_000],
+      };
+    }
+    if (span === 0) {
+      const lower = min === 10_000 ? 6_500 : min - 500;
+      const upper = min === 0 ? 1_000 : min === 10_000 ? 10_500 : min + 500;
+      const firstTick = Math.ceil(lower / 1_000) * 1_000;
+      const yAxisTicks = [];
+      for (let tick = firstTick; tick <= upper; tick += 1_000) yAxisTicks.push(tick);
+      if (min === 10_000) yAxisTicks.unshift(7_000);
+      if (!yAxisTicks.length) yAxisTicks.push(min);
+      return {
+        xAxisPadding,
+        yAxisDomain: [lower, upper] as [number, number],
+        yAxisTicks: [...new Set(yAxisTicks)],
+      };
+    }
+    const padding = Math.max(1_000, span * 0.2);
+    const lower = Math.max(0, Math.floor((min - padding) / 1_000) * 1_000);
+    const upper = Math.min(10_000, Math.ceil((max + padding) / 1_000) * 1_000);
+    const yAxisTicks = [];
+    for (let tick = lower; tick <= upper; tick += 1_000) yAxisTicks.push(tick);
     return {
       xAxisPadding,
-      yAxisDomain: [-500, 10_500] as [number, number],
-      yAxisTicks: [0, 2_500, 5_000, 7_500, 10_000],
+      yAxisDomain: [Math.min(lower, min - padding), Math.max(upper, max + padding)] as [number, number],
+      yAxisTicks,
     };
   }
 
@@ -243,31 +316,41 @@ function Kpis({ period, previous, deltas, presentation = "standard" }: {
   );
 }
 
-function MetricChart({ title, rows, kind = "bar", unit = "count", secondaryLabel, controls, showExactTable = true, axisGeometry }: {
+function MetricChart({ title, rows, kind = "bar", unit = "count", secondaryLabel, controls, description, showExactTable = true, axisGeometry, panelVariant = "standard", summaryDateUnit, summaryDateTicks, summaryCaption, summaryStatus }: {
   title: string;
   rows: readonly ChartRow[];
   kind?: "bar" | "line";
   unit?: "count" | "percent";
   secondaryLabel?: string;
   controls?: React.ReactNode;
+  description?: string;
   showExactTable?: boolean;
   axisGeometry?: ReturnType<typeof getSummaryLineChartGeometry>;
+  panelVariant?: "standard" | "summary";
+  summaryDateUnit?: "day" | "week" | "month";
+  summaryDateTicks?: readonly string[];
+  summaryCaption?: string;
+  summaryStatus?: string;
 }) {
-  if (!rows.length) return <Panel title={title}>{controls}<EmptyState>No hay datos disponibles para el período analizado.</EmptyState></Panel>;
-  const Chart = kind === "line" ? LineChart : BarChart;
+  if (!rows.length) return <Panel title={title} variant={panelVariant}>{controls}<EmptyState>No hay datos disponibles para el período analizado.</EmptyState></Panel>;
+  const Chart = kind === "line"
+    ? panelVariant === "summary" ? ComposedChart : LineChart
+    : BarChart;
   return (
-    <Panel title={title}>
+    <Panel title={title} variant={panelVariant}>
+      {description ? <p className={panelVariant === "summary" ? "mb-2 text-[11px] leading-4 text-foreground/70" : "mb-3 max-w-3xl text-sm text-foreground/70"}>{description}</p> : null}
       {controls}
-      <div className="h-64 w-full" aria-hidden="true">
+      <div className={panelVariant === "summary" ? "h-64 w-full min-w-0" : "h-64 w-full"} aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%">
           <Chart data={rows} margin={{ left: 4, right: 12 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="label" minTickGap={24} padding={axisGeometry?.xAxisPadding} />
-            <YAxis domain={axisGeometry?.yAxisDomain} ticks={axisGeometry?.yAxisTicks} tickFormatter={(value) => unit === "percent" ? `${value / 100}%` : String(value)} />
+            <CartesianGrid vertical={summaryDateUnit ? false : undefined} stroke={summaryDateUnit ? "#e3e3e5" : undefined} strokeDasharray={summaryDateUnit ? undefined : "3 3"} />
+            <XAxis dataKey="label" ticks={summaryDateTicks ? [...summaryDateTicks] : undefined} minTickGap={24} padding={axisGeometry?.xAxisPadding} tick={summaryDateUnit ? { fontSize: 11 } : undefined} tickLine={summaryDateUnit ? false : undefined} axisLine={summaryDateUnit ? false : undefined} tickMargin={summaryDateUnit ? 8 : undefined} tickFormatter={summaryDateUnit ? (value) => formatSummaryChartDateTick(String(value), summaryDateUnit) : undefined} />
+            <YAxis domain={axisGeometry?.yAxisDomain} ticks={axisGeometry?.yAxisTicks} tick={summaryDateUnit ? { fontSize: 11 } : undefined} tickLine={summaryDateUnit ? false : undefined} axisLine={summaryDateUnit ? false : undefined} tickMargin={summaryDateUnit ? 8 : undefined} tickFormatter={(value) => unit === "percent" ? `${value / 100}%` : String(value)} />
             <Tooltip formatter={(value) => unit === "percent" ? percent(Number(value)) : String(value)} />
             {kind === "line" ? (
               <>
-                <Line isAnimationActive={false} type="monotone" dataKey="primary" name="Actual" stroke="#9F1212" strokeWidth={2} connectNulls={false} />
+                {panelVariant === "summary" ? <Area isAnimationActive={false} type="monotone" dataKey="primary" name="Actual" stroke="none" fill="#9F1212" fillOpacity={0.1} baseValue={axisGeometry?.yAxisDomain[0] ?? "dataMin"} connectNulls={false} tooltipType="none" /> : null}
+                <Line isAnimationActive={false} type="monotone" dataKey="primary" name="Actual" stroke="#9F1212" strokeWidth={2} connectNulls={false} dot={panelVariant === "summary" ? { r: 3, fill: "#ffffff", stroke: "#9F1212", strokeWidth: 2 } : false} activeDot={panelVariant === "summary" ? { r: 4, fill: "#ffffff", stroke: "#9F1212", strokeWidth: 2 } : false} />
                 {secondaryLabel ? <Line isAnimationActive={false} type="monotone" dataKey="secondary" name={secondaryLabel} stroke="#64748b" strokeWidth={2} connectNulls={false} /> : null}
               </>
             ) : (
@@ -279,19 +362,24 @@ function MetricChart({ title, rows, kind = "bar", unit = "count", secondaryLabel
           </Chart>
         </ResponsiveContainer>
       </div>
-      {showExactTable ? <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <caption className="sr-only">{title}: datos exactos</caption>
-          <thead><tr><th className="p-2">Categoría</th><th className="p-2">Actual</th>{secondaryLabel ? <th className="p-2">{secondaryLabel}</th> : null}</tr></thead>
-          <tbody>{rows.map((row) => <tr key={row.label} className="border-t"><th className="p-2 font-medium">{row.label}</th><td className="p-2">{unit === "percent" ? percent(row.primary) : row.primary ?? "No disponible"}</td>{secondaryLabel ? <td className="p-2">{unit === "percent" ? percent(row.secondary ?? null) : row.secondary ?? "No disponible"}</td> : null}</tr>)}</tbody>
-        </table>
-      </div> : null}
+      {summaryCaption ? <p className="text-[10px] leading-4 text-foreground/60">{summaryCaption}</p> : null}
+      {summaryStatus ? <p role="note" className="mt-auto rounded-md bg-[#f5f5f6] px-3 py-2 text-[10px] leading-4 text-foreground/70">{summaryStatus}</p> : null}
+      {showExactTable ? <div className="overflow-x-auto">{exactTable()}</div> : null}
     </Panel>
   );
+
+  function exactTable() {
+    return <table className="w-full text-left text-sm">
+      <caption className="sr-only">{title}: datos exactos</caption>
+      <thead><tr><th className="p-2">Categoría</th><th className="p-2">Actual</th>{secondaryLabel ? <th className="p-2">{secondaryLabel}</th> : null}</tr></thead>
+      <tbody>{rows.map((row) => <tr key={row.label} className="border-t"><th className="p-2 font-medium">{row.label}</th><td className="p-2">{unit === "percent" ? percent(row.primary) : row.primary ?? "No disponible"}</td>{secondaryLabel ? <td className="p-2">{unit === "percent" ? percent(row.secondary ?? null) : row.secondary ?? "No disponible"}</td> : null}</tr>)}</tbody>
+    </table>;
+  }
 }
 
-export function SummaryModule({ data }: { data: FeedbackAdminSummaryData }) {
+export function SummaryModule({ data, period, onViewReports }: { data: FeedbackAdminSummaryData; period?: Period; onViewReports?: () => void }) {
   const label = new Map(data.aspects.map((item) => [item.aspectKey, aspectLabel(item)]));
+  const hasClassifiableEvidence = data.aspects.some((item) => item.aspectKey !== "other" && item.hasSufficientEvidence);
   const [chartMetric, setChartMetric] = useState<"satisfaction" | "responses">("satisfaction");
   const [chartUnit, setChartUnit] = useState<"day" | "week" | "month">("day");
   const chartBuckets = data.calendar.filter((item) => item.period === "current" && item.unit === chartUnit);
@@ -300,38 +388,111 @@ export function SummaryModule({ data }: { data: FeedbackAdminSummaryData }) {
     primary: chartMetric === "satisfaction" ? item.satisfactionRateBps : item.submissionCount,
   }));
   const chartGeometry = getSummaryLineChartGeometry(chartRows, chartMetric === "satisfaction" ? "percent" : "count");
+  const chartTicks = getSummaryChartTickLabels(chartRows.map((row) => row.label));
+  const captionPeriod = period ?? { from: chartBuckets[0]?.from ?? "", to: chartBuckets.at(-1)?.to ?? "" };
+  const chartCaption = `Tiempo · ${captionPeriod.from && captionPeriod.to ? displayPeriod(captionPeriod) : "Período seleccionado"} · ${chartMetric === "satisfaction" ? "Satisfacción (%)" : "Encuestas respondidas"}`;
   const chartTitle = chartMetric === "satisfaction" ? "Evolución de la satisfacción" : "Evolución de encuestas respondidas";
-  const metricControls = <div className="flex flex-wrap gap-2" role="group" aria-label="Métrica del gráfico">
-    <Button type="button" variant={chartMetric === "satisfaction" ? "solid" : "bordered"} color={chartMetric === "satisfaction" ? "primary" : "default"} aria-pressed={chartMetric === "satisfaction"} onClick={() => setChartMetric("satisfaction")}>Satisfacción</Button>
-    <Button type="button" variant={chartMetric === "responses" ? "solid" : "bordered"} color={chartMetric === "responses" ? "primary" : "default"} aria-pressed={chartMetric === "responses"} onClick={() => setChartMetric("responses")}>Encuestas respondidas</Button>
+  const metricControls = <div className="grid w-full grid-cols-2 rounded-md bg-[#f1f1f2] p-1" role="group" aria-label="Métrica del gráfico">
+    <Button type="button" className="h-9 w-full rounded-sm border-b-2 border-transparent bg-transparent px-2 text-xs shadow-none aria-pressed:border-primary aria-pressed:bg-white aria-pressed:text-primary" variant="light" color="default" aria-pressed={chartMetric === "satisfaction"} onClick={() => setChartMetric("satisfaction")}>Satisfacción</Button>
+    <Button type="button" className="h-9 w-full rounded-sm border-b-2 border-transparent bg-transparent px-2 text-xs shadow-none aria-pressed:border-primary aria-pressed:bg-white aria-pressed:text-primary" variant="light" color="default" aria-pressed={chartMetric === "responses"} onClick={() => setChartMetric("responses")}>Encuestas respondidas</Button>
   </div>;
   const temporalControls = <div className="flex flex-wrap gap-2" role="group" aria-label="Presentación temporal">
-    <Button type="button" variant={chartUnit === "day" ? "solid" : "bordered"} color={chartUnit === "day" ? "primary" : "default"} aria-pressed={chartUnit === "day"} onClick={() => setChartUnit("day")}>Día</Button>
-    <Button type="button" variant={chartUnit === "week" ? "solid" : "bordered"} color={chartUnit === "week" ? "primary" : "default"} aria-pressed={chartUnit === "week"} onClick={() => setChartUnit("week")}>Semana</Button>
-    <Button type="button" variant={chartUnit === "month" ? "solid" : "bordered"} color={chartUnit === "month" ? "primary" : "default"} aria-pressed={chartUnit === "month"} onClick={() => setChartUnit("month")}>Mes</Button>
+    <Button type="button" className="h-8 rounded-full px-3 text-xs" variant={chartUnit === "day" ? "solid" : "bordered"} color={chartUnit === "day" ? "primary" : "default"} aria-pressed={chartUnit === "day"} onClick={() => setChartUnit("day")}>Día</Button>
+    <Button type="button" className="h-8 rounded-full px-3 text-xs" variant={chartUnit === "week" ? "solid" : "bordered"} color={chartUnit === "week" ? "primary" : "default"} aria-pressed={chartUnit === "week"} onClick={() => setChartUnit("week")}>Semana</Button>
+    <Button type="button" className="h-8 rounded-full px-3 text-xs" variant={chartUnit === "month" ? "solid" : "bordered"} color={chartUnit === "month" ? "primary" : "default"} aria-pressed={chartUnit === "month"} onClick={() => setChartUnit("month")}>Mes</Button>
   </div>;
-  const chartControls = <div className="flex flex-wrap justify-between gap-3">{metricControls}{temporalControls}</div>;
+  const chartControls = <div className="flex w-full flex-col gap-2">{metricControls}{temporalControls}</div>;
+  const exactChartValues = <ul className="sr-only" aria-label={`Valores de ${chartMetric === "satisfaction" ? "satisfacción" : "encuestas respondidas"}`}>
+    {chartBuckets.map((bucket, index) => {
+      const row = chartRows[index]!;
+      const metricValue = row.primary === null ? "No disponible" : chartMetric === "satisfaction" ? percent(row.primary) : row.primary;
+      return <li key={`${bucket.from}:${bucket.to}`}>{row.label}: {metricValue}; {bucket.submissionCount} respuestas</li>;
+    })}
+  </ul>;
   return (
     <div className="space-y-5">
       <section aria-label="Indicadores del período">
         <p className="mb-3 text-xs text-foreground/60">Los valores mostrados corresponden al período elegido.</p>
         <Kpis period={data.current} previous={data.previous} deltas={data.deltas} presentation="summary" />
       </section>
-      <MetricChart title={chartTitle} kind="line" unit={chartMetric === "satisfaction" ? "percent" : "count"} rows={chartRows} controls={chartControls} showExactTable={false} axisGeometry={chartGeometry} />
-      <ul className="sr-only" aria-label={`Valores de ${chartMetric === "satisfaction" ? "satisfacción" : "encuestas respondidas"}`}>
-        {chartRows.map((row) => <li key={row.label}>{row.label}: {row.primary === null ? "No disponible" : chartMetric === "satisfaction" ? percent(row.primary) : row.primary}</li>)}
-      </ul>
-      <MetricChart title="Distribución de estrellas" rows={data.current.starDistribution.map((item) => ({ label: `${item.star} estrellas`, primary: item.count }))} />
-      <Panel title="Fortalezas y oportunidades">
+      <section aria-label="Evolución y distribución del período" className="grid w-full min-w-0 gap-4 min-[1051px]:grid-cols-[minmax(0,1.45fr)_minmax(0,0.55fr)]">
+        <div className="h-full w-full min-w-0">
+          <MetricChart
+            title={chartTitle}
+            kind="line"
+            unit={chartMetric === "satisfaction" ? "percent" : "count"}
+            rows={chartRows}
+            controls={chartControls}
+            description={chartMetric === "satisfaction"
+              ? "Porcentaje de respuestas satisfechas a lo largo del tiempo."
+              : "Cantidad de encuestas recibidas en cada intervalo."}
+            showExactTable={false}
+            axisGeometry={chartGeometry}
+            panelVariant="summary"
+            summaryDateUnit={chartUnit}
+            summaryDateTicks={chartTicks}
+            summaryCaption={chartCaption}
+            summaryStatus="Los puntos representan intervalos con datos disponibles; los intervalos sin datos se conservan sin conectar."
+          />
+          {exactChartValues}
+        </div>
+        <Panel title="Distribución de estrellas" variant="summary">
+          <p className="mb-3 text-sm text-foreground/70">Cantidad de respuestas por puntuación y proporción sobre el total del período.</p>
+          <ul className="space-y-3" aria-label="Distribución de estrellas">
+            {[...data.current.starDistribution].sort((left, right) => right.star - left.star).map((item) => {
+              const share = item.rateBps === null ? null : item.rateBps / 100;
+              const starLabel = item.star === 1 ? "1 estrella" : `${item.star} estrellas`;
+              const responseLabel = item.count === 1 ? "1 respuesta" : `${item.count} respuestas`;
+              return <li key={item.star} className="grid grid-cols-[3.25rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1 text-sm">
+                <span aria-hidden="true" className="whitespace-nowrap font-semibold">{item.star} ★</span>
+                <span className="sr-only">{starLabel}</span>
+                <div className="h-2.5 overflow-hidden rounded-full bg-[#e3e3e5]" role="progressbar" aria-label={starLabel} aria-valuemin={0} aria-valuemax={Math.max(data.current.submissionCount, 1)} aria-valuenow={item.count} aria-valuetext={`${share === null ? "No disponible" : `${share.toFixed(1)}%`}; ${responseLabel}`}>
+                  <div aria-hidden="true" className="h-full rounded-full bg-[#9F1212]" style={{ width: `${Math.min(100, Math.max(0, share ?? 0))}%` }} />
+                </div>
+                <span className="col-start-2 text-xs text-foreground/70">{share === null ? "No disponible" : `${share.toFixed(1)}%`} · {responseLabel}</span>
+              </li>;
+            })}
+          </ul>
+        </Panel>
+      </section>
+      <Panel title="Fortalezas y oportunidades de mejora" variant="summary">
+        <p className="mb-4 text-sm text-foreground/70">Las fortalezas son los aspectos con predominio de valoraciones positivas; las oportunidades son los que muestran predominio de valoraciones negativas.</p>
         <div className="grid gap-5 md:grid-cols-2">
           {(["Fortalezas", "Oportunidades"] as const).map((title) => {
-            const keys = title === "Fortalezas" ? data.strengths : data.opportunities;
-            return <div key={title}><h3 className="font-semibold">{title}</h3>{keys.length ? <ul className="mt-2 list-disc pl-5">{keys.map((key) => <li key={key}>{label.get(key) ?? key}</li>)}</ul> : <p className="mt-2 text-foreground/60">Evidencia insuficiente para esta clasificación.</p>}</div>;
+            const isStrength = title === "Fortalezas";
+            const keys = isStrength ? data.strengths : data.opportunities;
+            const sentiment = isStrength ? "positive" : "negative";
+            return <section key={title} aria-label={title}>
+              <h3 className="font-semibold">{title}</h3>
+              <p className="mt-1 text-sm text-foreground/70">{isStrength ? "Mayor proporción de valoraciones positivas." : "Mayor proporción de valoraciones negativas."}</p>
+              {keys.length ? <ul className="mt-3 space-y-3">{keys.map((key) => {
+                const aspect = data.aspects.find((item) => item.aspectKey === key);
+                const evidence = aspect?.current[sentiment];
+                return <li key={key} className="grid grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-2 text-sm">
+                  <span aria-hidden="true" className={`h-2 w-2 rounded-full ${isStrength ? "bg-[#9F1212]" : "bg-[#5e6066]"}`} />
+                  <span>{label.get(key) ?? key}</span>
+                  <span className="text-right"><strong>{evidence?.rateBps === null || evidence?.rateBps === undefined ? "No disponible" : percent(evidence.rateBps)}</strong><span className="block text-xs text-foreground/70">{evidence?.count ?? "No disponible"} respuestas</span></span>
+                </li>;
+              })}</ul> : <p className="mt-3 text-sm text-foreground/60">{hasClassifiableEvidence
+                ? `No se identificaron aspectos con predominio ${isStrength ? "positivo" : "negativo"} en este período.`
+                : "Evidencia insuficiente para clasificar fortalezas u oportunidades con este volumen de respuestas."}</p>}
+            </section>;
           })}
         </div>
+        <p className="mt-4 border-t border-[#e3e3e5] pt-3 text-xs text-foreground/70">Los porcentajes describen la proporción de valoraciones positivas o negativas entre quienes seleccionaron cada aspecto; no son una calificación promedio.</p>
       </Panel>
-      <Panel title="Último informe de IA exitoso">
-        {data.latestSuccessfulReport ? <div><p className="font-semibold">{data.latestSuccessfulReport.name}</p><p className="text-sm text-foreground/60">Generado {new Date(data.latestSuccessfulReport.createdAt).toLocaleString("es-AR")}</p></div> : <EmptyState>No hay un informe exitoso disponible para este período.</EmptyState>}
+      <Panel title="Último informe generado por IA" variant="summary">
+        {data.latestSuccessfulReport ? <>
+          <p className="font-semibold">{data.latestSuccessfulReport.name}</p>
+          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+            <div><dt className="font-semibold">Generado</dt><dd>{dateTime(data.latestSuccessfulReport.createdAt)}</dd></div>
+            <div><dt className="font-semibold">Período analizado</dt><dd>{displayPeriod(data.latestSuccessfulReport.period)}</dd></div>
+            <div><dt className="font-semibold">Respuestas analizadas</dt><dd>{data.latestSuccessfulReport.analyzedResponseCount}</dd></div>
+            <div><dt className="font-semibold">Comentarios analizados</dt><dd>{data.latestSuccessfulReport.analyzedCommentCount}</dd></div>
+          </dl>
+          <p className="mt-3 text-xs text-foreground/70">Las métricas calculadas por el sistema siguen siendo la referencia.</p>
+          {onViewReports ? <Button type="button" variant="bordered" color="primary" className="mt-3" onClick={onViewReports}>Ver informes e historial</Button> : null}
+        </> : <EmptyState>No hay un informe exitoso disponible para este período.</EmptyState>}
       </Panel>
     </div>
   );
@@ -1016,6 +1177,7 @@ export default function FeedbackDashboard() {
   const [summaryPeriodKey, setSummaryPeriodKey] = useState("");
   const summaryPeriodKeyRef = useRef("");
   const [periodError, setPeriodError] = useState("");
+  const [periodEditorOpen, setPeriodEditorOpen] = useState(false);
   const periodErrorRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => { if (periodError) periodErrorRef.current?.focus(); }, [periodError]);
 
@@ -1079,6 +1241,25 @@ export default function FeedbackDashboard() {
     return () => { requestActive = false; controller.abort(); };
   }, [detailPoint, module, period, qrKeys, qrMode, summaryPeriodKey, moduleRetry]);
 
+  const periodForm = <form className="flex flex-wrap items-end gap-3" noValidate onSubmit={(event) => {
+    event.preventDefault();
+    if (!periodInput.from || !periodInput.to || periodInput.from > periodInput.to) {
+      setPeriodError("El período es inválido. La fecha desde debe ser anterior o igual a la fecha hasta.");
+      return;
+    }
+    setPeriodError("");
+    setPeriod(periodInput);
+    setPeriodEditorOpen(false);
+  }}>
+    {(["from", "to"] as const).map((key) => <label key={key} className="flex flex-col gap-1 text-sm font-semibold">{key === "from" ? "Desde" : "Hasta"}<input type="date" required aria-invalid={Boolean(periodError)} aria-describedby={periodError ? "feedback-period-error" : undefined} value={periodInput[key]} onChange={(event) => setPeriodInput((current) => ({ ...current, [key]: event.target.value }))} className="rounded-lg border bg-background p-2" /></label>)}
+    <Button type="submit" color="primary" variant="solid">Analizar período</Button>
+  </form>;
+  const selectedRange = population ? { from: population.current.from, to: population.current.to } : period;
+  const comparisonRange = population
+    ? { from: population.previous.from, to: population.previous.to }
+    : normalizePeriod(period).previous;
+  const periodErrorMessage = periodError ? <p ref={periodErrorRef} id="feedback-period-error" role="alert" tabIndex={-1} className="rounded-lg border border-primary p-3 text-sm">{periodError}</p> : null;
+
   return (
     <div className="mx-auto w-full max-w-[1536px] space-y-5 px-4 pb-10 md:px-8">
       <a href="#feedback-dashboard-main" className="sr-only rounded-md bg-background p-3 focus:not-sr-only focus:absolute focus:z-50">Saltar al contenido de Feedback del público</a>
@@ -1088,14 +1269,28 @@ export default function FeedbackDashboard() {
       <header className="flex flex-col gap-3 rounded-xl border bg-background p-4 md:flex-row md:items-end md:justify-between lg:sticky lg:top-0 lg:z-20">
         <div><p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary">Analítica administrativa</p><h1 className="text-2xl font-bold">Feedback del público</h1><p className="text-sm text-foreground/60">Solo respuestas aceptadas con QR válido. La comparación usa el período anterior de igual duración.</p>{population ? <p role="status" className="mt-1 text-sm text-foreground/60">Analizado: {population.current.from}–{population.current.to} · Anterior: {population.previous.from}–{population.previous.to}</p> : null}</div>
       </header>
-      <form className="flex flex-wrap items-end gap-3" noValidate onSubmit={(event) => { event.preventDefault(); if (!periodInput.from || !periodInput.to || periodInput.from > periodInput.to) { setPeriodError("El período es inválido. La fecha desde debe ser anterior o igual a la fecha hasta."); return; } setPeriodError(""); setPeriod(periodInput); }}>
-        {(["from", "to"] as const).map((key) => <label key={key} className="flex flex-col gap-1 text-sm font-semibold">{key === "from" ? "Desde" : "Hasta"}<input type="date" required aria-invalid={Boolean(periodError)} aria-describedby={periodError ? "feedback-period-error" : undefined} value={periodInput[key]} onChange={(event) => setPeriodInput((current) => ({ ...current, [key]: event.target.value }))} className="rounded-lg border bg-background p-2" /></label>)}
-        <Button type="submit" color="primary" variant="solid">Analizar período</Button>
-      </form>{periodError ? <p ref={periodErrorRef} id="feedback-period-error" role="alert" tabIndex={-1} className="rounded-lg border border-primary p-3 text-sm">{periodError}</p> : null}
+      {module === "summary" ? <section aria-label="Período analizado" className="space-y-3 rounded-lg border border-[#e3e3e5] bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Período analizado</h2>
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-3"><strong>{displayPeriod(selectedRange)}</strong><span className="text-sm text-foreground/70">{inclusiveDays(selectedRange)} días</span></p>
+          </div>
+          <Button type="button" variant="bordered" color="default" aria-expanded={periodEditorOpen} aria-controls="feedback-summary-period-editor" onClick={() => {
+            if (!periodEditorOpen) setPeriodInput(period);
+            setPeriodEditorOpen((open) => !open);
+          }}>Cambiar período</Button>
+        </div>
+        <div className="border-t border-[#e3e3e5] pt-3">
+          <h3 className="text-sm font-semibold">Período anterior</h3>
+          <p className="mt-1 text-sm"><strong>{displayPeriod(comparisonRange)}</strong><span className="ml-3 text-foreground/70">{inclusiveDays(comparisonRange)} días</span></p>
+          <p className="mt-1 text-xs text-foreground/70">Los resultados se comparan con el período inmediatamente anterior de la misma cantidad de días.</p>
+        </div>
+        <div id="feedback-summary-period-editor" className="border-t border-[#e3e3e5] pt-3" hidden={!periodEditorOpen}>{periodForm}{periodErrorMessage}</div>
+      </section> : <>{periodForm}{periodErrorMessage}</>}
       <section id="feedback-dashboard-main" aria-label="Contenido de Feedback del público" tabIndex={-1}>
       {state === "loading" ? <div role="status" aria-live="polite" className="flex min-h-64 items-center justify-center"><Spinner label="Cargando Feedback del público" /></div> : null}
       {state === "error" ? <div role="alert" className="rounded-xl border border-dashed p-6 text-center"><p>Feedback del público no está disponible temporalmente.</p><Button type="button" variant="bordered" color="primary" className="mt-3" onClick={() => { const periodKey = `${period.from}:${period.to}`; if (module === "summary" || summaryPeriodKey !== periodKey) setSummaryRetry((value) => value + 1); else setModuleRetry((value) => value + 1); }}>Reintentar</Button></div> : null}
-      {state === "ready" && module === "summary" && summary ? <SummaryModule data={summary} /> : null}
+      {state === "ready" && module === "summary" && summary ? <SummaryModule data={summary} period={period} onViewReports={() => setModule("comments")} /> : null}
       {state === "ready" && module === "aspects" && aspects ? <><Panel title="Filtro por punto"><label className="flex max-w-md flex-col gap-2 text-sm font-semibold">Punto QR<select className="rounded-xl border bg-background p-3" value={aspectPoint} onChange={(event) => setAspectPoint(event.target.value)}><option value="">Todos los puntos</option>{availablePoints.map((point) => <option key={point.pointKey} value={point.pointKey}>{point.displayName}</option>)}</select></label></Panel><AspectsModule data={aspects} selectedKey={aspectKey} onSelect={setAspectKey} /></> : null}
       {state === "ready" && module === "qr" && availablePoints.length === 0 ? <EmptyState>No hay puntos QR disponibles para el período analizado.</EmptyState> : null}
       {state === "ready" && module === "qr" && qr ? <QrModule data={qr} options={availablePoints} mode={qrMode} onMode={setQrMode} selectedKeys={selectedPoints} onToggle={(key) => setSelectedPoints((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key])} detailKey={detailPoint} onDetail={setDetailPoint} onOpenAspects={() => { setAspectPoint(detailPoint); setModule("aspects"); }} /> : null}
