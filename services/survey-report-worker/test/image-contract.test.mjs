@@ -96,6 +96,26 @@ test("Docker context allows only worker runtime inputs and shared packages", () 
   assert.ok(!dockerignore.includes("!services/survey-report-worker/README.md"));
 });
 
+test("worker Cloud Build YAML is one complete prospective trigger configuration", () => {
+  assert.match(cloudBuildConfig, /^build:\n/m);
+  assert.match(cloudBuildConfig, /^name: feedback-worker-staging-deploy-cr$/m);
+  assert.match(
+    cloudBuildConfig,
+    /^id: 7ee6da31-f842-407d-a635-afba62e90c6b$/m,
+  );
+  assert.match(
+    cloudBuildConfig,
+    /^serviceAccount: projects\/teleferico-bariloche-2024\/serviceAccounts\/feedback-worker-build-staging@teleferico-bariloche-2024\.iam\.gserviceaccount\.com$/m,
+  );
+  assert.match(
+    cloudBuildConfig,
+    /^repositoryEventConfig:\n  repository: projects\/teleferico-bariloche-2024\/locations\/southamerica-east1\/connections\/teleferico-github-connection\/repositories\/TelefericoCerroOtto-TelefericoBariloche2024\n  push:\n    branch: \^staging\$$/m,
+  );
+  assert.doesNotMatch(cloudBuildConfig, /^\s+repositoryType:/m);
+  assert.match(cloudBuildConfig, /^approvalConfig:\n  approvalRequired: false$/m);
+  assert.doesNotMatch(cloudBuildConfig, /^(?:snapshotType|importable):/m);
+});
+
 test("Cloud Build prepares and verifies Chromium/font assets before building the image", () => {
   const nodeBuilder =
     "node@sha256:7cc56ef285a8568121537d17b05e72128f01b89c54607b51acf084a50ef483f3";
