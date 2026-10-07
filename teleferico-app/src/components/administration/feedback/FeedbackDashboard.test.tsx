@@ -1294,7 +1294,7 @@ describe("feedback analytics UI projections", () => {
     const comments = { items: [], total: 0, page: 1, pageSize: 25 };
     const generations = {
       items: [
-        { reportRunId: "queued-run", status: "queued", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, report: null },
+        { reportRunId: "queued-run", status: "queued", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, cancellationIdentity: { stateVersion: 3 }, report: null },
         { reportRunId: "running-run", status: "running", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T02:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, report: null },
         { reportRunId: "succeeded-run", status: "succeeded", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T03:00:00.000Z", completedAt: "2026-09-21T03:10:00.000Z", failureCode: null, safeFailureMessage: null, retryOfReportRunId: "failed-source", report: { reportId: "immutable-report", createdAt: "2026-09-21T03:10:00.000Z", period: { from: "2026-09-01", to: "2026-09-20" }, analyzedResponseCount: 12, analyzedCommentCount: 3, canDownload: true } },
         { reportRunId: "failed-run", status: "failed", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T04:00:00.000Z", completedAt: "2026-09-21T04:10:00.000Z", failureCode: "PROVIDER_TRANSIENT", safeFailureMessage: "El proveedor no está disponible temporalmente.", retryOfReportRunId: null, report: null },
@@ -1356,6 +1356,8 @@ describe("feedback analytics UI projections", () => {
     const table = within(aiCard).getByRole("table", { name: "Historial de informes" });
     expect(historyHeading.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(table).getByText("queued-run")).toBeInTheDocument();
+    const queuedRow = within(table).getByRole("row", { name: /queued-run/ });
+    expect(within(queuedRow).queryByRole("button", { name: "Cancelar solicitud en cola" })).not.toBeInTheDocument();
     expect(within(table).getByRole("button", { name: "Descargar PDF" })).toBeEnabled();
     expect(within(aiCard).getByRole("combobox", { name: "Estado del informe" })).toBeInTheDocument();
     expect(within(aiCard).getByRole("button", { name: "Actualizar historial" })).toBeEnabled();
@@ -1577,7 +1579,7 @@ describe("feedback analytics UI projections", () => {
     const comments = { items: [], total: 0, page: 1, pageSize: 25 };
     const generations = {
       items: [
-        { reportRunId: "queued-run", status: "queued", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, report: null },
+        { reportRunId: "queued-run", status: "queued", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, cancellationIdentity: { stateVersion: 3 }, report: null },
         { reportRunId: "running-run", status: "running", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T02:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, report: null },
         { reportRunId: "succeeded-run", status: "succeeded", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T03:00:00.000Z", completedAt: "2026-09-21T03:10:00.000Z", failureCode: null, safeFailureMessage: null, retryOfReportRunId: "failed-source", report: { reportId: "immutable-report", createdAt: "2026-09-21T03:10:00.000Z", period: { from: "2026-09-01", to: "2026-09-20" }, analyzedResponseCount: 12, analyzedCommentCount: 3 } },
         { reportRunId: "failed-run", status: "failed", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T04:00:00.000Z", completedAt: "2026-09-21T04:10:00.000Z", failureCode: "PROVIDER_TRANSIENT", safeFailureMessage: "El proveedor no está disponible temporalmente.", retryOfReportRunId: null, report: null, privateSnapshot: "never render this", modelName: "private-model", usageCost: 99 },
@@ -1597,6 +1599,8 @@ describe("feedback analytics UI projections", () => {
     expect(screen.getByText("El proveedor no está disponible temporalmente.")).toBeInTheDocument();
     expect(screen.getByText("immutable-report")).toBeInTheDocument();
     expect(screen.getByText("failed-source")).toBeInTheDocument();
+    expect(within(screen.getByRole("row", { name: /queued-run/ })).getByRole("button", { name: "Cancelar solicitud en cola" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancelar solicitud en cola" })).toBeInTheDocument();
     expect(screen.queryByText(/never render this|private-model|usageCost/)).not.toBeInTheDocument();
   });
 
@@ -1654,6 +1658,67 @@ describe("feedback analytics UI projections", () => {
     fireEvent.click(screen.getByRole("button", { name: "Solicitar informe" }));
     expect(await screen.findByText("created-run")).toBeInTheDocument();
     await waitFor(() => expect(historyReads).toBeGreaterThanOrEqual(3));
+  });
+
+  it("confirms queued cancellation, sends the expected identity, and refreshes history after conflict and success", async () => {
+    const comments = { items: [], total: 0, page: 1, pageSize: 25 };
+    const queuedGeneration = {
+      reportRunId: "00000000-0000-4000-8000-000000000117",
+      status: "queued" as const,
+      period: { from: "2026-09-01", to: "2026-09-20" },
+      dataCutoffAt: "2026-09-21T00:00:00.000Z",
+      createdAt: "2026-09-21T01:00:00.000Z",
+      completedAt: null,
+      failureCode: null,
+      safeFailureMessage: null,
+      retryOfReportRunId: null,
+      cancellationIdentity: {
+        stateVersion: 3,
+      },
+      report: null,
+    };
+    let historyReads = 0;
+    let cancellationAttempts = 0;
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path, init) => {
+      const url = String(path);
+      if (url.includes("/comments?"))
+        return Promise.resolve(Response.json({ contractVersion: "feedback-admin.v1", data: comments, meta: {} }));
+      if (init?.method === "POST") {
+        cancellationAttempts += 1;
+        return Promise.resolve(cancellationAttempts === 1
+          ? Response.json({ error: { code: "INVALID_STATE", message: "The report generation changed" } }, { status: 409 })
+          : Response.json({ reportRunId: queuedGeneration.reportRunId, status: "failed", failureCode: "OPERATOR_CANCELLED" }));
+      }
+      historyReads += 1;
+      return Promise.resolve(Response.json({
+        contractVersion: "feedback-admin.v1",
+        data: { items: [queuedGeneration], total: 1, page: 1, pageSize: 25 },
+        meta: {},
+      }));
+    });
+
+    try {
+      render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
+      expect(await screen.findByText(queuedGeneration.reportRunId)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar solicitud en cola" }));
+      expect(confirm).toHaveBeenCalledWith(expect.stringContaining(queuedGeneration.reportRunId));
+      expect(await screen.findByRole("alert")).toHaveTextContent("La ejecución cambió o ya no está en cola.");
+      await waitFor(() => expect(historyReads).toBeGreaterThanOrEqual(2));
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancelar solicitud en cola" }));
+      await waitFor(() => expect(cancellationAttempts).toBe(2));
+      await waitFor(() => expect(historyReads).toBeGreaterThanOrEqual(3));
+      const cancelCall = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([path, init]) => String(path).endsWith("/cancel") && init?.method === "POST");
+      expect(cancelCall).toBeDefined();
+      expect(JSON.parse(String(cancelCall?.[1]?.body))).toEqual({
+        contractVersion: "feedback-admin.v1",
+        expectedStateVersion: 3,
+      });
+    } finally {
+      confirm.mockRestore();
+    }
   });
 
   it("recovers generation-history read errors and renders an empty state", async () => {

@@ -175,6 +175,11 @@ module.exports = createCoreService(
         withTransaction: createTransaction(strapi),
       }).compensateDispatchFailure(input);
     },
+    cancelQueued(input) {
+      return lifecycle.createGenerationLifecycle({
+        withTransaction: createTransaction(strapi),
+      }).cancelQueued(input);
+    },
     reserveDispatch(input) {
       return lifecycle.createGenerationLifecycle({
         withTransaction: createTransaction(strapi),

@@ -60,6 +60,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
   assert.deepEqual(generationAdminRoutes.map(({ method, path: routePath, handler }) => [method, routePath, handler]), [
     ['POST', '/tb113/admin/generations/:reportRunId/dispatch-failure', 'survey-report-generation.dispatchFailure'],
     ['POST', '/tb113/admin/generations/:reportRunId/dispatch-state', 'survey-report-generation.dispatchState'],
+    ['POST', '/tb113/admin/generations/:reportRunId/cancel', 'survey-report-generation.operatorCancel'],
     ['POST', '/tb113/worker/generations/:reportRunId/claim', 'survey-report-generation.workerClaim'],
     ['POST', '/tb113/worker/generations/:reportRunId/fail', 'survey-report-generation.workerFail'],
     ['POST', '/tb113/worker/generations/:reportRunId/alerts/ack', 'survey-report-generation.workerAlertAck'],
@@ -85,6 +86,9 @@ test('survey routes expose bounded native reads and mediated writes', () => {
   }
   assert.equal(generationAdminRoutes.find(({ handler }) => handler.endsWith('.dispatchFailure')).config, undefined);
   assert.equal(generationAdminRoutes.find(({ handler }) => handler.endsWith('.dispatchState')).config, undefined);
+  assert.equal(generationAdminRoutes.find(({ handler }) => handler.endsWith('.operatorCancel')).config, undefined);
+  assert.match(generationController, /async operatorCancel\(ctx\)/);
+  assert.match(generationController, /validateOperatorCancelCommand\(command, ctx\.params\.reportRunId\)/);
   assert.equal(fs.existsSync(path.join(generationRoot, 'services/admin-commands.js')), false);
   const reportRoutes = fs.readFileSync(path.resolve(__dirname, '../../../src/api/survey-report/routes/survey-report.js'), 'utf8');
   assert.match(reportRoutes, /createCoreRouter/);
@@ -276,6 +280,43 @@ test('generation history projects synthetic failed and succeeded rows without pr
   assert.deepEqual(calls[1][1].orderBy, [{ createdAt: 'desc' }, { reportRunId: 'asc' }]);
   assert.equal(calls[1][1].fields.includes('snapshotJson'), true);
   assert.equal(Object.hasOwn(result.items[0], 'snapshotJson'), false);
+});
+
+test('generation history exposes only the queued state version needed for cancellation', async () => {
+  const reportRunId = '00000000-0000-4000-8000-000000000117';
+  const row = {
+    reportRunId,
+    periodStart: '2026-08-01',
+    periodEnd: '2026-08-31',
+    dataCutoffAt: '2026-09-01T12:00:00.000Z',
+    generationStatus: 'queued',
+    stateVersion: 3,
+    taskName: `tb113-report-${reportRunId.replaceAll('-', '')}`,
+    claimedAt: null,
+    createdAt: '2026-09-01T13:00:00.000Z',
+    completedAt: null,
+    failureCode: null,
+    safeFailureMessage: null,
+    retryOfGeneration: null,
+    report: null,
+    snapshotJson: {},
+  };
+  const strapi = {
+    db: { query: () => ({ count: async () => 1, findMany: async () => [row] }) },
+  };
+  const result = await createPrivateFeedbackAdminReader(strapi).readPage({
+    contractVersion: 'feedback-admin-source.v1',
+    resource: 'generations',
+    acceptedAtGte: '2026-08-01T03:00:00.000Z',
+    acceptedAtLte: '2026-09-01T02:59:59.999Z',
+    dataCutoffAt: '2026-09-02T12:00:00.000Z',
+    cursor: null,
+    pageSize: 25,
+    status: null,
+  });
+
+  assert.deepEqual(result.items[0].cancellationIdentity, { stateVersion: 3 });
+  assert.doesNotMatch(JSON.stringify(result), /tb113-report-|taskName|claimedAt|snapshotJson/);
 });
 
 test('invalid report download metadata disables download without invalidating a safe succeeded row', async () => {

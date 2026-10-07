@@ -81,7 +81,8 @@ function store(initial) {
         return await operation({
           async lockGeneration(runId) {
             lockedRunId = runId;
-            return { ...generations.get(runId) };
+            const generation = generations.get(runId);
+            return generation ? { ...generation } : undefined;
           },
           async lockWorkerSnapshot(runId) {
             return { ...generations.get(runId) };
@@ -327,6 +328,87 @@ test("worker claim is atomic, resumable, and returns only minimal terminal repla
   assert.deepEqual(await terminalLifecycle.claimWorker({ reportRunId: runId }), {
     reportRunId: runId, stateVersion: 4, status: "failed", disposition: "terminal-replay",
   });
+});
+
+test("operator cancellation is queued-only, requires the persisted task identity and version, and makes later worker claims terminal", async () => {
+  const runId = "00000000-0000-4000-8000-000000000117";
+  const taskName = `tb113-report-${runId.replaceAll("-", "")}`;
+  const value = store({
+    reportRunId: runId,
+    status: "queued",
+    stateVersion: 4,
+    taskName,
+    dispatchState: "created",
+    claimedAt: null,
+    snapshotJson: { immutable: true },
+  });
+  const lifecycle = createGenerationLifecycle({
+    withTransaction: value.withTransaction,
+    now: () => "2026-10-07T18:00:00.000Z",
+  });
+  const command = {
+    contractVersion: "survey-report-cancel.v1",
+    expectedStateVersion: 4,
+    taskName,
+  };
+
+  assert.deepEqual(await lifecycle.cancelQueued({ reportRunId: runId, command }), {
+    reportRunId: runId,
+    stateVersion: 5,
+    status: "failed",
+    failureCode: "OPERATOR_CANCELLED",
+    replayed: false,
+  });
+  assert.equal(value.generation(runId).completedAt, "2026-10-07T18:00:00.000Z");
+  assert.equal(value.generation(runId).safeFailureMessage, "The queued report was cancelled by an authorized operator.");
+  assert.equal(value.generation(runId).taskName, taskName);
+  assert.deepEqual(value.generation(runId).snapshotJson, { immutable: true });
+  assert.deepEqual(await lifecycle.cancelQueued({ reportRunId: runId, command }), {
+    reportRunId: runId,
+    stateVersion: 5,
+    status: "failed",
+    failureCode: "OPERATOR_CANCELLED",
+    replayed: true,
+  });
+  assert.equal((await lifecycle.claimWorker({ reportRunId: runId })).disposition, "terminal-replay");
+
+  for (const generation of [
+    { reportRunId: runId, status: "queued", stateVersion: 4, taskName: "tb113-report-other" },
+    { reportRunId: runId, status: "queued", stateVersion: 4, taskName, claimedAt: "2026-10-07T17:59:00.000Z" },
+    { reportRunId: runId, status: "running", stateVersion: 4, taskName, claimedAt: "2026-10-07T17:59:00.000Z" },
+    { reportRunId: runId, status: "failed", stateVersion: 5, taskName, failureCode: "PROVIDER_TRANSIENT" },
+  ]) {
+    const invalid = store(generation);
+    const invalidLifecycle = createGenerationLifecycle({ withTransaction: invalid.withTransaction });
+    const expectedCode = generation.taskName !== taskName
+      ? "TASK_IDENTITY_CONFLICT"
+      : generation.stateVersion === 4
+        ? "INVALID_STATE"
+        : "STATE_VERSION_CONFLICT";
+    await assert.rejects(
+      invalidLifecycle.cancelQueued({ reportRunId: runId, command }),
+      { code: expectedCode },
+    );
+    assert.deepEqual(invalid.generation(runId), generation);
+  }
+
+  const stale = store({ reportRunId: runId, status: "queued", stateVersion: 4, taskName });
+  const staleLifecycle = createGenerationLifecycle({ withTransaction: stale.withTransaction });
+  await assert.rejects(
+    staleLifecycle.cancelQueued({ reportRunId: runId, command: { ...command, expectedStateVersion: 3 } }),
+    { code: "STATE_VERSION_CONFLICT" },
+  );
+  const missingRunId = "00000000-0000-4000-8000-000000000118";
+  await assert.rejects(
+    staleLifecycle.cancelQueued({
+      reportRunId: missingRunId,
+      command: {
+        ...command,
+        taskName: `tb113-report-${missingRunId.replaceAll("-", "")}`,
+      },
+    }),
+    { code: "RUN_NOT_FOUND" },
+  );
 });
 
 test("worker claim rejects malformed, double-encoded, placeholder, and unsupported stored contracts without changing queued state", async () => {

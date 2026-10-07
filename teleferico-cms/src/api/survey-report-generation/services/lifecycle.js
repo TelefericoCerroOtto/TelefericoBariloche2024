@@ -206,6 +206,15 @@ function validateDispatchStateCommand(value, reportRunId) {
   return false;
 }
 
+function validateOperatorCancelCommand(value, reportRunId) {
+  const taskName = expectedTaskName(reportRunId);
+  return Boolean(taskName && value && typeof value === 'object' && !Array.isArray(value) &&
+    exactKeys(value, ['contractVersion', 'expectedStateVersion', 'taskName']) &&
+    value.contractVersion === 'survey-report-cancel.v1' &&
+    Number.isSafeInteger(value.expectedStateVersion) && value.expectedStateVersion > 0 &&
+    value.taskName === taskName);
+}
+
 function assertReportCreation(generation) {
   if (generation.status !== 'running') throw domainError('INVALID_STATE');
 }
@@ -554,6 +563,49 @@ function createGenerationLifecycle({ withTransaction, now = () => new Date().toI
         const patch = prepareDispatchFailure(generation, expectedStateVersion, now(), dispatchAttemptCount);
         await transaction.updateGeneration(patch);
         return { reportRunId, stateVersion: patch.stateVersion, status: 'failed', failureCode: patch.failureCode, replayed: false };
+      });
+    },
+    async cancelQueued({ reportRunId, command }) {
+      if (!validateOperatorCancelCommand(command, reportRunId))
+        throw domainError('VALIDATION_FAILED');
+      return withTransaction(async (transaction) => {
+        const generation = await transaction.lockGeneration(reportRunId);
+        if (!generation) throw domainError('RUN_NOT_FOUND');
+        if (generation.status === 'failed' &&
+            generation.stateVersion === command.expectedStateVersion + 1 &&
+            generation.taskName === command.taskName &&
+            generation.claimedAt == null &&
+            generation.failureCode === 'OPERATOR_CANCELLED' &&
+            generation.safeFailureMessage === 'The queued report was cancelled by an authorized operator.')
+          return {
+            reportRunId,
+            stateVersion: generation.stateVersion,
+            status: 'failed',
+            failureCode: 'OPERATOR_CANCELLED',
+            replayed: true,
+          };
+        if (generation.stateVersion !== command.expectedStateVersion)
+          throw domainError('STATE_VERSION_CONFLICT');
+        if (generation.status !== 'queued' || generation.claimedAt != null)
+          throw domainError('INVALID_STATE');
+        if (generation.taskName !== command.taskName)
+          throw domainError('TASK_IDENTITY_CONFLICT');
+        const patch = {
+          status: 'failed',
+          stateVersion: command.expectedStateVersion + 1,
+          completedAt: now(),
+          failureCode: 'OPERATOR_CANCELLED',
+          safeFailureMessage: 'The queued report was cancelled by an authorized operator.',
+          expectedStatus: 'queued',
+        };
+        await transaction.updateGeneration(patch);
+        return {
+          reportRunId,
+          stateVersion: patch.stateVersion,
+          status: 'failed',
+          failureCode: patch.failureCode,
+          replayed: false,
+        };
       });
     },
     async reserveDispatch({ reportRunId, command }) {
@@ -987,6 +1039,7 @@ module.exports = {
   prepareWorkerSnapshot,
   verifyPersistedMapReduceOutputAuthorities,
   validateDispatchStateCommand,
+  validateOperatorCancelCommand,
   validateWorkerClaimCommand,
   validateWorkerFailCommand,
   validateWorkerAlertAcknowledgeCommand,

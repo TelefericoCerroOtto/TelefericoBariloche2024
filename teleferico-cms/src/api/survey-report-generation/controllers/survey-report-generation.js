@@ -4,6 +4,7 @@ const { createCoreController } = require("@strapi/strapi").factories;
 const { measureDispatchFailureRequestBody } = require("../services/dispatch-failure-request");
 const {
   validateDispatchStateCommand,
+  validateOperatorCancelCommand,
   validateWorkerClaimCommand,
   validateWorkerFailCommand,
   validateWorkerAlertAcknowledgeCommand,
@@ -87,6 +88,36 @@ module.exports = createCoreController(
         const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
         ctx.status = status;
         ctx.body = { error: { code: safeCode, message: status === 500 ? "The dispatch command failed" : "The dispatch command was rejected" } };
+      }
+    },
+    async operatorCancel(ctx) {
+      const command = ctx.request.body;
+      const bodySize = measureDispatchFailureRequestBody(ctx.request);
+      if (bodySize === null || bodySize > 4 * 1024) {
+        ctx.status = 413;
+        ctx.body = { error: { code: "PAYLOAD_TOO_LARGE", message: "The cancellation command is too large" } };
+        return;
+      }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ctx.params.reportRunId) ||
+          !validateOperatorCancelCommand(command, ctx.params.reportRunId)) {
+        ctx.status = 400;
+        ctx.body = { error: { code: "VALIDATION_FAILED", message: "The cancellation command is invalid" } };
+        return;
+      }
+      try {
+        const result = await strapi.service("api::survey-report-generation.survey-report-generation").cancelQueued({
+          reportRunId: ctx.params.reportRunId,
+          command,
+        });
+        ctx.status = 200;
+        ctx.body = { contractVersion: "survey-report-cancel.v1", ...result };
+      } catch (error) {
+        const code = error.code ?? "INTERNAL_ERROR";
+        const statuses = { RUN_NOT_FOUND: 404, STATE_VERSION_CONFLICT: 409, INVALID_STATE: 409, TASK_IDENTITY_CONFLICT: 409, VALIDATION_FAILED: 400 };
+        const status = statuses[code] ?? 500;
+        const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
+        ctx.status = status;
+        ctx.body = { error: { code: safeCode, message: status === 500 ? "The cancellation command failed" : "The cancellation command was rejected" } };
       }
     },
     async workerClaim(ctx) {

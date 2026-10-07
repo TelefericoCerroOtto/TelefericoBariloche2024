@@ -17,6 +17,8 @@ import {
   REPORTING_TIME_ZONE,
 } from "@teleferico/survey-reporting-core";
 import type {
+  FeedbackAdminCancelCommand,
+  FeedbackAdminCancelResult,
   FeedbackAdminCommandResult,
   FeedbackAdminCommandStatus,
   FeedbackAdminDateRange,
@@ -53,6 +55,7 @@ const UUID_PATTERN =
 const DIGEST_PATTERN = /^[a-f0-9]{64}$/;
 const GENERATION_ENDPOINT = "/api/survey-report-generations";
 const DISPATCH_FAILURE_ENDPOINT = "/api/tb113/admin/generations";
+const OPERATOR_CANCEL_ENDPOINT = "/api/tb113/admin/generations";
 
 type RecordValue = Record<string, unknown>;
 type CommandResult =
@@ -205,6 +208,18 @@ export function parseRetryCommand(value: unknown): RetryResult {
     value.contractVersion === "feedback-admin.v1"
     ? { ok: true, value: value as unknown as FeedbackAdminRetryCommand }
     : { ok: false, code: "VALIDATION_FAILED" };
+}
+
+export function parseCancelCommand(
+  reportRunId: string,
+  value: unknown,
+): { readonly ok: true; readonly value: FeedbackAdminCancelCommand } | { readonly ok: false; readonly code: "VALIDATION_FAILED" } {
+  if (!UUID_PATTERN.test(reportRunId) || !isRecord(value) ||
+      !exact(value, ["contractVersion", "expectedStateVersion"]) ||
+      value.contractVersion !== "feedback-admin.v1" ||
+      !Number.isSafeInteger(value.expectedStateVersion) || Number(value.expectedStateVersion) < 1)
+    return { ok: false, code: "VALIDATION_FAILED" };
+  return { ok: true, value: value as unknown as FeedbackAdminCancelCommand };
 }
 
 function asCoreGeneration(value: unknown): CoreGeneration | undefined {
@@ -595,6 +610,37 @@ export function createFeedbackAdminCommandTransport(options: Options) {
         }),
       );
       return dispatchCreated(result);
+    },
+    async cancelQueued(reportRunId: string, value: FeedbackAdminCancelCommand): Promise<FeedbackAdminCancelResult> {
+      const taskName = createFeedbackTaskName(reportRunId);
+      if (!UUID_PATTERN.test(reportRunId) || !taskName ||
+          !Number.isSafeInteger(value.expectedStateVersion) || value.expectedStateVersion < 1)
+        throw new FeedbackAdminCommandError("VALIDATION_FAILED", 400);
+      const response = await coreRequest(
+        `${OPERATOR_CANCEL_ENDPOINT}/${reportRunId}/cancel`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            contractVersion: "survey-report-cancel.v1",
+            expectedStateVersion: value.expectedStateVersion,
+            taskName,
+          }),
+        },
+        "INVALID_STATE",
+      );
+      if (!isRecord(response) || response.contractVersion !== "survey-report-cancel.v1" ||
+          response.reportRunId !== reportRunId || response.status !== "failed" ||
+          response.failureCode !== "OPERATOR_CANCELLED" ||
+          response.stateVersion !== value.expectedStateVersion + 1 ||
+          typeof response.replayed !== "boolean")
+        throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+      return {
+        reportRunId,
+        status: "failed",
+        stateVersion: value.expectedStateVersion + 1,
+        failureCode: "OPERATOR_CANCELLED",
+        replayed: response.replayed,
+      };
     },
   };
 }
