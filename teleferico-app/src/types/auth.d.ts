@@ -1,4 +1,5 @@
 import type { User as StrapiUser } from "@/types";
+import type { FeedbackAdminCapability } from "@/types/api/admin/feedback";
 
 /**
  * [Type augmentation rationale]
@@ -32,6 +33,7 @@ declare module "next-auth" {
       email: User["email"];
       blocked: User["blocked"];
       role: User["role"];
+      capabilities: readonly FeedbackAdminCapability[];
     };
     csrfToken: string;
   }
@@ -42,9 +44,11 @@ import "next-auth/jwt";
 
 declare module "next-auth/jwt" {
   /** Returned by the `jwt` callback and `auth`, when using JWT sessions */
-  interface JWT extends Omit<StrapiUser, "faved_postulations"> {
+  interface JWT extends Omit<StrapiUser, "faved_postulations" | "role"> {
+    role: StrapiUser["role"];
     jwt: string;
     authExpiresAt: number;
     csrfToken: string;
+    capabilities: readonly FeedbackAdminCapability[];
   }
 }

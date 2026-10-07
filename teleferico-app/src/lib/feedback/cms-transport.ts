@@ -210,13 +210,13 @@ function nativeVersionLifecycle(
   if (
     !record ||
     typeof record.versionKey !== "string" ||
-    (record.status !== "draft" && record.status !== "published")
+    (record.surveyVersionStatus !== "draft" && record.surveyVersionStatus !== "published")
   )
     return null;
   const lastSupersededAt = record.lastSupersededAt;
   return {
     versionKey: record.versionKey,
-    status: record.status,
+    status: record.surveyVersionStatus,
     lastSupersededAtEpochSeconds:
       lastSupersededAt === null || lastSupersededAt === undefined
         ? null
@@ -264,14 +264,14 @@ function nativeSurveyContext(
     typeof point.pointKey !== "string" ||
     typeof point.publicCode !== "string" ||
     typeof point.displayName !== "string" ||
-    point.status !== "active" ||
+    point.qrPointStatus !== "active" ||
     (point.inactiveAt !== null && point.inactiveAt !== undefined) ||
     settings.intakeEnabled !== true ||
     typeof settings.settingsRevision !== "number" ||
     !Number.isSafeInteger(settings.settingsRevision) ||
     typeof version.documentId !== "string" ||
     typeof version.versionKey !== "string" ||
-    version.status !== "published" ||
+    version.surveyVersionStatus !== "published" ||
     !isRecord(version.copyEs) ||
     !isRecord(version.copyEn) ||
     !isRecord(version.copyPt) ||
@@ -335,7 +335,7 @@ export function createFeedbackCmsTransport(options: Options) {
       if (!PUBLIC_CODE_PATTERN.test(publicCode)) return null;
       const pointQuery = new URLSearchParams({
         "filters[publicCode][$eq]": publicCode,
-        "filters[status][$eq]": "active",
+        "filters[qrPointStatus][$eq]": "active",
         "filters[inactiveAt][$null]": "true",
         "pagination[pageSize]": "1",
       });
@@ -345,8 +345,7 @@ export function createFeedbackCmsTransport(options: Options) {
       const versionsQuery = new URLSearchParams({
         "pagination[pageSize]": String(NATIVE_VERSION_PAGE_SIZE),
         "fields[0]": "versionKey",
-        "fields[1]": "status",
-        "fields[2]": "lastSupersededAt",
+        "fields[1]": "surveyVersionStatus",
       });
       const [pointResponse, settingsResponse, versionsResponse] =
         await Promise.all([
@@ -399,6 +398,7 @@ export function createFeedbackCmsTransport(options: Options) {
                 }),
               });
               if (!response.ok) throw new Error("CMS unavailable");
+              if (response.status === 204) return null;
               const value = await readJson(response);
               if (value === null) return null;
               if (

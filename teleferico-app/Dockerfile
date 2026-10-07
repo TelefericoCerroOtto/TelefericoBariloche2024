@@ -1,0 +1,54 @@
+# syntax=docker/dockerfile:1.7
+
+FROM --platform=linux/amd64 node@sha256:7cc56ef285a8568121537d17b05e72128f01b89c54607b51acf084a50ef483f3
+
+WORKDIR /workspace/teleferico-app
+
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
+
+ARG NPM_CONFIG_OPTIONAL=true
+ARG NPM_CONFIG_PREFER_OFFLINE=true
+ARG NPM_CONFIG_CPU=x64
+ARG NPM_CONFIG_OS=linux
+ARG NPM_CONFIG_LIBC=glibc
+
+COPY teleferico-app/package.json teleferico-app/pnpm-lock.yaml teleferico-app/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY teleferico-app/ ./
+COPY packages/survey-reporting-core /workspace/packages/survey-reporting-core
+COPY packages/tb113-runtime-contracts /workspace/packages/tb113-runtime-contracts
+COPY packages/tb113-private-report-storage /workspace/packages/tb113-private-report-storage
+
+ARG BUILD_STRAPI_BASE_URL
+ARG BUILD_STRAPI_BUCKET_HOSTNAME
+ARG BUILD_STRAPI_BUCKET_PATHNAME
+ARG CV_STORAGE_DRIVER
+ARG GCS_BUCKET_NAME
+ARG GCS_PRIVATE_BASE_PATH
+ARG GCS_SIGNED_URL_TTL_SECONDS
+ARG CONTACT_RATE_LIMIT_ENABLED
+ARG CONTACT_RATE_LIMIT_MAX
+ARG CONTACT_RATE_LIMIT_WINDOW_MS
+ARG CONTACT_EMAIL_LIMIT_ENABLED
+ARG CONTACT_EMAIL_LIMIT_MAX
+ARG CONTACT_EMAIL_LIMIT_WINDOW_MS
+ARG POSTULATION_RATE_LIMIT_ENABLED
+ARG POSTULATION_RATE_LIMIT_MAX
+ARG POSTULATION_RATE_LIMIT_WINDOW_MS
+ARG POSTULATION_EMAIL_LIMIT_ENABLED
+ARG POSTULATION_EMAIL_LIMIT_MAX
+ARG POSTULATION_EMAIL_LIMIT_WINDOW_MS
+ARG NEXT_PUBLIC_SITE_URL
+ARG APP_INTERNAL_BASE_URL
+ARG NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+ARG ENABLE_STATIC_LOCALE_PARAMS
+ARG NODE_OPTIONS=--max-old-space-size=3072
+
+RUN --mount=type=secret,id=BUILD_STRAPI_CONTENT_TOKEN,required=true \
+    export BUILD_STRAPI_CONTENT_TOKEN="$(cat /run/secrets/BUILD_STRAPI_CONTENT_TOKEN)" && \
+    pnpm run build
+
+EXPOSE 8080
+
+CMD ["pnpm", "start"]

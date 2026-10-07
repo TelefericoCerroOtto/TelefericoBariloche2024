@@ -15,6 +15,7 @@
     "@strapi-community/strapi-provider-upload-google-cloud-storage": "5.0.5",
     "@strapi/plugin-users-permissions": "5.45.1",
     "@strapi/strapi": "5.45.1",
+    "google-auth-library": "9.15.1",
     "pg": "8.20.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",

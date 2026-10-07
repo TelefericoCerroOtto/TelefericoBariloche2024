@@ -15,7 +15,9 @@ cutoffs, and atomic publication are deferred to U9.
 
 ### Requirement: Separate generation and report records
 
-`survey-report-generation` MUST be the mutable process record with unique immutable `reportRunId`, inclusive `periodStart`/`periodEnd`, `dataCutoffAt`, `status: queued|running|succeeded|failed`, nullable `requestedBy`, nullable `retryOfGeneration`, snapshot identity, stage checkpoints, attempts, safe failure, and cost metadata. It MUST relate to at most one `survey-report`. A report MUST be created only on success with unique report identity, source generation, immutable period/cutoff/snapshot/validated-output/artifact metadata, `generatedBy`, and creation time. (Primary: D40, D71)
+`survey-report-generation` MUST be the mutable process record with unique immutable `reportRunId`, inclusive `periodStart`/`periodEnd`, `dataCutoffAt`, `generationStatus: queued|running|succeeded|failed`, nullable `requestedBy`, nullable `retryOfGeneration`, snapshot identity, stage checkpoints, attempts, safe failure, and cost metadata. It MUST relate to at most one `survey-report`. A report MUST be created only on success with unique report identity, source generation, immutable period/cutoff/snapshot/validated-output/artifact metadata, `generatedBy`, and creation time. (Primary: D40, D71)
+
+The Strapi content attribute MUST be named `generationStatus`, not `status`, to avoid collision with native document status. Existing `status` response fields in the worker and app command contracts remain unchanged and are explicitly mapped at the CMS boundary.
 
 #### Scenario: Observe asynchronous history
 - GIVEN a queued generation whose requester leaves the page
@@ -77,6 +79,16 @@ Generation MUST remain asynchronously observable as `queued`, `running`, `succee
 - GIVEN every required checkpoint and artifact is valid
 - WHEN completion commits
 - THEN generation and report MUST become visible together without an intermediate success-only state.
+
+#### Scenario: Completion wins a failure-cleanup race
+- GIVEN one worker has staged the final-key PDF and another worker commits completion before its failure compare-and-swap
+- WHEN the failing worker receives a conflict, terminal success, or unknown CMS outcome
+- THEN it MUST NOT discard the staged object, and the completed report PDF MUST remain readable.
+
+#### Scenario: Confirmed failure cleanup
+- GIVEN the CMS confirms a terminal failed transition or an identical failed replay for the same generation and failure code
+- WHEN conditional artifact cleanup succeeds or fails
+- THEN cleanup MAY delete only the matching run/digest object; cleanup failure MUST preserve the committed failed status and report `cleanupPending` safely.
 
 ## Traceability
 

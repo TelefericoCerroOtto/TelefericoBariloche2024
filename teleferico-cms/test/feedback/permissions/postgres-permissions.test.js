@@ -13,7 +13,6 @@ const FUTURE_CAPABILITIES = new Set([
   'feedback.comments.read',
   'feedback.reports.read',
   'feedback.reports.generate',
-  'feedback.reports.download',
 ]);
 const compose = (...args) => ['compose', '--file', COMPOSE_FILE, '--project-name', OWNER, ...args];
 const executeCompose = (...args) => executeFixed(DOCKER_EXECUTABLE, compose(...args));
@@ -121,7 +120,7 @@ test('real isolated Strapi exposes core routes without default survey grants', a
         const registeredActions = surveyApis
           .flatMap(([, api]) => Object.values(api.routes).flatMap((route) => route.routes ?? route))
           .map((route) => route.handler);
-        const dispatchActions = registeredActions.filter((action) => action.endsWith('.dispatchFailure') || action.endsWith('.dispatchState') || action.endsWith('.workerClaim') || action.endsWith('.workerSnapshot'));
+        const dispatchActions = registeredActions.filter((action) => action.endsWith('.dispatchFailure') || action.endsWith('.dispatchState') || action.endsWith('.workerClaim') || action.endsWith('.workerFail') || action.endsWith('.workerAlertAck') || action.endsWith('.workerSnapshot') || action.endsWith('.workerSourceRead') || action.endsWith('.workerCheckpoint') || action.endsWith('.workerComplete') || action.endsWith('.workerReportDownloadMetadata') || action.endsWith('.feedbackAdminRead'));
         const roles = await strapi.db.connection('up_roles').select('name');
         const permissions = await strapi.db.connection('up_permissions').select('action');
         const tokenPermissions = await strapi.db.connection('strapi_api_token_permissions').select('action');
@@ -130,10 +129,17 @@ test('real isolated Strapi exposes core routes without default survey grants', a
         assert.deepEqual(dispatchActions.sort(), [
           'survey-report-generation.dispatchFailure',
           'survey-report-generation.dispatchState',
+          'survey-report-generation.feedbackAdminRead',
+          'survey-report-generation.workerAlertAck',
+          'survey-report-generation.workerCheckpoint',
           'survey-report-generation.workerClaim',
+          'survey-report-generation.workerComplete',
+          'survey-report-generation.workerFail',
+          'survey-report-generation.workerReportDownloadMetadata',
           'survey-report-generation.workerSnapshot',
+          'survey-report-generation.workerSourceRead',
         ]);
-        assert.deepEqual(registeredActions.filter((action) => !action.endsWith('.dispatchFailure') && !action.endsWith('.dispatchState') && !action.endsWith('.workerClaim') && !action.endsWith('.workerSnapshot')), [
+        assert.deepEqual(registeredActions.filter((action) => !action.endsWith('.dispatchFailure') && !action.endsWith('.dispatchState') && !action.endsWith('.workerClaim') && !action.endsWith('.workerFail') && !action.endsWith('.workerAlertAck') && !action.endsWith('.workerSnapshot') && !action.endsWith('.workerSourceRead') && !action.endsWith('.workerCheckpoint') && !action.endsWith('.workerComplete') && !action.endsWith('.workerReportDownloadMetadata') && !action.endsWith('.feedbackAdminRead')), [
           'api::survey-qr-point.survey-qr-point.find',
           'api::survey-qr-point.survey-qr-point.findOne',
           'api::survey-qr-point.survey-qr-point.create',

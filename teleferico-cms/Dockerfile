@@ -1,11 +1,12 @@
 FROM node:22-bookworm-slim
 
-WORKDIR /app
+WORKDIR /workspace/teleferico-cms
 
-COPY package.json package-lock.json ./
+COPY teleferico-cms/package.json teleferico-cms/package-lock.json ./
 RUN npm ci
 
-COPY . .
+COPY teleferico-cms/ ./
+COPY packages/tb113-runtime-contracts /workspace/packages/tb113-runtime-contracts
 RUN npm run build
 
 EXPOSE 1337

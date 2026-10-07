@@ -75,6 +75,28 @@
         }
       },
       "required": true
+    },
+    "detailImageMobile": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": false,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      },
+      "required": false
+    },
+    "detailImageDesktop": {
+      "type": "component",
+      "component": "utils-components.image",
+      "repeatable": false,
+      "pluginOptions": {
+        "i18n": {
+          "localized": false
+        }
+      },
+      "required": false
     }
   }
 }

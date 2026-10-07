@@ -57,7 +57,7 @@ function draftVersion(overrides = {}) {
   return {
     documentId: 'version-document',
     versionKey: 'visitor-v1',
-    status: 'draft',
+    surveyVersionStatus: 'draft',
     copyEs: COMPLETE_COPY,
     copyEn: COMPLETE_COPY,
     copyPt: COMPLETE_COPY,
@@ -78,12 +78,12 @@ function draftVersion(overrides = {}) {
 test('publishes only complete drafts and keeps published content immutable', () => {
   const published = preparePublish(draftVersion(), '2026-09-15T12:00:00.000Z');
   assert.deepEqual(published, {
-    status: 'published',
+    surveyVersionStatus: 'published',
     lifecyclePublishedAt: '2026-09-15T12:00:00.000Z',
   });
 
   assert.throws(
-    () => preparePublish(draftVersion({ status: 'published' }), '2026-09-15T12:00:00.000Z'),
+    () => preparePublish(draftVersion({ surveyVersionStatus: 'published' }), '2026-09-15T12:00:00.000Z'),
     { code: 'PUBLISHED_VERSION_IMMUTABLE' },
   );
   assert.throws(
@@ -102,7 +102,7 @@ test('publishes only complete drafts and keeps published content immutable', () 
 });
 
 test('activation repoints the singleton and preserves immutable published versions', () => {
-  const result = prepareActivation({ settingsRevision: 3 }, draftVersion({ status: 'published' }), {
+  const result = prepareActivation({ settingsRevision: 3 }, draftVersion({ surveyVersionStatus: 'published' }), {
     documentId: 'old-version',
   }, '2026-09-15T12:00:00.000Z');
 
@@ -119,7 +119,7 @@ test('activation repoints the singleton and preserves immutable published versio
   assert.equal(
     prepareActivation(
       { settingsRevision: 4 },
-      draftVersion({ status: 'published' }),
+      draftVersion({ surveyVersionStatus: 'published' }),
       { documentId: 'version-document' },
       '2026-09-15T12:00:00.000Z',
     ).previous,
@@ -128,13 +128,13 @@ test('activation repoints the singleton and preserves immutable published versio
 });
 
 test('QR status transitions set and clear inactiveAt without replacing identity', () => {
-  const point = { pointKey: 'summit', publicCode: 'x'.repeat(32), status: 'active' };
+  const point = { pointKey: 'summit', publicCode: 'x'.repeat(32), qrPointStatus: 'active' };
   assert.deepEqual(prepareQrStatus(point, 'inactive', '2026-09-15T12:00:00.000Z'), {
-    status: 'inactive',
+    qrPointStatus: 'inactive',
     inactiveAt: '2026-09-15T12:00:00.000Z',
   });
-  assert.deepEqual(prepareQrStatus({ ...point, status: 'inactive' }, 'active', 'ignored'), {
-    status: 'active',
+  assert.deepEqual(prepareQrStatus({ ...point, qrPointStatus: 'inactive' }, 'active', 'ignored'), {
+    qrPointStatus: 'active',
     inactiveAt: null,
   });
   assert.throws(() => prepareQrStatus(point, 'retired', 'now'), { code: 'INVALID_QR_STATUS' });
@@ -231,7 +231,7 @@ test('migration defers on an empty database and executes through one ready trans
   const deferredResult = await migration.up({
     raw: async (statement) => {
       deferred.push(statement);
-      return { rows: [{ missing_count: 20 }] };
+      return { rows: [{ missing_count: 21 }] };
     },
   });
   assert.equal(deferredResult, false);
@@ -311,8 +311,8 @@ test('submission controller keeps replay status out of the public response body'
     documents(uid) {
       return { findOne: async () => (
         uid.includes('qr-point')
-          ? { documentId: 'point', status: 'active', pointKey: 'summit', publicCode }
-          : { documentId: 'version', status: 'published', versionKey: 'v1' }
+           ? { documentId: 'point', qrPointStatus: 'active', pointKey: 'summit', publicCode }
+           : { documentId: 'version', surveyVersionStatus: 'published', versionKey: 'v1' }
       ) };
     },
     db: { transaction: async () => ({ status: 200, submissionReceipt: 'receipt', acceptedAt }) },

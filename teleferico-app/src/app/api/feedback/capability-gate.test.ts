@@ -49,6 +49,9 @@ describe("feedback capability route boundary", () => {
   beforeEach(() => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("FEEDBACK_CAPABILITY_ENABLED", "false");
+    vi.stubEnv("DEPLOYMENT_ENV", "");
+    vi.stubEnv("APP_ENV", "");
+    vi.stubEnv("VERCEL_ENV", "");
     vi.clearAllMocks();
   });
 
@@ -122,9 +125,56 @@ describe("feedback capability route boundary", () => {
     expect(mocks.notFound).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps production closed when an opt-in flag is spoofed", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("FEEDBACK_CAPABILITY_ENABLED", "true");
+  it.each(["production", "staging"])(
+    "allows the explicit server flag in %s regardless of runtime labels",
+    async (environment) => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("DEPLOYMENT_ENV", environment);
+      vi.stubEnv("APP_ENV", "production");
+      vi.stubEnv("VERCEL_ENV", "production");
+      vi.stubEnv("FEEDBACK_CAPABILITY_ENABLED", "true");
+      const { GET } = await import("./surveys/[publicCode]/route");
+
+      const response = await GET(
+        request(`/api/feedback/surveys/${"A".repeat(32)}`),
+        { params: Promise.resolve({ publicCode: "A".repeat(32) }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(mocks.createFeedbackRuntime).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([undefined, "false", "TRUE", "1", " true"])(
+    "keeps the public API closed when the flag is %s",
+    async (value) => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("DEPLOYMENT_ENV", "staging");
+      if (value === undefined) delete process.env.FEEDBACK_CAPABILITY_ENABLED;
+      else vi.stubEnv("FEEDBACK_CAPABILITY_ENABLED", value);
+      const { GET } = await import("./surveys/[publicCode]/route");
+
+      const response = await GET(
+        request(`/api/feedback/surveys/${"A".repeat(32)}`),
+        { params: Promise.resolve({ publicCode: "A".repeat(32) }) },
+      );
+
+      expect(response.status).toBe(503);
+      expect(mocks.createFeedbackRuntime).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps the environment switch server-only", async () => {
+    const source = await import("node:fs").then(({ readFileSync }) =>
+      readFileSync(new URL("../../../lib/feedback/capability-gate.ts", import.meta.url), "utf8"),
+    );
+
+    expect(source).toMatch(/^import "server-only";/);
+    expect(source).not.toMatch(/NEXT_PUBLIC_[A-Z0-9_]*FEEDBACK/);
+  });
+
+  it("does not access runtime dependencies when the flag is absent", async () => {
+    vi.stubEnv("FEEDBACK_CAPABILITY_ENABLED", "");
     const { GET } = await import("./surveys/[publicCode]/route");
 
     const response = await GET(
@@ -136,7 +186,7 @@ describe("feedback capability route boundary", () => {
     expect(mocks.createFeedbackRuntime).not.toHaveBeenCalled();
   });
 
-  it("allows a fixture server process to opt in outside production", async () => {
+  it("allows a fixture server process to opt in when the flag is exactly true", async () => {
     vi.stubEnv("FEEDBACK_CAPABILITY_ENABLED", "true");
     const { GET } = await import("./surveys/[publicCode]/route");
 

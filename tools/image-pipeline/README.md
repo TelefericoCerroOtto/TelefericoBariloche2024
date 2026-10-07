@@ -7,6 +7,10 @@ Este tooling automatiza un flujo de **art direction** para imágenes:
 3. **Export** a WebP/JPEG con calidad controlada
 4. Salida con naming: **`<nombreOriginal>-<AR>.<ext>`** (default) o **`<name>.<ext>`** si se define `outputs[].name`
 
+### Selecting a seeded profile when building jobs
+
+The `cli:build-jobs` script selects a seeded profile from the final filename suffix. Use `<source-name>-<profile-id>.<ext>`; hyphenated profile IDs are matched as a complete suffix. For example, `portada-noticia-news-detail-image.png` selects the `news-detail-image` profile and its mobile and desktop slots. Their seeded slot IDs use the default `<profile-id>-<ratio-tag>` naming, so planned outputs retain the ratio suffix (for example, `-news-detail-image-2x3` and `-news-detail-image-21x9`). Existing single-segment suffixes such as `-card` keep their current behavior.
+
 > Pensado para proyectos Next.js + Tailwind + Strapi, donde se necesitan assets optimizados por ratio (desktop/mobile u otros), sin inflar tamaños y permitiendo que `next/image` funcione con `sizes` correctos.
 
 ---
@@ -415,7 +419,7 @@ Lee `jobs.json` y, para cada imagen y cada output, hace: metadata con Sharp, cá
 - WebP thumbnail-scale masters: 82–85
 - JPEG masters: 85–90
 
-Keep pipeline master quality above the downstream delivery quality. `next/image` performs the final responsive encode according to `sizes`; it cannot recover detail removed from the master. ImageTextBlock seed profiles live in `src/scripts/build-jobs.ts`; existing local Studio registries under `.studio/registry` are ignored runtime state and must be updated from those seeds when profile policy changes.
+Keep pipeline master quality above the downstream delivery quality. `next/image` performs the final responsive encode according to `sizes`; it cannot recover detail removed from the master. ImageTextBlock seed profiles live in `src/scripts/build-jobs.ts`. Existing `.studio/registry` files are ignored, machine-local runtime state; seeding initializes only a missing registry, so adding a profile requires manually updating each existing local registry from the seed. These local changes do not travel with the repository.
 
 ---
 

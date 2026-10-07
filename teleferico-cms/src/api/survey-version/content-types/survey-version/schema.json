@@ -19,7 +19,7 @@
       "maxLength": 64,
       "regex": "^[a-z0-9][a-z0-9._-]*$"
     },
-    "status": {
+    "surveyVersionStatus": {
       "type": "enumeration",
       "enum": ["draft", "published"],
       "required": true,

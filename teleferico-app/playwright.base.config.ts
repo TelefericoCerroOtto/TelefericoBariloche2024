@@ -41,6 +41,7 @@ export function createLocalE2EConfig({
 }: LocalSuiteOptions): PlaywrightTestConfig {
   const baseURL = `http://${appHost}:${appPort}`;
   const fixtureURL = `http://${fixtureHost}:${fixturePort}/health`;
+  const loginURL = `${baseURL}/es-AR/login`;
   const testEnvironment = createTestEnvironment(
     fixturePort,
     appPort,
@@ -88,14 +89,18 @@ export function createLocalE2EConfig({
     webServer: [
       {
         command: "node tests/e2e/server/strapi-fixture.mjs",
+        name: "Strapi E2E fixture readiness",
         url: fixtureURL,
         reuseExistingServer: !process.env.CI,
+        timeout: 60_000,
         env: { E2E_FIXTURE_PORT: String(fixturePort) },
       },
       {
         command: `pnpm exec next dev --hostname ${appHost} --port ${appPort}`,
-        url: `${baseURL}/api/auth/providers`,
+        name: "Next.js E2E login readiness",
+        url: loginURL,
         reuseExistingServer: !process.env.CI,
+        timeout: 180_000,
         env: testEnvironment,
       },
     ],

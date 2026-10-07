@@ -1,0 +1,36 @@
+{
+  "profileVersion": "feedback-report-generation-profile.v1",
+  "sourceRevision": "feedback-report-profile.v1",
+  "evidenceKeyId": "feedback-report-evidence.v1",
+  "modelConfig": {
+    "version": "survey-model-config.v1",
+    "provider": "vertex-ai",
+    "vertexProjectId": "teleferico-bariloche-2024",
+    "vertexLocation": "us",
+    "vertexApiEndpoint": "aiplatform.us.rep.googleapis.com",
+    "model": "gemini-3.8-flash",
+    "temperature": 0,
+    "reasoning": "LOW",
+    "grounding": false,
+    "promptVersion": "feedback-report-prompt.v1",
+    "mapSchemaVersion": "survey-map.v1",
+    "analysisSchemaVersion": "survey-analysis.v1",
+    "redactionVersion": "feedback-report-redaction.v1",
+    "validatorVersion": "feedback-report-validator.v1",
+    "chunkVersion": "feedback-report-chunk.v1",
+    "verifiedInputTokenLimit": 1048576,
+    "map": { "targetMin": 600, "targetMax": 1200, "hardMax": 4000 },
+    "directReduce": { "targetMin": 1800, "targetMax": 3000, "hardMax": 8000 }
+  },
+  "pricingSnapshot": {
+    "version": "feedback-report-pricing.v1",
+    "currency": "USD",
+    "units": [
+      {
+        "sku": "gemini-3.8-flash",
+        "inputMicrosPerMillion": 1650000,
+        "outputMicrosPerMillion": 8250000
+      }
+    ]
+  }
+}

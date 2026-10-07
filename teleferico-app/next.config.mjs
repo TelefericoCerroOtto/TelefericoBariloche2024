@@ -2,6 +2,7 @@
 
 const nextConfig = {
   experimental: {
+    externalDir: true,
     globalNotFound: true,
     serverActions: {
       bodySizeLimit: "5mb",

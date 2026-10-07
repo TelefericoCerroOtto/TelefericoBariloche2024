@@ -4,9 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createFeedbackAdminCommandTransport,
+  FeedbackAdminCommandError,
+  getFeedbackAdminCommandTransport,
   parseGenerateCommand,
   parseRetryCommand,
+  type GenerationInputsPort,
 } from "./admin-command";
+import type {
+  GenerationSourcePageQueryV1,
+  GenerationSourceResourceV1,
+} from "./authoritative-generation-source";
 
 const validGenerate = {
   contractVersion: "feedback-admin.v1",
@@ -28,10 +35,80 @@ const validResult = {
 } as const;
 const validCoreRow = {
   documentId: "generation-document-1",
-  ...validResult,
+  reportRunId: validResult.reportRunId,
+  generationStatus: "queued",
   periodStart: validGenerate.period.from,
   periodEnd: validGenerate.period.to,
 } as const;
+
+function generationInputsSource(): GenerationInputsPort & {
+  readPage: ReturnType<typeof vi.fn>;
+  getApprovedConfiguration: ReturnType<typeof vi.fn>;
+} {
+  const rows: Record<GenerationSourceResourceV1, readonly unknown[]> = {
+    submissions: [],
+    versions: [
+      {
+        id: "version-row-1",
+        versionKey: "survey-v1",
+        aspects: [{ aspectKey: "views", sortOrder: 0 }],
+      },
+    ],
+    points: [
+      {
+        id: "point-row-1",
+        pointKey: "summit",
+        displayName: "Summit",
+        sortOrder: 0,
+      },
+    ],
+  } as const;
+  const readPage = vi.fn(async ({ resource, cursor }: GenerationSourcePageQueryV1) => ({
+      cursor,
+      nextCursor: null,
+      total: rows[resource].length,
+      items: rows[resource],
+    }));
+  const getApprovedConfiguration = vi.fn(async () => ({
+      sourceRevision: "source-revision-42",
+      modelConfig: {
+        version: "survey-model-config.v1",
+        evidenceKeyId: "evidence-key-2026-01",
+        provider: "vertex-ai",
+        vertexProjectId: "teleferico-bariloche-2024",
+        vertexLocation: "us",
+        vertexApiEndpoint: "aiplatform.us.rep.googleapis.com",
+        model: "gemini-3.8-flash",
+        temperature: 0,
+        reasoning: "LOW",
+        grounding: false,
+        promptVersion: "prompt-v1",
+        mapSchemaVersion: "survey-map.v1",
+        analysisSchemaVersion: "survey-analysis.v1",
+        redactionVersion: "redaction-v1",
+        validatorVersion: "validator-v1",
+        chunkVersion: "chunk-v1",
+        verifiedInputTokenLimit: 10000,
+        map: { targetMin: 600, targetMax: 1200, hardMax: 4000 },
+        directReduce: { targetMin: 1800, targetMax: 3000, hardMax: 8000 },
+        safetyHeadroomTokens: 2048,
+        sourceRevision: "source-revision-42",
+      },
+      pricingSnapshot: {
+        version: "pricing-2026-01",
+        currency: "USD",
+        units: [
+          {
+            sku: "model-input",
+            inputMicrosPerMillion: 100,
+            outputMicrosPerMillion: 200,
+          },
+        ],
+      },
+      evidenceKeyId: "evidence-key-2026-01",
+    } as const));
+  return { readPage, getApprovedConfiguration };
+}
 
 describe("feedback administration command contracts", () => {
   it("accepts only the independent bounded generation range", () => {
@@ -72,6 +149,7 @@ describe("feedback administration command contracts", () => {
   });
 
   it("maps bounded CMS command responses and status failures without leaking details", async () => {
+    const generationInputs = generationInputsSource();
     const fetchImplementation = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         expect(String(input)).toContain("/api/survey-report-generations");
@@ -87,6 +165,7 @@ describe("feedback administration command contracts", () => {
       baseUrl: "https://cms.example.test",
       token: "synthetic-admin-jwt",
       fetchImplementation,
+      generationInputs,
     });
 
     await expect(transport.generate(validGenerate)).resolves.toEqual(
@@ -94,7 +173,74 @@ describe("feedback administration command contracts", () => {
     );
   });
 
+  it("persists the complete materialized snapshot and closed worker inputs before dispatch", async () => {
+    const generationInputs = generationInputsSource();
+    let createBody: Record<string, unknown> | undefined;
+    const dispatcher = {
+      dispatch: vi.fn(async ({ taskName }: { taskName: string }) => ({
+        contractVersion: "survey-dispatch-command.v1" as const,
+        status: "dispatched" as const,
+        taskName,
+        dispatchAttemptCount: 1,
+      })),
+    };
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      generationInputs,
+      dispatcher,
+      fetchImplementation: vi.fn(async (_input, init) => {
+        if (init?.method === "POST") {
+          createBody = JSON.parse(String(init.body)).data;
+          return Response.json({ data: validCoreRow }, { status: 201 });
+        }
+        return Response.json({ data: [] }, { status: 200 });
+      }),
+    });
+
+    await transport.generate(validGenerate);
+
+    expect(createBody).toMatchObject({
+      snapshotDigest: expect.stringMatching(/^(?!0{64}$)[a-f0-9]{64}$/),
+      sourceRevision: "source-revision-42",
+      snapshotJson: {
+        contractVersion: "survey-snapshot.v1",
+        sourceRevision: "source-revision-42",
+        population: { dataCutoffAt: expect.any(String) },
+      },
+      checkpointsJson: {
+        version: "survey-checkpoints.v1",
+        snapshotDigest: createBody?.snapshotDigest,
+        route: "undecided",
+        chunkCount: null,
+        entries: [],
+      },
+      modelConfigJson: {
+        version: "survey-model-config.v1",
+        evidenceKeyId: "evidence-key-2026-01",
+        sourceRevision: "source-revision-42",
+      },
+      pricingSnapshotJson: {
+        version: "pricing-2026-01",
+        currency: "USD",
+        units: [
+          {
+            sku: "model-input",
+            inputMicrosPerMillion: 100,
+            outputMicrosPerMillion: 200,
+          },
+        ],
+      },
+    });
+    expect(createBody).not.toHaveProperty("requestedBy");
+    expect(createBody?.snapshotDigest).toBe(
+      (createBody?.checkpointsJson as { snapshotDigest: string }).snapshotDigest,
+    );
+    expect(dispatcher.dispatch).toHaveBeenCalledTimes(1);
+  });
+
   it("passes a deterministic task name through the dispatcher seam", async () => {
+    const generationInputs = generationInputsSource();
     const dispatch = vi.fn(async ({ taskName }: { taskName: string }) => ({
       contractVersion: "survey-dispatch-command.v1" as const,
       status: "dispatched" as const,
@@ -105,6 +251,7 @@ describe("feedback administration command contracts", () => {
       baseUrl: "https://cms.example.test",
       token: "synthetic-admin-jwt",
       dispatcher: { dispatch },
+      generationInputs,
       fetchImplementation: vi.fn(async (_input, init) =>
         init?.method === "POST"
           ? Response.json({ data: validCoreRow }, { status: 201 })
@@ -124,12 +271,76 @@ describe("feedback administration command contracts", () => {
     });
   });
 
+  it("uses the injected task client and dispatch-state port through the admin command transport", async () => {
+    const generationInputs = generationInputsSource();
+    const reserve = vi.fn(async ({ reportRunId, taskName }: {
+      reportRunId: string;
+      taskName: string;
+    }) => ({
+      reportRunId,
+      taskName,
+      stateVersion: 2,
+      dispatchState: "reserved" as const,
+      dispatchAttemptCount: 0,
+      replayed: false,
+    }));
+    const record = vi.fn(async ({ reportRunId, taskName, outcome, dispatchAttemptCount }: {
+      reportRunId: string;
+      taskName: string;
+      outcome: "created" | "unknown";
+      dispatchAttemptCount: 1 | 2 | 3;
+    }) => ({
+      reportRunId,
+      taskName,
+      stateVersion: 3,
+      dispatchState: outcome,
+      dispatchAttemptCount,
+      replayed: false,
+    }));
+    const createTask = vi.fn(async ({ reportRunId, taskName }: {
+      reportRunId: string;
+      taskName: string;
+    }) => ({ reportRunId, taskName }));
+    const fetchImplementation = vi.fn(async (_input, init) =>
+      init?.method === "POST"
+        ? Response.json({ data: { ...validCoreRow, stateVersion: 1 } }, { status: 201 })
+        : Response.json({ data: [] }, { status: 200 }),
+    );
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      generationInputs,
+      taskClient: {
+        trust: "verified",
+        createTask,
+        verifyExistingTask: async () => null,
+      },
+      dispatchState: { trust: "verified", reserve, record },
+      fetchImplementation,
+    });
+
+    await expect(transport.generate(validGenerate)).resolves.toMatchObject({
+      dispatch: { status: "dispatched", dispatchAttemptCount: 1 },
+    });
+    expect(reserve).toHaveBeenCalledWith(expect.objectContaining({
+      reportRunId: validResult.reportRunId,
+      taskName: validResult.dispatch.taskName,
+      expectedStateVersion: 1,
+    }));
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "created",
+      expectedStateVersion: 2,
+    }));
+    expect(createTask).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects a malformed CMS run identifier before dispatch", async () => {
     const dispatch = vi.fn();
     const transport = createFeedbackAdminCommandTransport({
       baseUrl: "https://cms.example.test",
       token: "synthetic-admin-jwt",
       dispatcher: { dispatch },
+      generationInputs: generationInputsSource(),
       fetchImplementation: vi.fn(async (_input, init) =>
         init?.method === "POST"
           ? Response.json(
@@ -148,6 +359,7 @@ describe("feedback administration command contracts", () => {
   });
 
   it("compensates verified exhaustion after generation when no reports overlap", async () => {
+    const generationInputs = generationInputsSource();
     const exhaustion = (taskName: string) => ({
       contractVersion: "survey-dispatch-command.v1" as const,
       status: "exhausted" as const,
@@ -176,6 +388,7 @@ describe("feedback administration command contracts", () => {
       baseUrl: "https://cms.example.test",
       token: "synthetic-admin-jwt",
       dispatcher,
+      generationInputs,
       fetchImplementation,
     });
 
@@ -189,6 +402,7 @@ describe("feedback administration command contracts", () => {
   });
 
   it("compensates verified exhaustion after retrying a failed source", async () => {
+    const generationInputs = generationInputsSource();
     const fetchImplementation = vi.fn(async (_input, init) => {
       const url = String(_input);
       if (url.includes("dispatch-failure"))
@@ -202,7 +416,7 @@ describe("feedback administration command contracts", () => {
         });
       if (init?.method === "POST")
         return Response.json({ data: { ...validCoreRow, reportRunId: JSON.parse(String(init.body)).data.reportRunId, stateVersion: 1 } }, { status: 201 });
-      return Response.json({ data: [{ ...validCoreRow, status: "failed" }] });
+      return Response.json({ data: [{ ...validCoreRow, generationStatus: "failed" }] });
     });
     const dispatcher = {
       dispatch: vi.fn(async ({ taskName }: { taskName: string }) => ({
@@ -218,6 +432,7 @@ describe("feedback administration command contracts", () => {
       baseUrl: "https://cms.example.test",
       token: "synthetic-admin-jwt",
       dispatcher,
+      generationInputs,
       fetchImplementation,
     });
 
@@ -239,6 +454,7 @@ describe("feedback administration command contracts", () => {
     ["attempt count", { dispatchAttemptCount: 2 }],
     ["task name", { taskName: "tb113-report-another-run" }],
   ])("does not compensate an exhaustion result with an invalid %s", async (_case, override) => {
+    const generationInputs = generationInputsSource();
     const fetchImplementation = vi.fn(async (_input, init) =>
       init?.method === "POST"
         ? Response.json({ data: { ...validCoreRow, stateVersion: 1 } }, { status: 201 })
@@ -258,6 +474,7 @@ describe("feedback administration command contracts", () => {
           ...override,
         } as never),
       },
+      generationInputs,
       fetchImplementation,
     });
 
@@ -274,6 +491,7 @@ describe("feedback administration command contracts", () => {
     const unavailable = createFeedbackAdminCommandTransport({
       baseUrl: "https://cms.example.test",
       token: "synthetic-admin-jwt",
+      generationInputs: generationInputsSource(),
       fetchImplementation: vi.fn(async (_input, init) =>
         init?.method === "POST"
           ? Response.json({ data: { ...validCoreRow, stateVersion: 1 } }, { status: 201 })
@@ -294,6 +512,7 @@ describe("feedback administration command contracts", () => {
       baseUrl: "https://cms.example.test",
       token: "synthetic-admin-jwt",
       dispatcher: { dispatch: async () => { throw new Error("ambiguous outcome"); } },
+      generationInputs: generationInputsSource(),
       fetchImplementation,
     });
     await expect(failing.generate(validGenerate)).rejects.toMatchObject({
@@ -309,6 +528,7 @@ describe("feedback administration command contracts", () => {
     const transport = createFeedbackAdminCommandTransport({
       baseUrl: "https://cms.example.test",
       token: "synthetic-admin-jwt",
+      generationInputs: generationInputsSource(),
       fetchImplementation: vi.fn(async (_input, _init) => {
         call += 1;
         return call === 1
@@ -350,7 +570,7 @@ describe("feedback administration command contracts", () => {
                 reportRunId: details.overlaps[0]!.reportRunId,
                 periodStart: details.overlaps[0]!.period.from,
                 periodEnd: details.overlaps[0]!.period.to,
-                status: "succeeded",
+                generationStatus: "succeeded",
               },
             ],
           },
@@ -369,6 +589,7 @@ describe("feedback administration command contracts", () => {
   });
 
   it("retries a failed core generation through native create", async () => {
+    const generationInputs = generationInputsSource();
     const fetchImplementation = vi.fn(async (_input, init) =>
       init?.method === "POST"
         ? Response.json(
@@ -376,7 +597,7 @@ describe("feedback administration command contracts", () => {
               data: {
                 ...validCoreRow,
                 reportRunId: "00000000-0000-4000-8000-000000000004",
-                status: "queued",
+                generationStatus: "queued",
               },
             },
             { status: 201 },
@@ -386,7 +607,7 @@ describe("feedback administration command contracts", () => {
               data: [
                 {
                   ...validCoreRow,
-                  status: "failed",
+                  generationStatus: "failed",
                 },
               ],
             },
@@ -396,6 +617,7 @@ describe("feedback administration command contracts", () => {
     const transport = createFeedbackAdminCommandTransport({
       baseUrl: "https://cms.example.test",
       token: "synthetic-admin-jwt",
+      generationInputs,
       fetchImplementation,
     });
 
@@ -407,11 +629,302 @@ describe("feedback administration command contracts", () => {
       reportRunId: "00000000-0000-4000-8000-000000000004",
       status: "queued",
     });
-    const [, init] = fetchImplementation.mock.calls[1]!;
-    expect(JSON.parse(String(init?.body))).toMatchObject({
+    const [, init] = fetchImplementation.mock.calls.find(
+      ([, requestInit]) => requestInit?.method === "POST",
+    )!;
+    const sentBody = JSON.parse(String(init?.body));
+    expect(sentBody).toMatchObject({
       data: {
+        generationStatus: "queued",
         retryOfGeneration: { connect: [validCoreRow.documentId] },
+        snapshotDigest: expect.stringMatching(/^(?!0{64}$)[a-f0-9]{64}$/),
+        sourceRevision: "source-revision-42",
+        snapshotJson: {
+          contractVersion: "survey-snapshot.v1",
+          population: { dataCutoffAt: expect.any(String) },
+        },
+        checkpointsJson: {
+          version: "survey-checkpoints.v1",
+          route: "undecided",
+          entries: [],
+        },
+        modelConfigJson: { evidenceKeyId: "evidence-key-2026-01" },
+        pricingSnapshotJson: { version: "pricing-2026-01" },
       },
     });
+  });
+
+  it("fails closed before create or dispatch when source/config injection is absent", async () => {
+    const dispatch = vi.fn();
+    const fetchImplementation = vi.fn(async (_input, init) =>
+      init?.method === "POST"
+        ? Response.json({ data: validCoreRow }, { status: 201 })
+        : Response.json({ data: [] }, { status: 200 }),
+    );
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      dispatcher: { dispatch },
+      fetchImplementation,
+    });
+
+    await expect(transport.generate(validGenerate)).rejects.toMatchObject({
+      code: "UPSTREAM_UNAVAILABLE",
+      status: 503,
+    });
+    expect(fetchImplementation.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it.each(["missing configuration", "empty pricing", "revision mismatch"] as const)(
+    "fails closed before create or dispatch for %s",
+    async (failure) => {
+    const source = generationInputsSource();
+    const approved = await source.getApprovedConfiguration();
+    const invalidConfiguration =
+      failure === "missing configuration"
+        ? undefined
+        : failure === "empty pricing"
+          ? {
+              ...approved,
+              pricingSnapshot: {
+                version: "pricing.v1",
+                currency: "USD",
+                units: [],
+              },
+            }
+          : {
+              ...approved,
+              modelConfig: {
+                ...approved.modelConfig,
+                sourceRevision: "unapproved-revision",
+              },
+            };
+    source.getApprovedConfiguration.mockResolvedValue(invalidConfiguration as never);
+    const dispatch = vi.fn();
+    const fetchImplementation = vi.fn(async (_input, init) =>
+      init?.method === "POST"
+        ? Response.json({ data: validCoreRow }, { status: 201 })
+        : Response.json({ data: [] }, { status: 200 }),
+    );
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      generationInputs: source,
+      dispatcher: { dispatch },
+      fetchImplementation,
+    });
+
+    await expect(transport.generate(validGenerate)).rejects.toMatchObject({
+      code: "UPSTREAM_UNAVAILABLE",
+      status: 503,
+    });
+    expect(fetchImplementation.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not read source inputs or dispatch when overlap preflight is stale", async () => {
+    const generationInputs = generationInputsSource();
+    const fetchImplementation = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({ data: [{ ...validCoreRow, generationStatus: "succeeded" }] }),
+    );
+    const dispatch = vi.fn();
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      generationInputs,
+      dispatcher: { dispatch },
+      fetchImplementation,
+    });
+
+    await expect(transport.generate(validGenerate)).rejects.toMatchObject({
+      code: "OVERLAP_REQUIRES_OVERRIDE",
+      status: 409,
+    });
+    expect(generationInputs.readPage).not.toHaveBeenCalled();
+    expect(generationInputs.getApprovedConfiguration).not.toHaveBeenCalled();
+    expect(fetchImplementation.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it.each(["generate", "retry"] as const)(
+    "does not create or dispatch when %s encounters an incomplete source continuation",
+    async (operation) => {
+      const generationInputs = generationInputsSource();
+      generationInputs.readPage.mockImplementation(
+        async ({ resource, cursor }: GenerationSourcePageQueryV1) => {
+          if (resource === "submissions")
+            return cursor === null
+              ? {
+                  cursor: null,
+                  nextCursor: "continuation",
+                  total: 2,
+                  items: [{ id: "submission-row-1" }],
+                }
+              : { cursor, nextCursor: null, total: 2, items: [] };
+
+          const items =
+            resource === "versions"
+              ? [
+                  {
+                    id: "version-row-1",
+                    versionKey: "survey-v1",
+                    aspects: [{ aspectKey: "views", sortOrder: 0 }],
+                  },
+                ]
+              : [
+                  {
+                    id: "point-row-1",
+                    pointKey: "summit",
+                    displayName: "Summit",
+                    sortOrder: 0,
+                  },
+                ];
+          return { cursor, nextCursor: null, total: items.length, items };
+        },
+      );
+      const createAttempts: string[] = [];
+      const dispatcher = {
+        dispatch: vi.fn(async ({ taskName }: { taskName: string }) => ({
+          contractVersion: "survey-dispatch-command.v1" as const,
+          status: "dispatched" as const,
+          taskName,
+          dispatchAttemptCount: 1,
+        })),
+      };
+      const fetchImplementation = vi.fn(
+        async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = String(input);
+          if (init?.method !== "POST" && url.includes("reportRunId"))
+            return Response.json({
+              data: [{ ...validCoreRow, generationStatus: "failed" }],
+            });
+          if (init?.method === "POST") {
+            createAttempts.push(url);
+            return Response.json({ data: validCoreRow }, { status: 201 });
+          }
+          return Response.json({ data: [] });
+        },
+      );
+      const transport = createFeedbackAdminCommandTransport({
+        baseUrl: "https://cms.example.test",
+        token: "synthetic-admin-jwt",
+        generationInputs,
+        dispatcher,
+        fetchImplementation,
+      });
+
+      const result =
+        operation === "generate"
+          ? transport.generate(validGenerate)
+          : transport.retry(validResult.reportRunId, {
+              contractVersion: "feedback-admin.v1",
+            });
+      await expect(result).rejects.toMatchObject({
+        code: "UPSTREAM_UNAVAILABLE",
+        status: 503,
+      });
+      expect(generationInputs.readPage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resource: "submissions",
+          cursor: "continuation",
+        }),
+      );
+      expect(createAttempts).toEqual([]);
+      expect(dispatcher.dispatch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("takes an independent frozen source cutoff for each retry attempt", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-22T15:04:05.000Z"));
+    const generationInputs = generationInputsSource();
+    const created: Record<string, unknown>[] = [];
+    const fetchImplementation = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        const data = JSON.parse(String(init.body)).data;
+        created.push(data);
+        return Response.json(
+          { data: { ...validCoreRow, reportRunId: data.reportRunId, stateVersion: 1 } },
+          { status: 201 },
+        );
+      }
+      return Response.json({ data: [{ ...validCoreRow, generationStatus: "failed" }] });
+    });
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      generationInputs,
+      fetchImplementation,
+    });
+
+    try {
+      await transport.retry(validResult.reportRunId, { contractVersion: "feedback-admin.v1" });
+      vi.setSystemTime(new Date("2026-09-22T16:04:05.000Z"));
+      await transport.retry(validResult.reportRunId, { contractVersion: "feedback-admin.v1" });
+      expect(created).toHaveLength(2);
+      expect(generationInputs.readPage).toHaveBeenCalledTimes(6);
+      expect(created.map(({ dataCutoffAt }) => dataCutoffAt)).toEqual([
+        "2026-09-22T15:04:05.000Z",
+        "2026-09-22T16:04:05.000Z",
+      ]);
+      expect(created[0]?.snapshotDigest).not.toBe(created[1]?.snapshotDigest);
+      expect(created[0]?.retryOfGeneration).toEqual({ connect: [validCoreRow.documentId] });
+      expect(created[1]?.retryOfGeneration).toEqual({ connect: [validCoreRow.documentId] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores legacy generation JSON and reaches normal dispatch configuration with the populated profile", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("BUILD_STRAPI_BASE_URL", "http://127.0.0.1:1337");
+    vi.stubEnv("FEEDBACK_CMS_ALLOWED_ORIGIN", "http://127.0.0.1:1337");
+    vi.stubEnv("FEEDBACK_APP_CMS_TOKEN", "synthetic-app-token");
+    vi.stubEnv("FEEDBACK_APPROVED_GENERATION_CONFIG_JSON", JSON.stringify({
+      contractVersion: "survey-approved-generation-config.v1",
+      sourceRevision: "legacy-environment-source.v1",
+      evidenceKeyId: "legacy-environment-key.v1",
+      modelConfig: {
+        version: "survey-model-config.v1",
+        evidenceKeyId: "legacy-environment-key.v1",
+        provider: "vertex-ai",
+        vertexProjectId: "teleferico-bariloche-2024",
+        vertexLocation: "us",
+        vertexApiEndpoint: "aiplatform.us.rep.googleapis.com",
+        model: "gemini-3.8-flash",
+        temperature: 0,
+        reasoning: "LOW",
+        grounding: false,
+        promptVersion: "legacy-environment-prompt.v1",
+        mapSchemaVersion: "survey-map.v1",
+        analysisSchemaVersion: "survey-analysis.v1",
+        redactionVersion: "legacy-environment-redaction.v1",
+        validatorVersion: "legacy-environment-validator.v1",
+        chunkVersion: "legacy-environment-chunk.v1",
+        verifiedInputTokenLimit: 8192,
+        map: { targetMin: 600, targetMax: 1200, hardMax: 4000 },
+        directReduce: { targetMin: 1800, targetMax: 3000, hardMax: 8000 },
+        safetyHeadroomTokens: 2048,
+        sourceRevision: "legacy-environment-source.v1",
+      },
+      pricingSnapshot: {
+        version: "legacy-environment-pricing.v1",
+        currency: "USD",
+        units: [{ sku: "gemini-3.8-flash", inputMicrosPerMillion: 100, outputMicrosPerMillion: 200 }],
+      },
+    }));
+
+    try {
+      expect(() => getFeedbackAdminCommandTransport("synthetic-session-jwt"))
+        .toThrowError(expect.objectContaining({
+          code: "UPSTREAM_UNAVAILABLE",
+          status: 503,
+          message: "Feedback administration command failed",
+        } satisfies Partial<FeedbackAdminCommandError>));
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

@@ -24,6 +24,8 @@ type OutputTemplate = {
   ratio: string;
   mp: number;
   quality: number;
+  slotId?: string;
+  slotLabel?: string;
 };
 
 export type SeedSlot = OutputTemplate & {
@@ -107,6 +109,20 @@ export const COMPONENT_OUTPUTS = {
   cascades0: [{ ratio: "4:5", mp: 1.8, quality: 86 }],
   cascades1: [{ ratio: "16:11", mp: 1.4, quality: 85 }],
   double: [{ ratio: "1:1", mp: 2.0, quality: 86 }],
+  "news-detail-image": [
+    {
+      ratio: "2:3",
+      mp: 1.8,
+      quality: 88,
+      slotLabel: "Mobile 2:3",
+    },
+    {
+      ratio: "21:9",
+      mp: 2.8,
+      quality: 90,
+      slotLabel: "Desktop 21:9",
+    },
+  ],
 } as const satisfies Record<string, readonly OutputTemplate[]>;
 
 type ComponentKey = keyof typeof COMPONENT_OUTPUTS;
@@ -125,12 +141,17 @@ function toLabel(value: string): string {
 }
 
 export function createSeedProfiles(): SeedProfile[] {
-  return Object.entries(COMPONENT_OUTPUTS).map(([profileId, outputs]) => ({
+  const profiles = Object.entries(COMPONENT_OUTPUTS) as [
+    string,
+    readonly OutputTemplate[],
+  ][];
+
+  return profiles.map(([profileId, outputs]) => ({
     id: profileId,
     label: toLabel(profileId),
     slots: outputs.map((output) => ({
-      id: `${profileId}-${ratioToTag(output.ratio)}`,
-      label: `${toLabel(profileId)} ${output.ratio}`,
+      id: output.slotId ?? `${profileId}-${ratioToTag(output.ratio)}`,
+      label: output.slotLabel ?? `${toLabel(profileId)} ${output.ratio}`,
       ratio: output.ratio,
       mp: output.mp,
       quality: output.quality,
@@ -166,7 +187,7 @@ function warnInvalid(filename: string, reason: string): void {
   console.warn(`[build-jobs] ${filename}: ${reason}`);
 }
 
-function parseComponent(filename: string): ComponentKey | null {
+export function parseComponent(filename: string): ComponentKey | null {
   const ext = path.extname(filename);
   if (!ext) return null;
 
@@ -179,6 +200,13 @@ function parseComponent(filename: string): ComponentKey | null {
     warnInvalid(filename, "invalid name (expected <name>-<component>.<ext>)");
     return null;
   }
+
+  const matchingComponent = (Object.keys(COMPONENT_OUTPUTS) as ComponentKey[])
+    .sort((left, right) => right.length - left.length)
+    .find((component) =>
+      stem.toLowerCase().endsWith(`-${component.toLowerCase()}`),
+    );
+  if (matchingComponent) return matchingComponent;
 
   const last = parts[parts.length - 1]!.toLowerCase();
   if (isComponentKey(last)) return last;

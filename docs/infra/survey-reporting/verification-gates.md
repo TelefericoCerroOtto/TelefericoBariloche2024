@@ -18,6 +18,7 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 - Safe evidence supplied to S01 confirms `aiplatform.googleapis.com`, `run.googleapis.com`, `storage.googleapis.com`, and `cloudtasks.googleapis.com` are enabled in the product project.
 - Safe evidence supplied to S01 confirms Cloud Tasks supports `southamerica-east1`.
 - The four named existing application and CMS Cloud Run services were read successfully. Each reported ingress `all` and use of the documented shared App Engine identity.
+- Those existing CMS identity observations do not authorize TB-113 provider access. CMS CountTokens and evidence-key reads require a separately attached, dedicated keyless CMS service identity; no such binding or IAM grant was inspected or changed here.
 - The bounded TB-113 inventory returned no queue or Cloud Run service whose name matched `tb113|survey-report` in `southamerica-east1`.
 - Both approved existing buckets reported location `SOUTHAMERICA-EAST1` and an empty lifecycle rule list in the bounded read.
 - `CountTokens` succeeded for `gemini-3.8-flash` at resource location `us` through `https://aiplatform.us.rep.googleapis.com` and returned `totalTokens: 8`.
@@ -33,11 +34,27 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 
 ## Deferred evidence
 
-- No dedicated TB-113 worker service or Cloud Tasks queue exists in the matching regional inventory. Worker attachment, private ingress, OIDC audience, retry policy, and distinct invoker/runtime identities remain deferred to approved infrastructure work.
-- The bucket reads returned null for location type, uniform bucket-level access, and public access prevention. Those controls remain unverified.
+- The historical S01 inventory found no dedicated TB-113 worker service or Cloud Tasks queue in the matching region. The queue was later created, initially read back as `PAUSED`, and resumed on 2026-10-03 at the user's request; readback confirmed `RUNNING`. This permits task dispatch but does not prove worker readiness. No worker service exists. Worker attachment, private ingress, OIDC audience, and runtime invocation remain deferred to approved infrastructure work.
+- The historical S01 bucket projection returned null for location type, uniform bucket-level access, and public access prevention. The 2026-10-03 staging-bucket readback later verified uniform bucket-level access enabled and Public Access Prevention enforced; location type remains unverified.
 - The bounded bucket IAM projections returned empty binding arrays. This is inconclusive and does not prove that either IAM policy has no bindings, no public grants, or the required least-privilege worker access.
 - Production deployment evidence for a dedicated user-managed keyless worker identity, absence of service-account JSON keys, and absence of `GOOGLE_APPLICATION_CREDENTIALS` remains deferred. The credential boundary forbids substituting local credential inspection for deployment evidence.
 - Effective runtime quota attribution, billing labels, feature labels, logs, metrics, per-generation pricing snapshots, and alerts remain deferred until the worker and approved infrastructure exist.
+
+## Fresh staging gate deltas — 2026-10-03 UTC
+
+This delta supplements the historical S01 record above; the canonical full staging chronology is in [docs/INFRA.md](../../INFRA.md#fresh-staging-state--2026-10-03-utc).
+
+- **G05:** The queue's initial `PAUSED` state and retry/rate settings were read back. On 2026-10-03, following the user's request, it was resumed and a subsequent readback confirmed `RUNNING`; this permits task dispatch but does not prove a deployed or ready worker. The Cloud Tasks service agent's `roles/iam.serviceAccountUser` binding on `feedback-task-invoker-staging` was also read back. G05 remains deferred: there is no worker service or confirmed `roles/run.invoker` binding, and the app-side `1800s` task deadline is unresolved.
+- **Worker trigger:** The trigger `feedback-worker-staging-deploy-cr` (ID `7ee6da31-f842-407d-a635-afba62e90c6b`) was historically observed in `southamerica-east1`; its repository resource, `GITHUB` repository type, `^staging$` push filter, and worker/shared-package paths are trigger metadata configured separately in GCP. [`worker-staging.yaml`](../cloud-build/worker-staging.yaml) is the complete Build recipe, pasteable unchanged into the Console inline YAML editor. The authorized `gcloud` attempt to remove the approval requirement failed with `INVALID_ARGUMENT`; readback confirmed `approvalRequired: true`, so the live setting did not change. Earlier readbacks recorded creation disabled and approval-required (2026-10-03), then enabled and approval-required (2026-10-04); those observations are historical. The dedicated standard Docker Artifact Registry repository `feedback-worker-staging` exists in `southamerica-east1`. Builder grants were confirmed: repository-only `roles/artifactregistry.writer`, project `roles/logging.logWriter`, separately approved project `roles/run.developer`, and `roles/iam.serviceAccountUser` only on the worker runtime service account. Project Cloud Run Developer allows modifications to other services, including production; this breadth was knowingly approved. No direct deployment occurred. Whether this role suffices for the exact private deploy path remains unverified; do not grant `roles/run.admin` automatically. Secret Manager resource/version existence and effective IAM/runtime access remain unverified. This trigger evidence does not satisfy G05 or establish a deployed/operational worker.
+- The prospective worker build passes both Secret Manager references directly to Cloud Run, without intermediate Cloud Build substitutions or step environment variables. `FEEDBACK_WORKER_CMS_TOKEN` maps to `WORKER__STAGING__FEEDBACK_WORKER_CMS_TOKEN:latest`; the evidence-key path selects version `1`. The worker guard checks the numeric resource-path shape before deployment, after image build and push. Older trigger readbacks and their substitutions are historical context only; no current live configuration or parity is asserted.
+- **G06:** The dedicated staging bucket has uniform bucket-level access enabled, Public Access Prevention enforced, and an applied 30-day `private/report-diagnostics/` deletion rule. This does not establish report retention, direct-delivery controls, or full G06 completion; the shared CMS bucket is unchanged.
+- **G07:** The first worker bucket-binding attempt failed HTTP 400. Read-only follow-up confirmed role permissions at `GA`, bucket grantability, and no grant after failure; a fresh approved binding was then confirmed on the dedicated bucket only. This does not prove effective runtime access or complete IAM policy state, so G07 remains deferred.
+
+App/CMS still share the broad-role `appspot` identity, including Editor; do not grant it queue roles before CMS identity migration and operator review. The current CMS and worker snapshots reference the same pinned evidence-key resource/version, following the user's correction. Secret Manager resource/version existence and effective IAM/runtime access have not been independently verified. The worker Build YAML does not establish current live substitutions or parity. The CMS and app inline-trigger updates remain user-owned. No worker service, secret setup, or deployment exists. The current app-staging snapshot sets `FEEDBACK_CAPABILITY_ENABLED=true`; no evidence confirms this is deployed or safe to enable.
+
+## Worker inline Build recipe — 2026-10-06
+
+[`worker-staging.yaml`](../cloud-build/worker-staging.yaml) is a complete Build recipe (`steps`, `substitutions`, `options`, and `timeout`) that can be pasted unchanged into the Cloud Build Console trigger's inline YAML editor. Trigger metadata, including repository filters, service account, and approval controls, is configured separately in GCP. The latest read-only readback confirmed the live trigger is approval-required; the authorized no-approval update failed with `INVALID_ARGUMENT` and left it unchanged. This repository snapshot is not a live export or parity claim and does not change GCP. The historical approved build `4d59496d` failed at `2026-10-05T17:58:58Z`, and the worker service was absent at the last read; neither establishes current deployment or secret/IAM access. A docs-only pull request does not match the worker trigger's path filter. No deployment/readiness gate passes by virtue of this recipe.
 
 ## Gate register
 
@@ -74,14 +91,14 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 - **Timestamp/evidence provenance**: Original regional failure was recorded on `2026-09-12`. The maintainer supplied the later passing bounded probe results and approved sanitized-comment processing in `us` on `2026-09-14`; this reconciliation did not rerun either request and did not inspect the intentionally suppressed generated text.
 - **Affected decisions**: D57, D58, D75, D92.
 
-### Gate G04 — Cloud Run worker identity and ingress
+### Gate G04 — Cloud Run worker/CMS identities and ingress
 
 - **Owner**: Platform maintainer.
 - **Source/evidence**: Approved Cloud Run identity probe group; official Cloud Run service identity and IAM documentation.
-- **Observed status**: `DEFERRED`. Existing app/CMS services all reported ingress `all` and `usesDocumentedSharedIdentity=true`. The matching TB-113 inventory contained no worker service, so dedicated worker attachment and private ingress are unproven.
-- **Pass criterion**: A TB-113 worker exists with private ingress and a dedicated user-managed worker runtime service account attached as its Cloud Run service identity.
-- **Fail criterion**: Public ingress, no attached service identity, use of the documented shared application identity, or use of any local OpenCode identity.
-- **Fallback**: None. The worker and generation stay disabled.
+- **Observed status**: `DEFERRED`. Existing app/CMS services all reported ingress `all` and `usesDocumentedSharedIdentity=true`. The matching TB-113 inventory contained no worker service, and no dedicated CMS checkpoint identity/IAM binding was established.
+- **Pass criterion**: The worker exists with private ingress and its dedicated user-managed worker runtime identity; CMS independently uses a dedicated user-managed keyless identity limited to the approved Vertex CountTokens method and pinned evidence-key read. Neither reuses the app, worker, or task-invoker identity.
+- **Fail criterion**: Public worker ingress, missing identity attachment, reuse of the shared application identity, any additional TB-113 CMS grant beyond CountTokens and the pinned key read, or use of any local OpenCode identity.
+- **Fallback**: None. Worker execution and CMS provider-backed checkpoint validation remain unavailable; generation stays disabled.
 - **Timestamp/evidence provenance**: Four named service describes and one filtered service list, each attempted once at `2026-09-12T00:55:51Z`.
 - **Affected decisions**: D35, D79, D86, D89, D90, D92.
 
@@ -89,7 +106,7 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 
 - **Owner**: Platform maintainer and generation dispatch implementer.
 - **Source/evidence**: Approved regional queue inventory; normative queue/OIDC contract; official IAM documentation.
-- **Observed status**: `DEFERRED`. The filtered inventory returned zero matching queues, so queue state, rates, retry policy, audience, and invoker binding cannot pass yet.
+- **Observed status**: `DEFERRED`. The 2026-10-03 UTC readback confirms the queue exists and is `RUNNING`; it was initially `PAUSED` and later resumed at the user's request. The Cloud Tasks primary service agent has `roles/iam.serviceAccountUser` on `feedback-task-invoker-staging`. The worker staging build trigger was created disabled and approval-required on 2026-10-03; a read-only gcloud describe on 2026-10-04 found it enabled and approval-required. The trigger does not create a worker service, which remains absent; the `roles/run.invoker` binding is also unconfirmed, and the app-side task deadline remains unresolved. App/CMS share the broad-role `appspot` identity; do not grant it queue roles before CMS identity migration and operator review.
 - **Pass criterion**: One approved product-project queue in `southamerica-east1` has the specified delivery deadline/retry contract and invokes only the private worker through a distinct least-privilege OIDC invoker identity.
 - **Fail criterion**: Missing or divergent queue, wrong region, wrong audience, shared invoker/runtime identity, broader permissions, or an unapproved retry/deadline configuration.
 - **Fallback**: None. Do not dispatch; generation remains disabled.
@@ -100,18 +117,18 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 
 - **Owner**: Platform maintainer and report delivery implementer.
 - **Source/evidence**: Approved bounded describes of the staging and production CMS buckets; normative report and diagnostics prefixes.
-- **Observed status**: `FAIL` for TB-113 readiness and otherwise `DEFERRED`. Both buckets reported `SOUTHAMERICA-EAST1` and no lifecycle rules. Location type, uniform bucket-level access, and public access prevention returned null and remain unproven.
-- **Pass criterion**: Approved storage evidence proves the selected private bucket, report retention, 30-day diagnostics expiration by prefix, uniform bucket-level access, public access prevention, and no direct public delivery.
+- **Observed status**: `FAIL` for TB-113 readiness and otherwise `DEFERRED`. Historical S01 reads returned no lifecycle rules and null for location type, uniform access, and public access prevention. The 2026-10-03 UTC readback verifies uniform bucket-level access, enforced Public Access Prevention, and the 30-day diagnostics-prefix deletion rule. It does not prove report retention or no direct public delivery; G06 remains incomplete.
+- **Pass criterion**: Approved storage evidence proves the selected private bucket, report retention, 30-day diagnostics expiration by prefix, uniform bucket-level access, public access prevention, and no direct public delivery. The diagnostics lifecycle subcriterion is evidenced for `private/report-diagnostics/`; the remaining criteria are not thereby satisfied.
 - **Fail criterion**: Missing diagnostics lifecycle, public access, unproven required controls, wrong location, destructive report expiry, or divergent prefixes.
 - **Fallback**: None. Rendering/storage/publication remain disabled; immutable reports must never be written under an unreviewed policy.
-- **Timestamp/evidence provenance**: Both approved bucket describes attempted once at `2026-09-12T00:55:51Z`; bounded fields only.
+- **Timestamp/evidence provenance**: Historical bucket describes attempted once at `2026-09-12T00:55:51Z`; scoped staging bucket lifecycle and guard readback succeeded on `2026-10-03` UTC.
 - **Affected decisions**: D78, D79, D92.
 
 ### Gate G07 — Bucket IAM least privilege
 
 - **Owner**: Platform maintainer.
 - **Source/evidence**: Approved bounded IAM policy reads for the staging and production CMS buckets; official IAM grant/change/revoke guidance.
-- **Observed status**: `DEFERRED`. Both projected responses contained zero bindings. Because the projection did not establish policy completeness, S01 does not infer absent grants, public access, or worker authorization.
+- **Observed status**: `DEFERRED`. The initial 2026-10-03 binding attempt returned HTTP 400. Read-only checks confirmed role permissions at `GA`, bucket grantability, and no grant after failure; a fresh approved bucket-scoped worker binding was confirmed by policy readback. This does not prove effective runtime access or complete policy state. Historical projections remain inconclusive, and reviewed least-privilege access remains unresolved.
 - **Pass criterion**: Reviewed complete redacted evidence proves no public grants and only the required worker access to the exact report and diagnostics prefixes/resources.
 - **Fail criterion**: Public principals, shared application identity reuse, excess member kinds/roles, missing required worker access, or incomplete evidence.
 - **Fallback**: None. Storage access and generation remain disabled.
@@ -123,7 +140,7 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 - **Owner**: Platform maintainer and deployment reviewer.
 - **Source/evidence**: Maintainer-approved production policy; official Cloud Run service identity and service-account key guidance.
 - **Observed status**: `DEFERRED`. The required keyless policy is fixed, but no TB-113 deployment exists to prove attachment, no-key provisioning, or omission of `GOOGLE_APPLICATION_CREDENTIALS`. S01 intentionally performed no credential or authentication inspection.
-- **Pass criterion**: Redacted deployment and IAM evidence proves metadata-provided credentials through the dedicated attached runtime identity, no service-account JSON key, and no `GOOGLE_APPLICATION_CREDENTIALS` setting.
+- **Pass criterion**: Redacted deployment and IAM evidence proves metadata-provided credentials through the dedicated worker and CMS service identities, no service-account JSON key, and no `GOOGLE_APPLICATION_CREDENTIALS` setting on either runtime.
 - **Fail criterion**: Any JSON key, credential file, explicit credential environment variable, local credential fallback, or identity reuse.
 - **Fallback**: None. Fail closed before provider, CMS, or storage access.
 - **Timestamp/evidence provenance**: Policy confirmed before S01; evidence boundary reviewed on `2026-09-12`; credential inspection prohibited.
@@ -133,8 +150,8 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 
 - **Owner**: Platform maintainer and survey worker implementer.
 - **Source/evidence**: Maintainer-confirmed project topology; official quota-project guidance; normative per-generation cost and alert contracts.
-- **Observed status**: `DEFERRED`. Ownership is fixed to the product project, but effective runtime quota attribution, usage metadata, labels, pricing snapshots, logs, metrics, and alerts cannot be proven before the worker exists and the Vertex gate passes.
-- **Pass criterion**: Redacted runtime evidence attributes quota, billing, resources, logs, metrics, feature labels, returned usage metadata, pricing snapshots, and alerts to `teleferico-bariloche-2024`, distinct from OpenCode activity.
+- **Observed status**: `DEFERRED`. Ownership is fixed to the product project, but effective worker/CMS quota attribution, usage metadata, labels, pricing snapshots, logs, metrics, and alerts cannot be proven before the dedicated runtimes exist and the Vertex gate passes.
+- **Pass criterion**: Redacted runtime evidence attributes worker generation and CMS CountTokens quota, billing, resources, logs, metrics, feature labels, returned usage metadata, pricing snapshots, and alerts to `teleferico-bariloche-2024`, distinct from OpenCode activity.
 - **Fail criterion**: Missing attribution, local OpenCode attribution, estimated rather than returned usage, missing pricing SKU, unsafe telemetry, or absent deduplicated alerts.
 - **Fallback**: None. Generation remains disabled when cost or attribution evidence is incomplete.
 - **Timestamp/evidence provenance**: Topology confirmed before S01; runtime evidence deferred as of `2026-09-12`.
@@ -151,11 +168,11 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 
 ## Dependency impact
 
-- **Unblocked now:** S03 may execute its renderer POC because G03 passed for sanitized comments with the exact `gemini-3.8-flash` / `us` contract. U11 may implement the fixed provider boundary when its earlier code dependencies are complete.
-- **Blocked now:** S20 cannot enable deterministic private PDF delivery until S03 passes and storage readiness is approved; S21 cannot apply operational infrastructure; S22 and S23 cannot complete compatibility, rollout, or staging proof.
-- **Transitively blocked:** S15 cannot complete report-capable administration without a passed S03 renderer gate. Any generation path remains disabled by the remaining worker, renderer, storage, IAM, and deployment gates.
+- **Unblocked now:** S03 may execute its renderer POC because G03 passed for sanitized comments with the exact `gemini-3.8-flash` / `us` contract. Offline implementation with fake-provider and synthetic boundaries may proceed independently of Google operational readiness; live provider calls still require all applicable gates.
+- **Blocked now:** S20 cannot enable deterministic private PDF delivery until S03 passes and storage readiness is approved; S21 cannot apply operational infrastructure; S22 and S23 cannot complete compatibility, rollout, or staging proof. These are live-operation and rollout dependencies, not blockers to offline code implementation.
+- **Transitively blocked:** S15 cannot complete report-capable administration without a passed S03 renderer gate. Any real generation path remains disabled by the remaining worker, renderer, storage, IAM, and deployment gates; this does not block fake-provider local tests or synthetic integration.
 - **Not authorized by S01:** dependency adoption, schema/auth changes, environment changes, IAM changes, queue/service/bucket mutations, deployment, or provider substitution.
-- **Unblocking rule:** each failed or deferred gate requires its named approved evidence in the responsible future slice. A design/spec revision is required before any substitute is considered.
+- **Unblocking rule:** each failed or deferred gate requires its named approved evidence before the dependent live operation, enablement, or rollout. A design/spec revision is required before any substitute is considered. A failed Google gate blocks real operation, not offline coding; the approved `gemini-3.8-flash` / Vertex `us` / `aiplatform.us.rep.googleapis.com` model contract remains exact, with no fallback.
 
 ## Official sources
 
@@ -166,3 +183,22 @@ S01 records evidence; it does not provision infrastructure. The maintainer has n
 - [Best practices for managing service account keys](https://cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys)
 - [Gemini 3.8 Flash model documentation](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-8-flash)
 - [Gemini Enterprise Agent Platform locations](https://docs.cloud.google.com/gemini-enterprise-agent-platform/resources/locations)
+
+## Local redacted projection verifier
+
+`verify-config.mjs` reads one explicitly supplied local JSON projection and has
+no Google Cloud SDK, environment, secret-store, or network integration. The
+closed `survey-worker-config-projection.v1` input contains only declared project
+IDs/topology, required API names, Vertex/queue values, redacted identity aliases
+and permission scopes, boolean key-presence statements, private object prefixes
+and retention declarations, labels, and budget rules. It rejects unknown or
+secret-like data.
+
+Run `node --test docs/infra/survey-reporting/verify-config.test.mjs` from the
+repository root for the synthetic projection tests. A CLI result of
+`projection_valid` means only that supplied declarations match the local
+contract. It does not alter the observed statuses above or prove live readiness.
+Missing or unverifiable declarations are `blocked`; operational confirmation
+of queue/service existence, ingress, OIDC bindings, runtime identity attachment,
+credential absence, IAM, bucket policy, and lifecycle remains deferred to
+separately approved evidence. Generation remains disabled.

@@ -2,8 +2,7 @@ export type FeedbackAdminCapability =
   | "feedback.read"
   | "feedback.comments.read"
   | "feedback.reports.read"
-  | "feedback.reports.generate"
-  | "feedback.reports.download";
+  | "feedback.reports.generate";
 
 export type FeedbackAdminReadRoute =
   | "summary"
@@ -11,7 +10,8 @@ export type FeedbackAdminReadRoute =
   | "qr-comparison"
   | "qr-detail"
   | "comments"
-  | "reports";
+  | "reports"
+  | "generations";
 
 export type FeedbackAdminCommandStatus =
   | "queued"
@@ -102,6 +102,12 @@ export type FeedbackAdminFilters =
       readonly route: "reports";
       readonly page: number;
       readonly pageSize: number;
+    } & FeedbackAdminDateRange)
+  | ({
+      readonly route: "generations";
+      readonly status: FeedbackAdminCommandStatus | null;
+      readonly page: number;
+      readonly pageSize: number;
     } & FeedbackAdminDateRange);
 
 export type FeedbackAdminSnapshot = SnapshotV1;
@@ -186,6 +192,46 @@ export type FeedbackAdminReportsData = {
   readonly pageSize: number;
 };
 
+export type FeedbackAdminGenerationReport = {
+  readonly reportId: string;
+  readonly createdAt: string;
+  readonly period: FeedbackAdminDateRange;
+  readonly analyzedResponseCount: number;
+  readonly analyzedCommentCount: number;
+  readonly canDownload: boolean;
+};
+
+export type FeedbackAdminGeneration = {
+  readonly reportRunId: string;
+  readonly status: FeedbackAdminCommandStatus;
+  readonly period: FeedbackAdminDateRange;
+  readonly dataCutoffAt: string;
+  readonly createdAt: string;
+  readonly completedAt: string | null;
+  readonly failureCode: string | null;
+  readonly safeFailureMessage: string | null;
+  readonly retryOfReportRunId: string | null;
+  readonly report: FeedbackAdminGenerationReport | null;
+};
+
+export type FeedbackAdminGenerationsData = {
+  readonly items: readonly FeedbackAdminGeneration[];
+  readonly total: number;
+  readonly page: number;
+  readonly pageSize: number;
+};
+
+export type FeedbackAdminGenerationsEnvelope = {
+  readonly contractVersion: "feedback-admin.v1";
+  readonly data: FeedbackAdminGenerationsData;
+  readonly meta: {
+    readonly filters: Extract<FeedbackAdminFilters, { route: "generations" }>;
+    readonly page: number;
+    readonly pageSize: number;
+    readonly total: number;
+  };
+};
+
 export type FeedbackAdminSource = {
   readonly snapshot: FeedbackAdminSnapshot;
   readonly comments: readonly FeedbackAdminComment[];
@@ -203,4 +249,4 @@ export type FeedbackAdminReadEnvelope<T> = {
     readonly total?: number;
   };
 };
-import type { SnapshotV1 } from "../../../../packages/survey-reporting-core/src";
+import type { SnapshotV1 } from "@teleferico/survey-reporting-core";

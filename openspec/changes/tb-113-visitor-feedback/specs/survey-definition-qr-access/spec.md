@@ -12,11 +12,13 @@ The CMS MUST expose exactly five collection types: `survey-version`, `survey-qr-
 
 | Model | Required semantics |
 |---|---|
-| `survey-version` | unique immutable `versionKey`; `status: draft\|published`; versioned closed semantic copy map with every visible state in ES/EN/PT; ordered aspect definitions |
+| `survey-version` | unique immutable `versionKey`; `surveyVersionStatus: draft\|published`; versioned closed semantic copy map with every visible state in ES/EN/PT; ordered aspect definitions |
 | aspect definition | `aspectKey`, `sortOrder`, ES/EN/PT labels; keys unique within a version |
 | `survey-settings` | nullable single relation `activeSurveyVersion` to a published version |
-| `survey-qr-point` | globally unique immutable `pointKey` and opaque `publicCode`; `displayName`; `status: active\|inactive`; nullable `inactiveAt`; `sortOrder` |
+| `survey-qr-point` | globally unique immutable `pointKey` and opaque `publicCode`; `displayName`; `qrPointStatus: active\|inactive`; nullable `inactiveAt`; `sortOrder` |
 | aspect rating | snapshotted `aspectKey`, displayed `label`, and `rating`; belongs to one submission |
+
+The CMS schema attribute names MUST avoid `status` because Strapi Content Manager treats that key as native document status. Database columns remain migration-compatible via `survey_version_status` and `qr_point_status`; existing public feedback response fields named `status` remain unchanged through explicit mapping.
 
 #### Scenario: Reject duplicate identities
 - GIVEN an existing version key, point key, public code, or in-version aspect key

@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
 const test = require('node:test');
+const { createSubmissionPersistence } = require('../../../src/api/survey-submission/services/persistence');
 
 const {
   ASPECT_CATALOG,
@@ -7,6 +9,7 @@ const {
   FIXTURE_MARKER,
   PRODUCTION_BOOTSTRAP,
   assertFixtureOwnership,
+  createLocalFeedbackSeeder,
   createSurveySeeder,
   runProductionSeed,
 } = require('../../../scripts/seed-surveys');
@@ -39,6 +42,142 @@ test('exports the exact ordered multilingual Appendix-01 catalog', () => {
   assert.equal(FIXTURE_MANIFEST.marker, FIXTURE_MARKER);
   assert.equal(FIXTURE_MANIFEST.parent.status, 'draft');
   assert.notEqual(PRODUCTION_BOOTSTRAP.versionKey, FIXTURE_MANIFEST.versionKey);
+});
+
+test('local feedback seed is repeatable and cleanup removes only its exact marker-owned rows', async () => {
+  const rows = new Map();
+  const deleted = [];
+  const store = {
+    transaction: async (work) => work(),
+    readLocalFixture: async () => [...rows.values()].map((row) => structuredClone(row)),
+    createLocalFixtureRow: async (row) => {
+      if (rows.has(row.id)) throw new Error('duplicate fixture row');
+      rows.set(row.id, structuredClone(row));
+    },
+    deleteLocalFixtureRow: async (id) => {
+      deleted.push(id);
+      rows.delete(id);
+    },
+  };
+  const seeder = createLocalFeedbackSeeder(store);
+
+  assert.deepEqual(await seeder.apply(), { created: true, count: 4 });
+  assert.deepEqual(await seeder.apply(), { created: false, count: 4 });
+  assert.equal(rows.size, 4);
+  assert.deepEqual(await seeder.cleanup(), { deleted: true, count: 4 });
+  assert.equal(rows.size, 0);
+  assert.deepEqual(new Set(deleted), new Set([
+    'survey-version:tb113-local-feedback-v1',
+    'survey-qr-point:tb113-local-feedback-v1',
+    'survey-submission:tb113-local-feedback-v1:one',
+    'survey-submission:tb113-local-feedback-v1:two',
+  ]));
+});
+
+test('local feedback cleanup aborts without deleting when any marker-owned row is outside the manifest', async () => {
+  const rows = new Map([
+    ['unexpected', { id: 'unexpected', fixtureMarker: 'tb113-local-feedback-v1' }],
+  ]);
+  let deleted = 0;
+  const store = {
+    transaction: async (work) => work(),
+    readLocalFixture: async () => [...rows.values()],
+    createLocalFixtureRow: async (row) => rows.set(row.id, row),
+    deleteLocalFixtureRow: async () => { deleted += 1; },
+  };
+  await assert.rejects(createLocalFeedbackSeeder(store).cleanup(), /Fixture ownership mismatch/);
+  assert.equal(deleted, 0);
+});
+
+test('local feedback cleanup safely removes a partial interrupted seed using only known marker identities', async () => {
+  const id = 'survey-submission:tb113-local-feedback-v1:one';
+  const rows = new Map([[id, {
+    id,
+    type: 'submission',
+    key: 'one',
+    fixtureMarker: 'tb113-local-feedback-v1',
+  }]]);
+  const store = {
+    readLocalFixture: async () => [...rows.values()],
+    createLocalFixtureRow: async (row) => rows.set(row.id, row),
+    deleteLocalFixtureRow: async (rowId) => rows.delete(rowId),
+  };
+  assert.deepEqual(await createLocalFeedbackSeeder(store).cleanup(), { deleted: true, count: 1 });
+  assert.equal(rows.size, 0);
+});
+
+test('local seed submission keeps row, components, relations, and marker in the acceptance transaction', async () => {
+  const point = { id: 41, documentId: 'point-document', pointKey: 'local-point', publicCode: 'A'.repeat(32), qrPointStatus: 'active' };
+  const version = { id: 52, documentId: 'version-document', versionKey: 'local-version', surveyVersionStatus: 'published' };
+  const inserted = [];
+  let id = 100;
+  const existing = {
+    select() { return this; },
+    where() { return this; },
+    forUpdate() { return this; },
+    first: async () => null,
+  };
+  const trx = Object.assign((table) => ({
+    ...existing,
+    insert(row) {
+      const created = { ...row, id: ++id };
+      inserted.push({ table, row: created });
+      return {
+        returning: async (fields) => [Array.isArray(fields)
+          ? Object.fromEntries(fields.map((field) => [field, created[field]]))
+          : { id: created.id }],
+      };
+    },
+  }), { raw: async () => undefined });
+  const strapi = {
+    db: {
+      query(uid) {
+        return {
+          findOne: async ({ where }) => uid.endsWith('survey-qr-point')
+            ? where.documentId === point.documentId ? point : null
+            : where.documentId === version.documentId ? version : null,
+        };
+      },
+      transaction: async (operation) => operation({ trx }),
+    },
+  };
+  const command = {
+    pointDocumentId: point.documentId,
+    versionDocumentId: version.documentId,
+    claims: {
+      pointKey: point.pointKey,
+      publicCodeHash: createHash('sha256').update(point.publicCode).digest('hex'),
+      versionKey: version.versionKey,
+    },
+    submission: {
+      receipt: '00000000-0113-4113-8113-000000000001',
+      acceptedAt: '2026-09-29T12:00:00.000Z',
+      source: 'valid_qr',
+      locale: 'en',
+      overallRating: 5,
+      ratings: [{ aspectKey: 'views', label: 'Views', sortOrder: 1, rating: 'positive' }],
+      sessionNonceHash: 'a'.repeat(64),
+      payloadDigest: 'b'.repeat(64),
+      browserTokenHash: 'c'.repeat(64),
+      idempotencyKey: 'local-seed-submission-0001',
+      fixtureMarker: 'tb113-local-feedback-v1',
+    },
+  };
+
+  const accepted = await createSubmissionPersistence(strapi).acceptLocalFixture(
+    command,
+    command.submission.fixtureMarker,
+  );
+  assert.equal(accepted.status, 201);
+  assert.equal(inserted.find(({ table }) => table === 'survey_submissions')?.row.fixture_marker, command.submission.fixtureMarker);
+  assert.equal(inserted.filter(({ table }) => table === 'components_survey_aspect_ratings').length, 1);
+  assert.deepEqual(inserted.filter(({ table }) => table === 'survey_submissions_cmps').map(({ row }) => row), [
+    { entity_id: 101, cmp_id: 102, component_type: 'survey.aspect-rating', field: 'ratings', order: 0, id: 103 },
+  ]);
+  assert.deepEqual(inserted.filter(({ table }) => table.endsWith('_lnk')).map(({ table, row }) => ({ table, row })), [
+    { table: 'survey_submissions_qr_point_lnk', row: { survey_submission_id: 101, survey_qr_point_id: 41, id: 104 } },
+    { table: 'survey_submissions_survey_version_lnk', row: { survey_submission_id: 101, survey_version_id: 52, id: 105 } },
+  ]);
 });
 
 function memoryStore(initial = null) {
