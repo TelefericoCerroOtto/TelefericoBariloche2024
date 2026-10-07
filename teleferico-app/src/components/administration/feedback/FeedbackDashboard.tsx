@@ -862,6 +862,7 @@ export function CommentsReportsModule({ period, points, aspects }: {
   const [overrideAccepted, setOverrideAccepted] = useState(false);
   const [commandBusy, setCommandBusy] = useState(false);
   const [retryingGenerationId, setRetryingGenerationId] = useState("");
+  const [cancellingGenerationId, setCancellingGenerationId] = useState("");
   const [downloadingReportId, setDownloadingReportId] = useState("");
   const [downloadError, setDownloadError] = useState("");
   const commandBusyRef = useRef(false);
@@ -1018,6 +1019,49 @@ export function CommentsReportsModule({ period, points, aspects }: {
       setRetryingGenerationId("");
     }
   };
+  const cancelQueued = async (item: FeedbackAdminGenerationsEnvelope["data"]["items"][number]) => {
+    const identity = item.cancellationIdentity;
+    if (commandBusyRef.current || item.status !== "queued" || !identity) return;
+    const confirmed = window.confirm(
+      `¿Cancelar la solicitud ${item.reportRunId} mientras siga en cola? Se conservarán el historial y la instantánea. La tarea no se elimina y todavía podría llegar una solicitud HTTP.`,
+    );
+    if (!confirmed) return;
+    commandBusyRef.current = true;
+    setCommandBusy(true);
+    setCancellingGenerationId(item.reportRunId);
+    setGenerationError("");
+    try {
+      const response = await authenticatedInternalApiFetch(
+        `/api/admin/feedback/generations/${item.reportRunId}/cancel`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            contractVersion: "feedback-admin.v1",
+            expectedStateVersion: identity.stateVersion,
+          }),
+        },
+      );
+      if (!response.ok) {
+        const value = (await response.json().catch(() => null)) as { error?: { code?: string } } | null;
+        if (response.status === 409) {
+          setGenerationError("La ejecución cambió o ya no está en cola. Se actualizó el historial; revisá su estado.");
+          setGenerationsRetry((current) => current + 1);
+          return;
+        }
+        throw new Error(value?.error?.code === "FORBIDDEN"
+          ? "No tenés permiso para cancelar esta solicitud."
+          : "No se pudo cancelar la solicitud en cola.");
+      }
+      setGenerationsRetry((current) => current + 1);
+    } catch {
+      setGenerationError("No se pudo cancelar la solicitud en cola.");
+    } finally {
+      commandBusyRef.current = false;
+      setCommandBusy(false);
+      setCancellingGenerationId("");
+    }
+  };
   const downloadReport = async (reportId: string) => {
     if (downloadingReportId) return;
     setDownloadingReportId(reportId);
@@ -1142,7 +1186,7 @@ export function CommentsReportsModule({ period, points, aspects }: {
                   <td className="p-3"><p>Solicitado {dateTime(item.createdAt)}</p>{item.report ? <p className="mt-1 text-foreground/70">Generado {dateTime(item.report.createdAt)}</p> : item.completedAt ? <p className="mt-1 text-foreground/70">Finalizado {dateTime(item.completedAt)}</p> : null}</td>
                   <td className="p-3">{item.report ? <>{item.report.analyzedResponseCount} respuestas · {item.report.analyzedCommentCount} comentarios</> : <span className="text-foreground/60">No disponible para este estado</span>}</td>
                   <td className="p-3"><span data-generation-status={item.status} className="inline-flex rounded-full border px-2.5 py-1 font-semibold">{GENERATION_STATUS_LABELS[item.status]}</span>{item.retryOfReportRunId ? <p className="mt-2 text-foreground/70">Reintento de <span className="break-all font-medium" translate="no">{item.retryOfReportRunId}</span></p> : null}{item.status === "failed" ? <p role="status" className="mt-2">{item.safeFailureMessage ?? "No se pudo completar el informe."}</p> : null}</td>
-                  <td className="p-3">{item.report?.canDownload ? <Button type="button" variant="bordered" color="primary" isDisabled={Boolean(downloadingReportId)} isLoading={downloadingReportId === item.report.reportId} aria-label={downloadingReportId === item.report.reportId ? "Descargando…" : undefined} onClick={() => void downloadReport(item.report!.reportId)}>{downloadingReportId === item.report.reportId ? "Descargando…" : "Descargar PDF"}</Button> : null}{item.status === "failed" ? <Button type="button" variant="bordered" color="primary" isDisabled={commandBusy} isLoading={commandBusy && retryingGenerationId === item.reportRunId} aria-label={commandBusy && retryingGenerationId === item.reportRunId ? "Reintentando…" : undefined} className={item.report?.canDownload ? "mt-2" : undefined} onClick={() => void retry(item.reportRunId)}>{commandBusy && retryingGenerationId === item.reportRunId ? "Reintentando…" : "Reintentar generación"}</Button> : null}</td>
+                   <td className="p-3">{item.report?.canDownload ? <Button type="button" variant="bordered" color="primary" isDisabled={Boolean(downloadingReportId)} isLoading={downloadingReportId === item.report.reportId} aria-label={downloadingReportId === item.report.reportId ? "Descargando…" : undefined} onClick={() => void downloadReport(item.report!.reportId)}>{downloadingReportId === item.report.reportId ? "Descargando…" : "Descargar PDF"}</Button> : null}{item.status === "failed" ? <Button type="button" variant="bordered" color="primary" isDisabled={commandBusy} isLoading={commandBusy && retryingGenerationId === item.reportRunId} aria-label={commandBusy && retryingGenerationId === item.reportRunId ? "Reintentando…" : undefined} className={item.report?.canDownload ? "mt-2" : undefined} onClick={() => void retry(item.reportRunId)}>{commandBusy && retryingGenerationId === item.reportRunId ? "Reintentando…" : "Reintentar generación"}</Button> : null}{item.status === "queued" && item.cancellationIdentity ? <Button type="button" variant="bordered" color="danger" isDisabled={commandBusy} isLoading={commandBusy && cancellingGenerationId === item.reportRunId} aria-label={commandBusy && cancellingGenerationId === item.reportRunId ? "Cancelando…" : undefined} className="mt-2" onClick={() => void cancelQueued(item)}>{commandBusy && cancellingGenerationId === item.reportRunId ? "Cancelando…" : "Cancelar solicitud en cola"}</Button> : null}</td>
                   </tr>;
                 })}</tbody>
               </table>
