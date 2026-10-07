@@ -15,6 +15,11 @@ module.exports = {
     },
     {
       method: "POST",
+      path: "/tb113/admin/generations/:reportRunId/cancel",
+      handler: "survey-report-generation.operatorCancel",
+    },
+    {
+      method: "POST",
       path: "/tb113/worker/generations/:reportRunId/claim",
       handler: "survey-report-generation.workerClaim",
       config: {
