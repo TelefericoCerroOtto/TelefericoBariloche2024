@@ -5,10 +5,25 @@ import type { EvidenceKeyProvider } from "./contracts";
 import { assertKeylessCloudRunEnvironment } from "@teleferico/tb113-runtime-contracts";
 
 const PROJECT_ID = "teleferico-bariloche-2024";
+const PROJECT_NUMBER = "384535443802";
 const SECRET_VERSION_PATTERN = new RegExp(
   `^projects/${PROJECT_ID}/secrets/[a-zA-Z0-9_-]{1,255}/versions/[1-9][0-9]*$`,
 );
 const MAX_RESPONSE_BYTES = 16 * 1024;
+
+type EvidenceKeyAccessEvent = {
+  readonly outcome: "accepted" | "rejected" | "unavailable";
+  readonly identityClass: "configured_id" | "approved_number" | "mismatch_or_missing";
+  readonly failureClass:
+    | "none"
+    | "request_error"
+    | "http_error"
+    | "json_invalid"
+    | "name_mismatch_or_missing"
+    | "payload_invalid"
+    | "short_key";
+  readonly httpStatus: number | null;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -46,6 +61,23 @@ async function readJson(response: Response): Promise<unknown> {
     offset += chunk.byteLength;
   }
   return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+}
+
+function logEvidenceKeyAccess(event: EvidenceKeyAccessEvent): void {
+  try {
+    console.log(JSON.stringify({ event: "tb113_evidence_key_access", ...event }));
+  } catch {
+    // Logging is best-effort and must never change evidence-key provider behavior.
+  }
+}
+
+function boundedHttpStatus(status: unknown): number | null {
+  return typeof status === "number" &&
+    Number.isInteger(status) &&
+    status >= 100 &&
+    status <= 599
+    ? status
+    : null;
 }
 
 export function createGoogleEvidenceKeyProvider(input: {
@@ -123,6 +155,12 @@ export function createGoogleEvidenceKeyProvider(input: {
         },
       );
     } catch {
+      logEvidenceKeyAccess({
+        outcome: "unavailable",
+        identityClass: "mismatch_or_missing",
+        failureClass: "request_error",
+        httpStatus: null,
+      });
       throw Object.assign(new Error("Evidence key service is unavailable"), {
         code: signal.aborted ? "PROVIDER_TIMEOUT" : "PROVIDER_TRANSIENT",
       });
@@ -133,7 +171,13 @@ export function createGoogleEvidenceKeyProvider(input: {
       !/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(
         response.headers.get("content-type") ?? "",
       )
-    )
+    ) {
+      logEvidenceKeyAccess({
+        outcome: "rejected",
+        identityClass: "mismatch_or_missing",
+        failureClass: "http_error",
+        httpStatus: boundedHttpStatus(response.status),
+      });
       throw Object.assign(new Error("Evidence key service is unavailable"), {
         code:
           response.status === 401 || response.status === 403
@@ -142,36 +186,101 @@ export function createGoogleEvidenceKeyProvider(input: {
               ? "PROVIDER_TRANSIENT"
               : "CONFIGURATION",
       });
+    }
     let result: unknown;
     try {
       result = await readJson(response);
     } catch {
+      logEvidenceKeyAccess({
+        outcome: "rejected",
+        identityClass: "mismatch_or_missing",
+        failureClass: "json_invalid",
+        httpStatus: boundedHttpStatus(response.status),
+      });
+      throw Object.assign(new Error("Evidence key response is invalid"), {
+        code: "CONFIGURATION" as const,
+      });
+    }
+    const identityClass =
+      isRecord(result) && result.name === input.secretVersion
+        ? "configured_id"
+        : isRecord(result) &&
+            result.name ===
+              input.secretVersion.replace(
+                `projects/${PROJECT_ID}/`,
+                `projects/${PROJECT_NUMBER}/`,
+              )
+          ? "approved_number"
+          : "mismatch_or_missing";
+    if (identityClass === "mismatch_or_missing") {
+      logEvidenceKeyAccess({
+        outcome: "rejected",
+        identityClass,
+        failureClass: "name_mismatch_or_missing",
+        httpStatus: boundedHttpStatus(response.status),
+      });
       throw Object.assign(new Error("Evidence key response is invalid"), {
         code: "CONFIGURATION" as const,
       });
     }
     if (
       !isRecord(result) ||
-      result.name !== input.secretVersion ||
       !isRecord(result.payload) ||
       typeof result.payload.data !== "string"
-    )
+    ) {
+      logEvidenceKeyAccess({
+        outcome: "rejected",
+        identityClass,
+        failureClass: "payload_invalid",
+        httpStatus: boundedHttpStatus(response.status),
+      });
       throw Object.assign(new Error("Evidence key response is invalid"), {
         code: "CONFIGURATION" as const,
       });
+    }
     const encoded = result.payload.data;
     let key: Buffer;
     try {
       key = Buffer.from(encoded, "base64");
     } catch {
+      logEvidenceKeyAccess({
+        outcome: "rejected",
+        identityClass,
+        failureClass: "payload_invalid",
+        httpStatus: boundedHttpStatus(response.status),
+      });
       throw Object.assign(new Error("Evidence key response is invalid"), {
         code: "CONFIGURATION" as const,
       });
     }
-    if (key.byteLength < 32 || key.toString("base64") !== encoded)
+    if (key.toString("base64") !== encoded) {
+      logEvidenceKeyAccess({
+        outcome: "rejected",
+        identityClass,
+        failureClass: "payload_invalid",
+        httpStatus: boundedHttpStatus(response.status),
+      });
       throw Object.assign(new Error("Evidence key response is invalid"), {
         code: "CONFIGURATION" as const,
       });
+    }
+    if (key.byteLength < 32) {
+      logEvidenceKeyAccess({
+        outcome: "rejected",
+        identityClass,
+        failureClass: "short_key",
+        httpStatus: boundedHttpStatus(response.status),
+      });
+      throw Object.assign(new Error("Evidence key response is invalid"), {
+        code: "CONFIGURATION" as const,
+      });
+    }
+    logEvidenceKeyAccess({
+      outcome: "accepted",
+      identityClass,
+      failureClass: "none",
+      httpStatus: boundedHttpStatus(response.status),
+    });
     return new Uint8Array(key);
   };
 }
