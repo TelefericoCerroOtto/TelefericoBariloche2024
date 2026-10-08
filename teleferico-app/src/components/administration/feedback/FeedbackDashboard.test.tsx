@@ -92,6 +92,14 @@ const snapshot = snapshotFor(null);
 
 const source: FeedbackAdminSource = { snapshot, comments: [], reports: [] };
 const noop = () => undefined;
+const formatQrTestDate = (value: string) => new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "UTC" })
+  .format(new Date(`${value}T00:00:00Z`)).replaceAll(".", "");
+const formatQrTestRange = (from: string, to: string) => from === to
+  ? formatQrTestDate(from)
+  : `${formatQrTestDate(from)}–${formatQrTestDate(to)}`;
+const selectQrTemporalInterval = (index: number) => fireEvent.click(
+  screen.getAllByRole("button", { name: /Seleccionar intervalo/ })[index]!,
+);
 
 describe("feedback analytics UI projections", () => {
   it("keeps the normative top-level order", () => {
@@ -553,8 +561,9 @@ describe("feedback analytics UI projections", () => {
     expect(within(updatedResponseCard).queryByText("frente al período anterior.")).not.toBeInTheDocument();
   });
 
-  it("shows the shared inclusive Summary period and keeps period editing available on every view", async () => {
+  it("shows one shared analyzed-period header across all modules and keeps period editing available", async () => {
     const summary = projectSummary(source);
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation(() => new Promise<Response>(() => undefined));
     vi.mocked(authenticatedInternalApiFetch).mockResolvedValueOnce(Response.json({
       contractVersion: "feedback-admin.v1",
       data: summary,
@@ -566,17 +575,47 @@ describe("feedback analytics UI projections", () => {
     expect(within(scope).getByText("Período anterior")).toBeInTheDocument();
     expect(within(scope).getByText("Los resultados se comparan con el período inmediatamente anterior de la misma cantidad de días.")).toBeInTheDocument();
     expect(within(scope).getAllByText("10 días")).toHaveLength(2);
-    const changePeriod = within(scope).getByRole("button", { name: "Cambiar período" });
-    expect(changePeriod).toHaveAttribute("aria-expanded", "false");
+    expect(within(scope).getAllByText(/\d{1,2} de \w+ de 2026/)).toHaveLength(2);
+
+    for (const module of ["Aspectos", "Puntos QR", "Comentarios e informes", "Resumen"]) {
+      await act(async () => { fireEvent.click(screen.getByRole("button", { name: module })); });
+      const sharedHeader = screen.getByRole("region", { name: "Período analizado" });
+      expect(screen.getAllByRole("region", { name: "Período analizado" })).toHaveLength(1);
+      expect(sharedHeader).toBeVisible();
+      expect(within(sharedHeader).getAllByRole("button", { name: "Cambiar período" })).toHaveLength(1);
+      expect(within(sharedHeader).getByRole("button", { name: "Cambiar período" })).toHaveAttribute("aria-expanded", "false");
+      const pageHeadings = screen.getAllByRole("heading", { level: 1, name: "Feedback del público" });
+      expect(pageHeadings).toHaveLength(1);
+      expect(pageHeadings[0]).toHaveClass("sr-only");
+      expect(screen.queryByText("Analítica administrativa", { exact: true })).not.toBeInTheDocument();
+    }
+
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Aspectos" })); });
+    const sharedHeader = screen.getByRole("region", { name: "Período analizado" });
+    const changePeriod = within(sharedHeader).getByRole("button", { name: "Cambiar período" });
     fireEvent.click(changePeriod);
     expect(changePeriod).toHaveAttribute("aria-expanded", "true");
     const appliedRange = new URLSearchParams(String(vi.mocked(authenticatedInternalApiFetch).mock.calls[0]?.[0]).split("?")[1]);
-    expect(within(scope).getByLabelText("Desde")).toHaveValue(appliedRange.get("from"));
+    expect(within(sharedHeader).getByLabelText("Desde")).toHaveValue(appliedRange.get("from"));
+    expect(within(sharedHeader).getByRole("button", { name: "Analizar período" })).toBeVisible();
 
-    fireEvent.click(screen.getByRole("button", { name: "Aspectos" }));
-    expect(screen.queryByRole("button", { name: "Cambiar período" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Desde")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Analizar período" })).toBeVisible();
+    fireEvent.change(within(sharedHeader).getByLabelText("Desde"), { target: { value: "2026-09-20" } });
+    fireEvent.change(within(sharedHeader).getByLabelText("Hasta"), { target: { value: "2026-09-01" } });
+    fireEvent.click(within(sharedHeader).getByRole("button", { name: "Analizar período" }));
+    const periodAlert = within(sharedHeader).getByRole("alert");
+    expect(periodAlert).toHaveTextContent("El período es inválido");
+    await waitFor(() => expect(periodAlert).toHaveFocus());
+
+    fireEvent.change(within(sharedHeader).getByLabelText("Desde"), { target: { value: "2026-09-11" } });
+    fireEvent.change(within(sharedHeader).getByLabelText("Hasta"), { target: { value: "2026-09-20" } });
+    fireEvent.click(within(sharedHeader).getByRole("button", { name: "Analizar período" }));
+    await waitFor(() => {
+      const updatedRequest = vi.mocked(authenticatedInternalApiFetch).mock.calls
+        .map(([path]) => new URLSearchParams(String(path).split("?")[1]))
+        .find((params) => params.get("from") === "2026-09-11" && params.get("to") === "2026-09-20");
+      expect(updatedRequest).toBeDefined();
+      expect(changePeriod).toHaveAttribute("aria-expanded", "false");
+    });
   });
 
   it("omits the opening KPI cards from Aspects while retaining the selected aspect", () => {
@@ -639,18 +678,77 @@ describe("feedback analytics UI projections", () => {
     expect(screen.getByText("Atención", { selector: "strong" })).toBeInTheDocument();
   });
 
+  it("switches the selected-aspect trend across authoritative metrics and calendar units", () => {
+    const data = projectAspects(source);
+    const selected = data.aspects.find((item) => item.aspectKey === "views")!;
+    render(<AspectsModule data={data} selectedKey="views" onSelect={noop} />);
+
+    const trend = screen.getByRole("region", { name: "Evolución del aspecto" });
+    const metricControls = within(trend).getByRole("group", { name: "Vista de evolución" });
+    const unitControls = within(trend).getByRole("group", { name: "Agrupación temporal" });
+    const selections = within(metricControls).getByRole("button", { name: "Selecciones" });
+    const ratings = within(metricControls).getByRole("button", { name: "Valoraciones" });
+    const week = within(unitControls).getByRole("button", { name: "Semana" });
+    const month = within(unitControls).getByRole("button", { name: "Mes" });
+
+    expect(selections).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("table", { name: "Datos exactos de evolución del aspecto" })).toBeInTheDocument();
+    fireEvent.click(ratings);
+    fireEvent.click(week);
+
+    expect(ratings).toHaveAttribute("aria-pressed", "true");
+    expect(week).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(trend).getByText("Ver datos exactos por intervalo"));
+    const exactTable = screen.getByRole("table", { name: "Datos exactos de evolución del aspecto" });
+    const bucket = selected.trend.find((item) => item.unit === "week")!;
+    const row = within(exactTable).getByRole("row", { name: new RegExp(bucket.from) });
+    expect(row).toHaveTextContent(`${bucket.sentiment.positive.count} de ${bucket.selectionCount}`);
+    expect(row).toHaveTextContent(`${bucket.sentiment.neutral.count} de ${bucket.selectionCount}`);
+    expect(row).toHaveTextContent(`${bucket.sentiment.negative.count} de ${bucket.selectionCount}`);
+    expect(within(trend).getAllByRole("checkbox", { name: /Positivas|Neutrales|Negativas/ })).toHaveLength(3);
+
+    fireEvent.click(month);
+    expect(month).toHaveAttribute("aria-pressed", "true");
+    const monthBucket = selected.trend.find((item) => item.unit === "month")!;
+    const monthRow = within(exactTable).getByRole("row", { name: new RegExp(monthBucket.from) });
+    expect(monthRow).toHaveTextContent(`${monthBucket.sentiment.positive.count} de ${monthBucket.selectionCount}`);
+  });
+
+  it("keeps sparse aspect buckets distinct from zero-valued sentiment rates", () => {
+    const data = projectAspects(source);
+    const selected = data.aspects.find((item) => item.aspectKey === "views")!;
+    const emptyBucket = selected.trend.find((item) => item.unit === "day" && item.selectionCount === 0)!;
+    render(<AspectsModule data={data} selectedKey="views" onSelect={noop} />);
+
+    const interval = screen.getByRole("combobox");
+    fireEvent.change(interval, { target: { value: String(selected.trend.filter((item) => item.unit === "day").indexOf(emptyBucket)) } });
+    const selectedStatus = screen.getByRole("status", { name: "Intervalo seleccionado" });
+    expect(selectedStatus).toHaveTextContent("0 encuestas seleccionaron Views");
+    expect(selectedStatus).not.toHaveTextContent("0 de 0 encuestas");
+
+    const exactTable = screen.getByRole("table", { name: "Datos exactos de evolución del aspecto" });
+    const row = within(exactTable).getByRole("row", { name: new RegExp(emptyBucket.from) });
+    expect(row).toHaveTextContent("0 de 0 · No disponible");
+    expect(formatSummaryChartDateTick("2026-09-11–2026-09-16", "week")).toBe("11 sept–16 sept");
+  });
+
   it("renders authoritative matrix and five-star exact tables", () => {
     const aspectData = projectAspects(source);
-    const matrixData: typeof aspectData = { ...aspectData, matrix: [{ aspectKey: "views", xSelectionCount: 8, yNegativeRateBps: 4000, medianSelectionCountTimesTwo: 16, medianNegativeRateBpsTimesTwo: 8000, state: "classified", quadrant: "strength" }, { aspectKey: "other", xSelectionCount: 16, yNegativeRateBps: 8000, medianSelectionCountTimesTwo: 16, medianNegativeRateBpsTimesTwo: 8000, state: "excluded", quadrant: null }] };
+    const matrixData: typeof aspectData = { ...aspectData, matrix: [{ aspectKey: "views", xSelectionCount: 8, yNegativeRateBps: 4000, medianSelectionCountTimesTwo: 16, medianNegativeRateBpsTimesTwo: 8000, state: "classified", quadrant: "strength" }, { aspectKey: "other", xSelectionCount: 16, yNegativeRateBps: 8000, medianSelectionCountTimesTwo: 16, medianNegativeRateBpsTimesTwo: 8000, state: "excluded", quadrant: null }, { aspectKey: "empty", xSelectionCount: 0, yNegativeRateBps: null, medianSelectionCountTimesTwo: 16, medianNegativeRateBpsTimesTwo: 8000, state: "insufficient_evidence", quadrant: null }] };
     render(<AspectsModule data={matrixData} selectedKey="views" onSelect={noop} />);
     expect(screen.getByRole("img", { name: "Matriz de prioridades con ejes de relevancia y negatividad" })).not.toHaveAttribute("aria-hidden");
-    expect(screen.getByTestId("matrix-point-views")).toHaveStyle({ left: "50%", bottom: "40%" });
+    expect(screen.getByTestId("matrix-point-views")).toHaveStyle({ left: "50%", bottom: "50%" });
+    expect(screen.getByTestId("matrix-point-other")).toHaveStyle({ left: "100%", bottom: "100%" });
     expect(screen.getByTestId("matrix-x-median")).toHaveStyle({ left: "50%" });
-    expect(screen.getByTestId("matrix-y-median")).toHaveStyle({ bottom: "40%" });
+    expect(screen.getByTestId("matrix-y-median")).toHaveStyle({ bottom: "50%" });
+    expect(screen.getByTestId("matrix-y-tick-8000")).toHaveTextContent("80.0%");
+    expect(screen.getByTestId("matrix-point-views")).toHaveClass("border-[#143c72]", "bg-background");
+    expect(screen.getByTestId("matrix-point-other")).toHaveClass("rotate-45", "border-[#634291]");
+    expect(screen.queryByTestId("matrix-point-empty")).not.toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Datos exactos de la matriz de prioridades" })).toBeInTheDocument();
     expect(screen.getByText("Prioridad")).toBeInTheDocument();
     expect(screen.getByText(/X = 8/)).toBeInTheDocument();
-    expect(screen.getAllByRole("status")[1]).toHaveTextContent("Aspecto seleccionado: Views");
+    expect(screen.getAllByRole("status").some((status) => status.textContent?.includes("Aspecto seleccionado: Views"))).toBe(true);
     expect(screen.getByRole("table", { name: "Asociación exacta con cinco estrellas" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Otras calificaciones (1–4)" })).toBeInTheDocument();
     expect(screen.getByText("0.0 pp")).toBeInTheDocument();
@@ -661,14 +759,14 @@ describe("feedback analytics UI projections", () => {
     render(<FeedbackDashboard />);
     const skipLink = screen.getByRole("link", { name: "Saltar al contenido de Feedback del público" });
     const tabs = screen.getByRole("navigation", { name: "Módulos de Feedback del público" });
-    const pageHeader = screen.getByRole("heading", { level: 1, name: "Feedback del público" }).closest("header")!;
+    const periodHeader = screen.getByRole("region", { name: "Período analizado" });
     fireEvent.click(screen.getByRole("button", { name: "Cambiar período" }));
     const periodForm = screen.getByRole("button", { name: "Analizar período" }).closest("form")!;
     const content = screen.getByRole("region", { name: "Contenido de Feedback del público" });
     const moduleButtons = within(tabs).getAllByRole("button");
     expect(skipLink.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(tabs.compareDocumentPosition(pageHeader) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(pageHeader.compareDocumentPosition(periodForm) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tabs.compareDocumentPosition(periodHeader) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(periodHeader.compareDocumentPosition(periodForm) & Node.DOCUMENT_POSITION_CONTAINED_BY).toBeTruthy();
     expect(periodForm.compareDocumentPosition(content) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(tabs).toHaveClass("h-[53px]", "overflow-x-auto", "border-b", "bg-transparent");
     expect(tabs).not.toHaveClass("rounded-xl", "border", "bg-background");
@@ -692,7 +790,9 @@ describe("feedback analytics UI projections", () => {
     expect(error).toHaveFocus();
     expect(screen.getByLabelText("Desde")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText("Desde")).toHaveAttribute("aria-describedby", error.id);
-    expect(screen.getByRole("heading", { level: 1, name: "Feedback del público" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1, name: "Feedback del público" })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1, name: "Feedback del público" })).toHaveClass("sr-only");
+    expect(screen.getByRole("region", { name: "Período analizado" })).toBeInTheDocument();
     expect(skipLink).toHaveAttribute("href", "#feedback-dashboard-main");
     expect(document.querySelector("#feedback-dashboard-main")).toBeInTheDocument();
   });
@@ -776,6 +876,7 @@ describe("feedback analytics UI projections", () => {
     await waitFor(() => expect(authenticatedInternalApiFetch).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Aspectos" }));
     await waitFor(() => expect(authenticatedInternalApiFetch).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar período" }));
     fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2026-10-01" } });
     fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "2026-10-10" } });
     fireEvent.click(screen.getByRole("button", { name: "Analizar período" }));
@@ -783,7 +884,10 @@ describe("feedback analytics UI projections", () => {
 
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls[2]?.[0]).toBe("/api/admin/feedback/summary?from=2026-10-01&to=2026-10-10");
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls[3]?.[0]).toBe("/api/admin/feedback/aspects?from=2026-10-01&to=2026-10-10");
-    expect(screen.getByText("Analizado: 2026-10-01–2026-10-10 · Anterior: 2026-09-01–2026-09-10")).toBeInTheDocument();
+    const sharedPeriod = screen.getByRole("region", { name: "Período analizado" });
+    expect(within(sharedPeriod).getByText("1 de oct de 2026–10 de oct de 2026")).toBeInTheDocument();
+    expect(within(sharedPeriod).getByText("1 de sept de 2026–10 de sept de 2026")).toBeInTheDocument();
+    expect(within(sharedPeriod).getAllByText("10 días")).toHaveLength(2);
     expect(screen.getByRole("option", { name: "Valley" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Seleccionar aspecto New views" })).toBeInTheDocument();
   });
@@ -806,6 +910,7 @@ describe("feedback analytics UI projections", () => {
     await waitFor(() => expect(authenticatedInternalApiFetch).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Puntos QR" }));
     await waitFor(() => expect(authenticatedInternalApiFetch).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar período" }));
     fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "2026-10-01" } });
     fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "2026-10-10" } });
     fireEvent.click(screen.getByRole("button", { name: "Analizar período" }));
@@ -813,9 +918,13 @@ describe("feedback analytics UI projections", () => {
 
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls[2]?.[0]).toBe("/api/admin/feedback/summary?from=2026-10-01&to=2026-10-10");
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls[3]?.[0]).toBe("/api/admin/feedback/qr-points?from=2026-10-01&to=2026-10-10&view=comparison&pointKeys=valley");
-    expect(screen.getByText("Analizado: 2026-10-01–2026-10-10 · Anterior: 2026-09-01–2026-09-10")).toBeInTheDocument();
+    const sharedPeriod = screen.getByRole("region", { name: "Período analizado" });
+    expect(within(sharedPeriod).getByText("1 de oct de 2026–10 de oct de 2026")).toBeInTheDocument();
+    expect(within(sharedPeriod).getByText("1 de sept de 2026–10 de sept de 2026")).toBeInTheDocument();
+    expect(within(sharedPeriod).getAllByText("10 días")).toHaveLength(2);
     expect(screen.getByRole("checkbox", { name: "Valley" })).toBeChecked();
-    expect(screen.getAllByRole("columnheader", { name: "Valley" })).toHaveLength(2);
+    expect(screen.getAllByRole("columnheader", { name: "Valley" })).toHaveLength(1);
+    expect(screen.getAllByRole("img", { name: /Valley\. Período/ })).toHaveLength(2);
   });
 
   it("keeps temporal evolution out of comparison and in point detail", () => {
@@ -914,12 +1023,13 @@ describe("feedback analytics UI projections", () => {
     expect(within(indicators).getAllByRole("article")).toHaveLength(4);
     expect(within(indicators).getAllByText(/^Anterior:/)).toHaveLength(4);
 
-    const temporalContext = screen.getByRole("group", { name: "Contexto del intervalo seleccionado" });
+    selectQrTemporalInterval(0);
+    const temporalContext = screen.getByRole("status", { name: "Contexto del intervalo seleccionado" });
     const currentDay = detail.calendar.find((item) => item.period === "current" && item.unit === "day")!;
     const previousDay = detail.calendar.find((item) => item.period === "previous" && item.unit === "day")!;
-    expect(within(temporalContext).getByText(`${currentDay.from}–${currentDay.to}`)).toBeInTheDocument();
-    expect(within(temporalContext).getByText(`${previousDay.from}–${previousDay.to}`)).toBeInTheDocument();
-    expect(within(temporalContext).getAllByText("Satisfacción: Sin datos")).toHaveLength(2);
+    expect(within(temporalContext).getByText(formatQrTestRange(currentDay.from, currentDay.to))).toBeInTheDocument();
+    expect(within(temporalContext).getByText(formatQrTestRange(previousDay.from, previousDay.to))).toBeInTheDocument();
+    expect(within(temporalContext).getAllByText(/Satisfacción: Sin datos · Total:/)).toHaveLength(2);
 
     const trends = screen.getByRole("region", { name: "Tendencias del punto QR" });
     expect(within(trends).getByRole("heading", { name: "Distribución de estrellas" })).toBeInTheDocument();
@@ -1006,7 +1116,7 @@ describe("feedback analytics UI projections", () => {
       <QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={onDetail} onOpenAspects={noop} />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("No hay respuestas para este punto en el período seleccionado.");
+    expect(screen.getByText("No hay respuestas para este punto en el período seleccionado.")).toHaveAttribute("role", "status");
     expect(screen.getByRole("combobox", { name: "Punto" })).toBeEnabled();
     fireEvent.change(screen.getByRole("combobox", { name: "Punto" }), { target: { value: "summit" } });
     expect(onDetail).toHaveBeenCalledWith("summit");
@@ -1030,7 +1140,7 @@ describe("feedback analytics UI projections", () => {
 
     expect(screen.getByRole("heading", { name: "Evolución temporal" })).toBeInTheDocument();
     const metricControls = screen.getByRole("group", { name: "Métrica temporal" });
-    const unitControls = screen.getByRole("group", { name: "Intervalo temporal" });
+    const unitControls = screen.getByRole("group", { name: "Agrupación temporal" });
     const satisfaction = within(metricControls).getByRole("button", { name: "Satisfacción" });
     const volume = within(metricControls).getByRole("button", { name: "Volumen" });
     const day = within(unitControls).getByRole("button", { name: "Día" });
@@ -1050,18 +1160,167 @@ describe("feedback analytics UI projections", () => {
     const current = detail.calendar.filter((item) => item.period === "current" && item.unit === "week");
     const previous = detail.calendar.filter((item) => item.period === "previous" && item.unit === "week");
     const table = screen.getByRole("table", { name: "Datos exactos de evolución temporal" });
-    const firstInterval = within(table).getByRole("row", { name: /^Intervalo 1\s/ });
+    const firstInterval = within(table).getByRole("row", { name: new RegExp(current[0]!.from) });
     expect(firstInterval).toHaveTextContent(`${current[0]!.from}–${current[0]!.to}`);
     expect(firstInterval).toHaveTextContent(`${previous[0]!.from}–${previous[0]!.to}`);
     expect(firstInterval).toHaveTextContent("Sin datos");
 
-    const selectedInterval = screen.getByRole("combobox", { name: "Intervalo seleccionado" });
-    fireEvent.change(selectedInterval, { target: { value: "1" } });
+    selectQrTemporalInterval(1);
     const selectedCurrent = current[1]!;
     const selectedPrevious = previous[1]!;
-    const context = screen.getByRole("group", { name: "Contexto del intervalo seleccionado" });
-    expect(within(context).getByText(`${selectedCurrent.from}–${selectedCurrent.to}`)).toBeInTheDocument();
-    expect(within(context).getByText(`${selectedPrevious.from}–${selectedPrevious.to}`)).toBeInTheDocument();
+    const context = screen.getByRole("status", { name: "Contexto del intervalo seleccionado" });
+    expect(within(context).getByText(formatQrTestRange(selectedCurrent.from, selectedCurrent.to))).toBeInTheDocument();
+    expect(within(context).getByText(formatQrTestRange(selectedPrevious.from, selectedPrevious.to))).toBeInTheDocument();
+  });
+
+  it("places responsive metric and unit controls before a selectable chart and its selected status", () => {
+    const projected = projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" });
+    const detail = {
+      ...projected,
+      view: "detail" as const,
+      calendar: projected.calendar.map((item) => item.period === "current" && item.unit === "day"
+        ? { ...item, satisfactionRateBps: 7_500, submissionCount: 0 }
+        : item),
+    };
+    render(
+      <QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />,
+    );
+
+    const panel = screen.getByRole("heading", { name: "Evolución temporal" }).closest("section")!;
+    const metricControls = within(panel).getByRole("group", { name: "Métrica temporal" });
+    const unitControls = within(panel).getByRole("group", { name: "Agrupación temporal" });
+    const chart = within(panel).getByTestId("qr-temporal-chart");
+    const legend = within(panel).getByRole("list", { name: "Períodos comparados" });
+    const status = within(panel).getByRole("status", { name: "Contexto del intervalo seleccionado" });
+
+    expect(metricControls.compareDocumentPosition(unitControls) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(unitControls.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(chart).toHaveClass("w-full", "min-w-0");
+    expect(within(chart).getByRole("region", { name: "Gráfico temporal desplazable horizontalmente" })).toHaveClass("overflow-x-auto");
+    expect(within(metricControls).getByRole("button", { name: "Satisfacción" })).toHaveClass("aria-pressed:border-primary", "aria-pressed:bg-white");
+    expect(within(metricControls).getByRole("button", { name: "Volumen" })).toHaveClass("aria-pressed:border-primary", "aria-pressed:bg-white");
+
+    const intervalButtons = within(chart).getAllByRole("button", { name: /Seleccionar intervalo/ });
+    expect(intervalButtons.length).toBeGreaterThan(1);
+    expect(intervalButtons.filter((interval) => interval.getAttribute("aria-pressed") === "true")).toHaveLength(1);
+    expect(within(chart).getByTestId("qr-selected-interval-band")).toBeInTheDocument();
+    intervalButtons[1]!.focus();
+    fireEvent.keyDown(intervalButtons[1]!, { key: "Enter" });
+    expect(intervalButtons[1]).toHaveFocus();
+    expect(intervalButtons[1]).toHaveAttribute("aria-pressed", "true");
+
+    expect(legend.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(within(status).getByText(/Satisfacción: 75\.0% · Total: 0 respuestas/)).toBeInTheDocument();
+    expect(within(status).queryByText(/0 de 0/)).not.toBeInTheDocument();
+    expect(within(status).getByRole("group", { name: "Período anterior" })).toHaveTextContent("Total: 0 respuestas");
+
+    const volume = within(metricControls).getByRole("button", { name: "Volumen" });
+    fireEvent.click(volume);
+    expect(within(status).getAllByText(/Volumen: 0 respuestas/)).toHaveLength(2);
+    expect(within(status).getByRole("group", { name: "Período anterior" })).toHaveTextContent("Volumen: 0 respuestas");
+    expect(screen.getByText("Ver datos exactos").closest("details")).not.toHaveProperty("open", true);
+  });
+
+  it("styles the metric choices as one wide segmented control above compact interval choices", () => {
+    const detail = {
+      ...projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" }),
+      view: "detail" as const,
+    };
+    render(
+      <QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />,
+    );
+
+    const metricControls = screen.getByRole("group", { name: "Métrica temporal" });
+    const unitControls = screen.getByRole("group", { name: "Agrupación temporal" });
+    expect(metricControls).toHaveClass("grid", "w-full", "grid-cols-2");
+    expect(within(metricControls).getByRole("button", { name: "Satisfacción" })).toHaveClass("aria-pressed:border-primary", "aria-pressed:bg-white");
+    expect(within(metricControls).getByRole("button", { name: "Volumen" })).toHaveClass("aria-pressed:border-primary", "aria-pressed:bg-white");
+    expect(unitControls).toHaveClass("w-fit");
+    expect(metricControls.compareDocumentPosition(unitControls) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("selects actual QR intervals from visible chart hit targets with keyboard activation", () => {
+    const detail = {
+      ...projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" }),
+      view: "detail" as const,
+    };
+    render(
+      <QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />,
+    );
+
+    const chart = screen.getByTestId("qr-temporal-chart");
+    const intervals = within(chart).getAllByRole("button", { name: /Seleccionar intervalo/ });
+    expect(intervals.length).toBeGreaterThan(1);
+    expect(intervals.filter((interval) => interval.getAttribute("aria-pressed") === "true")).toHaveLength(1);
+    expect(within(chart).getByTestId("qr-selected-interval-band")).toBeInTheDocument();
+    intervals[1]!.focus();
+    fireEvent.keyDown(intervals[1]!, { key: "Enter" });
+    expect(intervals[1]).toHaveFocus();
+    expect(intervals[1]).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("places selected current and previous metric values in a stacked status below the chart legend", () => {
+    const projected = projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" });
+    const firstCurrent = projected.calendar.find((item) => item.period === "current" && item.unit === "day")!;
+    const firstPrevious = projected.calendar.find((item) => item.period === "previous" && item.unit === "day")!;
+    const detail = {
+      ...projected,
+      view: "detail" as const,
+      calendar: projected.calendar.map((item) => item === firstCurrent
+        ? { ...item, satisfactionRateBps: 7_500, submissionCount: 2 }
+        : item === firstPrevious
+          ? { ...item, satisfactionRateBps: 6_000, submissionCount: 1 }
+          : item),
+    };
+    render(
+      <QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />,
+    );
+
+    selectQrTemporalInterval(0);
+    const panel = screen.getByRole("heading", { name: "Evolución temporal" }).closest("section")!;
+    const chart = within(panel).getByTestId("qr-temporal-chart");
+    const legend = within(chart).getByRole("list", { name: "Períodos comparados" });
+    const status = within(panel).getByRole("status", { name: "Contexto del intervalo seleccionado" });
+    expect(legend.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(status).toHaveClass("bg-[#eef2f5]");
+    const sections = within(status).getAllByRole("group");
+    expect(sections.map((section) => section.getAttribute("aria-label"))).toEqual(["Período actual", "Período anterior"]);
+    expect(within(sections[0]!).getByText(/Satisfacción: 75\.0% · Total: 2 respuestas/)).toBeInTheDocument();
+    expect(within(sections[1]!).getByText(/Satisfacción: 60\.0% · Total: 1 respuesta/)).toBeInTheDocument();
+    expect(status).not.toHaveTextContent(/satisfechas/);
+  });
+
+  it("renders zero response volume separately from a missing previous interval", () => {
+    const projected = projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" });
+    const previousDay = projected.calendar.find((item) => item.period === "previous" && item.unit === "day")!;
+    const detail = {
+      ...projected,
+      view: "detail" as const,
+      calendar: projected.calendar.filter((item) => item !== previousDay && !(item.period === "previous" && item.unit === "day")),
+    };
+    render(
+      <QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Volumen" }));
+    const status = screen.getByRole("status", { name: "Contexto del intervalo seleccionado" });
+    expect(within(status).getAllByText(/Volumen: 0 respuestas/)).toHaveLength(1);
+    expect(within(status).getByRole("group", { name: "Período anterior" })).toHaveTextContent("Sin intervalo comparable");
+  });
+
+  it("does not add interval-selection tab stops when the QR calendar has no buckets", () => {
+    const detail = {
+      ...projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" }),
+      view: "detail" as const,
+      calendar: [],
+    };
+    render(
+      <QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />,
+    );
+
+    expect(screen.getByText("No hay intervalos temporales disponibles para este punto.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Seleccionar intervalo/ })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("qr-temporal-chart")).not.toBeInTheDocument();
   });
 
   it("preserves zero volume, null satisfaction, and missing prior ordinals in QR temporal data", () => {
@@ -1078,18 +1337,17 @@ describe("feedback analytics UI projections", () => {
 
     const day = screen.getByRole("button", { name: "Día" });
     fireEvent.click(day);
-    const intervalSelect = screen.getByRole("combobox", { name: "Intervalo seleccionado" });
-    fireEvent.change(intervalSelect, { target: { value: "1" } });
+    selectQrTemporalInterval(1);
     const table = screen.getByRole("table", { name: "Datos exactos de evolución temporal" });
-    const secondInterval = within(table).getByRole("row", { name: /^Intervalo 2\s/ });
     const currentDays = detail.calendar.filter((item) => item.period === "current" && item.unit === "day");
+    const secondInterval = within(table).getByRole("row", { name: new RegExp(currentDays[1]!.from) });
     const secondCurrentDay = currentDays[1]!;
     expect(secondCurrentDay.submissionCount).toBe(0);
     expect(secondInterval).toHaveTextContent("0");
     expect(secondInterval).toHaveTextContent("Sin intervalo comparable");
 
     fireEvent.click(screen.getByRole("button", { name: "Satisfacción" }));
-    const firstInterval = within(table).getByRole("row", { name: /^Intervalo 1\s/ });
+    const firstInterval = within(table).getByRole("row", { name: new RegExp(currentDays[0]!.from) });
     expect(firstInterval).toHaveTextContent("Sin datos");
   });
 
@@ -1106,17 +1364,25 @@ describe("feedback analytics UI projections", () => {
       <QrModule data={base} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />,
     );
 
-    const intervalSelect = screen.getByRole("combobox", { name: "Intervalo seleccionado" });
-    fireEvent.change(intervalSelect, { target: { value: "4" } });
-    expect(intervalSelect).toHaveValue("4");
+    selectQrTemporalInterval(4);
+    expect(screen.getAllByRole("button", { name: /Seleccionar intervalo/ })[4]).toHaveAttribute("aria-pressed", "true");
     view.rerender(
       <QrModule data={summit} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["summit"]} onToggle={noop} detailKey="summit" onDetail={noop} onOpenAspects={noop} />,
     );
 
-    expect(screen.getByRole("combobox", { name: "Intervalo seleccionado" })).toHaveValue("0");
-    const firstCurrent = summit.calendar.find((item) => item.period === "current" && item.unit === "day")!;
-    const context = screen.getByRole("group", { name: "Contexto del intervalo seleccionado" });
-    expect(within(context).getByText(`${firstCurrent.from}–${firstCurrent.to}`)).toBeInTheDocument();
+    const currentDays = summit.calendar.filter((item) => item.period === "current" && item.unit === "day").toSorted((left, right) => left.from.localeCompare(right.from));
+    const previousDays = summit.calendar.filter((item) => item.period === "previous" && item.unit === "day").toSorted((left, right) => left.from.localeCompare(right.from));
+    let lastMeasuredIndex = -1;
+    for (let index = Math.max(currentDays.length, previousDays.length) - 1; index >= 0; index -= 1) {
+      if ((currentDays[index] && currentDays[index]!.satisfactionRateBps !== null) || (previousDays[index] && previousDays[index]!.satisfactionRateBps !== null)) {
+        lastMeasuredIndex = index;
+        break;
+      }
+    }
+    expect(screen.getAllByRole("button", { name: /Seleccionar intervalo/ })[lastMeasuredIndex]).toHaveAttribute("aria-pressed", "true");
+    const firstCurrent = currentDays[lastMeasuredIndex]!;
+    const context = screen.getByRole("status", { name: "Contexto del intervalo seleccionado" });
+    expect(within(context).getByText(formatQrTestRange(firstCurrent.from, firstCurrent.to))).toBeInTheDocument();
   });
 
   it("uses full-width even QR tabs and balanced comparison and detail grids", () => {
@@ -1797,5 +2063,162 @@ describe("feedback analytics UI projections", () => {
     expect(generationCalls).toBe(1);
     resolveCommand(Response.json({ reportRunId: "run-3", status: "queued" }, { status: 202 }));
     expect(await screen.findByText(/Solicitud run-3/)).toBeInTheDocument();
+  });
+
+  it("compares selected QR point volumes with paired horizontal bars on one shared count scale", () => {
+    const comparison = {
+      ...projectQrPoints(source, { route: "qr-comparison", from: "2026-09-11", to: "2026-09-20", pointKeys: ["base", "summit"] }),
+      view: "comparison" as const,
+    };
+    render(<QrModule data={comparison} options={snapshot.metrics.qrPoints} mode="comparison" onMode={noop} selectedKeys={["base", "summit"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />);
+
+    const chart = screen.getByRole("group", { name: "Volumen por punto QR" });
+    const point = comparison.points[0]!;
+    expect(within(chart).getByText(point.displayName)).toBeInTheDocument();
+    expect(within(chart).getByRole("img", { name: new RegExp(`${point.displayName}.*Período analizado.*${point.current.submissionCount}`) })).toBeInTheDocument();
+    expect(within(chart).getByRole("img", { name: new RegExp(`${point.displayName}.*Período anterior.*${point.previous.submissionCount}`) })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Períodos comparados" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("qr-volume-axis-tick").map((tick) => tick.textContent)).toContain("0");
+    expect(within(chart).getAllByTestId("qr-volume-bar")).toHaveLength(comparison.points.length * 2);
+    expect(screen.getByRole("table", { name: "Datos exactos de comparación por punto QR" })).toBeInTheDocument();
+  });
+
+  it("sizes QR comparison bars against the rounded shared axis endpoint", () => {
+    const projected = projectQrPoints(source, { route: "qr-comparison", from: "2026-09-11", to: "2026-09-20", pointKeys: ["base", "summit"] });
+    const comparison = {
+      ...projected,
+      view: "comparison" as const,
+      points: projected.points.map((point, index) => ({
+        ...point,
+        current: { ...point.current, submissionCount: index === 0 ? 7 : 0 },
+        previous: { ...point.previous, submissionCount: index === 0 ? 6 : 0 },
+      })),
+    };
+    render(<QrModule data={comparison} options={snapshot.metrics.qrPoints} mode="comparison" onMode={noop} selectedKeys={["base", "summit"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />);
+
+    const chart = screen.getByRole("group", { name: "Volumen por punto QR" });
+    const bars = within(chart).getAllByTestId("qr-volume-bar");
+    expect(bars.map((bar) => bar.getAttribute("style"))).toEqual([
+      "width: 87.5%;",
+      "width: 75%;",
+      "width: 0%;",
+      "width: 0%;",
+    ]);
+    expect(screen.getAllByTestId("qr-volume-axis-tick").map((tick) => tick.textContent)).toEqual(["0", "2", "4", "6", "8"]);
+    expect(within(chart).getByRole("img", { name: /Base\. Período analizado: 7 respuestas completas/ })).toBeInTheDocument();
+    expect(within(chart).getByRole("img", { name: /Base\. Período anterior: 6 respuestas completas/ })).toBeInTheDocument();
+  });
+
+  it("uses compact labels from real QR intervals and preserves sparse, null, and zero values", () => {
+    const projected = projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" });
+    const currentDays = projected.calendar.filter((item) => item.period === "current" && item.unit === "day");
+    const emptyDay = currentDays[1]!;
+    const detail = {
+      ...projected,
+      view: "detail" as const,
+      calendar: projected.calendar.filter((item) => item !== emptyDay),
+    };
+    render(<QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />);
+
+    const availableCurrentDays = detail.calendar.filter((item) => item.period === "current" && item.unit === "day");
+    const availablePreviousDays = detail.calendar.filter((item) => item.period === "previous" && item.unit === "day");
+    const intervalButtons = screen.getAllByRole("button", { name: /Seleccionar intervalo/ });
+    expect(intervalButtons).toHaveLength(Math.max(availableCurrentDays.length, availablePreviousDays.length));
+    expect(intervalButtons[0]?.getAttribute("aria-label")).toMatch(/11 sept/);
+    expect(screen.getByTestId("qr-temporal-chart").querySelectorAll("[data-qr-x-label]").length).toBeGreaterThan(5);
+    expect(screen.getByTestId("qr-temporal-chart").querySelectorAll("[data-qr-x-label]").length).toBeLessThanOrEqual(8);
+    expect(screen.getByRole("table", { name: "Datos exactos de evolución temporal" })).toHaveTextContent("Sin datos");
+
+    fireEvent.click(screen.getByRole("button", { name: "Volumen" }));
+    const exactTable = screen.getByRole("table", { name: "Datos exactos de evolución temporal" });
+    const zeroBucket = currentDays.find((item) => item.submissionCount === 0)!;
+    const exactRow = within(exactTable).getAllByRole("row").find((row) => row.textContent?.includes(zeroBucket.from));
+    expect(exactRow).toHaveTextContent("0");
+    expect(screen.getAllByRole("button", { name: /Seleccionar intervalo/ })).toHaveLength(Math.max(availableCurrentDays.length, availablePreviousDays.length));
+    expect(screen.getByTestId("qr-temporal-chart")).toHaveAttribute("data-metric", "volume");
+  });
+
+  it("fits thirty QR intervals on wide cards and defaults to the latest measured interval", () => {
+    const projected = projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" });
+    const currentDay = projected.calendar.find((item) => item.period === "current" && item.unit === "day")!;
+    const previousDay = projected.calendar.find((item) => item.period === "previous" && item.unit === "day")!;
+    const calendar = Array.from({ length: 30 }, (_, index) => {
+      const date = new Date(Date.UTC(2026, 8, 1 + index)).toISOString().slice(0, 10);
+      return [
+        { ...currentDay, from: date, to: date, satisfactionRateBps: index === 29 ? null : 7_500, submissionCount: index === 29 ? 0 : index },
+        { ...previousDay, from: date, to: date, satisfactionRateBps: index === 29 ? null : 6_000, submissionCount: index },
+      ];
+    }).flat();
+    const detail = { ...projected, view: "detail" as const, calendar };
+    render(<QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />);
+
+    const chart = screen.getByTestId("qr-temporal-chart");
+    const svg = chart.querySelector("svg")!;
+    expect(svg).toHaveStyle({ minWidth: "1700px" });
+    expect(Number.parseFloat(svg.style.minWidth)).toBeLessThanOrEqual(1788);
+    expect(within(chart).getByRole("region", { name: "Gráfico temporal desplazable horizontalmente" })).toHaveClass("overflow-x-auto");
+    const intervals = within(chart).getAllByRole("button", { name: /Seleccionar intervalo/ });
+    expect(intervals).toHaveLength(30);
+    expect(intervals.filter((interval) => interval.getAttribute("tabindex") === "0")).toHaveLength(1);
+    expect(intervals[28]).toHaveAttribute("aria-pressed", "true");
+    expect(intervals[28]).toHaveAttribute("tabindex", "0");
+    expect(within(chart).getByTestId("qr-selected-interval-band")).toHaveAttribute("data-interval-index", "28");
+
+    fireEvent.click(intervals[26]!);
+    expect(intervals[26]).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(chart).getByTestId("qr-marker-current-27"));
+    expect(within(chart).getByTestId("qr-marker-current-27").compareDocumentPosition(intervals[27]!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(intervals[27]).toHaveAttribute("aria-pressed", "true");
+    expect(within(chart).getByTestId("qr-marker-current-27")).toHaveAttribute("r", "7");
+    expect(within(chart).getByTestId("qr-selected-interval-band")).toHaveAttribute("data-interval-index", "27");
+
+    intervals[28]!.focus();
+    fireEvent.keyDown(intervals[28]!, { key: "ArrowRight" });
+    expect(intervals[29]).toHaveFocus();
+    expect(intervals[29]).toHaveAttribute("tabindex", "0");
+    expect(intervals[28]).toHaveAttribute("tabindex", "-1");
+    expect(intervals[29]).toHaveAttribute("aria-pressed", "false");
+    fireEvent.keyDown(intervals[29]!, { key: " " });
+    expect(intervals[29]).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("shows the selected-interval heading between the legend and current/previous status", () => {
+    const detail = {
+      ...projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" }),
+      view: "detail" as const,
+    };
+    render(<QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />);
+
+    const panel = screen.getByRole("heading", { name: "Evolución temporal" }).closest("section")!;
+    const legend = within(panel).getByRole("list", { name: "Períodos comparados" });
+    const selectedHeading = within(panel).getByRole("heading", { name: "Intervalo seleccionado" });
+    const status = within(panel).getByRole("status", { name: "Contexto del intervalo seleccionado" });
+    expect(legend.compareDocumentPosition(selectedHeading) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(selectedHeading.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("keeps QR temporal focus styling on the interval without outlining the whole chart", () => {
+    const detail = {
+      ...projectQrPoints({ ...source, snapshot: snapshotFor("base") }, { route: "qr-detail", from: "2026-09-11", to: "2026-09-20", pointKey: "base" }),
+      view: "detail" as const,
+    };
+    render(<QrModule data={detail} options={snapshot.metrics.qrPoints} mode="detail" onMode={noop} selectedKeys={["base"]} onToggle={noop} detailKey="base" onDetail={noop} onOpenAspects={noop} />);
+
+    const chart = screen.getByTestId("qr-temporal-chart");
+    const plotRegion = within(chart).getByRole("region", { name: "Gráfico temporal desplazable horizontalmente" });
+    const intervalTargets = within(chart).getAllByRole("button", { name: /Seleccionar intervalo/ });
+    expect(plotRegion).not.toHaveClass("focus-within:outline");
+    expect(intervalTargets[0]).toHaveClass("focus-visible:stroke-primary", "focus-visible:stroke-2");
+
+    for (const metric of ["Satisfacción", "Volumen"]) {
+      fireEvent.click(screen.getByRole("button", { name: metric }));
+      expect(chart).toHaveAttribute("data-metric", metric === "Satisfacción" ? "satisfaction" : "volume");
+      fireEvent.click(intervalTargets[1]!);
+      expect(intervalTargets[1]).toHaveAttribute("aria-pressed", "true");
+      expect(within(chart).getByTestId("qr-selected-interval-band")).toHaveAttribute("data-interval-index", "1");
+      expect(screen.getByRole("status", { name: "Contexto del intervalo seleccionado" })).toHaveTextContent(
+        metric === "Satisfacción" ? "Satisfacción:" : "Volumen:",
+      );
+    }
   });
 });

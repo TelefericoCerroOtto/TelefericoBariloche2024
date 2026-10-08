@@ -498,6 +498,110 @@ export function SummaryModule({ data, period, onViewReports }: { data: FeedbackA
   );
 }
 
+type AspectTrendMetric = "selections" | "ratings";
+type AspectTrendUnit = "day" | "week" | "month";
+type AspectTrendBucket = FeedbackAdminAspectsData["aspects"][number]["trend"][number];
+
+const ASPECT_TREND_SERIES = [
+  { key: "positive", label: "Positivas", color: "#147a32", marker: "circle" },
+  { key: "neutral", label: "Neutrales", color: "#ce6700", marker: "diamond" },
+  { key: "negative", label: "Negativas", color: "#9F1212", marker: "square" },
+] as const;
+
+function aspectCountAxis(maxValue: number) {
+  const target = Math.max(1, maxValue / 4);
+  const magnitude = 10 ** Math.floor(Math.log10(target));
+  const normalized = target / magnitude;
+  const step = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
+  const maximum = Math.max(step, Math.ceil(maxValue / step) * step);
+  return { maximum, ticks: Array.from({ length: Math.round(maximum / step) + 1 }, (_, index) => index * step) };
+}
+
+function formatAspectTrendRange(bucket: AspectTrendBucket) {
+  return bucket.from === bucket.to ? bucket.from : `${bucket.from}–${bucket.to}`;
+}
+
+function AspectTrendChart({ aspect }: { aspect: FeedbackAdminAspectsData["aspects"][number] }) {
+  const [metric, setMetric] = useState<AspectTrendMetric>("selections");
+  const [unit, setUnit] = useState<AspectTrendUnit>("day");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [visibleSeries, setVisibleSeries] = useState<Record<(typeof ASPECT_TREND_SERIES)[number]["key"], boolean>>({
+    positive: true,
+    neutral: true,
+    negative: true,
+  });
+  const buckets = aspect.trend.filter((item) => item.unit === unit);
+  const rows = buckets.map((bucket) => ({
+    label: formatAspectTrendRange(bucket),
+    selectionCount: bucket.selectionCount,
+    positive: bucket.sentiment.positive.rateBps,
+    neutral: bucket.sentiment.neutral.rateBps,
+    negative: bucket.sentiment.negative.rateBps,
+  }));
+  const selectionAxis = aspectCountAxis(Math.max(0, ...rows.map((row) => row.selectionCount)));
+  const dateTicks = getSummaryChartTickLabels(rows.map((row) => row.label));
+  const selectedBucket = buckets[Math.min(selectedIndex, Math.max(buckets.length - 1, 0))];
+  const selectedLabel = selectedBucket
+    ? formatSummaryChartDateTick(formatAspectTrendRange(selectedBucket), unit)
+    : "No hay intervalos disponibles";
+
+  return (
+    <section aria-label="Evolución del aspecto" className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold">Evolución del aspecto</h3>
+          <p className="text-sm text-foreground/70">Cada intervalo usa las encuestas del aspecto dentro de ese período.</p>
+        </div>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Vista de evolución">
+          {(["selections", "ratings"] as const).map((value) => <Button key={value} type="button" variant={metric === value ? "solid" : "bordered"} color={metric === value ? "primary" : "default"} aria-pressed={metric === value} onClick={() => setMetric(value)}>{value === "selections" ? "Selecciones" : "Valoraciones"}</Button>)}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Agrupación temporal">
+        {(["day", "week", "month"] as const).map((value) => <Button key={value} type="button" variant={unit === value ? "solid" : "bordered"} color={unit === value ? "primary" : "default"} aria-pressed={unit === value} onClick={() => { setUnit(value); setSelectedIndex(0); }}>{value === "day" ? "Día" : value === "week" ? "Semana" : "Mes"}</Button>)}
+      </div>
+      {metric === "ratings" ? <div className="flex flex-wrap gap-x-4 gap-y-2" role="group" aria-label="Series visibles">
+        {ASPECT_TREND_SERIES.map((series) => <label key={series.key} className="inline-flex min-h-9 items-center gap-2 text-sm">
+          <input type="checkbox" checked={visibleSeries[series.key]} onChange={(event) => setVisibleSeries((current) => ({ ...current, [series.key]: event.target.checked }))} />
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: series.color }} />{series.label}
+        </label>)}
+      </div> : null}
+      {rows.length ? <>
+        {metric === "ratings" && !ASPECT_TREND_SERIES.some((series) => visibleSeries[series.key]) ? <p role="status" className="text-sm text-foreground/70">Seleccioná al menos una serie para mostrar el gráfico.</p> : null}
+        <div className="h-64 w-full min-w-0" role="img" aria-label={`${metric === "selections" ? "Selecciones" : "Valoraciones"} de ${aspectLabel(aspect)} por ${unit === "day" ? "día" : unit === "week" ? "semana" : "mes"}`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={rows} margin={{ left: 8, right: 14, top: 8, bottom: 4 }}>
+              <CartesianGrid vertical={false} stroke="#e3e3e5" />
+              <XAxis dataKey="label" ticks={dateTicks} minTickGap={20} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => formatSummaryChartDateTick(String(value), unit)} />
+              <YAxis domain={metric === "selections" ? [0, selectionAxis.maximum] : [0, 10_000]} ticks={metric === "selections" ? selectionAxis.ticks : [0, 2500, 5000, 7500, 10_000]} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickMargin={8} tickFormatter={(value) => metric === "selections" ? String(value) : `${Number(value) / 100}%`} />
+              <Tooltip labelFormatter={(label) => String(label)} formatter={(value) => value === null || value === undefined ? "No disponible" : metric === "selections" ? String(value) : percent(Number(value))} />
+              {metric === "selections" ? <Line isAnimationActive={false} type="monotone" dataKey="selectionCount" name="Selecciones" stroke="#143c72" strokeWidth={2} connectNulls={false} dot={{ r: 3, fill: "#ffffff", stroke: "#143c72", strokeWidth: 2 }} activeDot={{ r: 5, fill: "#ffffff", stroke: "#143c72", strokeWidth: 2 }} /> : ASPECT_TREND_SERIES.filter((series) => visibleSeries[series.key]).map((series) => <Line key={series.key} isAnimationActive={false} type="monotone" dataKey={series.key} name={series.label} stroke={series.color} strokeWidth={2} connectNulls={false} dot={{ r: 3, fill: "#ffffff", stroke: series.color, strokeWidth: 2 }} activeDot={{ r: 5, fill: "#ffffff", stroke: series.color, strokeWidth: 2 }} />)}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <p className="text-xs text-foreground/60">Tiempo · {unit === "day" ? "Día" : unit === "week" ? "Semana" : "Mes"} · {metric === "selections" ? "Encuestas que seleccionaron el aspecto" : "Valoraciones dentro del aspecto (%)"}</p>
+        {selectedBucket ? <div className="rounded-lg border border-default-200 bg-default-50/70 p-3 text-sm" role="status" aria-label="Intervalo seleccionado">
+          <label className="flex flex-wrap items-center gap-2 font-semibold">Intervalo seleccionado
+            <select className="max-w-full rounded-lg border border-default-200 bg-background px-2 py-1 font-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" value={Math.min(selectedIndex, buckets.length - 1)} onChange={(event) => setSelectedIndex(Number(event.target.value))}>
+              {buckets.map((bucket, index) => <option key={`${bucket.from}:${bucket.to}`} value={index}>{formatAspectTrendRange(bucket)}</option>)}
+            </select>
+          </label>
+          {metric === "selections" ? <p className="mt-1">{selectedBucket.selectionCount} {selectedBucket.selectionCount === 1 ? "encuesta seleccionó" : "encuestas seleccionaron"} {aspectLabel(aspect)} en {selectedLabel}.</p> : <p className="mt-1">Positivas {selectedBucket.sentiment.positive.count} de {selectedBucket.selectionCount} ({percent(selectedBucket.sentiment.positive.rateBps)}); neutrales {selectedBucket.sentiment.neutral.count} de {selectedBucket.selectionCount} ({percent(selectedBucket.sentiment.neutral.rateBps)}); negativas {selectedBucket.sentiment.negative.count} de {selectedBucket.selectionCount} ({percent(selectedBucket.sentiment.negative.rateBps)}).</p>}
+        </div> : null}
+        <details className="rounded-lg border border-default-200 px-3 py-2">
+          <summary className="cursor-pointer rounded-sm py-1 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Ver datos exactos por intervalo</summary>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <caption className="sr-only">Datos exactos de evolución del aspecto</caption>
+              <thead className="bg-default-100/60"><tr><th scope="col" className="p-2">Intervalo</th><th scope="col" className="p-2">Selecciones</th><th scope="col" className="p-2">Positivas</th><th scope="col" className="p-2">Neutrales</th><th scope="col" className="p-2">Negativas</th></tr></thead>
+              <tbody>{buckets.map((bucket) => <tr key={`${bucket.from}:${bucket.to}`} className="border-t border-default-200 even:bg-default-50/70"><th scope="row" className="p-2 font-medium">{formatAspectTrendRange(bucket)}</th><td className="p-2 tabular-nums">{bucket.selectionCount}</td>{ASPECT_TREND_SERIES.map((series) => <td key={series.key} className="p-2 tabular-nums">{bucket.sentiment[series.key].count} de {bucket.selectionCount} · {percent(bucket.sentiment[series.key].rateBps)}</td>)}</tr>)}</tbody>
+            </table>
+          </div>
+        </details>
+      </> : <EmptyState>No hay intervalos temporales disponibles para este aspecto.</EmptyState>}
+    </section>
+  );
+}
+
 export function AspectsModule({ data, selectedKey, onSelect }: {
   data: FeedbackAdminAspectsData;
   selectedKey: string;
@@ -505,13 +609,16 @@ export function AspectsModule({ data, selectedKey, onSelect }: {
 }) {
   const selected = data.aspects.find((item) => item.aspectKey === selectedKey) ?? data.aspects[0];
   if (!selected) return <EmptyState>No hay evidencia de aspectos disponible para este alcance.</EmptyState>;
-  const dayTrend = selected.trend.filter((item) => item.unit === "day");
   const labels = new Map(data.aspects.map((item) => [item.aspectKey, aspectLabel(item)]));
   const reference = data.matrix.find((item) => item.medianSelectionCountTimesTwo !== null);
   const quadrants = [["priority", "Prioridad"], ["specific", "Específico"], ["strength", "Fortaleza"], ["secondary", "Secundario"]] as const;
-  const maxSelectionCount = Math.max(1, ...data.matrix.map((item) => item.xSelectionCount));
+  const plottedMatrix = data.matrix.filter((item) => item.yNegativeRateBps !== null);
+  const maxSelectionCount = Math.max(1, ...plottedMatrix.map((item) => item.xSelectionCount));
+  const maxNegativeRateBps = Math.max(500, Math.ceil(Math.max(0, ...plottedMatrix.map((item) => item.yNegativeRateBps!)) / 500) * 500);
   const xMedian = reference?.medianSelectionCountTimesTwo === null || reference?.medianSelectionCountTimesTwo === undefined ? null : reference.medianSelectionCountTimesTwo / (2 * maxSelectionCount) * 100;
-  const yMedian = reference?.medianNegativeRateBpsTimesTwo === null || reference?.medianNegativeRateBpsTimesTwo === undefined ? null : reference.medianNegativeRateBpsTimesTwo / 200;
+  const yMedian = reference?.medianNegativeRateBpsTimesTwo === null || reference?.medianNegativeRateBpsTimesTwo === undefined ? null : reference.medianNegativeRateBpsTimesTwo / (2 * maxNegativeRateBps) * 100;
+  const xTicks = [...new Set([0, Math.ceil(maxSelectionCount / 2), maxSelectionCount])];
+  const yTicks = [...new Set([0, Math.round(maxNegativeRateBps / 2), maxNegativeRateBps])];
   return (
     <div className="space-y-5">
       <Panel title="Aspectos del período">
@@ -558,11 +665,40 @@ export function AspectsModule({ data, selectedKey, onSelect }: {
         {!selected.hasSufficientEvidence ? <p role="status" className="rounded-xl bg-amber-50 p-3 text-amber-900">Evidencia insuficiente: {selected.selectionCount} selecciones; umbral {selected.evidenceThreshold}.</p> : null}
         <MetricChart title="Distribución de sentimiento" rows={(["positive", "neutral", "negative"] as const).map((sentiment) => ({ label: sentimentLabel(sentiment), primary: selected.current[sentiment].count }))} />
         <div className="grid gap-3 sm:grid-cols-3">{selected.relatedOverallRating.map((item) => <div key={item.sentiment} className="rounded-xl border p-3"><p className="text-foreground/60">{sentimentLabel(item.sentiment)}</p><p className="font-semibold">{stars(item.averageMilliStars)}</p><p className="text-sm">{item.submissionCount} respuestas</p></div>)}</div>
-        <MetricChart title="Evolución temporal del aspecto" kind="line" rows={dayTrend.map((item) => ({ label: item.from, primary: item.selectionCount }))} />
+        <AspectTrendChart aspect={selected} />
       </Panel>
       <Panel title="Matriz de prioridades">
         <p className="text-sm text-foreground/60">Eje X: selecciones; la igualdad con la mediana es relevancia alta. Eje Y: negatividad; la igualdad con la mediana es negatividad baja.</p><p className="text-sm font-medium">Referencias: X = {half(reference?.medianSelectionCountTimesTwo ?? null)} · Y = {half(reference?.medianNegativeRateBpsTimesTwo ?? null)} puntos básicos</p>
-        <div role="img" aria-label="Matriz de prioridades con ejes de relevancia y negatividad" className="relative min-h-72 rounded-xl border bg-background p-8"><span className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-foreground/60">Relevancia: selecciones →</span><span className="absolute left-1 top-1/2 -rotate-90 text-xs text-foreground/60">Negatividad →</span>{xMedian !== null ? <span aria-hidden="true" data-testid="matrix-x-median" className="absolute bottom-8 top-8 border-l border-dashed border-primary" style={{ left: `${xMedian}%` }} /> : null}{yMedian !== null ? <span aria-hidden="true" data-testid="matrix-y-median" className="absolute bottom-8 left-8 right-8 border-t border-dashed border-primary" style={{ bottom: `${yMedian}%` }} /> : null}{quadrants.map(([key, label]) => <span key={key} className={`absolute text-xs font-semibold text-foreground/60 ${key === "priority" ? "right-3 top-3" : key === "specific" ? "left-3 top-3" : key === "strength" ? "right-3 bottom-3" : "left-3 bottom-3"}`}>{label}</span>)}{data.matrix.map((item) => <span key={item.aspectKey} data-testid={`matrix-point-${item.aspectKey}`} data-matrix-state={item.state} className={`absolute h-3 w-3 -translate-x-1/2 translate-y-1/2 rounded-full bg-primary ${item.aspectKey === selectedKey ? "ring-4 ring-primary/25" : ""}`} style={{ left: `${item.xSelectionCount / maxSelectionCount * 100}%`, bottom: `${(item.yNegativeRateBps ?? 0) / 100}%` }} />)}</div>
+        <div role="img" aria-label="Matriz de prioridades con ejes de relevancia y negatividad" className="rounded-xl border bg-background p-4">
+          <div aria-hidden="true" className="grid grid-cols-2 gap-2 px-2 text-xs font-semibold text-foreground/60"><span>Específicos</span><span className="text-right">Prioridad</span></div>
+          <div className="relative mx-5 my-2 min-h-64 border-b border-l border-default-300">
+            <span className="absolute -left-7 top-1/2 -rotate-90 text-xs text-foreground/60">Negatividad →</span>
+            {xMedian !== null ? <span aria-hidden="true" data-testid="matrix-x-median" className="absolute bottom-0 top-0 border-l border-dashed border-default-400" style={{ left: `${xMedian}%` }} /> : null}
+            {yMedian !== null ? <span aria-hidden="true" data-testid="matrix-y-median" className="absolute left-0 right-0 border-t border-dashed border-default-400" style={{ bottom: `${yMedian}%` }} /> : null}
+            {yTicks.map((tick) => <span key={tick} aria-hidden="true" data-testid={`matrix-y-tick-${tick}`} className="absolute -left-8 -translate-y-1/2 text-[10px] leading-none text-foreground/60" style={{ bottom: `${tick / maxNegativeRateBps * 100}%` }}>{percent(tick)}</span>)}
+            {plottedMatrix.map((item) => {
+              const x = item.xSelectionCount / maxSelectionCount * 100;
+              const y = item.yNegativeRateBps! / maxNegativeRateBps * 100;
+              const markerClass = item.state === "excluded"
+                ? "h-3.5 w-3.5 rotate-45 border-2 border-[#634291] bg-background"
+                : item.state === "insufficient_evidence"
+                  ? "h-3 w-3 border-2 border-dashed border-default-500 bg-background"
+                  : item.aspectKey === selectedKey
+                    ? "h-3 w-3 border-2 border-[#143c72] bg-background ring-4 ring-[#143c72]/20"
+                    : "h-2.5 w-2.5 bg-[#143c72]";
+              return <span key={item.aspectKey} data-testid={`matrix-point-${item.aspectKey}`} data-matrix-state={item.state} className={`absolute -translate-x-1/2 translate-y-1/2 rounded-full ${markerClass}`} style={{ left: `${x}%`, bottom: `${y}%` }} />;
+            })}
+          </div>
+          <div aria-hidden="true" className="relative mx-5 -mt-2 h-4 text-[10px] leading-none text-foreground/60">{xTicks.map((tick) => <span key={tick} className="absolute -translate-x-1/2" style={{ left: `${tick / maxSelectionCount * 100}%` }}>{tick}</span>)}</div>
+          <p className="text-center text-xs text-foreground/60">Relevancia: selecciones →</p>
+          <div aria-hidden="true" className="mt-3 grid grid-cols-2 gap-2 px-2 text-xs font-semibold text-foreground/60"><span>Secundarios</span><span className="text-right">Fortalezas</span></div>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-foreground/70" aria-label="Referencias de la matriz">
+            <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-[#143c72]" />Aspecto clasificado</span>
+            <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full border-2 border-[#143c72] bg-background" />Aspecto seleccionado</span>
+            <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-default-500 bg-background" />Evidencia insuficiente</span>
+            <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="h-2.5 w-2.5 rotate-45 border-2 border-[#634291] bg-background" />Otro aspecto, sin clasificación</span>
+          </div>
+        </div>
         <p role="status" className="text-sm">Aspecto seleccionado: <strong>{aspectLabel(selected)}</strong>. La selección se marca también en la tabla accesible.</p>
         <div className="overflow-x-auto"><table className="w-full text-left text-sm"><caption>Datos exactos de la matriz de prioridades</caption><thead><tr><th className="p-2">Aspecto</th><th>Selecciones</th><th>Negatividad</th><th>Estado</th></tr></thead><tbody>{data.matrix.map((item) => <tr key={item.aspectKey} aria-current={item.aspectKey === selectedKey ? "true" : undefined} className={item.aspectKey === selectedKey ? "border-t bg-primary/5" : "border-t"}><th className="p-2">{labels.get(item.aspectKey) ?? item.aspectKey}</th><td>{item.xSelectionCount}</td><td>{percent(item.yNegativeRateBps)}</td><td>{item.state === "classified" ? quadrants.find(([key]) => key === item.quadrant)?.[1] : item.state === "excluded" ? "Excluido" : "Evidencia insuficiente"}</td></tr>)}</tbody></table></div>
       </Panel>
@@ -580,13 +716,87 @@ type QrTemporalMetric = "satisfaction" | "volume";
 type QrTemporalUnit = "day" | "week" | "month";
 type QrTemporalBucket = FeedbackAdminQrData["calendar"][number];
 
+const QR_CHART_DATE_FORMAT = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "UTC" });
+
+function formatQrChartDate(value: string) {
+  return QR_CHART_DATE_FORMAT.format(new Date(`${value}T00:00:00Z`)).replaceAll(".", "");
+}
+
+function formatQrChartRange(bucket: QrTemporalBucket | null) {
+  if (!bucket) return "Sin intervalo comparable";
+  const from = formatQrChartDate(bucket.from);
+  return bucket.from === bucket.to ? from : `${from}–${formatQrChartDate(bucket.to)}`;
+}
+
+function formatQrExactRange(bucket: QrTemporalBucket | null) {
+  return bucket ? `${bucket.from}–${bucket.to}` : "Sin intervalo comparable";
+}
+
+function qrVolumeAxis(maximum: number) {
+  if (maximum <= 4) {
+    const max = Math.max(1, maximum);
+    return { max, ticks: Array.from({ length: Math.floor(max) + 1 }, (_, index) => index) };
+  }
+  const rawStep = Math.max(maximum, 4) / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const normalized = rawStep / magnitude;
+  const step = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
+  const max = Math.max(4, Math.ceil(maximum / step) * step);
+  return { max, ticks: Array.from({ length: Math.round(max / step) + 1 }, (_, index) => index * step) };
+}
+
+function QrComparisonVolumeChart({ points }: { points: readonly FeedbackAdminQrData["points"][number][] }) {
+  if (!points.length) return null;
+  const maxCount = Math.max(0, ...points.flatMap((point) => [point.current.submissionCount, point.previous.submissionCount]));
+  const scale = qrVolumeAxis(maxCount);
+  const legend = (
+    <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-foreground/70" role="list" aria-label="Períodos comparados">
+      <span className="inline-flex items-center gap-2" role="listitem"><span aria-hidden="true" className="h-3 w-3 rounded-sm bg-[#0b4795]" />Período analizado</span>
+      <span className="inline-flex items-center gap-2" role="listitem"><span aria-hidden="true" className="h-3 w-3 rounded-sm bg-[#5f6368]" />Período anterior</span>
+    </div>
+  );
+
+  return (
+    <Panel title="Volumen por punto QR">
+      <p className="text-sm text-foreground/70">Respuestas completas de cada punto en el período analizado y en el período anterior equivalente.</p>
+      {legend}
+      <div className="space-y-5" role="group" aria-label="Volumen por punto QR">
+        {points.map((point) => (
+          <div key={point.pointKey} className="min-w-0 border-b border-default-200 pb-3 last:border-0 last:pb-0">
+            <h3 className="mb-2 break-words text-sm font-semibold">{point.displayName}</h3>
+            <div className="space-y-2">
+              {(["current", "previous"] as const).map((period) => {
+                const count = point[period].submissionCount;
+                const periodLabel = period === "current" ? "Período analizado" : "Período anterior";
+                return (
+                  <div key={period} role="img" aria-label={`${point.displayName}. ${periodLabel}: ${SUMMARY_INTEGER_FORMAT.format(count)} ${count === 1 ? "respuesta completa" : "respuestas completas"}.`} className="grid min-w-0 grid-cols-[minmax(6.5rem,0.8fr)_minmax(4rem,1.4fr)_max-content] items-center gap-2 text-xs sm:grid-cols-[minmax(8rem,0.8fr)_minmax(6rem,1.4fr)_max-content]">
+                    <span className="text-foreground/70">{periodLabel}</span>
+                    <span aria-hidden="true" className="h-4 min-w-0 overflow-hidden rounded bg-default-100">
+                      <span data-testid="qr-volume-bar" data-period={period} className={`block h-full rounded ${period === "current" ? "bg-[#0b4795]" : "bg-[#5f6368]"}`} style={{ width: `${count / scale.max * 100}%` }} />
+                    </span>
+                    <span className="whitespace-nowrap font-semibold tabular-nums">{SUMMARY_INTEGER_FORMAT.format(count)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="ml-[min(33%,8rem)] flex justify-between border-t border-default-200 pt-1 text-[10px] tabular-nums text-foreground/60" role="group" aria-label="Escala común de respuestas">
+        {scale.ticks.map((tick) => <span key={tick} data-testid="qr-volume-axis-tick">{SUMMARY_INTEGER_FORMAT.format(tick)}</span>)}
+      </div>
+    </Panel>
+  );
+}
+
 function QrTemporalPanel({ calendar, pointKey }: {
   calendar: FeedbackAdminQrData["calendar"];
   pointKey: string;
 }) {
   const [metric, setMetric] = useState<QrTemporalMetric>("satisfaction");
   const [unit, setUnit] = useState<QrTemporalUnit>("day");
-  const [selection, setSelection] = useState({ pointKey, index: 0 });
+  const [selection, setSelection] = useState({ pointKey, unit, index: -1 });
+  const [focus, setFocus] = useState({ pointKey, unit, index: -1 });
   const sortBuckets = (period: QrTemporalBucket["period"]) => calendar
     .filter((item) => item.period === period && item.unit === unit)
     .toSorted((left, right) => left.from.localeCompare(right.from));
@@ -598,95 +808,204 @@ function QrTemporalPanel({ calendar, pointKey }: {
     const previous = previousBuckets[index] ?? null;
     return {
       index,
-      label: `Intervalo ${index + 1}`,
+      label: formatQrChartRange(current),
       current,
       previous,
       currentValue: current === null ? null : metric === "satisfaction" ? current.satisfactionRateBps : current.submissionCount,
       previousValue: previous === null ? null : metric === "satisfaction" ? previous.satisfactionRateBps : previous.submissionCount,
     };
   });
-  const savedIndex = selection.pointKey === pointKey ? selection.index : 0;
-  const selectedIndex = Math.min(savedIndex, Math.max(intervalCount - 1, 0));
+  let defaultSelectedIndex = -1;
+  for (let index = intervals.length - 1; index >= 0; index -= 1) {
+    if (intervals[index]!.currentValue !== null || intervals[index]!.previousValue !== null) {
+      defaultSelectedIndex = index;
+      break;
+    }
+  }
+  const savedIndex = selection.pointKey === pointKey && selection.unit === unit ? selection.index : -1;
+  const selectedIndex = Math.min(savedIndex >= 0 ? savedIndex : Math.max(defaultSelectedIndex, 0), Math.max(intervalCount - 1, 0));
+  const focusedIndex = focus.pointKey === pointKey && focus.unit === unit && focus.index >= 0
+    ? Math.min(focus.index, Math.max(intervalCount - 1, 0))
+    : selectedIndex;
   const selectedInterval = intervals[selectedIndex];
-  const formatRange = (bucket: QrTemporalBucket | null) => bucket ? `${bucket.from}–${bucket.to}` : "Sin intervalo comparable";
   const formatValue = (bucket: QrTemporalBucket | null, value: number | null) => {
     if (bucket === null) return "Sin intervalo comparable";
     if (metric === "volume") return String(bucket.submissionCount);
     return value === null ? "Sin datos" : percent(value);
   };
-  const chartRows = intervals.map((interval) => ({
-    label: interval.label,
-    primary: interval.currentValue,
-    secondary: interval.previousValue,
-  }));
-  const Chart = metric === "satisfaction" ? LineChart : BarChart;
+  const formatStatusValue = (bucket: QrTemporalBucket | null, value: number | null) => {
+    if (bucket === null) return "Sin intervalo comparable";
+    if (metric === "volume") {
+      const count = bucket.submissionCount;
+      return `Volumen: ${SUMMARY_INTEGER_FORMAT.format(count)} ${count === 1 ? "respuesta" : "respuestas"}`;
+    }
+    return value === null
+      ? `Satisfacción: Sin datos · Total: ${SUMMARY_INTEGER_FORMAT.format(bucket.submissionCount)} ${bucket.submissionCount === 1 ? "respuesta" : "respuestas"}`
+      : `Satisfacción: ${percent(value)} · Total: ${SUMMARY_INTEGER_FORMAT.format(bucket.submissionCount)} ${bucket.submissionCount === 1 ? "respuesta" : "respuestas"}`;
+  };
   const metricName = metric === "satisfaction" ? "Satisfacción" : "Volumen";
+  const chartWidth = Math.max(640, Math.min(1700, intervalCount * 52 + 140));
+  const chartHeight = 276;
+  const margin = { left: 52, right: 20, top: 16, bottom: 42 };
+  const plotHeight = chartHeight - margin.top - margin.bottom;
+  const plotWidth = chartWidth - margin.left - margin.right;
+  const plotBottom = margin.top + plotHeight;
+  const maximumValue = metric === "satisfaction"
+    ? 10_000
+    : Math.max(0, ...intervals.flatMap((interval) => [interval.currentValue ?? 0, interval.previousValue ?? 0]));
+  const volumeScale = qrVolumeAxis(maximumValue);
+  const yMaximum = metric === "satisfaction" ? 10_000 : volumeScale.max;
+  const yTicks = metric === "satisfaction" ? [0, 2_500, 5_000, 7_500, 10_000] : volumeScale.ticks;
+  const x = (index: number) => margin.left + (intervalCount <= 1 ? plotWidth / 2 : (index / (intervalCount - 1)) * plotWidth);
+  const y = (value: number) => plotBottom - (value / yMaximum) * plotHeight;
+  const tickCount = Math.min(intervalCount, Math.max(5, Math.floor(plotWidth / 96)));
+  const tickIndexes = new Set(Array.from({ length: tickCount }, (_, index) =>
+    intervalCount <= 1 ? 0 : Math.round(index * (intervalCount - 1) / (tickCount - 1)),
+  ));
+  const selectedBandStart = selectedIndex === 0 ? margin.left : (x(selectedIndex - 1) + x(selectedIndex)) / 2;
+  const selectedBandEnd = selectedIndex === intervalCount - 1 ? margin.left + plotWidth : (x(selectedIndex) + x(selectedIndex + 1)) / 2;
+  const selectInterval = (index: number) => {
+    setSelection({ pointKey, unit, index });
+    setFocus({ pointKey, unit, index });
+  };
+  const moveIntervalFocus = (event: React.KeyboardEvent<SVGRectElement>, index: number) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const nextIndex = Math.max(0, Math.min(intervalCount - 1, index + (event.key === "ArrowRight" ? 1 : -1)));
+    setFocus({ pointKey, unit, index: nextIndex });
+    event.currentTarget.parentElement?.querySelectorAll<SVGRectElement>("[data-qr-interval-target]")[nextIndex]?.focus();
+  };
+  const intervalSelectionLabel = (interval: (typeof intervals)[number]) => {
+    const current = formatQrChartRange(interval.current);
+    const previous = formatQrChartRange(interval.previous);
+    return `Seleccionar intervalo ${current}; anterior ${previous}`;
+  };
+  const grid = yTicks.map((tick) => (
+    <g key={tick}>
+      <line x1={margin.left} y1={y(tick)} x2={margin.left + plotWidth} y2={y(tick)} stroke="#e3e3e5" />
+      <text x={margin.left - 8} y={y(tick) + 4} textAnchor="end" className="fill-foreground/60 text-[10px] tabular-nums">{metric === "satisfaction" ? `${tick / 100}%` : SUMMARY_INTEGER_FORMAT.format(tick)}</text>
+    </g>
+  ));
+  const seriesPath = (key: "currentValue" | "previousValue") => {
+    let open = false;
+    return intervals.map((interval, index) => {
+      const value = interval[key];
+      if (value === null) { open = false; return ""; }
+      const command = open ? "L" : "M";
+      open = true;
+      return `${command}${x(index).toFixed(2)},${y(value).toFixed(2)}`;
+    }).filter(Boolean).join(" ");
+  };
+  const markers = metric === "satisfaction" ? intervals.flatMap((interval, index) => ([
+    { key: "previous", value: interval.previousValue },
+    { key: "current", value: interval.currentValue },
+  ].filter((item) => item.value !== null).map(({ key, value }) => (
+    <circle key={`${key}-${index}`} data-testid={`qr-marker-${key}-${index}`} data-interval-index={index} cx={x(index)} cy={y(value!)} r={index === selectedIndex ? key === "current" ? 7 : 6 : key === "current" ? 5 : 4} fill={key === "current" ? "#9F1212" : "#ffffff"} stroke={key === "current" ? "#ffffff" : "#5f6368"} strokeWidth={index === selectedIndex ? 3 : 2} onClick={() => selectInterval(index)} />
+  )))) : intervals.flatMap((interval, index) => ([
+    { key: "current", value: interval.currentValue },
+    { key: "previous", value: interval.previousValue },
+  ].map(({ key, value }, seriesIndex) => {
+    if (value === null) return null;
+    const barWidth = Math.min(18, plotWidth / Math.max(intervalCount * 3, 1));
+    const barX = x(index) + (seriesIndex === 0 ? -barWidth - 2 : 2);
+    return <rect key={`${key}-${index}`} data-testid={`qr-marker-${key}-${index}`} data-interval-index={index} x={barX} y={value === 0 ? plotBottom - 1 : y(value)} width={barWidth} height={Math.max(1, plotBottom - y(value))} rx="3" fill={key === "current" ? "#0b4795" : "#5f6368"} opacity={index === selectedIndex ? 1 : 0.82} onClick={() => selectInterval(index)} />;
+  })));
 
   return (
-    <Panel title="Evolución temporal">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap justify-between gap-3">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Métrica temporal">
-            <Button type="button" variant={metric === "satisfaction" ? "solid" : "bordered"} color={metric === "satisfaction" ? "primary" : "default"} aria-pressed={metric === "satisfaction"} onClick={() => setMetric("satisfaction")}>Satisfacción</Button>
-            <Button type="button" variant={metric === "volume" ? "solid" : "bordered"} color={metric === "volume" ? "primary" : "default"} aria-pressed={metric === "volume"} onClick={() => setMetric("volume")}>Volumen</Button>
+    <Panel title="Evolución temporal" variant="summary">
+      <div className="flex w-full min-w-0 flex-col gap-3">
+        <p className="text-xs leading-5 text-foreground/70">Compará la satisfacción disponible y el total de respuestas en cada intervalo real.</p>
+        <div className="flex w-full min-w-0 flex-col gap-2">
+          <div className="grid w-full grid-cols-2 gap-1 rounded-lg border border-default-200 bg-default-100 p-1" role="group" aria-label="Métrica temporal">
+            {(["satisfaction", "volume"] as const).map((value) => <button
+              key={value}
+              type="button"
+              aria-pressed={metric === value}
+              className="min-h-10 rounded-md border-b-2 border-transparent px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary aria-pressed:border-primary aria-pressed:bg-white aria-pressed:text-foreground"
+              onClick={() => setMetric(value)}
+            >{value === "satisfaction" ? "Satisfacción" : "Volumen"}</button>)}
           </div>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Intervalo temporal">
+          <div className="flex w-fit flex-wrap gap-1" role="group" aria-label="Agrupación temporal">
             {(["day", "week", "month"] as const).map((value) => <Button key={value} type="button" variant={unit === value ? "solid" : "bordered"} color={unit === value ? "primary" : "default"} aria-pressed={unit === value} onClick={() => setUnit(value)}>{value === "day" ? "Día" : value === "week" ? "Semana" : "Mes"}</Button>)}
           </div>
         </div>
         {intervalCount ? <>
-          <label className="flex max-w-sm flex-col gap-2 text-sm font-semibold">Intervalo seleccionado
-            <select className="rounded-xl border border-default-200 bg-background p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" value={selectedIndex} onChange={(event) => setSelection({ pointKey, index: Number(event.target.value) })}>
-              {intervals.map((interval) => <option key={interval.index} value={interval.index}>{interval.label}</option>)}
-            </select>
-          </label>
-          {selectedInterval ? <div role="group" aria-label="Contexto del intervalo seleccionado" className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-lg border border-default-200 bg-default-50/70 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Período actual</p>
-              <p className="mt-1 font-semibold tabular-nums">{formatRange(selectedInterval.current)}</p>
-              <p className="mt-1 text-sm text-foreground/70">{metricName}: {formatValue(selectedInterval.current, selectedInterval.currentValue)}</p>
-            </div>
-            <div className="rounded-lg border border-default-200 bg-default-50/70 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Período anterior</p>
-              <p className="mt-1 font-semibold tabular-nums">{formatRange(selectedInterval.previous)}</p>
-              <p className="mt-1 text-sm text-foreground/70">{metricName}: {formatValue(selectedInterval.previous, selectedInterval.previousValue)}</p>
-            </div>
-          </div> : null}
-          <div className="h-64 w-full" aria-hidden="true">
-            <ResponsiveContainer width="100%" height="100%">
-              <Chart data={chartRows} margin={{ left: 4, right: 12 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" minTickGap={24} />
-                <YAxis domain={metric === "satisfaction" ? [0, 10_000] : undefined} tickFormatter={(value) => metric === "satisfaction" ? `${value / 100}%` : String(value)} />
-                <Tooltip formatter={(value) => value === null || value === undefined ? "Sin datos" : metric === "satisfaction" ? percent(Number(value)) : String(value)} />
+          <div className="w-full min-w-0" data-testid="qr-temporal-chart" data-metric={metric}>
+            <div className="w-full min-w-0 overflow-x-auto rounded-lg" role="region" aria-label="Gráfico temporal desplazable horizontalmente">
+              <svg className="block w-full" width="100%" height={chartHeight} style={{ minWidth: `${chartWidth}px` }} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none" role="group" aria-label={`${metricName} por intervalo, período actual y anterior`}>
+                {selectedInterval ? <rect
+                  data-testid="qr-selected-interval-band"
+                  data-interval-index={selectedIndex}
+                  x={selectedBandStart}
+                  y={margin.top}
+                  width={Math.max(0, selectedBandEnd - selectedBandStart)}
+                  height={plotHeight}
+                  fill="#eef2f5"
+                /> : null}
+                {grid}
+                <line x1={margin.left} y1={plotBottom} x2={margin.left + plotWidth} y2={plotBottom} stroke="#a7adb5" />
                 {metric === "satisfaction" ? <>
-                  <Line isAnimationActive={false} type="monotone" dataKey="primary" name="Actual" stroke="#9F1212" strokeWidth={2} connectNulls={false} />
-                  <Line isAnimationActive={false} type="monotone" dataKey="secondary" name="Anterior" stroke="#64748b" strokeWidth={2} connectNulls={false} />
-                </> : <>
-                  <Bar isAnimationActive={false} dataKey="primary" name="Actual" fill="#9F1212" radius={[6, 6, 0, 0]} />
-                  <Bar isAnimationActive={false} dataKey="secondary" name="Anterior" fill="#94a3b8" radius={[6, 6, 0, 0]} />
-                </>}
-              </Chart>
-            </ResponsiveContainer>
+                  <path d={seriesPath("previousValue")} fill="none" stroke="#5f6368" strokeWidth="2.5" strokeDasharray="7 5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={seriesPath("currentValue")} fill="none" stroke="#9F1212" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                </> : null}
+                {markers}
+                {intervals.map((interval, index) => <rect
+                  key={`hit-${interval.index}`}
+                  data-qr-interval-target="true"
+                  data-interval-index={index}
+                  x={selectedBandStart === selectedBandEnd ? x(index) - 24 : index === 0 ? margin.left : (x(index - 1) + x(index)) / 2}
+                  y={margin.top}
+                  width={Math.max(1, index === intervalCount - 1 ? margin.left + plotWidth - (index === 0 ? margin.left : (x(index - 1) + x(index)) / 2) : (x(index) + x(index + 1)) / 2 - (index === 0 ? margin.left : (x(index - 1) + x(index)) / 2))}
+                  height={plotHeight}
+                  fill="transparent"
+                  role="button"
+                  tabIndex={index === focusedIndex ? 0 : -1}
+                  aria-label={intervalSelectionLabel(interval)}
+                  aria-pressed={interval.index === selectedIndex}
+                  className="cursor-pointer focus-visible:stroke-primary focus-visible:stroke-2"
+                  onClick={() => selectInterval(interval.index)}
+                  onKeyDown={(event) => {
+                    moveIntervalFocus(event, interval.index);
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectInterval(interval.index);
+                    }
+                  }}
+                />)}
+                {intervals.map((interval, index) => tickIndexes.has(index) ? <text key={`label-${interval.index}`} data-qr-x-label="true" x={x(index)} y={plotBottom + 24} textAnchor="middle" className="fill-foreground/60 text-[10px]">{interval.current ? formatQrChartRange(interval.current) : formatQrChartRange(interval.previous)}</text> : null)}
+              </svg>
+            </div>
+            <div className="mt-2 flex w-full flex-wrap gap-x-5 gap-y-2 text-xs text-foreground/70" role="list" aria-label="Períodos comparados">
+              <span className="inline-flex items-center gap-2" role="listitem"><span aria-hidden="true" className={`h-0.5 w-5 ${metric === "satisfaction" ? "bg-[#9F1212]" : "bg-[#0b4795]"}`} />Período analizado</span>
+              <span className="inline-flex items-center gap-2" role="listitem"><span aria-hidden="true" className={`h-0.5 w-5 ${metric === "satisfaction" ? "border-t-2 border-dashed border-[#5f6368]" : "bg-[#5f6368]"}`} />Período anterior</span>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-4 text-sm text-foreground/70" role="group" aria-label="Series temporales">
-            <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-[#9F1212]" />Período actual</span>
-            <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-[#94a3b8]" />Período anterior</span>
-          </div>
-          <ul className="sr-only" aria-label={`Valores de ${metricName.toLowerCase()} por intervalo`}>
-            {intervals.map((interval) => <li key={interval.label}>{interval.label}: actual {formatRange(interval.current)}, {formatValue(interval.current, interval.currentValue)}; anterior {formatRange(interval.previous)}, {formatValue(interval.previous, interval.previousValue)}.</li>)}
-          </ul>
+          {selectedInterval ? <>
+            <h3 className="text-sm font-semibold">Intervalo seleccionado</h3>
+            <div role="status" aria-label="Contexto del intervalo seleccionado" className="w-full space-y-0 divide-y divide-[#d6dee5] rounded-lg bg-[#eef2f5] px-4 py-1 text-sm">
+              <div role="group" aria-label="Período actual" className="py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Período actual</p>
+                <p className="mt-1 font-semibold tabular-nums">{formatQrChartRange(selectedInterval.current)}</p>
+                <p className="mt-1 text-sm text-foreground/80">{formatStatusValue(selectedInterval.current, selectedInterval.currentValue)}</p>
+              </div>
+              <div role="group" aria-label="Período anterior" className="py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/60">Período anterior</p>
+                <p className="mt-1 font-semibold tabular-nums">{formatQrChartRange(selectedInterval.previous)}</p>
+                <p className="mt-1 text-sm text-foreground/80">{formatStatusValue(selectedInterval.previous, selectedInterval.previousValue)}</p>
+              </div>
+            </div>
+          </> : null}
           <details className="rounded-lg border border-default-200 px-3 py-2">
             <summary className="cursor-pointer rounded-sm py-1 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Ver datos exactos</summary>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
+              <table className="w-full min-w-[760px] text-left text-sm">
                 <caption className="sr-only">Datos exactos de evolución temporal</caption>
                 <thead className="bg-default-100/60"><tr><th scope="col" className="p-2">Intervalo</th><th scope="col" className="p-2">Período actual</th><th scope="col" className="p-2 text-right">{metricName} actual</th><th scope="col" className="p-2">Período anterior</th><th scope="col" className="p-2 text-right">{metricName} anterior</th></tr></thead>
                 <tbody>{intervals.map((interval) => <tr key={interval.label} className="border-t border-default-200 even:bg-default-50/70">
-                  <th scope="row" aria-current={interval.index === selectedIndex ? "true" : undefined} className="p-2 font-medium">{interval.label}</th>
-                  <td className="p-2 tabular-nums">{formatRange(interval.current)}</td>
+                  <th scope="row" aria-current={interval.index === selectedIndex ? "true" : undefined} className="p-2 font-medium">{formatQrExactRange(interval.current)}</th>
+                  <td className="p-2 tabular-nums">{formatQrExactRange(interval.current)}</td>
                   <td className="p-2 text-right tabular-nums">{formatValue(interval.current, interval.currentValue)}</td>
-                  <td className="p-2 tabular-nums">{formatRange(interval.previous)}</td>
+                  <td className="p-2 tabular-nums">{formatQrExactRange(interval.previous)}</td>
                   <td className="p-2 text-right tabular-nums">{formatValue(interval.previous, interval.previousValue)}</td>
                 </tr>)}</tbody>
               </table>
@@ -759,7 +1078,7 @@ export function QrModule({ data, options, mode, onMode, selectedKeys, onToggle, 
               </article>;
             })}
           </section>
-          <MetricChart title="Volumen de respuestas por punto" rows={data.points.map((point) => ({ label: point.displayName, primary: point.current.submissionCount, secondary: point.previous.submissionCount }))} secondaryLabel="Anterior" />
+          <QrComparisonVolumeChart points={data.points} />
           <Panel title="Datos exactos de comparación por punto"><div className="overflow-x-auto rounded-lg border border-default-200"><table className="min-w-[640px] w-full text-left text-sm"><caption className="sr-only">Datos exactos de comparación por punto QR</caption><thead className="bg-default-100/60"><tr><th scope="col" className="p-3">Punto</th><th scope="col" className="p-3 text-right">Respuestas</th><th scope="col" className="p-3 text-right">Calificación</th><th scope="col" className="p-3 text-right">Satisfacción</th><th scope="col" className="p-3 text-right">Desfavorable</th></tr></thead><tbody>{data.points.map((point) => <tr key={point.pointKey} className="border-t border-default-200 even:bg-default-50/70"><th className="p-3 font-semibold">{point.displayName}</th><td className="p-3 text-right tabular-nums">{point.current.submissionCount}</td><td className="p-3 text-right tabular-nums">{stars(point.current.averageMilliStars)}</td><td className="p-3 text-right tabular-nums">{percent(point.current.satisfied.rateBps)}</td><td className="p-3 text-right tabular-nums">{percent(point.current.unfavorable.rateBps)}</td></tr>)}</tbody></table></div></Panel>
         </>
       ) : detail ? (
@@ -1306,14 +1625,12 @@ export default function FeedbackDashboard() {
 
   return (
     <div className="mx-auto w-full max-w-[1536px] space-y-5 px-4 pb-10 md:px-8">
+      <h1 className="sr-only">Feedback del público</h1>
       <a href="#feedback-dashboard-main" className="sr-only rounded-md bg-background p-3 focus:not-sr-only focus:absolute focus:z-50">Saltar al contenido de Feedback del público</a>
       <nav aria-label="Módulos de Feedback del público" className="flex h-[53px] w-full gap-0 overflow-x-auto border-b border-default-200 bg-transparent">
         {MODULES.map((item) => <Button key={item.key} type="button" variant="light" radius="none" color="default" aria-current={item.key === module ? "page" : undefined} className={`!relative !h-full !min-w-max !shrink-0 !rounded-none !border-0 !bg-transparent !px-4 !py-0 !shadow-none after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:content-[''] hover:!bg-transparent data-[hover=true]:!bg-transparent focus-visible:!ring-2 focus-visible:!ring-primary focus-visible:!ring-offset-2 ${item.key === module ? "!text-primary after:bg-primary" : "!text-foreground/60 after:bg-transparent"}`} onClick={() => setModule(item.key)}>{item.label}</Button>)}
       </nav>
-      <header className="flex flex-col gap-3 rounded-xl border bg-background p-4 md:flex-row md:items-end md:justify-between lg:sticky lg:top-0 lg:z-20">
-        <div><p className="text-sm font-semibold uppercase tracking-[0.22em] text-primary">Analítica administrativa</p><h1 className="text-2xl font-bold">Feedback del público</h1><p className="text-sm text-foreground/60">Solo respuestas aceptadas con QR válido. La comparación usa el período anterior de igual duración.</p>{population ? <p role="status" className="mt-1 text-sm text-foreground/60">Analizado: {population.current.from}–{population.current.to} · Anterior: {population.previous.from}–{population.previous.to}</p> : null}</div>
-      </header>
-      {module === "summary" ? <section aria-label="Período analizado" className="space-y-3 rounded-lg border border-[#e3e3e5] bg-white p-4">
+      <section aria-label="Período analizado" className="space-y-3 rounded-lg border border-[#e3e3e5] bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">Período analizado</h2>
@@ -1330,7 +1647,7 @@ export default function FeedbackDashboard() {
           <p className="mt-1 text-xs text-foreground/70">Los resultados se comparan con el período inmediatamente anterior de la misma cantidad de días.</p>
         </div>
         <div id="feedback-summary-period-editor" className="border-t border-[#e3e3e5] pt-3" hidden={!periodEditorOpen}>{periodForm}{periodErrorMessage}</div>
-      </section> : <>{periodForm}{periodErrorMessage}</>}
+      </section>
       <section id="feedback-dashboard-main" aria-label="Contenido de Feedback del público" tabIndex={-1}>
       {state === "loading" ? <div role="status" aria-live="polite" className="flex min-h-64 items-center justify-center"><Spinner label="Cargando Feedback del público" /></div> : null}
       {state === "error" ? <div role="alert" className="rounded-xl border border-dashed p-6 text-center"><p>Feedback del público no está disponible temporalmente.</p><Button type="button" variant="bordered" color="primary" className="mt-3" onClick={() => { const periodKey = `${period.from}:${period.to}`; if (module === "summary" || summaryPeriodKey !== periodKey) setSummaryRetry((value) => value + 1); else setModuleRetry((value) => value + 1); }}>Reintentar</Button></div> : null}
