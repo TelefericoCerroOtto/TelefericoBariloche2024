@@ -1,4 +1,4 @@
-export const OUTPUT_REJECTION_STAGES = ["direct", "map", "reduce"] as const;
+export const OUTPUT_REJECTION_STAGES = ["direct", "map", "reduce", "render"] as const;
 export type OutputRejectionStage = (typeof OUTPUT_REJECTION_STAGES)[number];
 
 export const OUTPUT_REJECTION_CATEGORIES = [
@@ -8,6 +8,10 @@ export const OUTPUT_REJECTION_CATEGORIES = [
   "provider_usage",
   "output_token_budget",
   "output_contract_preflight",
+  "published_analysis_contract",
+  "chart_contract",
+  "evidence_reference",
+  "verbatim_comment_rule",
   "unclassified",
 ] as const;
 export type OutputRejectionCategory =
