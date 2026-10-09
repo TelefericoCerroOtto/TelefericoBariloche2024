@@ -12,13 +12,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createDeterministicTestPdfRenderer,
   createPlaywrightPdfRenderer,
+  PdfValidationError,
   renderReportHtml,
   renderValidatedPdf,
+  validatePublishedAnalysis,
 } from "../../../../services/survey-report-worker/src/pdf";
 import {
   chartSemantics,
   renderCharts,
+  RendererValidationError,
+  validateChartViewModels,
 } from "../../../../services/survey-report-worker/src/renderer";
+import { outputRejectionFor } from "../../../../services/survey-report-worker/src/output-rejection";
 import {
   executeReportWorker as executeReportWorkerWithDependencies,
 } from "../../../../services/survey-report-worker/src/worker-runtime";
@@ -366,6 +371,212 @@ function syntheticModelConfig(evidenceKeyId: string) {
 describe("worker PDF boundary", () => {
   beforeEach(() => vi.restoreAllMocks());
 
+  it("maps typed PDF validation boundaries to closed render rejection categories", () => {
+    const invalidAnalysis = { ...analysis(), sections: [] };
+    const analysisFailure = (() => {
+      try {
+        validatePublishedAnalysis(invalidAnalysis);
+      } catch (error) {
+        return error;
+      }
+    })();
+    const evidenceFailure = (() => {
+      try {
+        validatePublishedAnalysis({
+          ...analysis(),
+          sections: analysis().sections.map((section, index) =>
+            index === 0
+              ? { ...section, paragraphsEs: ["SYNTHETIC e_abcdefghijklmnopqrst"] }
+              : section,
+          ),
+        });
+      } catch (error) {
+        return error;
+      }
+    })();
+    const chartFailure = (() => {
+      try {
+        validateChartViewModels([]);
+      } catch (error) {
+        return error;
+      }
+    })();
+    const unclassifiedFailure = new PdfValidationError("SYNTHETIC_UNKNOWN_BOUNDARY");
+
+    expect(analysisFailure).toBeInstanceOf(PdfValidationError);
+    expect(outputRejectionFor(analysisFailure, "render")).toEqual({
+      stage: "render",
+      reasonCategory: "published_analysis_contract",
+    });
+    expect(evidenceFailure).toBeInstanceOf(PdfValidationError);
+    expect(outputRejectionFor(evidenceFailure, "render")).toEqual({
+      stage: "render",
+      reasonCategory: "evidence_reference",
+    });
+    expect(chartFailure).toBeInstanceOf(RendererValidationError);
+    expect(outputRejectionFor(chartFailure, "render")).toEqual({
+      stage: "render",
+      reasonCategory: "chart_contract",
+    });
+    expect(outputRejectionFor(unclassifiedFailure, "render")).toEqual({
+      stage: "render",
+      reasonCategory: "unclassified",
+    });
+    expect(
+      outputRejectionFor(
+        Object.assign(new TypeError("SYNTHETIC_UNTRUSTED"), {
+          code: "INVALID_OUTPUT",
+          reasonCategory: "chart_contract",
+        }),
+        "render",
+      ),
+    ).toEqual({ stage: "render", reasonCategory: "unclassified" });
+    expect(
+      outputRejectionFor(
+        Object.assign(new TypeError("SYNTHETIC_UNTRUSTED"), {
+          code: "INVALID_OUTPUT",
+          outputRejection: { stage: "private-stage", reasonCategory: "private-category" },
+        }),
+        "render",
+      ),
+    ).toEqual({ stage: "render", reasonCategory: "unclassified" });
+  });
+
+  it("classifies a verbatim-comment boundary without exposing the marker", async () => {
+    const text = "SYNTHETIC_VERBATIM_COMMENT_MARKER";
+    const envelope = createSnapshot({
+      sourceRevision: "synthetic-verbatim-source",
+      createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z",
+      range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: [{
+        recordId: "synthetic-verbatim-record",
+        receipt: "00000000-0000-4000-8000-000000000114",
+        acceptedAt: "2026-09-01T12:00:00.000Z",
+        source: "valid_qr",
+        versionKey: "v1",
+        pointKey: "point-a",
+        overallRating: 4,
+        locale: "es",
+        commentText: text,
+        payloadDigest: "a".repeat(64),
+        aspects: [],
+      }],
+      definitions: [{ aspectKey: "other", sortOrder: 99 }],
+      points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
+    });
+    let failure: unknown;
+    try {
+      const output = analysis();
+      await renderValidatedPdf(
+        envelope,
+        {
+          ...output,
+          sections: output.sections.map((section, index) =>
+            index === 0 ? { ...section, paragraphsEs: [text] } : section,
+          ),
+        },
+        createDeterministicTestPdfRenderer(),
+      );
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(PdfValidationError);
+    expect(outputRejectionFor(failure)).toEqual({
+      stage: "render",
+      reasonCategory: "verbatim_comment_rule",
+    });
+    expect(JSON.stringify(outputRejectionFor(failure))).not.toContain(text);
+  });
+
+  it("emits a closed render rejection only after a terminal chart-contract failure", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000113";
+    const privateMarker = "SYNTHETIC_CHART_PRIVATE_MARKER";
+    const envelope = createSnapshot({
+      sourceRevision: "synthetic-render-rejection-source",
+      createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z",
+      range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: [{
+        recordId: "synthetic-render-rejection-record",
+        receipt: "00000000-0000-4000-8000-000000000114",
+        acceptedAt: "2026-09-01T12:00:00.000Z",
+        source: "valid_qr",
+        versionKey: "v1",
+        pointKey: "point-a",
+        overallRating: 4,
+        locale: "es",
+        commentText: "",
+        payloadDigest: "a".repeat(64),
+        aspects: [],
+      }],
+      definitions: [{ aspectKey: "other", sortOrder: 99 }],
+      points: [{
+        pointKey: "point-a",
+        displayName: privateMarker + "x".repeat(513),
+        sortOrder: 1,
+      }],
+    });
+    const fake = fakeCms(envelope);
+    const order: string[] = [];
+    const originalFail = fake.cms.fail.bind(fake.cms);
+    fake.cms.fail = async (...args) => {
+      const result = await originalFail(...args);
+      order.push("cms-failure-committed");
+      return result;
+    };
+    const logLines: string[] = [];
+    const logSpy = vi.spyOn(console, "log").mockImplementation((line?: unknown) => {
+      logLines.push(String(line));
+      order.push("stdout-event");
+    });
+    const directOutput: DirectAnalysisV1 = {
+      schemaVersion: "survey-analysis.v1",
+      route: "direct",
+      sections: PUBLISHED_SECTION_KEYS.map((key) => ({
+        key,
+        status: "insufficient_evidence" as const,
+        claims: [],
+      })),
+    };
+    const dependencies = {
+      cms: fake.cms,
+      artifacts: artifactStore().store,
+      renderer: createDeterministicTestPdfRenderer(),
+      analysisProvider: async () => ({
+        ...syntheticProviderResult(),
+        output: directOutput,
+      }),
+      evidenceKeyProvider: async () => "synthetic render-boundary evidence key",
+    };
+
+    try {
+      const result = await executeReportWorker(reportRunId, dependencies);
+      expect(result).toMatchObject({ status: "failed", failureCode: "INVALID_OUTPUT" });
+      expect(fake.calls.fail).toBe(1);
+      expect(logLines.map((line) => JSON.parse(line))).toEqual([{
+        event: "tb113_output_rejection",
+        reportRunId,
+        stage: "render",
+        reasonCategory: "chart_contract",
+      }]);
+      expect(order).toEqual(["cms-failure-committed", "stdout-event"]);
+      expect(logLines.join("\n")).not.toContain(privateMarker);
+
+      logLines.length = 0;
+      await expect(executeReportWorker(reportRunId, dependencies)).resolves.toMatchObject({
+        status: "failed",
+        disposition: "terminal-replay",
+      });
+      expect(logLines).toEqual([]);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
   it("rejects direct output above the provider token budget before checkpointing", async () => {
     const reportRunId = "00000000-0000-4000-8000-000000000113";
     const evidenceKey = "tb113 synthetic per-run evidence key";
@@ -623,7 +834,7 @@ describe("worker PDF boundary", () => {
     });
   });
 
-  it.each(["map", "reduce"] as const)(
+  it.each(["map", "reduce", "render"] as const)(
     "emits a closed terminal %s output-rejection event after both generation attempts",
     async (rejectedStage) => {
       const reportRunId = "00000000-0000-4000-8000-000000000135";
@@ -632,6 +843,7 @@ describe("worker PDF boundary", () => {
         "SYNTHETIC_REJECTED_MODEL_OUTPUT_MARKER",
         "SYNTHETIC_REJECTED_COMMENT_MARKER",
         "SYNTHETIC_REJECTED_SECRET_MARKER",
+        "SYNTHETIC_CHART_PRIVATE_MARKER",
       ];
       const envelope = createSnapshot({
         sourceRevision: "synthetic-map-reduce-rejection-source",
@@ -654,7 +866,13 @@ describe("worker PDF boundary", () => {
         })),
         definitions: [{ aspectKey: "other", sortOrder: 99 }],
         points: [
-          { pointKey: "synthetic-point", displayName: "Synthetic point", sortOrder: 1 },
+          {
+            pointKey: "synthetic-point",
+            displayName: rejectedStage === "render"
+              ? `${privateMarkers[3]}${"x".repeat(513)}`
+              : "Synthetic point",
+            sortOrder: 1,
+          },
         ],
       });
       const config = {
@@ -780,13 +998,17 @@ describe("worker PDF boundary", () => {
 
         expect(result).toMatchObject({ status: "failed", failureCode: "INVALID_OUTPUT" });
         expect(mapProvider).toHaveBeenCalledTimes(2);
-        expect(reduceProvider).toHaveBeenCalledTimes(rejectedStage === "reduce" ? 2 : 0);
+        expect(reduceProvider).toHaveBeenCalledTimes(
+          rejectedStage === "map" ? 0 : rejectedStage === "reduce" ? 2 : 1,
+        );
         expect(logLines.map((line) => JSON.parse(line))).toEqual([
           {
             event: "tb113_output_rejection",
             reportRunId,
             stage: rejectedStage,
-            reasonCategory: "output_contract_preflight",
+            reasonCategory: rejectedStage === "render"
+              ? "chart_contract"
+              : "output_contract_preflight",
           },
         ]);
         expect(order).toEqual(["cms-failure-committed", "stdout-event"]);
