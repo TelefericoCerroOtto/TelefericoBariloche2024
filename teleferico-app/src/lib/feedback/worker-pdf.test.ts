@@ -623,6 +623,293 @@ describe("worker PDF boundary", () => {
     });
   });
 
+  it.each(["map", "reduce"] as const)(
+    "emits a closed terminal %s output-rejection event after both generation attempts",
+    async (rejectedStage) => {
+      const reportRunId = "00000000-0000-4000-8000-000000000135";
+      const evidenceKey = "synthetic map-reduce rejection evidence key";
+      const privateMarkers = [
+        "SYNTHETIC_REJECTED_MODEL_OUTPUT_MARKER",
+        "SYNTHETIC_REJECTED_COMMENT_MARKER",
+        "SYNTHETIC_REJECTED_SECRET_MARKER",
+      ];
+      const envelope = createSnapshot({
+        sourceRevision: "synthetic-map-reduce-rejection-source",
+        createdAt: "2026-09-21T12:00:00.000Z",
+        dataCutoffAt: "2026-09-21T11:59:59.000Z",
+        range: { from: "2026-09-01", to: "2026-09-01" },
+        filters: { pointKey: null, versionKey: null },
+        submissions: ["first", "second"].map((recordId, index) => ({
+          recordId,
+          receipt: `00000000-0000-4000-8000-00000000013${6 + index}`,
+          acceptedAt: `2026-09-01T12:0${index}:00.000Z`,
+          source: "valid_qr" as const,
+          versionKey: "synthetic-version",
+          pointKey: "synthetic-point",
+          overallRating: 4 as const,
+          locale: "es" as const,
+          commentText: `${privateMarkers[1]} ${index}`,
+          payloadDigest: String.fromCharCode(97 + index).repeat(64),
+          aspects: [],
+        })),
+        definitions: [{ aspectKey: "other", sortOrder: 99 }],
+        points: [
+          { pointKey: "synthetic-point", displayName: "Synthetic point", sortOrder: 1 },
+        ],
+      });
+      const config = {
+        ...syntheticModelConfig("synthetic-map-reduce-key-v1"),
+        verifiedInputTokenLimit: 8_192,
+        safetyHeadroomTokens: 2_048,
+      };
+      const fake = fakeCms(envelope, checkpointSet(envelope.digestHex), config);
+      const countTokens = vi.fn(
+        async (request: { segments: { comments: string; metrics: string } }) => {
+          if (request.segments.metrics === "{}")
+            return { instructions: 1, schema: 1, metrics: 1, comments: 1 };
+          let value: unknown;
+          try {
+            value = JSON.parse(request.segments.comments);
+          } catch {
+            value = null;
+          }
+          if (
+            value &&
+            typeof value === "object" &&
+            "contractVersion" in value &&
+            value.contractVersion === "survey-model-input.v1"
+          )
+            return { instructions: 10, schema: 10, metrics: 10, comments: 10_000 };
+          if (
+            value &&
+            typeof value === "object" &&
+            "contractVersion" in value &&
+            value.contractVersion === "survey-map-input.v1"
+          )
+            return {
+              instructions: 10,
+              schema: 10,
+              metrics: 10,
+              comments:
+                (value as unknown as { chunkCount: number }).chunkCount === 1
+                  ? 10_000
+                  : 1_000,
+            };
+          return { instructions: 10, schema: 10, metrics: 10, comments: 1_000 };
+        },
+      );
+      const rejectedOutput = {
+        schemaVersion: privateMarkers[0],
+        rejectedComment: privateMarkers[1],
+        syntheticSecret: privateMarkers[2],
+      };
+      const order: string[] = [];
+      const logLines: string[] = [];
+      const mapProvider = vi.fn(
+        async (request: {
+          chunkId: string;
+          comments: readonly { evidenceRef: string }[];
+        }) => {
+          expect(logLines).toEqual([]);
+          return {
+            output: (rejectedStage === "map"
+              ? rejectedOutput
+              : {
+                  schemaVersion: "survey-map.v1" as const,
+                  chunkId: request.chunkId,
+                  coveredRefs: request.comments.map(({ evidenceRef }) => evidenceRef),
+                  themes: [],
+                  limitations: [],
+                }) as never,
+            usage: {
+              model: "gemini-3.8-flash",
+              modelRevision: "synthetic-revision",
+              sku: "synthetic-model-input",
+              usageMetadata: { promptTokenCount: 1_000, candidatesTokenCount: 1 },
+            },
+          };
+        },
+      );
+      const reduceProvider = vi.fn(
+        async (request: { maps: readonly { outputDigest: string }[] }) => {
+          expect(logLines).toEqual([]);
+          return {
+            output: (rejectedStage === "reduce"
+              ? rejectedOutput
+              : {
+                  schemaVersion: "survey-analysis.v1" as const,
+                  route: "reduce" as const,
+                  sections: PUBLISHED_SECTION_KEYS.map((key) => ({
+                    key,
+                    status: "insufficient_evidence" as const,
+                    claims: [],
+                  })),
+                  mapOutputDigests: request.maps.map(({ outputDigest }) => outputDigest),
+                }) as never,
+            usage: {
+              model: "gemini-3.8-flash",
+              modelRevision: "synthetic-revision",
+              sku: "synthetic-model-input",
+              usageMetadata: { promptTokenCount: 1_000, candidatesTokenCount: 1 },
+            },
+          };
+        },
+      );
+      const originalFail = fake.cms.fail.bind(fake.cms);
+      fake.cms.fail = async (...args) => {
+        const result = await originalFail(...args);
+        order.push("cms-failure-committed");
+        return result;
+      };
+      const logSpy = vi.spyOn(console, "log").mockImplementation((line?: unknown) => {
+        logLines.push(String(line));
+        order.push("stdout-event");
+      });
+
+      try {
+        const dependencies = {
+          cms: fake.cms,
+          artifacts: artifactStore().store,
+          renderer: createDeterministicTestPdfRenderer(),
+          countTokens,
+          evidenceKeyProvider: async () => evidenceKey,
+          mapProvider,
+          reduceProvider,
+        };
+        const result = await executeReportWorker(reportRunId, dependencies);
+
+        expect(result).toMatchObject({ status: "failed", failureCode: "INVALID_OUTPUT" });
+        expect(mapProvider).toHaveBeenCalledTimes(2);
+        expect(reduceProvider).toHaveBeenCalledTimes(rejectedStage === "reduce" ? 2 : 0);
+        expect(logLines.map((line) => JSON.parse(line))).toEqual([
+          {
+            event: "tb113_output_rejection",
+            reportRunId,
+            stage: rejectedStage,
+            reasonCategory: "output_contract_preflight",
+          },
+        ]);
+        expect(order).toEqual(["cms-failure-committed", "stdout-event"]);
+        expect(logLines.join("\n")).not.toContain(privateMarkers[0]);
+        expect(logLines.join("\n")).not.toContain(privateMarkers[1]);
+        expect(logLines.join("\n")).not.toContain(privateMarkers[2]);
+        expect(fake.calls.fail).toBe(1);
+
+        logLines.length = 0;
+        await expect(
+          executeReportWorker(reportRunId, dependencies),
+        ).resolves.toMatchObject({ status: "failed", disposition: "terminal-replay" });
+        expect(logLines).toEqual([]);
+      } finally {
+        logSpy.mockRestore();
+      }
+    },
+  );
+
+  it("emits only a closed terminal output-rejection event after the CMS failure commit", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000113";
+    const privateMarker = "SYNTHETIC_RAW_PROVIDER_ERROR_SENTINEL";
+    const envelope = createSnapshot({
+      sourceRevision: "test-source",
+      createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z",
+      range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: [
+        {
+          recordId: "synthetic-rejection-record",
+          receipt: "00000000-0000-4000-8000-000000000114",
+          acceptedAt: "2026-09-01T12:00:00.000Z",
+          source: "valid_qr",
+          versionKey: "v1",
+          pointKey: "point-a",
+          overallRating: 4,
+          locale: "es",
+          commentText: "Synthetic rejection-test comment.",
+          payloadDigest: "a".repeat(64),
+          aspects: [],
+        },
+      ],
+      definitions: [{ aspectKey: "other", sortOrder: 99 }],
+      points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
+    });
+    const fake = fakeCms(envelope);
+    const order: string[] = [];
+    const originalFail = fake.cms.fail.bind(fake.cms);
+    fake.cms.fail = async (...args) => {
+      const result = await originalFail(...args);
+      order.push("cms-failure-committed");
+      return result;
+    };
+    const logLines: string[] = [];
+    const provider = vi.fn(async () => ({
+      output: { schemaVersion: privateMarker } as never,
+      usage: {
+        model: "gemini-3.8-flash",
+        modelRevision: "synthetic-revision",
+        sku: "synthetic-model-input",
+        usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 },
+      },
+    }));
+    const dependencies = {
+      cms: fake.cms,
+      artifacts: artifactStore().store,
+      renderer: createDeterministicTestPdfRenderer(),
+      evidenceKeyProvider: async () =>
+        "synthetic per-run evidence key for rejection test",
+      analysisProvider: provider,
+    };
+    const logSpy = vi.spyOn(console, "log").mockImplementation((line?: unknown) => {
+      logLines.push(String(line));
+      order.push("stdout-event");
+    });
+    try {
+      const result = await executeReportWorker(reportRunId, dependencies);
+      expect(result).toMatchObject({ status: "failed", failureCode: "INVALID_OUTPUT" });
+      expect(provider).toHaveBeenCalledTimes(2);
+      expect(logLines.map((line) => JSON.parse(line))).toEqual([
+        {
+          event: "tb113_output_rejection",
+          reportRunId,
+          stage: "direct",
+          reasonCategory: "output_contract_preflight",
+        },
+      ]);
+      expect(logLines.join("\n")).not.toContain(privateMarker);
+      expect(fake.calls.fail).toBe(1);
+      expect(order).toEqual(["cms-failure-committed", "stdout-event"]);
+
+      logLines.length = 0;
+      await expect(
+        executeReportWorker(reportRunId, dependencies),
+      ).resolves.toMatchObject({ status: "failed", disposition: "terminal-replay" });
+      expect(logLines).toEqual([]);
+
+      logSpy.mockImplementation(() => {
+        throw new Error("SYNTHETIC_LOGGER_FAILURE_SENTINEL");
+      });
+      const loggerFailureFake = fakeCms(envelope);
+      await expect(
+        executeReportWorker(reportRunId, { ...dependencies, cms: loggerFailureFake.cms }),
+      ).resolves.toMatchObject({ status: "failed", failureCode: "INVALID_OUTPUT" });
+      expect(loggerFailureFake.calls.fail).toBe(1);
+
+      const otherFailureFake = fakeCms(envelope);
+      const logCallsBeforeOtherFailure = logSpy.mock.calls.length;
+      await executeReportWorker(reportRunId, {
+        ...dependencies,
+        cms: otherFailureFake.cms,
+        approvedModelConfig: {
+          ...syntheticModelConfig("test-only-2026-01"),
+          promptVersion: "different-approved-prompt",
+        },
+      });
+      expect(logSpy).toHaveBeenCalledTimes(logCallsBeforeOtherFailure);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
   it("regenerates invalid direct output once, never retries configuration failures, and bounds transient retries", async () => {
     const reportRunId = "00000000-0000-4000-8000-000000000113";
     const evidenceKey = "tb113 synthetic per-run evidence key";

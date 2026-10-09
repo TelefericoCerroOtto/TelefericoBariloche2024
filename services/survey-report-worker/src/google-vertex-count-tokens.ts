@@ -26,6 +26,10 @@ import type {
   ValidatedAnalysisProvider,
 } from "./contracts";
 import { assertKeylessCloudRunEnvironment } from "@teleferico/tb113-runtime-contracts";
+import {
+  createOutputRejectionError,
+  type OutputRejectionCategory,
+} from "./output-rejection";
 
 const APPROVED_MODEL = "gemini-3.8-flash";
 const APPROVED_PROJECT = "teleferico-bariloche-2024";
@@ -53,6 +57,17 @@ function fail(
     | "PROVIDER_TRANSIENT",
 ): never {
   throw Object.assign(new Error("Vertex request failed"), { code });
+}
+
+function invalidOutput(
+  stage: GenerationStage,
+  reasonCategory: Exclude<OutputRejectionCategory, "unclassified">,
+): never {
+  throw createOutputRejectionError(
+    stage,
+    reasonCategory,
+    "Vertex output is invalid",
+  );
 }
 
 function assertApprovedConfig(value: ModelConfigV1): void {
@@ -440,7 +455,7 @@ export function createGoogleVertexModelProviders(
       result.modelVersion.length > 128 ||
       !isRecord(result.usageMetadata)
     )
-      return fail("INVALID_OUTPUT");
+      return invalidOutput(input.stage, "provider_response_shape");
     const candidate = result.candidates[0];
     if (
       !isRecord(candidate) ||
@@ -452,15 +467,15 @@ export function createGoogleVertexModelProviders(
       typeof candidate.content.parts[0].text !== "string" ||
       candidate.content.parts[0].thought === true
     )
-      return fail("INVALID_OUTPUT");
+      return invalidOutput(input.stage, "provider_candidate");
     const text = candidate.content.parts[0].text;
     if (Buffer.byteLength(text, "utf8") > MAX_GENERATION_TEXT_BYTES)
-      return fail("INVALID_OUTPUT");
+      return invalidOutput(input.stage, "provider_json");
     let output: unknown;
     try {
       output = JSON.parse(text);
     } catch {
-      return fail("INVALID_OUTPUT");
+      return invalidOutput(input.stage, "provider_json");
     }
     const usageMetadata = result.usageMetadata;
     if (
@@ -471,7 +486,7 @@ export function createGoogleVertexModelProviders(
       !Number.isSafeInteger(usageMetadata.candidatesTokenCount) ||
       Number(usageMetadata.candidatesTokenCount) < 0
     )
-      return fail("INVALID_OUTPUT");
+      return invalidOutput(input.stage, "provider_usage");
     return {
       output: output as T,
       usage: {

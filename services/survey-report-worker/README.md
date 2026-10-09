@@ -69,6 +69,18 @@ No Cloud Run service, image, Cloud Build trigger, queue, service identity, IAM g
 
 The local, staging, and production worker identities have been created. The local custom role and operator-impersonation binding are configured; staging/production IAM boundaries and all service attachments remain pending, as recorded in [the infrastructure decision](../../docs/INFRA.md#tb-113-worker-service-account-decision-accounts-created-local-iam-configured-cloud-access-pending). This package does not provision IAM grants or attach identities to services.
 
+### Terminal output-rejection event
+
+After a confirmed, non-replayed CMS commit of terminal `INVALID_OUTPUT`, the worker may emit at most one best-effort JSON line to stdout:
+
+```json
+{"event":"tb113_output_rejection","reportRunId":"<validated-report-run-uuid>","stage":"direct|map|reduce","reasonCategory":"provider_response_shape|provider_candidate|provider_json|provider_usage|output_token_budget|output_contract_preflight|unclassified"}
+```
+
+The only dynamic fields are `reportRunId`, `stage`, and `reasonCategory`; their values are a validated UUID and closed enums. Provider validation categories are assigned at direct/map/reduce boundaries; local output-budget and contract-preflight rejections use their matching categories. Unknown rejection details use `unclassified`, never provider text or inferred raw details. The event is silent for recoverable invalid-output attempts, non-`INVALID_OUTPUT` failures, terminal replays, unclassified stages, and invalid run IDs. `console.log` failure is swallowed and does not change the worker result.
+
+This bounded event is stdout-only. It does not write to the private diagnostic store or add a store, transport, flag, environment setting, dependency, or fallback. It never includes model output, comments, prompts, token counts, raw errors, request/response data, headers, URLs, or secret/key bytes. Synthetic worker tests drive direct, map, and reduce rejection through a terminal CMS failure and check the closed event shape and replay/privacy boundaries. A Logs Explorer query can select these events with `jsonPayload.event="tb113_output_rejection"`; local tests prove only synthetic behavior, not deployed Cloud Run collection or production readiness.
+
 ## Current worker configuration
 
 The worker process owns a plain `FEEDBACK_WORKER_CMS_TOKEN` Custom Content API token. In Strapi, enable exactly `workerClaim`, `workerSnapshot`, `workerCheckpoint`, `workerComplete`, and `workerFail` for this token. Keep the separate app token in the app process; the worker does not need it.
