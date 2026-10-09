@@ -546,11 +546,79 @@ describe("Google TB-113 runtime adapters", () => {
         usageMetadata: { promptTokenCount, candidatesTokenCount: 1 },
       }),
     });
-    await expect(providers.analysisProvider(request, countRequest)).rejects.toMatchObject({ code: "INVALID_OUTPUT" });
+    await expect(providers.analysisProvider(request, countRequest)).rejects.toMatchObject({
+      code: "INVALID_OUTPUT",
+      outputRejection: { stage: "direct", reasonCategory: "provider_json" },
+    });
     responseText = "{}";
     promptTokenCount = 32_001;
     await expect(providers.analysisProvider(request, countRequest)).rejects.toMatchObject({ code: "INVALID_OUTPUT" });
   });
+
+  it.each(["direct", "map", "reduce"] as const)(
+    "binds provider rejection metadata to the closed %s stage",
+    async (stage) => {
+      const metrics = {} as never;
+      const directRequest = {
+        contractVersion: "survey-model-input.v1",
+        metrics,
+        comments: [],
+      } as const;
+      const request =
+        stage === "direct"
+          ? directRequest
+          : stage === "map"
+            ? {
+                contractVersion: "survey-map-input.v1",
+                chunkId: "map.1-of-1",
+                chunkIndex: 1,
+                chunkCount: 1,
+                metrics,
+                comments: [],
+              }
+            : { contractVersion: "survey-reduce-input.v1", metrics, maps: [] };
+      const prompt =
+        stage === "direct"
+          ? { instructions: DIRECT_INSTRUCTIONS, schema: DIRECT_SCHEMA }
+          : stage === "map"
+            ? { instructions: MAP_INSTRUCTIONS, schema: MAP_SCHEMA }
+            : { instructions: REDUCE_INSTRUCTIONS, schema: REDUCE_SCHEMA };
+      const countRequest = {
+        contractVersion: "survey-count-request.v1" as const,
+        modelConfig: modelConfig(),
+        segments: {
+          ...prompt,
+          metrics: canonicalizeJson(metrics),
+          comments: stage === "direct" ? "[]" : canonicalizeJson(request),
+        },
+      };
+      const providers = createGoogleVertexModelProviders({
+        accessTokenProvider: async () => "synthetic-token",
+        fetchImplementation: async () =>
+          Response.json({
+            modelVersion: "synthetic-revision",
+            candidates: [
+              {
+                finishReason: "MAX_TOKENS",
+                content: { parts: [{ text: "SYNTHETIC_OUTPUT_MARKER" }] },
+              },
+            ],
+            usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 },
+          }),
+      });
+      const call =
+        stage === "direct"
+          ? providers.analysisProvider(request as typeof directRequest, countRequest)
+          : stage === "map"
+            ? providers.mapProvider(request as never, countRequest)
+            : providers.reduceProvider(request as never, countRequest);
+
+      await expect(call).rejects.toMatchObject({
+        code: "INVALID_OUTPUT",
+        outputRejection: { stage, reasonCategory: "provider_candidate" },
+      });
+    },
+  );
 
   it("reads only the pinned Secret Manager version for the approved evidence-key ID", async () => {
     const keyBytes = Buffer.alloc(40, 23);
