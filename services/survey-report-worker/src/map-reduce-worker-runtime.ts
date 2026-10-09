@@ -41,6 +41,10 @@ import type {
   PricingSnapshotV1,
 } from "./contracts";
 import { priceProviderUsageV1, validateProviderUsageV1 } from "./worker-cost";
+import {
+  createOutputRejectionError,
+  outputRejectionFor,
+} from "./output-rejection";
 import { deliverPendingWorkerAlerts } from "./worker-alerts";
 import { retryTransient } from "./retry-policy";
 
@@ -301,15 +305,55 @@ export async function executeMapReduceStages(input: {
       const countRequest = chunks[membership.chunkIndex - 1]?.countRequest;
       if (!countRequest)
         throw Object.assign(new TypeError("Selected map CountTokens request is missing"), { code: "INVARIANT" as const });
-      const response = await retryTransient(() => mapProvider(request, countRequest));
-      const providerUsage = validateProviderUsageV1(response?.usage, config.model, config.verifiedInputTokenLimit);
+      let response: Awaited<ReturnType<typeof mapProvider>>;
+      try {
+        response = await retryTransient(() => mapProvider(request, countRequest));
+      } catch (error) {
+        const rejection = outputRejectionFor(error, "map");
+        if (rejection)
+          throw Object.assign(new TypeError("Map provider output is invalid"), {
+            code: "INVALID_OUTPUT" as const,
+            outputRejection: rejection,
+          });
+        throw error;
+      }
+      let providerUsage: ReturnType<typeof validateProviderUsageV1>;
+      try {
+        providerUsage = validateProviderUsageV1(
+          response?.usage,
+          config.model,
+          config.verifiedInputTokenLimit,
+        );
+      } catch (error) {
+        if ((error as { code?: unknown })?.code === "INVALID_OUTPUT")
+          throw createOutputRejectionError(
+            "map",
+            "provider_usage",
+            "Map provider usage is invalid",
+          );
+        throw error;
+      }
       const nextCandidate = response?.output;
-      const nextOutputCount = await retryTransient(() => countGeneratedOutputV1({ output: nextCandidate, modelConfig: config, countTokens, stage: "map" }));
+      let nextOutputCount: Awaited<ReturnType<typeof countGeneratedOutputV1>>;
+      try {
+        nextOutputCount = await retryTransient(() => countGeneratedOutputV1({ output: nextCandidate, modelConfig: config, countTokens, stage: "map" }));
+      } catch (error) {
+        if ((error as { code?: unknown })?.code === "INVALID_OUTPUT")
+          throw createOutputRejectionError(
+            "map",
+            "output_token_budget",
+            "Map output token evidence is invalid",
+          );
+        throw error;
+      }
       let withinBudget = true;
+      let reasonCategory: "output_token_budget" | "output_contract_preflight" =
+        "output_contract_preflight";
       try {
         validateGeneratedOutputBudgetV1({ tokenCount: nextOutputCount.tokenCount, providerTokenCount: providerUsage.usageMetadata.candidatesTokenCount, modelConfig: config, stage: "map" });
       } catch {
         withinBudget = false;
+        reasonCategory = "output_token_budget";
       }
       const preflight = withinBudget ? preflightMapAnalysis(nextCandidate, {
             snapshot: input.snapshotEnvelope,
@@ -326,10 +370,18 @@ export async function executeMapReduceStages(input: {
         break;
       }
       if (generation === 1)
-        throw Object.assign(new TypeError("Map output failed structural or output-token validation"), { code: "INVALID_OUTPUT" as const });
+        throw createOutputRejectionError(
+          "map",
+          reasonCategory,
+          "Map output failed structural or output-token validation",
+        );
     }
     if (!candidate || !outputCount || !usage)
-      throw Object.assign(new TypeError("Map output failed validation"), { code: "INVALID_OUTPUT" as const });
+      throw createOutputRejectionError(
+        "map",
+        "output_contract_preflight",
+        "Map output failed validation",
+      );
     const payload = {
       kind: "map" as const,
       chunkId: request.chunkId,
@@ -359,7 +411,11 @@ export async function executeMapReduceStages(input: {
       chunkCount,
     });
     if (preflight.status !== "accepted" || checkpointValue.payload.outputTokenCount > config.map.hardMax)
-      throw Object.assign(new TypeError("Persisted map checkpoint failed structural validation"), { code: "INVALID_OUTPUT" as const });
+      throw createOutputRejectionError(
+        "map",
+        "output_contract_preflight",
+        "Persisted map checkpoint failed structural validation",
+      );
     return {
       chunkId: request.chunkId,
       outputDigest: checkpointValue.outputDigest,
@@ -378,7 +434,11 @@ export async function executeMapReduceStages(input: {
       verifiedMapOutputDigests: maps.map(({ outputDigest }) => outputDigest),
     });
     if (replayPreflight.status !== "accepted" || reduceStage.payload.outputTokenCount > config.directReduce.hardMax)
-      throw Object.assign(new TypeError("Persisted reduce checkpoint failed structural validation"), { code: "INVALID_OUTPUT" as const });
+      throw createOutputRejectionError(
+        "reduce",
+        "output_contract_preflight",
+        "Persisted reduce checkpoint failed structural validation",
+      );
   } else {
     const verifiedDigests = maps.map(({ outputDigest }) => outputDigest);
     const reduceRequest = {
@@ -402,15 +462,58 @@ export async function executeMapReduceStages(input: {
     let usage: ReturnType<typeof priceProviderUsageV1> | null = null;
     let outputCount: Awaited<ReturnType<typeof countGeneratedOutputV1>> | null = null;
     for (let generation = 0; generation < 2; generation += 1) {
-      const response = await retryTransient(() => reduceProvider(reduceRequest, reduceCountRequest));
-      const providerUsage = validateProviderUsageV1(response?.usage, config.model, config.verifiedInputTokenLimit);
+      let response: Awaited<ReturnType<typeof reduceProvider>>;
+      try {
+        response = await retryTransient(() => reduceProvider(reduceRequest, reduceCountRequest));
+      } catch (error) {
+        const rejection = outputRejectionFor(error, "reduce");
+        if (rejection)
+          throw Object.assign(
+            new TypeError("Reduce provider output is invalid"),
+            {
+              code: "INVALID_OUTPUT" as const,
+              outputRejection: rejection,
+            },
+          );
+        throw error;
+      }
+      let providerUsage: ReturnType<typeof validateProviderUsageV1>;
+      try {
+        providerUsage = validateProviderUsageV1(
+          response?.usage,
+          config.model,
+          config.verifiedInputTokenLimit,
+        );
+      } catch (error) {
+        if ((error as { code?: unknown })?.code === "INVALID_OUTPUT")
+          throw createOutputRejectionError(
+            "reduce",
+            "provider_usage",
+            "Reduce provider usage is invalid",
+          );
+        throw error;
+      }
       const nextCandidate = response?.output;
-      const nextOutputCount = await retryTransient(() => countGeneratedOutputV1({ output: nextCandidate, modelConfig: config, countTokens, stage: "reduce" }));
+      let nextOutputCount: Awaited<ReturnType<typeof countGeneratedOutputV1>>;
+      try {
+        nextOutputCount = await retryTransient(() => countGeneratedOutputV1({ output: nextCandidate, modelConfig: config, countTokens, stage: "reduce" }));
+      } catch (error) {
+        if ((error as { code?: unknown })?.code === "INVALID_OUTPUT")
+          throw createOutputRejectionError(
+            "reduce",
+            "output_token_budget",
+            "Reduce output token evidence is invalid",
+          );
+        throw error;
+      }
       let withinBudget = true;
+      let reasonCategory: "output_token_budget" | "output_contract_preflight" =
+        "output_contract_preflight";
       try {
         validateGeneratedOutputBudgetV1({ tokenCount: nextOutputCount.tokenCount, providerTokenCount: providerUsage.usageMetadata.candidatesTokenCount, modelConfig: config, stage: "reduce" });
       } catch {
         withinBudget = false;
+        reasonCategory = "output_token_budget";
       }
       const preflight = withinBudget ? preflightReduceAnalysis(nextCandidate, {
             snapshot: input.snapshotEnvelope,
@@ -427,10 +530,18 @@ export async function executeMapReduceStages(input: {
         break;
       }
       if (generation === 1)
-        throw Object.assign(new TypeError("Reduce output failed structural or output-token validation"), { code: "INVALID_OUTPUT" as const });
+        throw createOutputRejectionError(
+          "reduce",
+          reasonCategory,
+          "Reduce output failed structural or output-token validation",
+        );
     }
     if (!candidate || !usage || !outputCount)
-      throw Object.assign(new TypeError("Reduce output failed validation"), { code: "INVALID_OUTPUT" as const });
+      throw createOutputRejectionError(
+        "reduce",
+        "output_contract_preflight",
+        "Reduce output failed validation",
+      );
     await addCheckpoint("reduce", {
       kind: "reduce",
       outputTokenCount: outputCount.tokenCount,
