@@ -63,6 +63,8 @@ The shared private-report storage package also provides a development-only file 
 
 ## Runtime boundary
 
+The worker and CMS validate output structure, reference-field membership, stage digests, and CountTokens budgets; they do not reject narrative wording, free-text numbers, literal comments, incidental reference strings, or output private-data patterns. Model-bound comments still receive the existing recognizable email, URL, and phone substitutions, which do not cover names, addresses, or every private value. A structurally valid report may disclose visitor text or internal references; this is an accepted residual risk. The existing model instruction strings are advisory and remain byte-for-byte unchanged to preserve checkpoint request digests. No new output-rejection event or category is added; the existing evidence-reference/verbatim PDF event categories remain legacy identifiers rather than active prose checks.
+
 `pnpm start` requires the existing `FEEDBACK_` worker settings, Cloud Run-provided `K_SERVICE`/`K_REVISION`, and `PORT`. It fails closed without approved configuration and rejects `GOOGLE_APPLICATION_CREDENTIALS`; do not add service-account keys, fake production defaults, or diagnostic/notifier fallbacks. `pnpm dev` has a separate, explicitly local-only loopback configuration path and does not alter production validation. Runtime dependencies and configuration names are defined by the package source and shared `@teleferico/tb113-runtime-contracts` package.
 
 No Cloud Run service, image, Cloud Build trigger, queue, service identity, IAM grant, or staging deployment is created by this package. Those are separate, explicitly approved operator gates. Keep the app's `FEEDBACK_CAPABILITY_ENABLED` deployment default `false`.

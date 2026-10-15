@@ -33,7 +33,6 @@ const SECTION_TITLES = [
 
 const MAX_ANALYSIS_PARAGRAPHS = 8;
 const MAX_ANALYSIS_PARAGRAPH_LENGTH = 4_000;
-const EVIDENCE_REF = /\be_[a-z0-9]{20}\b/i;
 const PINNED_NODE_VERSION = "v22.22.0";
 const PINNED_CHROMIUM_SHA256 =
   "2d18db9d8608b052b6a552ee00ec1e830f93692e928b65ecc67d693bd33fe801";
@@ -154,14 +153,11 @@ export function validatePublishedAnalysis(value: unknown): PublishedAnalysisV1 {
       if (
         typeof paragraph !== "string" ||
         paragraph.length === 0 ||
-        paragraph.length > MAX_ANALYSIS_PARAGRAPH_LENGTH ||
-        EVIDENCE_REF.test(paragraph)
+        paragraph.length > MAX_ANALYSIS_PARAGRAPH_LENGTH
       )
         throw new PdfValidationError(
           `Analysis paragraph ${index}:${paragraphIndex} is unsafe`,
-          typeof paragraph === "string" && EVIDENCE_REF.test(paragraph)
-            ? "evidence_reference"
-            : "published_analysis_contract",
+          "published_analysis_contract",
         );
     });
   });
@@ -185,29 +181,6 @@ function reportChartMarkup(
     .filter((chart) => ids.includes(chart.id))
     .map(renderChartHtml)
     .join("");
-}
-
-function assertNoProhibitedReportContent(
-  html: string,
-  snapshot: SnapshotV1,
-): void {
-  if (EVIDENCE_REF.test(html))
-    throw new PdfValidationError(
-      "Report HTML contains a prohibited evidence reference",
-      "evidence_reference",
-    );
-
-  for (const comment of snapshot.comments) {
-    const text = comment.text.trim();
-    if (
-      text.length > 0 &&
-      (html.includes(text) || html.includes(escapeHtml(text)))
-    )
-      throw new PdfValidationError(
-        "Report HTML contains verbatim visitor comment text",
-        "verbatim_comment_rule",
-      );
-  }
 }
 
 function normalizePdfTransportMetadata(bytes: Uint8Array): Uint8Array {
@@ -281,7 +254,7 @@ export function renderReportHtml(
     ]),
     `${reportChartMarkup(charts, ["aspect-comparison"])}${selectedAnalysisMarkup(analysis, ["observed_changes", "strengths", "unfavorable_areas"])}`,
     `${reportChartMarkup(charts, ["qr-point-comparison"])}<p>Los puntos QR se presentan con los denominadores y filtros oficiales del período.</p>`,
-    `<p>La voz del visitante se representa mediante evidencia agregada; no se incluyen comentarios originales.</p>${selectedAnalysisMarkup(analysis, ["recurrent_themes", "minority_signals"])}`,
+    `<p>La voz del visitante se presenta junto con la evidencia del período.</p>${selectedAnalysisMarkup(analysis, ["recurrent_themes", "minority_signals"])}`,
     selectedAnalysisMarkup(analysis, ["coverage_limitations"]),
   ];
   const sections = SECTION_TITLES.map(
@@ -484,7 +457,6 @@ export async function renderValidatedPdf(
   const snapshot = validateSnapshotEnvelope(snapshotEnvelope);
   const analysis = validatePublishedAnalysis(analysisInput);
   const document = renderReportHtml(snapshot, analysis);
-  assertNoProhibitedReportContent(document.html, snapshot);
   let bytes: Uint8Array;
   try {
     bytes = await renderer.render({

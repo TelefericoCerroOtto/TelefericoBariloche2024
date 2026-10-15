@@ -36,17 +36,17 @@ Only validated analysis JSON and immutable official snapshot data MAY enter the 
 
 ### Requirement: Fixed evidence-first report
 
-The PDF MUST contain exactly these ordered sections: cover; executive summary; official overview; distribution/evolution; aspects; QR points; visitor voice; coverage/limitations. It MUST contain the five charts: star distribution, satisfaction evolution, response-volume evolution, aspect comparison, and QR-point comparison. Official evidence MUST precede AI narrative. Raw or verbatim comments and opaque evidence references MUST NOT appear. (Primary: D81-D83)
+The PDF MUST contain exactly these ordered sections: cover; executive summary; official overview; distribution/evolution; aspects; QR points; visitor voice; coverage/limitations. It MUST contain the five charts: star distribution, satisfaction evolution, response-volume evolution, aspect comparison, and QR-point comparison. Official evidence MUST precede AI narrative. Only validated analysis and immutable official snapshot data may enter rendering; no PDF prose/content scan rejects literal visitor comments, incidental evidence references, numbers, or private-data patterns. The approved residual disclosure risk remains even when model-bound copies have recognizable email, URL, and phone spans redacted. (Primary: D81-D83; former content ban superseded.)
 
 #### Scenario: Validate complete PDF structure
 - GIVEN a successful render
 - WHEN its typed document structure is inspected
 - THEN all eight sections and five charts MUST appear in the prescribed order with accessible data equivalents.
 
-#### Scenario: Block sensitive report content
-- GIVEN rendered content contains a raw comment or evidence reference
-- WHEN prepublication validation runs
-- THEN publication MUST fail and no downloadable report MUST be created.
+#### Scenario: Preserve structure without a content veto
+- GIVEN validated analysis contains a literal visitor comment or an incidental evidence reference in a paragraph
+- WHEN the fixed report renders with the required sections, charts, accessible data, and valid artifact metadata
+- THEN publication MUST NOT fail solely because of that prose; malformed structure or a mismatched digest MUST still block rendering or storage.
 
 ### Requirement: Private deterministic report object
 
