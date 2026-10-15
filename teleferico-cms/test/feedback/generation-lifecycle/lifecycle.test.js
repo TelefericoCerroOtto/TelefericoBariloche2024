@@ -1276,6 +1276,135 @@ test("CMS rejects a valid map.2 payload stored under map.1 checkpoint identity",
   }), { code: "VALIDATION_FAILED" });
 });
 
+test("CMS checkpoint command accepts structural direct prose but rejects foreign refs and altered digests", () => {
+  const evidenceKey = syntheticMembershipInput().evidenceKey;
+  const modelConfig = syntheticModelConfig("test-only-2026-01");
+  const snapshot = { sourceRevision: "test-source", metrics: { current: { submissionCount: 1 } }, comments: [syntheticMembershipInput().comments[0]] };
+  const run = { reportRunId: syntheticMembershipInput().reportRunId, status: "running", stateVersion: 4,
+    snapshotDigest: digest(snapshot), sourceRevision: "test-source", modelConfig, rendererVersion: "renderer.test.v1" };
+  const ref = deriveEvidenceRef({ reportRunId: run.reportRunId, recordId: snapshot.comments[0].recordId, evidenceKey });
+  const directInstructions = "Return structured Spanish descriptions only. Use the exact seven-section order and closed schema. Cite eligible evidence refs on every claim. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Leave unsupported sections empty. Semantic truth is not machine-verified.";
+  const sectionKeys = ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"];
+  const directSchema = canonicalize({ schemaVersion: "survey-analysis.v1", route: "direct", sections: sectionKeys.map((key) => ({
+    key, status: { enum: ["supported", "insufficient_evidence"] }, claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }],
+  })) });
+  const modelInput = { contractVersion: "survey-model-input.v1", comments: snapshot.comments.map(({ period, text }) => ({ period, text, evidenceRef: ref })) };
+  const countRequest = { contractVersion: "survey-count-request.v1", modelConfig, segments: {
+    instructions: directInstructions, schema: directSchema, metrics: canonicalize(snapshot.metrics), comments: canonicalize(modelInput),
+  } };
+  const segments = { instructions: 1, schema: 1, metrics: 1, comments: 1, reservedOutput: 3000, headroom: 2048 };
+  const makeCheckpoint = (stageKey, stageIndex, payload, dependencies) => ({
+    checkpointVersion: CHECKPOINT_CONTRACT_VERSIONS.checkpoint, stageKey, stageIndex,
+    route: stageIndex < 2 ? "common" : "direct", stageType: stageKey, status: "valid", attempts: 1,
+    completedAt: "2026-09-25T12:00:00.000Z", payload, outputDigest: digest(payload),
+    inputDigest: stageInputDigestV1({ stageKey, stageIndex, route: stageIndex < 2 ? "common" : "direct",
+      snapshotDigest: run.snapshotDigest, sourceRevision: run.sourceRevision,
+      contractVersions: CHECKPOINT_CONTRACT_VERSIONS,
+      stageConfigDigest: stageConfigDigest({ version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig, stageKey, modelConfig,
+        evidenceKeyId: modelConfig.evidenceKeyId, rendererVersion: null }),
+      orderedDependencyOutputDigests: dependencies, chunkMembershipDigest: null }),
+  });
+  const redact = makeCheckpoint("redact", 0, { kind: "redact", recordCount: 1, redactionVersion: modelConfig.redactionVersion }, []);
+  const count = makeCheckpoint("count", 1, { kind: "count", requestDigest: digest(countRequest), segmentTokens: segments,
+    totalTokens: Object.values(segments).reduce((sum, value) => sum + value, 0) }, [redact.outputDigest]);
+  const checkpoints = { version: "survey-checkpoints.v1", snapshotDigest: run.snapshotDigest, route: "direct", chunkCount: null, entries: [redact, count] };
+  const textEs = `Recomendamos cambiar el acceso 99. ${snapshot.comments[0].text} ${ref} visitor@example.invalid https://synthetic.invalid`;
+  const output = { schemaVersion: "survey-analysis.v1", route: "direct", sections: sectionKeys.map((key, index) => ({
+    key, status: index === 0 ? "supported" : "insufficient_evidence", claims: index === 0 ? [{
+      claimId: "claim-a", textEs, evidenceRefs: [ref], signal: "descriptive",
+    }] : [],
+  })) };
+  const candidateFor = (validatedOutput) => makeCheckpoint("direct", 2, { kind: "direct", validatedOutput,
+    outputTokenCount: 1, outputRequestDigest: outputTokenRequestDigest(validatedOutput, modelConfig, "direct"),
+    usage: { model: modelConfig.model, modelRevision: "synthetic-revision", sku: "synthetic-input",
+      usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 }, stageKey: "direct", pricingSnapshotVersion: "pricing.v1", costMicros: "1" },
+  }, [count.outputDigest]);
+  const verify = (candidate) => verifyCheckpointGraphV1({ run, snapshot, checkpoints, candidate, expectedStateVersion: 4, evidenceKey });
+  const prior = structuredClone({ run, snapshot, checkpoints });
+  const candidate = candidateFor(output);
+  assert.equal(verify(candidate).status, "accepted");
+  assert.equal(verify(candidate).checkpoints.entries.at(-1).payload.validatedOutput.sections[0].claims[0].textEs, textEs);
+  assert.throws(() => verify(candidateFor({ ...output, sections: output.sections.map((section, index) => index === 0 ? {
+    ...section, claims: [{ ...section.claims[0], evidenceRefs: ["e_aaaaaaaaaaaaaaaaaaaa"] }],
+  } : section) })), { code: "VALIDATION_FAILED" });
+  assert.throws(() => verify({ ...candidate, outputDigest: "f".repeat(64) }), { code: "DIGEST_MISMATCH" });
+  assert.deepEqual({ run, snapshot, checkpoints }, prior);
+});
+
+test("CMS map and reduce checkpoint commands allow prose without relaxing membership, budgets or digest order", () => {
+  const membershipInput = syntheticMembershipInput();
+  const { evidenceKey, evidenceKeyId, reportRunId } = membershipInput;
+  const modelConfig = syntheticModelConfig(evidenceKeyId);
+  const snapshot = { sourceRevision: "test-source", metrics: { current: { submissionCount: 1 } }, comments: [membershipInput.comments[0]] };
+  const snapshotDigest = digest(snapshot);
+  const run = { reportRunId, status: "running", stateVersion: 4, snapshotDigest,
+    sourceRevision: "test-source", modelConfig, rendererVersion: "renderer.test.v1" };
+  const membership = deriveChunkMembership({ ...membershipInput, snapshotDigest, chunkCount: 1, comments: snapshot.comments })[0];
+  const ref = membership.coveredRefs[0];
+  const directInstructions = "Return structured Spanish descriptions only. Use the exact seven-section order and closed schema. Cite eligible evidence refs on every claim. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Leave unsupported sections empty. Semantic truth is not machine-verified.";
+  const sectionKeys = ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"];
+  const directSchema = canonicalize({ schemaVersion: "survey-analysis.v1", route: "direct", sections: sectionKeys.map((key) => ({
+    key, status: { enum: ["supported", "insufficient_evidence"] }, claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }],
+  })) });
+  const mapInstructions = "Extract descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
+  const mapSchema = canonicalize({ schemaVersion: "survey-map.v1", chunkId: "map.<index>-of-<count>", coveredRefs: ["e_<20-lowercase-base32-characters>"],
+    themes: [{ themeKey: "lowercase-stable-id", labelEs: "Spanish descriptive label", claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }] }], limitations: ["Spanish descriptive limitation"] });
+  const modelComment = { period: snapshot.comments[0].period, text: snapshot.comments[0].text, evidenceRef: ref };
+  const countRequest = (instructions, schema, comments) => ({ contractVersion: "survey-count-request.v1", modelConfig,
+    segments: { instructions, schema, metrics: canonicalize(snapshot.metrics), comments: canonicalize(comments) } });
+  const direct = countRequest(directInstructions, directSchema, { contractVersion: "survey-model-input.v1", comments: [modelComment] });
+  const map = countRequest(mapInstructions, mapSchema, { contractVersion: "survey-map-input.v1", chunkId: "map.1-of-1", chunkIndex: 1,
+    chunkCount: 1, metrics: snapshot.metrics, comments: [modelComment] });
+  const headroom = 2048;
+  const directTokens = { instructions: 1, schema: 1, metrics: 1, comments: 9000, reservedOutput: 3000, headroom };
+  const mapTokens = { instructions: 1, schema: 1, metrics: 1, comments: 100, reservedOutput: 1200, headroom };
+  const total = (values) => Object.values(values).reduce((sum, value) => sum + value, 0);
+  const countPayload = { kind: "count", requestDigest: digest(direct), segmentTokens: directTokens, totalTokens: total(directTokens),
+    route: "map-reduce", directRequestDigest: digest(direct), directSegmentTokens: directTokens, directTotalTokens: total(directTokens),
+    attempts: [{ chunkCount: 1, chunks: [{ requestDigest: digest(map), segmentTokens: mapTokens, totalTokens: total(mapTokens) }] }], chunkCount: 1 };
+  const checkpoint = (stageKey, stageIndex, route, payload, dependencies, chunkMembershipDigest = null) => ({
+    checkpointVersion: CHECKPOINT_CONTRACT_VERSIONS.checkpoint, stageKey, stageIndex, route,
+    stageType: stageKey.startsWith("map.") ? "map" : stageKey, status: "valid", attempts: 1,
+    completedAt: "2026-09-25T12:00:00.000Z", payload, outputDigest: digest(payload),
+    inputDigest: stageInputDigestV1({ stageKey, stageIndex, route, snapshotDigest, sourceRevision: run.sourceRevision,
+      contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest: stageConfigDigest({
+        version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig, stageKey, modelConfig, evidenceKeyId, rendererVersion: null,
+      }), orderedDependencyOutputDigests: dependencies, chunkMembershipDigest }),
+  });
+  const redact = checkpoint("redact", 0, "common", { kind: "redact", recordCount: 1, redactionVersion: modelConfig.redactionVersion }, []);
+  const count = checkpoint("count", 1, "common", countPayload, [redact.outputDigest]);
+  const base = { version: "survey-checkpoints.v1", snapshotDigest, route: "map-reduce", chunkCount: 1, entries: [redact, count] };
+  const textEs = `Recomendamos cambiar 99. ${snapshot.comments[0].text} ${ref} visitor@example.invalid https://synthetic.invalid`;
+  const mapOutput = { schemaVersion: "survey-map.v1", chunkId: "map.1-of-1", coveredRefs: [ref],
+    themes: [{ themeKey: "theme-a", labelEs: textEs, claims: [{ claimId: "claim-a", textEs, evidenceRefs: [ref], signal: "descriptive" }] }], limitations: [textEs] };
+  const usage = (stageKey) => ({ model: modelConfig.model, modelRevision: "synthetic-revision", sku: "synthetic-input",
+    usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 }, stageKey, pricingSnapshotVersion: "pricing.v1", costMicros: "1" });
+  const mapPayload = (validatedOutput) => ({ kind: "map", chunkId: "map.1-of-1", chunkIndex: 1, chunkCount: 1, evidenceKeyId,
+    coveredRefs: [ref], chunkMembershipDigest: membership.membershipDigest, outputTokenCount: 1,
+    outputRequestDigest: outputTokenRequestDigest(validatedOutput, modelConfig, "map"), validatedOutput, usage: usage("map.1-of-1") });
+  const mapCheckpoint = (output) => checkpoint("map.1-of-1", 2, "map-reduce", mapPayload(output), [count.outputDigest], membership.membershipDigest);
+  const verify = (checkpoints, candidate) => verifyCheckpointGraphV1({ run, snapshot, checkpoints, candidate, expectedStateVersion: 4, evidenceKey });
+  const prior = structuredClone(base);
+  const validMap = mapCheckpoint(mapOutput);
+  assert.equal(verify(base, validMap).status, "accepted");
+  assert.throws(() => verify(base, mapCheckpoint({ ...mapOutput, coveredRefs: ["e_aaaaaaaaaaaaaaaaaaaa"] })), { code: "VALIDATION_FAILED" });
+  assert.throws(() => verify(base, mapCheckpoint({ ...mapOutput, themes: [{ ...mapOutput.themes[0], claims: [{ ...mapOutput.themes[0].claims[0], evidenceRefs: ["e_aaaaaaaaaaaaaaaaaaaa"] }] }] })), { code: "VALIDATION_FAILED" });
+  assert.throws(() => verify(base, { ...validMap, payload: { ...validMap.payload, outputTokenCount: 4001 }, outputDigest: digest({ ...validMap.payload, outputTokenCount: 4001 }) }), { code: "VALIDATION_FAILED" });
+  const reduceOutput = { schemaVersion: "survey-analysis.v1", route: "reduce", mapOutputDigests: [validMap.outputDigest],
+    sections: sectionKeys.map((key, index) => ({ key, status: index === 0 ? "supported" : "insufficient_evidence",
+      claims: index === 0 ? [{ claimId: "claim-a", textEs, evidenceRefs: [ref], signal: "descriptive" }] : [] })) };
+  const reducePayload = (validatedOutput) => ({ kind: "reduce", validatedOutput, outputTokenCount: 1,
+    outputRequestDigest: outputTokenRequestDigest(validatedOutput, modelConfig, "reduce"), usage: usage("reduce") });
+  const reduceCheckpoint = (output) => checkpoint("reduce", 3, "map-reduce", reducePayload(output), [count.outputDigest, validMap.outputDigest]);
+  const mapHistory = { ...base, entries: [...base.entries, validMap] };
+  assert.equal(verify(mapHistory, reduceCheckpoint(reduceOutput)).status, "accepted");
+  assert.throws(() => verify(mapHistory, reduceCheckpoint({ ...reduceOutput, sections: reduceOutput.sections.map((section, index) => index === 0 ? {
+    ...section, claims: [{ ...section.claims[0], evidenceRefs: ["e_aaaaaaaaaaaaaaaaaaaa"] }],
+  } : section) })), { code: "VALIDATION_FAILED" });
+  assert.throws(() => verify(mapHistory, reduceCheckpoint({ ...reduceOutput, mapOutputDigests: ["f".repeat(64)] })), { code: "DIGEST_MISMATCH" });
+  assert.deepEqual(base, prior);
+});
+
 test("dispatch compensation replays identically and rejects altered, claimed, or stale generations", async () => {
   const value = store({ reportRunId: "00000000-0000-4000-8000-000000000001", status: "queued", stateVersion: 1, taskName: null, claimedAt: null, dispatchAttemptCount: 0 });
   const lifecycle = createGenerationLifecycle({ withTransaction: value.withTransaction, now: () => "2026-09-22T15:04:05.000Z" });

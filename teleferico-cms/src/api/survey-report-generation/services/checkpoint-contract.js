@@ -643,36 +643,6 @@ function directModelCommentsJson(snapshot, reportRunId, evidenceKey) {
   });
 }
 
-function narrativeHasPrivateText(text, comments) {
-  if (/e_[a-z2-7]{20}/u.test(text) || /(?:https?:\/\/|www\.)/iu.test(text) ||
-      /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text) ||
-      /(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)/u.test(text)) return true;
-  const tokenize = (value) => value.toLocaleLowerCase('es').match(/[\p{L}\p{N}]+/gu) || [];
-  const output = tokenize(text);
-  return comments.some(({ text: comment }) => {
-    const source = tokenize(comment);
-    const width = Math.min(8, source.length);
-    for (let start = 0; start <= source.length - width; start += 1) {
-      const phrase = source.slice(start, start + width);
-      if (source.length < 8 && phrase.length !== source.length) continue;
-      if (output.some((_, index) => phrase.every((token, offset) => output[index + offset] === token))) return true;
-    }
-    return false;
-  });
-}
-
-function snapshotMetricValues(value, values = new Set()) {
-  if (typeof value === 'number' && Number.isFinite(value)) values.add(String(value));
-  else if (Array.isArray(value)) value.forEach((item) => snapshotMetricValues(item, values));
-  else if (value && typeof value === 'object') Object.values(value).forEach((item) => snapshotMetricValues(item, values));
-  return values;
-}
-
-function introducesMetricValue(text, officialValues) {
-  return (text.match(/(?<![\p{L}\p{N}])\d+(?:[.,]\d+)?%?/gu) || [])
-    .some((value) => !officialValues.has(value.replace(',', '.').replace(/%$/, '')));
-}
-
 function safeDirectOutput(output, modelConfig, snapshot, reportRunId, evidenceKey) {
   if (!exactKeys(output, ['schemaVersion', 'route', 'sections']) || output.schemaVersion !== 'survey-analysis.v1' ||
       output.route !== 'direct' || !Array.isArray(output.sections) || output.sections.length !== ANALYSIS_SECTION_KEYS.length) return false;
@@ -681,7 +651,6 @@ function safeDirectOutput(output, modelConfig, snapshot, reportRunId, evidenceKe
     reportRunId, recordId, evidenceKey: evidenceKey || 'synthetic-empty-evidence-key-material',
   })));
   const claimIds = new Set();
-  const officialValues = snapshotMetricValues(snapshot.metrics);
   for (let index = 0; index < output.sections.length; index += 1) {
     const section = output.sections[index];
     if (!exactKeys(section, ['key', 'status', 'claims']) || section.key !== ANALYSIS_SECTION_KEYS[index] ||
@@ -697,10 +666,7 @@ function safeDirectOutput(output, modelConfig, snapshot, reportRunId, evidenceKe
           (section.key === 'recurrent_themes' && claim.signal !== 'recurrent') ||
           (section.key === 'minority_signals' && claim.signal !== 'minority') ||
           new Set(claim.evidenceRefs).size !== claim.evidenceRefs.length || claim.evidenceRefs.length < threshold ||
-          claim.evidenceRefs.some((ref) => typeof ref !== 'string' || !/^e_[a-z2-7]{20}$/.test(ref) || !references.has(ref)) ||
-          /\b(?:debe|deben|debería|recomiendo|recomendamos|recomendar|sugiero|sugerimos|conviene|implementar|cambiar|mejorar|garantiza|garantizan|causa|causan|provoca|provocan|demuestra|demuestran|recommend(?:s|ed|ing)?|should|must|need(?:s|ed)? to|improve|change|implement)\b/iu.test(claim.textEs) ||
-          introducesMetricValue(claim.textEs, officialValues) ||
-          narrativeHasPrivateText(claim.textEs, snapshot.comments)) return false;
+          claim.evidenceRefs.some((ref) => typeof ref !== 'string' || !/^e_[a-z2-7]{20}$/.test(ref) || !references.has(ref))) return false;
       previous = claim.claimId;
       claimIds.add(claim.claimId);
     }
@@ -751,7 +717,6 @@ function safeMapOutput(payload, modelConfig, snapshot, reportRunId, evidenceKey)
     comments: snapshot.comments,
   }, membership) || canonicalizeJson(output.coveredRefs) !== canonicalizeJson(payload.coveredRefs)) return false;
   const membershipRefs = new Set(payload.coveredRefs);
-  const commentText = snapshot.comments.map(({ text }) => text);
   const claimIds = new Set();
   let previousTheme = '';
   const minimums = {
@@ -763,8 +728,7 @@ function safeMapOutput(payload, modelConfig, snapshot, reportRunId, evidenceKey)
     if (!exactKeys(theme, ['themeKey', 'labelEs', 'claims']) || typeof theme.themeKey !== 'string' ||
         !RECORD_ID_PATTERN.test(theme.themeKey) || compareCodePoints(theme.themeKey, previousTheme) <= 0 ||
         typeof theme.labelEs !== 'string' || theme.labelEs.length < 1 || theme.labelEs.length > 500 ||
-        !Array.isArray(theme.claims) || narrativeHasPrivateText(theme.labelEs, snapshot.comments) ||
-        /\d/u.test(theme.labelEs)) return false;
+        !Array.isArray(theme.claims)) return false;
     previousTheme = theme.themeKey;
     let previousClaimId = '';
     for (const claim of theme.claims) {
@@ -773,16 +737,13 @@ function safeMapOutput(payload, modelConfig, snapshot, reportRunId, evidenceKey)
           typeof claim.textEs !== 'string' || claim.textEs.length < 1 || claim.textEs.length > 4000 ||
           !Array.isArray(claim.evidenceRefs) || !['recurrent', 'minority', 'descriptive'].includes(claim.signal) ||
           claim.evidenceRefs.length < minimums[claim.signal] || new Set(claim.evidenceRefs).size !== claim.evidenceRefs.length ||
-          claim.evidenceRefs.some((ref) => !membershipRefs.has(ref)) ||
-          /\d/u.test(claim.textEs) || /\b(?:debe|deben|debería|recomiendo|recomendamos|recomendar|sugiero|sugerimos|conviene|implementar|cambiar|mejorar|garantiza|garantizan|causa|causan|provoca|provocan|demuestra|demuestran|recommend(?:s|ed|ing)?|should|must|need(?:s|ed)? to|improve|change|implement)\b/iu.test(claim.textEs) ||
-          narrativeHasPrivateText(claim.textEs, snapshot.comments)) return false;
+          claim.evidenceRefs.some((ref) => typeof ref !== 'string' || !/^e_[a-z2-7]{20}$/.test(ref) || !membershipRefs.has(ref))) return false;
       previousClaimId = claim.claimId;
       claimIds.add(claim.claimId);
     }
   }
   for (const limitation of output.limitations) {
-    if (typeof limitation !== 'string' || limitation.length < 1 || limitation.length > 4000 || /\d/u.test(limitation) ||
-        narrativeHasPrivateText(limitation, snapshot.comments)) return false;
+    if (typeof limitation !== 'string' || limitation.length < 1 || limitation.length > 4000) return false;
   }
   return true;
 }
@@ -1136,7 +1097,7 @@ function verifyCheckpointGraphV1({ run, snapshot, checkpoints, candidate, expect
           canonicalizeJson(entry.payload.validatedOutput.mapOutputDigests) !== canonicalizeJson(expectedDigests))
         checkpointError("DIGEST_MISMATCH");
     }
-    if ((snapshot && ["redact", "count"].includes(stage.type) || ["render", "store"].includes(stage.type)) && !payloadIsSafe)
+    if ((snapshot && ["redact", "count", "direct"].includes(stage.type) || ["render", "store"].includes(stage.type)) && !payloadIsSafe)
       checkpointError("VALIDATION_FAILED");
     if (snapshot && ["map", "reduce", "validate"].includes(stage.type) && !payloadIsSafe)
       checkpointError("VALIDATION_FAILED");
