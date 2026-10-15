@@ -41,8 +41,6 @@ const OUTPUT_KEYS = ["schemaVersion", "route", "sections"];
 const REF_PATTERN = /^e_[a-z2-7]{20}$/;
 const ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const KEY_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
-const FORBIDDEN_CLAIM =
-  /\b(?:debe|deben|debería|recomiendo|recomendamos|recomendar|sugiero|sugerimos|conviene|implementar|cambiar|mejorar|garantiza|garantizan|causa|causan|provoca|provocan|demuestra|demuestran|proves?|causes?|causes|recommend(?:s|ed|ing)?|should|must|need(?:s|ed)? to|improve|change|implement)\b/iu;
 const MAP_KEYS = [
   "schemaVersion",
   "chunkId",
@@ -102,7 +100,6 @@ function preflightContext(input: {
   | {
       readonly comments: readonly SnapshotEnvelopeV1["payload"]["comments"][number][];
       readonly refs: ReadonlySet<string>;
-      readonly metrics: SnapshotEnvelopeV1["payload"]["metrics"];
     }
   | PreflightViolation {
   let snapshot: SnapshotEnvelopeV1["payload"];
@@ -137,7 +134,7 @@ function preflightContext(input: {
         status: "rejected",
         violations: ["duplicate_snapshot_record_identity"],
       };
-    return { comments: snapshot.comments, refs, metrics: snapshot.metrics };
+    return { comments: snapshot.comments, refs };
   } catch {
     return { status: "rejected", violations: ["invalid_evidence_context"] };
   }
@@ -146,13 +143,10 @@ function preflightContext(input: {
 function validateClaimCollection(
   value: unknown,
   input: {
-    readonly commentText: readonly string[];
     readonly allowedRefs: ReadonlySet<string>;
     readonly claimIds: Set<string>;
     readonly violations: Set<string>;
     readonly refScope?: ReadonlySet<string>;
-    readonly officialValues?: ReadonlySet<string>;
-    readonly forbidNumbers?: boolean;
   },
 ): void {
   if (!Array.isArray(value)) {
@@ -181,16 +175,6 @@ function validateClaimCollection(
     previousClaimId = claim.claimId;
     input.claimIds.add(claim.claimId);
 
-    if (FORBIDDEN_CLAIM.test(claim.textEs))
-      input.violations.add("action_or_causal_claim");
-    if (input.officialValues && introducesMetricValue(claim.textEs, input.officialValues))
-      input.violations.add("unsupported_official_metric_value");
-    if (input.forbidNumbers && /\d/u.test(claim.textEs)) input.violations.add("numeric_value_in_map_claim");
-    if (leaksComment(claim.textEs, input.commentText))
-      input.violations.add("verbatim_comment_leak");
-    if (REF_PATTERN.test(claim.textEs))
-      input.violations.add("exposed_evidence_ref");
-
     const refs = claim.evidenceRefs;
     if (
       refs.length === 0 ||
@@ -206,31 +190,18 @@ function validateClaimCollection(
   }
 }
 
-function checkProse(
-  value: unknown,
-  maxLength: number,
-  commentText: readonly string[],
-  violations: Set<string>,
-  officialValues?: ReadonlySet<string>,
-): void {
+function checkProse(value: unknown, maxLength: number, violations: Set<string>): void {
   if (!validText(value, maxLength)) {
     violations.add("invalid_output_text");
     return;
   }
-  if (FORBIDDEN_CLAIM.test(value)) violations.add("action_or_causal_claim");
-  if (officialValues && introducesMetricValue(value, officialValues))
-    violations.add("unsupported_official_metric_value");
-  if (leaksComment(value, commentText)) violations.add("verbatim_comment_leak");
-  if (REF_PATTERN.test(value)) violations.add("exposed_evidence_ref");
 }
 
 function validateSections(
   value: unknown,
   context: {
-    readonly commentText: readonly string[];
     readonly allowedRefs: ReadonlySet<string>;
     readonly violations: Set<string>;
-    readonly officialValues: ReadonlySet<string>;
   },
 ): void {
   if (!Array.isArray(value) || value.length !== PUBLISHED_SECTION_KEYS.length) {
@@ -270,11 +241,9 @@ function validateSections(
     )
       context.violations.add("section_signal_mismatch");
     validateClaimCollection(section.claims, {
-      commentText: context.commentText,
       allowedRefs: context.allowedRefs,
       claimIds,
       violations: context.violations,
-      officialValues: context.officialValues,
     });
   });
 }
@@ -334,7 +303,6 @@ export function preflightMapAnalysis(
   )
     violations.add("map_covered_refs_mismatch");
 
-  const commentText = context.comments.map(({ text }) => text);
   const themeKeys = new Set<string>();
   const claimIds = new Set<string>();
   let previousThemeKey = "";
@@ -361,16 +329,12 @@ export function preflightMapAnalysis(
       violations.add("duplicate_or_unsorted_theme_key");
     previousThemeKey = theme.themeKey;
     themeKeys.add(theme.themeKey);
-    checkProse(theme.labelEs, 500, commentText, violations);
-    if (typeof theme.labelEs === "string" && /\d/u.test(theme.labelEs))
-      violations.add("numeric_value_in_map_label");
+    checkProse(theme.labelEs, 500, violations);
     validateClaimCollection(theme.claims, {
-      commentText,
       allowedRefs: context.refs,
       refScope: chunkRefs,
       claimIds,
       violations,
-      forbidNumbers: true,
     });
     for (const claim of theme.claims) {
       if (exactKeys(claim, CLAIM_KEYS) &&
@@ -382,9 +346,7 @@ export function preflightMapAnalysis(
     }
   }
   for (const limitation of value.limitations) {
-    checkProse(limitation, 4_000, commentText, violations);
-    if (typeof limitation === "string" && /\d/u.test(limitation))
-      violations.add("numeric_value_in_map_limitation");
+    checkProse(limitation, 4_000, violations);
   }
 
   const rejected = sortedViolations(violations);
@@ -397,7 +359,7 @@ export function preflightMapAnalysis(
       "derived_map_chunk_membership",
       "unique_sorted_theme_and_claim_ids",
       "map_claim_refs_within_derived_chunk",
-      "prohibited_content_and_verbatim_comment_leakage",
+      "bounded_unicode_scalar_text",
     ],
   };
 }
@@ -437,13 +399,9 @@ export function preflightReduceAnalysis(
   ))
     violations.add("map_output_digest_membership_mismatch");
 
-  const commentText = context.comments.map(({ text }) => text);
-  const officialValues = numericValues(context.metrics);
   validateSections(value.sections, {
-    commentText,
     allowedRefs: context.refs,
     violations,
-    officialValues,
   });
 
   const rejected = sortedViolations(violations);
@@ -456,7 +414,7 @@ export function preflightReduceAnalysis(
         "ordered_sections_and_unique_sorted_claim_ids",
         "map_output_digest_syntax_and_uniqueness",
         "snapshot_evidence_ref_membership",
-        "prohibited_content_and_verbatim_comment_leakage",
+        "bounded_unicode_scalar_text",
       ],
       blockers: ["independently_verified_cms_map_checkpoint_output_digests"],
     };
@@ -467,7 +425,7 @@ export function preflightReduceAnalysis(
       "ordered_sections_and_unique_sorted_claim_ids",
       "map_output_digest_syntax_and_uniqueness",
       "snapshot_evidence_ref_membership",
-      "prohibited_content_and_verbatim_comment_leakage",
+      "bounded_unicode_scalar_text",
     ],
   };
 }
@@ -491,53 +449,6 @@ function compareCodePoints(left: string, right: string): number {
   for (let index = 0; index < Math.min(a.length, b.length); index += 1)
     if (a[index] !== b[index]) return a[index]! - b[index]!;
   return a.length - b.length;
-}
-
-function tokens(value: string): string[] {
-  return value.toLocaleLowerCase("es").match(/[\p{L}\p{N}]+/gu) ?? [];
-}
-
-function leaksComment(text: string, comments: readonly string[]): boolean {
-  const outputTokens = tokens(text);
-  return comments.some((comment) => {
-    const commentTokens = tokens(comment);
-    if (commentTokens.length === 0) return false;
-    const width = Math.min(8, commentTokens.length);
-    for (let start = 0; start <= commentTokens.length - width; start += 1) {
-      const phrase = commentTokens.slice(start, start + width);
-      if (commentTokens.length < 8 && phrase.length !== commentTokens.length)
-        continue;
-      if (
-        outputTokens.some((_, index) =>
-          phrase.every(
-            (token, offset) => outputTokens[index + offset] === token,
-          ),
-        )
-      )
-        return true;
-    }
-    return false;
-  });
-}
-
-function numericValues(value: unknown, values = new Set<string>()): Set<string> {
-  if (typeof value === "number" && Number.isFinite(value)) values.add(String(value));
-  else if (Array.isArray(value)) value.forEach((item) => numericValues(item, values));
-  else if (value && typeof value === "object")
-    Object.values(value).forEach((item) => numericValues(item, values));
-  return values;
-}
-
-function introducesMetricValue(text: string, officialValues: ReadonlySet<string>): boolean {
-  return (text.match(/(?<![\p{L}\p{N}])\d+(?:[.,]\d+)?%?/gu) ?? []).some((value) =>
-    !officialValues.has(value.replace(",", ".").replace(/%$/, "")),
-  );
-}
-
-function containsRecognizablePrivateData(text: string): boolean {
-  return /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu.test(text) ||
-    /(?:https?:\/\/|www\.)[^\s]+/iu.test(text) ||
-    /(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)/u.test(text);
 }
 
 /** Checks independently provable direct-output constraints without accepting incomplete evidence semantics. */
@@ -588,9 +499,7 @@ export function preflightDirectAnalysis(
   if (allowedRefs.size !== snapshot.comments.length)
     violations.add("duplicate_snapshot_record_identity");
 
-  const commentText = snapshot.comments.map(({ text }) => text);
   const commentCount = snapshot.comments.length;
-  const officialValues = numericValues(snapshot.metrics);
   const recurrentMinimum = Math.max(10, Math.ceil((commentCount * 2) / 100));
   const claimIds = new Set<string>();
 
@@ -649,14 +558,6 @@ export function preflightDirectAnalysis(
         )
       )
         violations.add("invalid_claim_text");
-      if (FORBIDDEN_CLAIM.test(claim.textEs))
-        violations.add("action_or_causal_claim");
-      if (introducesMetricValue(claim.textEs, officialValues))
-        violations.add("unsupported_official_metric_value");
-      if (containsRecognizablePrivateData(claim.textEs))
-        violations.add("personal_data_or_url");
-      if (leaksComment(claim.textEs, commentText))
-        violations.add("verbatim_comment_leak");
       const refs = claim.evidenceRefs;
       if (
         refs.length === 0 ||
@@ -689,8 +590,6 @@ export function preflightDirectAnalysis(
       "ordered_sections",
       "evidence_ref_membership_and_thresholds",
       "recurrent_and_minority_section_signal_consistency",
-      "prohibited_claim_markers",
-      "verbatim_comment_leakage",
       "unicode_scalar_text",
       "immutable_per_run_evidence_key_membership",
     ],

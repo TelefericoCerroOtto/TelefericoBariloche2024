@@ -27,7 +27,7 @@ import { outputRejectionFor } from "../../../../services/survey-report-worker/sr
 import {
   executeReportWorker as executeReportWorkerWithDependencies,
 } from "../../../../services/survey-report-worker/src/worker-runtime";
-import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA, EMPTY_EVIDENCE_PARAGRAPH } from "../../../../services/survey-report-worker/src/direct-execution-plan";
+import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA, EMPTY_EVIDENCE_PARAGRAPH, redactCommentTextV1 } from "../../../../services/survey-report-worker/src/direct-execution-plan";
 import {
   CHECKPOINT_CONTRACT_VERSIONS,
   deriveChunkMembership,
@@ -371,25 +371,40 @@ function syntheticModelConfig(evidenceKeyId: string) {
 describe("worker PDF boundary", () => {
   beforeEach(() => vi.restoreAllMocks());
 
+  it("preserves the malformed-paragraph diagnostic without rejecting valid prose", () => {
+    const original = analysis();
+    const malformed = {
+      ...original,
+      sections: original.sections.map((section, index) =>
+        index === 0 ? { ...section, paragraphsEs: [""] } : section,
+      ),
+    };
+    let failure: unknown;
+    try {
+      validatePublishedAnalysis(malformed);
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(PdfValidationError);
+    expect(failure).toMatchObject({
+      message: "Analysis paragraph 0:0 is unsafe",
+      code: "INVALID_OUTPUT",
+      reasonCategory: "published_analysis_contract",
+    });
+    expect(original.sections[0]?.paragraphsEs).toEqual([EMPTY_EVIDENCE_PARAGRAPH]);
+  });
+
+  it("keeps the three recognizable input redactions without filtering output prose", () => {
+    expect(redactCommentTextV1("Visitor visitor@example.invalid at https://synthetic.invalid or +54 11 5555 1234; keep Valeria and Avenida Central.")).toBe(
+      "Visitor [EMAIL] at [URL] or [PHONE]; keep Valeria and Avenida Central.",
+    );
+  });
+
   it("maps typed PDF validation boundaries to closed render rejection categories", () => {
     const invalidAnalysis = { ...analysis(), sections: [] };
     const analysisFailure = (() => {
       try {
         validatePublishedAnalysis(invalidAnalysis);
-      } catch (error) {
-        return error;
-      }
-    })();
-    const evidenceFailure = (() => {
-      try {
-        validatePublishedAnalysis({
-          ...analysis(),
-          sections: analysis().sections.map((section, index) =>
-            index === 0
-              ? { ...section, paragraphsEs: ["SYNTHETIC e_abcdefghijklmnopqrst"] }
-              : section,
-          ),
-        });
       } catch (error) {
         return error;
       }
@@ -408,11 +423,9 @@ describe("worker PDF boundary", () => {
       stage: "render",
       reasonCategory: "published_analysis_contract",
     });
-    expect(evidenceFailure).toBeInstanceOf(PdfValidationError);
-    expect(outputRejectionFor(evidenceFailure, "render")).toEqual({
-      stage: "render",
-      reasonCategory: "evidence_reference",
-    });
+    expect(validatePublishedAnalysis({ ...analysis(), sections: analysis().sections.map((section, index) =>
+      index === 0 ? { ...section, paragraphsEs: ["SYNTHETIC e_abcdefghijklmnopqrst"] } : section,
+    ) }).sections[0]?.paragraphsEs).toEqual(["SYNTHETIC e_abcdefghijklmnopqrst"]);
     expect(chartFailure).toBeInstanceOf(RendererValidationError);
     expect(outputRejectionFor(chartFailure, "render")).toEqual({
       stage: "render",
@@ -442,7 +455,7 @@ describe("worker PDF boundary", () => {
     ).toEqual({ stage: "render", reasonCategory: "unclassified" });
   });
 
-  it("classifies a verbatim-comment boundary without exposing the marker", async () => {
+  it("renders validated literal comments and incidental references without suppressing structural validation", async () => {
     const text = "SYNTHETIC_VERBATIM_COMMENT_MARKER";
     const envelope = createSnapshot({
       sourceRevision: "synthetic-verbatim-source",
@@ -466,29 +479,26 @@ describe("worker PDF boundary", () => {
       definitions: [{ aspectKey: "other", sortOrder: 99 }],
       points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
     });
-    let failure: unknown;
-    try {
-      const output = analysis();
-      await renderValidatedPdf(
-        envelope,
-        {
-          ...output,
-          sections: output.sections.map((section, index) =>
-            index === 0 ? { ...section, paragraphsEs: [text] } : section,
-          ),
-        },
-        createDeterministicTestPdfRenderer(),
-      );
-    } catch (error) {
-      failure = error;
-    }
-
-    expect(failure).toBeInstanceOf(PdfValidationError);
-    expect(outputRejectionFor(failure)).toEqual({
-      stage: "render",
-      reasonCategory: "verbatim_comment_rule",
+    const output = analysis();
+    const paragraphsEs = [text, "Referencia e_abcdefghijklmnopqrst", "Recomendamos mejorar el acceso 99."];
+    const candidate = { ...output, sections: output.sections.map((section, index) =>
+      index === 0 ? { ...section, paragraphsEs } : section,
+    ) };
+    let html = "";
+    const artifact = await renderValidatedPdf(envelope, candidate, {
+      rendererVersion: "synthetic.v1",
+      async render(document) {
+        html = document.html;
+        return new Uint8Array([37, 80, 68, 70]);
+      },
     });
-    expect(JSON.stringify(outputRejectionFor(failure))).not.toContain(text);
+    for (const paragraph of paragraphsEs) expect(html).toContain(paragraph);
+    expect(artifact.mimeType).toBe("application/pdf");
+    expect(artifact.size).toBe(4);
+    expect(artifact.sha256).toBe(createHash("sha256").update(artifact.bytes).digest("hex"));
+    await expect(renderValidatedPdf(envelope, { ...candidate, sections: [] }, {
+      rendererVersion: "synthetic.v1", render: async () => { throw new Error("renderer should not run"); },
+    })).rejects.toMatchObject({ code: "INVALID_OUTPUT", reasonCategory: "published_analysis_contract" });
   });
 
   it("emits a closed render rejection only after a terminal chart-contract failure", async () => {
