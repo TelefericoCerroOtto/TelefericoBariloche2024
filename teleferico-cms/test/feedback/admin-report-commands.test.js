@@ -17,6 +17,8 @@ const WORKER_VERSION_RUN_ID = "00000000-0000-4000-8000-000000000006";
 const WORKER_DIGEST_RUN_ID = "00000000-0000-4000-8000-000000000007";
 const WORKER_CHECKPOINT_RUN_ID = "00000000-0000-4000-8000-000000000008";
 const WORKER_FAIL_RUN_ID = "00000000-0000-4000-8000-000000000009";
+const OPERATOR_CANCEL_RUN_ID = "00000000-0000-4000-8000-000000000010";
+const OPERATOR_CANCEL_RACE_RUN_ID = "00000000-0000-4000-8000-000000000011";
 const DEFAULT_WORKER_SNAPSHOT_DIGEST = "0".repeat(64);
 const compose = (...args) =>
   executeFixed(DOCKER_EXECUTABLE, [
@@ -487,6 +489,159 @@ test("native role authorization creates only through the core generation endpoin
       failureCode: null,
       replayed: true,
     });
+
+    const operatorCancelGeneration = await fetch(endpoint, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ data: generationData(OPERATOR_CANCEL_RUN_ID, "2027-02-01", "2027-02-10") }),
+    });
+    assert.equal(operatorCancelGeneration.status, 201);
+    const operatorTaskName = `tb113-report-${OPERATOR_CANCEL_RUN_ID.replaceAll("-", "")}`;
+    const operatorStateUrl = `http://127.0.0.1:${port}/api/tb113/admin/generations/${OPERATOR_CANCEL_RUN_ID}/dispatch-state`;
+    const operatorReserve = await fetch(operatorStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ contractVersion: "survey-dispatch-state.v1", action: "reserve", expectedStateVersion: 1, taskName: operatorTaskName }),
+    });
+    assert.equal(operatorReserve.status, 200);
+    const operatorCreated = await fetch(operatorStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        contractVersion: "survey-dispatch-state.v1",
+        action: "record",
+        expectedStateVersion: 2,
+        taskName: operatorTaskName,
+        outcome: "created",
+        dispatchAttemptCount: 1,
+        evidence: {
+          contractVersion: "survey-dispatch-evidence.v1",
+          outcome: "created",
+          taskName: operatorTaskName,
+          dispatchAttemptCount: 1,
+          verifiedAt: "2027-02-01T12:00:00.000Z",
+        },
+      }),
+    });
+    assert.equal(operatorCreated.status, 200);
+    const operatorCancelUrl = `http://127.0.0.1:${port}/api/tb113/admin/generations/${OPERATOR_CANCEL_RUN_ID}/cancel`;
+    const operatorCancelCommand = {
+      contractVersion: "survey-report-cancel.v1",
+      expectedStateVersion: 3,
+      taskName: operatorTaskName,
+    };
+    const unauthorisedCancel = await fetch(operatorCancelUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(operatorCancelCommand),
+    });
+    assert.equal(unauthorisedCancel.status, 403);
+    await grant(strapi, role.id, "api::survey-report-generation.survey-report-generation.operatorCancel");
+    const capturedCancellation = await captureQueries(strapi, () => Promise.all([1, 2].map(() => fetch(operatorCancelUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify(operatorCancelCommand),
+    }))));
+    assert.ok(generationLockQuery(capturedCancellation.queries));
+    assert.deepEqual(capturedCancellation.result.map(({ status }) => status), [200, 200]);
+    const cancellationResults = await Promise.all(capturedCancellation.result.map((response) => response.json()));
+    cancellationResults.sort((left, right) => Number(left.replayed) - Number(right.replayed));
+    assert.deepEqual(cancellationResults, [
+      {
+        contractVersion: "survey-report-cancel.v1",
+        reportRunId: OPERATOR_CANCEL_RUN_ID,
+        stateVersion: 4,
+        status: "failed",
+        failureCode: "OPERATOR_CANCELLED",
+        replayed: false,
+      },
+      {
+        contractVersion: "survey-report-cancel.v1",
+        reportRunId: OPERATOR_CANCEL_RUN_ID,
+        stateVersion: 4,
+        status: "failed",
+        failureCode: "OPERATOR_CANCELLED",
+        replayed: true,
+      },
+    ]);
+    const storedCancellation = await strapi.db.connection("survey_report_generations")
+      .where({ report_run_id: OPERATOR_CANCEL_RUN_ID })
+      .select({ status: "generation_status" }, "state_version", "task_name", "failure_code", "safe_failure_message", "completed_at")
+      .first();
+    assert.equal(storedCancellation.status, "failed");
+    assert.equal(storedCancellation.state_version, 4);
+    assert.equal(storedCancellation.task_name, operatorTaskName);
+    assert.equal(storedCancellation.failure_code, "OPERATOR_CANCELLED");
+    assert.equal(storedCancellation.safe_failure_message, "The queued report was cancelled by an authorized operator.");
+    assert.ok(storedCancellation.completed_at);
+    const terminalWorkerClaim = await fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${OPERATOR_CANCEL_RUN_ID}/claim`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${workerTokens.claim}`, "content-type": "application/json" },
+      body: JSON.stringify({ commandVersion: "survey-report-command.v1" }),
+    });
+    assert.equal(terminalWorkerClaim.status, 200);
+    assert.equal((await terminalWorkerClaim.json()).disposition, "terminal-replay");
+
+    const raceGeneration = await fetch(endpoint, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ data: generationData(OPERATOR_CANCEL_RACE_RUN_ID, "2027-02-11", "2027-02-20") }),
+    });
+    assert.equal(raceGeneration.status, 201);
+    const raceTaskName = `tb113-report-${OPERATOR_CANCEL_RACE_RUN_ID.replaceAll("-", "")}`;
+    const raceStateUrl = `http://127.0.0.1:${port}/api/tb113/admin/generations/${OPERATOR_CANCEL_RACE_RUN_ID}/dispatch-state`;
+    const raceReserve = await fetch(raceStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({ contractVersion: "survey-dispatch-state.v1", action: "reserve", expectedStateVersion: 1, taskName: raceTaskName }),
+    });
+    assert.equal(raceReserve.status, 200);
+    const raceCreated = await fetch(raceStateUrl, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        contractVersion: "survey-dispatch-state.v1",
+        action: "record",
+        expectedStateVersion: 2,
+        taskName: raceTaskName,
+        outcome: "created",
+        dispatchAttemptCount: 1,
+        evidence: {
+          contractVersion: "survey-dispatch-evidence.v1",
+          outcome: "created",
+          taskName: raceTaskName,
+          dispatchAttemptCount: 1,
+          verifiedAt: "2027-02-11T12:00:00.000Z",
+        },
+      }),
+    });
+    assert.equal(raceCreated.status, 200);
+    const raceCancelUrl = `http://127.0.0.1:${port}/api/tb113/admin/generations/${OPERATOR_CANCEL_RACE_RUN_ID}/cancel`;
+    const raceCancelAndClaim = await Promise.all([
+      fetch(raceCancelUrl, {
+        method: "POST",
+        headers: { authorization: `Bearer ${jwt}`, "content-type": "application/json" },
+        body: JSON.stringify({ contractVersion: "survey-report-cancel.v1", expectedStateVersion: 3, taskName: raceTaskName }),
+      }),
+      fetch(`http://127.0.0.1:${port}/api/tb113/worker/generations/${OPERATOR_CANCEL_RACE_RUN_ID}/claim`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${workerTokens.claim}`, "content-type": "application/json" },
+        body: JSON.stringify({ commandVersion: "survey-report-command.v1" }),
+      }),
+    ]);
+    const raceCancelBody = await raceCancelAndClaim[0].json();
+    const raceClaimBody = await raceCancelAndClaim[1].json();
+    assert.equal(raceCancelAndClaim[1].status, 200);
+    if (raceCancelAndClaim[0].status === 200) {
+      assert.equal(raceCancelBody.failureCode, "OPERATOR_CANCELLED");
+      assert.equal(raceClaimBody.status, "failed");
+      assert.equal(raceClaimBody.disposition, "terminal-replay");
+    } else {
+      assert.equal(raceCancelAndClaim[0].status, 409);
+      assert.ok(["INVALID_STATE", "STATE_VERSION_CONFLICT"].includes(raceCancelBody.error.code));
+      assert.equal(raceClaimBody.status, "running");
+      assert.equal(raceClaimBody.disposition, "claimed");
+    }
 
     const workerGeneration = await fetch(endpoint, {
       method: "POST",

@@ -155,6 +155,31 @@ production security evidence and must be limited to synthetic local data. The
 CMS reservation/outcome contract and existing coordinator semantics are
 unchanged.
 
+The dashboard also offers explicit cancellation for a queued, unclaimed report
+when history includes its current state version. The operator confirms the
+specific run; the server derives the deterministic task identity and sends both
+identity and version to the CMS. The CMS row lock and state-version compare-and-
+swap ensure a worker claim and cancellation cannot both win. A cancelled row is
+retained as `failed` with `OPERATOR_CANCELLED`; retries remain a deliberate new
+linked generation. The action does not delete the Cloud Task or prevent an HTTP
+delivery attempt, and a later worker claim reads the terminal state without
+starting report work. Running cancellation and automatic Cloud Tasks
+delivery-status awareness/failure inference remain separate pending work.
+
+Before using this action in staging, deploy the app and CMS code and separately
+grant and verify
+`api::survey-report-generation.survey-report-generation.operatorCancel` for the
+intended Users & Permissions application role. This repository does not grant
+it. As of 2026-10-07 17:52 UTC, staging run
+`38a4d99a-5ffb-4fd0-90d1-2ad03ffbfd3f` remains queued; its former task received
+five HTTP 403 responses and is now absent. The queue readback was `RUNNING` with
+zero tasks, and the `roles/run.invoker` service binding was independently
+verified, but no post-grant worker POST was observed. These facts do not prove
+worker execution or failure, and the current row cannot be cancelled until the
+code is deployed and the CMS action grant is applied and verified. Recheck the
+persisted run status, version, and unclaimed state after those prerequisites;
+do not delete the row, infer failure from task absence, or blindly enqueue it.
+
 For local TB-113 development, `BUILD_STRAPI_BASE_URL` and
 `FEEDBACK_CMS_ALLOWED_ORIGIN` may both name the same exact Strapi origin using
 `http://127.0.0.1:<port>` or `http://localhost:<port>` only while

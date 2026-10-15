@@ -478,6 +478,7 @@ const SAFE_FAILURE_MESSAGES: Readonly<Record<string, string>> = {
   INVARIANT: "The report state failed an integrity check.",
   PROHIBITED_CONTENT: "The report output contained prohibited content.",
   QUEUE_ENQUEUE_EXHAUSTED: "The report could not be queued.",
+  OPERATOR_CANCELLED: "The queued report was cancelled by an authorized operator.",
 };
 
 function parseGeneration(value: JsonRecord): FeedbackAdminGeneration {
@@ -491,6 +492,7 @@ function parseGeneration(value: JsonRecord): FeedbackAdminGeneration {
   const dataCutoffAt = value.dataCutoffAt;
   const completedAt = value.completedAt;
   const retryOfReportRunId = value.retryOfReportRunId;
+  const cancellationIdentity = value.cancellationIdentity;
   if (
     typeof reportRunId !== "string" ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(reportRunId) ||
@@ -530,6 +532,19 @@ function parseGeneration(value: JsonRecord): FeedbackAdminGeneration {
     throw new FeedbackAdminReaderError();
   }
 
+  let safeCancellationIdentity: FeedbackAdminGeneration["cancellationIdentity"];
+  if (cancellationIdentity !== undefined) {
+    if (status !== "queued" || !isRecord(cancellationIdentity) ||
+        Object.keys(cancellationIdentity).length !== 1 ||
+        !Object.hasOwn(cancellationIdentity, "stateVersion") ||
+        !Number.isSafeInteger(cancellationIdentity.stateVersion) ||
+        Number(cancellationIdentity.stateVersion) < 1)
+      throw new FeedbackAdminReaderError();
+    safeCancellationIdentity = {
+      stateVersion: Number(cancellationIdentity.stateVersion),
+    };
+  }
+
   return {
     reportRunId,
     status: status as FeedbackAdminGeneration["status"],
@@ -540,6 +555,7 @@ function parseGeneration(value: JsonRecord): FeedbackAdminGeneration {
     failureCode: failureCode as string | null,
     safeFailureMessage: safeFailureMessage as string | null,
     retryOfReportRunId: retryOfReportRunId as string | null,
+    ...(safeCancellationIdentity ? { cancellationIdentity: safeCancellationIdentity } : {}),
     report,
   };
 }

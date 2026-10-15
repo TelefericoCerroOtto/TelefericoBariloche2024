@@ -12,6 +12,7 @@ import {
 import {
   FeedbackAdminCommandError,
   getFeedbackAdminCommandTransport,
+  parseCancelCommand,
   parseGenerateCommand,
   parseRetryCommand,
 } from "./admin-command";
@@ -83,7 +84,7 @@ function errorResponse(
       "The requested report range overlaps existing history",
     ACTIVE_RANGE_CONFLICT:
       "A report generation is already active for this range",
-    INVALID_STATE: "The report generation is not in a retryable state",
+    INVALID_STATE: "The report generation changed or is no longer in the requested state",
     REPORT_PROFILE_NOT_CONFIGURED: "The TB-113 report profile is not configured",
     INTERNAL_ERROR: "Feedback administration failed",
   }[code];
@@ -246,6 +247,26 @@ export async function handleFeedbackAdminRetry(
       auth.session.jwt,
     ).retry(reportRunId, parsed.value);
     return NextResponse.json(result, { status: 202 });
+  } catch (error) {
+    return commandErrorResponse(error);
+  }
+}
+
+export async function handleFeedbackAdminCancelQueued(
+  req: NextRequest,
+  reportRunId: string,
+) {
+  if (!isFeedbackCapabilityEnabled())
+    return feedbackCapabilityUnavailableResponse();
+  try {
+    const auth = await authenticate(req, "feedback.reports.generate");
+    if (!auth.ok) return auth.response;
+    const parsed = parseCancelCommand(reportRunId, await readBody(req));
+    if (!parsed.ok) return errorResponse(parsed.code);
+    const result = await getFeedbackAdminCommandTransport(
+      auth.session.jwt,
+    ).cancelQueued(reportRunId, parsed.value);
+    return NextResponse.json(result, { status: 200 });
   } catch (error) {
     return commandErrorResponse(error);
   }

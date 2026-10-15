@@ -18,6 +18,7 @@ import {
   type PublishedAnalysisV1,
 } from "./contracts";
 import { renderChartHtml, validateChartViewModels } from "./renderer";
+import type { OutputRejection, OutputRejectionCategory } from "./output-rejection";
 
 const SECTION_TITLES = [
   "Portada",
@@ -58,10 +59,20 @@ export type PdfArtifact = {
 
 export class PdfValidationError extends Error {
   readonly code = "INVALID_OUTPUT" as const;
+  readonly reasonCategory: OutputRejectionCategory;
+  readonly outputRejection: OutputRejection;
 
-  constructor(message: string) {
+  constructor(
+    message: string,
+    reasonCategory: OutputRejectionCategory = "unclassified",
+  ) {
     super(message);
     this.name = "PdfValidationError";
+    this.reasonCategory = reasonCategory;
+    this.outputRejection = Object.freeze({
+      stage: "render",
+      reasonCategory,
+    });
   }
 }
 
@@ -107,7 +118,10 @@ export function validatePublishedAnalysis(value: unknown): PublishedAnalysisV1 {
     (value as { sections: unknown[] }).sections.length !==
       PUBLISHED_SECTION_KEYS.length
   )
-    throw new PdfValidationError("Unknown published analysis contract");
+    throw new PdfValidationError(
+      "Unknown published analysis contract",
+      "published_analysis_contract",
+    );
 
   const sections = (value as { sections: unknown[] }).sections;
   sections.forEach((section, index) => {
@@ -116,7 +130,10 @@ export function validatePublishedAnalysis(value: unknown): PublishedAnalysisV1 {
       section === null ||
       !exactKeys(section, ["key", "status", "paragraphsEs"])
     )
-      throw new PdfValidationError(`Analysis section ${index} is invalid`);
+      throw new PdfValidationError(
+        `Analysis section ${index} is invalid`,
+        "published_analysis_contract",
+      );
     const typed = section as {
       key?: unknown;
       status?: unknown;
@@ -131,6 +148,7 @@ export function validatePublishedAnalysis(value: unknown): PublishedAnalysisV1 {
     )
       throw new PdfValidationError(
         `Analysis section ${index} violates its contract`,
+        "published_analysis_contract",
       );
     (typed.paragraphsEs as unknown[]).forEach((paragraph, paragraphIndex) => {
       if (
@@ -141,6 +159,9 @@ export function validatePublishedAnalysis(value: unknown): PublishedAnalysisV1 {
       )
         throw new PdfValidationError(
           `Analysis paragraph ${index}:${paragraphIndex} is unsafe`,
+          typeof paragraph === "string" && EVIDENCE_REF.test(paragraph)
+            ? "evidence_reference"
+            : "published_analysis_contract",
         );
     });
   });
@@ -173,6 +194,7 @@ function assertNoProhibitedReportContent(
   if (EVIDENCE_REF.test(html))
     throw new PdfValidationError(
       "Report HTML contains a prohibited evidence reference",
+      "evidence_reference",
     );
 
   for (const comment of snapshot.comments) {
@@ -183,6 +205,7 @@ function assertNoProhibitedReportContent(
     )
       throw new PdfValidationError(
         "Report HTML contains verbatim visitor comment text",
+        "verbatim_comment_rule",
       );
   }
 }
@@ -244,6 +267,7 @@ export function renderReportHtml(
   )
     throw new PdfValidationError(
       "Report chart set does not match its fixed contract",
+      "chart_contract",
     );
 
   const content = [

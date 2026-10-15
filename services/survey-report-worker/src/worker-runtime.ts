@@ -70,6 +70,11 @@ import {
 } from "./map-reduce-execution-plan";
 import { deterministicReportId } from "@teleferico/tb113-private-report-storage";
 import { createWorkerDiagnosticBundleV1 } from "./worker-diagnostics";
+import {
+  createOutputRejectionError,
+  outputRejectionFor,
+  type OutputRejection,
+} from "./output-rejection";
 
 type RetryableFailureCode = Extract<
   RuntimeFailureCode,
@@ -198,6 +203,7 @@ async function failSafely(
     readonly chunks: number;
     readonly durationMs: number;
   } | null,
+  outputRejection: OutputRejection | null,
 ): Promise<WorkerExecutionResult> {
   const command: FailCommand = {
     contractVersion: "survey-worker-cms.v1",
@@ -220,6 +226,28 @@ async function failSafely(
         reportRunId,
         failureCode,
       };
+    }
+
+    if (
+      !result.replayed &&
+      failureCode === "INVALID_OUTPUT" &&
+      outputRejection &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+        reportRunId,
+      )
+    ) {
+      try {
+        console.log(
+          JSON.stringify({
+            event: "tb113_output_rejection",
+            reportRunId,
+            stage: outputRejection.stage,
+            reasonCategory: outputRejection.reasonCategory,
+          }),
+        );
+      } catch {
+        // The bounded diagnostic must not change the committed terminal result.
+      }
     }
 
     let cleanupPending = false;
@@ -893,12 +921,26 @@ export async function executeReportWorker(
           () =>
             dependencies.analysisProvider!(modelRequest, directCountRequest),
         );
-        const providerUsage = validateProviderUsageV1(
-          response?.usage,
-          modelConfig.model,
-          modelConfig.verifiedInputTokenLimit,
-        );
+        let providerUsage: ReturnType<typeof validateProviderUsageV1>;
+        try {
+          providerUsage = validateProviderUsageV1(
+            response?.usage,
+            modelConfig.model,
+            modelConfig.verifiedInputTokenLimit,
+          );
+        } catch (error) {
+          if ((error as { code?: unknown })?.code === "INVALID_OUTPUT")
+            throw createOutputRejectionError(
+              "direct",
+              "provider_usage",
+              "Direct provider usage is invalid",
+            );
+          throw error;
+        }
         const candidate = response?.output;
+        let reasonCategory:
+          | "output_contract_preflight"
+          | "output_token_budget" = "output_contract_preflight";
         let valid = Boolean(
           candidate &&
           typeof candidate === "object" &&
@@ -909,14 +951,24 @@ export async function executeReportWorker(
           ReturnType<typeof countGeneratedOutputV1>
         > | null = null;
         if (valid) {
-          outputCount = await retryTransient(() =>
-            countGeneratedOutputV1({
-              output: candidate,
-              modelConfig,
-              countTokens: dependencies.countTokens!,
-              stage: "direct",
-            }),
-          );
+          try {
+            outputCount = await retryTransient(() =>
+              countGeneratedOutputV1({
+                output: candidate,
+                modelConfig,
+                countTokens: dependencies.countTokens!,
+                stage: "direct",
+              }),
+            );
+          } catch (error) {
+            if ((error as { code?: unknown })?.code === "INVALID_OUTPUT")
+              throw createOutputRejectionError(
+                "direct",
+                "output_token_budget",
+                "Direct output token evidence is invalid",
+              );
+            throw error;
+          }
           try {
             validateGeneratedOutputBudgetV1({
               tokenCount: outputCount.tokenCount,
@@ -927,6 +979,7 @@ export async function executeReportWorker(
             });
           } catch {
             valid = false;
+            reasonCategory = "output_token_budget";
           }
         }
         const preflight = valid
@@ -953,19 +1006,17 @@ export async function executeReportWorker(
           break;
         }
         if (generation === 1)
-          throw Object.assign(
-            new TypeError(
-              "The direct analysis did not satisfy its structural or output-token contract",
-            ),
-            { code: "INVALID_OUTPUT" as const },
+          throw createOutputRejectionError(
+            "direct",
+            reasonCategory,
+            "The direct analysis did not satisfy its structural or output-token contract",
           );
       }
       if (!acceptedDirect || !acceptedUsage)
-        throw Object.assign(
-          new TypeError(
-            "The direct analysis did not satisfy its output contract",
-          ),
-          { code: "INVALID_OUTPUT" as const },
+        throw createOutputRejectionError(
+          "direct",
+          "output_contract_preflight",
+          "The direct analysis did not satisfy its output contract",
         );
       directAnalysis = acceptedDirect;
       await addCheckpoint(
@@ -1000,11 +1051,10 @@ export async function executeReportWorker(
         evidenceKey: evidenceKey!,
       });
       if (preflight.status !== "accepted")
-        throw Object.assign(
-          new TypeError(
-            "The stored direct analysis failed structural and privacy validation",
-          ),
-          { code: "INVALID_OUTPUT" as const },
+        throw createOutputRejectionError(
+          "direct",
+          "output_contract_preflight",
+          "The stored direct analysis failed structural and privacy validation",
         );
     }
     diagnosticStage = "validate";
@@ -1257,6 +1307,10 @@ export async function executeReportWorker(
               Math.min(1_800_000, Date.now() - startedAt),
             ),
           },
+      outputRejectionFor(
+        error,
+        diagnosticStage === "direct" ? "direct" : undefined,
+      ),
     );
   }
 }

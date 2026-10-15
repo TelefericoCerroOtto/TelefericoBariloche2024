@@ -220,16 +220,14 @@ Both named app roles require `users-permissions.role.find` and
 `users-permissions.user.me` for credentials login and current role verification.
 These actions do not grant role management.
 
-When the Users & Permissions `Administrator` role uses TB-113 generation, it
-also needs the same native `survey-report-generation.find`,
-`survey-report-generation.create`, and `survey-report-generation.dispatchState`
-actions. This is additive to the existing Administrator matrix above; the
-application capability mapping does not grant these Strapi actions.
-
-For report generation, this role must be granted only the CMS actions used by
-the normal app command flow: `survey-report-generation.find`,
-`survey-report-generation.create`, and the explicit
-`survey-report-generation.dispatchState` action. The app and worker use
+For TB-113 report commands, grant only the native Users & Permissions actions
+required by the normal app flow: `survey-report-generation.find`,
+`survey-report-generation.create`, `survey-report-generation.dispatchState`,
+and, when queued cancellation is approved, `survey-report-generation.operatorCancel`.
+This applies to whichever named app role is authorized to perform the operation;
+the application capability mapping does not create any Strapi action grant.
+For `Administrator`, these permissions are additive to its existing matrix.
+The app and worker use
 separate grouped Custom Content API tokens: the app token has exactly
 `feedbackAdminRead`, `workerSourceRead`, and `workerReportDownloadMetadata`; the
 worker token has exactly `workerClaim`, `workerSnapshot`, `workerCheckpoint`,
@@ -273,10 +271,21 @@ verified pre-enqueue exhaustion compensation. That custom action is denied
 unless separately granted; the isolated HTTP harness grants it only to its
 synthetic test role. U10-A adds the separate `survey-report-generation.dispatchState`
 action for server-mediated task-name reservation and bounded outcome recording;
-it is also denied unless separately granted and is not called by the app yet.
+it is also denied unless separately granted and is used by the app coordinator.
 It permits only reservation, created, and unknown states; it rejects claimed
 absence and cannot compensate a queued generation. These custom actions use the
 application user JWT, not an API token. The
+`survey-report-generation.operatorCancel` action is also a native Users &
+Permissions JWT action and must be explicitly granted to the intended app role.
+It accepts only the exact generation task identity and expected state version,
+then fails a queued generation only while `claimedAt` is absent, under the
+generation row lock and state-version compare-and-swap. An identical command
+replays safely; a worker claim that wins the lock prevents cancellation, and a
+later worker claim sees the failed terminal row without starting report work.
+This action does not delete a Cloud Task or stop HTTP deliveries already
+underway. No default role grant, custom-token scope, generic update, or delete
+permission is added; deploy the code and separately grant and verify this action
+before using the dashboard cancellation control. The
 `survey-report-generation.workerClaim`, `workerSnapshot`, `workerCheckpoint`,
 `workerSourceRead`, `workerReportDownloadMetadata`, `workerComplete`, `workerFail`, and `workerAlertAck` actions are available only through Strapi's native
 `content-api-token` strategy with exact action scopes. The app token includes
@@ -339,7 +348,7 @@ is accepted from the browser.
 | `feedback.read` | Summary, aspect, and QR analytics | U8 administration routes |
 | `feedback.comments.read` | Filtered comments | U8 administration routes |
 | `feedback.reports.read` | Reports, generations, and mediated report download | U8 administration routes / U12 deterministic delivery |
-| `feedback.reports.generate` | Generate and retry | U8 administration routes |
+| `feedback.reports.generate` | Generate, retry, and cancel a queued unclaimed run | U8 administration routes |
 
 Exact intake, administration, and worker actions and grants remain owned by U7,
 U8, and U10 respectively. U9-A1 adds only the registered
@@ -351,10 +360,20 @@ generic `update`/`delete` action is required or permitted by this boundary.
 U10-A adds the registered
 `api::survey-report-generation.survey-report-generation.dispatchState` action,
 which must be explicitly granted to the server-mediated application user for
-the future coordinator to reserve identities or record created/unknown outcomes.
+the app coordinator to reserve identities or record created/unknown outcomes.
 It does not expose an absence or compensation operation. The
 isolated HTTP test grants it only to its synthetic role. No production role is
-changed by this repository update. U10-A also registers
+changed by this repository update. TB-138 registers
+`api::survey-report-generation.survey-report-generation.operatorCancel` as a
+separate native Users & Permissions JWT action. The Next.js route applies
+`feedback.reports.generate` plus the existing capability flag, origin, session,
+and CSRF guards. The CMS command requires an exact task identity and expected
+state version, and only cancels a queued generation with no `claimedAt`; the
+locked state-version CAS makes worker claim and cancellation mutually exclusive.
+The app derives the expected deterministic task identity from the report-run ID;
+history exposes only the state version needed by the confirmed dashboard action.
+This action has no default grant and must be explicitly granted to the intended
+role after deployment. No production role or token is changed here. U10-A also registers
 `api::survey-report-generation.survey-report-generation.workerClaim` for the
 bounded worker claim command. It returns checkpoint/model/pricing state only to
 a custom content API token with this exact action and omits comments; the route

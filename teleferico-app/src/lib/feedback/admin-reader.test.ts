@@ -213,6 +213,96 @@ describe("feedback administration private CMS reader", () => {
     })).rejects.toBeInstanceOf(FeedbackAdminReaderError);
   });
 
+  it("exposes only validated cancellation identity for queued, unclaimed generations", async () => {
+    const runId = "00000000-0000-4000-8000-000000000117";
+    const generation = {
+      reportRunId: runId,
+      periodStart: "2026-08-01T00:00:00.000Z",
+      periodEnd: "2026-08-31T23:59:59.999Z",
+      dataCutoffAt: "2026-09-03T11:00:00.000Z",
+      status: "queued",
+      createdAt: "2026-09-03T12:00:00.000Z",
+      completedAt: null,
+      failureCode: null,
+      safeFailureMessage: null,
+      retryOfReportRunId: null,
+      cancellationIdentity: {
+        stateVersion: 3,
+      },
+      report: null,
+    };
+    const reader = createFeedbackAdminReader({
+      readPage: vi.fn(async (query: FeedbackAdminSourcePageQuery) =>
+        page(query, 1, [generation]),
+      ),
+    });
+    const result = await reader.readGenerations({
+      route: "generations",
+      from: "2026-08-01",
+      to: "2026-08-31",
+      status: null,
+      page: 1,
+      pageSize: 25,
+    });
+
+    expect(result.data.items[0]?.cancellationIdentity).toEqual({
+      stateVersion: 3,
+    });
+    await expect(createFeedbackAdminReader({
+      readPage: vi.fn(async (query: FeedbackAdminSourcePageQuery) =>
+        page(query, 1, [{ ...generation, cancellationIdentity: { ...generation.cancellationIdentity, stateVersion: 0 } }]),
+      ),
+    }).readGenerations({
+      route: "generations",
+      from: "2026-08-01",
+      to: "2026-08-31",
+      status: null,
+      page: 1,
+      pageSize: 25,
+    })).rejects.toBeInstanceOf(FeedbackAdminReaderError);
+  });
+
+  it("accepts only the fixed operator-cancellation history message", async () => {
+    const generation = {
+      reportRunId: "00000000-0000-4000-8000-000000000117",
+      periodStart: "2026-08-01T00:00:00.000Z",
+      periodEnd: "2026-08-31T23:59:59.999Z",
+      dataCutoffAt: "2026-09-03T11:00:00.000Z",
+      status: "failed",
+      createdAt: "2026-09-03T12:00:00.000Z",
+      completedAt: "2026-09-03T12:05:00.000Z",
+      failureCode: "OPERATOR_CANCELLED",
+      safeFailureMessage: "The queued report was cancelled by an authorized operator.",
+      retryOfReportRunId: null,
+      report: null,
+    };
+    const reader = createFeedbackAdminReader({
+      readPage: vi.fn(async (query: FeedbackAdminSourcePageQuery) => page(query, 1, [generation])),
+    });
+    const result = await reader.readGenerations({
+      route: "generations",
+      from: "2026-08-01",
+      to: "2026-08-31",
+      status: null,
+      page: 1,
+      pageSize: 25,
+    });
+
+    expect(result.data.items[0]?.safeFailureMessage).toBe(generation.safeFailureMessage);
+    await expect(createFeedbackAdminReader({
+      readPage: vi.fn(async (query: FeedbackAdminSourcePageQuery) =>
+        page(query, 1, [{ ...generation, safeFailureMessage: "Caller-supplied text" }]),
+      ),
+    }).readGenerations({
+      route: "generations",
+      from: "2026-08-01",
+      to: "2026-08-31",
+      status: null,
+      page: 1,
+      pageSize: 25,
+    })).rejects.toBeInstanceOf(FeedbackAdminReaderError);
+  });
+
   it("rejects changed totals and incomplete generation cursor chains", async () => {
     const readPage = vi.fn(async (query: FeedbackAdminSourcePageQuery) =>
       query.cursor === null

@@ -546,11 +546,79 @@ describe("Google TB-113 runtime adapters", () => {
         usageMetadata: { promptTokenCount, candidatesTokenCount: 1 },
       }),
     });
-    await expect(providers.analysisProvider(request, countRequest)).rejects.toMatchObject({ code: "INVALID_OUTPUT" });
+    await expect(providers.analysisProvider(request, countRequest)).rejects.toMatchObject({
+      code: "INVALID_OUTPUT",
+      outputRejection: { stage: "direct", reasonCategory: "provider_json" },
+    });
     responseText = "{}";
     promptTokenCount = 32_001;
     await expect(providers.analysisProvider(request, countRequest)).rejects.toMatchObject({ code: "INVALID_OUTPUT" });
   });
+
+  it.each(["direct", "map", "reduce"] as const)(
+    "binds provider rejection metadata to the closed %s stage",
+    async (stage) => {
+      const metrics = {} as never;
+      const directRequest = {
+        contractVersion: "survey-model-input.v1",
+        metrics,
+        comments: [],
+      } as const;
+      const request =
+        stage === "direct"
+          ? directRequest
+          : stage === "map"
+            ? {
+                contractVersion: "survey-map-input.v1",
+                chunkId: "map.1-of-1",
+                chunkIndex: 1,
+                chunkCount: 1,
+                metrics,
+                comments: [],
+              }
+            : { contractVersion: "survey-reduce-input.v1", metrics, maps: [] };
+      const prompt =
+        stage === "direct"
+          ? { instructions: DIRECT_INSTRUCTIONS, schema: DIRECT_SCHEMA }
+          : stage === "map"
+            ? { instructions: MAP_INSTRUCTIONS, schema: MAP_SCHEMA }
+            : { instructions: REDUCE_INSTRUCTIONS, schema: REDUCE_SCHEMA };
+      const countRequest = {
+        contractVersion: "survey-count-request.v1" as const,
+        modelConfig: modelConfig(),
+        segments: {
+          ...prompt,
+          metrics: canonicalizeJson(metrics),
+          comments: stage === "direct" ? "[]" : canonicalizeJson(request),
+        },
+      };
+      const providers = createGoogleVertexModelProviders({
+        accessTokenProvider: async () => "synthetic-token",
+        fetchImplementation: async () =>
+          Response.json({
+            modelVersion: "synthetic-revision",
+            candidates: [
+              {
+                finishReason: "MAX_TOKENS",
+                content: { parts: [{ text: "SYNTHETIC_OUTPUT_MARKER" }] },
+              },
+            ],
+            usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 },
+          }),
+      });
+      const call =
+        stage === "direct"
+          ? providers.analysisProvider(request as typeof directRequest, countRequest)
+          : stage === "map"
+            ? providers.mapProvider(request as never, countRequest)
+            : providers.reduceProvider(request as never, countRequest);
+
+      await expect(call).rejects.toMatchObject({
+        code: "INVALID_OUTPUT",
+        outputRejection: { stage, reasonCategory: "provider_candidate" },
+      });
+    },
+  );
 
   it("reads only the pinned Secret Manager version for the approved evidence-key ID", async () => {
     const keyBytes = Buffer.alloc(40, 23);
@@ -572,5 +640,316 @@ describe("Google TB-113 runtime adapters", () => {
     await expect(provider("other-key")).rejects.toMatchObject({ code: "CONFIGURATION" });
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
     expect(() => createGoogleEvidenceKeyProvider({ secretVersion: "projects/other/secrets/key/versions/latest", evidenceKeyId: "key-1" })).toThrow();
+  });
+
+  it("accepts only the exact verified project-number alias in the access response", async () => {
+    const secretVersion = "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7";
+    const responseName = "projects/384535443802/secrets/tb113-evidence/versions/7";
+    const keyBytes = Buffer.alloc(40, 23);
+    const fetchImplementation = vi.fn<typeof fetch>(async (url) => {
+      expect(String(url)).toBe(`https://secretmanager.googleapis.com/v1/${secretVersion}:access`);
+      return Response.json({ name: responseName, payload: { data: keyBytes.toString("base64") } });
+    });
+    const provider = createGoogleEvidenceKeyProvider({
+      secretVersion,
+      evidenceKeyId: "key-1",
+      fetchImplementation,
+      accessTokenProvider: async () => "synthetic-adc-token",
+    });
+
+    await expect(provider("key-1")).resolves.toEqual(new Uint8Array(keyBytes));
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "projects/384535443803/secrets/tb113-evidence/versions/7",
+    "projects/other-project/secrets/tb113-evidence/versions/7",
+    "projects/384535443802/secrets/other/versions/7",
+    "projects/384535443802/secrets/tb113-evidence/versions/8",
+    "projects/384535443802/secrets/tb113-evidence/versions/latest",
+    "projects/384535443802/secrets/tb113-evidence/versions/7/extra",
+  ])("rejects unapproved Secret Manager response name %s", async (responseName) => {
+    const keyBytes = Buffer.alloc(40, 23);
+    const provider = createGoogleEvidenceKeyProvider({
+      secretVersion: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+      evidenceKeyId: "key-1",
+      fetchImplementation: async () => Response.json({ name: responseName, payload: { data: keyBytes.toString("base64") } }),
+      accessTokenProvider: async () => "synthetic-adc-token",
+    });
+
+    await expect(provider("key-1")).rejects.toMatchObject({ code: "CONFIGURATION" });
+  });
+
+  it.each([
+    null,
+    { name: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7" },
+    { name: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7", payload: { data: 32 } },
+    { name: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7", payload: { data: "not-base64!" } },
+  ])("rejects malformed Secret Manager access response %#", async (response) => {
+    const provider = createGoogleEvidenceKeyProvider({
+      secretVersion: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+      evidenceKeyId: "key-1",
+      fetchImplementation: async () => Response.json(response),
+      accessTokenProvider: async () => "synthetic-adc-token",
+    });
+
+    await expect(provider("key-1")).rejects.toMatchObject({ code: "CONFIGURATION" });
+  });
+
+  it.each([
+    "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+    "projects/384535443802/secrets/tb113-evidence/versions/7",
+  ])("rejects a short synthetic key for approved response name %s", async (responseName) => {
+    const shortKeyBytes = Buffer.alloc(31, 23);
+    const provider = createGoogleEvidenceKeyProvider({
+      secretVersion: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+      evidenceKeyId: "key-1",
+      fetchImplementation: async () => Response.json({
+        name: responseName,
+        payload: { data: shortKeyBytes.toString("base64") },
+      }),
+      accessTokenProvider: async () => "synthetic-adc-token",
+    });
+
+    await expect(provider("key-1")).rejects.toMatchObject({ code: "CONFIGURATION" });
+  });
+
+  describe("worker evidence-key access logs", () => {
+    it.each([
+      ["configured project ID", "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7", "configured_id"],
+      ["approved project number", "projects/384535443802/secrets/tb113-evidence/versions/7", "approved_number"],
+    ])("emits one fixed event for %s success", async (_description, responseName, identityClass) => {
+      const keyBytes = Buffer.alloc(40, 23);
+      const logLines: string[] = [];
+      const logSpy = vi.spyOn(console, "log").mockImplementation((line?: unknown) => {
+        logLines.push(String(line));
+      });
+      const provider = createGoogleEvidenceKeyProvider({
+        secretVersion: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+        evidenceKeyId: "key-1",
+        fetchImplementation: async () => Response.json({ name: responseName, payload: { data: keyBytes.toString("base64") } }),
+        accessTokenProvider: async () => "synthetic-access-token",
+      });
+
+      try {
+        await expect(provider("key-1")).resolves.toEqual(new Uint8Array(keyBytes));
+        await expect(provider("unapproved-key-id")).rejects.toMatchObject({ code: "CONFIGURATION" });
+        expect(logSpy).toHaveBeenCalledTimes(1);
+        expect(logLines.map((line) => JSON.parse(line))).toEqual([{
+          event: "tb113_evidence_key_access",
+          outcome: "accepted",
+          identityClass,
+          failureClass: "none",
+          httpStatus: 200,
+        }]);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it("logs a rejected response name without exposing response, key, or token strings", async () => {
+      const secretMarker = "SYNTHETIC_SECRET_NAME_SENTINEL";
+      const tokenMarker = "SYNTHETIC_ACCESS_TOKEN_SENTINEL";
+      const keyBytes = Buffer.alloc(40, 0x53);
+      const logLines: string[] = [];
+      const logSpy = vi.spyOn(console, "log").mockImplementation((line?: unknown) => {
+        logLines.push(String(line));
+      });
+      const provider = createGoogleEvidenceKeyProvider({
+        secretVersion: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+        evidenceKeyId: "key-1",
+        fetchImplementation: async () => Response.json({
+          name: `projects/unapproved/secrets/${secretMarker}/versions/1`,
+          payload: { data: keyBytes.toString("base64") },
+        }),
+        accessTokenProvider: async () => tokenMarker,
+      });
+
+      try {
+        await expect(provider("key-1")).rejects.toMatchObject({ code: "CONFIGURATION" });
+        expect(logSpy).toHaveBeenCalledTimes(1);
+        expect(logLines.map((line) => JSON.parse(line))).toEqual([{
+          event: "tb113_evidence_key_access",
+          outcome: "rejected",
+          identityClass: "mismatch_or_missing",
+          failureClass: "name_mismatch_or_missing",
+          httpStatus: 200,
+        }]);
+        expect(logLines.join("\n")).not.toContain(secretMarker);
+        expect(logLines.join("\n")).not.toContain(tokenMarker);
+        expect(logLines.join("\n")).not.toContain(keyBytes.toString("base64"));
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it("logs a bounded HTTP failure without exposing its response body", async () => {
+      const responseMarker = "SYNTHETIC_HTTP_BODY_SENTINEL";
+      const logLines: string[] = [];
+      const logSpy = vi.spyOn(console, "log").mockImplementation((line?: unknown) => {
+        logLines.push(String(line));
+      });
+      const provider = createGoogleEvidenceKeyProvider({
+        secretVersion: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+        evidenceKeyId: "key-1",
+        fetchImplementation: async () => Response.json({ detail: responseMarker }, { status: 503 }),
+        accessTokenProvider: async () => "synthetic-access-token",
+      });
+
+      try {
+        await expect(provider("key-1")).rejects.toMatchObject({ code: "PROVIDER_TRANSIENT" });
+        expect(logSpy).toHaveBeenCalledTimes(1);
+        expect(logLines.map((line) => JSON.parse(line))).toEqual([{
+          event: "tb113_evidence_key_access",
+          outcome: "rejected",
+          identityClass: "mismatch_or_missing",
+          failureClass: "http_error",
+          httpStatus: 503,
+        }]);
+        expect(logLines.join("\n")).not.toContain(responseMarker);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it("logs a fetch failure without exposing the dependency error", async () => {
+      const errorMarker = "SYNTHETIC_FETCH_ERROR_SENTINEL";
+      const logLines: string[] = [];
+      const logSpy = vi.spyOn(console, "log").mockImplementation((line?: unknown) => {
+        logLines.push(String(line));
+      });
+      const provider = createGoogleEvidenceKeyProvider({
+        secretVersion: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+        evidenceKeyId: "key-1",
+        fetchImplementation: async () => {
+          throw new Error(errorMarker);
+        },
+        accessTokenProvider: async () => "synthetic-access-token",
+      });
+
+      try {
+        await expect(provider("key-1")).rejects.toMatchObject({ code: "PROVIDER_TRANSIENT" });
+        expect(logSpy).toHaveBeenCalledTimes(1);
+        expect(logLines.map((line) => JSON.parse(line))).toEqual([{
+          event: "tb113_evidence_key_access",
+          outcome: "unavailable",
+          identityClass: "mismatch_or_missing",
+          failureClass: "request_error",
+          httpStatus: null,
+        }]);
+        expect(logLines.join("\n")).not.toContain(errorMarker);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it("classifies invalid JSON without logging its raw body", async () => {
+      const responseMarker = "SYNTHETIC_INVALID_JSON_SENTINEL";
+      const logLines: string[] = [];
+      const logSpy = vi.spyOn(console, "log").mockImplementation((line?: unknown) => {
+        logLines.push(String(line));
+      });
+      const provider = createGoogleEvidenceKeyProvider({
+        secretVersion: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+        evidenceKeyId: "key-1",
+        fetchImplementation: async () => new Response(`{"value":"${responseMarker}"`, {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+        accessTokenProvider: async () => "synthetic-access-token",
+      });
+
+      try {
+        await expect(provider("key-1")).rejects.toMatchObject({ code: "CONFIGURATION" });
+        expect(logSpy).toHaveBeenCalledTimes(1);
+        expect(logLines.map((line) => JSON.parse(line))).toEqual([{
+          event: "tb113_evidence_key_access",
+          outcome: "rejected",
+          identityClass: "mismatch_or_missing",
+          failureClass: "json_invalid",
+          httpStatus: 200,
+        }]);
+        expect(logLines.join("\n")).not.toContain(responseMarker);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it("classifies malformed payloads and short keys without logging payload data", async () => {
+      const responseMarker = "SYNTHETIC_PAYLOAD_SENTINEL";
+      const keyBytes = Buffer.alloc(31, 0x4b);
+      const scenarios = [
+        { failureClass: "payload_invalid", data: responseMarker },
+        { failureClass: "short_key", data: keyBytes.toString("base64") },
+      ] as const;
+      let responseIndex = 0;
+      const logLines: string[] = [];
+      const logSpy = vi.spyOn(console, "log").mockImplementation((line?: unknown) => {
+        logLines.push(String(line));
+      });
+      const provider = createGoogleEvidenceKeyProvider({
+        secretVersion: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+        evidenceKeyId: "key-1",
+        fetchImplementation: async () => {
+          const scenario = scenarios[responseIndex++];
+          if (!scenario) throw new Error("no-synthetic-response-remaining");
+          return Response.json({
+            name: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+            payload: { data: scenario.data },
+          });
+        },
+        accessTokenProvider: async () => "synthetic-access-token",
+      });
+
+      try {
+        await expect(provider("key-1")).rejects.toMatchObject({ code: "CONFIGURATION" });
+        await expect(provider("key-1")).rejects.toMatchObject({ code: "CONFIGURATION" });
+
+        expect(logSpy).toHaveBeenCalledTimes(2);
+        expect(logLines.map((line) => JSON.parse(line))).toEqual(scenarios.map(({ failureClass }) => ({
+            event: "tb113_evidence_key_access",
+            outcome: "rejected",
+            identityClass: "configured_id",
+            failureClass,
+            httpStatus: 200,
+          })));
+        expect(logLines.join("\n")).not.toContain(responseMarker);
+        expect(logLines.join("\n")).not.toContain(keyBytes.toString("base64"));
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it("preserves provider success and failure if structured logging throws", async () => {
+      const keyBytes = Buffer.alloc(40, 23);
+      const responses = [
+        Response.json({
+          name: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+          payload: { data: keyBytes.toString("base64") },
+        }),
+        Response.json({ name: "unapproved-response-name", payload: { data: keyBytes.toString("base64") } }),
+      ];
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {
+        throw new Error("SYNTHETIC_LOGGER_FAILURE_SENTINEL");
+      });
+      const provider = createGoogleEvidenceKeyProvider({
+        secretVersion: "projects/teleferico-bariloche-2024/secrets/tb113-evidence/versions/7",
+        evidenceKeyId: "key-1",
+        fetchImplementation: async () => {
+          const response = responses.shift();
+          if (!response) throw new Error("no-synthetic-response-remaining");
+          return response;
+        },
+        accessTokenProvider: async () => "synthetic-access-token",
+      });
+
+      try {
+        await expect(provider("key-1")).resolves.toEqual(new Uint8Array(keyBytes));
+        await expect(provider("key-1")).rejects.toMatchObject({ code: "CONFIGURATION" });
+        expect(logSpy).toHaveBeenCalledTimes(2);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
   });
 });

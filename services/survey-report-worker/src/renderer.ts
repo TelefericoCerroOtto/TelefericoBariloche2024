@@ -1,6 +1,7 @@
 import * as echarts from "echarts";
 
 import type { ChartViewModelV1 } from "@teleferico/survey-reporting-core";
+import type { OutputRejection } from "./output-rejection";
 
 const COLORS = {
   positive: "#16794b",
@@ -25,6 +26,10 @@ export type RendererSemantic = {
 
 export class RendererValidationError extends Error {
   readonly code = "INVALID_OUTPUT" as const;
+  readonly outputRejection: OutputRejection = Object.freeze({
+    stage: "render",
+    reasonCategory: "chart_contract",
+  });
 
   constructor(message: string) {
     super(message);

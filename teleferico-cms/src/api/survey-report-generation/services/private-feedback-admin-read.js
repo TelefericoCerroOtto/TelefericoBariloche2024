@@ -18,6 +18,7 @@ const SAFE_FAILURE_MESSAGES = {
   INVARIANT: 'The report state failed an integrity check.',
   PROHIBITED_CONTENT: 'The report output contained prohibited content.',
   QUEUE_ENQUEUE_EXHAUSTED: 'The report could not be queued.',
+  OPERATOR_CANCELLED: 'The queued report was cancelled by an authorized operator.',
 };
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CURSOR_PATTERN = /^[A-Za-z0-9_-]{1,2048}$/;
@@ -243,7 +244,7 @@ async function readGenerationPage(strapi, query, after) {
         where,
         orderBy: [{ createdAt: 'desc' }, { reportRunId: 'asc' }],
         limit: PAGE_SIZE + 1,
-        fields: ['reportRunId', 'periodStart', 'periodEnd', 'dataCutoffAt', 'generationStatus', 'createdAt', 'completedAt', 'failureCode', 'safeFailureMessage', 'snapshotJson'],
+        fields: ['reportRunId', 'periodStart', 'periodEnd', 'dataCutoffAt', 'generationStatus', 'stateVersion', 'taskName', 'claimedAt', 'createdAt', 'completedAt', 'failureCode', 'safeFailureMessage', 'snapshotJson'],
         populate: {
           retryOfGeneration: { fields: ['reportRunId'] },
           report: { fields: ['reportId', 'createdAt', 'periodStart', 'periodEnd', 'generationRunId', 'objectKey', 'artifactSha256', 'artifactSize', 'mimeType'] },
@@ -300,6 +301,13 @@ async function readGenerationPage(strapi, query, after) {
       const retryOfReportRunId = row.retryOfGeneration?.reportRunId ?? null;
       if (retryOfReportRunId !== null && (typeof retryOfReportRunId !== 'string' || !UUID_PATTERN.test(retryOfReportRunId)))
         throw adminReadError('SOURCE_UNAVAILABLE');
+      let cancellationIdentity;
+      if (row.generationStatus === 'queued' && row.claimedAt == null && row.taskName != null) {
+        const expectedTaskName = `tb113-report-${row.reportRunId.replaceAll('-', '')}`;
+        if (!Number.isSafeInteger(row.stateVersion) || row.stateVersion < 1 || row.taskName !== expectedTaskName)
+          throw adminReadError('SOURCE_UNAVAILABLE');
+        cancellationIdentity = { stateVersion: row.stateVersion };
+      }
       return {
         reportRunId: row.reportRunId,
         periodStart: row.periodStart,
@@ -311,6 +319,7 @@ async function readGenerationPage(strapi, query, after) {
         failureCode,
         safeFailureMessage,
         retryOfReportRunId,
+        ...(cancellationIdentity ? { cancellationIdentity } : {}),
         report,
       };
     });

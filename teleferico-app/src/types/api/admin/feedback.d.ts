@@ -32,6 +32,19 @@ export type FeedbackAdminRetryCommand = {
   readonly contractVersion: "feedback-admin.v1";
 };
 
+export type FeedbackAdminCancelCommand = {
+  readonly contractVersion: "feedback-admin.v1";
+  readonly expectedStateVersion: number;
+};
+
+export type FeedbackAdminCancelResult = {
+  readonly reportRunId: string;
+  readonly stateVersion: number;
+  readonly status: "failed";
+  readonly failureCode: "OPERATOR_CANCELLED";
+  readonly replayed: boolean;
+};
+
 export type FeedbackAdminCommandResult = {
   readonly reportRunId: string;
   readonly status: FeedbackAdminCommandStatus;
@@ -211,6 +224,9 @@ export type FeedbackAdminGeneration = {
   readonly failureCode: string | null;
   readonly safeFailureMessage: string | null;
   readonly retryOfReportRunId: string | null;
+  readonly cancellationIdentity?: {
+    readonly stateVersion: number;
+  };
   readonly report: FeedbackAdminGenerationReport | null;
 };
 

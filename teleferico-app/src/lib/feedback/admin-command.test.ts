@@ -6,6 +6,7 @@ import {
   createFeedbackAdminCommandTransport,
   FeedbackAdminCommandError,
   getFeedbackAdminCommandTransport,
+  parseCancelCommand,
   parseGenerateCommand,
   parseRetryCommand,
   type GenerationInputsPort,
@@ -146,6 +147,73 @@ describe("feedback administration command contracts", () => {
         code: "VALIDATION_FAILED",
       },
     );
+  });
+
+  it("accepts cancellation only for the exact run task identity and a positive state version", () => {
+    const command = {
+      contractVersion: "feedback-admin.v1",
+      expectedStateVersion: 3,
+    };
+    expect(parseCancelCommand(validResult.reportRunId, command)).toEqual({
+      ok: true,
+      value: command,
+    });
+    expect(parseCancelCommand(validResult.reportRunId, { ...command, taskName: "tb113-report-other" })).toEqual({ ok: false, code: "VALIDATION_FAILED" });
+    expect(parseCancelCommand(validResult.reportRunId, { ...command, expectedStateVersion: 0 })).toEqual({ ok: false, code: "VALIDATION_FAILED" });
+    expect(parseCancelCommand("bad-run", command)).toEqual({ ok: false, code: "VALIDATION_FAILED" });
+  });
+
+  it("sends the exact CMS cancellation identity and validates its fixed terminal response", async () => {
+    const fetchImplementation = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe(`https://cms.example.test/api/tb113/admin/generations/${validResult.reportRunId}/cancel`);
+      expect(init?.method).toBe("POST");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        contractVersion: "survey-report-cancel.v1",
+        expectedStateVersion: 3,
+        taskName: "tb113-report-00000000000040008000000000000001",
+      });
+      return Response.json({
+        contractVersion: "survey-report-cancel.v1",
+        reportRunId: validResult.reportRunId,
+        stateVersion: 4,
+        status: "failed",
+        failureCode: "OPERATOR_CANCELLED",
+        replayed: false,
+      });
+    });
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      fetchImplementation,
+    });
+
+    await expect(transport.cancelQueued(validResult.reportRunId, {
+      contractVersion: "feedback-admin.v1",
+      expectedStateVersion: 3,
+    })).resolves.toEqual({
+      reportRunId: validResult.reportRunId,
+      stateVersion: 4,
+      status: "failed",
+      failureCode: "OPERATOR_CANCELLED",
+      replayed: false,
+    });
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+  });
+
+  it("maps cancellation conflicts to a safe state error without forwarding CMS details", async () => {
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test",
+      token: "synthetic-admin-jwt",
+      fetchImplementation: vi.fn(async () => Response.json(
+        { error: { code: "STATE_VERSION_CONFLICT", message: "private database detail" } },
+        { status: 409 },
+      )),
+    });
+
+    await expect(transport.cancelQueued(validResult.reportRunId, {
+      contractVersion: "feedback-admin.v1",
+      expectedStateVersion: 3,
+    })).rejects.toMatchObject({ code: "INVALID_STATE", status: 409 });
   });
 
   it("maps bounded CMS command responses and status failures without leaking details", async () => {

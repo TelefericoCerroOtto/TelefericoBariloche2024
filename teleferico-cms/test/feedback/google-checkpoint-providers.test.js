@@ -326,12 +326,58 @@ test('evidence-key provider reads only the pinned version, verifies key identity
     init.cache === 'no-store' && init.headers.authorization === 'Bearer synthetic-access-token'), true);
 });
 
+test('evidence-key provider accepts only the exact verified project-number alias in the access response', async () => {
+  const keyBytes = Buffer.alloc(40, 23);
+  const responseName = 'projects/384535443802/secrets/tb113-evidence/versions/7';
+  const requests = [];
+  const provider = createTestProviders({
+    env: runtimeEnv(),
+    accessTokenProvider: async () => 'synthetic-access-token',
+    fetchImplementation: async (url, init) => {
+      requests.push({ url, init });
+      return jsonResponse({ name: responseName, payload: { data: keyBytes.toString('base64') } });
+    },
+  }).workerEvidenceKeyProvider;
+
+  assert.deepEqual(Buffer.from(await provider(EVIDENCE_KEY_ID)), keyBytes);
+  assert.deepEqual(requests.map(({ url }) => url), [
+    `https://secretmanager.googleapis.com/v1/${SECRET_VERSION}:access`,
+  ]);
+});
+
 test('evidence-key response mismatch, short key, and oversized body fail with safe errors', async (t) => {
   const cases = [
+    {
+      name: 'missing response name',
+      response: () => jsonResponse({ payload: { data: Buffer.alloc(32).toString('base64') } }),
+    },
+    {
+      name: 'missing payload',
+      response: () => jsonResponse({ name: SECRET_VERSION }),
+    },
+    {
+      name: 'non-string payload data',
+      response: () => jsonResponse({ name: SECRET_VERSION, payload: { data: 32 } }),
+    },
+    {
+      name: 'invalid base64 payload',
+      response: () => jsonResponse({ name: SECRET_VERSION, payload: { data: 'not-base64!' } }),
+    },
     {
       name: 'wrong version name',
       response: () => jsonResponse({ name: `projects/${PROJECT_ID}/secrets/other/versions/1`, payload: { data: Buffer.alloc(32).toString('base64') } }),
     },
+    ...[
+      'projects/384535443803/secrets/tb113-evidence/versions/7',
+      'projects/other-project/secrets/tb113-evidence/versions/7',
+      'projects/384535443802/secrets/other/versions/7',
+      'projects/384535443802/secrets/tb113-evidence/versions/8',
+      'projects/384535443802/secrets/tb113-evidence/versions/latest',
+      'projects/384535443802/secrets/tb113-evidence/versions/7/extra',
+    ].map((name) => ({
+      name: `unapproved response name ${name}`,
+      response: () => jsonResponse({ name, payload: { data: Buffer.alloc(32).toString('base64') } }),
+    })),
     {
       name: 'short key',
       response: () => jsonResponse({ name: SECRET_VERSION, payload: { data: Buffer.from('short').toString('base64') } }),

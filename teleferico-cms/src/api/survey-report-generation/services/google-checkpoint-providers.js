@@ -6,6 +6,7 @@ const { deriveLocalEvidenceKey } = require('../../../../../packages/tb113-runtim
 const { loadTb113ReportGenerationProfile } = require('../../../../../packages/tb113-runtime-contracts/src/report-generation-profile.cjs');
 
 const PROJECT_ID = 'teleferico-bariloche-2024';
+const PROJECT_NUMBER = '384535443802';
 const MODEL = 'gemini-3.8-flash';
 const LOCATION = 'us';
 const VERTEX_ENDPOINT = 'aiplatform.us.rep.googleapis.com';
@@ -340,7 +341,10 @@ function createEvidenceKeyProvider({ runtime, fetchImplementation, accessTokenPr
     } catch {
       fail('CONFIGURATION', 'Evidence-key response is invalid');
     }
-    if (!isRecord(result) || result.name !== runtime.evidenceKeySecretVersion ||
+    if (!isRecord(result) ||
+        (result.name !== runtime.evidenceKeySecretVersion &&
+          result.name !== runtime.evidenceKeySecretVersion.replace(
+            `projects/${PROJECT_ID}/`, `projects/${PROJECT_NUMBER}/`)) ||
         !isRecord(result.payload) || typeof result.payload.data !== 'string')
       fail('CONFIGURATION', 'Evidence-key response is invalid');
 
