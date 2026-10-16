@@ -1,5 +1,6 @@
 // @vitest-environment node
 
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
@@ -98,6 +99,7 @@ describe("GET /api/admin/feedback/reports/:reportId/download", () => {
   });
 
   it("requires trusted origin and the exact read capability before reading private bytes", async () => {
+    const artifactHash = createHash("sha256").update(bytes).digest("hex");
     mocks.ensureTrustedBrowserRequest.mockReturnValue({
       ok: false,
       res: Response.json({}, { status: 403 }),
@@ -116,6 +118,8 @@ describe("GET /api/admin/feedback/reports/:reportId/download", () => {
     const wrongCapability = await GET(request(), { params: Promise.resolve({ reportId: REPORT_ID }) });
     expect(wrongCapability.status).toBe(403);
     expect(mocks.getDownload).not.toHaveBeenCalled();
+    expect(mocks.read).not.toHaveBeenCalled();
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(artifactHash);
   });
 
   it("rejects malformed IDs and query parameters without calling the metadata reader", async () => {

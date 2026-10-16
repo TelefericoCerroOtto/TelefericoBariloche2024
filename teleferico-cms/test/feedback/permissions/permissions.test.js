@@ -319,7 +319,7 @@ test('generation history exposes only the queued state version needed for cancel
   assert.doesNotMatch(JSON.stringify(result), /tb113-report-|taskName|claimedAt|snapshotJson/);
 });
 
-test('invalid report download metadata disables download without invalidating a safe succeeded row', async () => {
+test('generation history leaves download eligibility to the protected endpoint', async () => {
   const reportId = '00000000-0000-4000-8000-000000000002';
   const validMetadata = {
     objectKey: `private/feedback-reports/${reportId}/report.pdf`,
@@ -375,7 +375,7 @@ test('invalid report download metadata disables download without invalidating a 
     });
 
     assert.equal(result.items[0].status, 'succeeded');
-    assert.equal(result.items[0].report.canDownload, false);
+    assert.equal(result.items[0].report.canDownload, true);
     assert.deepEqual(Object.keys(result.items[0].report).sort(), [
       'analyzedCommentCount', 'analyzedResponseCount', 'canDownload',
       'createdAt', 'periodEnd', 'periodStart', 'reportId',
