@@ -354,9 +354,11 @@ does not provision production custom tokens or approve a deployment origin.
 The default getter composes the reader only when the exact operator origin and
 action-token map are valid; otherwise it remains fail-closed. The session JWT
 and public content token are never fallbacks. The source-to-browser
-projection strips object keys. `canDownload` remains false unless a mediated
-report reader is actually available and the report metadata is valid; no private
-object key is used to infer download capability. The default download getter
+projection strips object keys. The generation history retains its `canDownload`
+boolean for existing clients but sets it for every completed report; it does not
+probe artifact metadata or storage. The dashboard offers the download action for
+completed reports and surfaces a failed request. The authenticated download route
+remains authoritative for private metadata and object integrity. The default download getter
 composes the report metadata action token with the private GCS reader only when
 the same trusted origin/token settings and `FEEDBACK_PRIVATE_BUCKET` are valid;
 live bucket policy and IAM remain unverified.
