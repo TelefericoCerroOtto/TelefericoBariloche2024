@@ -22,6 +22,10 @@ import {
   createFeedbackDraftStore,
   type FeedbackDraft,
 } from "@/lib/feedback/draft";
+import {
+  readFeedbackConfirmation,
+  saveFeedbackConfirmation,
+} from "@/lib/feedback/confirmation";
 import negativeLogo from "@/public/logo-negativo.svg";
 
 type PublicSurveyPayload = {
@@ -75,7 +79,12 @@ export default function FeedbackForm({ publicCode }: Props) {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [idempotencyKey] = useState(createIdempotencyKey);
   const [status, setStatus] = useState<
-    "loading" | "ready" | "submitting" | "error" | "success"
+    | "loading"
+    | "ready"
+    | "submitting"
+    | "error"
+    | "success"
+    | "alreadySubmitted"
   >("loading");
   const [statusKey, setStatusKey] = useState<string>("loadingStatus");
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -170,6 +179,21 @@ export default function FeedbackForm({ publicCode }: Props) {
           return;
         }
         const store = createFeedbackDraftStore(window.localStorage);
+        const confirmation = readFeedbackConfirmation(window.localStorage);
+        if (confirmation) {
+          store.remove(nextDraftKey);
+          setSurvey(payload);
+          setTranslations(normalizedTranslations);
+          setSubmissionReceipt(confirmation.submissionReceipt);
+          const nextLocale = hasExplicitLocaleChoiceRef.current
+            ? requestedLocaleRef.current
+            : confirmation.locale;
+          requestedLocaleRef.current = nextLocale;
+          setLocale(nextLocale);
+          setStatus("success");
+          setState((previous) => ({ ...previous, stage: "success" }));
+          return;
+        }
         const draft = store.read(nextDraftKey);
         const nextState = draft
           ? draftToState(draft)
@@ -217,6 +241,7 @@ export default function FeedbackForm({ publicCode }: Props) {
       !survey ||
       !hydratedDraft ||
       status === "success" ||
+      status === "alreadySubmitted" ||
       draftExpired ||
       draftExpiredRef.current
     )
@@ -317,7 +342,7 @@ export default function FeedbackForm({ publicCode }: Props) {
     );
   }
 
-  if (status === "success") {
+  if (status === "success" || status === "alreadySubmitted") {
     return (
       <FeedbackShell
         ariaLabel={t("headerTitle")}
@@ -417,6 +442,15 @@ export default function FeedbackForm({ publicCode }: Props) {
     updateState({ stage: previousStage[state.stage] });
   }
 
+  function removeSubmittedDraft() {
+    if (!draftKey) return;
+    try {
+      createFeedbackDraftStore(window.localStorage).remove(draftKey);
+    } catch {
+      // Browser storage failures must not turn an accepted response into an error.
+    }
+  }
+
   async function submitFeedback(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (
@@ -468,13 +502,26 @@ export default function FeedbackForm({ publicCode }: Props) {
         expireFeedbackSession();
         return;
       }
+      if (!response.ok && isActiveFeedbackGuard(payload)) {
+        if (expiryTimer.current) clearTimeout(expiryTimer.current);
+        expiryTimer.current = null;
+        removeSubmittedDraft();
+        setSubmissionReceipt(null);
+        setStatus("alreadySubmitted");
+        setState((previous) => ({ ...previous, stage: "success" }));
+        return;
+      }
       if (!response.ok || !isAuthoritativeReceipt(payload))
         throw new Error("submission-failed");
 
       if (expiryTimer.current) clearTimeout(expiryTimer.current);
       expiryTimer.current = null;
-      if (draftKey)
-        createFeedbackDraftStore(window.localStorage).remove(draftKey);
+      removeSubmittedDraft();
+      try {
+        saveFeedbackConfirmation(window.localStorage, payload, locale);
+      } catch {
+        // Some browsers deny access to localStorage entirely.
+      }
       setSubmissionReceipt(payload.submissionReceipt);
       setStatus("success");
       setState((previous) => ({ ...previous, stage: "success" }));
@@ -1029,6 +1076,16 @@ function isExpiredFeedbackSession(value: unknown): boolean {
     typeof error === "object" &&
     error !== null &&
     (error as Record<string, unknown>).code === "SESSION_EXPIRED"
+  );
+}
+
+function isActiveFeedbackGuard(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const error = (value as Record<string, unknown>).error;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as Record<string, unknown>).code === "GUARD_ACTIVE"
   );
 }
 

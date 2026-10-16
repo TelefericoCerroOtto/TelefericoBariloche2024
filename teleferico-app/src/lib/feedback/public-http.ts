@@ -12,6 +12,7 @@ export type { FeedbackSurveyContext } from "@/types/api/feedback";
 const BROWSER_COOKIE = "tb113_feedback_browser";
 const CONTEXT_COOKIE = "tb113_feedback_context";
 const BROWSER_COOKIE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const BROWSER_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 const COOKIE_OPTIONS = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/" };
 
 type SharedDependencies = {
@@ -86,7 +87,7 @@ export function createSurveyHandler(
       });
       response.headers.set("cache-control", "private, no-store");
       if (!BROWSER_COOKIE_PATTERN.test(request.cookies.get(BROWSER_COOKIE)?.value ?? "")) {
-        response.cookies.set(BROWSER_COOKIE, bytes(32).toString("base64url"), { ...COOKIE_OPTIONS, maxAge: 86_400 });
+        response.cookies.set(BROWSER_COOKIE, bytes(32).toString("base64url"), { ...COOKIE_OPTIONS, maxAge: BROWSER_COOKIE_MAX_AGE_SECONDS });
       }
       response.cookies.set(CONTEXT_COOKIE, signedContext(publicCode, dependencies.signingKey), { ...COOKIE_OPTIONS, maxAge: 7_200 });
       return response;
@@ -156,8 +157,10 @@ export function createSubmissionHandler(
       now: dependencies.now,
       createReceipt: dependencies.createReceipt,
     });
-    return accepted.ok
-      ? NextResponse.json(accepted.value, { status: accepted.status })
-      : errorResponse(accepted.error);
+    if (!accepted.ok) return errorResponse(accepted.error);
+    const response = NextResponse.json(accepted.value, { status: accepted.status });
+    const remainingSeconds = Math.max(1, Math.ceil((Date.parse(accepted.value.guardUntil) - now.getTime()) / 1_000));
+    response.cookies.set(BROWSER_COOKIE, browserToken, { ...COOKIE_OPTIONS, maxAge: remainingSeconds });
+    return response;
   };
 }

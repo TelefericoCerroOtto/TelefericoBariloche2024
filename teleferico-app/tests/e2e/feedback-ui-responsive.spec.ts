@@ -12,7 +12,10 @@ async function stubFeedbackApi(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(publicSurveyResponse),
+      body: JSON.stringify({
+        ...publicSurveyResponse,
+        expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1_000).toISOString(),
+      }),
     });
   });
   await page.route("**/api/feedback/submissions", async (route) => {
@@ -21,8 +24,10 @@ async function stubFeedbackApi(page: Page) {
       contentType: "application/json",
       body: JSON.stringify({
         submissionReceipt: "synthetic-receipt",
-        acceptedAt: "2030-09-18T12:00:00.000Z",
-        guardUntil: "2030-09-19T12:00:00.000Z",
+        acceptedAt: new Date().toISOString(),
+        guardUntil: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1_000,
+        ).toISOString(),
       }),
     });
   });
@@ -136,9 +141,67 @@ test("visitor feedback responsive journey reaches privacy verification on deskto
     page.getByRole("region", { name: "Pregunta 4 de 4" }),
   ).toBeVisible();
   await expectFooterAtViewportBottom(page);
+  const panel = await page
+    .locator(".feedback-verification-panel")
+    .boundingBox();
+  const widget = await page
+    .locator(".feedback-verification-panel > div")
+    .boundingBox();
+  expect(panel).not.toBeNull();
+  expect(widget).not.toBeNull();
+  expect(
+    Math.abs(widget!.x + widget!.width / 2 - (panel!.x + panel!.width / 2)),
+  ).toBeLessThan(2);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("stored accepted feedback stays on its confirmation after reload and another QR scan", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubFeedbackApi(page);
+  await page.goto("/qr/feedback/summit-public", {
+    waitUntil: "domcontentloaded",
+  });
+  await advanceToVerification(page);
+  const panel = await page
+    .locator(".feedback-verification-panel")
+    .boundingBox();
+  const widget = await page
+    .locator(".feedback-verification-panel > div")
+    .boundingBox();
+  expect(panel).not.toBeNull();
+  expect(widget).not.toBeNull();
+  expect(
+    Math.abs(widget!.x + widget!.width / 2 - (panel!.x + panel!.width / 2)),
+  ).toBeLessThan(2);
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "tb113-feedback-confirmation",
+      JSON.stringify({
+        submissionReceipt: "synthetic-receipt",
+        acceptedAt: new Date().toISOString(),
+        guardUntil: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1_000,
+        ).toISOString(),
+        locale: "es",
+      }),
+    );
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(
+    page.getByRole("heading", { name: copy.es.successTitle }),
+  ).toBeVisible();
+  await expect(page.getByText("synthetic-receipt")).toBeVisible();
+  await page.goto("/qr/feedback/another-public-code", {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(
+    page.getByRole("heading", { name: copy.es.successTitle }),
+  ).toBeVisible();
+  await expect(page.getByRole("radio", { name: "5" })).toHaveCount(0);
 });
