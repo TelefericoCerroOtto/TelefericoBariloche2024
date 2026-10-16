@@ -161,6 +161,7 @@ describe("public feedback Route Handler composition", () => {
     expect(JSON.stringify(body)).not.toContain(SIGNING_KEY);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.getSetCookie()).toHaveLength(2);
+    expect(response.headers.getSetCookie().find((cookie) => cookie.startsWith("tb113_feedback_browser="))).toContain("Max-Age=604800");
   });
 
   it("preserves an existing browser identity while rotating only QR context", async () => {
@@ -350,9 +351,10 @@ describe("public feedback Route Handler composition", () => {
     await expect(response.json()).resolves.toEqual({
       submissionReceipt: "00000000-0000-4000-8000-000000000001",
       acceptedAt: NOW.toISOString(),
-      guardUntil: "2026-09-18T12:00:00.000Z",
+      guardUntil: "2026-09-24T12:00:00.000Z",
     });
     expect(browserGuard.persist).toHaveBeenCalledOnce();
+    expect(response.headers.getSetCookie().find((cookie) => cookie.startsWith("tb113_feedback_browser="))).toContain("Max-Age=604800");
   });
 
   it.each([
@@ -533,7 +535,7 @@ describe("public feedback Route Handler composition", () => {
       body: {
         submissionReceipt: "authoritative-receipt",
         acceptedAt: NOW.toISOString(),
-        guardUntil: "2026-09-18T12:00:00.000Z",
+        guardUntil: "2026-09-24T12:00:00.000Z",
       },
     },
     {

@@ -8,7 +8,7 @@ import {
 
 const BROWSER_TOKEN_HASH = "a".repeat(64);
 const NOW = new Date("2026-09-17T12:00:00.000Z");
-const GUARD_UNTIL = "2026-09-18T12:00:00.000Z";
+const GUARD_UNTIL = "2026-09-24T12:00:00.000Z";
 
 const servers: Server[] = [];
 
@@ -57,7 +57,7 @@ describe("feedback browser guard", () => {
 
     expect(fixture.commands).toHaveLength(3);
     expect(fixture.commands[0]).toContain("tb113:test:browser-guard:v1:");
-    expect(fixture.commands[1]).toContain("86400000");
+    expect(fixture.commands[1]).toContain("604800000");
     expect(fixture.commands.join("\n")).not.toContain(BROWSER_TOKEN_HASH);
   });
 

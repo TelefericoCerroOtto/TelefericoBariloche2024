@@ -478,6 +478,10 @@ describe("FeedbackForm", () => {
   ] as const)(
     "shows the accepted receipt and a localized home link for $locale without reopening the form",
     async ({ locale, label, href }) => {
+      const acceptedAt = new Date().toISOString();
+      const guardUntil = new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1_000,
+      ).toISOString();
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(new Response(JSON.stringify(surveyResponse)))
@@ -485,15 +489,16 @@ describe("FeedbackForm", () => {
           new Response(
             JSON.stringify({
               submissionReceipt: "accepted-receipt",
-              acceptedAt: "2026-09-18T12:00:00.000Z",
-              guardUntil: "2026-09-19T12:00:00.000Z",
+              acceptedAt,
+              guardUntil,
             }),
             { status: 201 },
           ),
-        );
+        )
+        .mockResolvedValueOnce(new Response(JSON.stringify(surveyResponse)));
       vi.stubGlobal("fetch", fetchMock);
 
-      render(<FeedbackForm publicCode="summit-public" />);
+      const { unmount } = render(<FeedbackForm publicCode="summit-public" />);
       await screen.findByRole("heading", {
         name: surveyResponse.survey.translations.es.headerTitle,
       });
@@ -505,14 +510,22 @@ describe("FeedbackForm", () => {
 
       fireEvent.click(screen.getByRole("radio", { name: "5" }));
       const nextLabel = surveyResponse.survey.translations[locale].nextLabel;
-      const submitLabel = surveyResponse.survey.translations[locale].submitLabel;
+      const submitLabel =
+        surveyResponse.survey.translations[locale].submitLabel;
       fireEvent.click(screen.getByRole("button", { name: nextLabel }));
       fireEvent.click(screen.getByRole("checkbox", { name: /vistas|views/i }));
       fireEvent.click(screen.getByRole("button", { name: nextLabel }));
-      fireEvent.click(screen.getByRole("radio", { name: /positivo|positive/i }));
+      fireEvent.click(
+        screen.getByRole("radio", { name: /positivo|positive/i }),
+      );
       fireEvent.click(screen.getByRole("button", { name: nextLabel }));
       fireEvent.click(screen.getByRole("button", { name: nextLabel }));
       fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+      if (locale === "en") {
+        vi.spyOn(Storage.prototype, "removeItem").mockImplementationOnce(() => {
+          throw new Error("storage unavailable");
+        });
+      }
       fireEvent.click(screen.getByRole("button", { name: submitLabel }));
 
       expect(await screen.findByText("accepted-receipt")).toBeInTheDocument();
@@ -533,8 +546,54 @@ describe("FeedbackForm", () => {
         }),
       ).not.toBeInTheDocument();
       expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      unmount();
+      render(<FeedbackForm publicCode="another-public-code" />);
+      expect(await screen.findByText("accepted-receipt")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("radio", { name: "5" }),
+      ).not.toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     },
   );
+
+  it("shows confirmation instead of a generic error when the server reports an active guard", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(surveyResponse)))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: "GUARD_ACTIVE" } }), {
+          status: 409,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<FeedbackForm publicCode="summit-public" />);
+    await screen.findByRole("heading", {
+      name: surveyResponse.survey.translations.es.headerTitle,
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Vistas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Positivo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar respuesta" }));
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Gracias por compartir su experiencia.",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Enviar respuesta" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No se pudo enviar la respuesta. Intente nuevamente."),
+    ).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 
   it("blocks stale-session resubmission after the server returns SESSION_EXPIRED", async () => {
     localStorage.setItem(
