@@ -44,11 +44,11 @@ describe("TB-113 shared report-generation profile", () => {
     const profile = loadTb113ReportGenerationProfile();
     expect(profile.profileVersion).toBe("feedback-report-generation-profile.v1");
     expect(Object.keys(profile).sort()).toEqual(["generation", "profileVersion"]);
-    expect(profile.generation.sourceRevision).toBe("feedback-report-profile.v1");
+    expect(profile.generation.sourceRevision).toBe("feedback-report-profile.v2");
     expect(profile.generation.evidenceKeyId).toBe("feedback-report-evidence.v1");
     const modelConfig = profile.generation.modelConfig as Record<string, unknown>;
     const pricingSnapshot = profile.generation.pricingSnapshot as Record<string, unknown>;
-    expect(modelConfig.promptVersion).toBe("feedback-report-prompt.v1");
+    expect(modelConfig.promptVersion).toBe("feedback-report-prompt.v2");
     expect(modelConfig.redactionVersion).toBe("feedback-report-redaction.v1");
     expect(modelConfig.validatorVersion).toBe("feedback-report-validator.v1");
     expect(modelConfig.chunkVersion).toBe("feedback-report-chunk.v1");

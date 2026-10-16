@@ -65,7 +65,7 @@ const ANALYSIS_SECTION_KEYS = [
   'recurrent_themes', 'minority_signals', 'coverage_limitations',
 ];
 const DIRECT_COUNT_INSTRUCTIONS =
-  'Return structured Spanish descriptions only. Use the exact seven-section order and closed schema. Cite eligible evidence refs on every claim. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Leave unsupported sections empty. Semantic truth is not machine-verified.';
+  'Return concise Spanish descriptions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct supported visitor observations. Cite eligible evidence refs on every claim, distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.';
 const DIRECT_COUNT_SCHEMA = canonicalizeJson({
   schemaVersion: 'survey-analysis.v1',
   route: 'direct',
@@ -81,7 +81,7 @@ const DIRECT_COUNT_SCHEMA = canonicalizeJson({
   })),
 });
 const MAP_INSTRUCTIONS =
-  'Extract descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.';
+  'Extract concise, distinct descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.';
 const MAP_SCHEMA = canonicalizeJson({
   schemaVersion: 'survey-map.v1', chunkId: 'map.<index>-of-<count>',
   coveredRefs: ['e_<20-lowercase-base32-characters>'],
@@ -91,7 +91,7 @@ const MAP_SCHEMA = canonicalizeJson({
   }] }], limitations: ['Spanish descriptive limitation'],
 });
 const REDUCE_INSTRUCTIONS =
-  'Combine only the validated map outputs and immutable official metrics supplied. Return the exact seven-section survey-analysis.v1 reduce schema. Do not calculate or alter metrics, invent evidence refs, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.';
+  'Combine only the validated map outputs and immutable official metrics supplied. Return the exact seven-section survey-analysis.v1 reduce schema with a brief executive synthesis of distinct supported visitor observations, leaving unsupported sections empty and avoiding repetition across sections. Cite only validated evidence refs on every claim. Do not calculate or alter metrics, invent evidence refs, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.';
 const REDUCE_SCHEMA = canonicalizeJson({
   schemaVersion: 'survey-analysis.v1', route: 'reduce',
   sections: [{ key: { enum: ANALYSIS_SECTION_KEYS }, status: { enum: ['supported', 'insufficient_evidence'] }, claims: [{
