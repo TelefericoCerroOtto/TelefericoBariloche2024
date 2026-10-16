@@ -3,7 +3,7 @@ import type { ValidatedFeedbackAnswers } from "@/types/api/feedback";
 import type { FeedbackBrowserGuard } from "./browser-guard";
 import type { QrSessionClaims } from "./qr-session";
 
-const GUARD_DURATION_MILLISECONDS = 24 * 60 * 60 * 1_000;
+const GUARD_DURATION_MILLISECONDS = 7 * 24 * 60 * 60 * 1_000;
 
 export type SubmissionAcceptanceInput = {
   readonly contractVersion: "feedback-public.v1";
@@ -37,7 +37,10 @@ export type SubmissionTransaction = {
   lockAndFindByIdempotency(
     _sessionNonceHash: string,
     _idempotencyKey: string,
-  ): Promise<Pick<StoredSubmission, "receipt" | "acceptedAt" | "payloadDigest"> | null>;
+  ): Promise<Pick<
+    StoredSubmission,
+    "receipt" | "acceptedAt" | "payloadDigest"
+  > | null>;
   insert(_submission: StoredSubmission): Promise<void>;
 };
 
@@ -129,15 +132,22 @@ function payloadDigest(input: SubmissionAcceptanceInput): string {
   );
 }
 
-function acceptedValue(submission: Pick<StoredSubmission, "receipt" | "acceptedAt">): AcceptedValue | null {
+function acceptedValue(
+  submission: Pick<StoredSubmission, "receipt" | "acceptedAt">,
+): AcceptedValue | null {
   const acceptedAt = new Date(submission.acceptedAt);
-  if (Number.isNaN(acceptedAt.getTime()) || acceptedAt.toISOString() !== submission.acceptedAt) {
+  if (
+    Number.isNaN(acceptedAt.getTime()) ||
+    acceptedAt.toISOString() !== submission.acceptedAt
+  ) {
     return null;
   }
   return {
     submissionReceipt: submission.receipt,
     acceptedAt: submission.acceptedAt,
-    guardUntil: new Date(acceptedAt.getTime() + GUARD_DURATION_MILLISECONDS).toISOString(),
+    guardUntil: new Date(
+      acceptedAt.getTime() + GUARD_DURATION_MILLISECONDS,
+    ).toISOString(),
   };
 }
 
@@ -157,7 +167,10 @@ export async function acceptSubmission(
       );
       if (existing) {
         if (existing.payloadDigest !== digest) {
-          return { ok: false, error: { status: 409, code: "IDEMPOTENCY_CONFLICT" } };
+          return {
+            ok: false,
+            error: { status: 409, code: "IDEMPOTENCY_CONFLICT" },
+          };
         }
         const replay = acceptedValue(existing);
         if (!replay) throw new Error("Invalid authoritative replay");
@@ -199,10 +212,16 @@ export async function acceptSubmission(
     }
     if (typeof error === "object" && error !== null && "code" in error) {
       if (error.code === "IDEMPOTENCY_CONFLICT") {
-        return { ok: false, error: { status: 409, code: "IDEMPOTENCY_CONFLICT" } };
+        return {
+          ok: false,
+          error: { status: 409, code: "IDEMPOTENCY_CONFLICT" },
+        };
       }
       if (error.code === "SURVEY_UNAVAILABLE") {
-        return { ok: false, error: { status: 410, code: "SURVEY_UNAVAILABLE" } };
+        return {
+          ok: false,
+          error: { status: 410, code: "SURVEY_UNAVAILABLE" },
+        };
       }
     }
     return { ok: false, error: { status: 503, code: "UPSTREAM_UNAVAILABLE" } };

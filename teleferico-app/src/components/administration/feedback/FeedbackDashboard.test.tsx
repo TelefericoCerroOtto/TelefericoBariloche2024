@@ -1572,7 +1572,9 @@ describe("feedback analytics UI projections", () => {
     };
     const envelope = (data: unknown) => Response.json({ contractVersion: "feedback-admin.v1", data, meta: {} });
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => Promise.resolve(
-      envelope(String(path).includes("/comments?") ? comments : generations),
+      String(path).includes("/download")
+        ? new Response(null, { status: 503 })
+        : envelope(String(path).includes("/comments?") ? comments : generations),
     ));
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
@@ -1590,10 +1592,13 @@ describe("feedback analytics UI projections", () => {
     expect(within(table).getByText("12 respuestas · 3 comentarios")).toBeInTheDocument();
     expect(within(table).getByText("El proveedor no está disponible temporalmente.")).toBeInTheDocument();
     expect(within(table).getByText("failed-source")).toBeInTheDocument();
-    expect(within(table).getByRole("button", { name: "Descargar PDF" })).toBeEnabled();
+    expect(within(table).getAllByRole("button", { name: "Descargar PDF" })).toHaveLength(2);
     const undownloadableRow = within(table).getByText("undownloadable-report").closest("tr");
     expect(undownloadableRow).not.toBeNull();
-    expect(within(undownloadableRow!).queryByRole("button", { name: "Descargar PDF" })).not.toBeInTheDocument();
+    expect(within(undownloadableRow!).getByRole("button", { name: "Descargar PDF" })).toBeEnabled();
+    fireEvent.click(within(undownloadableRow!).getByRole("button", { name: "Descargar PDF" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo descargar el informe. Probá de nuevo.");
+    expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.some(([path]) => String(path) === "/api/admin/feedback/reports/undownloadable-report/download")).toBe(true);
     expect(within(table).getByRole("button", { name: "Reintentar generación" })).toBeEnabled();
     expect(within(table).getAllByText("immutable-report")).toHaveLength(1);
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/reports?")).length).toBe(0);
