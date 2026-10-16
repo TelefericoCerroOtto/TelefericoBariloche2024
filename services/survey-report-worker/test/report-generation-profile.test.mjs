@@ -15,7 +15,8 @@ test("shared report-generation profile is deeply immutable and pins approved con
   assert.ok(Object.isFrozen(profile.generation));
   assert.ok(Object.isFrozen(profile.generation.modelConfig));
   assert.ok(Object.isFrozen(profile.generation.pricingSnapshot.units[0]));
-  assert.equal(profile.generation.sourceRevision, "feedback-report-profile.v1");
+  assert.equal(profile.generation.sourceRevision, "feedback-report-profile.v2");
+  assert.equal(profile.generation.modelConfig.promptVersion, "feedback-report-prompt.v2");
   assert.equal(profile.generation.evidenceKeyId, "feedback-report-evidence.v1");
   assert.equal(profile.generation.modelConfig.sourceRevision, profile.generation.sourceRevision);
   assert.equal(profile.generation.modelConfig.evidenceKeyId, profile.generation.evidenceKeyId);

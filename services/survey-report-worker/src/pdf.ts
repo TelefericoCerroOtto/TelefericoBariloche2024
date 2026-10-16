@@ -20,16 +20,7 @@ import {
 import { renderChartHtml, validateChartViewModels } from "./renderer";
 import type { OutputRejection, OutputRejectionCategory } from "./output-rejection";
 
-const SECTION_TITLES = [
-  "Portada",
-  "Resumen ejecutivo",
-  "Panorama oficial",
-  "Distribución y evolución",
-  "Aspectos",
-  "Puntos QR",
-  "Voz del visitante",
-  "Cobertura y limitaciones",
-] as const;
+const SECTION_TITLES = ["El informe", "Datos de la visita", "Lectura de comentarios"] as const;
 
 const MAX_ANALYSIS_PARAGRAPHS = 8;
 const MAX_ANALYSIS_PARAGRAPH_LENGTH = 4_000;
@@ -43,10 +34,7 @@ const PINNED_FONT_SHA256 =
   "abdc775b21b1bc470d50c97e790d276f2054b7504e56e5bd3e64f48d68582322";
 const REPORT_CHART_IDS = [
   "star-distribution",
-  "satisfaction-evolution",
-  "response-volume-evolution",
   "aspect-comparison",
-  "qr-point-comparison",
 ] as const;
 
 export type PdfArtifact = {
@@ -168,9 +156,19 @@ function analysisDigest(analysis: PublishedAnalysisV1): string {
   return createHash("sha256").update(canonicalizeJson(analysis)).digest("hex");
 }
 
+const decimal = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const percent = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 1 });
+const date = new Intl.DateTimeFormat("es-AR", { timeZone: "UTC", day: "2-digit", month: "2-digit", year: "numeric" });
+const cutoff = new Intl.DateTimeFormat("es-AR", {
+  timeZone: "America/Argentina/Buenos_Aires",
+  day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+
 function officialSummary(snapshot: SnapshotV1): string {
   const current = snapshot.metrics.current;
-  return `Respuestas: ${current.submissionCount}. Promedio: ${current.averageMilliStars ?? "No disponible"}. Satisfacción: ${current.satisfied.rateBps ?? "No disponible"} puntos base.`;
+  const average = current.averageMilliStars === null ? "No disponible" : `${decimal.format(current.averageMilliStars / 1000)} / 5`;
+  const satisfied = current.satisfied.rateBps === null ? "No disponible" : `${percent.format(current.satisfied.rateBps / 100)} %`;
+  return `<ul class="kpis"><li>Respuestas: <strong>${current.submissionCount}</strong></li><li>Calificación promedio: <strong>${average}</strong></li><li>Satisfacción: <strong>${satisfied}</strong></li><li>Comentarios escritos analizados: <strong>${snapshot.comments.length}</strong></li></ul>`;
 }
 
 function reportChartMarkup(
@@ -201,27 +199,25 @@ function normalizePdfTransportMetadata(bytes: Uint8Array): Uint8Array {
   return Buffer.from(normalized, "latin1");
 }
 
-function analysisMarkup(analysis: PublishedAnalysisV1): string {
-  return analysis.sections
-    .map(
-      (section) =>
-        `<div data-analysis-key="${escapeHtml(section.key)}" data-analysis-status="${escapeHtml(section.status)}">${section.paragraphsEs
-          .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
-          .join("")}</div>`,
-    )
-    .join("");
-}
+const ANALYSIS_TITLES: Record<PublishedAnalysisV1["sections"][number]["key"], string> = {
+  executive_summary: "En síntesis",
+  observed_changes: "Cambios observados",
+  strengths: "Aspectos favorables",
+  unfavorable_areas: "Aspectos desfavorables",
+  recurrent_themes: "Temas recurrentes",
+  minority_signals: "Señales minoritarias",
+  coverage_limitations: "Alcance y limitaciones",
+};
 
-function selectedAnalysisMarkup(
-  analysis: PublishedAnalysisV1,
-  keys: readonly PublishedAnalysisV1["sections"][number]["key"][],
-): string {
-  return analysisMarkup({
-    ...analysis,
-    sections: analysis.sections.filter((section) =>
-      keys.includes(section.key),
-    ) as unknown as PublishedAnalysisV1["sections"],
-  });
+function analysisMarkup(snapshot: SnapshotV1, analysis: PublishedAnalysisV1): string {
+  if (snapshot.comments.length === 0)
+    return "<p>No hay comentarios escritos para analizar en el período actual ni en el anterior.</p>";
+  const supported = analysis.sections.filter((section) => section.status === "supported");
+  if (supported.length === 0)
+    return "<p>No hay hallazgos suficientemente respaldados por los comentarios disponibles.</p>";
+  return `<p>Análisis generado con IA a partir de ${snapshot.comments.length} comentarios escritos; las cifras anteriores se calculan por separado.</p>${supported.map((section) =>
+    `<div class="finding" data-analysis-key="${escapeHtml(section.key)}"><h3>${ANALYSIS_TITLES[section.key]}</h3>${section.paragraphsEs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}</div>`
+  ).join("")}`;
 }
 
 export function renderReportHtml(
@@ -233,38 +229,28 @@ export function renderReportHtml(
   readonly analysisDigest: string;
 } {
   const charts = validateChartViewModels(buildReportCharts(snapshot));
-  const chartIds = charts.map(({ id }) => id);
-  if (
-    chartIds.length !== REPORT_CHART_IDS.length ||
-    REPORT_CHART_IDS.some((id) => !chartIds.includes(id))
-  )
+  if (REPORT_CHART_IDS.some((id) => !charts.some((chart) => chart.id === id)))
     throw new PdfValidationError(
       "Report chart set does not match its fixed contract",
       "chart_contract",
     );
 
+  const qrPoints = snapshot.metrics.qrPoints.map((point) =>
+    `${escapeHtml(point.displayName)}: ${point.current.submissionCount} ${point.current.submissionCount === 1 ? "respuesta" : "respuestas"}`
+  ).join("; ");
   const content = [
-    `<p>Informe determinista de satisfacción del visitante. Período analizado: ${escapeHtml(snapshot.population.current.from)} – ${escapeHtml(snapshot.population.current.to)}.</p>`,
-    `<p>${escapeHtml(officialSummary(snapshot))}</p>${selectedAnalysisMarkup(analysis, ["executive_summary"])}`,
-    `<p>${escapeHtml(officialSummary(snapshot))}</p><p>Fuente: respuestas aceptadas mediante QR; corte de datos: ${escapeHtml(snapshot.population.dataCutoffAt)}.</p>`,
-    reportChartMarkup(charts, [
-      "star-distribution",
-      "satisfaction-evolution",
-      "response-volume-evolution",
-    ]),
-    `${reportChartMarkup(charts, ["aspect-comparison"])}${selectedAnalysisMarkup(analysis, ["observed_changes", "strengths", "unfavorable_areas"])}`,
-    `${reportChartMarkup(charts, ["qr-point-comparison"])}<p>Los puntos QR se presentan con los denominadores y filtros oficiales del período.</p>`,
-    `<p>La voz del visitante se presenta junto con la evidencia del período.</p>${selectedAnalysisMarkup(analysis, ["recurrent_themes", "minority_signals"])}`,
-    selectedAnalysisMarkup(analysis, ["coverage_limitations"]),
+    `<header><h1>Informe de comentarios de visitantes</h1><p>Período analizado: ${date.format(new Date(`${snapshot.population.current.from}T00:00:00Z`))} – ${date.format(new Date(`${snapshot.population.current.to}T00:00:00Z`))}</p><p>Corte de datos: ${cutoff.format(new Date(snapshot.population.dataCutoffAt))} (hora de Buenos Aires)</p></header>${officialSummary(snapshot)}`,
+    `<h2>Las respuestas en contexto</h2>${reportChartMarkup(charts, REPORT_CHART_IDS)}<p>Puntos QR: ${qrPoints || "Sin puntos registrados"}.</p>`,
+    `<h2>Lectura de comentarios</h2>${analysisMarkup(snapshot, analysis)}<p class="scope">Fuente: respuestas aceptadas mediante QR. Comentarios del período actual: ${snapshot.population.currentCommentCount}; período anterior: ${snapshot.population.previousCommentCount}. Los hallazgos se limitan a los comentarios disponibles.</p>`,
   ];
   const sections = SECTION_TITLES.map(
     (title, index) =>
-      `<section class="report" data-section="${index}" data-section-title="${escapeHtml(title)}"><h1>${escapeHtml(title)}</h1>${content[index] ?? "<p>Contenido validado.</p>"}</section>`,
+      `<section class="report" data-section="${index}" data-section-title="${escapeHtml(title)}">${content[index]}</section>`,
   ).join("");
-  const html = `<!doctype html><html lang="es-AR"><head><meta charset="utf-8"><style>*{box-sizing:border-box;animation:none!important;transition:none!important}body{font-family:TB113Report,sans-serif;margin:0;color:#1b1b1b}section.report{break-before:page;min-height:260mm;padding:12mm}section.report:first-child{break-before:auto}.chart{break-inside:avoid}figure{margin:0}svg{max-width:100%;height:auto}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px}th,td{padding:2px;overflow-wrap:anywhere;border:1px solid #d7d7d7}th:first-child,td:first-child{width:65%}</style></head><body>${sections}</body></html>`;
+  const html = `<!doctype html><html lang="es-AR"><head><meta charset="utf-8"><style>*{box-sizing:border-box;animation:none!important;transition:none!important}@page{size:A4;margin:14mm}body{font-family:TB113Report,sans-serif;margin:0;color:#1b1b1b;font-size:11px;line-height:1.45}section.report{margin-bottom:7mm}header{border-bottom:1px solid #d7d7d7;padding-bottom:4mm}h1{font-size:18px;margin:0 0 2mm}h2{font-size:14px;margin:4mm 0 2mm;break-after:avoid}h3{font-size:11px;margin:3mm 0 1mm;break-after:avoid}.kpis{display:flex;flex-wrap:wrap;gap:3mm 7mm;list-style:none;padding:0;margin:4mm 0}.kpis li{break-inside:avoid}.chart{margin-bottom:3mm}.chart figure{break-inside:avoid}figure{margin:0}svg{width:100%;max-height:45mm}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8px}thead{display:table-header-group}tr{break-inside:avoid}th,td{padding:2px;overflow-wrap:anywhere;border:1px solid #d7d7d7}th:first-child,td:first-child{width:65%}.finding{border-left:2px solid #4263a3;padding-left:3mm;margin:3mm 0}.scope{color:#555;border-top:1px solid #d7d7d7;padding-top:3mm}</style></head><body>${sections}</body></html>`;
   return {
     html,
-    chartCount: charts.length,
+    chartCount: REPORT_CHART_IDS.length,
     analysisDigest: analysisDigest(analysis),
   };
 }
@@ -292,7 +278,7 @@ export function createPlaywrightPdfRenderer(
   } = {},
 ): PdfRenderer {
   return {
-    rendererVersion: "playwright-chromium-echarts-6.1-pdf.v2",
+    rendererVersion: "playwright-chromium-echarts-6.1-pdf.v3",
     async render({ html, charts }) {
       validateChartViewModels(charts);
       if (

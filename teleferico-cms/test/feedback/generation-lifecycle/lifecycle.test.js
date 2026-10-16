@@ -1182,7 +1182,7 @@ test("CMS rejects a valid map.2 payload stored under map.1 checkpoint identity",
     rendererVersion: "renderer.test.v1",
   };
   const headroom = Math.max(2048, Math.ceil(modelConfig.verifiedInputTokenLimit * 0.1));
-  const directInstructions = "Return structured Spanish descriptions only. Use the exact seven-section order and closed schema. Cite eligible evidence refs on every claim. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Leave unsupported sections empty. Semantic truth is not machine-verified.";
+  const directInstructions = "Return concise Spanish descriptions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct supported visitor observations. Cite eligible evidence refs on every claim, distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
   const directSchema = canonicalize({
     schemaVersion: "survey-analysis.v1", route: "direct",
     sections: ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"].map((key) => ({
@@ -1204,7 +1204,7 @@ test("CMS rejects a valid map.2 payload stored under map.1 checkpoint identity",
   };
   const directSegmentTokens = { instructions: 100, schema: 100, metrics: 100, comments: 9000, reservedOutput: 3000, headroom };
   const directTotalTokens = Object.values(directSegmentTokens).reduce((sum, value) => sum + value, 0);
-  const mapInstructions = "Extract descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
+  const mapInstructions = "Extract concise, distinct descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
   const mapSchema = canonicalize({
     schemaVersion: "survey-map.v1", chunkId: "map.<index>-of-<count>", coveredRefs: ["e_<20-lowercase-base32-characters>"],
     themes: [{ themeKey: "lowercase-stable-id", labelEs: "Spanish descriptive label", claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }] }],
@@ -1283,7 +1283,7 @@ test("CMS checkpoint command accepts structural direct prose but rejects foreign
   const run = { reportRunId: syntheticMembershipInput().reportRunId, status: "running", stateVersion: 4,
     snapshotDigest: digest(snapshot), sourceRevision: "test-source", modelConfig, rendererVersion: "renderer.test.v1" };
   const ref = deriveEvidenceRef({ reportRunId: run.reportRunId, recordId: snapshot.comments[0].recordId, evidenceKey });
-  const directInstructions = "Return structured Spanish descriptions only. Use the exact seven-section order and closed schema. Cite eligible evidence refs on every claim. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Leave unsupported sections empty. Semantic truth is not machine-verified.";
+  const directInstructions = "Return concise Spanish descriptions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct supported visitor observations. Cite eligible evidence refs on every claim, distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
   const sectionKeys = ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"];
   const directSchema = canonicalize({ schemaVersion: "survey-analysis.v1", route: "direct", sections: sectionKeys.map((key) => ({
     key, status: { enum: ["supported", "insufficient_evidence"] }, claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }],
@@ -1341,12 +1341,12 @@ test("CMS map and reduce checkpoint commands allow prose without relaxing member
     sourceRevision: "test-source", modelConfig, rendererVersion: "renderer.test.v1" };
   const membership = deriveChunkMembership({ ...membershipInput, snapshotDigest, chunkCount: 1, comments: snapshot.comments })[0];
   const ref = membership.coveredRefs[0];
-  const directInstructions = "Return structured Spanish descriptions only. Use the exact seven-section order and closed schema. Cite eligible evidence refs on every claim. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Leave unsupported sections empty. Semantic truth is not machine-verified.";
+  const directInstructions = "Return concise Spanish descriptions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct supported visitor observations. Cite eligible evidence refs on every claim, distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
   const sectionKeys = ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"];
   const directSchema = canonicalize({ schemaVersion: "survey-analysis.v1", route: "direct", sections: sectionKeys.map((key) => ({
     key, status: { enum: ["supported", "insufficient_evidence"] }, claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }],
   })) });
-  const mapInstructions = "Extract descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
+  const mapInstructions = "Extract concise, distinct descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
   const mapSchema = canonicalize({ schemaVersion: "survey-map.v1", chunkId: "map.<index>-of-<count>", coveredRefs: ["e_<20-lowercase-base32-characters>"],
     themes: [{ themeKey: "lowercase-stable-id", labelEs: "Spanish descriptive label", claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }] }], limitations: ["Spanish descriptive limitation"] });
   const modelComment = { period: snapshot.comments[0].period, text: snapshot.comments[0].text, evidenceRef: ref };
