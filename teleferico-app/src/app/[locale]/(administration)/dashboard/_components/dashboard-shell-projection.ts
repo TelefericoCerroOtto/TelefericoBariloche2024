@@ -85,7 +85,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "feedback",
     implemented: true,
     tooltip: "Analizar las opiniones de visitantes",
-    allowedRoles: ["Administrator"],
+    allowedRoles: ["Digital Experience Operator"],
   },
   {
     name: "Trabajo",

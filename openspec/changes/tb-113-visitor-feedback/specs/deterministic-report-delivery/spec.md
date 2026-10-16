@@ -34,14 +34,14 @@ Only validated analysis JSON and immutable official snapshot data MAY enter the 
 - WHEN rendering is requested
 - THEN rendering and storage MUST not begin.
 
-### Requirement: Fixed evidence-first report
+### Requirement: Concise evidence-first report
 
-The PDF MUST contain exactly these ordered sections: cover; executive summary; official overview; distribution/evolution; aspects; QR points; visitor voice; coverage/limitations. It MUST contain the five charts: star distribution, satisfaction evolution, response-volume evolution, aspect comparison, and QR-point comparison. Official evidence MUST precede AI narrative. Only validated analysis and immutable official snapshot data may enter rendering; no PDF prose/content scan rejects literal visitor comments, incidental evidence references, numbers, or private-data patterns. The approved residual disclosure risk remains even when model-bound copies have recognizable email, URL, and phone spans redacted. (Primary: D81-D83; former content ban superseded.)
+The PDF MUST be a continuous document with a compact Spanish title, inclusive period and data cutoff, human-readable KPIs (responses, average stars, satisfaction percentage, and analyzed written comments), followed by exactly two fixed charts: star distribution and aspect comparison. QR-point response counts MUST appear in text; daily trends and the QR comparison chart remain available in the dashboard, not this PDF. Accessible chart tables MUST remain. Official evidence MUST precede the prominently presented, validated AI analysis. When no written comments were eligible, the PDF MUST say so once without suggesting the model analyzed them; unsupported analysis sections MUST NOT repeat an empty-evidence placeholder. Normal pagination MUST NOT force a page per section. Only validated analysis and immutable official snapshot data may enter rendering; no PDF prose/content scan rejects literal visitor comments, incidental evidence references, numbers, or private-data patterns. The approved residual disclosure risk remains even when model-bound copies have recognizable email, URL, and phone spans redacted. This supersedes D81-D82 for PDF presentation only; the shared five-chart view model and dashboard remain unchanged. (Primary: D80-D83.)
 
-#### Scenario: Validate complete PDF structure
+#### Scenario: Validate the concise PDF structure
 - GIVEN a successful render
 - WHEN its typed document structure is inspected
-- THEN all eight sections and five charts MUST appear in the prescribed order with accessible data equivalents.
+- THEN the title/context, two fixed charts with accessible tables, and one visitor-comment reading MUST appear in evidence-first order without forced page breaks.
 
 #### Scenario: Preserve structure without a content veto
 - GIVEN validated analysis contains a literal visitor comment or an incidental evidence reference in a paragraph
