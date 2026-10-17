@@ -219,7 +219,8 @@ describe("direct worker output preflight", () => {
     });
   });
 
-  it("rejects numeric values absent from the immutable metrics snapshot", () => {
+  it("allows invented numbers in prose without changing official snapshot metrics", () => {
+    const originalMetrics = canonicalizeJson(snapshot.payload.metrics);
     const result = evaluate(
       directOutput([
         claim(refs, {
@@ -229,13 +230,11 @@ describe("direct worker output preflight", () => {
       snapshot,
     );
 
-    expect(result).toMatchObject({
-      status: "rejected",
-      violations: ["unsupported_official_metric_value"],
-    });
+    expect(result.status).toBe("accepted");
+    expect(canonicalizeJson(snapshot.payload.metrics)).toBe(originalMetrics);
   });
 
-  it("rejects action language and short or eight-token verbatim comment matches", () => {
+  it("allows action language, private patterns, and short or eight-token literal comments", () => {
     expect(
       evaluate(
         directOutput([
@@ -243,13 +242,13 @@ describe("direct worker output preflight", () => {
         ]),
         snapshot,
       ),
-    ).toMatchObject({ status: "rejected" });
+    ).toMatchObject({ status: "accepted" });
     expect(
       evaluate(
         directOutput([claim(refs, { textEs: "Contacto visitor@example.invalid disponible." })]),
         snapshot,
       ),
-    ).toMatchObject({ status: "rejected", violations: ["personal_data_or_url"] });
+    ).toMatchObject({ status: "accepted" });
     const privateSnapshot = inputSnapshot([
       "este comentario sintético contiene ocho palabras únicas solo para prueba",
     ]);
@@ -268,7 +267,7 @@ describe("direct worker output preflight", () => {
         ]),
         inputSnapshot(["Comentario sintético breve"]),
       ),
-    ).toMatchObject({ status: "rejected" });
+    ).toMatchObject({ status: "accepted" });
     expect(
       evaluate(
         directOutput([
@@ -280,7 +279,8 @@ describe("direct worker output preflight", () => {
         ]),
         privateSnapshot,
       ),
-    ).toMatchObject({ status: "rejected" });
+    ).toMatchObject({ status: "accepted" });
+    expect(evaluate(directOutput([claim(refs, { textEs: `Referencia incidental ${refs[0]} y https://synthetic.invalid.` })]), snapshot).status).toBe("accepted");
   });
 
   it("rejects malformed Unicode and duplicate claim IDs while leaving semantic contradiction blocked", () => {
@@ -385,7 +385,7 @@ describe("map/reduce worker output preflight", () => {
     }
   });
 
-  it("rejects prohibited or verbatim map content", () => {
+  it("accepts map prose with actions, numbers, references and verbatim text while retaining membership", () => {
     const privateSnapshot = inputSnapshot([
       "este comentario sintético contiene ocho palabras únicas solo para prueba",
     ]);
@@ -398,18 +398,18 @@ describe("map/reduce worker output preflight", () => {
     expect(
       preflightMapAnalysis(
         mapOutput(membership, {
-          limitations: ["Recomendamos mejorar el acceso."],
+          limitations: ["Recomendamos mejorar el acceso 99 y https://synthetic.invalid."],
         }),
         { ...mapInput(privateSnapshot, 1) },
       ),
-    ).toMatchObject({ status: "rejected" });
+    ).toMatchObject({ status: "accepted" });
     expect(
       preflightMapAnalysis(
         mapOutput(membership, {
           themes: [
             {
               themeKey: "theme-a",
-              labelEs: "Tema sintético",
+              labelEs: `Tema sintético 99 ${membership.coveredRefs[0]}`,
               claims: [
                 {
                   claimId: "claim-a",
@@ -424,7 +424,8 @@ describe("map/reduce worker output preflight", () => {
         }),
         { ...mapInput(privateSnapshot, 1) },
       ),
-    ).toMatchObject({ status: "rejected" });
+    ).toMatchObject({ status: "accepted" });
+    expect(preflightMapAnalysis(mapOutput(membership, { coveredRefs: ["e_aaaaaaaaaaaaaaaaaaaa"] }), { ...mapInput(privateSnapshot, 1) }).status).toBe("rejected");
   });
 
   it("rejects malformed or duplicate reduce digests and compares ordered CMS-verified map digests", () => {
@@ -516,7 +517,7 @@ describe("map/reduce worker output preflight", () => {
     });
   });
 
-  it("rejects prohibited and verbatim content in reduce claims", () => {
+  it("accepts reduce prose containing action, verbatim, numeric and incidental references", () => {
     const privateSnapshot = inputSnapshot([
       "este comentario sintético contiene ocho palabras únicas solo para prueba",
     ]);
@@ -530,6 +531,7 @@ describe("map/reduce worker output preflight", () => {
       reportRunId: RUN_ID,
       evidenceKeyId: KEY_ID,
       evidenceKey: KEY,
+      verifiedMapOutputDigests: [mapDigests[0]!],
     };
     const outputWithText = (textEs: string) => {
       const baseOutput = reduceOutput([mapDigests[0]!]);
@@ -559,7 +561,7 @@ describe("map/reduce worker output preflight", () => {
         outputWithText("Recomendamos mejorar el acceso."),
         input,
       ),
-    ).toMatchObject({ status: "rejected" });
+    ).toMatchObject({ status: "accepted" });
     expect(
       preflightReduceAnalysis(
         outputWithText(
@@ -567,7 +569,9 @@ describe("map/reduce worker output preflight", () => {
         ),
         input,
       ),
-    ).toMatchObject({ status: "rejected" });
+    ).toMatchObject({ status: "accepted" });
+    expect(preflightReduceAnalysis(outputWithText(`La visita 99 ${ref} https://synthetic.invalid`), input).status).toBe("accepted");
+    expect(preflightReduceAnalysis({ ...outputWithText("Texto"), mapOutputDigests: ["a".repeat(64)] }, { ...input, verifiedMapOutputDigests: ["b".repeat(64)] }).status).toBe("rejected");
   });
 });
 

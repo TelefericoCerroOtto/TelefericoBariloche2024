@@ -18,7 +18,7 @@ Survey aspects order by order/key. Unknown/inactive code, disabled intake, or ab
 
 The token is `base64url(header).base64url(payload).base64url(HMAC-SHA256(secret,header.payload))`; header `{alg:"HS256",typ:"TB113",v:1}`; claims `{v:1,pointKey,publicCodeHash,versionKey,nonce,iat,exp}`; lowercase hex hashes/nonces; `exp=iat+7200`. Submit permits the active version or `lastSupersededAt` within 1,800 seconds. Built-in cryptography avoids a JWT dependency.
 
-POST `/api/feedback/submissions` constrains idempotency key to 16..128 `^[A-Za-z0-9._~-]+$`; `aspects` to 0..3 unique active-version keys excluding `other`; `otherAspect.customText` to 1..300 nonblank characters; optional comment to 1..2000; captcha to 1..4096; form age to 3 seconds..2 hours. Exact total `aspects.length + (otherAspect ? 1 : 0)` MUST be 1..3. Validation order is media/size→origin/fetch-site→JSON/closed schema→combined count/uniqueness/separation→form-age/honeypot→captcha→token→point/code/version/grace→durable idempotency→24-hour guard→commit→best-effort Redis. Identical replay returns 200 with original `AcceptedV1` before the guard; new acceptance returns 201 with the same shape. Errors: 400 `VALIDATION_FAILED`; 401 `INVALID_SESSION`; 403 `UNTRUSTED_REQUEST|CAPTCHA_FAILED`; 409 `IDEMPOTENCY_CONFLICT|GUARD_ACTIVE`; 410 `SURVEY_UNAVAILABLE|SESSION_EXPIRED`; 413 `PAYLOAD_TOO_LARGE`; 415 `UNSUPPORTED_MEDIA_TYPE`; 503 `UPSTREAM_UNAVAILABLE`. Redis failure after authoritative checks accepts with degradation telemetry. Cookie: opaque HttpOnly Secure SameSite=Lax, path `/`, max-age 86,400; persist only its hash. (D15-D18, D23-D24, D33)
+POST `/api/feedback/submissions` constrains idempotency key to 16..128 `^[A-Za-z0-9._~-]+$`; `aspects` to 0..3 unique active-version keys excluding `other`; `otherAspect.customText` to 1..300 nonblank characters; optional comment to 1..2000; captcha to 1..4096; form age to 3 seconds..2 hours. Exact total `aspects.length + (otherAspect ? 1 : 0)` MUST be 1..3. Validation order is media/size→origin/fetch-site→JSON/closed schema→combined count/uniqueness/separation→form-age/honeypot→captcha→token→point/code/version/grace→durable idempotency→seven-day guard→commit→best-effort Redis. Identical replay returns 200 with original `AcceptedV1` before the guard; new acceptance returns 201 with the same shape. Errors: 400 `VALIDATION_FAILED`; 401 `INVALID_SESSION`; 403 `UNTRUSTED_REQUEST|CAPTCHA_FAILED`; 409 `IDEMPOTENCY_CONFLICT|GUARD_ACTIVE`; 410 `SURVEY_UNAVAILABLE|SESSION_EXPIRED`; 413 `PAYLOAD_TOO_LARGE`; 415 `UNSUPPORTED_MEDIA_TYPE`; 503 `UPSTREAM_UNAVAILABLE`. Redis failure after authoritative checks accepts with degradation telemetry. Cookie: opaque HttpOnly Secure SameSite=Lax, path `/`, max-age 604,800 on issue and refreshed through the accepted guard deadline; persist only its hash. (D15-D18, D23-D24, D33; TB-141)
 
 ## Public Form Projection
 
@@ -72,11 +72,13 @@ not implemented in this slice.
 
 ## CMS and Worker
 
+The checkpoint and completion commands preserve closed keys, route/stage digests, exact CountTokens budgets, evidence-reference field syntax/membership, threshold checks, and state-version CAS. They do not reject validated narrative because its prose contains actions, numbers, literal visitor text, incidental reference strings, or private-data patterns. Recognizable email/URL/phone substitutions still apply to model-bound input only; worker/CMS advisory instruction bytes and historical request digests remain unchanged. This accepts residual output disclosure risk, not a new public command response field.
+
 No browser/CRUD. The app-owned public resolver reads the native Strapi REST
 surfaces for `survey-qr-points`, `survey-settings`, and `survey-versions` with
 the server-held feedback token. Transactional intake remains
 `POST /api/tb113/public/submissions`; user JWT mirrors admin. Worker outputs
-omit prompts/comments/credentials/signed URLs/unvalidated model output.
+omit prompts, source comment records, credentials, signed URLs, and unvalidated model output; validated checkpoint narrative can contain literal visitor text or incidental references.
 
 ```ts
 // Normative
@@ -132,7 +134,7 @@ Changed terminal replay and `queued`/`succeeded` states return 409
 adapter may run only after the terminal commit succeeds and must deduplicate
 replays.
 
-The local checkpoint route accepts CMS-verified zero-comment and nonempty-comment **DIRECT** graphs plus synthetic **MAP/REDUCE** graphs. Isolated tests may inject external CountTokens/analysis/map/reduce providers; normal local development uses the approved Vertex adapters. CMS independently recomputes exact serialized request digests, smallest-fit chunk routing, evidence refs and chunk membership, map output digests, stage graph dependencies/order, structural/privacy/threshold checks, and state-version CAS under the generation row lock. Reduce digests must match the persisted CMS-verified map checkpoints, and the reducer receives only those maps plus immutable core metrics. Semantic truth and contradiction are intentionally not judged. Production `config/feedback.js` composes CMS-owned CountTokens and pinned Secret Manager evidence-key authorities only with the shared versioned report profile, pinned Secret Manager version, pinned Vertex project, and keyless Cloud Run identity; absent or malformed profile values leave production providers absent. In explicit development, CMS independently recounts the exact request segments through Vertex and derives a deterministic synthetic evidence key from the approved key ID/source revision/resource metadata and a fixed domain tag. That local key is predictable, only for synthetic data, and is NOT production security evidence; CMS does not obtain its key from the worker and makes no Secret Manager call in development. Provider calls remain lazy until checkpoint/complete validation. `W/complete` independently rechecks the complete route-specific stage graph, CMS-verified published projection, renderer/artifact bindings, and state version before atomically creating the report and succeeding the generation. Both actions require their own exact custom content API token scope and have no default grant.
+The local checkpoint route accepts CMS-verified zero-comment and nonempty-comment **DIRECT** graphs plus synthetic **MAP/REDUCE** graphs. Isolated tests may inject external CountTokens/analysis/map/reduce providers; normal local development uses the approved Vertex adapters. CMS independently recomputes exact serialized request digests, smallest-fit chunk routing, evidence refs and chunk membership, map output digests, stage graph dependencies/order, structural/reference-field/threshold checks, and state-version CAS under the generation row lock. Reduce digests must match the persisted CMS-verified map checkpoints, and the reducer receives only those maps plus immutable core metrics. Semantic truth and contradiction are intentionally not judged. Production `config/feedback.js` composes CMS-owned CountTokens and pinned Secret Manager evidence-key authorities only with the shared versioned report profile, pinned Secret Manager version, pinned Vertex project, and keyless Cloud Run identity; absent or malformed profile values leave production providers absent. In explicit development, CMS independently recounts the exact request segments through Vertex and derives a deterministic synthetic evidence key from the approved key ID/source revision/resource metadata and a fixed domain tag. That local key is predictable, only for synthetic data, and is NOT production security evidence; CMS does not obtain its key from the worker and makes no Secret Manager call in development. Provider calls remain lazy until checkpoint/complete validation. `W/complete` independently rechecks the complete route-specific stage graph, CMS-verified published projection, renderer/artifact bindings, and state version before atomically creating the report and succeeding the generation. Both actions require their own exact custom content API token scope and have no default grant.
 
 `POST W/claim`, `GET W/snapshot`, `PUT W/checkpoints/:stageKey`, `POST
 W/complete`, and `POST W/fail` require the native Strapi `content-api-token` strategy and their
@@ -352,9 +354,11 @@ does not provision production custom tokens or approve a deployment origin.
 The default getter composes the reader only when the exact operator origin and
 action-token map are valid; otherwise it remains fail-closed. The session JWT
 and public content token are never fallbacks. The source-to-browser
-projection strips object keys. `canDownload` remains false unless a mediated
-report reader is actually available and the report metadata is valid; no private
-object key is used to infer download capability. The default download getter
+projection strips object keys. The generation history retains its `canDownload`
+boolean for existing clients but sets it for every completed report; it does not
+probe artifact metadata or storage. The dashboard offers the download action for
+completed reports and surfaces a failed request. The authenticated download route
+remains authoritative for private metadata and object integrity. The default download getter
 composes the report metadata action token with the private GCS reader only when
 the same trusted origin/token settings and `FEEDBACK_PRIVATE_BUCKET` are valid;
 live bucket policy and IAM remain unverified.

@@ -58,6 +58,35 @@ describe("getDashboardShellProjection", () => {
     ).toEqual([ADMIN_ROUTES.ZONES, ADMIN_ROUTES.PRICES, ADMIN_ROUTES.BUSES]);
   });
 
+  it("enables feedback navigation only for the Digital Experience Operator", () => {
+    const administrator = getDashboardShellProjection({
+      currentRole: "Administrator",
+      isMaintenanceMode: false,
+      isFeedbackEnabled: true,
+    });
+    const operator = getDashboardShellProjection({
+      currentRole: "Digital Experience Operator",
+      isMaintenanceMode: false,
+      isFeedbackEnabled: true,
+    });
+
+    expect(
+      administrator.contentNavigation.find(
+        (item) => item.url === ADMIN_ROUTES.FEEDBACK,
+      )?.isDisabled,
+    ).toBe(true);
+    expect(
+      administrator.contentNavigation.find(
+        (item) => item.url === ADMIN_ROUTES.ZONES,
+      )?.isDisabled,
+    ).toBe(false);
+    expect(
+      operator.contentNavigation.find(
+        (item) => item.url === ADMIN_ROUTES.FEEDBACK,
+      )?.isDisabled,
+    ).toBe(false);
+  });
+
   it("hides feedback navigation while the server-side capability is closed", () => {
     const projection = getDashboardShellProjection({
       currentRole: "Administrator",

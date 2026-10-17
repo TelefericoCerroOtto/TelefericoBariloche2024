@@ -132,7 +132,7 @@ describe("submission acceptance", () => {
       value: {
         submissionReceipt: "00000000-0000-4000-8000-000000000001",
         acceptedAt: ACCEPTED_AT,
-        guardUntil: "2026-09-18T12:00:00.000Z",
+        guardUntil: "2026-09-24T12:00:00.000Z",
       },
     });
     expect(harness.rows()).toMatchObject([
@@ -268,7 +268,11 @@ describe("submission acceptance", () => {
 
     const result = await acceptSubmission(
       input(),
-      dependencies(store, vi.fn(async () => false), persistGuard),
+      dependencies(
+        store,
+        vi.fn(async () => false),
+        persistGuard,
+      ),
     );
 
     expect(result).toEqual({
@@ -277,7 +281,7 @@ describe("submission acceptance", () => {
       value: {
         submissionReceipt: "authoritative-receipt",
         acceptedAt: ACCEPTED_AT,
-        guardUntil: "2026-09-18T12:00:00.000Z",
+        guardUntil: "2026-09-24T12:00:00.000Z",
       },
     });
     expect(fetchImplementation).toHaveBeenCalledTimes(2);
@@ -315,10 +319,12 @@ describe("submission acceptance", () => {
       fetchImplementation: vi
         .fn()
         .mockResolvedValueOnce(Response.json(null))
-        .mockResolvedValueOnce(Response.json({
-          submissionReceipt: "authoritative-receipt",
-          acceptedAt: "not-a-date",
-        })),
+        .mockResolvedValueOnce(
+          Response.json({
+            submissionReceipt: "authoritative-receipt",
+            acceptedAt: "not-a-date",
+          }),
+        ),
     });
     const store = transport.acceptanceStore({
       pointDocumentId: "point-document",
@@ -327,7 +333,9 @@ describe("submission acceptance", () => {
       survey: { versionKey: "visitor-v1" },
     } as never);
 
-    await expect(acceptSubmission(input(), dependencies(store))).resolves.toEqual({
+    await expect(
+      acceptSubmission(input(), dependencies(store)),
+    ).resolves.toEqual({
       ok: false,
       error: { status: 503, code: "UPSTREAM_UNAVAILABLE" },
     });
@@ -349,7 +357,9 @@ describe("submission acceptance", () => {
       survey: { versionKey: "visitor-v1" },
     } as never);
 
-    await expect(acceptSubmission(input(), dependencies(store))).resolves.toEqual({
+    await expect(
+      acceptSubmission(input(), dependencies(store)),
+    ).resolves.toEqual({
       ok: false,
       error: { status: 503, code: "UPSTREAM_UNAVAILABLE" },
     });
@@ -399,7 +409,7 @@ describe("submission acceptance", () => {
     ]);
     expect(persistGuard).toHaveBeenCalledWith(
       "c".repeat(64),
-      "2026-09-18T12:00:00.000Z",
+      "2026-09-24T12:00:00.000Z",
     );
   });
 
@@ -431,7 +441,7 @@ describe("submission acceptance", () => {
       value: {
         submissionReceipt: "00000000-0000-4000-8000-000000000001",
         acceptedAt: ACCEPTED_AT,
-        guardUntil: "2026-09-18T12:00:00.000Z",
+        guardUntil: "2026-09-24T12:00:00.000Z",
       },
     });
     expect(harness.rows()).toHaveLength(1);

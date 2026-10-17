@@ -27,7 +27,8 @@ import { outputRejectionFor } from "../../../../services/survey-report-worker/sr
 import {
   executeReportWorker as executeReportWorkerWithDependencies,
 } from "../../../../services/survey-report-worker/src/worker-runtime";
-import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA, EMPTY_EVIDENCE_PARAGRAPH } from "../../../../services/survey-report-worker/src/direct-execution-plan";
+import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA, EMPTY_EVIDENCE_PARAGRAPH, redactCommentTextV1 } from "../../../../services/survey-report-worker/src/direct-execution-plan";
+import { MAP_INSTRUCTIONS, REDUCE_INSTRUCTIONS } from "../../../../services/survey-report-worker/src/map-reduce-execution-plan";
 import {
   CHECKPOINT_CONTRACT_VERSIONS,
   deriveChunkMembership,
@@ -371,25 +372,40 @@ function syntheticModelConfig(evidenceKeyId: string) {
 describe("worker PDF boundary", () => {
   beforeEach(() => vi.restoreAllMocks());
 
+  it("preserves the malformed-paragraph diagnostic without rejecting valid prose", () => {
+    const original = analysis();
+    const malformed = {
+      ...original,
+      sections: original.sections.map((section, index) =>
+        index === 0 ? { ...section, paragraphsEs: [""] } : section,
+      ),
+    };
+    let failure: unknown;
+    try {
+      validatePublishedAnalysis(malformed);
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(PdfValidationError);
+    expect(failure).toMatchObject({
+      message: "Analysis paragraph 0:0 is unsafe",
+      code: "INVALID_OUTPUT",
+      reasonCategory: "published_analysis_contract",
+    });
+    expect(original.sections[0]?.paragraphsEs).toEqual([EMPTY_EVIDENCE_PARAGRAPH]);
+  });
+
+  it("keeps the three recognizable input redactions without filtering output prose", () => {
+    expect(redactCommentTextV1("Visitor visitor@example.invalid at https://synthetic.invalid or +54 11 5555 1234; keep Valeria and Avenida Central.")).toBe(
+      "Visitor [EMAIL] at [URL] or [PHONE]; keep Valeria and Avenida Central.",
+    );
+  });
+
   it("maps typed PDF validation boundaries to closed render rejection categories", () => {
     const invalidAnalysis = { ...analysis(), sections: [] };
     const analysisFailure = (() => {
       try {
         validatePublishedAnalysis(invalidAnalysis);
-      } catch (error) {
-        return error;
-      }
-    })();
-    const evidenceFailure = (() => {
-      try {
-        validatePublishedAnalysis({
-          ...analysis(),
-          sections: analysis().sections.map((section, index) =>
-            index === 0
-              ? { ...section, paragraphsEs: ["SYNTHETIC e_abcdefghijklmnopqrst"] }
-              : section,
-          ),
-        });
       } catch (error) {
         return error;
       }
@@ -408,11 +424,9 @@ describe("worker PDF boundary", () => {
       stage: "render",
       reasonCategory: "published_analysis_contract",
     });
-    expect(evidenceFailure).toBeInstanceOf(PdfValidationError);
-    expect(outputRejectionFor(evidenceFailure, "render")).toEqual({
-      stage: "render",
-      reasonCategory: "evidence_reference",
-    });
+    expect(validatePublishedAnalysis({ ...analysis(), sections: analysis().sections.map((section, index) =>
+      index === 0 ? { ...section, paragraphsEs: ["SYNTHETIC e_abcdefghijklmnopqrst"] } : section,
+    ) }).sections[0]?.paragraphsEs).toEqual(["SYNTHETIC e_abcdefghijklmnopqrst"]);
     expect(chartFailure).toBeInstanceOf(RendererValidationError);
     expect(outputRejectionFor(chartFailure, "render")).toEqual({
       stage: "render",
@@ -442,7 +456,7 @@ describe("worker PDF boundary", () => {
     ).toEqual({ stage: "render", reasonCategory: "unclassified" });
   });
 
-  it("classifies a verbatim-comment boundary without exposing the marker", async () => {
+  it("renders validated literal comments and incidental references without suppressing structural validation", async () => {
     const text = "SYNTHETIC_VERBATIM_COMMENT_MARKER";
     const envelope = createSnapshot({
       sourceRevision: "synthetic-verbatim-source",
@@ -466,29 +480,26 @@ describe("worker PDF boundary", () => {
       definitions: [{ aspectKey: "other", sortOrder: 99 }],
       points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
     });
-    let failure: unknown;
-    try {
-      const output = analysis();
-      await renderValidatedPdf(
-        envelope,
-        {
-          ...output,
-          sections: output.sections.map((section, index) =>
-            index === 0 ? { ...section, paragraphsEs: [text] } : section,
-          ),
-        },
-        createDeterministicTestPdfRenderer(),
-      );
-    } catch (error) {
-      failure = error;
-    }
-
-    expect(failure).toBeInstanceOf(PdfValidationError);
-    expect(outputRejectionFor(failure)).toEqual({
-      stage: "render",
-      reasonCategory: "verbatim_comment_rule",
+    const output = analysis();
+    const paragraphsEs = [text, "Referencia e_abcdefghijklmnopqrst", "Recomendamos mejorar el acceso 99."];
+    const candidate = { ...output, sections: output.sections.map((section, index) =>
+      index === 0 ? { ...section, status: "supported" as const, paragraphsEs } : section,
+    ) };
+    let html = "";
+    const artifact = await renderValidatedPdf(envelope, candidate, {
+      rendererVersion: "synthetic.v1",
+      async render(document) {
+        html = document.html;
+        return new Uint8Array([37, 80, 68, 70]);
+      },
     });
-    expect(JSON.stringify(outputRejectionFor(failure))).not.toContain(text);
+    for (const paragraph of paragraphsEs) expect(html).toContain(paragraph);
+    expect(artifact.mimeType).toBe("application/pdf");
+    expect(artifact.size).toBe(4);
+    expect(artifact.sha256).toBe(createHash("sha256").update(artifact.bytes).digest("hex"));
+    await expect(renderValidatedPdf(envelope, { ...candidate, sections: [] }, {
+      rendererVersion: "synthetic.v1", render: async () => { throw new Error("renderer should not run"); },
+    })).rejects.toMatchObject({ code: "INVALID_OUTPUT", reasonCategory: "published_analysis_contract" });
   });
 
   it("emits a closed render rejection only after a terminal chart-contract failure", async () => {
@@ -1981,34 +1992,79 @@ describe("worker PDF boundary", () => {
     expect(first).toEqual(second);
   });
 
-  it("builds the fixed eight-section report with the five charts in their assigned sections", () => {
-    const html = renderReportHtml(snapshot().payload, analysis()).html;
-    const sectionTitles = [...html.matchAll(/data-section-title="([^"]+)"/g)].map(
-      ([, title]) => title,
-    );
+  it("builds a continuous report with two fixed charts and one empty-comment explanation", () => {
+    const { html, chartCount } = renderReportHtml(snapshot().payload, analysis());
     const chartIds = [...html.matchAll(/data-chart-id="([^"]+)"/g)].map(
       ([, id]) => id,
     );
 
-    expect(sectionTitles).toEqual([
-      "Portada",
-      "Resumen ejecutivo",
-      "Panorama oficial",
-      "Distribución y evolución",
-      "Aspectos",
-      "Puntos QR",
-      "Voz del visitante",
-      "Cobertura y limitaciones",
-    ]);
-    expect(chartIds).toEqual([
-      "star-distribution",
-      "satisfaction-evolution",
-      "response-volume-evolution",
-      "aspect-comparison",
-      "qr-point-comparison",
-    ]);
-    expect((html.match(/<table>/g) ?? []).length).toBe(5);
-    expect((html.match(/<caption>/g) ?? []).length).toBe(5);
+    expect(html).toContain("Informe de comentarios de visitantes");
+    expect(html).toContain("01/09/2026");
+    expect(html).toContain("21/09/2026");
+    expect(html).not.toContain("Portada");
+    expect(html).not.toContain("break-before:page");
+    expect(chartIds).toEqual(["star-distribution", "aspect-comparison"]);
+    expect(chartCount).toBe(2);
+    expect((html.match(/<table>/g) ?? []).length).toBe(2);
+    expect((html.match(/<caption>/g) ?? []).length).toBe(2);
+    expect((html.match(/No hay comentarios escritos para analizar/g) ?? []).length).toBe(1);
+    expect(html).not.toContain("Análisis generado con IA");
+  });
+
+  it("asks the model for a concise evidence-cited synthesis without changing the closed analysis duties", () => {
+    expect(DIRECT_INSTRUCTIONS).toContain("concise");
+    expect(DIRECT_INSTRUCTIONS).toContain("individual observation");
+    expect(DIRECT_INSTRUCTIONS).toContain("exact seven-section");
+    expect(MAP_INSTRUCTIONS).toContain("concise");
+    expect(REDUCE_INSTRUCTIONS).toContain("brief executive synthesis");
+    for (const instructions of [DIRECT_INSTRUCTIONS, MAP_INSTRUCTIONS, REDUCE_INSTRUCTIONS]) {
+      expect(instructions).toContain("evidence refs");
+      expect(instructions).toContain("Do not");
+    }
+  });
+
+  it("uses dashboard-scale KPIs and presents supported commentary after official evidence", () => {
+    const input = createSnapshot({
+      sourceRevision: "test-source",
+      createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z",
+      range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: ([4, 5, 5] as const).map((overallRating, index) => ({
+        recordId: `synthetic-${index}`,
+        receipt: `receipt-${index}`,
+        acceptedAt: `2026-09-01T12:00:0${index}.000Z`,
+        source: "valid_qr",
+        versionKey: "v1",
+        pointKey: "point-a",
+        overallRating,
+        locale: "es",
+        commentText: index === 0 ? "Una observación sintética breve" : null,
+        payloadDigest: "a".repeat(64),
+        aspects: [],
+      })),
+      definitions: [{ aspectKey: "other", sortOrder: 99 }],
+      points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
+    });
+    const published = analysis();
+    const supported = {
+      ...published,
+      sections: published.sections.map((section) => section.key === "executive_summary"
+        ? { ...section, status: "supported" as const, paragraphsEs: ["Las vistas reciben elogios."] }
+        : section) as unknown as PublishedAnalysisV1["sections"],
+    } as PublishedAnalysisV1;
+    const html = renderReportHtml(input.payload, supported).html;
+
+    expect(html).toContain("4,7 / 5");
+    expect(html).toContain("100 %");
+    expect(html).toContain("Comentarios escritos analizados: <strong>1</strong>");
+    expect(html).toContain("Point A: 3 respuestas");
+    expect(html).not.toContain("4667");
+    expect(html).not.toContain("10000 puntos base");
+    expect(html.indexOf('data-chart-id="aspect-comparison"')).toBeLessThan(html.indexOf("Las vistas reciben elogios."));
+    expect((html.match(/Las vistas reciben elogios\./g) ?? []).length).toBe(1);
+    expect(html).toContain("Análisis generado con IA");
+    expect(html).not.toContain(EMPTY_EVIDENCE_PARAGRAPH);
   });
 
   it("rejects a tampered snapshot before the renderer is called", async () => {

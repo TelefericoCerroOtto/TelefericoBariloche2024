@@ -34,28 +34,28 @@ Map output MUST target 600-1,200 tokens and never exceed 4,000; direct/reduce MU
 - WHEN validated
 - THEN it MUST be invalid and MUST NOT advance its checkpoint.
 
-### Requirement: Privacy-preserving evidence contract
+### Requirement: Redacted model input and structured evidence contract
 
-Original ES/EN/PT comments MUST remain untranslated at input. Model copies MUST redact recognizable emails, phones, and URLs with typed placeholders. Opaque evidence references MAY exist only in worker memory or sanitized checkpoints for validation and MUST be stripped from UI/PDF output. (Primary: D54-D55)
+Original ES/EN/PT comments MUST remain untranslated at input. Model copies MUST redact recognizable emails, phones, and URLs with typed placeholders. This three-pattern substitution does not mask names, addresses, or all private information. Required evidence-reference fields MUST use valid opaque references to eligible snapshot comments; incidental references in prose are not an output rejection condition. (Primary: D54-D55; the former output-disclosure restriction is superseded by the approved structural-only policy.)
 
-#### Scenario: Validate evidence without disclosure
+#### Scenario: Validate reference fields independently of prose
 - GIVEN a claim cites opaque references that have valid syntax and resolve to distinct eligible snapshot comments
 - WHEN output is validated and published
-- THEN reference membership MUST be verifiable internally while references and verbatim comments are absent publicly; membership MUST NOT be represented as proof that the claim's meaning is semantically supported.
+- THEN reference-field membership MUST be verifiable internally without scanning prose for references or verbatim comments; membership MUST NOT be represented as proof that the claim's meaning is semantically supported.
 
 ### Requirement: Structurally validated Spanish narrative
 
-Output MUST be structured Spanish, descriptive only, and limited to: executive summary, observed changes, strengths, unfavorable areas, recurrent themes, minority signals, and coverage/limitations. It MUST contain no recommendations, actions, causal claims, verbatim comments, exposed evidence references, prohibited content, or invented official metric values. Official metrics MUST come only from the immutable deterministic core snapshot; the model MUST NOT calculate or alter them. Validate the closed schema and version, required section order, status/claim shape, reference syntax and membership, applicable deterministic evidence thresholds, privacy, prohibited content, and output bounds. Do NOT automatically judge whether the narrative is semantically truthful to comments, grounded in their meaning, or free of contradictory interpretation. This fallibility is an accepted residual product limitation. Human editorial review MAY occur but MUST NOT be a per-report acceptance gate. (Primary: D62-D63, D68)
+Output MUST have the closed versioned seven-section structure: executive summary, observed changes, strengths, unfavorable areas, recurrent themes, minority signals, and coverage/limitations. Official metrics displayed as authoritative MUST come only from the immutable deterministic core snapshot; the model MUST NOT calculate or alter them. Validate the closed schema and version, required section order, status/claim shape, reference-field syntax and membership, applicable deterministic evidence thresholds, and output-token bounds. Do not deterministically reject output based on prose wording, numbers, literal comments, incidental evidence references, or private-data patterns. The versioned advisory worker/CMS instructions request concise, distinct, evidence-cited Spanish synthesis with no actions, recommendations, or causal claims; they must remain byte-identical across both processes for each revision. Prompt version `feedback-report-prompt.v2` and source revision `feedback-report-profile.v2` identify the new request digests. Previously persisted runs retain their original versioned checkpoints; an operator must finish or explicitly resolve in-flight old-revision runs before deploying new worker/CMS instructions, not resume them across a mixed revision. No automated semantic-truth check or human editorial approval is required per report. The accepted residual risk includes inaccurate narrative, literal visitor comments, internal references, and private information outside the three recognizable input-redaction patterns. (Primary: D62-D63, D68; former output content bans superseded.)
 
 #### Scenario: Accept structurally valid nonempty analysis
-- GIVEN nonempty structured Spanish output that satisfies the schema, order, reference/membership, deterministic threshold, privacy, prohibited-content, and output-bound checks
+- GIVEN nonempty output that satisfies the schema, order, reference-field membership, deterministic thresholds, and output bounds, even if its prose contains a literal comment, an incidental reference, or an invented number
 - WHEN no independent routing, checkpoint, authentication, or runtime gate remains unresolved
 - THEN the output MAY proceed to rendering without automated semantic-truth judgment or required human editorial review, and the system MUST NOT claim that those checks prove narrative truth.
 
-#### Scenario: Reject prohibited or unsafe narrative
-- GIVEN output recommends an action, claims causation, reproduces a comment, exposes an evidence reference, violates the closed structure, or introduces an official metric value not sourced from the deterministic core
+#### Scenario: Reject malformed output contracts
+- GIVEN output violates the closed structure, contains a foreign required evidence reference, or exceeds the stage output-token bound
 - WHEN validated
-- THEN it MUST be rejected and MUST NOT appear in a report.
+- THEN it MUST be rejected before checkpointing and MUST NOT appear in a report.
 
 ### Requirement: Bounded error-aware retries
 
