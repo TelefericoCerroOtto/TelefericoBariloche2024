@@ -47,7 +47,6 @@ describe("getDashboardShellProjection", () => {
       ADMIN_ROUTES.FAQS,
       ADMIN_ROUTES.FEEDBACK,
       ADMIN_ROUTES.RECRUITMENT,
-      ADMIN_ROUTES.ADMIN_GALLERY,
       ADMIN_ROUTES.ADMIN_USERS,
       ADMIN_ROUTES.REVALIDATE,
     ]);
@@ -56,6 +55,25 @@ describe("getDashboardShellProjection", () => {
         .filter((item) => !item.isDisabled)
         .map((item) => item.url),
     ).toEqual([ADMIN_ROUTES.ZONES, ADMIN_ROUTES.PRICES, ADMIN_ROUTES.BUSES]);
+  });
+
+  it("does not present the discarded multimedia entry to any staff role", () => {
+    for (const currentRole of [
+      "Administrator",
+      "Digital Experience Operator",
+    ] as const) {
+      const projection = getDashboardShellProjection({
+        currentRole,
+        isMaintenanceMode: false,
+        isFeedbackEnabled: true,
+      });
+
+      expect(
+        projection.contentNavigation.some(
+          (item) => item.url === ADMIN_ROUTES.ADMIN_GALLERY,
+        ),
+      ).toBe(false);
+    }
   });
 
   it("enables feedback navigation only for the Digital Experience Operator", () => {

@@ -111,7 +111,8 @@ test('documents the four role-derived application capabilities without durable g
 
   assert.deepEqual(documentedCapabilities, APP_FEEDBACK_CAPABILITIES);
   assert.match(documentation, /Only the exact\s+`Administrator` and `Digital Experience Operator` role names receive this\s+bundle/);
-  assert.match(documentation, /blocked users, `Public`, `Authenticated`, and\s+`Media Manager` receive none/);
+  assert.match(documentation, /only current custom operational roles are `Administrator` and\s+`Digital Experience Operator`/);
+  assert.match(documentation, /`Public` and\s+`Authenticated` roles/);
   assert.match(documentation, /No role or token grant is provisioned automatically/);
   assert.match(documentation, /not Strapi action IDs or durable Users &\s+Permissions rows/);
   assert.match(documentation, /U7,\s+U8, and U10/);

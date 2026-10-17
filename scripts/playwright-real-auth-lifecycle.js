@@ -212,9 +212,9 @@ async function main() {
   }
 
   const adminEmail = `administrator-${namespace}@real-auth.invalid`;
-  const mediaEmail = `media-manager-${namespace}@real-auth.invalid`;
+  const operatorEmail = `experience-operator-${namespace}@real-auth.invalid`;
   const adminPassword = crypto.randomBytes(32).toString("base64url");
-  const mediaPassword = crypto.randomBytes(32).toString("base64url");
+  const operatorPassword = crypto.randomBytes(32).toString("base64url");
   const isolatedEnvironment = { ...process.env };
   delete isolatedEnvironment.BUILD_STRAPI_CONTENT_TOKEN;
   const serviceRegistry = new shared.CleanupRegistry();
@@ -239,8 +239,8 @@ async function main() {
     JWT_SECRET: `${readinessSecret}-jwt`,
     PLAYWRIGHT_REAL_AUTH_ADMIN_EMAIL: adminEmail,
     PLAYWRIGHT_REAL_AUTH_ADMIN_PASSWORD: adminPassword,
-    PLAYWRIGHT_REAL_AUTH_MEDIA_EMAIL: mediaEmail,
-    PLAYWRIGHT_REAL_AUTH_MEDIA_PASSWORD: mediaPassword,
+    PLAYWRIGHT_REAL_AUTH_OPERATOR_EMAIL: operatorEmail,
+    PLAYWRIGHT_REAL_AUTH_OPERATOR_PASSWORD: operatorPassword,
   };
 
   const baseURL = "http://127.0.0.1:3200";
@@ -332,8 +332,8 @@ async function main() {
         PLAYWRIGHT_REAL_AUTH_MARKER: `tb122-real-auth:${namespace}`,
         PLAYWRIGHT_REAL_AUTH_ADMIN_EMAIL: adminEmail,
         PLAYWRIGHT_REAL_AUTH_ADMIN_PASSWORD: adminPassword,
-        PLAYWRIGHT_REAL_AUTH_MEDIA_EMAIL: mediaEmail,
-        PLAYWRIGHT_REAL_AUTH_MEDIA_PASSWORD: mediaPassword,
+        PLAYWRIGHT_REAL_AUTH_OPERATOR_EMAIL: operatorEmail,
+        PLAYWRIGHT_REAL_AUTH_OPERATOR_PASSWORD: operatorPassword,
         PLAYWRIGHT_REAL_AUTH_KNOWN_STRAPI_JWT: knownStrapiJwt,
       },
       logPath: LOGS.playwright,
@@ -357,7 +357,7 @@ async function main() {
   printDiagnostics(effectivePrimary, cleanup, services, [
     readinessSecret,
     adminPassword,
-    mediaPassword,
+    operatorPassword,
     knownStrapiJwt,
     contentApiToken,
   ]);
