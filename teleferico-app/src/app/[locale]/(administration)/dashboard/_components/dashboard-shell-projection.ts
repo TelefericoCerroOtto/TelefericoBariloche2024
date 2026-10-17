@@ -2,7 +2,6 @@ import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import type { UserRole } from "@/types";
 
 type SidebarIconName =
-  | "admin-gallery"
   | "admin-users"
   | "buses"
   | "faqs"
@@ -69,7 +68,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "news",
     implemented: true,
     tooltip: "Gestionar noticias del sitio web",
-    allowedRoles: ["Administrator", "Media Manager"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Preguntas Frecuentes",
@@ -77,7 +76,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "faqs",
     implemented: true,
     tooltip: "Gestionar preguntas frecuentes del sitio web",
-    allowedRoles: ["Administrator", "Media Manager"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Feedback del público",
@@ -94,14 +93,6 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     implemented: true,
     tooltip: "Gestionar curriculums de postulantes",
     allowedRoles: ["Administrator", "Recruiter"],
-  },
-  {
-    name: "Multimedia",
-    url: ADMIN_ROUTES.ADMIN_GALLERY,
-    icon: "admin-gallery",
-    implemented: false,
-    tooltip: "Gestión de recursos multimedia",
-    allowedRoles: ["Administrator", "Media Manager"],
   },
   {
     name: "Usuarios",

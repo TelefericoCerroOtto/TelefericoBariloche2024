@@ -24,8 +24,8 @@ vi.mock("next/cache", () => ({
 }));
 
 const session = {
-  jwt: "operator-jwt",
-  user: { role: { name: "Operations Supervisor" } },
+  jwt: "admin-jwt",
+  user: { role: { name: "Administrator" } },
 };
 
 function createRequest(body = JSON.stringify({ state: "conditional" })) {
@@ -82,16 +82,25 @@ describe("PUT /api/admin/service-state", () => {
     expect(mocks.updateServiceState).not.toHaveBeenCalled();
   });
 
-  it("rejects roles outside service operations", async () => {
+  it.each([
+    "Operations Supervisor",
+    "Digital Experience Operator",
+    "Media Manager",
+  ])("rejects service-state updates from %s", async (role) => {
     mocks.requireCsrfSession.mockResolvedValue({
       ok: true,
-      session: { ...session, user: { role: { name: "Media Manager" } } },
+      session: { ...session, user: { role: { name: role } } },
     });
 
     const response = await update();
 
     expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      message: "Forbidden",
+    });
     expect(mocks.updateServiceState).not.toHaveBeenCalled();
+    expect(mocks.revalidateTag).not.toHaveBeenCalled();
   });
 
   it("rejects malformed and unsupported service states", async () => {
@@ -122,13 +131,18 @@ describe("PUT /api/admin/service-state", () => {
     consoleError.mockRestore();
   });
 
-  it("updates with the operator JWT and revalidates the public state", async () => {
+  it("updates with the Administrator JWT and revalidates the public state", async () => {
     const response = await update();
 
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      message: "Service state updated",
+      data: { state: "conditional" },
+    });
     expect(mocks.updateServiceState).toHaveBeenCalledWith(
       "conditional",
-      "operator-jwt",
+      "admin-jwt",
     );
     expect(mocks.revalidateTag).toHaveBeenCalledWith("service-state");
   });

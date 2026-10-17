@@ -8,15 +8,9 @@ import { updateServiceState } from "@/lib/services";
 import type {
   ServiceStateAdminApiResponse,
   ServiceStateAdminRequestPayload,
-  UserRole,
 } from "@/types";
 import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
-
-const ALLOWED_ROLES: UserRole["name"][] = [
-  "Administrator",
-  "Operations Supervisor",
-];
 
 function jsonResponse(body: ServiceStateAdminApiResponse, status: number) {
   return NextResponse.json(body, { status });
@@ -30,7 +24,7 @@ export async function PUT(req: NextRequest) {
     const csrf = await requireCsrfSession(req);
     if (!csrf.ok) return csrf.res;
 
-    if (!ALLOWED_ROLES.includes(csrf.session.user.role.name)) {
+    if (csrf.session.user.role.name !== "Administrator") {
       return jsonResponse({ ok: false, message: "Forbidden" }, 403);
     }
 
