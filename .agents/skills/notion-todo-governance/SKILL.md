@@ -13,7 +13,7 @@ Use this skill when the request is about creating, cleaning up, deduplicating, t
 
 ## Hard Rules
 
-- **LANGUAGE POLICY: All artifacts created in GitHub Issues and Notion items MUST be written in English. Only the interactive chat with the user can be in Spanish.**
+- Follow `docs/todo-workflow.md#language-rule` for Notion backlog content and `AGENTS.md#language-policy` for GitHub artifacts. Do not apply the backlog's English rule to other Notion sections.
 
 - The only canonical backlog is **Backlog unificado**: database `adf69803-af21-49a1-a98f-e5afa6f95be5`, data source `c0734f69-87ea-43ca-a757-3bb80a41cbbc`. Never write to suffixed copies such as `Backlog unificado (1)`.
 - Never add new work items to `TODO.md` or ad-hoc legacy checklists.
