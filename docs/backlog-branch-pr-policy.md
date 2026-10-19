@@ -19,7 +19,7 @@ This document defines how Notion items are associated with branches and implemen
 
 ## Language Policy for Artifacts
 
-**All artifacts created in GitHub Issues and Notion items MUST be written in English. Only the interactive chat can be in Spanish.**
+Follow the [backlog language rule](todo-workflow.md#language-rule) for Notion content and the [repository language policy](../AGENTS.md#language-policy) for GitHub artifacts.
 
 ## Base Rules
 
