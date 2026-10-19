@@ -15,10 +15,7 @@ export type UserRoles =
   | "Public"
   | "Authenticated"
   | "Administrator"
-  | "Digital Experience Operator"
-  | "Media Manager"
-  | "Recruiter"
-  | "Operations Supervisor";
+  | "Digital Experience Operator";
 
 export type UserRole = {
   id: number;

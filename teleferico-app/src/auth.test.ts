@@ -155,7 +155,7 @@ describe("Auth.js callbacks", () => {
   it("recomputes capabilities from the latest verified role and blocks revoked users", async () => {
     mocks.verifySession.mockResolvedValueOnce({
       isLogged: true,
-      user: verifiedUser("Media Manager"),
+      user: verifiedUser("Authenticated"),
     });
     const changedRoleToken = await authCallbacks.jwt({
       token: {
@@ -167,7 +167,7 @@ describe("Auth.js callbacks", () => {
     });
 
     expect(changedRoleToken).toMatchObject({
-      role: { name: "Media Manager" },
+      role: { name: "Authenticated" },
       capabilities: [],
     });
 

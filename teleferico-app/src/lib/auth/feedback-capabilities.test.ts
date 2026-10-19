@@ -30,7 +30,6 @@ describe("feedback capabilities from verified CMS users", () => {
     ["unknown role", { blocked: false, role: { name: "Unknown" } }],
     ["public role", { blocked: false, role: { name: "Public" } }],
     ["authenticated role", { blocked: false, role: { name: "Authenticated" } }],
-    ["media manager role", { blocked: false, role: { name: "Media Manager" } }],
     ["blocked administrator", { blocked: true, role: { name: "Administrator" } }],
     ["blocked operator", { blocked: true, role: { name: "Digital Experience Operator" } }],
   ])("denies %s", (_label, user) => {
