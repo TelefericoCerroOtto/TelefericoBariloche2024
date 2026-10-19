@@ -141,6 +141,29 @@ test("manifest records stable document identities for draft-and-publish fixtures
   );
 });
 
+test("real-auth fixture uses only the current operational role names", () => {
+  assert.deepEqual(
+    provisioner.ROLE_DEFINITIONS.map(({ key, name, actions }) => ({ key, name, actions })),
+    [
+      {
+        key: "administrator",
+        name: "Administrator",
+        actions: [
+          provisioner.ACTIONS.roleFind,
+          provisioner.ACTIONS.me,
+          provisioner.ACTIONS.postulationFind,
+          provisioner.ACTIONS.serviceStateUpdate,
+        ],
+      },
+      {
+        key: "digitalExperienceOperator",
+        name: "Digital Experience Operator",
+        actions: [provisioner.ACTIONS.roleFind, provisioner.ACTIONS.me],
+      },
+    ],
+  );
+});
+
 test("verification and cleanup follow logical fixtures after physical ID drift", async () => {
   const context = fixtureContext();
   const manifest = fixtureManifest(context);

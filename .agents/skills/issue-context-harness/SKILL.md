@@ -15,7 +15,7 @@ This skill complements `notion-todo-governance`: it resolves context for executi
 
 ## Hard Rules
 
-- **LANGUAGE POLICY: All artifacts created in GitHub Issues and Notion items MUST be written in English. Only the interactive chat with the user can be in Spanish.**
+- Follow `docs/todo-workflow.md#language-rule` for Notion backlog content and `AGENTS.md#language-policy` for GitHub artifacts. Do not apply the backlog's English rule to other Notion sections.
 
 - Treat `docs/issue-context-contract.md` as canonical for issue structure and artifact expectations.
 - Resolve references silently by default; do not emit unsolicited context dumps.

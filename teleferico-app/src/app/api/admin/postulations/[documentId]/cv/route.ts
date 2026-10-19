@@ -3,14 +3,12 @@ import { ENV_KEYS } from "@/lib/constants/env.const";
 import { ensureTrustedBrowserRequest } from "@/lib/http/guards";
 import { getPostulationByDocumentId } from "@/lib/services";
 import { createCvStorage } from "@/lib/services/cv-storage";
-import type { UserRole } from "@/types";
 import { assertEnv } from "@/utils/env";
 import { Readable } from "node:stream";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const ALLOWED_ROLES: UserRole["name"][] = ["Administrator", "Recruiter"];
 
 function sanitizeDownloadFilename(filename: string) {
   return filename.replace(/["\r\n]/g, "_");
@@ -44,7 +42,7 @@ export async function GET(
     }
 
     const roleName = session.user?.role?.name;
-    if (!roleName || !ALLOWED_ROLES.includes(roleName)) {
+    if (roleName !== "Administrator") {
       return NextResponse.json(
         { message: "Forbidden" },
         { status: 403 },

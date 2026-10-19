@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-type RoleName = "Administrator" | "Media Manager";
+type RoleName = "Administrator" | "Digital Experience Operator";
 type SessionPayload = {
   csrfToken?: string;
   user?: { role?: { name?: string } };
@@ -17,7 +17,7 @@ const knownStrapiJwt = requiredEnvironment(
   "PLAYWRIGHT_REAL_AUTH_KNOWN_STRAPI_JWT",
 );
 const users: Record<
-  "administrator" | "mediaManager",
+  "administrator" | "digitalExperienceOperator",
   { email: string; password: string; role: RoleName }
 > = {
   administrator: {
@@ -25,10 +25,10 @@ const users: Record<
     password: requiredEnvironment("PLAYWRIGHT_REAL_AUTH_ADMIN_PASSWORD"),
     role: "Administrator",
   },
-  mediaManager: {
-    email: requiredEnvironment("PLAYWRIGHT_REAL_AUTH_MEDIA_EMAIL"),
-    password: requiredEnvironment("PLAYWRIGHT_REAL_AUTH_MEDIA_PASSWORD"),
-    role: "Media Manager",
+  digitalExperienceOperator: {
+    email: requiredEnvironment("PLAYWRIGHT_REAL_AUTH_OPERATOR_EMAIL"),
+    password: requiredEnvironment("PLAYWRIGHT_REAL_AUTH_OPERATOR_PASSWORD"),
+    role: "Digital Experience Operator",
   },
 };
 function requiredEnvironment(name: string) {
@@ -311,11 +311,13 @@ test.describe("real Auth.js and Strapi authorization", () => {
     await logout(page);
   });
 
-  test("Media Manager keeps permitted app access while protected operations are denied", async ({
+  test("Digital Experience Operator can view service state while protected operations are denied", async ({
     page,
   }) => {
-    const session = await login(page, users.mediaManager);
-    await expect(page.getByRole("link", { name: "Noticias" })).toBeEnabled();
+    const session = await login(page, users.digitalExperienceOperator);
+    await expect(page.locator("header").getByRole("status")).toContainText(
+      "Estado del servicio: Normal",
+    );
     const read = await sameOriginRequest(page, "/api/proxy/api/postulations");
     expect(read.status).toBe(403);
 

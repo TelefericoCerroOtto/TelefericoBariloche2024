@@ -2,7 +2,6 @@ import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import type { UserRole } from "@/types";
 
 type SidebarIconName =
-  | "admin-gallery"
   | "admin-users"
   | "buses"
   | "faqs"
@@ -45,7 +44,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "zones",
     implemented: true,
     tooltip: "Gestionar horarios y zonas del complejo",
-    allowedRoles: ["Administrator", "Operations Supervisor"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Tarifas",
@@ -53,7 +52,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "prices",
     implemented: true,
     tooltip: "Gestionar tarifas de ascenso y actividades",
-    allowedRoles: ["Administrator", "Operations Supervisor"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Buses",
@@ -61,7 +60,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "buses",
     implemented: true,
     tooltip: "Gestionar horarios de viajes de buses",
-    allowedRoles: ["Administrator", "Operations Supervisor"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Noticias",
@@ -69,7 +68,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "news",
     implemented: true,
     tooltip: "Gestionar noticias del sitio web",
-    allowedRoles: ["Administrator", "Media Manager"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Preguntas Frecuentes",
@@ -77,7 +76,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "faqs",
     implemented: true,
     tooltip: "Gestionar preguntas frecuentes del sitio web",
-    allowedRoles: ["Administrator", "Media Manager"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Feedback del público",
@@ -93,15 +92,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "recruitment",
     implemented: true,
     tooltip: "Gestionar curriculums de postulantes",
-    allowedRoles: ["Administrator", "Recruiter"],
-  },
-  {
-    name: "Multimedia",
-    url: ADMIN_ROUTES.ADMIN_GALLERY,
-    icon: "admin-gallery",
-    implemented: false,
-    tooltip: "Gestión de recursos multimedia",
-    allowedRoles: ["Administrator", "Media Manager"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Usuarios",

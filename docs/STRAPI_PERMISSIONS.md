@@ -64,6 +64,13 @@ Content exposed through the public-facing application must be treated as publish
 
 The Strapi `Public` role must not be used to make the public website work. Public website reads go through the server-side content token instead.
 
+The dashboard header reads the current `service-state` through the public-content
+proxy for every logged-in role. Only `Administrator` may open its change menu or
+use the authenticated app service-state PUT route. Do not grant
+`service-state.update` to any other Users & Permissions role; remove any
+existing grant in each environment. The app route restriction does not revoke
+a direct Strapi permission.
+
 `image-asset` does not need a browser proxy route. It is read only as part of server-side CMS content requests authorized with `BUILD_STRAPI_CONTENT_TOKEN`.
 
 ## API tokens
@@ -141,14 +148,19 @@ For the public submission command, an HTTP 204 from `lookup` means no prior subm
 
 These roles belong to the Users & Permissions plugin and are separate from Strapi Admin Panel roles.
 
+The only current custom operational roles are `Administrator` and
+`Digital Experience Operator`. Keep the plugin's default `Public` and
+`Authenticated` roles. The isolated real-auth test roles below are not
+additional operational roles in persistent environments.
+
 ### Ephemeral Playwright real-auth roles
 
-The real-auth harness creates run-scoped role equivalents with the exact application-visible names `Administrator` and `Media Manager`. Their unique role types and descriptions contain the synthetic run marker; they never replace or update persistent roles. Provisioning fails if either exact name already belongs to another role in the disposable database.
+The real-auth harness creates run-scoped role equivalents with the exact application-visible names `Administrator` and `Digital Experience Operator`. Their unique role types and descriptions contain the synthetic run marker; they never replace or update persistent roles. Provisioning fails if either exact name already belongs to another role in the disposable database.
 
 | Synthetic role | `users-permissions.role.find` | `users-permissions.user.me` | `postulation.find` | `service-state.update` |
 | --- | :---: | :---: | :---: | :---: |
 | `Administrator` | ✅ | ✅ | ✅ | ✅ |
-| `Media Manager` | ✅ | ✅ | — | — |
+| `Digital Experience Operator` | ✅ | ✅ | — | — |
 
 `users-permissions.role.find` is required for Strapi to retain the populated role relation when sanitizing `/users/me?populate=*`; it does not grant role mutation. The Strapi JWT remains server-only.
 
@@ -338,8 +350,8 @@ administration routes. They are not Strapi action IDs or durable Users &
 Permissions rows. Auth.js derives them server-side from the currently verified
 Users & Permissions role on every session verification. Only the exact
 `Administrator` and `Digital Experience Operator` role names receive this
-bundle. Missing/unknown roles, blocked users, `Public`, `Authenticated`, and
-`Media Manager` receive none. Changing a user's role or blocking the account is
+bundle. Missing or unknown roles, blocked users, and `Public` or
+`Authenticated` users receive none. Changing a user's role or blocking the account is
 reflected by the verified `users/me?populate=role` session check; no role claim
 is accepted from the browser.
 

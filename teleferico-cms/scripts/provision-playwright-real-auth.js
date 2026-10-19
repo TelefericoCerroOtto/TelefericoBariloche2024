@@ -36,8 +36,8 @@ const ROLE_DEFINITIONS = Object.freeze([
     ],
   },
   {
-    key: "mediaManager",
-    name: "Media Manager",
+    key: "digitalExperienceOperator",
+    name: "Digital Experience Operator",
     actions: [ACTIONS.roleFind, ACTIONS.me],
   },
 ]);
@@ -135,12 +135,12 @@ async function createUser(strapi, definition, role, context) {
   const email = process.env[
     administrator
       ? "PLAYWRIGHT_REAL_AUTH_ADMIN_EMAIL"
-      : "PLAYWRIGHT_REAL_AUTH_MEDIA_EMAIL"
+      : "PLAYWRIGHT_REAL_AUTH_OPERATOR_EMAIL"
   ];
   const password = process.env[
     administrator
       ? "PLAYWRIGHT_REAL_AUTH_ADMIN_PASSWORD"
-      : "PLAYWRIGHT_REAL_AUTH_MEDIA_PASSWORD"
+      : "PLAYWRIGHT_REAL_AUTH_OPERATOR_PASSWORD"
   ];
   if (!email || !password) {
     throw new Error(`Synthetic ${definition.name} credentials are required.`);

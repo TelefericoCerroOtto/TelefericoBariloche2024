@@ -3,7 +3,10 @@
 This document defines how project TODOs are captured, triaged, and promoted between **Notion** and **GitHub**.
 
 ## Language Rule
-**All artifacts created in GitHub Issues and Notion items MUST be written in English. Only the interactive chat can be in Spanish.**
+
+- Write items in the canonical **Backlog unificado** in English. This includes their titles, properties, and notes; the established Notion property names and select options remain as configured.
+- Write content in every other Notion section in Spanish. Follow the [project knowledge procedure](https://app.notion.com/p/3f8a58c3fefc819ab3f3eab226f5141a) for those sections' sources and writing rules; this backlog workflow does not govern them.
+- Write all GitHub artifacts in English. Repository code and documentation remain in English under [AGENTS.md](../AGENTS.md#language-policy).
 
 ## Quick Path
 

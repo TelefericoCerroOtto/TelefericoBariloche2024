@@ -43,7 +43,5 @@ export const USER_ROLES: UserRoles[] = [
   "Public",
   "Authenticated",
   "Administrator",
-  "Media Manager",
-  "Recruiter",
-  "Operations Supervisor",
+  "Digital Experience Operator",
 ] as const;
