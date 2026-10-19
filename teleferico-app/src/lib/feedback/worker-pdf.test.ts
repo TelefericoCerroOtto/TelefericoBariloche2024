@@ -454,6 +454,13 @@ describe("worker PDF boundary", () => {
         "render",
       ),
     ).toEqual({ stage: "render", reasonCategory: "unclassified" });
+    expect(outputRejectionFor(Object.assign(new TypeError("SYNTHETIC_UNTRUSTED"), {
+      code: "INVALID_OUTPUT",
+      outputRejection: {
+        stage: "direct", reasonCategory: "output_contract_preflight",
+        violationCodes: ["foreign_evidence_ref", "SYNTHETIC_PRIVATE_CLAIM_MARKER"],
+      },
+    }))).toEqual({ stage: "direct", reasonCategory: "output_contract_preflight" });
   });
 
   it("renders validated literal comments and incidental references without suppressing structural validation", async () => {
@@ -1106,6 +1113,7 @@ describe("worker PDF boundary", () => {
           reportRunId,
           stage: "direct",
           reasonCategory: "output_contract_preflight",
+          violationCodes: ["invalid_output_contract"],
         },
       ]);
       expect(logLines.join("\n")).not.toContain(privateMarker);
@@ -1138,6 +1146,77 @@ describe("worker PDF boundary", () => {
         },
       });
       expect(logSpy).toHaveBeenCalledTimes(logCallsBeforeOtherFailure);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it("reports only closed direct preflight codes for the final rejected candidate", async () => {
+    const reportRunId = "00000000-0000-4000-8000-000000000113";
+    const privateMarker = "SYNTHETIC_PRIVATE_CLAIM_MARKER";
+    const envelope = createSnapshot({
+      sourceRevision: "synthetic-direct-preflight-source",
+      createdAt: "2026-09-21T12:00:00.000Z",
+      dataCutoffAt: "2026-09-21T11:59:59.000Z",
+      range: { from: "2026-09-01", to: "2026-09-01" },
+      filters: { pointKey: null, versionKey: null },
+      submissions: [{
+        recordId: "synthetic-record",
+        receipt: "00000000-0000-4000-8000-000000000114",
+        acceptedAt: "2026-09-01T12:00:00.000Z",
+        source: "valid_qr", versionKey: "v1", pointKey: "point-a",
+        overallRating: 4, locale: "es", commentText: "Synthetic visitor comment",
+        payloadDigest: "a".repeat(64), aspects: [],
+      }],
+      definitions: [{ aspectKey: "other", sortOrder: 99 }],
+      points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
+    });
+    const fake = fakeCms(envelope);
+    let attempt = 0;
+    const provider = vi.fn(async () => {
+      attempt += 1;
+      return {
+        ...syntheticProviderResult(),
+        output: attempt === 1
+          ? { schemaVersion: "synthetic-invalid-first-attempt" } as never
+          : {
+              schemaVersion: "survey-analysis.v1",
+              route: "direct",
+              sections: PUBLISHED_SECTION_KEYS.map((key, index) => index === 0
+                ? { key, status: "supported", claims: [{
+                    claimId: "claim-a", textEs: privateMarker,
+                    evidenceRefs: [`e_${"a".repeat(20)}`], signal: "descriptive",
+                  }] }
+                : { key, status: "insufficient_evidence", claims: [] }),
+          } as never,
+      };
+    });
+    const logLines: string[] = [];
+    const logSpy = vi.spyOn(console, "log").mockImplementation((line?: unknown) => {
+      logLines.push(String(line));
+    });
+    try {
+      const result = await executeReportWorker(reportRunId, {
+        cms: fake.cms,
+        artifacts: artifactStore().store,
+        renderer: createDeterministicTestPdfRenderer(),
+        analysisProvider: provider,
+        countTokens: async (request) => ({
+          instructions: 100, schema: 100, metrics: 100,
+          comments: request.segments.metrics === "{}" ? 1 : 0,
+        }),
+        evidenceKeyProvider: async () => "synthetic per-run evidence key with enough bytes",
+      });
+      expect(provider).toHaveBeenCalledTimes(2);
+      expect(result).toMatchObject({ status: "failed", failureCode: "INVALID_OUTPUT" });
+      expect(fake.writtenCheckpoints.some(({ stageKey }) => stageKey === "direct")).toBe(false);
+      expect(logLines.map((line) => JSON.parse(line))).toEqual([{
+        event: "tb113_output_rejection", reportRunId, stage: "direct",
+        reasonCategory: "output_contract_preflight",
+        violationCodes: ["foreign_evidence_ref"],
+      }]);
+      expect(logLines.join("\n")).not.toContain(privateMarker);
+      expect(logLines.join("\n")).not.toContain(`e_${"a".repeat(20)}`);
     } finally {
       logSpy.mockRestore();
     }
