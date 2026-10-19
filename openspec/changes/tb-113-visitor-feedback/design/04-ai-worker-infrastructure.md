@@ -384,6 +384,16 @@ failure or a replay. Diagnostic write errors are best-effort and cannot change
 the terminal CMS outcome. The port's metadata does not prove that a bucket
 retention policy was applied.
 
+The separate `tb113_output_rejection` terminal log event remains best-effort
+and is emitted only after a confirmed non-replayed CMS failure. For a direct
+`output_contract_preflight` rejection, it includes sorted, unique codes from
+the closed direct-preflight allowlist for the final rejected candidate (or
+`invalid_output_contract` when its top-level shape prevents preflight). No
+visitor text, evidence refs, model output, raw error, or earlier rejected
+attempt is logged. Other stages and rejection categories keep the existing
+event shape; the private diagnostic bundle schema is unchanged. This cannot
+retroactively diagnose previously failed runs.
+
 `docs/infra/survey-reporting/verify-config.mjs` checks only a closed,
 redacted `survey-worker-config-projection.v1` JSON document. It reports
 `projection_valid` when the supplied declaration matches the selected project,
