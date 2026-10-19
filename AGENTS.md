@@ -107,9 +107,9 @@ When a command's effects are unclear, stop to clarify its classification. A task
 
 ## Language Policy
 
-- **All artifacts created in GitHub Issues and Notion items MUST be written in English.**
+- **All GitHub artifacts MUST be written in English.** For Notion, follow the section-specific language rule in [docs/todo-workflow.md](docs/todo-workflow.md#language-rule): only the canonical backlog uses English; other Notion sections use Spanish.
 - Code, documentation, PR descriptions, commit messages, and internal notes must be in English.
-- Only the interactive chat with the user can be in Spanish.
+- Interactive chat with the user can be in Spanish.
 
 ## Human conventions
 

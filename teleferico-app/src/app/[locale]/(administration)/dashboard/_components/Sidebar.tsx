@@ -18,7 +18,6 @@ import {
   Building2,
   BusFront,
   CircleDollarSign,
-  Image as LucideImage,
   MessageCircleQuestionMark,
   MessageSquareMore,
   PersonStanding,
@@ -37,7 +36,6 @@ const SIDEBAR_ICONS: Record<
   DashboardShellProjection["contentNavigation"][number]["icon"],
   React.ComponentType
 > = {
-  "admin-gallery": LucideImage,
   "admin-users": User,
   buses: BusFront,
   faqs: MessageCircleQuestionMark,

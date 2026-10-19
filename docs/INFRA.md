@@ -241,7 +241,7 @@ The CMS image has a proposed monorepo-root build context to supply the runtime i
 - The local Strapi Media Library flow continues to use `teleferico-cms/public/uploads` and does not depend on `CV_STORAGE_DRIVER`.
 - Reading CMS images goes through the Next.js proxy at `teleferico-app/src/app/api/media/[...path]/route.ts`. The proxy reads from GCS using the server-side service account credentials (ADC) and streams the response. Direct public access (`allUsers`) on `public/cms/` is not granted; the proxy is the only public-facing access point for CMS assets.
 - The Strapi admin panel displays images via signed GCS URLs. Strapi generates them server-side on each API response (`GCS_PUBLIC_FILES=false`). The admin browser never receives a raw private GCS URL.
-- CV downloads must go through an authenticated endpoint.
+- CV downloads must go through an authenticated endpoint and are restricted to the Administrator application role; the role picker for new users offers only Digital Experience Operator, even if Strapi still contains inactive role records.
 - `GCS_SIGNED_URL_TTL_SECONDS` is reserved for the optional `getDownloadUrl()` helper in `teleferico-app/src/lib/services/cv-storage`; the current flow uses direct streaming and does not depend on signed URLs.
 - Old records with `resume` media relation require manual migration: copy/move the binary, populate `cv*`, and remove the old relation.
 - Production has a backup bucket that copies binaries through "Cross-region bucket replication".
@@ -712,11 +712,11 @@ Cloud Build deploys set `MAINTENANCE_MODE=false` explicitly. Any new deploy auto
 - Public service status: only `GET /api/proxy/api/service-state` is allowed through middleware. The existing proxy still enforces trusted-browser origin checks and uses the server-side content token. Other methods, proxy paths, and public APIs remain blocked with the maintenance `503` response.
 - Authentication: only `GET|POST /api/auth/session`, `GET /api/auth/csrf`, `GET /api/auth/providers`, `POST /api/auth/callback/credentials`, and `POST /api/auth/signout` remain available. `POST /api/auth/session` is required by the existing client session refresh after credentials sign-in.
 - Administration pages: login, logout, and the exact dashboard root continue through the existing authentication middleware. Authenticated dashboard descendants redirect to `/es-AR/dashboard`; the sections layout enforces the same restriction as defense in depth.
-- Operator service-state update: only `PUT /api/admin/service-state` remains available. The route validates trusted browser origin, CSRF-bound session, the `Administrator` or `Operations Supervisor` role, and the service-state enum before using the operator JWT. Upstream errors are not exposed.
-- Dashboard projection: maintenance mode omits content-management navigation and content-specific dashboard messaging while preserving the service-state control, profile/session information, and logout.
+- Administrator service-state update: only `PUT /api/admin/service-state` remains available. The route validates trusted browser origin, CSRF-bound session, the `Administrator` role, and the service-state enum before using that user's JWT. Upstream errors are not exposed.
+- Dashboard projection: maintenance mode omits content-management navigation and content-specific dashboard messaging while preserving the read-only service-state display for other logged-in roles, the Administrator change control, profile/session information, and logout.
 - The maintenance page always preserves its original maintenance card and reads only `service-state` for a separate localized status card. Loading reserves space below the maintenance card; unavailable or invalid status data omits only the status card and never exposes upstream errors.
 - Cloud Run health checks are unaffected (TCP probe, no HTTP endpoint).
 
 ### Scope of isolation
 
-This is user-layer isolation. Cloud Run service URLs remain technically accessible. Public visitors cannot access institutional content or APIs beyond the exact read-only service-state capability. Authenticated operators retain only the dashboard root and the protected service-state update needed to manage that state.
+This is user-layer isolation. Cloud Run service URLs remain technically accessible. Public visitors cannot access institutional content or APIs beyond the exact read-only service-state capability. Authenticated staff retain the dashboard root and read-only service-state access; only `Administrator` retains the protected update needed to manage that state.
