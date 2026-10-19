@@ -32,22 +32,18 @@ describe("ServiceButton", () => {
     });
   });
 
-  it.each([
-    "Operations Supervisor",
-    "Digital Experience Operator",
-    "Media Manager",
-    "Recruiter",
-    "Authenticated",
-    "Public",
-  ] as const)("shows the actual state without an edit menu to %s", (role) => {
-    render(<ServiceButton currentRole={role} />);
+  it.each(["Digital Experience Operator", "Authenticated", "Public"] as const)(
+    "shows the actual state without an edit menu to %s",
+    (role) => {
+      render(<ServiceButton currentRole={role} />);
 
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Estado del servicio: Condicional",
-    );
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("change-menu")).not.toBeInTheDocument();
-  });
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Estado del servicio: Condicional",
+      );
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("change-menu")).not.toBeInTheDocument();
+    },
+  );
 
   it("keeps the change menu available to Administrator", () => {
     render(<ServiceButton currentRole="Administrator" />);

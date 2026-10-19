@@ -187,18 +187,14 @@ export const getRoles = async (jwt: string) => {
   );
   // It is not possible to filter the returned roles through query parameters.
   // The roles controller is configured to return all roles.
-  const excludedRoles: UserRoles[] = [
-    "Public",
-    "Authenticated",
-    "Administrator",
-  ];
-
   let sanitizedRes: FetchResponse<UserRole[]>;
 
   if (res.ok) {
     sanitizedRes = {
       ok: res.ok,
-      data: res.data.roles.filter((role) => !excludedRoles.includes(role.name)),
+      data: res.data.roles.filter(
+        (role) => role.name === "Digital Experience Operator",
+      ),
     };
   } else sanitizedRes = { ok: res.ok, data: res.data };
 

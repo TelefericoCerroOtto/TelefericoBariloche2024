@@ -82,26 +82,25 @@ describe("PUT /api/admin/service-state", () => {
     expect(mocks.updateServiceState).not.toHaveBeenCalled();
   });
 
-  it.each([
-    "Operations Supervisor",
-    "Digital Experience Operator",
-    "Media Manager",
-  ])("rejects service-state updates from %s", async (role) => {
-    mocks.requireCsrfSession.mockResolvedValue({
-      ok: true,
-      session: { ...session, user: { role: { name: role } } },
-    });
+  it.each(["Digital Experience Operator", "Unknown"])(
+    "rejects service-state updates from %s",
+    async (role) => {
+      mocks.requireCsrfSession.mockResolvedValue({
+        ok: true,
+        session: { ...session, user: { role: { name: role } } },
+      });
 
-    const response = await update();
+      const response = await update();
 
-    expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      ok: false,
-      message: "Forbidden",
-    });
-    expect(mocks.updateServiceState).not.toHaveBeenCalled();
-    expect(mocks.revalidateTag).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(403);
+      await expect(response.json()).resolves.toEqual({
+        ok: false,
+        message: "Forbidden",
+      });
+      expect(mocks.updateServiceState).not.toHaveBeenCalled();
+      expect(mocks.revalidateTag).not.toHaveBeenCalled();
+    },
+  );
 
   it("rejects malformed and unsupported service states", async () => {
     const malformed = await update("{");

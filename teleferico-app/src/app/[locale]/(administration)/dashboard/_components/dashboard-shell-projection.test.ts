@@ -18,7 +18,7 @@ describe("getDashboardShellProjection", () => {
 
   it("retains the operator shell controls during maintenance", () => {
     const projection = getDashboardShellProjection({
-      currentRole: "Operations Supervisor",
+      currentRole: "Digital Experience Operator",
       isMaintenanceMode: true,
       isFeedbackEnabled: false,
     });
@@ -34,7 +34,7 @@ describe("getDashboardShellProjection", () => {
 
   it("preserves complete role-appropriate navigation in normal mode", () => {
     const projection = getDashboardShellProjection({
-      currentRole: "Operations Supervisor",
+      currentRole: "Administrator",
       isMaintenanceMode: false,
       isFeedbackEnabled: true,
     });
@@ -54,7 +54,14 @@ describe("getDashboardShellProjection", () => {
       projection.contentNavigation
         .filter((item) => !item.isDisabled)
         .map((item) => item.url),
-    ).toEqual([ADMIN_ROUTES.ZONES, ADMIN_ROUTES.PRICES, ADMIN_ROUTES.BUSES]);
+    ).toEqual([
+      ADMIN_ROUTES.ZONES,
+      ADMIN_ROUTES.PRICES,
+      ADMIN_ROUTES.BUSES,
+      ADMIN_ROUTES.NEWS,
+      ADMIN_ROUTES.FAQS,
+      ADMIN_ROUTES.RECRUITMENT,
+    ]);
   });
 
   it("does not present the discarded multimedia entry to any staff role", () => {

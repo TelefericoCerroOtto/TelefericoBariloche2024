@@ -44,7 +44,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "zones",
     implemented: true,
     tooltip: "Gestionar horarios y zonas del complejo",
-    allowedRoles: ["Administrator", "Operations Supervisor"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Tarifas",
@@ -52,7 +52,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "prices",
     implemented: true,
     tooltip: "Gestionar tarifas de ascenso y actividades",
-    allowedRoles: ["Administrator", "Operations Supervisor"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Buses",
@@ -60,7 +60,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "buses",
     implemented: true,
     tooltip: "Gestionar horarios de viajes de buses",
-    allowedRoles: ["Administrator", "Operations Supervisor"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Noticias",
@@ -92,7 +92,7 @@ const CONTENT_ITEMS: readonly DashboardContentItemDefinition[] = [
     icon: "recruitment",
     implemented: true,
     tooltip: "Gestionar curriculums de postulantes",
-    allowedRoles: ["Administrator", "Recruiter"],
+    allowedRoles: ["Administrator"],
   },
   {
     name: "Usuarios",

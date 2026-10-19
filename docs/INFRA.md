@@ -241,7 +241,7 @@ The CMS image has a proposed monorepo-root build context to supply the runtime i
 - The local Strapi Media Library flow continues to use `teleferico-cms/public/uploads` and does not depend on `CV_STORAGE_DRIVER`.
 - Reading CMS images goes through the Next.js proxy at `teleferico-app/src/app/api/media/[...path]/route.ts`. The proxy reads from GCS using the server-side service account credentials (ADC) and streams the response. Direct public access (`allUsers`) on `public/cms/` is not granted; the proxy is the only public-facing access point for CMS assets.
 - The Strapi admin panel displays images via signed GCS URLs. Strapi generates them server-side on each API response (`GCS_PUBLIC_FILES=false`). The admin browser never receives a raw private GCS URL.
-- CV downloads must go through an authenticated endpoint.
+- CV downloads must go through an authenticated endpoint and are restricted to the Administrator application role; the role picker for new users offers only Digital Experience Operator, even if Strapi still contains inactive role records.
 - `GCS_SIGNED_URL_TTL_SECONDS` is reserved for the optional `getDownloadUrl()` helper in `teleferico-app/src/lib/services/cv-storage`; the current flow uses direct streaming and does not depend on signed URLs.
 - Old records with `resume` media relation require manual migration: copy/move the binary, populate `cv*`, and remove the old relation.
 - Production has a backup bucket that copies binaries through "Cross-region bucket replication".
