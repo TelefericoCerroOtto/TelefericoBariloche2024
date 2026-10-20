@@ -278,8 +278,8 @@ function sourceModelConfig(sourceRevision, evidenceKeyId) {
     reasoning: 'LOW',
     grounding: false,
     promptVersion: 'prompt.v1',
-    mapSchemaVersion: 'survey-map.v2',
-    analysisSchemaVersion: 'survey-analysis.v2',
+     mapSchemaVersion: 'survey-map.v3',
+     analysisSchemaVersion: 'survey-analysis.v3',
     redactionVersion: 'redaction.v1',
     validatorVersion: 'validator.v1',
     chunkVersion: 'chunk.v1',
@@ -808,6 +808,7 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
     createSnapshot,
     createWorkerCmsClient,
     executeReportWorker,
+    deriveEvidenceRef,
   } = loadPrivateReportSourceAppModules();
   const reportRunId = '00000000-0000-4000-8000-000000000132';
   const sourceRevision = 'worker-empty-evidence-v1';
@@ -1142,9 +1143,9 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
     fetchImplementation: createWorkerClientFetch(port, actionTokens, narrativeRequests, undefined, [narrativeRunId]),
   });
   const narrativeOutput = {
-    schemaVersion: 'survey-analysis.v2', route: 'direct',
+     schemaVersion: 'survey-analysis.v3', route: 'direct',
     sections: [
-      { key: 'executive_summary', status: 'supported', claims: [{ claimId: 'claim-a', textEs: 'La visita se percibe acogedora.', signal: 'descriptive' }] },
+       { key: 'executive_summary', status: 'supported', claims: [{ textEs: 'La visita se percibe acogedora.', signal: 'descriptive' }] },
       ...['observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations']
         .map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
     ],
@@ -1153,14 +1154,14 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
   let narrativeProviderCalls = 0;
   strapi.config.set('feedback.workerCountTokensProvider', async (request) => {
     if (request.segments.metrics === '{}')
-      assert.equal(JSON.parse(request.segments.comments).schemaVersion, 'survey-analysis.v2');
+       assert.equal(JSON.parse(request.segments.comments).schemaVersion, 'survey-analysis.v3');
     return { instructions: 120, schema: 180, metrics: 80, comments: 95 };
   });
   const narrativeResult = await executeReportWorker(narrativeRunId, {
     cms: narrativeClient,
     countTokens: async (request) => {
       if (request.segments.metrics === '{}') {
-        assert.equal(JSON.parse(request.segments.comments).schemaVersion, 'survey-analysis.v2');
+         assert.equal(JSON.parse(request.segments.comments).schemaVersion, 'survey-analysis.v3');
         return { instructions: 120, schema: 180, metrics: 80, comments: 95 };
       }
       assert.notEqual(request.segments.comments, '[]');
@@ -1226,7 +1227,8 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
     where: { generationRunId: narrativeRunId }, populate: { sourceGeneration: true },
   });
   assert.equal(narrativeReport.validatedAnalysisJson.sections[0].paragraphsEs[0], 'La visita se percibe acogedora.');
-  assert.equal(JSON.stringify(narrativeReport.validatedAnalysisJson).includes(evidenceRef), false);
+   const narrativeRef = deriveEvidenceRef({ reportRunId: narrativeRunId, recordId: 'synthetic-narrative-record', evidenceKey: narrativeKey });
+   assert.equal(JSON.stringify(narrativeReport.validatedAnalysisJson).includes(narrativeRef), false);
   assert.equal(narrativeReport.sourceGeneration.reportRunId, narrativeRunId);
   const narrativeReplay = await executeReportWorker(narrativeRunId, {
     cms: narrativeClient,
@@ -1351,7 +1353,7 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
       mapRequests.push(request);
       return {
         output: {
-          schemaVersion: 'survey-map.v2',
+           schemaVersion: 'survey-map.v3',
           chunkId: request.chunkId,
           coveredRefs: request.comments.map(({ evidenceRef }) => evidenceRef),
           themes: [], limitations: [],
@@ -1366,7 +1368,7 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
       reduceRequests.push(request);
       return {
         output: {
-          schemaVersion: 'survey-analysis.v2', route: 'reduce',
+           schemaVersion: 'survey-analysis.v3', route: 'reduce',
           sections: ['executive_summary', 'observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations']
             .map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
           mapOutputDigests: request.maps.map(({ outputDigest }) => outputDigest),

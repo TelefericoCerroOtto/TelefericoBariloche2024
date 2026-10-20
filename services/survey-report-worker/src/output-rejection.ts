@@ -35,7 +35,6 @@ const DIRECT_PREFLIGHT_CODES = new Set([
   "claims_in_insufficient_section",
   "empty_supported_section",
   "invalid_claim_shape",
-  "duplicate_or_unsorted_claim_id",
   "section_signal_mismatch",
   "invalid_claim_text",
 ]);
