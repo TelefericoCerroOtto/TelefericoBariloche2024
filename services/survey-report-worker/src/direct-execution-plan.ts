@@ -26,10 +26,10 @@ const SECTION_KEYS = [
 ] as const;
 
 export const DIRECT_INSTRUCTIONS =
-  "Return concise Spanish descriptions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct supported visitor observations. Cite eligible evidence refs on every claim, distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
+  "Return concise Spanish conclusions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct visitor observations. Distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
 
 export const DIRECT_SCHEMA = canonicalizeJson({
-  schemaVersion: "survey-analysis.v1",
+  schemaVersion: "survey-analysis.v2",
   route: "direct",
   sections: SECTION_KEYS.map((key) => ({
     key,
@@ -37,7 +37,6 @@ export const DIRECT_SCHEMA = canonicalizeJson({
     claims: [{
       claimId: "lowercase-stable-id",
       textEs: "Spanish descriptive text",
-      evidenceRefs: ["e_<20-lowercase-base32-characters>"],
       signal: { enum: ["recurrent", "minority", "descriptive"] },
     }],
   })),
@@ -80,7 +79,7 @@ export function createDirectModelRequestV1(input: {
 
 export function createEmptyEvidenceDirectAnalysisV1(): DirectAnalysisV1 {
   return {
-    schemaVersion: "survey-analysis.v1",
+    schemaVersion: "survey-analysis.v2",
     route: "direct",
     sections: SECTION_KEYS.map((key) => ({
       key,
