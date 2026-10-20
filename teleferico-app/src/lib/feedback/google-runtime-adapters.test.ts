@@ -84,8 +84,8 @@ function modelConfig(overrides: Record<string, unknown> = {}) {
     reasoning: "LOW",
     grounding: false,
     promptVersion: "prompt-1",
-    mapSchemaVersion: "survey-map.v2",
-    analysisSchemaVersion: "survey-analysis.v2",
+    mapSchemaVersion: "survey-map.v3",
+    analysisSchemaVersion: "survey-analysis.v3",
     redactionVersion: "redact-1",
     validatorVersion: "validate-1",
     chunkVersion: "chunk-1",
@@ -468,7 +468,7 @@ describe("Google TB-113 runtime adapters", () => {
     const metrics = {} as never;
     const directRequest = { contractVersion: "survey-model-input.v1", metrics, comments: [{ period: "current", text: "Synthetic comment", evidenceRef: "e_aaaaaaaaaaaaaaaaaaaa" }] } as const;
     const mapRequest = { contractVersion: "survey-map-input.v1", chunkId: "map.1-of-1", chunkIndex: 1, chunkCount: 1, metrics, comments: directRequest.comments } as const;
-    const reduceRequest = { contractVersion: "survey-reduce-input.v1", metrics, maps: [{ chunkId: "map.1-of-1", outputDigest: "a".repeat(64), validatedOutput: { schemaVersion: "survey-map.v2", chunkId: "map.1-of-1", coveredRefs: [], themes: [], limitations: [] } }] } as const;
+    const reduceRequest = { contractVersion: "survey-reduce-input.v1", metrics, maps: [{ chunkId: "map.1-of-1", outputDigest: "a".repeat(64), validatedOutput: { schemaVersion: "survey-map.v3", chunkId: "map.1-of-1", coveredRefs: [], themes: [], limitations: [] } }] } as const;
     const countedRequest = (stage: "direct" | "map" | "reduce", request: typeof directRequest | typeof mapRequest | typeof reduceRequest) => {
       const prompt = stage === "direct"
         ? { instructions: DIRECT_INSTRUCTIONS, schema: DIRECT_SCHEMA }

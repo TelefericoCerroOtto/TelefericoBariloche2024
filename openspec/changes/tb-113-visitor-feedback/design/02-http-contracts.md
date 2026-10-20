@@ -72,7 +72,7 @@ not implemented in this slice.
 
 ## CMS and Worker
 
-The checkpoint and completion commands preserve closed keys, route/stage digests, exact CountTokens budgets, input-record and Map chunk membership, independently verified Map output digests, separate official metric thresholds, and state-version CAS. Direct, Map theme, and Reduce conclusions use citation-free `survey-analysis.v2`/`survey-map.v2` claim shapes; unexpected per-claim reference fields reject. They do not reject validated narrative because its prose contains actions, numbers, literal visitor text, incidental reference strings, or private-data patterns. Recognizable email/URL/phone substitutions still apply to model-bound input only. The worker/CMS instruction bytes change together under prompt v3 and source revision v3; old in-flight revisions fail closed without modifying stored data. This accepts residual output disclosure risk, not a new public command response field.
+The checkpoint and completion commands preserve closed keys, route/stage digests, exact CountTokens budgets, input-record and Map chunk membership, independently verified Map output digests, separate official metric thresholds, and state-version CAS. Direct, Map theme, and Reduce conclusions use `survey-analysis.v3`/`survey-map.v3` claims containing only `textEs` and `signal`; old `claimId` and per-claim reference fields reject. No claim-ID uniqueness or sorting gate remains; Map `themeKey` order remains enforced. They do not reject validated narrative because its prose contains actions, numbers, literal visitor text, incidental reference strings, or private-data patterns. Recognizable email/URL/phone substitutions still apply to model-bound input only. The worker/CMS instruction bytes change together under prompt v4 and source revision v4; old in-flight revisions fail closed without modifying stored data. This accepts residual output disclosure risk, not a new public command response field.
 
 No browser/CRUD. The app-owned public resolver reads the native Strapi REST
 surfaces for `survey-qr-points`, `survey-settings`, and `survey-versions` with
@@ -619,7 +619,7 @@ infer a direct route or map/reduce fallback.
 
 This executable local analysis is intentionally limited to snapshots with zero
 eligible comments. The fake analysis provider can emit only the exact ordered
-`survey-analysis.v2` shape with no claims and `insufficient_evidence` in every
+`survey-analysis.v3` shape with no claims and `insufficient_evidence` in every
 section; CMS verifies it and the fixed published Spanish fallback against the
 locked snapshot before accepting `direct`/`validate` checkpoints. Nonempty
 comment analysis and all map/reduce execution remain blocked because complete
