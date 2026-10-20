@@ -248,6 +248,9 @@ export function readTb113ApprovedGenerationConfiguration(
   if (
     !exactKeys(value, keys) ||
     value.contractVersion !== "survey-approved-generation-config.v1" ||
+    value.sourceRevision !== "feedback-report-profile.v3" ||
+    modelConfig?.promptVersion !== "feedback-report-prompt.v3" ||
+    modelConfig?.validatorVersion !== "feedback-report-validator.v2" ||
     typeof value.sourceRevision !== "string" ||
     value.sourceRevision.length === 0 ||
     typeof value.evidenceKeyId !== "string" ||

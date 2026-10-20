@@ -949,7 +949,7 @@ export async function executeReportWorker(
           candidate &&
           typeof candidate === "object" &&
           (candidate as { schemaVersion?: unknown }).schemaVersion ===
-            "survey-analysis.v1",
+            "survey-analysis.v2",
         );
         let outputCount: Awaited<
           ReturnType<typeof countGeneratedOutputV1>

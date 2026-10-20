@@ -65,9 +65,9 @@ const ANALYSIS_SECTION_KEYS = [
   'recurrent_themes', 'minority_signals', 'coverage_limitations',
 ];
 const DIRECT_COUNT_INSTRUCTIONS =
-  'Return concise Spanish descriptions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct supported visitor observations. Cite eligible evidence refs on every claim, distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.';
+  'Return concise Spanish conclusions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct visitor observations. Distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.';
 const DIRECT_COUNT_SCHEMA = canonicalizeJson({
-  schemaVersion: 'survey-analysis.v1',
+  schemaVersion: 'survey-analysis.v2',
   route: 'direct',
   sections: ANALYSIS_SECTION_KEYS.map((key) => ({
     key,
@@ -75,27 +75,26 @@ const DIRECT_COUNT_SCHEMA = canonicalizeJson({
     claims: [{
       claimId: 'lowercase-stable-id',
       textEs: 'Spanish descriptive text',
-      evidenceRefs: ['e_<20-lowercase-base32-characters>'],
       signal: { enum: ['recurrent', 'minority', 'descriptive'] },
     }],
   })),
 });
 const MAP_INSTRUCTIONS =
-  'Extract concise, distinct descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.';
+  'Extract concise, distinct descriptive conclusions and themes only from this complete comment chunk. Return the exact closed survey-map.v2 schema and its ordered coveredRefs for the entire chunk. Distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.';
 const MAP_SCHEMA = canonicalizeJson({
-  schemaVersion: 'survey-map.v1', chunkId: 'map.<index>-of-<count>',
+  schemaVersion: 'survey-map.v2', chunkId: 'map.<index>-of-<count>',
   coveredRefs: ['e_<20-lowercase-base32-characters>'],
   themes: [{ themeKey: 'lowercase-stable-id', labelEs: 'Spanish descriptive label', claims: [{
     claimId: 'lowercase-stable-id', textEs: 'Spanish descriptive text',
-    evidenceRefs: ['e_<20-lowercase-base32-characters>'], signal: { enum: ['recurrent', 'minority', 'descriptive'] },
+    signal: { enum: ['recurrent', 'minority', 'descriptive'] },
   }] }], limitations: ['Spanish descriptive limitation'],
 });
 const REDUCE_INSTRUCTIONS =
-  'Combine only the validated map outputs and immutable official metrics supplied. Return the exact seven-section survey-analysis.v1 reduce schema with a brief executive synthesis of distinct supported visitor observations, leaving unsupported sections empty and avoiding repetition across sections. Cite only validated evidence refs on every claim. Do not calculate or alter metrics, invent evidence refs, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.';
+  'Combine only the validated map outputs and immutable official metrics supplied. Return the exact seven-section survey-analysis.v2 reduce schema with a brief executive synthesis of distinct visitor conclusions, leaving unsupported sections empty and avoiding repetition across sections. Return the ordered mapOutputDigests. Do not calculate or alter metrics, invent evidence refs, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.';
 const REDUCE_SCHEMA = canonicalizeJson({
-  schemaVersion: 'survey-analysis.v1', route: 'reduce',
+  schemaVersion: 'survey-analysis.v2', route: 'reduce',
   sections: [{ key: { enum: ANALYSIS_SECTION_KEYS }, status: { enum: ['supported', 'insufficient_evidence'] }, claims: [{
-    claimId: 'lowercase-stable-id', textEs: 'Spanish descriptive text', evidenceRefs: ['e_<20-lowercase-base32-characters>'],
+    claimId: 'lowercase-stable-id', textEs: 'Spanish descriptive text',
     signal: { enum: ['recurrent', 'minority', 'descriptive'] },
   }] }], mapOutputDigests: ['sha256'],
 });
@@ -281,8 +280,14 @@ function validateContractVersions(value) {
     invalid();
 }
 function validateModelConfig(value, evidenceKeyId) {
+  const officialRevision = [value?.sourceRevision, value?.promptVersion, value?.validatorVersion]
+    .some((revision) => typeof revision === "string" &&
+      /^(feedback-report-profile|feedback-report-prompt|feedback-report-validator)\./.test(revision));
   if (
     !exactKeys(value, MODEL_CONFIG_KEYS) ||
+    (officialRevision && (value.sourceRevision !== "feedback-report-profile.v3" ||
+      value.promptVersion !== "feedback-report-prompt.v3" ||
+      value.validatorVersion !== "feedback-report-validator.v2")) ||
     value.version !== "survey-model-config.v1" ||
     value.evidenceKeyId !== evidenceKeyId ||
     value.provider !== "vertex-ai" ||
@@ -296,8 +301,8 @@ function validateModelConfig(value, evidenceKeyId) {
     value.grounding !== false ||
     typeof value.promptVersion !== "string" ||
     !value.promptVersion ||
-    value.mapSchemaVersion !== "survey-map.v1" ||
-    value.analysisSchemaVersion !== "survey-analysis.v1" ||
+    value.mapSchemaVersion !== "survey-map.v2" ||
+    value.analysisSchemaVersion !== "survey-analysis.v2" ||
     typeof value.redactionVersion !== "string" ||
     !value.redactionVersion ||
     typeof value.validatorVersion !== "string" ||
@@ -644,12 +649,10 @@ function directModelCommentsJson(snapshot, reportRunId, evidenceKey) {
 }
 
 function safeDirectOutput(output, modelConfig, snapshot, reportRunId, evidenceKey) {
-  if (!exactKeys(output, ['schemaVersion', 'route', 'sections']) || output.schemaVersion !== 'survey-analysis.v1' ||
+  if (!exactKeys(output, ['schemaVersion', 'route', 'sections']) || output.schemaVersion !== 'survey-analysis.v2' ||
       output.route !== 'direct' || !Array.isArray(output.sections) || output.sections.length !== ANALYSIS_SECTION_KEYS.length) return false;
   if (snapshot.comments.length && (!evidenceKey || (() => { try { assertEvidenceKey(evidenceKey); return false; } catch { return true; } })())) return false;
-  const references = new Set(snapshot.comments.map(({ recordId }) => deriveEvidenceRef({
-    reportRunId, recordId, evidenceKey: evidenceKey || 'synthetic-empty-evidence-key-material',
-  })));
+  if (new Set(snapshot.comments.map(({ recordId }) => recordId)).size !== snapshot.comments.length) return false;
   const claimIds = new Set();
   for (let index = 0; index < output.sections.length; index += 1) {
     const section = output.sections[index];
@@ -658,15 +661,12 @@ function safeDirectOutput(output, modelConfig, snapshot, reportRunId, evidenceKe
         (section.status === 'supported') !== (section.claims.length > 0)) return false;
     let previous = '';
     for (const claim of section.claims) {
-      const threshold = claim.signal === 'recurrent' ? Math.max(10, Math.ceil(snapshot.comments.length * 0.02)) : claim.signal === 'minority' ? 4 : 1;
-      if (!exactKeys(claim, ['claimId', 'textEs', 'evidenceRefs', 'signal']) || typeof claim.claimId !== 'string' ||
+      if (!exactKeys(claim, ['claimId', 'textEs', 'signal']) || typeof claim.claimId !== 'string' ||
           !RECORD_ID_PATTERN.test(claim.claimId) || compareCodePoints(claim.claimId, previous) <= 0 || claimIds.has(claim.claimId) ||
           typeof claim.textEs !== 'string' || claim.textEs.length < 1 || claim.textEs.length > 4000 ||
-          !Array.isArray(claim.evidenceRefs) || !['recurrent', 'minority', 'descriptive'].includes(claim.signal) ||
+          !['recurrent', 'minority', 'descriptive'].includes(claim.signal) ||
           (section.key === 'recurrent_themes' && claim.signal !== 'recurrent') ||
-          (section.key === 'minority_signals' && claim.signal !== 'minority') ||
-          new Set(claim.evidenceRefs).size !== claim.evidenceRefs.length || claim.evidenceRefs.length < threshold ||
-          claim.evidenceRefs.some((ref) => typeof ref !== 'string' || !/^e_[a-z2-7]{20}$/.test(ref) || !references.has(ref))) return false;
+          (section.key === 'minority_signals' && claim.signal !== 'minority')) return false;
       previous = claim.claimId;
       claimIds.add(claim.claimId);
     }
@@ -699,7 +699,7 @@ function safeMapOutput(payload, modelConfig, snapshot, reportRunId, evidenceKey)
   if (!key || Number(key[1]) !== payload.chunkIndex || Number(key[2]) !== payload.chunkCount ||
       payload.evidenceKeyId !== modelConfig.evidenceKeyId ||
       !exactKeys(output, ['schemaVersion', 'chunkId', 'coveredRefs', 'themes', 'limitations']) ||
-      output.schemaVersion !== 'survey-map.v1' || output.chunkId !== payload.chunkId ||
+       output.schemaVersion !== 'survey-map.v2' || output.chunkId !== payload.chunkId ||
       !Array.isArray(output.coveredRefs) || !Array.isArray(output.themes) || !Array.isArray(output.limitations)) return false;
   const membership = {
     evidenceKeyId: payload.evidenceKeyId,
@@ -716,14 +716,8 @@ function safeMapOutput(payload, modelConfig, snapshot, reportRunId, evidenceKey)
     chunkCount: payload.chunkCount,
     comments: snapshot.comments,
   }, membership) || canonicalizeJson(output.coveredRefs) !== canonicalizeJson(payload.coveredRefs)) return false;
-  const membershipRefs = new Set(payload.coveredRefs);
   const claimIds = new Set();
   let previousTheme = '';
-  const minimums = {
-    recurrent: Math.max(10, Math.ceil(snapshot.comments.length * 0.02)),
-    minority: 4,
-    descriptive: 1,
-  };
   for (const theme of output.themes) {
     if (!exactKeys(theme, ['themeKey', 'labelEs', 'claims']) || typeof theme.themeKey !== 'string' ||
         !RECORD_ID_PATTERN.test(theme.themeKey) || compareCodePoints(theme.themeKey, previousTheme) <= 0 ||
@@ -732,12 +726,10 @@ function safeMapOutput(payload, modelConfig, snapshot, reportRunId, evidenceKey)
     previousTheme = theme.themeKey;
     let previousClaimId = '';
     for (const claim of theme.claims) {
-      if (!exactKeys(claim, ['claimId', 'textEs', 'evidenceRefs', 'signal']) || typeof claim.claimId !== 'string' ||
+      if (!exactKeys(claim, ['claimId', 'textEs', 'signal']) || typeof claim.claimId !== 'string' ||
           !RECORD_ID_PATTERN.test(claim.claimId) || compareCodePoints(claim.claimId, previousClaimId) <= 0 || claimIds.has(claim.claimId) ||
           typeof claim.textEs !== 'string' || claim.textEs.length < 1 || claim.textEs.length > 4000 ||
-          !Array.isArray(claim.evidenceRefs) || !['recurrent', 'minority', 'descriptive'].includes(claim.signal) ||
-          claim.evidenceRefs.length < minimums[claim.signal] || new Set(claim.evidenceRefs).size !== claim.evidenceRefs.length ||
-          claim.evidenceRefs.some((ref) => typeof ref !== 'string' || !/^e_[a-z2-7]{20}$/.test(ref) || !membershipRefs.has(ref))) return false;
+          !['recurrent', 'minority', 'descriptive'].includes(claim.signal)) return false;
       previousClaimId = claim.claimId;
       claimIds.add(claim.claimId);
     }
@@ -756,7 +748,7 @@ function safeReduceOutput(payload, modelConfig, snapshot, reportRunId, evidenceK
       payload.usage.usageMetadata.candidatesTokenCount !== payload.outputTokenCount ||
       payload.outputRequestDigest !== outputTokenRequestDigest(payload.validatedOutput, modelConfig, 'reduce')) return false;
   const output = payload.validatedOutput;
-  if (!exactKeys(output, ['schemaVersion', 'route', 'sections', 'mapOutputDigests']) || output.schemaVersion !== 'survey-analysis.v1' ||
+  if (!exactKeys(output, ['schemaVersion', 'route', 'sections', 'mapOutputDigests']) || output.schemaVersion !== 'survey-analysis.v2' ||
       output.route !== 'reduce' || !Array.isArray(output.mapOutputDigests) || output.mapOutputDigests.length === 0 ||
       output.mapOutputDigests.some((value) => !DIGEST_PATTERN.test(value)) || new Set(output.mapOutputDigests).size !== output.mapOutputDigests.length ||
       !Array.isArray(output.sections)) return false;

@@ -292,14 +292,14 @@ export function validateWorkerStageCheckpointV1(
         !Number.isSafeInteger(payload.outputTokenCount) || Number(payload.outputTokenCount) < 0 || !DIGEST_PATTERN.test(String(payload.outputRequestDigest)) ||
         usage.usageMetadata?.candidatesTokenCount !== payload.outputTokenCount ||
         !exactKeys(output, ["schemaVersion", "route", "sections", "mapOutputDigests"]) ||
-        output.schemaVersion !== "survey-analysis.v1" || output.route !== "reduce" || !Array.isArray(output.sections) ||
+         output.schemaVersion !== "survey-analysis.v2" || output.route !== "reduce" || !Array.isArray(output.sections) ||
         output.sections.length !== PUBLISHED_SECTION_KEYS.length || !Array.isArray(output.mapOutputDigests)) invalid();
   } else if (payload.kind === "direct") {
     const usage = payload.usage as { readonly usageMetadata?: { readonly candidatesTokenCount?: unknown } };
     const output = payload.validatedOutput;
     if (!(exactKeys(payload, ["kind", "validatedOutput"]) || exactKeys(payload, ["kind", "validatedOutput", "usage", "outputTokenCount", "outputRequestDigest"])) ||
         !exactKeys(output, ["schemaVersion", "route", "sections"]) ||
-        output.schemaVersion !== "survey-analysis.v1" || output.route !== "direct" ||
+         output.schemaVersion !== "survey-analysis.v2" || output.route !== "direct" ||
         !Array.isArray(output.sections) || output.sections.length !== PUBLISHED_SECTION_KEYS.length ||
         !output.sections.every((section, index) =>
           exactKeys(section, ["key", "status", "claims"]) &&
