@@ -26,6 +26,7 @@ export type OutputRejection = {
 const DIRECT_PREFLIGHT_CODES = new Set([
   "invalid_snapshot",
   "invalid_evidence_key_id",
+  "invalid_evidence_key",
   "invalid_output_contract",
   "invalid_evidence_context",
   "duplicate_snapshot_record_identity",
@@ -37,10 +38,6 @@ const DIRECT_PREFLIGHT_CODES = new Set([
   "duplicate_or_unsorted_claim_id",
   "section_signal_mismatch",
   "invalid_claim_text",
-  "missing_or_malformed_evidence_ref",
-  "duplicate_evidence_ref",
-  "foreign_evidence_ref",
-  "evidence_threshold_not_met",
 ]);
 
 function safeDirectCodes(

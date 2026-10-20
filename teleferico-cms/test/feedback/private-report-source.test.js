@@ -203,10 +203,29 @@ function loadPrivateReportSourceAppModules() {
       if (request === 'server-only') return {};
       if (request === 'node:net') return require('node:net');
       if (request === 'node:crypto') return require('node:crypto');
+      if (request === 'node:path') return require('node:path');
       if (request === 'node:fs') return require('node:fs');
       if (request === 'node:fs/promises') return require('node:fs/promises');
       if (request === 'echarts') return require(path.join(repositoryRoot, 'services/survey-report-worker/node_modules/echarts'));
-      if (request === '@google-cloud/storage') return require(path.join(repositoryRoot, 'services/survey-report-worker/node_modules/@google-cloud/storage'));
+      if (request === '@google-cloud/storage') return {
+        Storage: class {
+          constructor() {
+            throw new Error('The isolated integration must not use live Google storage');
+          }
+        },
+      };
+      if (request === 'google-auth-library') return {
+        GoogleAuth: class {
+          constructor() {
+            throw new Error('The isolated integration must not use live Google authentication');
+          }
+        },
+      };
+      if (request === '../../../../packages/tb113-runtime-contracts/src/report-generation-profile.cjs') return {
+        loadTb113ReportGenerationProfile() {
+          throw new Error('The isolated integration must use its injected generation profile');
+        },
+      };
       return load(resolveLocalModule(realPath, request));
     }
 
@@ -259,8 +278,8 @@ function sourceModelConfig(sourceRevision, evidenceKeyId) {
     reasoning: 'LOW',
     grounding: false,
     promptVersion: 'prompt.v1',
-    mapSchemaVersion: 'survey-map.v1',
-    analysisSchemaVersion: 'survey-analysis.v1',
+    mapSchemaVersion: 'survey-map.v2',
+    analysisSchemaVersion: 'survey-analysis.v2',
     redactionVersion: 'redaction.v1',
     validatorVersion: 'validator.v1',
     chunkVersion: 'chunk.v1',
@@ -672,7 +691,7 @@ async function verifyWorkerCmsClientIntegration(strapi, port, appCreatedReportRu
       where: { reportRunId: appCreatedReportRunId },
     });
     assert.ok(appCreatedRow);
-    assert.equal(appCreatedRow.status, 'queued');
+    assert.equal(appCreatedRow.generationStatus, 'queued');
     assert.equal(appCreatedRow.stateVersion, 1);
     assert.equal(appCreatedRow.checkpointsJson.route, 'undecided');
     assert.deepEqual(appCreatedRow.checkpointsJson.entries, []);
@@ -865,7 +884,7 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
     async complete(id, command) {
       await assert.rejects(client.complete(id, { ...command, analysisDigest: 'f'.repeat(64) }));
       const unchanged = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId: id } });
-      assert.equal(unchanged.status, 'running');
+      assert.equal(unchanged.generationStatus, 'running');
       assert.equal(unchanged.stateVersion, command.expectedStateVersion);
       assert.equal(await strapi.db.query('api::survey-report.survey-report').count({ where: { generationRunId: id } }), 0);
       invalidCompletionWasAtomic = true;
@@ -905,7 +924,7 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
   assert.equal(observedRequests.filter(({ method }) => method === 'PUT').length, 6);
   assert.equal(observedRequests.filter(({ path }) => path.endsWith('/complete')).length, 2);
   const persistedGeneration = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId } });
-  assert.equal(persistedGeneration.status, 'succeeded');
+  assert.equal(persistedGeneration.generationStatus, 'succeeded');
   assert.equal(persistedGeneration.stateVersion, 9);
   assert.equal(persistedGeneration.checkpointsJson.route, 'direct');
   assert.deepEqual(persistedGeneration.checkpointsJson.entries.map(({ stageKey }) => stageKey), [
@@ -1022,7 +1041,7 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
   assert.equal(JSON.stringify(mediated.metadata).includes('https://'), false);
   await strapi.db.query(GENERATION_UID).update({
     where: { reportRunId },
-    data: { status: 'failed' },
+    data: { generationStatus: 'failed' },
   });
   try {
     const incompleteGeneration = await fetch(metadataUrl, {
@@ -1033,7 +1052,7 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
   } finally {
     await strapi.db.query(GENERATION_UID).update({
       where: { reportRunId },
-      data: { status: 'succeeded' },
+      data: { generationStatus: 'succeeded' },
     });
   }
 
@@ -1107,7 +1126,7 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
       dataCutoffAt: '2042-09-03T00:00:00.000Z', overlapOverrideAccepted: false,
       snapshotDigest: narrativeSnapshot.digestHex, sourceRevision: narrativeConfig.sourceRevision,
       snapshotJson: narrativeSnapshot.payload, checkpointsJson: narrativeCheckpoints,
-      modelConfigJson: narrativeConfig, usageJson: {}, pricingSnapshotJson: pricingSnapshot, status: 'queued',
+      modelConfigJson: narrativeConfig, usageJson: {}, pricingSnapshotJson: pricingSnapshot, generationStatus: 'queued',
     } }),
   });
   assert.equal(narrativeCreated.status, 201);
@@ -1122,22 +1141,28 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
     tokenProvider: async (action) => ({ action, value: actionTokens[action] }),
     fetchImplementation: createWorkerClientFetch(port, actionTokens, narrativeRequests, undefined, [narrativeRunId]),
   });
-  const evidenceRef = loadPrivateReportSourceAppModules().deriveEvidenceRef({
-    reportRunId: narrativeRunId, recordId: 'synthetic-narrative-record', evidenceKey: narrativeKey,
-  });
   const narrativeOutput = {
-    schemaVersion: 'survey-analysis.v1', route: 'direct',
+    schemaVersion: 'survey-analysis.v2', route: 'direct',
     sections: [
-      { key: 'executive_summary', status: 'supported', claims: [{ claimId: 'claim-a', textEs: 'La visita se percibe acogedora.', evidenceRefs: [evidenceRef], signal: 'descriptive' }] },
+      { key: 'executive_summary', status: 'supported', claims: [{ claimId: 'claim-a', textEs: 'La visita se percibe acogedora.', signal: 'descriptive' }] },
       ...['observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations']
         .map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
     ],
   };
   const narrativeArtifacts = new Map();
   let narrativeProviderCalls = 0;
+  strapi.config.set('feedback.workerCountTokensProvider', async (request) => {
+    if (request.segments.metrics === '{}')
+      assert.equal(JSON.parse(request.segments.comments).schemaVersion, 'survey-analysis.v2');
+    return { instructions: 120, schema: 180, metrics: 80, comments: 95 };
+  });
   const narrativeResult = await executeReportWorker(narrativeRunId, {
     cms: narrativeClient,
     countTokens: async (request) => {
+      if (request.segments.metrics === '{}') {
+        assert.equal(JSON.parse(request.segments.comments).schemaVersion, 'survey-analysis.v2');
+        return { instructions: 120, schema: 180, metrics: 80, comments: 95 };
+      }
       assert.notEqual(request.segments.comments, '[]');
       const modelInput = JSON.parse(request.segments.comments);
       assert.equal(modelInput.contractVersion, 'survey-model-input.v1');
@@ -1168,7 +1193,13 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
       assert.equal(commentProjection.includes('synthetic-narrative-record'), false);
       assert.equal(commentProjection.includes('synthetic-narrative-version'), false);
       assert.equal(commentProjection.includes('synthetic-narrative-point'), false);
-      return narrativeOutput;
+      return {
+        output: narrativeOutput,
+        usage: {
+          model: narrativeConfig.model, modelRevision: 'synthetic-direct-revision', sku: 'gemini-input',
+          usageMetadata: { promptTokenCount: 475, candidatesTokenCount: 95 },
+        },
+      };
     },
     renderer: {
       rendererVersion: 'synthetic-direct-renderer.v1',
@@ -1181,10 +1212,10 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
     },
     now: () => new Date('2042-09-03T01:00:00.000Z'),
   });
-  assert.equal(narrativeResult.status, 'succeeded');
+  assert.equal(narrativeResult.status, 'succeeded', narrativeResult.failureCode);
   assert.equal(narrativeProviderCalls, 1);
   const narrativeGeneration = await strapi.db.query(GENERATION_UID).findOne({ where: { reportRunId: narrativeRunId } });
-  assert.equal(narrativeGeneration.status, 'succeeded');
+  assert.equal(narrativeGeneration.generationStatus, 'succeeded');
   assert.equal(narrativeGeneration.checkpointsJson.route, 'direct');
   assert.deepEqual(narrativeGeneration.checkpointsJson.entries.map(({ stageKey }) => stageKey), [
     'redact', 'count', 'direct', 'validate', 'render', 'store',
@@ -1254,7 +1285,7 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
         reportRunId: runId, periodStart: '2043-09-01', periodEnd: '2043-09-02',
         dataCutoffAt: '2043-09-03T00:00:00.000Z', overlapOverrideAccepted: false,
         snapshotDigest: snapshotEnvelope.digestHex, sourceRevision, snapshotJson: snapshotEnvelope.payload,
-        checkpointsJson: checkpoints, modelConfigJson: modelConfig, usageJson: {}, pricingSnapshotJson: pricingSnapshot, status: 'queued',
+        checkpointsJson: checkpoints, modelConfigJson: modelConfig, usageJson: {}, pricingSnapshotJson: pricingSnapshot, generationStatus: 'queued',
       } }),
     });
     assert.equal(created.status, 201);
@@ -1319,21 +1350,31 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
     const mapProvider = async (request) => {
       mapRequests.push(request);
       return {
-        schemaVersion: 'survey-map.v1',
-        chunkId: request.chunkId,
-        coveredRefs: request.comments.map(({ evidenceRef }) => evidenceRef),
-        themes: [],
-        limitations: [],
+        output: {
+          schemaVersion: 'survey-map.v2',
+          chunkId: request.chunkId,
+          coveredRefs: request.comments.map(({ evidenceRef }) => evidenceRef),
+          themes: [], limitations: [],
+        },
+        usage: {
+          model: modelConfig.model, modelRevision: 'synthetic-map-revision', sku: 'gemini-input',
+          usageMetadata: { promptTokenCount: 400, candidatesTokenCount: 100 },
+        },
       };
     };
     const reduceProvider = async (request) => {
       reduceRequests.push(request);
       return {
-        schemaVersion: 'survey-analysis.v1',
-        route: 'reduce',
-        sections: ['executive_summary', 'observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations']
-          .map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
-        mapOutputDigests: request.maps.map(({ outputDigest }) => outputDigest),
+        output: {
+          schemaVersion: 'survey-analysis.v2', route: 'reduce',
+          sections: ['executive_summary', 'observed_changes', 'strengths', 'unfavorable_areas', 'recurrent_themes', 'minority_signals', 'coverage_limitations']
+            .map((key) => ({ key, status: 'insufficient_evidence', claims: [] })),
+          mapOutputDigests: request.maps.map(({ outputDigest }) => outputDigest),
+        },
+        usage: {
+          model: modelConfig.model, modelRevision: 'synthetic-reduce-revision', sku: 'gemini-input',
+          usageMetadata: { promptTokenCount: 400, candidatesTokenCount: 100 },
+        },
       };
     };
     const result = await executeReportWorker(runId, {
@@ -1357,9 +1398,9 @@ async function verifyEmptyEvidenceWorkerExecution(strapi, port, jwt, testContext
       now: () => new Date('2043-09-03T01:00:00.000Z'),
     });
 
-    assert.equal(result.status, 'succeeded');
+    assert.equal(result.status, 'succeeded', result.failureCode);
     assert.equal(forgedPersistedDigestRejected, true);
-    assert.equal(countRequests.length, 7);
+    assert.equal(countRequests.length, 8);
     assert.equal(mapRequests.length, 2);
     assert.equal(reduceRequests.length, 1);
     assert.deepEqual(mapRequests.map(({ chunkId }) => chunkId), ['map.1-of-2', 'map.2-of-2']);
@@ -1648,7 +1689,7 @@ async function verifyAppGenerationCommandIntegration(strapi, port, workerToken) 
       modelConfigJson: {},
       usageJson: {},
       pricingSnapshotJson: {},
-      status: 'failed',
+      generationStatus: 'failed',
       completedAt: '2026-09-10T12:01:00.000Z',
       failureCode: 'SYNTHETIC_FAILURE',
     },
@@ -1661,7 +1702,7 @@ async function verifyAppGenerationCommandIntegration(strapi, port, workerToken) 
     periodStart: originalFailedRow.periodStart,
     periodEnd: originalFailedRow.periodEnd,
     dataCutoffAt: originalFailedRow.dataCutoffAt,
-    status: originalFailedRow.status,
+    status: originalFailedRow.generationStatus,
     snapshotDigest: originalFailedRow.snapshotDigest,
     sourceRevision: originalFailedRow.sourceRevision,
     snapshotJson: originalFailedRow.snapshotJson,
@@ -1884,7 +1925,7 @@ async function verifyAppGenerationCommandIntegration(strapi, port, workerToken) 
     periodStart: unchangedFailedRow.periodStart,
     periodEnd: unchangedFailedRow.periodEnd,
     dataCutoffAt: unchangedFailedRow.dataCutoffAt,
-    status: unchangedFailedRow.status,
+    status: unchangedFailedRow.generationStatus,
     snapshotDigest: unchangedFailedRow.snapshotDigest,
     sourceRevision: unchangedFailedRow.sourceRevision,
     snapshotJson: unchangedFailedRow.snapshotJson,
@@ -1903,6 +1944,12 @@ function sourceInput(resource, cursor = null, pageSize = 1, overrides = {}) {
     ...overrides,
   };
 }
+
+test('isolated app module loader admits the worker graph without Docker', () => {
+  const modules = loadPrivateReportSourceAppModules();
+  assert.equal(typeof modules.executeReportWorker, 'function');
+  assert.equal(typeof modules.createFeedbackReportDownload, 'function');
+});
 
 test('private report source requires its isolated worker action and returns complete raw-source pages', async (testContext) => {
   let strapi;
@@ -1934,6 +1981,9 @@ test('private report source requires its isolated worker action and returns comp
 
     const { createStrapi } = require('@strapi/strapi');
     strapi = createStrapi({ autoReload: false, serveAdminPanel: false });
+    // Unrelated scheduled jobs can outlive this isolated HTTP test and mask its failure.
+    const cron = strapi.cron;
+    cron.start = () => cron;
     await strapi.load();
     const regularRole = await strapi.db.query('plugin::users-permissions.role').findOne({
       where: { type: 'authenticated' },
