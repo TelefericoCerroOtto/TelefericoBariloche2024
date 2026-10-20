@@ -356,8 +356,8 @@ function syntheticModelConfig(evidenceKeyId: string) {
     reasoning: "LOW",
     grounding: false,
     promptVersion: "prompt.v1",
-    mapSchemaVersion: "survey-map.v2",
-    analysisSchemaVersion: "survey-analysis.v2",
+    mapSchemaVersion: "survey-map.v3",
+    analysisSchemaVersion: "survey-analysis.v3",
     redactionVersion: "redaction.v1",
     validatorVersion: "validator.v1",
     chunkVersion: "chunk.v1",
@@ -552,7 +552,7 @@ describe("worker PDF boundary", () => {
       order.push("stdout-event");
     });
     const directOutput: DirectAnalysisV1 = {
-      schemaVersion: "survey-analysis.v2",
+       schemaVersion: "survey-analysis.v3",
       route: "direct",
       sections: PUBLISHED_SECTION_KEYS.map((key) => ({
         key,
@@ -622,11 +622,11 @@ describe("worker PDF boundary", () => {
     });
     const evidenceRef = deriveEvidenceRef({ reportRunId, recordId: "synthetic-record", evidenceKey });
     const output: DirectAnalysisV1 = {
-      schemaVersion: "survey-analysis.v2",
+       schemaVersion: "survey-analysis.v3",
       route: "direct",
       sections: [
         { key: "executive_summary", status: "supported", claims: [{
-          claimId: "claim-a", textEs: "La visita se describe de forma positiva.",
+           textEs: "La visita se describe de forma positiva.",
                      signal: "descriptive",
         }] },
         ...PUBLISHED_SECTION_KEYS.slice(1).map((key) => ({ key, status: "insufficient_evidence" as const, claims: [] })),
@@ -680,11 +680,10 @@ describe("worker PDF boundary", () => {
     });
     const evidenceRef = deriveEvidenceRef({ reportRunId, recordId: "generation-record", evidenceKey });
     const output: DirectAnalysisV1 = {
-      schemaVersion: "survey-analysis.v2",
+       schemaVersion: "survey-analysis.v3",
       route: "direct",
       sections: [
         { key: "executive_summary", status: "supported", claims: [{
-          claimId: "claim-a",
           textEs: "La experiencia general se describe de manera positiva.",
           signal: "descriptive",
         }] },
@@ -782,7 +781,7 @@ describe("worker PDF boundary", () => {
       mapInputs.push({ request, countRequest });
       return {
         output: {
-          schemaVersion: "survey-map.v2" as const,
+           schemaVersion: "survey-map.v3" as const,
           chunkId: request.chunkId,
           coveredRefs: request.comments.map(({ evidenceRef }) => evidenceRef),
           themes: [],
@@ -803,7 +802,7 @@ describe("worker PDF boundary", () => {
       reduceCountRequest = countRequest;
       return {
         output: {
-          schemaVersion: "survey-analysis.v2" as const,
+           schemaVersion: "survey-analysis.v3" as const,
           route: "reduce" as const,
           sections: PUBLISHED_SECTION_KEYS.map((key) => ({ key, status: "insufficient_evidence" as const, claims: [] })),
           mapOutputDigests: request.maps.map(({ outputDigest }) => outputDigest),
@@ -950,7 +949,7 @@ describe("worker PDF boundary", () => {
             output: (rejectedStage === "map"
               ? rejectedOutput
               : {
-                  schemaVersion: "survey-map.v2" as const,
+                   schemaVersion: "survey-map.v3" as const,
                   chunkId: request.chunkId,
                   coveredRefs: request.comments.map(({ evidenceRef }) => evidenceRef),
                   themes: [],
@@ -972,7 +971,7 @@ describe("worker PDF boundary", () => {
             output: (rejectedStage === "reduce"
               ? rejectedOutput
               : {
-                  schemaVersion: "survey-analysis.v2" as const,
+                   schemaVersion: "survey-analysis.v3" as const,
                   route: "reduce" as const,
                   sections: PUBLISHED_SECTION_KEYS.map((key) => ({
                     key,
@@ -1179,11 +1178,11 @@ describe("worker PDF boundary", () => {
         output: attempt === 1
           ? { schemaVersion: "synthetic-invalid-first-attempt" } as never
           : {
-              schemaVersion: "survey-analysis.v2",
+               schemaVersion: "survey-analysis.v3",
               route: "direct",
               sections: PUBLISHED_SECTION_KEYS.map((key, index) => index === 0
                 ? { key, status: "supported", claims: [{
-                     claimId: "claim-a", textEs: privateMarker,
+                      textEs: privateMarker,
                      signal: "descriptive", evidenceRefs: [`e_${"a".repeat(20)}`],
                   }] }
                 : { key, status: "insufficient_evidence", claims: [] }),
@@ -1234,7 +1233,7 @@ describe("worker PDF boundary", () => {
       definitions: [{ aspectKey: "other", sortOrder: 99 }], points: [{ pointKey: "point-a", displayName: "Point A", sortOrder: 1 }],
     });
     const evidenceRef = deriveEvidenceRef({ reportRunId, recordId: "synthetic-record", evidenceKey });
-    const invalid = { ...syntheticProviderResult(), output: { schemaVersion: "survey-analysis.v2" } as unknown as DirectAnalysisV1 };
+     const invalid = { ...syntheticProviderResult(), output: { schemaVersion: "survey-analysis.v3" } as unknown as DirectAnalysisV1 };
     const configFailure = Object.assign(new Error("configuration"), { code: "CONFIGURATION" });
     const authFailure = Object.assign(new Error("authentication"), { code: "AUTHENTICATION" });
     const transientFailure = Object.assign(new Error("temporary"), { code: "PROVIDER_TRANSIENT" });
@@ -1263,9 +1262,9 @@ describe("worker PDF boundary", () => {
 
     const transientFake = fakeCms(envelope);
     const goodOutput: DirectAnalysisV1 = {
-      schemaVersion: "survey-analysis.v2", route: "direct",
+       schemaVersion: "survey-analysis.v3", route: "direct",
       sections: [
-        { key: "executive_summary", status: "supported", claims: [{ claimId: "claim-a", textEs: "La visita se describe de forma positiva.", signal: "descriptive" }] },
+         { key: "executive_summary", status: "supported", claims: [{ textEs: "La visita se describe de forma positiva.", signal: "descriptive" }] },
         ...PUBLISHED_SECTION_KEYS.slice(1).map((key) => ({ key, status: "insufficient_evidence" as const, claims: [] })),
       ],
     } as DirectAnalysisV1;
@@ -1718,11 +1717,11 @@ describe("worker PDF boundary", () => {
       evidenceKey,
     });
     const analysisOutput: DirectAnalysisV1 = {
-      schemaVersion: "survey-analysis.v2",
+       schemaVersion: "survey-analysis.v3",
       route: "direct",
       sections: [
         { key: "executive_summary", status: "supported", claims: [{
-          claimId: "claim-a", textEs: "La visita se describe de forma positiva.",
+           textEs: "La visita se describe de forma positiva.",
           signal: "descriptive",
         }] },
         ...PUBLISHED_SECTION_KEYS.slice(1).map((key) => ({
@@ -1987,8 +1986,8 @@ describe("worker PDF boundary", () => {
     expect(JSON.stringify(memberships)).not.toContain(input.evidenceKey);
     const projection = { version: "survey-stage-config.v1" as const, stageKey: "map.1-of-2", evidenceKeyId: input.evidenceKeyId, rendererVersion: null, modelConfig: syntheticModelConfig(input.evidenceKeyId) };
     const configDigest = stageConfigDigest(projection);
-     expect(configDigest).toBe("509aff899c725f4023abd6b7a87e788eda5244a5aa70c88b81a3c01ae2ff14ae");
-     expect(stageInputDigestV1({ stageKey: "map.1-of-2", stageIndex: 2, route: "map-reduce", snapshotDigest: input.snapshotDigest, sourceRevision: "test-source", contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest: configDigest, orderedDependencyOutputDigests: ["b".repeat(64), "c".repeat(64)], chunkMembershipDigest: memberships[0]!.membershipDigest })).toBe("9f14e3c124eb74bf8106b0c12a80e96af1a7b816cc9fd18b73ad6958e80de488");
+     expect(configDigest).toBe("20f023eea392688a8e2987bc17bab44a01d6dd296723f6e58f348151549c768c");
+     expect(stageInputDigestV1({ stageKey: "map.1-of-2", stageIndex: 2, route: "map-reduce", snapshotDigest: input.snapshotDigest, sourceRevision: "test-source", contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest: configDigest, orderedDependencyOutputDigests: ["b".repeat(64), "c".repeat(64)], chunkMembershipDigest: memberships[0]!.membershipDigest })).toBe("01ce5e33058c547216930a19784d50c3b7c95ef70f5f51b3350d1cecaaff1f7d");
   });
 
   it("derives direct render/store bindings from immutable config and exact dependencies", () => {

@@ -29,13 +29,12 @@ export const DIRECT_INSTRUCTIONS =
   "Return concise Spanish conclusions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct visitor observations. Distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
 
 export const DIRECT_SCHEMA = canonicalizeJson({
-  schemaVersion: "survey-analysis.v2",
+  schemaVersion: "survey-analysis.v3",
   route: "direct",
   sections: SECTION_KEYS.map((key) => ({
     key,
     status: { enum: ["supported", "insufficient_evidence"] },
     claims: [{
-      claimId: "lowercase-stable-id",
       textEs: "Spanish descriptive text",
       signal: { enum: ["recurrent", "minority", "descriptive"] },
     }],
@@ -79,7 +78,7 @@ export function createDirectModelRequestV1(input: {
 
 export function createEmptyEvidenceDirectAnalysisV1(): DirectAnalysisV1 {
   return {
-    schemaVersion: "survey-analysis.v2",
+    schemaVersion: "survey-analysis.v3",
     route: "direct",
     sections: SECTION_KEYS.map((key) => ({
       key,

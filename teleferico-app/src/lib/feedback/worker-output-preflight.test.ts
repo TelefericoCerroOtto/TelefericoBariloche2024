@@ -65,7 +65,7 @@ function inputSnapshot(
 
 function directOutput(claims: readonly unknown[] = []) {
   return {
-    schemaVersion: "survey-analysis.v2",
+    schemaVersion: "survey-analysis.v3",
     route: "direct",
     sections: PUBLISHED_SECTION_KEYS.map((key, index) => ({
       key,
@@ -81,7 +81,6 @@ function claim(
   overrides: Record<string, unknown> = {},
 ) {
   return {
-    claimId: "claim-a",
     textEs: "Observación sintética sin recomendación.",
     signal: "recurrent",
     ...overrides,
@@ -102,7 +101,7 @@ function mapOutput(
   overrides: Record<string, unknown> = {},
 ) {
   return {
-    schemaVersion: "survey-map.v2",
+    schemaVersion: "survey-map.v3",
     chunkId: `map.${membership.chunkIndex}-of-${membership.chunkCount}`,
     coveredRefs: membership.coveredRefs,
     themes: [],
@@ -116,7 +115,7 @@ function reduceOutput(
   overrides: Record<string, unknown> = {},
 ) {
   return {
-    schemaVersion: "survey-analysis.v2",
+    schemaVersion: "survey-analysis.v3",
     route: "reduce",
     sections: PUBLISHED_SECTION_KEYS.map((key) => ({
       key,
@@ -254,7 +253,7 @@ describe("direct worker output preflight", () => {
     expect(evaluate(directOutput([claim(refs, { textEs: `Referencia incidental ${refs[0]} y https://synthetic.invalid.` })]), snapshot).status).toBe("accepted");
   });
 
-  it("rejects malformed Unicode and duplicate claim IDs while leaving semantic contradiction blocked", () => {
+  it("rejects malformed Unicode while leaving repeated and contradictory prose unjudged", () => {
     expect(
       evaluate(
         directOutput([claim(refs, { textEs: "invalid \uD800 text" })]),
@@ -265,12 +264,11 @@ describe("direct worker output preflight", () => {
     duplicated.sections[1]!.status = "supported";
     duplicated.sections[1]!.claims = [claim(refs)];
     const result = evaluate(duplicated, snapshot);
-    expect(result).toMatchObject({ status: "rejected" });
+    expect(result).toMatchObject({ status: "accepted" });
 
     const contradictory = directOutput([
       claim(refs, { textEs: "La experiencia se describe como positiva." }),
       claim(refs, {
-        claimId: "claim-b",
         textEs: "La experiencia se describe como negativa.",
       }),
     ]);
@@ -325,9 +323,8 @@ describe("map/reduce worker output preflight", () => {
     ).toBe("rejected");
   });
 
-  it("rejects unknown map fields, unsupported versions, and unsorted theme or claim IDs", () => {
+  it("rejects unknown map fields, unsupported versions, and unsorted theme keys", () => {
     const validClaim = {
-      claimId: "claim-a",
       textEs: "Observación sintética.",
       signal: "descriptive",
     };
@@ -343,11 +340,7 @@ describe("map/reduce worker output preflight", () => {
       mapOutput(memberships[0]!, {
         themes: [theme("theme-b"), theme("theme-a")],
       }),
-      mapOutput(memberships[0]!, {
-        themes: [
-          theme("theme-a", [{ ...validClaim, claimId: "claim-b" }, validClaim]),
-        ],
-      }),
+      mapOutput(memberships[0]!, { themes: [theme("theme-a", [{ ...validClaim, claimId: "claim-b" }])] }),
     ]) {
       expect(
         preflightMapAnalysis(output, { ...mapInput(snapshot) }).status,
@@ -382,7 +375,6 @@ describe("map/reduce worker output preflight", () => {
               labelEs: `Tema sintético 99 ${membership.coveredRefs[0]}`,
               claims: [
                 {
-                  claimId: "claim-a",
                   textEs:
                     "este comentario sintético contiene ocho palabras únicas solo para prueba",
                   signal: "descriptive",
@@ -471,7 +463,6 @@ describe("map/reduce worker output preflight", () => {
               status: "supported",
               claims: [
                 {
-                  claimId: "claim-a",
                   textEs: "Observación sintética.",
                   evidenceRefs: ["e_aaaaaaaaaaaaaaaaaaaa"],
                   signal: "descriptive",
@@ -513,7 +504,6 @@ describe("map/reduce worker output preflight", () => {
                 status: "supported",
                 claims: [
                   {
-                    claimId: "claim-a",
                     textEs,
                     signal: "descriptive",
                   },
@@ -584,12 +574,50 @@ describe("stage output token budgets", () => {
   });
 });
 
-describe("citation-free response revision", () => {
+describe("claim-free v3 response boundary", () => {
   const snapshot = inputSnapshot();
   const input = { snapshot, reportRunId: RUN_ID, evidenceKeyId: KEY_ID, evidenceKey: KEY };
-  const conclusion = { claimId: "claim-a", textEs: "La visita fue agradable.", signal: "descriptive" };
+  const conclusion = { textEs: "Conclusión sintética.", signal: "descriptive" };
+  const sections = PUBLISHED_SECTION_KEYS.map((key, index) => ({
+    key, status: index === 0 ? "supported" : "insufficient_evidence",
+    claims: index === 0 ? [conclusion] : [],
+  }));
+  const direct = { schemaVersion: "survey-analysis.v3", route: "direct", sections };
+
+  it("accepts claim-free Direct and rejects legacy fields and versions", () => {
+    expect(preflightDirectAnalysis(direct, input).status).toBe("accepted");
+    for (const candidate of [
+      { ...direct, schemaVersion: "survey-analysis.v2" },
+      { ...direct, sections: sections.map((section, index) => index === 0
+        ? { ...section, claims: [{ ...conclusion, claimId: "claim-a" }] } : section) },
+    ]) expect(preflightDirectAnalysis(candidate, input).status).toBe("rejected");
+    expect(preflightDirectAnalysis({ ...direct, sections: [...sections].reverse() }, input).status).toBe("rejected");
+  });
+
+  it("accepts claim-free Map and Reduce while binding membership and verified digests", () => {
+    const membership = deriveChunkMembership({ ...mapInput(snapshot, 1), snapshotDigest: snapshot.digestHex, comments: snapshot.payload.comments })[0]!;
+    const map = { schemaVersion: "survey-map.v3", chunkId: "map.1-of-1", coveredRefs: membership.coveredRefs,
+      themes: [{ themeKey: "theme-a", labelEs: "Tema sintético", claims: [conclusion] }], limitations: [] };
+    const digests = ["a".repeat(64)];
+    const reduce = { schemaVersion: "survey-analysis.v3", route: "reduce", sections, mapOutputDigests: digests };
+    expect(preflightMapAnalysis(map, mapInput(snapshot, 1)).status).toBe("accepted");
+    expect(preflightMapAnalysis({ ...map, schemaVersion: "survey-map.v2" }, mapInput(snapshot, 1)).status).toBe("rejected");
+    expect(preflightMapAnalysis({ ...map, coveredRefs: [] }, mapInput(snapshot, 1)).status).toBe("rejected");
+    expect(preflightMapAnalysis({ ...map, themes: [{ ...map.themes[0], claims: [{ ...conclusion, claimId: "claim-a" }] }] }, mapInput(snapshot, 1)).status).toBe("rejected");
+    expect(preflightReduceAnalysis(reduce, { ...input, verifiedMapOutputDigests: digests }).status).toBe("accepted");
+    expect(preflightReduceAnalysis({ ...reduce, schemaVersion: "survey-analysis.v2" }, { ...input, verifiedMapOutputDigests: digests }).status).toBe("rejected");
+    expect(preflightReduceAnalysis({ ...reduce, mapOutputDigests: ["b".repeat(64)] }, { ...input, verifiedMapOutputDigests: digests }).status).toBe("rejected");
+    expect(preflightReduceAnalysis({ ...reduce, sections: sections.map((section, index) => index === 0
+      ? { ...section, claims: [{ ...conclusion, claimId: "claim-a" }] } : section) }, { ...input, verifiedMapOutputDigests: digests }).status).toBe("rejected");
+  });
+});
+
+describe("claim-free response revision", () => {
+  const snapshot = inputSnapshot();
+  const input = { snapshot, reportRunId: RUN_ID, evidenceKeyId: KEY_ID, evidenceKey: KEY };
+  const conclusion = { textEs: "La visita fue agradable.", signal: "descriptive" };
   const direct = {
-    ...directOutput(), schemaVersion: "survey-analysis.v2",
+    ...directOutput(), schemaVersion: "survey-analysis.v3",
     sections: directOutput().sections.map((section, index) => index === 0
       ? { ...section, status: "supported", claims: [conclusion] } : section),
   };
@@ -603,9 +631,9 @@ describe("citation-free response revision", () => {
 
   it("accepts Map and Reduce conclusions without citations while preserving chunk and digest checks", () => {
     const membership = deriveChunkMembership({ ...mapInput(snapshot, 1), snapshotDigest: snapshot.digestHex, comments: snapshot.payload.comments })[0]!;
-    const map = { ...mapOutput(membership), schemaVersion: "survey-map.v2", themes: [{ themeKey: "theme-a", labelEs: "Visita", claims: [conclusion] }] };
+    const map = { ...mapOutput(membership), schemaVersion: "survey-map.v3", themes: [{ themeKey: "theme-a", labelEs: "Visita", claims: [conclusion] }] };
     const digests = ["a".repeat(64)];
-    const reduce = { ...reduceOutput(digests), schemaVersion: "survey-analysis.v2", sections: direct.sections };
+    const reduce = { ...reduceOutput(digests), schemaVersion: "survey-analysis.v3", sections: direct.sections };
     expect(preflightMapAnalysis(map, mapInput(snapshot, 1)).status).toBe("accepted");
     expect(preflightMapAnalysis({ ...map, coveredRefs: [] }, mapInput(snapshot, 1)).status).toBe("rejected");
     expect(preflightMapAnalysis({ ...map, themes: [{ ...map.themes[0], claims: [{ ...conclusion, evidenceRefs: membership.coveredRefs }] }] }, mapInput(snapshot, 1)).status).toBe("rejected");
