@@ -20,9 +20,10 @@ const mocks = vi.hoisted(() => ({
     Promise.resolve({
       ok: true,
       session: {
-        jwt: "synthetic-admin-jwt",
+        jwt: "synthetic-operator-jwt",
         csrfToken: "synthetic-csrf-token",
         user: {
+          role: { name: "Digital Experience Operator" },
           capabilities: [
             "feedback.read",
             "feedback.comments.read",
@@ -147,9 +148,9 @@ describe("U8-A authenticated synthetic-data runtime harness", () => {
     mocks.requireCsrfSession.mockResolvedValueOnce({
       ok: true,
       session: {
-        jwt: "synthetic-admin-jwt",
+        jwt: "synthetic-operator-jwt",
         csrfToken: "synthetic-csrf-token",
-        user: { capabilities: ["feedback.comments.read"] },
+        user: { role: { name: "Digital Experience Operator" }, capabilities: ["feedback.comments.read"] },
       },
     });
     const { GET } = await import("./summary/route");

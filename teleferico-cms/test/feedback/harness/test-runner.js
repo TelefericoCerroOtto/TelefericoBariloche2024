@@ -7,11 +7,13 @@ const TESTS_BY_SELECTOR = {
   'feedback/lifecycle': [
     path.join(__dirname, '../lifecycle/lifecycle.test.js'),
     path.join(__dirname, '../lifecycle/status-column-migration.test.js'),
+    path.join(__dirname, '../lifecycle/report-history-presentation-migration.test.js'),
     path.join(__dirname, '../lifecycle/postgres-lifecycle.test.js'),
   ],
   'feedback/permissions': [
     path.join(__dirname, '../permissions/permissions.test.js'),
     path.join(__dirname, '../permissions/postgres-permissions.test.js'),
+    path.join(__dirname, '../generation-presentation.test.js'),
   ],
   'feedback/seed': [
     path.join(__dirname, '../seed/seed.test.js'),

@@ -1457,6 +1457,131 @@ describe("feedback analytics UI projections", () => {
     expect(threeCards[2]?.querySelector(":scope > div")).toHaveClass("[&>div]:xl:grid-cols-4");
   });
 
+  const historyRow = (overrides: Record<string, unknown> = {}) => ({
+    reportRunId: "run-1", displayName: null, status: "failed", period: { from: "2026-09-01", to: "2026-09-20" },
+    dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z",
+    completedAt: "2026-09-21T02:00:00.000Z", failureCode: "PROVIDER_TRANSIENT",
+    safeFailureMessage: "Provider unreachable", retryOfReportRunId: null, report: null, ...overrides,
+  });
+  const historyEnvelope = (items: unknown[], total = items.length, page = 1) => Response.json({ contractVersion: "feedback-admin.v1", data: { items, total, page, pageSize: 25 }, meta: {} });
+  const mountHistory = () => render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
+
+  it("uses shared names or a readable fallback and renames inline without exposing run identity", async () => {
+    let name: string | null = "Informe de septiembre";
+    let reads = 0;
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path, init) => {
+      if (String(path).includes("/comments?")) return Promise.resolve(historyEnvelope([]));
+      if (init?.method === "POST") return Promise.resolve(Response.json({ reportRunId: "run-1", displayName: name = JSON.parse(String(init.body)).displayName, historyHidden: false }));
+      reads += 1;
+      return Promise.resolve(historyEnvelope([historyRow({ displayName: name })]));
+    });
+    mountHistory();
+    const table = await screen.findByRole("table", { name: "Historial de informes" });
+    expect(within(table).getByText("Informe de septiembre")).toBeInTheDocument();
+    expect(table).not.toHaveTextContent("run-1");
+    fireEvent.click(within(table).getByRole("button", { name: "Editar nombre" }));
+    const form = screen.getByRole("form", { name: "Editar nombre del informe" });
+    expect(within(form).getByRole("textbox", { name: "Nombre del informe" })).toHaveAttribute("maxLength", "80");
+    fireEvent.change(within(form).getByRole("textbox", { name: "Nombre del informe" }), { target: { value: "Nuevo nombre" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Cancelar edición" }));
+    expect(screen.queryByRole("form", { name: "Editar nombre del informe" })).not.toBeInTheDocument();
+    expect(within(table).getByText("Informe de septiembre")).toBeInTheDocument();
+    fireEvent.click(within(table).getByRole("button", { name: "Editar nombre" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Nombre del informe" }), { target: { value: "Nuevo nombre" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar nombre" }));
+    await screen.findByText("Nuevo nombre");
+    expect(reads).toBeGreaterThan(1);
+    const call = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([path, init]) => String(path).endsWith("/run-1/presentation") && init?.method === "POST");
+    expect(call).toBeDefined();
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ contractVersion: "feedback-admin.v1", action: "rename", displayName: "Nuevo nombre" });
+  });
+
+  it("shows labeled date boundaries with secondary generation time and stacked counts", async () => {
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => Promise.resolve(String(path).includes("/comments?") ? historyEnvelope([]) : historyEnvelope([historyRow({ reportRunId: "ready-run", status: "succeeded", report: { reportId: "pdf-1", createdAt: "2026-09-21T02:00:00.000Z", analyzedResponseCount: 12, analyzedCommentCount: 3, canDownload: true } }), historyRow()])));
+    mountHistory();
+    const table = await screen.findByRole("table", { name: "Historial de informes" });
+    expect(within(table).queryAllByRole("columnheader", { name: /Período anterior|Fechas/ })).toHaveLength(0);
+    expect(within(table).getAllByText(/Desde: 1 sept 2026/)).toHaveLength(2);
+    expect(within(table).getAllByText(/Hasta: 20 sept 2026/)).toHaveLength(2);
+    expect(within(table).getByText(/Generado: 20\/9\/2026/)).toBeInTheDocument();
+    expect(within(table).getByText("12 respuestas")).toBeInTheDocument();
+    expect(within(table).getByText("3 comentarios")).toBeInTheDocument();
+    expect(within(table).getByText("No disponible")).toBeInTheDocument();
+  });
+
+  it("renders processing for both active backend states, completed and failed labels, and cancellation copy without English errors", async () => {
+    const rows = [historyRow({ reportRunId: "q", status: "queued", failureCode: null, cancellationIdentity: { stateVersion: 3 } }), historyRow({ reportRunId: "r", status: "running", failureCode: null }), historyRow({ reportRunId: "s", status: "succeeded", failureCode: null }), historyRow({ reportRunId: "f", failureCode: "OPERATOR_CANCELLED" }), historyRow({ reportRunId: "e" })];
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => Promise.resolve(String(path).includes("/comments?") ? historyEnvelope([]) : historyEnvelope(rows)));
+    mountHistory();
+    const table = await screen.findByRole("table", { name: "Historial de informes" });
+    expect(within(table).getAllByText("Procesando")).toHaveLength(2);
+    expect(within(table).getByText("Completado")).toBeInTheDocument();
+    expect(within(table).getAllByText("Fallido")).toHaveLength(2);
+    expect(within(table).getByText("Solicitud cancelada.")).toBeInTheDocument();
+    expect(within(table).queryByText("Provider unreachable")).not.toBeInTheDocument();
+    expect(within(table).getAllByText("No se pudo completar el informe.")).toHaveLength(1);
+    expect(table.querySelector('[data-generation-status="queued"] svg')).toHaveClass("motion-safe:animate-pulse");
+    expect(table.querySelector('[data-generation-status="succeeded"]')).toHaveClass("text-green-700");
+    expect(table.querySelector('[data-generation-status="failed"]')).toHaveClass("text-custom-red");
+  });
+
+  it("offers labeled icon actions only where actionable and a disabled control otherwise", async () => {
+    const rows = [historyRow({ reportRunId: "q", status: "queued", cancellationIdentity: { stateVersion: 2 } }), historyRow({ reportRunId: "r", status: "running" }), historyRow({ reportRunId: "s", status: "succeeded", report: { reportId: "pdf-1", createdAt: "2026-09-21T02:00:00.000Z", analyzedResponseCount: 1, analyzedCommentCount: 0 } }), historyRow({ reportRunId: "f" })];
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => Promise.resolve(String(path).includes("/comments?") ? historyEnvelope([]) : historyEnvelope(rows)));
+    mountHistory();
+    const table = await screen.findByRole("table", { name: "Historial de informes" });
+    expect(within(table).getByRole("button", { name: "Sin acciones disponibles" })).toBeDisabled();
+    expect(within(table).getByRole("button", { name: "Cancelar solicitud en cola" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(within(table).getByRole("button", { name: "Reintentar generación" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(within(table).getByRole("button", { name: "Ocultar informe fallido" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(within(table).getByRole("button", { name: "Descargar PDF" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(within(table).getAllByRole("row")[2]!).not.toHaveTextContent("Cancelar solicitud en cola");
+  });
+
+  it("hides a failed row only after warning about all operators and refreshes server pagination", async () => {
+    let hidden = false;
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path, init) => {
+      if (String(path).includes("/comments?")) return Promise.resolve(historyEnvelope([]));
+      if (init?.method === "POST") { hidden = true; return Promise.resolve(Response.json({ reportRunId: "run-1", displayName: null, historyHidden: true })); }
+      return Promise.resolve(historyEnvelope(hidden ? [] : [historyRow()]));
+    });
+    try {
+      mountHistory();
+      await screen.findByRole("table", { name: "Historial de informes" });
+      fireEvent.click(screen.getByRole("button", { name: "Ocultar informe fallido" }));
+      expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/todos los operadores.*no se elimina/i));
+      expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
+      confirm.mockReturnValue(true);
+      fireEvent.click(screen.getByRole("button", { name: "Ocultar informe fallido" }));
+      expect(await screen.findByText("No hay informes para este período.")).toBeInTheDocument();
+      const call = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([path, init]) => String(path).endsWith("/run-1/presentation") && init?.method === "POST");
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ contractVersion: "feedback-admin.v1", action: "hide" });
+    } finally { confirm.mockRestore(); }
+  });
+
+  it("drops the status filter, retains manual refresh, and requests accurate server pages without status", async () => {
+    let reads = 0;
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => {
+      if (String(path).includes("/comments?")) return Promise.resolve(historyEnvelope([]));
+      reads += 1;
+      const page = Number(new URLSearchParams(String(path).split("?")[1]).get("page"));
+      return Promise.resolve(historyEnvelope([historyRow({ reportRunId: `run-${page}` })], 26, page));
+    });
+    mountHistory();
+    await screen.findByRole("table", { name: "Historial de informes" });
+    expect(screen.queryByRole("combobox", { name: "Estado del informe" })).not.toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Paginación de informes" })).getByRole("button", { name: "Siguiente" }));
+    await waitFor(() => expect(screen.getByText("Página 2 de 2")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Actualizar historial" }));
+    await waitFor(() => expect(reads).toBe(3));
+    for (const [path] of vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([value]) => String(value).includes("/generations?"))) {
+      const params = new URLSearchParams(String(path).split("?")[1]);
+      expect(params.has("status")).toBe(false);
+      expect(params.get("pageSize")).toBe("25");
+    }
+  });
+
   it("filters comments, preserves per-aspect detail, and exposes immutable report history", async () => {
     const comments = { items: [{ recordId: "comment-1", receipt: "receipt-a", acceptedAt: "2026-09-20T12:00:00.000Z", locale: "es" as const, pointKey: "base", overallRating: 5 as const, aspectRatings: [{ aspectKey: "views", rating: "positive" as const }], text: "Excelente vista" }], total: 1, page: 1, pageSize: 25 };
     const generations = { items: [{ reportRunId: "run-1", status: "succeeded" as const, period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z", completedAt: "2026-09-21T01:10:00.000Z", failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, report: { reportId: "report-1", createdAt: "2026-09-21T01:10:00.000Z", period: { from: "2026-09-01", to: "2026-09-20" }, analyzedResponseCount: 4, analyzedCommentCount: 1, canDownload: true } }], total: 1, page: 1, pageSize: 25 };
@@ -1470,14 +1595,14 @@ describe("feedback analytics UI projections", () => {
     const aiCard = screen.getByRole("region", { name: "Análisis con IA" });
     expect(within(aiCard).getByText(/comentarios de encuestas anónimas/)).toBeInTheDocument();
     expect(screen.getByText(/Hay pocos comentarios en este alcance/)).toBeInTheDocument();
-    expect(screen.getByText("Feedback report 2026-09-01–2026-09-20")).toBeInTheDocument();
+    expect(screen.getByText("Informe", { selector: "p" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Descargar PDF" })).toBeEnabled();
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path, init) => {
       if (init?.method === "POST") return Promise.resolve(Response.json({ reportRunId: "run-2", status: "queued" }, { status: 202 }));
       return Promise.resolve(envelope(String(path).includes("/comments?") ? comments : generations));
     });
     fireEvent.click(screen.getByRole("button", { name: "Solicitar informe" }));
-    expect(await screen.findByText(/Solicitud run-2/)).toBeInTheDocument();
+    expect(await screen.findByText(/Solicitud recibida/)).toBeInTheDocument();
     const [, commandInit] = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([, init]) => init?.method === "POST")!;
     expect(commandInit?.method).toBe("POST");
     expect(JSON.parse(String(commandInit?.body))).not.toHaveProperty("commentFilters");
@@ -1584,23 +1709,23 @@ describe("feedback analytics UI projections", () => {
     expect(rows).toHaveLength(6);
     expect(screen.getAllByRole("heading", { name: "Historial de informes" })).toHaveLength(1);
     expect(screen.queryByRole("heading", { name: "Historial de generaciones" })).not.toBeInTheDocument();
-    expect(within(table).getByText("En cola")).toBeInTheDocument();
-    expect(within(table).getByText("En curso")).toBeInTheDocument();
-    expect(within(table).getAllByText("Completada")).toHaveLength(2);
-    expect(within(table).getByText("Fallida")).toBeInTheDocument();
-    expect(within(table).getAllByText("Feedback report 2026-09-01–2026-09-20")).toHaveLength(2);
-    expect(within(table).getByText("12 respuestas · 3 comentarios")).toBeInTheDocument();
-    expect(within(table).getByText("El proveedor no está disponible temporalmente.")).toBeInTheDocument();
-    expect(within(table).getByText("failed-source")).toBeInTheDocument();
+    expect(within(table).getAllByText("Procesando")).toHaveLength(2);
+    expect(within(table).getAllByText("Completado")).toHaveLength(2);
+    expect(within(table).getByText("Fallido")).toBeInTheDocument();
+    expect(within(table).getAllByText("Informe", { selector: "p" })).toHaveLength(5);
+    expect(within(table).getByText("12 respuestas")).toBeInTheDocument();
+    expect(within(table).getByText("3 comentarios")).toBeInTheDocument();
+    expect(within(table).getByText("No se pudo completar el informe.")).toBeInTheDocument();
+    expect(table).not.toHaveTextContent("failed-source");
     expect(within(table).getAllByRole("button", { name: "Descargar PDF" })).toHaveLength(2);
-    const undownloadableRow = within(table).getByText("undownloadable-report").closest("tr");
+    const undownloadableRow = within(table).getAllByRole("row")[5];
     expect(undownloadableRow).not.toBeNull();
     expect(within(undownloadableRow!).getByRole("button", { name: "Descargar PDF" })).toBeEnabled();
     fireEvent.click(within(undownloadableRow!).getByRole("button", { name: "Descargar PDF" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo descargar el informe. Probá de nuevo.");
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.some(([path]) => String(path) === "/api/admin/feedback/reports/undownloadable-report/download")).toBe(true);
     expect(within(table).getByRole("button", { name: "Reintentar generación" })).toBeEnabled();
-    expect(within(table).getAllByText("immutable-report")).toHaveLength(1);
+    expect(table).not.toHaveTextContent("immutable-report");
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/reports?")).length).toBe(0);
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/generations?")).length).toBe(1);
   });
@@ -1618,7 +1743,7 @@ describe("feedback analytics UI projections", () => {
     });
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
-    await screen.findByText("Feedback report 2026-09-01–2026-09-20");
+    await screen.findAllByText("Informe", { selector: "p" });
 
     const aiCard = screen.getByRole("region", { name: "Análisis con IA" });
     const historyHeading = within(aiCard).getByRole("heading", { level: 3, name: "Historial de informes" });
@@ -1626,17 +1751,17 @@ describe("feedback analytics UI projections", () => {
     expect(within(aiCard).queryByRole("heading", { name: "Historial de generaciones" })).not.toBeInTheDocument();
     const table = within(aiCard).getByRole("table", { name: "Historial de informes" });
     expect(historyHeading.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(table).getByText("queued-run")).toBeInTheDocument();
-    const queuedRow = within(table).getByRole("row", { name: /queued-run/ });
+    expect(table).not.toHaveTextContent("queued-run");
+    const queuedRow = within(table).getAllByRole("row")[1]!;
     expect(within(queuedRow).queryByRole("button", { name: "Cancelar solicitud en cola" })).not.toBeInTheDocument();
     expect(within(table).getByRole("button", { name: "Descargar PDF" })).toBeEnabled();
-    expect(within(aiCard).getByRole("combobox", { name: "Estado del informe" })).toBeInTheDocument();
+    expect(within(aiCard).queryByRole("combobox", { name: "Estado del informe" })).not.toBeInTheDocument();
     expect(within(aiCard).getByRole("button", { name: "Actualizar historial" })).toBeEnabled();
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/generations?")).length).toBe(1);
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/reports?")).length).toBe(0);
   });
 
-  it("shows the normalized equal-duration prior period and safely handles invalid generation periods", async () => {
+  it("shows valid boundaries and safely handles invalid generation periods", async () => {
     const emptyComments = { items: [], total: 0, page: 1, pageSize: 25 };
     const generations = {
       items: [
@@ -1654,14 +1779,12 @@ describe("feedback analytics UI projections", () => {
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
     const table = await screen.findByRole("table", { name: "Historial de informes" });
-    const validRow = within(table).getByText("valid-period-run").closest("tr");
-    const invalidRow = within(table).getByText("invalid-period-run").closest("tr");
+    const validRow = within(table).getAllByRole("row")[1]!;
+    const invalidRow = within(table).getAllByRole("row")[2]!;
 
-    expect(within(table).getByRole("columnheader", { name: "Período anterior equivalente" })).toBeInTheDocument();
-    expect(validRow).not.toBeNull();
-    expect(within(validRow!).getAllByRole("cell")[2]).toHaveTextContent("2026-09-01–2026-09-10");
-    expect(invalidRow).not.toBeNull();
-    expect(within(invalidRow!).getAllByRole("cell")[2]).toHaveTextContent("No disponible");
+    expect(within(table).queryByRole("columnheader", { name: "Período anterior equivalente" })).not.toBeInTheDocument();
+    expect(within(validRow).getAllByRole("cell")[1]).toHaveTextContent("Desde: 11 sept 2026Hasta: 20 sept 2026");
+    expect(within(invalidRow).getAllByRole("cell")[1]).toHaveTextContent("Desde: No disponibleHasta: 1 oct 2026");
   });
 
   it("opens the rating selector on demand and closes it with Escape or outside interaction", async () => {
@@ -1715,7 +1838,7 @@ describe("feedback analytics UI projections", () => {
     fireEvent.click(screen.getByRole("button", { name: "Solicitar informe" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("la fecha inicial debe ser anterior o igual");
-    expect(screen.getByText("No hay informes para este período y estado.")).toBeInTheDocument();
+    expect(screen.getByText("No hay informes para este período.")).toBeInTheDocument();
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/comments?") || String(path).includes("/generations?")).length).toBe(2);
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.some(([path]) => String(path).includes("/reports?"))).toBe(false);
   });
@@ -1818,7 +1941,7 @@ describe("feedback analytics UI projections", () => {
     fireEvent.change(screen.getByLabelText("Buscar en comentarios"), { target: { value: "failed" } });
     expect(await screen.findByRole("alert")).toHaveTextContent("Los comentarios no están disponibles");
     expect(screen.queryByText("Current comment")).not.toBeInTheDocument();
-    expect(screen.getByText("Feedback report 2026-09-01–2026-09-20")).toBeInTheDocument();
+    expect(screen.getByText("Informe", { selector: "p" })).toBeInTheDocument();
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/generations?")).length).toBe(1);
     failComments = false;
     fireEvent.click(screen.getByRole("button", { name: "Reintentar comentarios" }));
@@ -1834,15 +1957,15 @@ describe("feedback analytics UI projections", () => {
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => String(path).includes("/generations?") && failGenerations ? Promise.reject(new Error("reports unavailable")) : Promise.resolve(envelope(String(path).includes("/comments?") ? comments : generations)));
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
-    await screen.findByText("Feedback report 2026-09-01–2026-09-20");
+    await screen.findByText("Informe", { selector: "p" });
     failGenerations = true;
     fireEvent.click(within(screen.getByRole("navigation", { name: "Paginación de informes" })).getByRole("button", { name: "Siguiente" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("El historial de informes no está disponible");
     expect(screen.getAllByText("Current comment").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Feedback report 2026-09-01–2026-09-20")).not.toBeInTheDocument();
+    expect(screen.queryByText("Informe", { selector: "p" })).not.toBeInTheDocument();
     failGenerations = false;
     fireEvent.click(screen.getByRole("button", { name: "Reintentar historial" }));
-    await screen.findByText("Feedback report 2026-09-01–2026-09-20");
+    await screen.findByText("Informe", { selector: "p" });
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/comments?")).length).toBe(1);
   });
 
@@ -1863,36 +1986,35 @@ describe("feedback analytics UI projections", () => {
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
 
-    expect(await screen.findByText("queued-run")).toBeInTheDocument();
-    expect(document.querySelector('[data-generation-status="running"]')).toHaveTextContent("En curso");
-    expect(document.querySelector('[data-generation-status="succeeded"]')).toHaveTextContent("Completada");
-    expect(document.querySelector('[data-generation-status="failed"]')).toHaveTextContent("Fallida");
-    expect(screen.getByText("El proveedor no está disponible temporalmente.")).toBeInTheDocument();
-    expect(screen.getByText("immutable-report")).toBeInTheDocument();
-    expect(screen.getByText("failed-source")).toBeInTheDocument();
-    expect(within(screen.getByRole("row", { name: /queued-run/ })).getByRole("button", { name: "Cancelar solicitud en cola" })).toBeInTheDocument();
+    const history = await screen.findByRole("table", { name: "Historial de informes" });
+    expect(document.querySelector('[data-generation-status="running"]')).toHaveTextContent("Procesando");
+    expect(document.querySelector('[data-generation-status="succeeded"]')).toHaveTextContent("Completado");
+    expect(document.querySelector('[data-generation-status="failed"]')).toHaveTextContent("Fallido");
+    expect(history).not.toHaveTextContent("El proveedor no está disponible temporalmente.");
+    expect(history).not.toHaveTextContent("immutable-report");
+    expect(history).not.toHaveTextContent("failed-source");
+    expect(within(within(history).getAllByRole("row")[1]!).getByRole("button", { name: "Cancelar solicitud en cola" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancelar solicitud en cola" })).toBeInTheDocument();
     expect(screen.queryByText(/never render this|private-model|usageCost/)).not.toBeInTheDocument();
   });
 
-  it("applies the status filter and paginates the unified report history with bounded requests", async () => {
+  it("paginates the unified report history with bounded unfiltered requests", async () => {
     const comments = { items: [], total: 0, page: 1, pageSize: 25 };
-    const generation = (page: number, status = "queued") => ({ items: [{ reportRunId: `run-${page}`, status, period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, report: null }], total: 26, page, pageSize: 25 });
+    const generation = (page: number) => ({ items: [{ reportRunId: `run-${page}`, status: "queued", period: { from: "2026-09-01", to: "2026-09-20" }, dataCutoffAt: "2026-09-21T00:00:00.000Z", createdAt: "2026-09-21T01:00:00.000Z", completedAt: null, failureCode: null, safeFailureMessage: null, retryOfReportRunId: null, report: null }], total: 26, page, pageSize: 25 });
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => {
-      const value = String(path).includes("/comments?") ? comments : generation(Number(new URLSearchParams(String(path).split("?")[1]).get("page")), new URLSearchParams(String(path).split("?")[1]).get("status") ?? "queued");
+      const value = String(path).includes("/comments?") ? comments : generation(Number(new URLSearchParams(String(path).split("?")[1]).get("page")));
       return Promise.resolve(Response.json({ contractVersion: "feedback-admin.v1", data: value, meta: {} }));
     });
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
-    expect(await screen.findByText("run-1")).toBeInTheDocument();
+    expect(await screen.findByRole("table", { name: "Historial de informes" })).toBeInTheDocument();
     fireEvent.click(within(screen.getByRole("navigation", { name: "Paginación de informes" })).getByRole("button", { name: "Siguiente" }));
-    await screen.findByText("run-2");
-    fireEvent.change(screen.getByRole("combobox", { name: "Estado del informe" }), { target: { value: "failed" } });
+    await screen.findByText("Página 2 de 2");
     await waitFor(() => {
       const call = vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/generations?")).at(-1)?.[0];
       const params = new URLSearchParams(String(call).split("?")[1]);
-      expect(params.get("status")).toBe("failed");
-      expect(params.get("page")).toBe("1");
+      expect(params.has("status")).toBe(false);
+      expect(params.get("page")).toBe("2");
       expect(params.get("pageSize")).toBe("25");
     });
   });
@@ -1918,16 +2040,16 @@ describe("feedback analytics UI projections", () => {
     });
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
-    expect(await screen.findByText("failed-source")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Reintentar generación" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reintentar generación" }));
-    expect(await screen.findByText("retry-run")).toBeInTheDocument();
+    expect(await screen.findByText("Generado como reintento")).toBeInTheDocument();
     await waitFor(() => expect(historyReads).toBeGreaterThanOrEqual(2));
     const retryCall = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([path, init]) => String(path).endsWith("/failed-source/retry") && init?.method === "POST");
     expect(retryCall).toBeDefined();
     expect(JSON.parse(String(retryCall?.[1]?.body))).toEqual({ contractVersion: "feedback-admin.v1" });
 
     fireEvent.click(screen.getByRole("button", { name: "Solicitar informe" }));
-    expect(await screen.findByText("created-run")).toBeInTheDocument();
+    expect(await screen.findByText(/Solicitud recibida/)).toBeInTheDocument();
     await waitFor(() => expect(historyReads).toBeGreaterThanOrEqual(3));
   });
 
@@ -1971,10 +2093,11 @@ describe("feedback analytics UI projections", () => {
 
     try {
       render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
-      expect(await screen.findByText(queuedGeneration.reportRunId)).toBeInTheDocument();
+       expect(await screen.findByRole("button", { name: "Cancelar solicitud en cola" })).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: "Cancelar solicitud en cola" }));
-      expect(confirm).toHaveBeenCalledWith(expect.stringContaining(queuedGeneration.reportRunId));
+       fireEvent.click(screen.getByRole("button", { name: "Cancelar solicitud en cola" }));
+       expect(confirm).toHaveBeenCalledWith(expect.stringContaining("mientras siga en cola"));
+       expect(confirm.mock.calls[0]?.[0]).not.toContain(queuedGeneration.reportRunId);
       expect(await screen.findByRole("alert")).toHaveTextContent("La ejecución cambió o ya no está en cola.");
       await waitFor(() => expect(historyReads).toBeGreaterThanOrEqual(2));
 
@@ -2008,7 +2131,7 @@ describe("feedback analytics UI projections", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("El historial de informes no está disponible temporalmente.");
     expect(screen.queryByText("private transport detail")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reintentar historial" }));
-    expect(await screen.findByText("No hay informes para este período y estado.")).toBeInTheDocument();
+    expect(await screen.findByText("No hay informes para este período.")).toBeInTheDocument();
     expect(historyReads).toBe(2);
     fireEvent.click(screen.getByRole("button", { name: "Actualizar historial" }));
     await waitFor(() => expect(historyReads).toBe(3));
@@ -2027,7 +2150,7 @@ describe("feedback analytics UI projections", () => {
     });
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
-    await screen.findByText("No hay informes para este período y estado.");
+    await screen.findByText("No hay informes para este período.");
     const reportForm = screen.getByRole("form", { name: "Generación de informe" });
     const submit = screen.getByRole("button", { name: "Solicitar informe" });
     fireEvent.click(submit);
@@ -2038,7 +2161,7 @@ describe("feedback analytics UI projections", () => {
     expect(generationCalls).toBe(1);
     fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo generar/ }));
     fireEvent.click(screen.getByRole("button", { name: "Solicitar informe" }));
-    expect(await screen.findByText(/Solicitud run-2/)).toBeInTheDocument();
+    expect(await screen.findByText(/Solicitud recibida/)).toBeInTheDocument();
     fireEvent.change(within(reportForm).getByLabelText("Fecha inicial"), { target: { value: "2026-10-01" } });
     expect(screen.queryByText("El rango se cruza con historial existente")).not.toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: /Confirmo generar/ })).not.toBeInTheDocument();
@@ -2058,7 +2181,7 @@ describe("feedback analytics UI projections", () => {
     });
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
-    await screen.findByText("No hay informes para este período y estado.");
+    await screen.findByText("No hay informes para este período.");
     const submit = screen.getByRole("button", { name: "Solicitar informe" });
     fireEvent.click(submit);
     const busySubmit = await screen.findByRole("button", { name: "Solicitando…" });
@@ -2067,7 +2190,7 @@ describe("feedback analytics UI projections", () => {
     fireEvent.click(submit);
     expect(generationCalls).toBe(1);
     resolveCommand(Response.json({ reportRunId: "run-3", status: "queued" }, { status: 202 }));
-    expect(await screen.findByText(/Solicitud run-3/)).toBeInTheDocument();
+    expect(await screen.findByText(/Solicitud recibida/)).toBeInTheDocument();
   });
 
   it("compares selected QR point volumes with paired horizontal bars on one shared count scale", () => {

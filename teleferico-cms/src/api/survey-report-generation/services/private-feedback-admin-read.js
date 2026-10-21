@@ -216,6 +216,7 @@ async function readGenerationPage(strapi, query, after) {
     periodStart: { $lte: reportingDate(query.acceptedAtLte) },
     periodEnd: { $gte: reportingDate(query.acceptedAtGte) },
     createdAt: { $lte: query.dataCutoffAt },
+    $or: [{ historyHidden: false }, { historyHidden: { $null: true } }],
   };
   if (query.status !== null) where.generationStatus = query.status;
   if (after) {
@@ -235,7 +236,7 @@ async function readGenerationPage(strapi, query, after) {
         where,
         orderBy: [{ createdAt: 'desc' }, { reportRunId: 'asc' }],
         limit: PAGE_SIZE + 1,
-        fields: ['reportRunId', 'periodStart', 'periodEnd', 'dataCutoffAt', 'generationStatus', 'stateVersion', 'taskName', 'claimedAt', 'createdAt', 'completedAt', 'failureCode', 'safeFailureMessage', 'snapshotJson'],
+        fields: ['reportRunId', 'periodStart', 'periodEnd', 'dataCutoffAt', 'generationStatus', 'stateVersion', 'taskName', 'claimedAt', 'createdAt', 'completedAt', 'failureCode', 'safeFailureMessage', 'snapshotJson', 'displayName'],
         populate: {
           retryOfGeneration: { fields: ['reportRunId'] },
           report: { fields: ['reportId', 'createdAt', 'periodStart', 'periodEnd', 'generationRunId'] },
@@ -292,6 +293,8 @@ async function readGenerationPage(strapi, query, after) {
       const retryOfReportRunId = row.retryOfGeneration?.reportRunId ?? null;
       if (retryOfReportRunId !== null && (typeof retryOfReportRunId !== 'string' || !UUID_PATTERN.test(retryOfReportRunId)))
         throw adminReadError('SOURCE_UNAVAILABLE');
+      if (row.displayName != null && (typeof row.displayName !== 'string' || row.displayName.length < 1 || row.displayName.length > 80))
+        throw adminReadError('SOURCE_UNAVAILABLE');
       let cancellationIdentity;
       if (row.generationStatus === 'queued' && row.claimedAt == null && row.taskName != null) {
         const expectedTaskName = `tb113-report-${row.reportRunId.replaceAll('-', '')}`;
@@ -301,6 +304,7 @@ async function readGenerationPage(strapi, query, after) {
       }
       return {
         reportRunId: row.reportRunId,
+        displayName: row.displayName ?? null,
         periodStart: row.periodStart,
         periodEnd: row.periodEnd,
         dataCutoffAt: row.dataCutoffAt,

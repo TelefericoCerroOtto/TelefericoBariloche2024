@@ -30,6 +30,7 @@ const serviceState = {
 };
 
 const syntheticJwt = "synthetic-strapi-jwt";
+const syntheticOperatorJwt = "synthetic-operator-jwt";
 const syntheticUser = {
   id: 113,
   documentId: "e2e-admin-user",
@@ -55,6 +56,22 @@ const syntheticUser = {
     locale: null,
   },
   faved_postulations: [],
+};
+const syntheticOperator = {
+  ...syntheticUser,
+  id: 114,
+  documentId: "e2e-operator-user",
+  username: "e2e-operator",
+  email: "e2e-operator@local.invalid",
+  surname: "Operator",
+  role: {
+    ...syntheticUser.role,
+    id: 2,
+    documentId: "e2e-operator-role",
+    name: "Digital Experience Operator",
+    description: "Synthetic E2E feedback operator",
+    type: "digital-experience-operator",
+  },
 };
 
 function requestBody(request) {
@@ -83,24 +100,24 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "POST" && url.pathname === "/api/auth/local") {
     const body = await requestBody(request);
-    if (
-      body.identifier !== syntheticUser.email ||
-      body.password !== "e2e-admin-password"
-    ) {
+    const isAdministrator = body.identifier === syntheticUser.email && body.password === "e2e-admin-password";
+    const isOperator = body.identifier === syntheticOperator.email && body.password === "e2e-operator-password";
+    if (!isAdministrator && !isOperator) {
       json(response, 401, { error: { message: "Invalid credentials" } });
       return;
     }
-    const { role, ...loginUser } = syntheticUser;
-    json(response, 200, { jwt: syntheticJwt, user: loginUser });
+    const { role, ...loginUser } = isOperator ? syntheticOperator : syntheticUser;
+    json(response, 200, { jwt: isOperator ? syntheticOperatorJwt : syntheticJwt, user: loginUser });
     return;
   }
 
   if (request.method === "GET" && url.pathname === "/api/users/me") {
-    if (request.headers.authorization !== `Bearer ${syntheticJwt}`) {
+    const bearer = request.headers.authorization;
+    if (bearer !== `Bearer ${syntheticJwt}` && bearer !== `Bearer ${syntheticOperatorJwt}`) {
       json(response, 401, { error: { message: "Unauthorized" } });
       return;
     }
-    json(response, 200, syntheticUser);
+    json(response, 200, bearer === `Bearer ${syntheticOperatorJwt}` ? syntheticOperator : syntheticUser);
     return;
   }
 

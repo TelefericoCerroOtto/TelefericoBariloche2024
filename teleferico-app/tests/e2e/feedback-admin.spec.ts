@@ -376,7 +376,7 @@ async function installAdminStack(
   return { requests, browserUrls };
 }
 
-async function loginAsSyntheticAdmin(page: Page) {
+async function loginAsSyntheticUser(page: Page, email: string, password: string) {
   await page.goto("/es-AR/login", { waitUntil: "commit" });
   const form = page.locator("form[data-login-hydrated]");
   try {
@@ -389,14 +389,35 @@ async function loginAsSyntheticAdmin(page: Page) {
       timeout: 30_000,
     });
   }
-  await page.getByLabel("Correo Electrónico").fill("e2e-admin@local.invalid");
-  await page.getByLabel("Contraseña").fill("e2e-admin-password");
+  await page.getByLabel("Correo Electrónico").fill(email);
+  await page.getByLabel("Contraseña").fill(password);
   await page.getByRole("button", { name: "Acceder" }).click();
   await page.waitForURL(/\/es-AR\/dashboard$/, { waitUntil: "commit" });
   await expect(page.getByRole("main")).toBeVisible();
 }
 
-test("authenticated admin can navigate analytics, filter comments, and run an independent report", async ({
+const loginAsSyntheticOperator = (page: Page) => loginAsSyntheticUser(page, "e2e-operator@local.invalid", "e2e-operator-password");
+
+test("only the feedback operator can open the direct dashboard page", async ({ page, browser }) => {
+  await installAdminStack(page);
+  await loginAsSyntheticOperator(page);
+  const operatorResponse = await page.goto("/es-AR/dashboard/feedback", { waitUntil: "domcontentloaded" });
+  expect(operatorResponse?.status()).toBe(200);
+  await expect(page.getByRole("navigation", { name: "Módulos de Feedback del público" })).toBeVisible();
+
+  const adminContext = await browser.newContext();
+  try {
+    const administrator = await adminContext.newPage();
+    await loginAsSyntheticUser(administrator, "e2e-admin@local.invalid", "e2e-admin-password");
+    const denied = await administrator.goto("/es-AR/dashboard/feedback", { waitUntil: "domcontentloaded" });
+    expect(denied?.status()).toBe(404);
+    await expect(administrator.getByRole("navigation", { name: "Módulos de Feedback del público" })).toHaveCount(0);
+  } finally {
+    await adminContext.close();
+  }
+});
+
+test("authenticated operator can navigate analytics, filter comments, and run an independent report", async ({
   page,
 }) => {
   observeFailureDiagnostics(page);
@@ -407,7 +428,7 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
     false,
     summaryBarrier,
   );
-  await loginAsSyntheticAdmin(page);
+  await loginAsSyntheticOperator(page);
   const summaryRead = waitForSuccessfulAdminRead(page, "summary");
   await page.goto("/es-AR/dashboard/feedback", {
     waitUntil: "commit",
@@ -600,13 +621,13 @@ test("authenticated admin can navigate analytics, filter comments, and run an in
   ).toBe(true);
 });
 
-test("authenticated admin keeps module order and empty states on mobile", async ({
+test("authenticated operator keeps module order and empty states on mobile", async ({
   page,
 }) => {
   observeFailureDiagnostics(page);
   await page.setViewportSize({ width: 390, height: 844 });
   const { requests, browserUrls } = await installAdminStack(page, true);
-  await loginAsSyntheticAdmin(page);
+  await loginAsSyntheticOperator(page);
   const summaryRead = waitForSuccessfulAdminRead(page, "summary");
   await page.goto("/es-AR/dashboard/feedback", {
     waitUntil: "commit",

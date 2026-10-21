@@ -61,6 +61,7 @@ test('survey routes expose bounded native reads and mediated writes', () => {
     ['POST', '/tb113/admin/generations/:reportRunId/dispatch-failure', 'survey-report-generation.dispatchFailure'],
     ['POST', '/tb113/admin/generations/:reportRunId/dispatch-state', 'survey-report-generation.dispatchState'],
     ['POST', '/tb113/admin/generations/:reportRunId/cancel', 'survey-report-generation.operatorCancel'],
+    ['POST', '/tb113/admin/generations/:reportRunId/presentation', 'survey-report-generation.operatorPresentation'],
     ['POST', '/tb113/worker/generations/:reportRunId/claim', 'survey-report-generation.workerClaim'],
     ['POST', '/tb113/worker/generations/:reportRunId/fail', 'survey-report-generation.workerFail'],
     ['POST', '/tb113/worker/generations/:reportRunId/alerts/ack', 'survey-report-generation.workerAlertAck'],
@@ -87,7 +88,9 @@ test('survey routes expose bounded native reads and mediated writes', () => {
   assert.equal(generationAdminRoutes.find(({ handler }) => handler.endsWith('.dispatchFailure')).config, undefined);
   assert.equal(generationAdminRoutes.find(({ handler }) => handler.endsWith('.dispatchState')).config, undefined);
   assert.equal(generationAdminRoutes.find(({ handler }) => handler.endsWith('.operatorCancel')).config, undefined);
+  assert.equal(generationAdminRoutes.find(({ handler }) => handler.endsWith('.operatorPresentation')).config, undefined);
   assert.match(generationController, /async operatorCancel\(ctx\)/);
+  assert.match(generationController, /async operatorPresentation\(ctx\)/);
   assert.match(generationController, /validateOperatorCancelCommand\(command, ctx\.params\.reportRunId\)/);
   assert.equal(fs.existsSync(path.join(generationRoot, 'services/admin-commands.js')), false);
   const reportRoutes = fs.readFileSync(path.resolve(__dirname, '../../../src/api/survey-report/routes/survey-report.js'), 'utf8');
@@ -110,7 +113,9 @@ test('documents the four role-derived application capabilities without durable g
     .map((match) => match[1]);
 
   assert.deepEqual(documentedCapabilities, APP_FEEDBACK_CAPABILITIES);
-  assert.match(documentation, /Only the exact\s+`Administrator` and `Digital Experience Operator` role names receive this\s+bundle/);
+  assert.match(documentation, /Only the exact\s+`Digital Experience Operator` role receives this bundle; `Administrator` does\s+not/);
+  assert.doesNotMatch(documentation, /authenticate the administrator session/);
+  assert.match(documentation, /revoke any existing `Administrator` feedback-generation action grants/);
   assert.match(documentation, /only current custom operational roles are `Administrator` and\s+`Digital Experience Operator`/);
   assert.match(documentation, /`Public` and\s+`Authenticated` roles/);
   assert.match(documentation, /No role or token grant is provisioned automatically/);
@@ -266,6 +271,9 @@ test('generation history projects synthetic failed and succeeded rows without pr
   });
 
   assert.equal(result.total, 2);
+  assert.deepEqual(calls[0][1].$or, [{ historyHidden: false }, { historyHidden: { $null: true } }]);
+  assert.deepEqual(calls[1][1].where.$or, calls[0][1].$or);
+  assert.equal(result.items[0].displayName, null);
   assert.equal(result.items[0].safeFailureMessage, 'The report provider timed out.');
   assert.equal(result.items[0].retryOfReportRunId, '00000000-0000-4000-8000-000000000003');
   assert.deepEqual(result.items[1].report, {
