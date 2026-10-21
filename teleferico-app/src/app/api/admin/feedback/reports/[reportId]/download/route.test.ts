@@ -81,7 +81,7 @@ describe("GET /api/admin/feedback/reports/:reportId/download", () => {
       session: {
         jwt: "application-jwt",
         csrfToken: "csrf-token",
-        user: { capabilities: ["feedback.reports.read"] },
+        user: { role: { name: "Digital Experience Operator" }, capabilities: ["feedback.reports.read"] },
       },
     });
     mocks.read.mockResolvedValue({ metadata, bytes });
@@ -120,6 +120,16 @@ describe("GET /api/admin/feedback/reports/:reportId/download", () => {
     expect(mocks.getDownload).not.toHaveBeenCalled();
     expect(mocks.read).not.toHaveBeenCalled();
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(artifactHash);
+  });
+
+  it("denies private downloads to Administrator even with a stale read claim", async () => {
+    mocks.requireCsrfSession.mockResolvedValue({
+      ok: true,
+      session: { jwt: "administrator-jwt", user: { role: { name: "Administrator" }, capabilities: ["feedback.reports.read"] } },
+    });
+    const { GET } = await import("./route");
+    expect((await GET(request(), { params: Promise.resolve({ reportId: REPORT_ID }) })).status).toBe(403);
+    expect(mocks.getDownload).not.toHaveBeenCalled();
   });
 
   it("rejects malformed IDs and query parameters without calling the metadata reader", async () => {

@@ -483,6 +483,7 @@ const SAFE_FAILURE_MESSAGES: Readonly<Record<string, string>> = {
 
 function parseGeneration(value: JsonRecord): FeedbackAdminGeneration {
   const status = value.status;
+  const displayName = value.displayName;
   const failureCode = value.failureCode;
   const safeFailureMessage = value.safeFailureMessage;
   const reportRunId = value.reportRunId;
@@ -495,6 +496,8 @@ function parseGeneration(value: JsonRecord): FeedbackAdminGeneration {
   const cancellationIdentity = value.cancellationIdentity;
   if (
     typeof reportRunId !== "string" ||
+    (displayName !== null && displayName !== undefined &&
+      (typeof displayName !== "string" || displayName.length < 1 || displayName.length > 80)) ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(reportRunId) ||
     !["queued", "running", "succeeded", "failed"].includes(String(status)) ||
     typeof periodStart !== "string" || typeof periodEnd !== "string" ||
@@ -547,6 +550,7 @@ function parseGeneration(value: JsonRecord): FeedbackAdminGeneration {
 
   return {
     reportRunId,
+    displayName: typeof displayName === "string" ? displayName : null,
     status: status as FeedbackAdminGeneration["status"],
     period: { from: periodStart.slice(0, 10), to: periodEnd.slice(0, 10) },
     dataCutoffAt,

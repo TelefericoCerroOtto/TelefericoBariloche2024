@@ -22,7 +22,7 @@ vi.mock("@/lib/feedback/admin-reader", () => ({
 const session = {
   jwt: "operator-jwt",
   csrfToken: "csrf-token",
-  user: { capabilities: ["feedback.read"] },
+  user: { role: { name: "Digital Experience Operator" }, capabilities: ["feedback.read"] },
 };
 
 function createRequest(
@@ -84,6 +84,16 @@ describe("GET /api/admin/feedback/summary", () => {
     const response = await GET(createRequest());
 
     expect(response.status).toBe(401);
+    expect(mocks.read).not.toHaveBeenCalled();
+  });
+
+  it("denies an Administrator carrying a stale read capability", async () => {
+    mocks.requireCsrfSession.mockResolvedValue({
+      ok: true,
+      session: { ...session, user: { role: { name: "Administrator" }, capabilities: ["feedback.read"] } },
+    });
+    const { GET } = await import("./route");
+    expect((await GET(createRequest())).status).toBe(403);
     expect(mocks.read).not.toHaveBeenCalled();
   });
 

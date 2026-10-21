@@ -2,6 +2,7 @@
 
 const { createCoreController } = require("@strapi/strapi").factories;
 const { measureDispatchFailureRequestBody } = require("../services/dispatch-failure-request");
+const { validatePresentationCommand } = require('../services/generation-presentation');
 const {
   validateDispatchStateCommand,
   validateOperatorCancelCommand,
@@ -118,6 +119,36 @@ module.exports = createCoreController(
         const safeCode = status === 500 ? "INTERNAL_ERROR" : code;
         ctx.status = status;
         ctx.body = { error: { code: safeCode, message: status === 500 ? "The cancellation command failed" : "The cancellation command was rejected" } };
+      }
+    },
+    async operatorPresentation(ctx) {
+      if (!ctx.state.user || hasCustomContentApiTokenIdentity(ctx)) {
+        ctx.status = 403;
+        ctx.body = { error: { code: 'FORBIDDEN' } };
+        return;
+      }
+      const size = measureDispatchFailureRequestBody(ctx.request);
+      if (size === null || size > 4 * 1024) {
+        ctx.status = 413;
+        ctx.body = { error: { code: 'PAYLOAD_TOO_LARGE' } };
+        return;
+      }
+      const command = validatePresentationCommand(ctx.request.body);
+      if (!command || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(ctx.params.reportRunId)) {
+        ctx.status = 400;
+        ctx.body = { error: { code: 'VALIDATION_FAILED' } };
+        return;
+      }
+      try {
+        const result = await strapi.service('api::survey-report-generation.survey-report-generation')
+          .updateOperatorPresentation(ctx.params.reportRunId, command);
+        ctx.status = 200;
+        ctx.body = { contractVersion: 'feedback-admin.v1', ...result };
+      } catch (error) {
+        const statuses = { RUN_NOT_FOUND: 404, INVALID_STATE: 409, VALIDATION_FAILED: 400 };
+        const status = statuses[error.code] ?? 500;
+        ctx.status = status;
+        ctx.body = { error: { code: status === 500 ? 'INTERNAL_ERROR' : error.code } };
       }
     },
     async workerClaim(ctx) {

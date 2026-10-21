@@ -33,7 +33,7 @@ const command = {
 };
 const session = {
   jwt: "operator-jwt",
-  user: { capabilities: ["feedback.reports.generate"] },
+  user: { role: { name: "Digital Experience Operator" }, capabilities: ["feedback.reports.generate"] },
 };
 
 function request(body: unknown) {

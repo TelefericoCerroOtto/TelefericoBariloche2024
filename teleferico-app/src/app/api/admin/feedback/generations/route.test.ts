@@ -43,12 +43,12 @@ vi.mock("@/lib/feedback/admin-reader", () => ({
 const session = {
   jwt: "operator-jwt",
   csrfToken: "csrf-token",
-  user: { capabilities: ["feedback.reports.generate"] },
+  user: { role: { name: "Digital Experience Operator" }, capabilities: ["feedback.reports.generate"] },
 };
 
 const readSession = {
   ...session,
-  user: { capabilities: ["feedback.reports.read"] },
+  user: { role: { name: "Digital Experience Operator" }, capabilities: ["feedback.reports.read"] },
 };
 
 function request(body: unknown) {

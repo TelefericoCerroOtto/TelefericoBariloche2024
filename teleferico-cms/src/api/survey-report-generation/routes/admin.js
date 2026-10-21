@@ -20,6 +20,11 @@ module.exports = {
     },
     {
       method: "POST",
+      path: "/tb113/admin/generations/:reportRunId/presentation",
+      handler: "survey-report-generation.operatorPresentation",
+    },
+    {
+      method: "POST",
       path: "/tb113/worker/generations/:reportRunId/claim",
       handler: "survey-report-generation.workerClaim",
       config: {

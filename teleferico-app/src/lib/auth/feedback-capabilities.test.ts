@@ -12,17 +12,14 @@ const EXPECTED_CAPABILITIES = [
 ];
 
 describe("feedback capabilities from verified CMS users", () => {
-  it.each(["Administrator", "Digital Experience Operator"])(
-    "grants the approved feedback bundle to %s",
-    (roleName) => {
+  it("grants the approved feedback bundle only to Digital Experience Operator", () => {
       expect(
         feedbackCapabilitiesForUser({
           blocked: false,
-          role: { name: roleName },
+          role: { name: "Digital Experience Operator" },
         }),
       ).toEqual(EXPECTED_CAPABILITIES);
-    },
-  );
+  });
 
   it.each([
     ["missing user", undefined],
@@ -30,6 +27,7 @@ describe("feedback capabilities from verified CMS users", () => {
     ["unknown role", { blocked: false, role: { name: "Unknown" } }],
     ["public role", { blocked: false, role: { name: "Public" } }],
     ["authenticated role", { blocked: false, role: { name: "Authenticated" } }],
+    ["administrator", { blocked: false, role: { name: "Administrator" } }],
     ["blocked administrator", { blocked: true, role: { name: "Administrator" } }],
     ["blocked operator", { blocked: true, role: { name: "Digital Experience Operator" } }],
   ])("denies %s", (_label, user) => {
