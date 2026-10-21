@@ -216,6 +216,7 @@ export type FeedbackAdminGenerationReport = {
 
 export type FeedbackAdminGeneration = {
   readonly reportRunId: string;
+  readonly displayName: string | null;
   readonly status: FeedbackAdminCommandStatus;
   readonly period: FeedbackAdminDateRange;
   readonly dataCutoffAt: string;

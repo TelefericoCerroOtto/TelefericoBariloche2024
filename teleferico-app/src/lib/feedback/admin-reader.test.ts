@@ -92,6 +92,7 @@ describe("feedback administration private CMS reader", () => {
     const generations = [
       {
         reportRunId: "00000000-0000-4000-8000-000000000002",
+        displayName: "Informe destacado",
         periodStart: "2026-08-01T00:00:00.000Z",
         periodEnd: "2026-08-31T23:59:59.999Z",
         dataCutoffAt: "2026-09-03T11:00:00.000Z",
@@ -157,6 +158,8 @@ describe("feedback administration private CMS reader", () => {
 
     expect(result.data).toHaveProperty("total", 2);
     expect(result.data).toHaveProperty("items[0].reportRunId", "00000000-0000-4000-8000-000000000002");
+    expect(result.data).toHaveProperty("items[0].displayName", "Informe destacado");
+    expect(result.data).toHaveProperty("items[1].displayName", null);
     expect(result.data).toHaveProperty("items[0].retryOfReportRunId", "00000000-0000-4000-8000-000000000001");
     expect(result.data).toHaveProperty("items[1].report.reportId", "00000000-0000-4000-8000-000000000003");
     expect(result.data).toHaveProperty("items[1].report.canDownload", true);

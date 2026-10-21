@@ -12,11 +12,6 @@ export const FEEDBACK_ADMIN_CAPABILITIES = [
   "feedback.reports.generate",
 ] as const satisfies readonly FeedbackAdminCapability[];
 
-const FEEDBACK_ADMIN_ROLES = new Set([
-  "Administrator",
-  "Digital Experience Operator",
-]);
-
 export function feedbackCapabilitiesForUser(
   user: VerifiedFeedbackUser | null | undefined,
 ): readonly FeedbackAdminCapability[] {
@@ -24,7 +19,7 @@ export function feedbackCapabilitiesForUser(
     !user ||
     user.blocked !== false ||
     !user.role?.name ||
-    !FEEDBACK_ADMIN_ROLES.has(user.role.name)
+    user.role.name !== "Digital Experience Operator"
   )
     return [];
 

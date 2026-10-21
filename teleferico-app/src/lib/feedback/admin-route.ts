@@ -17,6 +17,10 @@ import {
   parseRetryCommand,
 } from "./admin-command";
 import {
+  getFeedbackAdminPresentationTransport,
+  parsePresentationCommand,
+} from "./admin-presentation";
+import {
   FeedbackReportDownloadError,
   getFeedbackReportDownload,
 } from "./report-download";
@@ -124,7 +128,8 @@ async function authenticate(
         csrf.res.status === 401 ? "UNAUTHORIZED" : "FORBIDDEN",
       ),
     };
-  if (!capabilities(csrf.session).includes(capability))
+  if (csrf.session.user.role?.name !== "Digital Experience Operator" ||
+      !capabilities(csrf.session).includes(capability))
     return { ok: false as const, response: errorResponse("FORBIDDEN") };
   return { ok: true as const, session: csrf.session };
 }
@@ -266,6 +271,22 @@ export async function handleFeedbackAdminCancelQueued(
     const result = await getFeedbackAdminCommandTransport(
       auth.session.jwt,
     ).cancelQueued(reportRunId, parsed.value);
+    return NextResponse.json(result, { status: 200 });
+  } catch (error) {
+    return commandErrorResponse(error);
+  }
+}
+
+export async function handleFeedbackAdminPresentation(req: NextRequest, reportRunId: string) {
+  if (!isFeedbackCapabilityEnabled())
+    return feedbackCapabilityUnavailableResponse();
+  try {
+    const auth = await authenticate(req, "feedback.reports.generate");
+    if (!auth.ok) return auth.response;
+    const parsed = parsePresentationCommand(reportRunId, await readBody(req));
+    if (!parsed) return errorResponse("VALIDATION_FAILED");
+    const result = await getFeedbackAdminPresentationTransport(auth.session.jwt)
+      .update(reportRunId, parsed);
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
     return commandErrorResponse(error);

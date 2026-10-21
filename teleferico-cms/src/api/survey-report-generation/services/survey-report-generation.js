@@ -4,6 +4,7 @@ const lifecycle = require('./lifecycle');
 const { createPrivateReportSourceReader } = require('./private-report-source');
 const { createPrivateReportDownloadMetadataReader } = require('./private-report-download-metadata');
 const { createPrivateFeedbackAdminReader } = require('./private-feedback-admin-read');
+const { createGenerationPresentation } = require('./generation-presentation');
 const UID = 'api::survey-report-generation.survey-report-generation';
 const REPORT_UID = 'api::survey-report.survey-report';
 
@@ -218,6 +219,31 @@ module.exports = createCoreService(
     },
     readFeedbackAdminPage(input) {
       return createPrivateFeedbackAdminReader(strapi).readPage(input);
+    },
+    updateOperatorPresentation(reportRunId, command) {
+      return createGenerationPresentation({
+        withTransaction: (work) => strapi.db.transaction(async ({ trx }) => {
+          let lockedId;
+          return work({
+            async lockGeneration(id) {
+              const row = await trx('survey_report_generations')
+                .select('id', 'generation_status as status', 'display_name as displayName', 'history_hidden as historyHidden')
+                .where({ report_run_id: id }).forUpdate().first();
+              lockedId = row?.id;
+              return row;
+            },
+            async updatePresentation(patch) {
+              if (!lockedId) throw Object.assign(new Error('RUN_NOT_FOUND'), { code: 'RUN_NOT_FOUND' });
+              const columns = patch.historyHidden === true
+                ? { history_hidden: true }
+                : { display_name: patch.displayName };
+              const changed = await trx('survey_report_generations')
+                .where({ id: lockedId, report_run_id: reportRunId }).update(columns);
+              if (changed !== 1) throw Object.assign(new Error('RUN_NOT_FOUND'), { code: 'RUN_NOT_FOUND' });
+            },
+          });
+        }),
+      }).update(reportRunId, command);
     },
     writeWorkerCheckpoint(input) {
       return lifecycle.createGenerationLifecycle({

@@ -223,22 +223,26 @@ This is the **Users & Permissions `Administrator` role** used by
 
 ### `Digital Experience Operator`
 
-This Users & Permissions role is intended for staff who operate the public
-experience dashboard. It receives the same four app-level feedback capability
-claims as `Administrator`; it does not receive the Administrator role's other
-CMS collection permissions by virtue of that mapping.
+This Users & Permissions role is the sole app role authorized to access the
+public experience feedback dashboard and its APIs. It receives all four
+app-level feedback capabilities; `Administrator` receives none. It does not
+inherit the Administrator role's other CMS collection permissions.
 
 Both named app roles require `users-permissions.role.find` and
 `users-permissions.user.me` for credentials login and current role verification.
 These actions do not grant role management.
 
-For TB-113 report commands, grant only the native Users & Permissions actions
-required by the normal app flow: `survey-report-generation.find`,
+For TB-113 report commands, grant only `Digital Experience Operator` the native
+Users & Permissions actions required by the normal app flow: `survey-report-generation.find`,
 `survey-report-generation.create`, `survey-report-generation.dispatchState`,
-and, when queued cancellation is approved, `survey-report-generation.operatorCancel`.
-This applies to whichever named app role is authorized to perform the operation;
-the application capability mapping does not create any Strapi action grant.
-For `Administrator`, these permissions are additive to its existing matrix.
+`survey-report-generation.operatorPresentation`, and, when queued cancellation is approved,
+`survey-report-generation.operatorCancel`.
+The application capability mapping does not create any Strapi action grant.
+Before enabling this operator-only boundary in each environment, inspect and
+revoke any existing `Administrator` feedback-generation action grants, including
+`find`, `create`, `dispatchState`, `operatorCancel`, `operatorPresentation`, and
+conditional `dispatchFailure`. This is a separately authorized operational
+change; the repository does not mutate live role permissions.
 The app and worker use
 separate grouped Custom Content API tokens: the app token has exactly
 `feedbackAdminRead`, `workerSourceRead`, and `workerReportDownloadMetadata`; the
@@ -298,6 +302,14 @@ This action does not delete a Cloud Task or stop HTTP deliveries already
 underway. No default role grant, custom-token scope, generic update, or delete
 permission is added; deploy the code and separately grant and verify this action
 before using the dashboard cancellation control. The
+`survey-report-generation.operatorPresentation` action is separately granted
+only to `Digital Experience Operator` for editing a shared generation display name
+or hiding a failed generation from the shared operator-facing history. It uses
+the native Users & Permissions JWT, never the app or worker custom token. The
+generation and immutable report remain in Strapi; hiding filters only the
+history read before its total and pagination. This action does not grant native
+`update` or `delete`, does not modify the PDF, and must be explicitly granted
+and verified after deployment before operators use these new controls. The
 `survey-report-generation.workerClaim`, `workerSnapshot`, `workerCheckpoint`,
 `workerSourceRead`, `workerReportDownloadMetadata`, `workerComplete`, `workerFail`, and `workerAlertAck` actions are available only through Strapi's native
 `content-api-token` strategy with exact action scopes. The app token includes
@@ -349,8 +361,8 @@ These four names are application-level capabilities enforced by the Next.js
 administration routes. They are not Strapi action IDs or durable Users &
 Permissions rows. Auth.js derives them server-side from the currently verified
 Users & Permissions role on every session verification. Only the exact
-`Administrator` and `Digital Experience Operator` role names receive this
-bundle. Missing or unknown roles, blocked users, and `Public` or
+`Digital Experience Operator` role receives this bundle; `Administrator` does
+not. Missing or unknown roles, blocked users, and `Public` or
 `Authenticated` users receive none. Changing a user's role or blocking the account is
 reflected by the verified `users/me?populate=role` session check; no role claim
 is accepted from the browser.
@@ -512,7 +524,7 @@ tokens without this scope are denied. The closed v1 contract pages submissions,
 versions, QR points, and reports with stable totals and a cutoff-bound cursor.
 No default/persistent grant, production token, approved CMS origin, environment
 value, or runtime token-provider binding is created here. The app's Route Handler
-must still authenticate the administrator session and capability before its
+ must still authenticate the authorized operator session and capability before its
 server-only transport runs; production reads remain unavailable until a
 separately authorized runtime composition is supplied.
 
