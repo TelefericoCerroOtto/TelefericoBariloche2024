@@ -381,6 +381,21 @@ export function createFeedbackAdminReader(options: ReaderOptions) {
   };
 
   return {
+    async readVisibleSucceededGenerations(
+      period: { readonly from: string; readonly to: string },
+    ): Promise<readonly FeedbackAdminGeneration[]> {
+      if (!DATE_PATTERN.test(period.from) || !DATE_PATTERN.test(period.to))
+        throw new FeedbackAdminReaderError();
+      const normalized = normalizePeriod(period);
+      const rows = await readCollection("generations", {
+        acceptedAtGte: normalized.current.utcStart,
+        acceptedAtLte: normalized.current.utcEnd,
+      }, new Date().toISOString(), "succeeded");
+      const generations = rows.map(parseGeneration);
+      if (generations.some((row) => row.status !== "succeeded" || row.report === null))
+        throw new FeedbackAdminReaderError();
+      return generations;
+    },
     async readGenerations(
       filters: Extract<FeedbackAdminFilters, { route: "generations" }>,
     ): Promise<FeedbackAdminGenerationsEnvelope> {
