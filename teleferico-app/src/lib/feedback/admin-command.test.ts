@@ -201,6 +201,28 @@ describe("feedback administration command contracts", () => {
       .rejects.toMatchObject({ code: "OVERLAP_REQUIRES_OVERRIDE" });
   });
 
+  it("rejects an overlap approval for a different requested range", async () => {
+    const fetchImplementation = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+      init?.method === "POST"
+        ? Response.json({ data: validCoreRow }, { status: 201 })
+        : Response.json({ data: [] }),
+    );
+    const transport = createFeedbackAdminCommandTransport({
+      baseUrl: "https://cms.example.test", token: "synthetic-admin-jwt",
+      fetchImplementation,
+      historyReader: { readVisibleSucceededGenerations: async () => [completedHistoryRow] },
+    });
+    let disclosed: FeedbackAdminCommandError | undefined;
+    try { await transport.generate(validGenerate); } catch (error) { disclosed = error as FeedbackAdminCommandError; }
+    expect(disclosed).toMatchObject({ code: "OVERLAP_REQUIRES_OVERRIDE", status: 409 });
+    await expect(transport.generate({
+      ...validGenerate,
+      period: { from: "2026-08-02", to: "2026-08-20" },
+      override: { accepted: true, overlapDigest: disclosed!.details!.overlapDigest },
+    })).rejects.toMatchObject({ code: "OVERLAP_REQUIRES_OVERRIDE", status: 409 });
+    expect(fetchImplementation.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
+  });
+
   it.each(["queued", "running"] as const)("preserves %s exact-range conflict ahead of completed-history reads", async (status) => {
     const history = vi.fn(async () => [completedHistoryRow]);
     const fetchImplementation = vi.fn(async () => Response.json({ data: [{ ...validCoreRow, generationStatus: status }] }));

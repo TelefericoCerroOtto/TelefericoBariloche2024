@@ -131,6 +131,9 @@ describe("report generation lifecycle contracts", () => {
     expect(buildOverlapDetails([
       { reportRunId: "run-b", period: { from: "2026-07-20", to: "2026-08-05" }, status: "succeeded", name: "Summit report" },
     ], period).overlapDigest).toBe(details.overlapDigest);
+    expect(buildOverlapDetails([
+      { reportRunId: "run-b", period: { from: "2026-07-20", to: "2026-08-05" }, status: "succeeded", name: "Summit report" },
+    ], { from: "2026-08-02", to: period.to }).overlapDigest).not.toBe(details.overlapDigest);
   });
   it("does not silently drop a completed conflict without a valid name", () => {
     expect(() => buildOverlapDetails([{

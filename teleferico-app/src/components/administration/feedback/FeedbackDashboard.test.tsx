@@ -1584,7 +1584,7 @@ describe("feedback analytics UI projections", () => {
     expect(within(table).getByRole("button", { name: "Sin acciones disponibles" })).toBeDisabled();
     expect(within(table).getByRole("button", { name: "Cancelar solicitud en cola" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     expect(within(table).getByRole("button", { name: "Reintentar" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
-    expect(within(table).getByRole("button", { name: "Eliminar" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(within(table).getByRole("button", { name: "Eliminar" }).querySelector("svg")).toHaveClass("lucide-trash-2");
     expect(within(table).getByRole("button", { name: "Descargar PDF" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     expect(within(table).getByRole("button", { name: "Descargar PDF" })).toHaveClass("border-success");
     expect(within(table).getByRole("button", { name: "Reintentar" })).toHaveClass("border-default");
@@ -1593,9 +1593,9 @@ describe("feedback analytics UI projections", () => {
     expect(within(table).getAllByRole("row")[2]!).not.toHaveTextContent("Cancelar solicitud en cola");
   });
 
-  it("hides a failed row only after warning about all operators and refreshes server pagination", async () => {
+  it("hides a failed row only after confirming the short HeroUI dialog", async () => {
     let hidden = false;
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const confirm = vi.spyOn(window, "confirm");
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path, init) => {
       if (String(path).includes("/comments?")) return Promise.resolve(historyEnvelope([]));
       if (init?.method === "POST") { hidden = true; return Promise.resolve(Response.json({ reportRunId: "run-1", displayName: null, historyHidden: true })); }
@@ -1605,13 +1605,38 @@ describe("feedback analytics UI projections", () => {
       mountHistory();
       await screen.findByRole("table", { name: "Historial de informes" });
       fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
-      expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/todos los operadores.*permanece en Strapi/i));
+      const dialog = await screen.findByRole("dialog", { name: "Está seguro que quiere eliminar este informe?" });
+      expect(dialog).not.toHaveTextContent(/Strapi|operadores|auditoría/);
+      expect(confirm).not.toHaveBeenCalled();
       expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
-      confirm.mockReturnValue(true);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Está seguro que quiere eliminar este informe?" })).not.toBeInTheDocument());
+      expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
       fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
+      fireEvent.click(within(await screen.findByRole("dialog", { name: "Está seguro que quiere eliminar este informe?" })).getByRole("button", { name: "Eliminar" }));
       expect(await screen.findByText("No hay informes para este período.")).toBeInTheDocument();
       const call = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([path, init]) => String(path).endsWith("/run-1/presentation") && init?.method === "POST");
       expect(JSON.parse(String(call?.[1]?.body))).toEqual({ contractVersion: "feedback-admin.v1", action: "hide" });
+    } finally { confirm.mockRestore(); }
+  });
+
+  it("closes failed-report deletion on Escape and returns focus without sending a command", async () => {
+    const confirm = vi.spyOn(window, "confirm");
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => Promise.resolve(
+      historyEnvelope(String(path).includes("/comments?") ? [] : [historyRow()]),
+    ));
+    try {
+      mountHistory();
+      const trigger = await screen.findByRole("button", { name: "Eliminar" });
+      trigger.focus();
+      fireEvent.click(trigger);
+      const dialog = await screen.findByRole("dialog", { name: "Está seguro que quiere eliminar este informe?" });
+      await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+      fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Está seguro que quiere eliminar este informe?" })).not.toBeInTheDocument());
+      await waitFor(() => expect(document.activeElement).toBe(trigger));
+      expect(confirm).not.toHaveBeenCalled();
+      expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
     } finally { confirm.mockRestore(); }
   });
 
@@ -2196,13 +2221,16 @@ describe("feedback analytics UI projections", () => {
   it("prevents duplicate commands while busy and requires overlap confirmation", async () => {
     const comments = { items: [], total: 0, page: 1, pageSize: 25 };
     const envelope = (data: unknown) => new Response(JSON.stringify({ contractVersion: "feedback-admin.v1", data, meta: {} }), { status: 200 });
-    const overlap = { overlaps: [{ reportRunId: "run-existing", period: { from: "2026-09-01", to: "2026-09-20" }, intersection: { from: "2026-09-10", to: "2026-09-20" } }], overlapDigest: "d".repeat(64), adjustment: "Choose another range" };
+    const overlap = { overlaps: [
+      { reportRunId: "run-existing", name: "Informe del cerro", period: { from: "2026-09-01", to: "2026-09-20" }, intersection: { from: "2026-09-10", to: "2026-09-20" } },
+      { reportRunId: "run-second", name: "Informe - 06/08/2026 12:04", period: { from: "2026-09-01", to: "2026-09-20" }, intersection: { from: "2026-09-10", to: "2026-09-20" } },
+    ], overlapDigest: "d".repeat(64), adjustment: "Choose another range" };
     let generationCalls = 0;
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => {
       if (String(path).includes("/comments?")) return Promise.resolve(envelope(comments));
       if (String(path).includes("/generations?")) return Promise.resolve(envelope({ items: [], total: 0, page: 1, pageSize: 25 }));
       generationCalls += 1;
-      return Promise.resolve(generationCalls === 1 ? new Response(JSON.stringify({ error: { message: "Overlap", details: overlap } }), { status: 409 }) : Response.json({ reportRunId: "run-2", status: "queued" }, { status: 202 }));
+      return Promise.resolve(generationCalls < 3 ? new Response(JSON.stringify({ error: { message: "Overlap", details: overlap } }), { status: 409 }) : Response.json({ reportRunId: "run-2", status: "queued" }, { status: 202 }));
     });
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
@@ -2211,16 +2239,26 @@ describe("feedback analytics UI projections", () => {
     const submit = screen.getByRole("button", { name: "Solicitar informe" });
     fireEvent.click(submit);
     await waitFor(() => expect(generationCalls).toBe(1));
-    expect(screen.getByText(/El rango se cruza con historial existente/)).toBeInTheDocument();
-    expect(submit).toBeDisabled();
-    fireEvent.click(submit);
+    const dialog = await screen.findByRole("dialog", { name: "Ya existe un informe para estas fechas" });
+    expect(within(dialog).getByText("Informe del cerro")).toBeInTheDocument();
+    expect(within(dialog).getByText("Informe - 06/08/2026 12:04")).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent(/run-existing|Desde:|Hasta:|2026-09-10/);
+    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cambiar fechas" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Ya existe un informe para estas fechas" })).not.toBeInTheDocument());
     expect(generationCalls).toBe(1);
-    fireEvent.click(screen.getByRole("checkbox", { name: /Confirmo generar/ }));
     fireEvent.click(screen.getByRole("button", { name: "Solicitar informe" }));
+    await waitFor(() => expect(generationCalls).toBe(2));
+    expect(await screen.findByRole("dialog", { name: "Ya existe un informe para estas fechas" })).toBeInTheDocument();
+    const secondCall = vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([, init]) => init?.method === "POST")[1];
+    expect(JSON.parse(String(secondCall?.[1]?.body)).override).toEqual({ accepted: false, overlapDigest: null });
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Ya existe un informe para estas fechas" })).getByRole("button", { name: "Generar de todas formas" }));
     expect(await screen.findByText(/Solicitud recibida/)).toBeInTheDocument();
+    const thirdCall = vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([, init]) => init?.method === "POST")[2];
+    expect(JSON.parse(String(thirdCall?.[1]?.body)).override).toEqual({ accepted: true, overlapDigest: overlap.overlapDigest });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Ya existe un informe para estas fechas" })).not.toBeInTheDocument());
     fireEvent.change(within(reportForm).getByLabelText("Fecha inicial"), { target: { value: "2026-10-01" } });
-    expect(screen.queryByText("El rango se cruza con historial existente")).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: /Confirmo generar/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Ya existe un informe para estas fechas" })).not.toBeInTheDocument();
   });
 
   it("does not issue a second command when generation is still pending", async () => {

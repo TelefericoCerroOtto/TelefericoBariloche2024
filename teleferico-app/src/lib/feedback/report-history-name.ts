@@ -5,7 +5,6 @@ const REPORT_NAME_DATE_FORMAT = new Intl.DateTimeFormat("es-AR", {
   hourCycle: "h23", timeZone: "America/Argentina/Buenos_Aires",
 });
 
-/** Keep the overlap name identical to the report-history fallback until the UI uses this helper. */
 export function reportHistoryName(
   item: Pick<FeedbackAdminGeneration, "displayName" | "createdAt"> & {
     readonly report: Pick<NonNullable<FeedbackAdminGeneration["report"]>, "createdAt"> | null;

@@ -69,12 +69,13 @@ export function buildOverlapDetails(
     );
   const overlapDigest = createHash("sha256")
     .update(
-      JSON.stringify(
-        overlaps.map(({ reportRunId, period, name }) => ({ reportRunId, period, name }))
+      JSON.stringify({
+        requestedPeriod,
+        overlaps: overlaps.map(({ reportRunId, period, name }) => ({ reportRunId, period, name }))
           .sort((left, right) =>
             left.reportRunId.localeCompare(right.reportRunId),
           ),
-      ),
+      }),
     )
     .digest("hex");
   return {
