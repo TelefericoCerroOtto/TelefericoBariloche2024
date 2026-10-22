@@ -95,6 +95,8 @@ Comments MUST order `acceptedAt DESC, receipt ASC`; counts, pagination, detail, 
 
 The administration MUST NOT display an invitation, scan, or response rate until a formal denominator contract exists. Prior-zero, zero-denominator, low-evidence, and empty states MUST be explicit.
 
+The generation overlap response MUST expose displayed report names from visible succeeded history, alongside the existing bounded interval and digest fields. The warning MUST exclude failed and hidden generations at the server boundary; an exact-range active generation still conflicts. Display-name changes invalidate a previous overlap digest. Successful report artifacts and download behavior remain unchanged. The operator-facing `Eliminar` action remains limited to failed generations and only hides them from history; it never deletes a report or generation.
+
 #### Scenario: Keep report generation independent
 - GIVEN comment filters are active
 - WHEN an authorized user requests a report for another valid range

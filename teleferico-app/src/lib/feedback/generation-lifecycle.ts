@@ -15,6 +15,7 @@ export type GenerationLifecycleRow = {
   readonly reportRunId: string;
   readonly period: FeedbackAdminDateRange;
   readonly status: Status;
+  readonly name?: string;
   readonly stateVersion?: number;
   readonly taskName?: string | null;
   readonly dataCutoffAt?: string;
@@ -38,23 +39,29 @@ export function buildOverlapDetails(
 ): FeedbackAdminOverlapDetails {
   const overlaps = rows
     .filter(
-      ({ period }) =>
+      ({ period, status }) =>
+        status === "succeeded" &&
         period.from <= requestedPeriod.to && period.to >= requestedPeriod.from,
     )
-    .map((row) => ({
-      reportRunId: row.reportRunId,
-      period: row.period,
-      intersection: {
-        from:
-          row.period.from > requestedPeriod.from
-            ? row.period.from
-            : requestedPeriod.from,
-        to:
-          row.period.to < requestedPeriod.to
-            ? row.period.to
-            : requestedPeriod.to,
-      },
-    }))
+    .map((row) => {
+      if (typeof row.name !== "string" || !row.name.trim())
+        throw new GenerationLifecycleError("INVALID_STATE");
+      return {
+        reportRunId: row.reportRunId,
+        name: row.name,
+        period: row.period,
+        intersection: {
+          from:
+            row.period.from > requestedPeriod.from
+              ? row.period.from
+              : requestedPeriod.from,
+          to:
+            row.period.to < requestedPeriod.to
+              ? row.period.to
+              : requestedPeriod.to,
+        },
+      };
+    })
     .sort(
       (left, right) =>
         left.intersection.from.localeCompare(right.intersection.from) ||
@@ -63,17 +70,7 @@ export function buildOverlapDetails(
   const overlapDigest = createHash("sha256")
     .update(
       JSON.stringify(
-        rows
-          .filter(
-            ({ period }) =>
-              period.from <= requestedPeriod.to &&
-              period.to >= requestedPeriod.from,
-          )
-          .map(({ reportRunId, period, status }) => ({
-            reportRunId,
-            period,
-            status,
-          }))
+        overlaps.map(({ reportRunId, period, name }) => ({ reportRunId, period, name }))
           .sort((left, right) =>
             left.reportRunId.localeCompare(right.reportRunId),
           ),
