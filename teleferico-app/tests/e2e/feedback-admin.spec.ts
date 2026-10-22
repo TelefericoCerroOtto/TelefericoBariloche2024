@@ -579,7 +579,7 @@ test("authenticated operator can navigate analytics, filter comments, and run an
   await page.getByLabel("Hasta").last().fill("2026-09-14");
   const failedHistoryRead = waitForSuccessfulAdminRead(page, "generations");
   await page.getByRole("button", { name: "Solicitar informe" }).click();
-  await expect(page.getByText("Solicitud run-failed: failed.")).toBeVisible();
+  await expect(page.getByText("Solicitud recibida. Actualizá el historial para consultar su estado.")).toBeVisible();
   const generation = requests.find(
     ({ method, path }) => method === "POST" && path.endsWith("/generations"),
   );
@@ -590,13 +590,13 @@ test("authenticated operator can navigate analytics, filter comments, and run an
   });
   await failedHistoryRead;
   await expect(
-    page.getByRole("button", { name: "Reintentar generación" }),
+    page.getByRole("button", { name: "Reintentar" }),
   ).toBeVisible();
   const retryHistoryRead = waitForSuccessfulAdminRead(page, "generations");
-  await page.getByRole("button", { name: "Reintentar generación" }).click();
-  await expect(page.getByText("Solicitud run-retry: en cola.")).toBeVisible();
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(page.getByText("Solicitud recibida. Actualizá el historial para consultar su estado.")).toBeVisible();
   await retryHistoryRead;
-  await expect(page.getByText("Reintento de run-failed")).toBeVisible();
+  await expect(page.getByText(/run-failed/)).toHaveCount(0);
   expect(
     requests
       .filter(
