@@ -1466,6 +1466,57 @@ describe("feedback analytics UI projections", () => {
   const historyEnvelope = (items: unknown[], total = items.length, page = 1) => Response.json({ contractVersion: "feedback-admin.v1", data: { items, total, page, pageSize: 25 }, meta: {} });
   const mountHistory = () => render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
 
+  it("names unrenamed reports from their generation or request timestamp", async () => {
+    const rows = [
+      historyRow({ reportRunId: "complete", status: "succeeded", report: { reportId: "pdf", createdAt: "2026-09-21T02:00:00.000Z", analyzedResponseCount: 4, analyzedCommentCount: 2 } }),
+      historyRow({ reportRunId: "failed" }),
+    ];
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => Promise.resolve(
+      historyEnvelope(String(path).includes("/comments?") ? [] : rows),
+    ));
+    mountHistory();
+    const table = await screen.findByRole("table", { name: "Historial de informes" });
+    expect(within(table).getByText("Informe - 20/09/2026 23:00")).toBeInTheDocument();
+    expect(within(table).getByText("Informe - 20/09/2026 22:00")).toBeInTheDocument();
+    expect(within(table).queryAllByText("Informe", { selector: "p" })).toHaveLength(0);
+  });
+
+  it("replaces the visible name inline with a prefilled field and compact actions", async () => {
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => Promise.resolve(
+      historyEnvelope(String(path).includes("/comments?") ? [] : [historyRow({ displayName: "Informe importante" })]),
+    ));
+    mountHistory();
+    const table = await screen.findByRole("table", { name: "Historial de informes" });
+    const cell = within(table).getByText("Informe importante").closest("td")!;
+    const edit = within(cell).getByRole("button", { name: "Editar nombre" });
+    expect(edit).toContainElement(edit.querySelector("svg"));
+    expect(edit.textContent?.trim()).toBe("");
+    expect(edit.parentElement).toContainElement(within(cell).getByText("Informe importante"));
+    fireEvent.click(edit);
+    const input = within(cell).getByRole("textbox", { name: "Nombre del informe" });
+    expect(input).toHaveValue("Informe importante");
+    expect(within(cell).queryByText("Informe importante")).not.toBeInTheDocument();
+    const form = within(cell).getByRole("form", { name: "Editar nombre del informe" });
+    expect(within(form).getByRole("button", { name: "Guardar" })).toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
+    expect(form).toHaveClass("items-center");
+  });
+
+  it("keeps failed state to a single badge and groups distinct retry and delete actions", async () => {
+    vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => Promise.resolve(
+      historyEnvelope(String(path).includes("/comments?") ? [] : [historyRow()]),
+    ));
+    mountHistory();
+    const table = await screen.findByRole("table", { name: "Historial de informes" });
+    const row = within(table).getAllByRole("row")[1]!;
+    expect(within(row).getAllByRole("cell")[3]).toHaveTextContent(/^Fallido$/);
+    const retry = within(row).getByRole("button", { name: "Reintentar" });
+    const remove = within(row).getByRole("button", { name: "Eliminar" });
+    expect(retry.parentElement).toBe(remove.parentElement);
+    expect(retry.parentElement).toHaveClass("flex-row");
+    expect(retry.className).not.toBe(remove.className);
+  });
+
   it("uses shared names or a readable fallback and renames inline without exposing run identity", async () => {
     let name: string | null = "Informe de septiembre";
     let reads = 0;
@@ -1483,12 +1534,12 @@ describe("feedback analytics UI projections", () => {
     const form = screen.getByRole("form", { name: "Editar nombre del informe" });
     expect(within(form).getByRole("textbox", { name: "Nombre del informe" })).toHaveAttribute("maxLength", "80");
     fireEvent.change(within(form).getByRole("textbox", { name: "Nombre del informe" }), { target: { value: "Nuevo nombre" } });
-    fireEvent.click(within(form).getByRole("button", { name: "Cancelar edición" }));
+    fireEvent.click(within(form).getByRole("button", { name: "Cancelar" }));
     expect(screen.queryByRole("form", { name: "Editar nombre del informe" })).not.toBeInTheDocument();
     expect(within(table).getByText("Informe de septiembre")).toBeInTheDocument();
     fireEvent.click(within(table).getByRole("button", { name: "Editar nombre" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Nombre del informe" }), { target: { value: "Nuevo nombre" } });
-    fireEvent.click(screen.getByRole("button", { name: "Guardar nombre" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     await screen.findByText("Nuevo nombre");
     expect(reads).toBeGreaterThan(1);
     const call = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([path, init]) => String(path).endsWith("/run-1/presentation") && init?.method === "POST");
@@ -1517,9 +1568,9 @@ describe("feedback analytics UI projections", () => {
     expect(within(table).getAllByText("Procesando")).toHaveLength(2);
     expect(within(table).getByText("Completado")).toBeInTheDocument();
     expect(within(table).getAllByText("Fallido")).toHaveLength(2);
-    expect(within(table).getByText("Solicitud cancelada.")).toBeInTheDocument();
+    expect(within(table).queryByText("Solicitud cancelada.")).not.toBeInTheDocument();
     expect(within(table).queryByText("Provider unreachable")).not.toBeInTheDocument();
-    expect(within(table).getAllByText("No se pudo completar el informe.")).toHaveLength(1);
+    expect(within(table).queryByText("No se pudo completar el informe.")).not.toBeInTheDocument();
     expect(table.querySelector('[data-generation-status="queued"] svg')).toHaveClass("motion-safe:animate-pulse");
     expect(table.querySelector('[data-generation-status="succeeded"]')).toHaveClass("text-green-700");
     expect(table.querySelector('[data-generation-status="failed"]')).toHaveClass("text-custom-red");
@@ -1532,9 +1583,13 @@ describe("feedback analytics UI projections", () => {
     const table = await screen.findByRole("table", { name: "Historial de informes" });
     expect(within(table).getByRole("button", { name: "Sin acciones disponibles" })).toBeDisabled();
     expect(within(table).getByRole("button", { name: "Cancelar solicitud en cola" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
-    expect(within(table).getByRole("button", { name: "Reintentar generación" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
-    expect(within(table).getByRole("button", { name: "Ocultar informe fallido" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(within(table).getByRole("button", { name: "Reintentar" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(within(table).getByRole("button", { name: "Eliminar" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     expect(within(table).getByRole("button", { name: "Descargar PDF" }).querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(within(table).getByRole("button", { name: "Descargar PDF" })).toHaveClass("border-success");
+    expect(within(table).getByRole("button", { name: "Reintentar" })).toHaveClass("border-default");
+    expect(within(table).getByRole("button", { name: "Eliminar" })).toHaveClass("border-danger");
+    expect(within(table).getByRole("button", { name: "Cancelar solicitud en cola" })).toHaveClass("border-danger");
     expect(within(table).getAllByRole("row")[2]!).not.toHaveTextContent("Cancelar solicitud en cola");
   });
 
@@ -1549,11 +1604,11 @@ describe("feedback analytics UI projections", () => {
     try {
       mountHistory();
       await screen.findByRole("table", { name: "Historial de informes" });
-      fireEvent.click(screen.getByRole("button", { name: "Ocultar informe fallido" }));
-      expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/todos los operadores.*no se elimina/i));
+      fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
+      expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/todos los operadores.*permanece en Strapi/i));
       expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
       confirm.mockReturnValue(true);
-      fireEvent.click(screen.getByRole("button", { name: "Ocultar informe fallido" }));
+      fireEvent.click(screen.getByRole("button", { name: "Eliminar" }));
       expect(await screen.findByText("No hay informes para este período.")).toBeInTheDocument();
       const call = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([path, init]) => String(path).endsWith("/run-1/presentation") && init?.method === "POST");
       expect(JSON.parse(String(call?.[1]?.body))).toEqual({ contractVersion: "feedback-admin.v1", action: "hide" });
@@ -1595,7 +1650,7 @@ describe("feedback analytics UI projections", () => {
     const aiCard = screen.getByRole("region", { name: "Análisis con IA" });
     expect(within(aiCard).getByText(/comentarios de encuestas anónimas/)).toBeInTheDocument();
     expect(screen.getByText(/Hay pocos comentarios en este alcance/)).toBeInTheDocument();
-    expect(screen.getByText("Informe", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByText(/^Informe - /)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Descargar PDF" })).toBeEnabled();
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path, init) => {
       if (init?.method === "POST") return Promise.resolve(Response.json({ reportRunId: "run-2", status: "queued" }, { status: 202 }));
@@ -1712,10 +1767,10 @@ describe("feedback analytics UI projections", () => {
     expect(within(table).getAllByText("Procesando")).toHaveLength(2);
     expect(within(table).getAllByText("Completado")).toHaveLength(2);
     expect(within(table).getByText("Fallido")).toBeInTheDocument();
-    expect(within(table).getAllByText("Informe", { selector: "p" })).toHaveLength(5);
+    expect(within(table).getAllByText(/^Informe - /)).toHaveLength(5);
     expect(within(table).getByText("12 respuestas")).toBeInTheDocument();
     expect(within(table).getByText("3 comentarios")).toBeInTheDocument();
-    expect(within(table).getByText("No se pudo completar el informe.")).toBeInTheDocument();
+    expect(within(table).queryByText("No se pudo completar el informe.")).not.toBeInTheDocument();
     expect(table).not.toHaveTextContent("failed-source");
     expect(within(table).getAllByRole("button", { name: "Descargar PDF" })).toHaveLength(2);
     const undownloadableRow = within(table).getAllByRole("row")[5];
@@ -1724,7 +1779,7 @@ describe("feedback analytics UI projections", () => {
     fireEvent.click(within(undownloadableRow!).getByRole("button", { name: "Descargar PDF" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo descargar el informe. Probá de nuevo.");
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.some(([path]) => String(path) === "/api/admin/feedback/reports/undownloadable-report/download")).toBe(true);
-    expect(within(table).getByRole("button", { name: "Reintentar generación" })).toBeEnabled();
+    expect(within(table).getByRole("button", { name: "Reintentar" })).toBeEnabled();
     expect(table).not.toHaveTextContent("immutable-report");
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/reports?")).length).toBe(0);
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/generations?")).length).toBe(1);
@@ -1743,7 +1798,7 @@ describe("feedback analytics UI projections", () => {
     });
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
-    await screen.findAllByText("Informe", { selector: "p" });
+    await screen.findAllByText(/^Informe - /);
 
     const aiCard = screen.getByRole("region", { name: "Análisis con IA" });
     const historyHeading = within(aiCard).getByRole("heading", { level: 3, name: "Historial de informes" });
@@ -1941,7 +1996,7 @@ describe("feedback analytics UI projections", () => {
     fireEvent.change(screen.getByLabelText("Buscar en comentarios"), { target: { value: "failed" } });
     expect(await screen.findByRole("alert")).toHaveTextContent("Los comentarios no están disponibles");
     expect(screen.queryByText("Current comment")).not.toBeInTheDocument();
-    expect(screen.getByText("Informe", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByText(/^Informe - /)).toBeInTheDocument();
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/generations?")).length).toBe(1);
     failComments = false;
     fireEvent.click(screen.getByRole("button", { name: "Reintentar comentarios" }));
@@ -1957,15 +2012,15 @@ describe("feedback analytics UI projections", () => {
     vi.mocked(authenticatedInternalApiFetch).mockImplementation((path) => String(path).includes("/generations?") && failGenerations ? Promise.reject(new Error("reports unavailable")) : Promise.resolve(envelope(String(path).includes("/comments?") ? comments : generations)));
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
-    await screen.findByText("Informe", { selector: "p" });
+    await screen.findByText(/^Informe - /);
     failGenerations = true;
     fireEvent.click(within(screen.getByRole("navigation", { name: "Paginación de informes" })).getByRole("button", { name: "Siguiente" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("El historial de informes no está disponible");
     expect(screen.getAllByText("Current comment").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Informe", { selector: "p" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Informe - /)).not.toBeInTheDocument();
     failGenerations = false;
     fireEvent.click(screen.getByRole("button", { name: "Reintentar historial" }));
-    await screen.findByText("Informe", { selector: "p" });
+    await screen.findByText(/^Informe - /);
     expect(vi.mocked(authenticatedInternalApiFetch).mock.calls.filter(([path]) => String(path).includes("/comments?")).length).toBe(1);
   });
 
@@ -2040,9 +2095,10 @@ describe("feedback analytics UI projections", () => {
     });
 
     render(<CommentsReportsModule period={{ from: "2026-09-01", to: "2026-09-20" }} points={snapshot.metrics.qrPoints} aspects={snapshot.metrics.aspects} />);
-    expect(await screen.findByRole("button", { name: "Reintentar generación" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Reintentar generación" }));
-    expect(await screen.findByText("Generado como reintento")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Reintentar" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    await waitFor(() => expect(screen.getByRole("table", { name: "Historial de informes" }).querySelector('[data-generation-status="queued"]')).not.toBeNull());
+    expect(screen.queryByText("Generado como reintento")).not.toBeInTheDocument();
     await waitFor(() => expect(historyReads).toBeGreaterThanOrEqual(2));
     const retryCall = vi.mocked(authenticatedInternalApiFetch).mock.calls.find(([path, init]) => String(path).endsWith("/failed-source/retry") && init?.method === "POST");
     expect(retryCall).toBeDefined();
