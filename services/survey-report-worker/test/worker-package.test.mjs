@@ -135,12 +135,12 @@ function close(server) {
 }
 
 test("the independent worker package uses the pinned Node runtime and built-in test runner", async () => {
-  assert.equal(process.version, "v22.22.0");
+  assert.equal(process.version, "v22.23.4");
   const manifest = JSON.parse(
     await readFile(join(PACKAGE_DIRECTORY, "package.json"), "utf8"),
   );
   assert.equal(manifest.packageManager, "pnpm@10.33.0");
-  assert.equal(manifest.engines.node, "22.22.0");
+  assert.equal(manifest.engines.node, "22.23.4");
   assert.equal(
     manifest.scripts.test,
     "node --conditions=react-server --test test/*.test.mjs",

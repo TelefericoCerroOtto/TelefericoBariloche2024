@@ -1,5 +1,5 @@
 steps:
-  - name: node@sha256:7cc56ef285a8568121537d17b05e72128f01b89c54607b51acf084a50ef483f3
+  - name: node@sha256:ea11b74b986d520137cdef9a5346e447a00f275ecc4abc0055b7151226231e09
     id: Prepare verified worker bundle
     dir: services/survey-report-worker
     entrypoint: bash
@@ -45,7 +45,7 @@ steps:
               ;;
           esac
         done
-        test "$$(node --version)" = "v22.22.0"
+        test "$$(node --version)" = "v22.23.4"
         corepack enable
         test "$$(pnpm --version)" = "10.33.0"
         test "$$CLOUD_BUILD_PROJECT_ID" = "teleferico-bariloche-2024"

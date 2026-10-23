@@ -1,5 +1,5 @@
 steps:
-  - name: node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488
+  - name: node@sha256:ea11b74b986d520137cdef9a5346e447a00f275ecc4abc0055b7151226231e09
     id: GitHub deployment start
     entrypoint: bash
     args:
@@ -110,7 +110,7 @@ steps:
         exit 0
     id: Deploy
     entrypoint: bash
-  - name: node@sha256:1471ea646673136b8308550ac14b36d847ffb21c24bc31828279e443c924e488
+  - name: node@sha256:ea11b74b986d520137cdef9a5346e447a00f275ecc4abc0055b7151226231e09
     id: GitHub deployment finish
     entrypoint: bash
     args:
