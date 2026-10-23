@@ -31,6 +31,11 @@ import {
   buildOverlapDetails,
   prepareRetryGeneration,
 } from "./generation-lifecycle";
+import { reportHistoryName } from "./report-history-name";
+import {
+  createConfiguredFeedbackAdminReader,
+  type createFeedbackAdminReader,
+} from "./admin-reader";
 import {
   buildAuthoritativeGenerationInputsV1,
   type AuthoritativeGenerationSourceInputV1,
@@ -297,6 +302,10 @@ type Options = {
   readonly taskClient?: FeedbackCloudTaskClient;
   readonly dispatchState?: FeedbackDispatchStatePort;
   readonly generationInputs?: GenerationInputsPort;
+  readonly historyReader?: Pick<
+    ReturnType<typeof createFeedbackAdminReader>,
+    "readVisibleSucceededGenerations"
+  >;
 };
 
 type ApprovedGenerationConfiguration = Pick<
@@ -488,6 +497,16 @@ export function createFeedbackAdminCommandTransport(options: Options) {
     }
   };
 
+  const readVisibleSucceededGenerations = async (period: FeedbackAdminDateRange) => {
+    if (!options.historyReader)
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    try {
+      return await options.historyReader.readVisibleSucceededGenerations(period);
+    } catch {
+      throw new FeedbackAdminCommandError("UPSTREAM_UNAVAILABLE", 503);
+    }
+  };
+
   const list = async (period: FeedbackAdminDateRange) => {
     const query = new URLSearchParams({
       "filters[periodStart][$lte]": period.to,
@@ -554,26 +573,27 @@ export function createFeedbackAdminCommandTransport(options: Options) {
       );
       if (active)
         throw new FeedbackAdminCommandError("ACTIVE_RANGE_CONFLICT", 409);
-      if (conflicts.length) {
-        const details = buildOverlapDetails(
-          conflicts.map((row) => ({
-            documentId: row.documentId,
-            reportRunId: row.reportRunId,
-            period: { from: row.from, to: row.to },
-            status: row.status,
-          })),
-          value.period,
+      const completed = await readVisibleSucceededGenerations(value.period);
+      const details = buildOverlapDetails(
+        completed.map((row) => ({
+          reportRunId: row.reportRunId,
+          period: row.period,
+          status: row.status,
+          name: reportHistoryName(row),
+        })),
+        value.period,
+      );
+      if (details.overlaps.length && (
+        !value.override.accepted ||
+        value.override.overlapDigest !== details.overlapDigest
+      ))
+        throw new FeedbackAdminCommandError(
+          "OVERLAP_REQUIRES_OVERRIDE",
+          409,
+          details,
         );
-        if (
-          !value.override.accepted ||
-          value.override.overlapDigest !== details.overlapDigest
-        )
-          throw new FeedbackAdminCommandError(
-            "OVERLAP_REQUIRES_OVERRIDE",
-            409,
-            details,
-          );
-      }
+      if (!details.overlaps.length && value.override.accepted)
+        throw new FeedbackAdminCommandError("VALIDATION_FAILED", 400);
       const cutoff = new Date();
       return create(value, undefined, cutoff);
     },
@@ -690,6 +710,12 @@ export function getFeedbackAdminCommandTransport(token: string) {
       allowedOrigins: origin.allowedOrigins,
       ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
       token,
+      historyReader: createConfiguredFeedbackAdminReader({
+        baseUrl: origin.baseUrl,
+        allowedOrigins: origin.allowedOrigins,
+        ...(process.env.NODE_ENV === "development" ? { runtimeMode: "development" as const } : {}),
+        tokenProvider: async (action) => ({ action, value: appTokens.feedbackAdminRead }),
+      }),
       taskClient,
       dispatchState,
       generationInputs: {

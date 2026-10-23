@@ -26,15 +26,19 @@ const runtimePdf = await readFile(
   resolve(packageDirectory, "src/pdf.ts"),
   "utf8",
 );
+const localFixture = await readFile(
+  resolve(packageDirectory, "scripts/dev-fixture.mjs"),
+  "utf8",
+);
 const workerReadme = await readFile(
   resolve(packageDirectory, "README.md"),
   "utf8",
 );
 
-test("worker image pins its Node 22.22.0 Linux/amd64 base and runtime command", () => {
+test("worker image pins its Node 22.23.4 Linux/amd64 base and runtime command", () => {
   assert.match(
     dockerfile,
-    /^FROM --platform=linux\/amd64 node@sha256:7cc56ef285a8568121537d17b05e72128f01b89c54607b51acf084a50ef483f3$/m,
+    /^FROM --platform=linux\/amd64 node@sha256:ea11b74b986d520137cdef9a5346e447a00f275ecc4abc0055b7151226231e09$/m,
   );
   assert.match(dockerfile, /PORT=8080/);
   assert.match(
@@ -110,7 +114,7 @@ test("worker Cloud Build YAML is a pasteable Build recipe, not trigger metadata"
 
 test("Cloud Build prepares and verifies Chromium/font assets before building the image", () => {
   const nodeBuilder =
-    "node@sha256:7cc56ef285a8568121537d17b05e72128f01b89c54607b51acf084a50ef483f3";
+    "node@sha256:ea11b74b986d520137cdef9a5346e447a00f275ecc4abc0055b7151226231e09";
   const dockerBuilder =
     "gcr.io/cloud-builders/docker@sha256:3d00b6c1a9b862621c30fc74d4f2abfc62bcbdee631ed3febd31e7edbdf6252c";
   const gcloudBuilder =
@@ -118,7 +122,7 @@ test("Cloud Build prepares and verifies Chromium/font assets before building the
   assert.ok(cloudBuildConfig.includes(nodeBuilder));
   assert.ok(cloudBuildConfig.includes(dockerBuilder));
   assert.ok(cloudBuildConfig.includes(gcloudBuilder));
-  assert.ok(cloudBuildConfig.includes('node --version)" = "v22.22.0'));
+  assert.ok(cloudBuildConfig.includes('node --version)" = "v22.23.4'));
   assert.ok(cloudBuildConfig.includes('pnpm --version)" = "10.33.0'));
   assert.ok(cloudBuildConfig.includes("pnpm install --frozen-lockfile"));
   assert.ok(cloudBuildConfig.includes("pnpm exec playwright install --with-deps chromium"));
@@ -195,7 +199,8 @@ test("Cloud Build prepares and verifies Chromium/font assets before building the
   assert.match(buildScript, /2d18db9d8608b052b6a552ee00ec1e830f93692e928b65ecc67d693bd33fe801/);
   assert.match(buildScript, /670ba079b75107746ba41abad131180a31a7c7219aa1bd4061fb471f4535d541/);
   assert.match(buildScript, /abdc775b21b1bc470d50c97e790d276f2054b7504e56e5bd3e64f48d68582322/);
-  assert.equal(packageManifest.engines.node, "22.22.0");
+  assert.equal(packageManifest.engines.node, "22.23.4");
+  assert.match(runtimePdf, /PINNED_NODE_VERSION = "v22\.23\.4"/);
   assert.equal(packageManifest.packageManager, "pnpm@10.33.0");
   assert.equal(packageManifest.dependencies["@playwright/test"], "1.61.0");
 });
@@ -220,4 +225,9 @@ test("worker font package version and digest pins stay aligned", () => {
       `${sourceName} has the pinned font digest`,
     );
   }
+});
+
+test("local fake worker requires the patched Node runtime", () => {
+  assert.match(localFixture, /process\.version !== "v22\.23\.4"/);
+  assert.match(localFixture, /Local worker fixture requires Node v22\.23\.4/);
 });

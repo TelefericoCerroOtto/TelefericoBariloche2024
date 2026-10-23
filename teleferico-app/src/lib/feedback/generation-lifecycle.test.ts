@@ -94,13 +94,14 @@ describe("report generation lifecycle contracts", () => {
       "INVALID_CUTOFF",
     );
   });
-  it("discloses every inclusive overlap with a stable digest", () => {
+  it("discloses only completed visible inclusive overlaps with a name-bound stable digest", () => {
     const details = buildOverlapDetails(
       [
         {
           reportRunId: "run-b",
           period: { from: "2026-07-20", to: "2026-08-05" },
           status: "succeeded",
+          name: "Summit report",
         },
         {
           reportRunId: "run-a",
@@ -118,22 +119,36 @@ describe("report generation lifecycle contracts", () => {
     expect(details.overlaps).toEqual([
       {
         reportRunId: "run-b",
+        name: "Summit report",
         period: { from: "2026-07-20", to: "2026-08-05" },
         intersection: { from: "2026-08-01", to: "2026-08-05" },
       },
-      {
-        reportRunId: "run-a",
-        period: { from: "2026-08-10", to: "2026-08-20" },
-        intersection: { from: "2026-08-10", to: "2026-08-20" },
-      },
-      {
-        reportRunId: "run-c",
-        period: { from: "2026-08-20", to: "2026-08-30" },
-        intersection: { from: "2026-08-20", to: "2026-08-20" },
-      },
     ]);
     expect(details.overlapDigest).toMatch(/^[a-f0-9]{64}$/);
+    expect(buildOverlapDetails([
+      { reportRunId: "run-b", period: { from: "2026-07-20", to: "2026-08-05" }, status: "succeeded", name: "Renamed report" },
+    ], period).overlapDigest).not.toBe(details.overlapDigest);
+    expect(buildOverlapDetails([
+      { reportRunId: "run-b", period: { from: "2026-07-20", to: "2026-08-05" }, status: "succeeded", name: "Summit report" },
+    ], period).overlapDigest).toBe(details.overlapDigest);
+    expect(buildOverlapDetails([
+      { reportRunId: "run-b", period: { from: "2026-07-20", to: "2026-08-05" }, status: "succeeded", name: "Summit report" },
+    ], { from: "2026-08-02", to: period.to }).overlapDigest).not.toBe(details.overlapDigest);
   });
+  it("does not silently drop a completed conflict without a valid name", () => {
+    expect(() => buildOverlapDetails([{
+      reportRunId: "run-unnamed",
+      period,
+      status: "succeeded",
+    }], period)).toThrow();
+    expect(() => buildOverlapDetails([{
+      reportRunId: "run-blank-name",
+      period,
+      status: "succeeded",
+      name: "   ",
+    }], period)).toThrow();
+  });
+
   it("creates a fresh cutoff and immutable retry lineage", () => {
     const sourceBeforeRetry = { ...source };
     expect(

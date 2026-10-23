@@ -2,7 +2,7 @@
 set -uo pipefail
 
 readonly POSTGRES_IMAGE="postgres:16-bookworm@sha256:bb3e1a57e5407e0a5280b4211980a5e537f4abd234a87014ac979849a78dd825"
-readonly RUNNER_IMAGE="node@sha256:4d676821dff059fd00d277ee4261ef34ea712317fed0737c03941481b5760c96"
+readonly RUNNER_IMAGE="node@sha256:de636e50060a9908cf40a20a50d027ed74a99b2e31d2635f3b13e9e4e5e97e74"
 readonly HARNESS_CAPABILITY="${TB122_HARNESS_CAPABILITY:-readiness}"
 case "$HARNESS_CAPABILITY" in
   readiness) ;;

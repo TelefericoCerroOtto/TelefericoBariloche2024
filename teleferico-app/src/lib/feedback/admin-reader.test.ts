@@ -88,6 +88,31 @@ function reports(count: number) {
 }
 
 describe("feedback administration private CMS reader", () => {
+  it("reads every visible completed history row through the existing cursor chain for overlap preflight", async () => {
+    const rows = Array.from({ length: 27 }, (_, index) => ({
+      reportRunId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      displayName: index === 0 ? "Summit report" : null,
+      periodStart: "2026-08-01T00:00:00.000Z", periodEnd: "2026-08-20T23:59:59.999Z",
+      dataCutoffAt: "2026-08-21T00:00:00.000Z", status: "succeeded",
+      createdAt: "2026-08-21T12:00:00.000Z", completedAt: "2026-08-21T13:00:00.000Z",
+      failureCode: null, safeFailureMessage: null, retryOfReportRunId: null,
+      report: { reportId: `00000000-0000-4000-8000-${String(index + 101).padStart(12, "0")}`,
+        createdAt: "2026-08-21T13:00:00.000Z", periodStart: "2026-08-01T00:00:00.000Z",
+        periodEnd: "2026-08-20T23:59:59.999Z", analyzedResponseCount: 1,
+        analyzedCommentCount: 0, canDownload: true },
+    }));
+    const readPage = vi.fn(async (query: FeedbackAdminSourcePageQuery) => {
+      const offset = query.cursor === null ? 0 : Number(query.cursor);
+      const items = rows.slice(offset, offset + 25);
+      return page(query, rows.length, items, offset + items.length < rows.length ? String(offset + items.length) : null);
+    });
+    const reader = createFeedbackAdminReader({ readPage });
+    const result = await reader.readVisibleSucceededGenerations({ from: "2026-08-01", to: "2026-08-20" });
+    expect(result).toHaveLength(27);
+    expect(result[0]).toMatchObject({ displayName: "Summit report", report: { createdAt: "2026-08-21T13:00:00.000Z" } });
+    expect(readPage).toHaveBeenCalledTimes(2);
+    expect(readPage.mock.calls.map(([query]) => query.status)).toEqual(["succeeded", "succeeded"]);
+  });
   it("reads generation history across stable pages and exposes only safe fields", async () => {
     const generations = [
       {

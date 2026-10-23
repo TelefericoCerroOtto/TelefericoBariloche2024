@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM --platform=linux/amd64 node@sha256:7cc56ef285a8568121537d17b05e72128f01b89c54607b51acf084a50ef483f3
+FROM --platform=linux/amd64 node@sha256:ea11b74b986d520137cdef9a5346e447a00f275ecc4abc0055b7151226231e09
 
 WORKDIR /workspace/teleferico-app
 
