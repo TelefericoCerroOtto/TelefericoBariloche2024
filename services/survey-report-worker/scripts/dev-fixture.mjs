@@ -380,8 +380,8 @@ function parsePort(argv) {
   return port;
 }
 
-if (process.version !== "v22.22.0") {
-  process.stderr.write("Local worker fixture requires Node v22.22.0.\n");
+if (process.version !== "v22.23.4") {
+  process.stderr.write("Local worker fixture requires Node v22.23.4.\n");
   process.exitCode = 1;
 } else {
   try {
