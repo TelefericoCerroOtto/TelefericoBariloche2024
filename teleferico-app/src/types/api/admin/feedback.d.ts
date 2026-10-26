@@ -75,6 +75,7 @@ export type FeedbackAdminCommandResult = {
 export type FeedbackAdminOverlapDetails = {
   readonly overlaps: readonly {
     readonly reportRunId: string;
+    readonly name: string;
     readonly period: FeedbackAdminDateRange;
     readonly intersection: FeedbackAdminDateRange;
   }[];
@@ -216,6 +217,7 @@ export type FeedbackAdminGenerationReport = {
 
 export type FeedbackAdminGeneration = {
   readonly reportRunId: string;
+  readonly displayName: string | null;
   readonly status: FeedbackAdminCommandStatus;
   readonly period: FeedbackAdminDateRange;
   readonly dataCutoffAt: string;

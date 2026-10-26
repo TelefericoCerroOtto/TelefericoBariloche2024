@@ -9,7 +9,7 @@ function syntheticProfile(
 ) {
   return {
     profileVersion: "feedback-report-generation-profile.v1",
-    sourceRevision: "feedback-report-profile.v1",
+    sourceRevision: "feedback-report-profile.v4",
     evidenceKeyId: "feedback-report-evidence.v1",
     modelConfig: {
       version: "survey-model-config.v1",
@@ -21,11 +21,11 @@ function syntheticProfile(
       temperature: 0,
       reasoning: "LOW",
       grounding: false,
-      promptVersion: "feedback-report-prompt.v1",
-      mapSchemaVersion: "survey-map.v1",
-      analysisSchemaVersion: "survey-analysis.v1",
+      promptVersion: "feedback-report-prompt.v4",
+      mapSchemaVersion: "survey-map.v3",
+      analysisSchemaVersion: "survey-analysis.v3",
       redactionVersion: "feedback-report-redaction.v1",
-      validatorVersion: "feedback-report-validator.v1",
+      validatorVersion: "feedback-report-validator.v3",
       chunkVersion: "feedback-report-chunk.v1",
       verifiedInputTokenLimit: inputLimit,
       map: { targetMin: 600, targetMax: 1200, hardMax: 4000 },
@@ -44,13 +44,15 @@ describe("TB-113 shared report-generation profile", () => {
     const profile = loadTb113ReportGenerationProfile();
     expect(profile.profileVersion).toBe("feedback-report-generation-profile.v1");
     expect(Object.keys(profile).sort()).toEqual(["generation", "profileVersion"]);
-    expect(profile.generation.sourceRevision).toBe("feedback-report-profile.v2");
+    expect(profile.generation.sourceRevision).toBe("feedback-report-profile.v4");
     expect(profile.generation.evidenceKeyId).toBe("feedback-report-evidence.v1");
     const modelConfig = profile.generation.modelConfig as Record<string, unknown>;
     const pricingSnapshot = profile.generation.pricingSnapshot as Record<string, unknown>;
-    expect(modelConfig.promptVersion).toBe("feedback-report-prompt.v2");
+    expect(modelConfig.promptVersion).toBe("feedback-report-prompt.v4");
+    expect(modelConfig.mapSchemaVersion).toBe("survey-map.v3");
+    expect(modelConfig.analysisSchemaVersion).toBe("survey-analysis.v3");
     expect(modelConfig.redactionVersion).toBe("feedback-report-redaction.v1");
-    expect(modelConfig.validatorVersion).toBe("feedback-report-validator.v1");
+    expect(modelConfig.validatorVersion).toBe("feedback-report-validator.v3");
     expect(modelConfig.chunkVersion).toBe("feedback-report-chunk.v1");
     expect(pricingSnapshot.version).toBe("feedback-report-pricing.v1");
     expect(modelConfig.verifiedInputTokenLimit).toBe(1_048_576);
@@ -83,7 +85,7 @@ describe("TB-113 shared report-generation profile", () => {
     const profile = loadTb113ReportGenerationProfile(rawProfile);
     const configuration = readTb113ApprovedGenerationConfiguration(profile);
 
-    expect(configuration.sourceRevision).toBe("feedback-report-profile.v1");
+    expect(configuration.sourceRevision).toBe("feedback-report-profile.v4");
     expect(configuration.modelConfig.sourceRevision).toBe(configuration.sourceRevision);
     expect(configuration.evidenceKeyId).toBe("feedback-report-evidence.v1");
     expect(configuration.modelConfig.evidenceKeyId).toBe(configuration.evidenceKeyId);
@@ -110,5 +112,23 @@ describe("TB-113 shared report-generation profile", () => {
     expect(priorStoredSnapshot.modelConfig.safetyHeadroomTokens).toBe(2500);
     expect(priorStoredSnapshot.pricingSnapshot.units[0].inputMicrosPerMillion).toBe(100);
     expect(JSON.stringify(priorStoredSnapshot)).toBe(serializedPriorSnapshot);
+  });
+
+  it("rejects older official response revisions without altering the profile", () => {
+    for (const mutation of [
+      { sourceRevision: "feedback-report-profile.v2" },
+      { modelConfig: { ...syntheticProfile().modelConfig, promptVersion: "feedback-report-prompt.v2" } },
+      { sourceRevision: "feedback-report-profile.v3" },
+      { modelConfig: { ...syntheticProfile().modelConfig, promptVersion: "feedback-report-prompt.v3" } },
+      { modelConfig: { ...syntheticProfile().modelConfig, validatorVersion: "feedback-report-validator.v2" } },
+      { modelConfig: { ...syntheticProfile().modelConfig, mapSchemaVersion: "survey-map.v2" } },
+      { modelConfig: { ...syntheticProfile().modelConfig, analysisSchemaVersion: "survey-analysis.v2" } },
+    ]) {
+      const rawProfile = { ...syntheticProfile(), ...mutation };
+      const before = JSON.stringify(rawProfile);
+      const profile = loadTb113ReportGenerationProfile(rawProfile);
+      expect(() => readTb113ApprovedGenerationConfiguration(profile)).toThrow("TB-113 runtime configuration is unavailable");
+      expect(JSON.stringify(rawProfile)).toBe(before);
+    }
   });
 });

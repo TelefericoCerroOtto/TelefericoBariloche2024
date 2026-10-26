@@ -16,19 +16,17 @@ import type {
 import { DIRECT_INSTRUCTIONS, DIRECT_SCHEMA } from "./direct-execution-plan";
 
 export const MAP_INSTRUCTIONS =
-  "Extract concise, distinct descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
+  "Extract concise, distinct descriptive conclusions and themes only from this complete comment chunk. Return the exact closed survey-map.v3 schema and its ordered coveredRefs for the entire chunk. Distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
 
 export const MAP_SCHEMA = canonicalizeJson({
-  schemaVersion: "survey-map.v1",
+  schemaVersion: "survey-map.v3",
   chunkId: "map.<index>-of-<count>",
   coveredRefs: ["e_<20-lowercase-base32-characters>"],
   themes: [{
     themeKey: "lowercase-stable-id",
     labelEs: "Spanish descriptive label",
     claims: [{
-      claimId: "lowercase-stable-id",
       textEs: "Spanish descriptive text",
-      evidenceRefs: ["e_<20-lowercase-base32-characters>"],
       signal: { enum: ["recurrent", "minority", "descriptive"] },
     }],
   }],
@@ -36,18 +34,16 @@ export const MAP_SCHEMA = canonicalizeJson({
 });
 
 export const REDUCE_INSTRUCTIONS =
-  "Combine only the validated map outputs and immutable official metrics supplied. Return the exact seven-section survey-analysis.v1 reduce schema with a brief executive synthesis of distinct supported visitor observations, leaving unsupported sections empty and avoiding repetition across sections. Cite only validated evidence refs on every claim. Do not calculate or alter metrics, invent evidence refs, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
+  "Combine only the validated map outputs and immutable official metrics supplied. Return the exact seven-section survey-analysis.v3 reduce schema with a brief executive synthesis of distinct visitor conclusions, leaving unsupported sections empty and avoiding repetition across sections. Return the ordered mapOutputDigests. Do not calculate or alter metrics, invent evidence refs, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
 
 export const REDUCE_SCHEMA = canonicalizeJson({
-  schemaVersion: "survey-analysis.v1",
+  schemaVersion: "survey-analysis.v3",
   route: "reduce",
   sections: [{
     key: { enum: ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"] },
     status: { enum: ["supported", "insufficient_evidence"] },
     claims: [{
-      claimId: "lowercase-stable-id",
       textEs: "Spanish descriptive text",
-      evidenceRefs: ["e_<20-lowercase-base32-characters>"],
       signal: { enum: ["recurrent", "minority", "descriptive"] },
     }],
   }],

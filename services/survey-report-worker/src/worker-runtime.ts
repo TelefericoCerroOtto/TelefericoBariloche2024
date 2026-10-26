@@ -243,6 +243,9 @@ async function failSafely(
             reportRunId,
             stage: outputRejection.stage,
             reasonCategory: outputRejection.reasonCategory,
+            ...(outputRejection.violationCodes
+              ? { violationCodes: outputRejection.violationCodes }
+              : {}),
           }),
         );
       } catch {
@@ -941,11 +944,12 @@ export async function executeReportWorker(
         let reasonCategory:
           | "output_contract_preflight"
           | "output_token_budget" = "output_contract_preflight";
+        let violationCodes: readonly string[] | undefined;
         let valid = Boolean(
           candidate &&
           typeof candidate === "object" &&
           (candidate as { schemaVersion?: unknown }).schemaVersion ===
-            "survey-analysis.v1",
+            "survey-analysis.v3",
         );
         let outputCount: Awaited<
           ReturnType<typeof countGeneratedOutputV1>
@@ -990,6 +994,10 @@ export async function executeReportWorker(
               evidenceKey: evidenceKey!,
             })
           : null;
+        if (reasonCategory === "output_contract_preflight")
+          violationCodes = preflight?.status === "rejected"
+            ? preflight.violations
+            : preflight === null ? ["invalid_output_contract"] : undefined;
         if (preflight?.status === "accepted" && outputCount) {
           acceptedDirect = candidate as DirectAnalysisV1;
           acceptedUsage = priceProviderUsageV1(
@@ -1010,6 +1018,7 @@ export async function executeReportWorker(
             "direct",
             reasonCategory,
             "The direct analysis did not satisfy its structural or output-token contract",
+            violationCodes,
           );
       }
       if (!acceptedDirect || !acceptedUsage)
@@ -1055,6 +1064,7 @@ export async function executeReportWorker(
           "direct",
           "output_contract_preflight",
           "The stored direct analysis failed structural and privacy validation",
+          preflight.status === "rejected" ? preflight.violations : undefined,
         );
     }
     diagnosticStage = "validate";

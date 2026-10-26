@@ -35,6 +35,8 @@ The U5/S06b production bootstrap seed uses Appendix 01's exact 13 predefined asp
 
 Contracts: browser→app→CMS public/admin v1; app dispatcher→CMS dispatch-command v1; core→app/CMS snapshot v1; app/CMS→worker command v1; worker→CMS worker-CMS/checkpoint v1; renderer→CMS published-analysis/chart/render v1. Unknown fields/versions fail before effects. CMS v1 precedes app emission; worker v1 precedes generation. Rollback retains additive CMS/readers and disables enqueue/generation.
 
+The AI response alone advances to claim-ID-free `survey-analysis.v3` and `survey-map.v3` under prompt v4, validator v3, and source revision `feedback-report-profile.v4`. Keep worker/CMS prompt and serialized schema bytes identical; verify Direct and Map/Reduce claim-free outputs, rejected old `claimId` and reference fields, unchanged Map chunk membership and digests, zero-comment published-analysis.v1 fallback, and exact CountTokens/usage/CAS. Old in-flight runs fail closed; do not migrate stored history or change completed-report reads. These synthetic checks do not authorize a live provider call or deployment.
+
 ## RED-First Tests
 
 - **CMS Node** `teleferico-cms/test/feedback/**`: catalog/SQL, permissions, lifecycle, `otherAspect` normalization/total cardinality, replay/digest, singleton, overlap/races/lineage, exact worker responses/replays, CAS, queued enqueue failure, atomic terminals, cleanup.

@@ -65,8 +65,8 @@ export function validateModelConfigV1(
     value.grounding !== false ||
     typeof value.promptVersion !== "string" ||
     !value.promptVersion ||
-    value.mapSchemaVersion !== "survey-map.v1" ||
-    value.analysisSchemaVersion !== "survey-analysis.v1" ||
+    value.mapSchemaVersion !== "survey-map.v3" ||
+    value.analysisSchemaVersion !== "survey-analysis.v3" ||
     typeof value.redactionVersion !== "string" ||
     !value.redactionVersion ||
     typeof value.validatorVersion !== "string" ||

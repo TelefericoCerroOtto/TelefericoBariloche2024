@@ -37,7 +37,7 @@ function syntheticModelConfig(evidenceKeyId) {
     vertexProjectId: "teleferico-bariloche-2024", vertexLocation: "us",
     vertexApiEndpoint: "aiplatform.us.rep.googleapis.com", model: "gemini-3.8-flash",
     temperature: 0, reasoning: "LOW", grounding: false, promptVersion: "prompt.v1",
-    mapSchemaVersion: "survey-map.v1", analysisSchemaVersion: "survey-analysis.v1",
+     mapSchemaVersion: "survey-map.v3", analysisSchemaVersion: "survey-analysis.v3",
     redactionVersion: "redaction.v1", validatorVersion: "validator.v1", chunkVersion: "chunk.v1",
     verifiedInputTokenLimit: 8192,
     map: { targetMin: 600, targetMax: 1200, hardMax: 4000 },
@@ -763,9 +763,9 @@ test("CMS matches the worker synthetic evidence-membership and stage-digest vect
   assert.equal(JSON.stringify(memberships).includes(input.evidenceKey), false);
   const projection = projectionFor(input);
   const configDigest = stageConfigDigest(projection);
-  assert.equal(configDigest, "79ee5e80eb4d3d2546b25885a22b7018342b47326cbc3030419a6ce5cddd0613");
+    assert.equal(configDigest, "20f023eea392688a8e2987bc17bab44a01d6dd296723f6e58f348151549c768c");
   const stageInput = { stageKey: "map.1-of-2", stageIndex: 2, route: "map-reduce", snapshotDigest: input.snapshotDigest, sourceRevision: "test-source", contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest: configDigest, orderedDependencyOutputDigests: ["b".repeat(64), "c".repeat(64)], chunkMembershipDigest: memberships[0].membershipDigest };
-  assert.equal(stageInputDigestV1(stageInput), "ae8cc9b362b0983c70bd3ae386542a0973e74633feba1a034b0048a0f584cea4");
+    assert.equal(stageInputDigestV1(stageInput), "01ce5e33058c547216930a19784d50c3b7c95ef70f5f51b3350d1cecaaff1f7d");
   assert.notEqual(stageInputDigestV1({ ...stageInput, orderedDependencyOutputDigests: [...stageInput.orderedDependencyOutputDigests].reverse() }), stageInputDigestV1(stageInput));
 });
 
@@ -1163,6 +1163,41 @@ test("checkpoint graph verifier sanitizes replay of persisted Validate history",
   assert.equal(JSON.stringify(replay).includes("unverified-validate"), false);
 });
 
+test("CMS checkpoint graph refuses mixed official response and source or prompt revisions", () => {
+  const baseConfig = syntheticModelConfig("test-only-2026-01");
+  for (const change of [
+    { sourceRevision: "feedback-report-profile.v2", promptVersion: "feedback-report-prompt.v3" },
+    { sourceRevision: "feedback-report-profile.v3", promptVersion: "feedback-report-prompt.v2" },
+    { sourceRevision: "feedback-report-profile.v3", promptVersion: "feedback-report-prompt.v3", validatorVersion: "feedback-report-validator.v2" },
+  ]) {
+    const modelConfig = { ...baseConfig, ...change };
+    const run = {
+      reportRunId: REPORT_RUN_ID, status: "running", stateVersion: 4,
+      snapshotDigest: "a".repeat(64), sourceRevision: change.sourceRevision,
+      modelConfig, rendererVersion: "renderer.test.v1",
+    };
+    const checkpoints = { version: "survey-checkpoints.v1", snapshotDigest: run.snapshotDigest, route: "direct", chunkCount: null, entries: [] };
+    const payload = { kind: "redact", recordCount: 0, redactionVersion: modelConfig.redactionVersion };
+    const stageKey = "redact";
+    const stageConfigDigest = digest({ version: CHECKPOINT_CONTRACT_VERSIONS.stageConfig, stageKey, modelConfig,
+      evidenceKeyId: modelConfig.evidenceKeyId, rendererVersion: null });
+    const candidate = {
+      checkpointVersion: "survey-checkpoint.v1", stageKey, stageIndex: 0, route: "common", stageType: stageKey,
+      status: "valid", inputDigest: stageInputDigestV1({ stageKey, stageIndex: 0, route: "common",
+        snapshotDigest: run.snapshotDigest, sourceRevision: run.sourceRevision,
+        contractVersions: CHECKPOINT_CONTRACT_VERSIONS, stageConfigDigest,
+        orderedDependencyOutputDigests: [], chunkMembershipDigest: null }),
+      outputDigest: digest(payload), attempts: 1, completedAt: "2026-09-25T12:00:00.000Z", payload,
+    };
+    const before = JSON.stringify({ run, checkpoints, candidate });
+    assert.throws(() => verifyCheckpointGraphV1({ run, checkpoints, candidate, expectedStateVersion: 4 }),
+      { message: "Invalid checkpoint binding" });
+    assert.equal(JSON.stringify({ run, checkpoints, candidate }), before);
+    assert.deepEqual(checkpoints.entries, []);
+    assert.equal(run.stateVersion, 4);
+  }
+});
+
 test("CMS rejects a valid map.2 payload stored under map.1 checkpoint identity", () => {
   const membershipInput = syntheticMembershipInput();
   const snapshot = {
@@ -1182,12 +1217,12 @@ test("CMS rejects a valid map.2 payload stored under map.1 checkpoint identity",
     rendererVersion: "renderer.test.v1",
   };
   const headroom = Math.max(2048, Math.ceil(modelConfig.verifiedInputTokenLimit * 0.1));
-  const directInstructions = "Return concise Spanish descriptions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct supported visitor observations. Cite eligible evidence refs on every claim, distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
+   const directInstructions = "Return concise Spanish conclusions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct visitor observations. Distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
   const directSchema = canonicalize({
-    schemaVersion: "survey-analysis.v1", route: "direct",
+     schemaVersion: "survey-analysis.v3", route: "direct",
     sections: ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"].map((key) => ({
       key, status: { enum: ["supported", "insufficient_evidence"] },
-      claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }],
+        claims: [{ textEs: "Spanish descriptive text", signal: { enum: ["recurrent", "minority", "descriptive"] } }],
     })),
   });
   const modelComments = {
@@ -1204,10 +1239,10 @@ test("CMS rejects a valid map.2 payload stored under map.1 checkpoint identity",
   };
   const directSegmentTokens = { instructions: 100, schema: 100, metrics: 100, comments: 9000, reservedOutput: 3000, headroom };
   const directTotalTokens = Object.values(directSegmentTokens).reduce((sum, value) => sum + value, 0);
-  const mapInstructions = "Extract concise, distinct descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
+   const mapInstructions = "Extract concise, distinct descriptive conclusions and themes only from this complete comment chunk. Return the exact closed survey-map.v3 schema and its ordered coveredRefs for the entire chunk. Distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
   const mapSchema = canonicalize({
-    schemaVersion: "survey-map.v1", chunkId: "map.<index>-of-<count>", coveredRefs: ["e_<20-lowercase-base32-characters>"],
-    themes: [{ themeKey: "lowercase-stable-id", labelEs: "Spanish descriptive label", claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }] }],
+      schemaVersion: "survey-map.v3", chunkId: "map.<index>-of-<count>", coveredRefs: ["e_<20-lowercase-base32-characters>"],
+      themes: [{ themeKey: "lowercase-stable-id", labelEs: "Spanish descriptive label", claims: [{ textEs: "Spanish descriptive text", signal: { enum: ["recurrent", "minority", "descriptive"] } }] }],
     limitations: ["Spanish descriptive limitation"],
   });
   const attempts = [1, 2].map((chunkCount) => {
@@ -1235,7 +1270,7 @@ test("CMS rejects a valid map.2 payload stored under map.1 checkpoint identity",
     kind: "count", requestDigest: digest(directRequest), segmentTokens: directSegmentTokens, totalTokens: directTotalTokens,
     route: "map-reduce", directRequestDigest: digest(directRequest), directSegmentTokens, directTotalTokens, attempts, chunkCount: 2,
   };
-  const output = { schemaVersion: "survey-map.v1", chunkId: "map.2-of-2", coveredRefs: deriveChunkMembership({ ...membershipInput, snapshotDigest, chunkCount: 2 })[1].coveredRefs, themes: [], limitations: [] };
+   const output = { schemaVersion: "survey-map.v3", chunkId: "map.2-of-2", coveredRefs: deriveChunkMembership({ ...membershipInput, snapshotDigest, chunkCount: 2 })[1].coveredRefs, themes: [], limitations: [] };
   const outputRequest = {
     contractVersion: "survey-count-request.v1", modelConfig,
     segments: { instructions: mapInstructions, schema: mapSchema, metrics: "{}", comments: canonicalize(output) },
@@ -1276,17 +1311,17 @@ test("CMS rejects a valid map.2 payload stored under map.1 checkpoint identity",
   }), { code: "VALIDATION_FAILED" });
 });
 
-test("CMS checkpoint command accepts structural direct prose but rejects foreign refs and altered digests", () => {
+test("CMS checkpoint command accepts claim-free v3 direct prose but rejects old claim fields and altered digests", () => {
   const evidenceKey = syntheticMembershipInput().evidenceKey;
   const modelConfig = syntheticModelConfig("test-only-2026-01");
   const snapshot = { sourceRevision: "test-source", metrics: { current: { submissionCount: 1 } }, comments: [syntheticMembershipInput().comments[0]] };
   const run = { reportRunId: syntheticMembershipInput().reportRunId, status: "running", stateVersion: 4,
     snapshotDigest: digest(snapshot), sourceRevision: "test-source", modelConfig, rendererVersion: "renderer.test.v1" };
   const ref = deriveEvidenceRef({ reportRunId: run.reportRunId, recordId: snapshot.comments[0].recordId, evidenceKey });
-  const directInstructions = "Return concise Spanish descriptions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct supported visitor observations. Cite eligible evidence refs on every claim, distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
+   const directInstructions = "Return concise Spanish conclusions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct visitor observations. Distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
   const sectionKeys = ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"];
-  const directSchema = canonicalize({ schemaVersion: "survey-analysis.v1", route: "direct", sections: sectionKeys.map((key) => ({
-    key, status: { enum: ["supported", "insufficient_evidence"] }, claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }],
+   const directSchema = canonicalize({ schemaVersion: "survey-analysis.v3", route: "direct", sections: sectionKeys.map((key) => ({
+      key, status: { enum: ["supported", "insufficient_evidence"] }, claims: [{ textEs: "Spanish descriptive text", signal: { enum: ["recurrent", "minority", "descriptive"] } }],
   })) });
   const modelInput = { contractVersion: "survey-model-input.v1", comments: snapshot.comments.map(({ period, text }) => ({ period, text, evidenceRef: ref })) };
   const countRequest = { contractVersion: "survey-count-request.v1", modelConfig, segments: {
@@ -1309,9 +1344,9 @@ test("CMS checkpoint command accepts structural direct prose but rejects foreign
     totalTokens: Object.values(segments).reduce((sum, value) => sum + value, 0) }, [redact.outputDigest]);
   const checkpoints = { version: "survey-checkpoints.v1", snapshotDigest: run.snapshotDigest, route: "direct", chunkCount: null, entries: [redact, count] };
   const textEs = `Recomendamos cambiar el acceso 99. ${snapshot.comments[0].text} ${ref} visitor@example.invalid https://synthetic.invalid`;
-  const output = { schemaVersion: "survey-analysis.v1", route: "direct", sections: sectionKeys.map((key, index) => ({
-    key, status: index === 0 ? "supported" : "insufficient_evidence", claims: index === 0 ? [{
-      claimId: "claim-a", textEs, evidenceRefs: [ref], signal: "descriptive",
+    const output = { schemaVersion: "survey-analysis.v3", route: "direct", sections: sectionKeys.map((key, index) => ({
+     key, status: index === 0 ? "supported" : "insufficient_evidence", claims: index === 0 ? [{
+        textEs, signal: "descriptive",
     }] : [],
   })) };
   const candidateFor = (validatedOutput) => makeCheckpoint("direct", 2, { kind: "direct", validatedOutput,
@@ -1327,11 +1362,14 @@ test("CMS checkpoint command accepts structural direct prose but rejects foreign
   assert.throws(() => verify(candidateFor({ ...output, sections: output.sections.map((section, index) => index === 0 ? {
     ...section, claims: [{ ...section.claims[0], evidenceRefs: ["e_aaaaaaaaaaaaaaaaaaaa"] }],
   } : section) })), { code: "VALIDATION_FAILED" });
+  assert.throws(() => verify(candidateFor({ ...output, sections: output.sections.map((section, index) => index === 0 ? {
+    ...section, claims: [{ ...section.claims[0], claimId: "claim-a" }],
+  } : section) })), { code: "VALIDATION_FAILED" });
   assert.throws(() => verify({ ...candidate, outputDigest: "f".repeat(64) }), { code: "DIGEST_MISMATCH" });
   assert.deepEqual({ run, snapshot, checkpoints }, prior);
 });
 
-test("CMS map and reduce checkpoint commands allow prose without relaxing membership, budgets or digest order", () => {
+test("CMS map and reduce checkpoints accept claim-free v3 conclusions without relaxing membership, budgets or digest order", () => {
   const membershipInput = syntheticMembershipInput();
   const { evidenceKey, evidenceKeyId, reportRunId } = membershipInput;
   const modelConfig = syntheticModelConfig(evidenceKeyId);
@@ -1341,14 +1379,14 @@ test("CMS map and reduce checkpoint commands allow prose without relaxing member
     sourceRevision: "test-source", modelConfig, rendererVersion: "renderer.test.v1" };
   const membership = deriveChunkMembership({ ...membershipInput, snapshotDigest, chunkCount: 1, comments: snapshot.comments })[0];
   const ref = membership.coveredRefs[0];
-  const directInstructions = "Return concise Spanish descriptions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct supported visitor observations. Cite eligible evidence refs on every claim, distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
+   const directInstructions = "Return concise Spanish conclusions in the exact seven-section order and closed schema. Prioritize a brief executive synthesis of distinct visitor observations. Distinguish an individual observation from recurrent or minority signals, and leave unsupported sections empty. Do not include recommendations, actions, causality, official metric values, private identifiers, evidence refs in prose, or verbatim comment text. Semantic truth is not machine-verified.";
   const sectionKeys = ["executive_summary", "observed_changes", "strengths", "unfavorable_areas", "recurrent_themes", "minority_signals", "coverage_limitations"];
-  const directSchema = canonicalize({ schemaVersion: "survey-analysis.v1", route: "direct", sections: sectionKeys.map((key) => ({
-    key, status: { enum: ["supported", "insufficient_evidence"] }, claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }],
+    const directSchema = canonicalize({ schemaVersion: "survey-analysis.v3", route: "direct", sections: sectionKeys.map((key) => ({
+      key, status: { enum: ["supported", "insufficient_evidence"] }, claims: [{ textEs: "Spanish descriptive text", signal: { enum: ["recurrent", "minority", "descriptive"] } }],
   })) });
-  const mapInstructions = "Extract concise, distinct descriptive evidence and themes only from this complete comment chunk. Return the exact closed survey-map.v1 schema, cite only supplied opaque evidence refs, and distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
-  const mapSchema = canonicalize({ schemaVersion: "survey-map.v1", chunkId: "map.<index>-of-<count>", coveredRefs: ["e_<20-lowercase-base32-characters>"],
-    themes: [{ themeKey: "lowercase-stable-id", labelEs: "Spanish descriptive label", claims: [{ claimId: "lowercase-stable-id", textEs: "Spanish descriptive text", evidenceRefs: ["e_<20-lowercase-base32-characters>"], signal: { enum: ["recurrent", "minority", "descriptive"] } }] }], limitations: ["Spanish descriptive limitation"] });
+   const mapInstructions = "Extract concise, distinct descriptive conclusions and themes only from this complete comment chunk. Return the exact closed survey-map.v3 schema and its ordered coveredRefs for the entire chunk. Distinguish an individual observation from recurrent or minority signals. Do not calculate official metrics, recommend actions, claim causality, or reproduce comments. Semantic truth is not machine-verified.";
+   const mapSchema = canonicalize({ schemaVersion: "survey-map.v3", chunkId: "map.<index>-of-<count>", coveredRefs: ["e_<20-lowercase-base32-characters>"],
+      themes: [{ themeKey: "lowercase-stable-id", labelEs: "Spanish descriptive label", claims: [{ textEs: "Spanish descriptive text", signal: { enum: ["recurrent", "minority", "descriptive"] } }] }], limitations: ["Spanish descriptive limitation"] });
   const modelComment = { period: snapshot.comments[0].period, text: snapshot.comments[0].text, evidenceRef: ref };
   const countRequest = (instructions, schema, comments) => ({ contractVersion: "survey-count-request.v1", modelConfig,
     segments: { instructions, schema, metrics: canonicalize(snapshot.metrics), comments: canonicalize(comments) } });
@@ -1375,8 +1413,8 @@ test("CMS map and reduce checkpoint commands allow prose without relaxing member
   const count = checkpoint("count", 1, "common", countPayload, [redact.outputDigest]);
   const base = { version: "survey-checkpoints.v1", snapshotDigest, route: "map-reduce", chunkCount: 1, entries: [redact, count] };
   const textEs = `Recomendamos cambiar 99. ${snapshot.comments[0].text} ${ref} visitor@example.invalid https://synthetic.invalid`;
-  const mapOutput = { schemaVersion: "survey-map.v1", chunkId: "map.1-of-1", coveredRefs: [ref],
-    themes: [{ themeKey: "theme-a", labelEs: textEs, claims: [{ claimId: "claim-a", textEs, evidenceRefs: [ref], signal: "descriptive" }] }], limitations: [textEs] };
+    const mapOutput = { schemaVersion: "survey-map.v3", chunkId: "map.1-of-1", coveredRefs: [ref],
+      themes: [{ themeKey: "theme-a", labelEs: textEs, claims: [{ textEs, signal: "descriptive" }] }], limitations: [textEs] };
   const usage = (stageKey) => ({ model: modelConfig.model, modelRevision: "synthetic-revision", sku: "synthetic-input",
     usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 }, stageKey, pricingSnapshotVersion: "pricing.v1", costMicros: "1" });
   const mapPayload = (validatedOutput) => ({ kind: "map", chunkId: "map.1-of-1", chunkIndex: 1, chunkCount: 1, evidenceKeyId,
@@ -1389,10 +1427,11 @@ test("CMS map and reduce checkpoint commands allow prose without relaxing member
   assert.equal(verify(base, validMap).status, "accepted");
   assert.throws(() => verify(base, mapCheckpoint({ ...mapOutput, coveredRefs: ["e_aaaaaaaaaaaaaaaaaaaa"] })), { code: "VALIDATION_FAILED" });
   assert.throws(() => verify(base, mapCheckpoint({ ...mapOutput, themes: [{ ...mapOutput.themes[0], claims: [{ ...mapOutput.themes[0].claims[0], evidenceRefs: ["e_aaaaaaaaaaaaaaaaaaaa"] }] }] })), { code: "VALIDATION_FAILED" });
+  assert.throws(() => verify(base, mapCheckpoint({ ...mapOutput, themes: [{ ...mapOutput.themes[0], claims: [{ ...mapOutput.themes[0].claims[0], claimId: "claim-a" }] }] })), { code: "VALIDATION_FAILED" });
   assert.throws(() => verify(base, { ...validMap, payload: { ...validMap.payload, outputTokenCount: 4001 }, outputDigest: digest({ ...validMap.payload, outputTokenCount: 4001 }) }), { code: "VALIDATION_FAILED" });
-  const reduceOutput = { schemaVersion: "survey-analysis.v1", route: "reduce", mapOutputDigests: [validMap.outputDigest],
+    const reduceOutput = { schemaVersion: "survey-analysis.v3", route: "reduce", mapOutputDigests: [validMap.outputDigest],
     sections: sectionKeys.map((key, index) => ({ key, status: index === 0 ? "supported" : "insufficient_evidence",
-      claims: index === 0 ? [{ claimId: "claim-a", textEs, evidenceRefs: [ref], signal: "descriptive" }] : [] })) };
+       claims: index === 0 ? [{ textEs, signal: "descriptive" }] : [] })) };
   const reducePayload = (validatedOutput) => ({ kind: "reduce", validatedOutput, outputTokenCount: 1,
     outputRequestDigest: outputTokenRequestDigest(validatedOutput, modelConfig, "reduce"), usage: usage("reduce") });
   const reduceCheckpoint = (output) => checkpoint("reduce", 3, "map-reduce", reducePayload(output), [count.outputDigest, validMap.outputDigest]);
@@ -1400,6 +1439,9 @@ test("CMS map and reduce checkpoint commands allow prose without relaxing member
   assert.equal(verify(mapHistory, reduceCheckpoint(reduceOutput)).status, "accepted");
   assert.throws(() => verify(mapHistory, reduceCheckpoint({ ...reduceOutput, sections: reduceOutput.sections.map((section, index) => index === 0 ? {
     ...section, claims: [{ ...section.claims[0], evidenceRefs: ["e_aaaaaaaaaaaaaaaaaaaa"] }],
+  } : section) })), { code: "VALIDATION_FAILED" });
+  assert.throws(() => verify(mapHistory, reduceCheckpoint({ ...reduceOutput, sections: reduceOutput.sections.map((section, index) => index === 0 ? {
+    ...section, claims: [{ ...section.claims[0], claimId: "claim-a" }],
   } : section) })), { code: "VALIDATION_FAILED" });
   assert.throws(() => verify(mapHistory, reduceCheckpoint({ ...reduceOutput, mapOutputDigests: ["f".repeat(64)] })), { code: "DIGEST_MISMATCH" });
   assert.deepEqual(base, prior);

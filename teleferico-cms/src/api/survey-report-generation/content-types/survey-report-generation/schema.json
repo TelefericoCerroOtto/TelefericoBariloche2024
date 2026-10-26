@@ -75,6 +75,8 @@
       "mappedBy": "sourceGeneration",
       "private": true
     },
+    "displayName": { "type": "string", "maxLength": 80 },
+    "historyHidden": { "type": "boolean", "required": true, "default": false, "private": true },
     "fixtureMarker": { "type": "string", "private": true, "maxLength": 64 }
   }
 }

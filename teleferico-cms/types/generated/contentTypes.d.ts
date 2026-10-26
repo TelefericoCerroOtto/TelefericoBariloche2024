@@ -1379,6 +1379,10 @@ export interface ApiSurveyReportGenerationSurveyReportGeneration
       Schema.Attribute.Required &
       Schema.Attribute.Private &
       Schema.Attribute.DefaultTo<'unreserved'>;
+    displayName: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 80;
+      }>;
     failureCode: Schema.Attribute.String &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
@@ -1394,6 +1398,10 @@ export interface ApiSurveyReportGenerationSurveyReportGeneration
     > &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'queued'>;
+    historyHidden: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.Private &
+      Schema.Attribute.DefaultTo<false>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

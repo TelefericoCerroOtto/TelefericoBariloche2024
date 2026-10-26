@@ -1,6 +1,6 @@
 {
   "profileVersion": "feedback-report-generation-profile.v1",
-  "sourceRevision": "feedback-report-profile.v2",
+  "sourceRevision": "feedback-report-profile.v4",
   "evidenceKeyId": "feedback-report-evidence.v1",
   "modelConfig": {
     "version": "survey-model-config.v1",
@@ -12,11 +12,11 @@
     "temperature": 0,
     "reasoning": "LOW",
     "grounding": false,
-    "promptVersion": "feedback-report-prompt.v2",
-    "mapSchemaVersion": "survey-map.v1",
-    "analysisSchemaVersion": "survey-analysis.v1",
+    "promptVersion": "feedback-report-prompt.v4",
+    "mapSchemaVersion": "survey-map.v3",
+    "analysisSchemaVersion": "survey-analysis.v3",
     "redactionVersion": "feedback-report-redaction.v1",
-    "validatorVersion": "feedback-report-validator.v1",
+    "validatorVersion": "feedback-report-validator.v3",
     "chunkVersion": "feedback-report-chunk.v1",
     "verifiedInputTokenLimit": 1048576,
     "map": { "targetMin": 600, "targetMax": 1200, "hardMax": 4000 },

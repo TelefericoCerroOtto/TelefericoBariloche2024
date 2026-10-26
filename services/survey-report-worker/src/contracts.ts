@@ -59,14 +59,12 @@ export type PublishedAnalysisV1 = {
 };
 
 export type DirectAnalysisClaimV1 = {
-  readonly claimId: string;
   readonly textEs: string;
-  readonly evidenceRefs: readonly string[];
   readonly signal: "recurrent" | "minority" | "descriptive";
 };
 
 export type DirectAnalysisV1 = {
-  readonly schemaVersion: "survey-analysis.v1";
+  readonly schemaVersion: "survey-analysis.v3";
   readonly route: "direct";
   readonly sections: readonly {
     readonly key: (typeof PUBLISHED_SECTION_KEYS)[number];
@@ -79,7 +77,7 @@ export type WorkerMapCheckpointStage = `map.${number}-of-${number}`;
 export type WorkerCheckpointStage = "redact" | "count" | "direct" | "map" | WorkerMapCheckpointStage | "reduce" | "validate" | "render" | "store";
 
 export type MapAnalysisV1 = {
-  readonly schemaVersion: "survey-map.v1";
+  readonly schemaVersion: "survey-map.v3";
   readonly chunkId: string;
   readonly coveredRefs: readonly string[];
   readonly themes: readonly {
@@ -91,7 +89,7 @@ export type MapAnalysisV1 = {
 };
 
 export type ReduceAnalysisV1 = {
-  readonly schemaVersion: "survey-analysis.v1";
+  readonly schemaVersion: "survey-analysis.v3";
   readonly route: "reduce";
   readonly sections: DirectAnalysisV1["sections"];
   readonly mapOutputDigests: readonly string[];

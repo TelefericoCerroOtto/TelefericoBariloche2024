@@ -10,14 +10,12 @@ import {
 import { PUBLISHED_SECTION_KEYS } from "./contracts";
 
 type EvidenceClaim = {
-  readonly claimId: string;
   readonly textEs: string;
-  readonly evidenceRefs: readonly string[];
   readonly signal: "recurrent" | "minority" | "descriptive";
 };
 
 type DirectAnalysis = {
-  readonly schemaVersion: "survey-analysis.v1";
+  readonly schemaVersion: "survey-analysis.v3";
   readonly route: "direct";
   readonly sections: readonly {
     readonly key: (typeof PUBLISHED_SECTION_KEYS)[number];
@@ -35,10 +33,9 @@ export type DirectOutputPreflight =
       readonly blockers: readonly string[];
     };
 
-const CLAIM_KEYS = ["claimId", "textEs", "evidenceRefs", "signal"];
+const CLAIM_KEYS = ["textEs", "signal"];
 const SECTION_KEYS = ["key", "status", "claims"];
 const OUTPUT_KEYS = ["schemaVersion", "route", "sections"];
-const REF_PATTERN = /^e_[a-z2-7]{20}$/;
 const ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const KEY_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const MAP_KEYS = [
@@ -143,10 +140,7 @@ function preflightContext(input: {
 function validateClaimCollection(
   value: unknown,
   input: {
-    readonly allowedRefs: ReadonlySet<string>;
-    readonly claimIds: Set<string>;
     readonly violations: Set<string>;
-    readonly refScope?: ReadonlySet<string>;
   },
 ): void {
   if (!Array.isArray(value)) {
@@ -154,39 +148,15 @@ function validateClaimCollection(
     return;
   }
 
-  let previousClaimId = "";
   for (const claim of value) {
     if (
       !exactKeys(claim, CLAIM_KEYS) ||
-      typeof claim.claimId !== "string" ||
-      !ID_PATTERN.test(claim.claimId) ||
       !validText(claim.textEs, 4_000) ||
-      !Array.isArray(claim.evidenceRefs) ||
       !["recurrent", "minority", "descriptive"].includes(String(claim.signal))
     ) {
       input.violations.add("invalid_claim_shape");
       continue;
     }
-    if (
-      compareCodePoints(claim.claimId, previousClaimId) <= 0 ||
-      input.claimIds.has(claim.claimId)
-    )
-      input.violations.add("duplicate_or_unsorted_claim_id");
-    previousClaimId = claim.claimId;
-    input.claimIds.add(claim.claimId);
-
-    const refs = claim.evidenceRefs;
-    if (
-      refs.length === 0 ||
-      refs.some((ref) => typeof ref !== "string" || !REF_PATTERN.test(ref))
-    )
-      input.violations.add("missing_or_malformed_evidence_ref");
-    if (new Set(refs).size !== refs.length)
-      input.violations.add("duplicate_evidence_ref");
-    if (refs.some((ref) => !input.allowedRefs.has(ref)))
-      input.violations.add("foreign_evidence_ref");
-    if (input.refScope && refs.some((ref) => !input.refScope!.has(ref)))
-      input.violations.add("evidence_ref_outside_map_chunk");
   }
 }
 
@@ -200,7 +170,6 @@ function checkProse(value: unknown, maxLength: number, violations: Set<string>):
 function validateSections(
   value: unknown,
   context: {
-    readonly allowedRefs: ReadonlySet<string>;
     readonly violations: Set<string>;
   },
 ): void {
@@ -208,7 +177,6 @@ function validateSections(
     context.violations.add("invalid_section_order_or_status");
     return;
   }
-  const claimIds = new Set<string>();
   value.forEach((section, index) => {
     if (!exactKeys(section, SECTION_KEYS)) {
       context.violations.add("invalid_section_shape");
@@ -241,14 +209,12 @@ function validateSections(
     )
       context.violations.add("section_signal_mismatch");
     validateClaimCollection(section.claims, {
-      allowedRefs: context.allowedRefs,
-      claimIds,
       violations: context.violations,
     });
   });
 }
 
-/** Rejects detectable MapV1 contract violations without treating worker-supplied membership as evidence. */
+/** Rejects detectable Map contract violations without treating worker-supplied membership as evidence. */
 export function preflightMapAnalysis(
   value: unknown,
   input: MapPreflightInput,
@@ -259,7 +225,7 @@ export function preflightMapAnalysis(
   const violations = new Set<string>();
   if (
     !exactKeys(value, MAP_KEYS) ||
-    value.schemaVersion !== "survey-map.v1" ||
+    value.schemaVersion !== "survey-map.v3" ||
     typeof value.chunkId !== "string" ||
     !Array.isArray(value.coveredRefs) ||
     !Array.isArray(value.themes) ||
@@ -304,14 +270,7 @@ export function preflightMapAnalysis(
     violations.add("map_covered_refs_mismatch");
 
   const themeKeys = new Set<string>();
-  const claimIds = new Set<string>();
   let previousThemeKey = "";
-  const chunkRefs = new Set(membership?.coveredRefs ?? []);
-  const minimumBySignal = {
-    recurrent: Math.max(10, Math.ceil(context.comments.length * 0.02)),
-    minority: 4,
-    descriptive: 1,
-  } as const;
   for (const theme of value.themes) {
     if (
       !exactKeys(theme, THEME_KEYS) ||
@@ -331,19 +290,8 @@ export function preflightMapAnalysis(
     themeKeys.add(theme.themeKey);
     checkProse(theme.labelEs, 500, violations);
     validateClaimCollection(theme.claims, {
-      allowedRefs: context.refs,
-      refScope: chunkRefs,
-      claimIds,
       violations,
     });
-    for (const claim of theme.claims) {
-      if (exactKeys(claim, CLAIM_KEYS) &&
-          typeof claim.signal === "string" &&
-          claim.signal in minimumBySignal &&
-          Array.isArray(claim.evidenceRefs) &&
-          claim.evidenceRefs.length < minimumBySignal[claim.signal as keyof typeof minimumBySignal])
-        violations.add("evidence_threshold_not_met");
-    }
   }
   for (const limitation of value.limitations) {
     checkProse(limitation, 4_000, violations);
@@ -357,14 +305,13 @@ export function preflightMapAnalysis(
       "closed_map_schema_and_version",
       "canonical_map_chunk_id_and_order",
       "derived_map_chunk_membership",
-      "unique_sorted_theme_and_claim_ids",
-      "map_claim_refs_within_derived_chunk",
+      "unique_sorted_theme_keys_and_closed_claims",
       "bounded_unicode_scalar_text",
     ],
   };
 }
 
-/** Rejects detectable ReduceV1 contract violations without asserting model-semantic validity. */
+/** Rejects detectable Reduce contract violations without asserting model-semantic validity. */
 export function preflightReduceAnalysis(
   value: unknown,
   input: ReducePreflightInput,
@@ -374,7 +321,7 @@ export function preflightReduceAnalysis(
   const violations = new Set<string>();
   if (
     !exactKeys(value, REDUCE_KEYS) ||
-    value.schemaVersion !== "survey-analysis.v1" ||
+    value.schemaVersion !== "survey-analysis.v3" ||
     value.route !== "reduce" ||
     !Array.isArray(value.sections) ||
     !Array.isArray(value.mapOutputDigests)
@@ -399,10 +346,7 @@ export function preflightReduceAnalysis(
   ))
     violations.add("map_output_digest_membership_mismatch");
 
-  validateSections(value.sections, {
-    allowedRefs: context.refs,
-    violations,
-  });
+  validateSections(value.sections, { violations });
 
   const rejected = sortedViolations(violations);
   if (rejected) return rejected;
@@ -411,9 +355,8 @@ export function preflightReduceAnalysis(
       status: "incomplete",
       checked: [
         "closed_reduce_schema_and_version",
-        "ordered_sections_and_unique_sorted_claim_ids",
+        "ordered_sections_and_closed_claims",
         "map_output_digest_syntax_and_uniqueness",
-        "snapshot_evidence_ref_membership",
         "bounded_unicode_scalar_text",
       ],
       blockers: ["independently_verified_cms_map_checkpoint_output_digests"],
@@ -422,9 +365,8 @@ export function preflightReduceAnalysis(
     status: "accepted",
     checked: [
       "closed_reduce_schema_and_version",
-      "ordered_sections_and_unique_sorted_claim_ids",
+      "ordered_sections_and_closed_claims",
       "map_output_digest_syntax_and_uniqueness",
-      "snapshot_evidence_ref_membership",
       "bounded_unicode_scalar_text",
     ],
   };
@@ -461,47 +403,18 @@ export function preflightDirectAnalysis(
     readonly evidenceKey: string | Uint8Array;
   },
 ): DirectOutputPreflight {
+  const context = preflightContext(input);
+  if ("status" in context) return context;
   const violations = new Set<string>();
-  let snapshot;
-  try {
-    snapshot = validateSnapshotEnvelope(input.snapshot);
-  } catch {
-    return { status: "rejected", violations: ["invalid_snapshot"] };
-  }
-  if (
-    typeof input.evidenceKeyId !== "string" ||
-    !KEY_ID_PATTERN.test(input.evidenceKeyId)
-  )
-    return { status: "rejected", violations: ["invalid_evidence_key_id"] };
 
   if (
     !exactKeys(value, OUTPUT_KEYS) ||
-    value.schemaVersion !== "survey-analysis.v1" ||
+    value.schemaVersion !== "survey-analysis.v3" ||
     value.route !== "direct" ||
     !Array.isArray(value.sections) ||
     value.sections.length !== PUBLISHED_SECTION_KEYS.length
   )
     return { status: "rejected", violations: ["invalid_output_contract"] };
-
-  const allowedRefs = new Set<string>();
-  try {
-    for (const comment of snapshot.comments)
-      allowedRefs.add(
-        deriveEvidenceRef({
-          reportRunId: input.reportRunId,
-          recordId: comment.recordId,
-          evidenceKey: input.evidenceKey,
-        }),
-      );
-  } catch {
-    return { status: "rejected", violations: ["invalid_evidence_context"] };
-  }
-  if (allowedRefs.size !== snapshot.comments.length)
-    violations.add("duplicate_snapshot_record_identity");
-
-  const commentCount = snapshot.comments.length;
-  const recurrentMinimum = Math.max(10, Math.ceil((commentCount * 2) / 100));
-  const claimIds = new Set<string>();
 
   value.sections.forEach((section, index) => {
     if (!exactKeys(section, SECTION_KEYS)) {
@@ -525,26 +438,15 @@ export function preflightDirectAnalysis(
     if (section.status === "supported" && section.claims.length === 0)
       violations.add("empty_supported_section");
 
-    let previousClaimId = "";
     section.claims.forEach((claim) => {
       if (
         !exactKeys(claim, CLAIM_KEYS) ||
-        typeof claim.claimId !== "string" ||
-        !ID_PATTERN.test(claim.claimId) ||
         typeof claim.textEs !== "string" ||
-        !Array.isArray(claim.evidenceRefs) ||
         !["recurrent", "minority", "descriptive"].includes(String(claim.signal))
       ) {
         violations.add("invalid_claim_shape");
         return;
       }
-      if (
-        compareCodePoints(claim.claimId, previousClaimId) <= 0 ||
-        claimIds.has(claim.claimId)
-      )
-        violations.add("duplicate_or_unsorted_claim_id");
-      previousClaimId = claim.claimId;
-      claimIds.add(claim.claimId);
       if (
         (section.key === "recurrent_themes" && claim.signal !== "recurrent") ||
         (section.key === "minority_signals" && claim.signal !== "minority")
@@ -558,23 +460,6 @@ export function preflightDirectAnalysis(
         )
       )
         violations.add("invalid_claim_text");
-      const refs = claim.evidenceRefs;
-      if (
-        refs.length === 0 ||
-        refs.some((ref) => typeof ref !== "string" || !REF_PATTERN.test(ref))
-      )
-        violations.add("missing_or_malformed_evidence_ref");
-      if (new Set(refs).size !== refs.length)
-        violations.add("duplicate_evidence_ref");
-      if (refs.some((ref) => !allowedRefs.has(ref)))
-        violations.add("foreign_evidence_ref");
-      const minimum =
-        claim.signal === "recurrent"
-          ? recurrentMinimum
-          : claim.signal === "minority"
-            ? 4
-            : 1;
-      if (refs.length < minimum) violations.add("evidence_threshold_not_met");
     });
   });
 
@@ -588,10 +473,9 @@ export function preflightDirectAnalysis(
     checked: [
       "closed_direct_schema",
       "ordered_sections",
-      "evidence_ref_membership_and_thresholds",
       "recurrent_and_minority_section_signal_consistency",
       "unicode_scalar_text",
-      "immutable_per_run_evidence_key_membership",
+      "immutable_snapshot_record_identity",
     ],
   };
 }

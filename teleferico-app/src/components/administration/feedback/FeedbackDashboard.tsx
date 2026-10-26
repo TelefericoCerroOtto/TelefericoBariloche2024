@@ -3,9 +3,9 @@
 import { authenticatedInternalApiFetch } from "@/lib/http/clients/auth-internal-fetch";
 import { ADMIN_ROUTES } from "@/lib/constants/routes.const";
 import { normalizePeriod } from "@teleferico/survey-reporting-core";
+import { reportHistoryName } from "@/lib/feedback/report-history-name";
 import type {
   FeedbackAdminAspectsData,
-  FeedbackAdminCommandStatus,
   FeedbackAdminComment,
   FeedbackAdminCommentsData,
   FeedbackAdminGenerationsEnvelope,
@@ -16,7 +16,8 @@ import type {
   FeedbackAdminSummaryData,
   FeedbackAdminOverlapDetails,
 } from "@/types/api/admin/feedback";
-import { Button, Card, CardBody, Spinner } from "@heroui/react";
+import { Button, Card, CardBody, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Spinner } from "@heroui/react";
+import { Ban, Check, CircleAlert, Clock3, Download, Pencil, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -185,12 +186,12 @@ async function readGenerations(path: string, signal: AbortSignal): Promise<Feedb
   return (await response.json()) as FeedbackAdminGenerationsEnvelope;
 }
 
-const GENERATION_STATUS_LABELS: Readonly<Record<FeedbackAdminCommandStatus, string>> = {
-  queued: "En cola",
-  running: "En curso",
-  succeeded: "Completada",
-  failed: "Fallida",
-};
+const HISTORY_DATE_FORMAT = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+function historyDate(value: string) {
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+    ? HISTORY_DATE_FORMAT.format(date).replaceAll(".", "").replaceAll(" de ", " ") : "No disponible";
+}
 
 function Panel({ title, children, variant = "standard" }: { title: string; children: React.ReactNode; variant?: "standard" | "summary" }) {
   return (
@@ -1145,14 +1146,6 @@ function dateTime(value: string) {
   return new Date(value).toLocaleString("es-AR", { hour12: false, timeZone: REPORTING_TIME_ZONE });
 }
 
-function previousEquivalentPeriod(range: { from: string; to: string }) {
-  try {
-    return normalizePeriod(range).previous;
-  } catch {
-    return null;
-  }
-}
-
 function commentRating(value: { overallRating: number }) {
   return "★".repeat(value.overallRating) + "☆".repeat(5 - value.overallRating);
 }
@@ -1166,7 +1159,6 @@ export function CommentsReportsModule({ period, points, aspects }: {
   const [ratingFilterOpen, setRatingFilterOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [generationsPage, setGenerationsPage] = useState(1);
-  const [generationStatus, setGenerationStatus] = useState<FeedbackAdminCommandStatus | "all">("all");
   const [comments, setComments] = useState<FeedbackAdminCommentsData | null>(null);
   const [generations, setGenerations] = useState<FeedbackAdminGenerationsEnvelope["data"] | null>(null);
   const [commentsState, setCommentsState] = useState<"loading" | "ready" | "error">("loading");
@@ -1177,8 +1169,10 @@ export function CommentsReportsModule({ period, points, aspects }: {
   const [reportPeriod, setReportPeriod] = useState(period);
   const [generation, setGeneration] = useState<{ reportRunId: string; status: string } | null>(null);
   const [generationError, setGenerationError] = useState("");
+  const [editingGenerationId, setEditingGenerationId] = useState("");
+  const [nameInput, setNameInput] = useState("");
   const [overlap, setOverlap] = useState<FeedbackAdminOverlapDetails | null>(null);
-  const [overrideAccepted, setOverrideAccepted] = useState(false);
+  const [deletingGenerationId, setDeletingGenerationId] = useState<string | null>(null);
   const [commandBusy, setCommandBusy] = useState(false);
   const [retryingGenerationId, setRetryingGenerationId] = useState("");
   const [cancellingGenerationId, setCancellingGenerationId] = useState("");
@@ -1221,7 +1215,6 @@ export function CommentsReportsModule({ period, points, aspects }: {
     const controller = new AbortController();
     let requestActive = true;
     const params = new URLSearchParams({ from: period.from, to: period.to, page: String(generationsPage), pageSize: "25" });
-    if (generationStatus !== "all") params.set("status", generationStatus);
     setGenerations(null);
     setGenerationsState("loading");
     readGenerations(`/api/admin/feedback/generations?${params}`, controller.signal)
@@ -1234,7 +1227,7 @@ export function CommentsReportsModule({ period, points, aspects }: {
         if (requestActive && !(error instanceof DOMException && error.name === "AbortError")) setGenerationsState("error");
       });
     return () => { requestActive = false; controller.abort(); };
-  }, [period.from, period.to, generationsPage, generationStatus, generationsRetry]);
+  }, [period.from, period.to, generationsPage, generationsRetry]);
 
   useEffect(() => {
     if (resultsRef.current) resultsRef.current.scrollTop = 0;
@@ -1244,7 +1237,6 @@ export function CommentsReportsModule({ period, points, aspects }: {
     setPage(1);
     setGenerationsPage(1);
     setOverlap(null);
-    setOverrideAccepted(false);
   }, [period.from, period.to]);
 
   useEffect(() => {
@@ -1296,11 +1288,13 @@ export function CommentsReportsModule({ period, points, aspects }: {
       const response = await authenticatedInternalApiFetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const value = (await response.json().catch(() => null)) as { reportRunId?: string; status?: string; error?: { message?: string; details?: FeedbackAdminOverlapDetails } } | null;
       if (!response.ok) {
-        if (response.status === 409 && value?.error?.details) setOverlap(value.error.details);
-        throw new Error(value?.error?.message ?? "El comando del informe no está disponible temporalmente.");
+        if (response.status === 409 && value?.error?.details) {
+          setOverlap(value.error.details);
+          return;
+        }
+        throw new Error("El comando del informe no está disponible temporalmente.");
       }
       setOverlap(null);
-      setOverrideAccepted(false);
       setGeneration(value?.reportRunId && value.status ? { reportRunId: value.reportRunId, status: value.status } : null);
       setGenerationsRetry((current) => current + 1);
     } finally {
@@ -1316,12 +1310,17 @@ export function CommentsReportsModule({ period, points, aspects }: {
       setGenerationError("Elegí un rango válido: la fecha inicial debe ser anterior o igual a la fecha final.");
       return;
     }
-    if (overlap && !overrideAccepted) {
-      setGenerationError("Confirmá la generación para este rango antes de volver a solicitarla.");
-      return;
-    }
     try {
-      await command("/api/admin/feedback/generations", { contractVersion: "feedback-admin.v1", period: reportPeriod, override: { accepted: overrideAccepted, overlapDigest: overlap?.overlapDigest ?? null } });
+      await command("/api/admin/feedback/generations", { contractVersion: "feedback-admin.v1", period: reportPeriod, override: { accepted: false, overlapDigest: null } });
+    } catch (error) {
+      setGenerationError(error instanceof Error ? error.message : "No se pudo solicitar el informe.");
+    }
+  };
+  const confirmOverlap = async () => {
+    if (!overlap || commandBusyRef.current) return;
+    setGenerationError("");
+    try {
+      await command("/api/admin/feedback/generations", { contractVersion: "feedback-admin.v1", period: reportPeriod, override: { accepted: true, overlapDigest: overlap.overlapDigest } });
     } catch (error) {
       setGenerationError(error instanceof Error ? error.message : "No se pudo solicitar el informe.");
     }
@@ -1342,7 +1341,7 @@ export function CommentsReportsModule({ period, points, aspects }: {
     const identity = item.cancellationIdentity;
     if (commandBusyRef.current || item.status !== "queued" || !identity) return;
     const confirmed = window.confirm(
-      `¿Cancelar la solicitud ${item.reportRunId} mientras siga en cola? Se conservarán el historial y la instantánea. La tarea no se elimina y todavía podría llegar una solicitud HTTP.`,
+      "¿Cancelar esta solicitud mientras siga en cola? Se conservarán el historial y la instantánea. La tarea no se elimina y todavía podría llegar una solicitud HTTP.",
     );
     if (!confirmed) return;
     commandBusyRef.current = true;
@@ -1380,6 +1379,38 @@ export function CommentsReportsModule({ period, points, aspects }: {
       setCommandBusy(false);
       setCancellingGenerationId("");
     }
+  };
+  const updatePresentation = async (reportRunId: string, change: { action: "hide" } | { action: "rename"; displayName: string }) => {
+    if (commandBusyRef.current) return false;
+    commandBusyRef.current = true;
+    setCommandBusy(true);
+    setGenerationError("");
+    try {
+      const response = await authenticatedInternalApiFetch(`/api/admin/feedback/generations/${reportRunId}/presentation`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ contractVersion: "feedback-admin.v1", ...change }),
+      });
+      if (!response.ok) throw new Error("PRESENTATION_FAILED");
+      setGenerationsRetry((value) => value + 1);
+      return true;
+    } catch {
+      setGenerationError("No se pudo actualizar el informe. Actualizá el historial y probá de nuevo.");
+      return false;
+    } finally {
+      commandBusyRef.current = false;
+      setCommandBusy(false);
+    }
+  };
+  const renameGeneration = async (event: React.FormEvent<HTMLFormElement>, reportRunId: string) => {
+    event.preventDefault();
+    const displayName = nameInput.trim();
+    if (!displayName) { setGenerationError("Ingresá un nombre para el informe."); return; }
+    if (await updatePresentation(reportRunId, { action: "rename", displayName })) setEditingGenerationId("");
+  };
+  const hideGeneration = async () => {
+    if (!deletingGenerationId || commandBusyRef.current) return;
+    if (await updatePresentation(deletingGenerationId, { action: "hide" })) setGenerationsPage(1);
+    setDeletingGenerationId(null);
   };
   const downloadReport = async (reportId: string) => {
     if (downloadingReportId) return;
@@ -1469,48 +1500,70 @@ export function CommentsReportsModule({ period, points, aspects }: {
           </div>
           <div className="rounded-lg border border-[#e3e3e5] bg-[#f4f4f5] p-3.5">
             <form aria-label="Generación de informe" className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_1fr_auto]" onSubmit={generate} noValidate>
-              {(["from", "to"] as const).map((key) => <label key={key} className="flex flex-col gap-1 text-sm font-semibold">{key === "from" ? "Fecha inicial" : "Fecha final"}<input type="date" required className="h-11 rounded-lg border border-[#a7b8ce] bg-white px-3 text-[#17263c]" value={reportPeriod[key]} onChange={(event) => { setReportPeriod((current) => ({ ...current, [key]: event.target.value })); setOverlap(null); setOverrideAccepted(false); }} /></label>)}
-              <Button type="submit" color="primary" variant="solid" isDisabled={commandBusy || Boolean(overlap && !overrideAccepted)} isLoading={commandBusy} aria-label={commandBusy ? "Solicitando…" : undefined}>{commandBusy ? "Solicitando…" : "Solicitar informe"}</Button>
+              {(["from", "to"] as const).map((key) => <label key={key} className="flex flex-col gap-1 text-sm font-semibold">{key === "from" ? "Fecha inicial" : "Fecha final"}<input type="date" required className="h-11 rounded-lg border border-[#a7b8ce] bg-white px-3 text-[#17263c]" value={reportPeriod[key]} onChange={(event) => { setReportPeriod((current) => ({ ...current, [key]: event.target.value })); setOverlap(null); }} /></label>)}
+              <Button type="submit" color="primary" variant="solid" isDisabled={commandBusy} isLoading={commandBusy} aria-label={commandBusy ? "Solicitando…" : undefined}>{commandBusy ? "Solicitando…" : "Solicitar informe"}</Button>
             </form>
           </div>
           <p className="text-sm text-foreground/70">Los filtros exploratorios del tablero y la paginación de comentarios no modifican el alcance del informe.</p>
-          {overlap ? <div className="rounded-xl border p-4" role="alert"><p>El rango se cruza con historial existente. Elegí otro rango o confirmá la generación.</p><ul className="mt-2 list-disc pl-5 text-sm">{overlap.overlaps.map((item) => <li key={item.reportRunId}>{item.intersection.from}–{item.intersection.to}</li>)}</ul><label className="mt-3 block text-sm"><input type="checkbox" className="mr-2" checked={overrideAccepted} onChange={(event) => setOverrideAccepted(event.target.checked)} />Confirmo generar una nueva instantánea para este rango</label></div> : null}
           {generationError ? <p role="alert" className="rounded-xl border p-3">{generationError}</p> : null}
-          {generation ? <p role="status" className="rounded-xl border p-3">Solicitud {generation.reportRunId}: {generation.status === "queued" ? "en cola" : generation.status}.</p> : null}
+           {generation ? <p role="status" className="rounded-xl border p-3">Solicitud recibida. Actualizá el historial para consultar su estado.</p> : null}
         </section>
         <section aria-labelledby="feedback-report-history-heading" className="space-y-3 border-t border-[#e3e3e5] pt-4">
           <h3 id="feedback-report-history-heading" className="font-semibold">Historial de informes</h3>
           <p className="text-sm text-foreground/70">Cada informe conserva el período, la comparación y los datos utilizados al generarlo. Los filtros actuales y las respuestas posteriores no modifican esa instantánea.</p>
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <label className="flex flex-col gap-1 text-sm font-semibold">Estado del informe<select className="rounded-xl border bg-background p-3" value={generationStatus} onChange={(event) => { setGenerationStatus(event.target.value as FeedbackAdminCommandStatus | "all"); setGenerationsPage(1); }}><option value="all">Todos los estados</option><option value="queued">En cola</option><option value="running">En curso</option><option value="succeeded">Completados</option><option value="failed">Fallidos</option></select></label>
-            <Button type="button" variant="bordered" color="primary" isDisabled={generationsState === "loading"} isLoading={generationsState === "loading"} aria-label="Actualizar historial" onClick={() => setGenerationsRetry((current) => current + 1)}>Actualizar historial</Button>
-          </div>
+           <div className="flex justify-end"><Button type="button" variant="bordered" color="default" isDisabled={generationsState === "loading"} isLoading={generationsState === "loading"} aria-label="Actualizar historial" onClick={() => setGenerationsRetry((current) => current + 1)}><RefreshCw aria-hidden="true" size={16} />Actualizar historial</Button></div>
           {generationsState === "loading" ? <div role="status" aria-live="polite"><Spinner label="Cargando historial de informes" /></div> : null}
           {generationsState === "error" ? <div role="alert" className="rounded-xl border border-dashed p-4"><p>El historial de informes no está disponible temporalmente.</p><Button type="button" variant="bordered" color="primary" className="mt-3" onClick={() => setGenerationsRetry((current) => current + 1)}>Reintentar historial</Button></div> : null}
           {generationsState === "ready" && generations ? generations.items.length ? <>
             <div role="region" aria-label="Tabla de historial de informes" tabIndex={0} className="overflow-x-auto rounded-xl border focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-              <table className="min-w-[980px] w-full text-left text-sm">
+               <table className="min-w-[760px] w-full text-left text-sm">
                 <caption className="sr-only">Historial de informes</caption>
-                <thead className="bg-background"><tr><th scope="col" className="p-3">Informe</th><th scope="col" className="p-3">Período</th><th scope="col" className="p-3">Período anterior equivalente</th><th scope="col" className="p-3">Fechas</th><th scope="col" className="p-3">Datos analizados</th><th scope="col" className="p-3">Estado y detalle</th><th scope="col" className="p-3">Acciones</th></tr></thead>
-                <tbody>{generations.items.map((item) => {
-                  const previousPeriod = previousEquivalentPeriod(item.period);
-                  return <tr key={item.reportRunId} className="border-t align-top">
-                  <td className="p-3"><p className="font-semibold">{item.status === "succeeded" ? `Feedback report ${item.period.from}–${item.period.to}` : "Informe de comentarios"}</p><p className="break-all text-xs text-foreground/70">Ejecución <span translate="no">{item.reportRunId}</span></p>{item.report ? <p className="break-all text-xs text-foreground/70">Informe <span translate="no">{item.report.reportId}</span></p> : null}</td>
-                  <td className="p-3">{item.period.from}–{item.period.to}</td>
-                  <td className="p-3">{previousPeriod ? `${previousPeriod.from}–${previousPeriod.to}` : "No disponible"}</td>
-                  <td className="p-3"><p>Solicitado {dateTime(item.createdAt)}</p>{item.report ? <p className="mt-1 text-foreground/70">Generado {dateTime(item.report.createdAt)}</p> : item.completedAt ? <p className="mt-1 text-foreground/70">Finalizado {dateTime(item.completedAt)}</p> : null}</td>
-                  <td className="p-3">{item.report ? <>{item.report.analyzedResponseCount} respuestas · {item.report.analyzedCommentCount} comentarios</> : <span className="text-foreground/60">No disponible para este estado</span>}</td>
-                  <td className="p-3"><span data-generation-status={item.status} className="inline-flex rounded-full border px-2.5 py-1 font-semibold">{GENERATION_STATUS_LABELS[item.status]}</span>{item.retryOfReportRunId ? <p className="mt-2 text-foreground/70">Reintento de <span className="break-all font-medium" translate="no">{item.retryOfReportRunId}</span></p> : null}{item.status === "failed" ? <p role="status" className="mt-2">{item.safeFailureMessage ?? "No se pudo completar el informe."}</p> : null}</td>
-                   <td className="p-3">{item.report ? <Button type="button" variant="bordered" color="primary" isDisabled={Boolean(downloadingReportId)} isLoading={downloadingReportId === item.report.reportId} aria-label={downloadingReportId === item.report.reportId ? "Descargando…" : undefined} onClick={() => void downloadReport(item.report!.reportId)}>{downloadingReportId === item.report.reportId ? "Descargando…" : "Descargar PDF"}</Button> : null}{item.status === "failed" ? <Button type="button" variant="bordered" color="primary" isDisabled={commandBusy} isLoading={commandBusy && retryingGenerationId === item.reportRunId} aria-label={commandBusy && retryingGenerationId === item.reportRunId ? "Reintentando…" : undefined} onClick={() => void retry(item.reportRunId)}>{commandBusy && retryingGenerationId === item.reportRunId ? "Reintentando…" : "Reintentar generación"}</Button> : null}{item.status === "queued" && item.cancellationIdentity ? <Button type="button" variant="bordered" color="danger" isDisabled={commandBusy} isLoading={commandBusy && cancellingGenerationId === item.reportRunId} aria-label={commandBusy && cancellingGenerationId === item.reportRunId ? "Cancelando…" : undefined} className="mt-2" onClick={() => void cancelQueued(item)}>{commandBusy && cancellingGenerationId === item.reportRunId ? "Cancelando…" : "Cancelar solicitud en cola"}</Button> : null}</td>
+                 <thead className="bg-background"><tr><th scope="col" className="p-3">Informe</th><th scope="col" className="p-3">Período</th><th scope="col" className="p-3">Datos analizados</th><th scope="col" className="p-3">Estado</th><th scope="col" className="p-3">Acciones</th></tr></thead>
+                  <tbody>{generations.items.map((item) => {
+                    const from = historyDate(item.period.from);
+                    const to = historyDate(item.period.to);
+                    const visibleName = reportHistoryName(item);
+                    return <tr key={item.reportRunId} className="border-t align-top">
+                   <td className="p-3">{editingGenerationId === item.reportRunId ? <form aria-label="Editar nombre del informe" className="flex items-center gap-2" onSubmit={(event) => void renameGeneration(event, item.reportRunId)}><input autoFocus aria-label="Nombre del informe" className="h-9 min-w-[9rem] max-w-[16rem] flex-1 rounded-lg border px-2 focus-visible:outline-primary" maxLength={80} value={nameInput} onChange={(event) => setNameInput(event.target.value)} /><Button type="submit" size="sm" color="primary" className="h-9 min-w-0 px-2" isDisabled={commandBusy || !nameInput.trim()}>Guardar</Button><Button type="button" size="sm" variant="bordered" color="default" className="h-9 min-w-0 px-2" isDisabled={commandBusy} onClick={() => setEditingGenerationId("")}>Cancelar</Button></form> : <div className="flex items-center gap-1.5"><span className="font-semibold">{visibleName}</span><Button type="button" isIconOnly size="sm" variant="light" color="default" aria-label="Editar nombre" title="Editar nombre" className="h-9 w-9 min-w-9 focus-visible:ring-2 focus-visible:ring-primary" isDisabled={commandBusy} onClick={() => { setEditingGenerationId(item.reportRunId); setNameInput(visibleName); }}><Pencil aria-hidden="true" size={16} /></Button></div>}</td>
+                   <td className="p-3"><p>Desde: {from}</p><p>Hasta: {to}</p><p className="mt-2 text-xs text-foreground/70">{item.report ? "Generado" : "Solicitado"}: {dateTime(item.report?.createdAt ?? item.createdAt)}</p></td>
+                   <td className="p-3">{item.report ? <><p>{item.report.analyzedResponseCount} respuestas</p><p>{item.report.analyzedCommentCount} comentarios</p></> : <span className="text-foreground/60">No disponible</span>}</td>
+                   <td className="p-3"><span data-generation-status={item.status} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold ${item.status === "failed" ? "border-red-500/30 bg-red-500/10 text-custom-red" : item.status === "succeeded" ? "border-green-700/30 bg-green-50 text-green-700" : "border-foreground/20 text-foreground/80"}`}>{item.status === "failed" ? <CircleAlert aria-hidden="true" size={15} /> : item.status === "succeeded" ? <Check aria-hidden="true" size={15} /> : <Clock3 aria-hidden="true" size={15} className="motion-safe:animate-pulse" />}{item.status === "failed" ? "Fallido" : item.status === "succeeded" ? "Completado" : "Procesando"}</span></td>
+                    <td className="p-3"><div className="flex flex-row flex-wrap items-center gap-2">{item.report ? <Button type="button" variant="bordered" color="success" isDisabled={Boolean(downloadingReportId)} isLoading={downloadingReportId === item.report.reportId} aria-label={downloadingReportId === item.report.reportId ? "Descargando…" : undefined} onClick={() => void downloadReport(item.report!.reportId)}><Download aria-hidden="true" size={16} />{downloadingReportId === item.report.reportId ? "Descargando…" : "Descargar PDF"}</Button> : null}{item.status === "failed" ? <><Button type="button" variant="bordered" color="default" isDisabled={commandBusy} isLoading={commandBusy && retryingGenerationId === item.reportRunId} aria-label={commandBusy && retryingGenerationId === item.reportRunId ? "Reintentando…" : undefined} onClick={() => void retry(item.reportRunId)}><RotateCcw aria-hidden="true" size={16} />{commandBusy && retryingGenerationId === item.reportRunId ? "Reintentando…" : "Reintentar"}</Button><Button type="button" variant="bordered" color="danger" isDisabled={commandBusy} onClick={() => setDeletingGenerationId(item.reportRunId)}><Trash2 aria-hidden="true" size={16} />Eliminar</Button></> : null}{item.status === "queued" && item.cancellationIdentity ? <Button type="button" variant="bordered" color="danger" isDisabled={commandBusy} isLoading={commandBusy && cancellingGenerationId === item.reportRunId} aria-label={commandBusy && cancellingGenerationId === item.reportRunId ? "Cancelando…" : undefined} onClick={() => void cancelQueued(item)}><Ban aria-hidden="true" size={16} />{commandBusy && cancellingGenerationId === item.reportRunId ? "Cancelando…" : "Cancelar solicitud en cola"}</Button> : null}{!item.report && item.status !== "failed" && !(item.status === "queued" && item.cancellationIdentity) ? <Button type="button" variant="bordered" color="default" isDisabled><Ban aria-hidden="true" size={16} />Sin acciones disponibles</Button> : null}</div></td>
                   </tr>;
                 })}</tbody>
               </table>
             </div>
             {downloadError ? <p role="alert" className="rounded-xl border p-3">{downloadError}</p> : null}
             <nav aria-label="Paginación de informes" className="flex items-center justify-between gap-3"><Button type="button" variant="bordered" isDisabled={generationsPage <= 1} className="px-4" onClick={() => setGenerationsPage((value) => value - 1)}>Anterior</Button><span className="text-sm">Página {generationsPage} de {generationsPageCount}</span><Button type="button" variant="bordered" isDisabled={generationsPage >= generationsPageCount} className="px-4" onClick={() => setGenerationsPage((value) => value + 1)}>Siguiente</Button></nav>
-          </> : <EmptyState>No hay informes para este período y estado.</EmptyState> : null}
+           </> : <EmptyState>No hay informes para este período.</EmptyState> : null}
         </section>
       </section>
+
+      <Modal isOpen={Boolean(overlap)} onClose={() => { if (!commandBusyRef.current) setOverlap(null); }} isDismissable={!commandBusy} isKeyboardDismissDisabled={commandBusy} scrollBehavior="inside">
+        <ModalContent>
+          <ModalHeader>Ya existe un informe para estas fechas</ModalHeader>
+          <ModalBody>
+            <p>Ya hay informes que coinciden con las fechas elegidas:</p>
+            <ul className="list-disc space-y-1 pl-5">{overlap?.overlaps.map((item) => <li key={item.reportRunId} className="break-words">{item.name}</li>)}</ul>
+            {generationError ? <p role="alert">{generationError}</p> : null}
+          </ModalBody>
+          <ModalFooter>
+            <Button type="button" variant="bordered" isDisabled={commandBusy} onClick={() => setOverlap(null)}>Cambiar fechas</Button>
+            <Button type="button" color="primary" isDisabled={commandBusy} isLoading={commandBusy} onClick={() => void confirmOverlap()}>Generar de todas formas</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={Boolean(deletingGenerationId)} onClose={() => { if (!commandBusyRef.current) setDeletingGenerationId(null); }} isDismissable={!commandBusy} isKeyboardDismissDisabled={commandBusy}>
+        <ModalContent>
+          <ModalHeader>Está seguro que quiere eliminar este informe?</ModalHeader>
+          <ModalBody><p>Este informe dejará de aparecer en el historial.</p></ModalBody>
+          <ModalFooter>
+            <Button type="button" variant="bordered" isDisabled={commandBusy} onClick={() => setDeletingGenerationId(null)}>Cancelar</Button>
+            <Button type="button" color="danger" isDisabled={commandBusy} isLoading={commandBusy} onClick={() => void hideGeneration()}>Eliminar</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       {selectedComment ? <div role="dialog" aria-modal="true" aria-labelledby="feedback-comment-detail" className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4"><div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-background p-5 shadow-2xl"><div className="flex items-start justify-between gap-4"><h2 id="feedback-comment-detail" className="text-xl font-semibold">Detalle del comentario</h2><Button ref={closeDetailRef} type="button" variant="bordered" color="default" aria-label="Cerrar detalle" className="px-3 py-1" onClick={() => setSelectedComment(null)}>Cerrar</Button></div><dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2"><div><dt className="font-semibold">Fecha</dt><dd>{dateTime(selectedComment.acceptedAt)}</dd></div><div><dt className="font-semibold">Punto QR</dt><dd>{pointLabels.get(selectedComment.pointKey) ?? selectedComment.pointKey}</dd></div><div><dt className="font-semibold">Idioma</dt><dd>{selectedComment.locale.toUpperCase()}</dd></div><div><dt className="font-semibold">Calificación general</dt><dd>{selectedComment.overallRating}/5</dd></div></dl><p className="mt-4 rounded-xl border p-4">{selectedComment.text}</p><h3 className="mt-5 font-semibold">Evaluaciones por aspecto</h3><div className="mt-2 overflow-x-auto"><table className="w-full text-left text-sm"><caption className="sr-only">Evaluaciones individuales del comentario</caption><thead><tr><th className="p-2">Aspecto</th><th className="p-2">Evaluación</th></tr></thead><tbody>{selectedComment.aspectRatings.map((item) => <tr key={item.aspectKey} className="border-t"><th className="p-2">{aspectLabels.get(item.aspectKey) ?? item.aspectKey}</th><td className="p-2">{item.rating === "positive" ? "Positivo" : item.rating === "negative" ? "Negativo" : "Neutral"}</td></tr>)}</tbody></table></div></div></div> : null}
     </div>

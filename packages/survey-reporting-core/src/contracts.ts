@@ -42,8 +42,8 @@ export type ModelConfigV1 = {
   readonly reasoning: "LOW";
   readonly grounding: false;
   readonly promptVersion: string;
-  readonly mapSchemaVersion: "survey-map.v1";
-  readonly analysisSchemaVersion: "survey-analysis.v1";
+  readonly mapSchemaVersion: "survey-map.v3";
+  readonly analysisSchemaVersion: "survey-analysis.v3";
   readonly redactionVersion: string;
   readonly validatorVersion: string;
   readonly chunkVersion: string;
