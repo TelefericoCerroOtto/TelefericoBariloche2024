@@ -2,6 +2,13 @@
 
 Route work to the right tool and source before acting. Discover the tools actually exposed in the current runtime; a tool named in configuration or remembered from another session is not proof that it is available or working. Task-scoped read-only consultations do not require separate repository-semantic authorization. Runtime tool permissions remain in force, and writes continue to follow their applicable authorization and repository governance.
 
+## Pi MCP setup
+
+- Project `.mcp.json` configures the same HeroUI React and Notion servers as `opencode.json`, using Pi-compatible `mcpServers` entries. Keep the command, arguments, URL, and enabled state aligned when changing either configuration.
+- The installed `pi-mcp-adapter` reads `.mcp.json` and preserves separately configured user-level servers. Run `/reload` after changing the file, then use `/mcp-adapter` to inspect server availability and approve project servers if prompted.
+- Notion requires a separate Pi sign-in when no authorization is available: run `/mcp-auth notion` and complete the browser approval. Never copy OpenCode tokens into project configuration.
+- The adapter starts servers lazily. Configuration presence alone does not prove a successful connection; verify a read-only tool call before relying on either server.
+
 ## OpenDesign MCP
 
 - Use the project explicitly requested or referenced by the task's existing design evidence. As a default, established/current design-system work routes to `teleferico-cerro-otto-design-system`; work explicitly framed as Evolution or anchored to Evolution evidence routes to `teleferico-cerro-otto-design-system-evolution`.

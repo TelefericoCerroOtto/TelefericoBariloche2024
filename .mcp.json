@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "heroui-react": {
+      "command": "npx",
+      "args": ["-y", "@heroui/react-mcp@latest"]
+    },
+    "notion": {
+      "url": "https://mcp.notion.com/mcp",
+      "enabled": true
+    }
+  }
+}
